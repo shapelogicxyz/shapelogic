@@ -25,7 +25,7 @@ import { flash, reportError } from '../shell/status.ts';
 import type { Axis, EditorState } from './editor-state.ts';
 import { G } from './glyphs.ts';
 import type { SurfOp } from './glyphs.ts';
-import { chipColours } from './shapes-list.ts';
+import { chipColors } from './shapes-list.ts';
 
 /** A task of the set: what the engine says of it. */
 export type TaskInfo = Methods['shape.taskSet']['result']['tasks'][number];
@@ -170,7 +170,7 @@ const ABTN: Partial<Record<ShapeTask, { g: () => string; t: string; sm: string; 
       sm: 'Shrink the grid to the piece’s bounding box',
       short: 'Prune',
     },
-    centre: { g: () => G.center(30), t: 'Center', sm: 'Centre on the grid', short: 'Center' },
+    center: { g: () => G.center(30), t: 'Center', sm: 'Center on the grid', short: 'Center' },
     toOrigin: { g: () => G.origin(30), t: 'To origin', sm: 'Corner at 0, 0, 0', short: 'Origin' },
     minimize: {
       g: () => G.div(2, 30),
@@ -194,7 +194,7 @@ const ABTN: Partial<Record<ShapeTask, { g: () => string; t: string; sm: string; 
 const SURF: [SurfOp, string, string, ShapeTask, ShapeTask][] = [
   ['fixed', 'Make fixed', 'solid', 'insideFixed', 'outsideFixed'],
   ['variable', 'Make variable', 'optional', 'insideVariable', 'outsideVariable'],
-  ['clear', 'Clear color', 'remove paint', 'insideDecolour', 'outsideDecolour'],
+  ['clear', 'Clear color', 'remove paint', 'insideDecolor', 'outsideDecolor'],
 ];
 
 function layoutOf(grid: Grid): 'matrix' | 'spheres' | 'prisms' {
@@ -227,7 +227,7 @@ export class Inspector {
       byId('toolsBody').innerHTML = '';
       return;
     }
-    const { bg, fg } = chipColours(shape, store.indexOf(shape.id));
+    const { bg, fg } = chipColors(shape, store.indexOf(shape.id));
     head.innerHTML = `<span class="chip" style="background:${bg};color:${fg}">${esc(shape.label)}</span><span>Edit shape</span>`;
     const byTask = new Map(tasks.map((t) => [t.task, t]));
     this.placed = new Set();
@@ -351,9 +351,9 @@ export class Inspector {
 
   private fitHtml(byTask: Map<ShapeTask, TaskInfo>, empty: boolean): string {
     const st = this.host.state;
-    let h = `<div class="switch ${st.applyAll ? 'on' : ''}" data-applyall="1" role="switch" tabindex="0" aria-checked="${st.applyAll}" title="Prune, centre, to origin, minimize and scale every shape at once; grid size changes grow the other shapes as much (they never shrink)"><span class="tr"></span><span>Apply to all shapes</span></div>`;
+    let h = `<div class="switch ${st.applyAll ? 'on' : ''}" data-applyall="1" role="switch" tabindex="0" aria-checked="${st.applyAll}" title="Prune, center, to origin, minimize and scale every shape at once; grid size changes grow the other shapes as much (they never shrink)"><span class="tr"></span><span>Apply to all shapes</span></div>`;
     h += '<div class="sub2">Fit to grid</div>' + this.abtn(byTask.get('prune'), empty);
-    h += `<div class="two" style="margin-top:6px">${this.abtn(byTask.get('centre'))}${this.abtn(byTask.get('toOrigin'))}</div>`;
+    h += `<div class="two" style="margin-top:6px">${this.abtn(byTask.get('center'))}${this.abtn(byTask.get('toOrigin'))}</div>`;
     const mul = (['double', 'triple'] as const)
       .map((task, k) => {
         const t = byTask.get(task);

@@ -4,7 +4,7 @@
 // the Solver's sliding options over the stored settings (the original's
 // boxes, its solver names, Find Solutions at first), the Details line's
 // counts and the Activity line's solver, the tray's marks and stamps from sliding.tray, the stamp
-// outline's colours and the validity bar's words, and the walls around a
+// outline's colors and the validity bar's words, and the walls around a
 // tray's floor (voxelframe.cpp's buildSlidingWalls).
 
 import { describe, expect, it } from 'vitest';
@@ -12,12 +12,12 @@ import { describe, expect, it } from 'vitest';
 import type { ShapeSummary } from '../../../src/engine/api.generated.ts';
 import { newOrder } from '../../../src/renderer/shell/files-order.ts';
 import {
-  chipColour,
+  chipColor,
   fromHex,
-  boardColour,
-  setBoardColour,
-  viewColour,
-} from '../../../src/renderer/shell/piece-colours.ts';
+  boardColor,
+  setBoardColor,
+  viewColor,
+} from '../../../src/renderer/shell/piece-colors.ts';
 import {
   DEFAULT_LIMITS,
   normalize,
@@ -32,7 +32,7 @@ import {
   withOptimizedPaths,
   writeOptions,
 } from '../../../src/renderer/solver/settings.ts';
-import { marksOf, outlineColour, copiesOf, validity } from '../../../src/renderer/entities/tray.ts';
+import { marksOf, outlineColor, copiesOf, validity } from '../../../src/renderer/entities/tray.ts';
 import type { TrayReply } from '../../../src/renderer/entities/tray.ts';
 import { WALL_GAP, wallOutline, wallSegments } from '../../../src/renderer/view3d/walls.ts';
 
@@ -44,10 +44,10 @@ const shape = (id: string, label: string, startGoal: number | null = null): Shap
   fixed: 1,
   variable: 0,
   weight: 1,
-  colour: null,
+  color: null,
   startGoal,
   disc: null,
-  discColour: null,
+  discColor: null,
   image: null,
 });
 
@@ -111,7 +111,7 @@ describe('the sliding options', () => {
     expect('verticalMoves' in b).toBe(false);
   });
 
-  it('follow updateSolverOptionCheckboxes: no symmetry, levels or colours; partial needs nested', () => {
+  it('follow updateSolverOptionCheckboxes: no symmetry, levels or colors; partial needs nested', () => {
     const o = {
       ...readOptions({}, undefined, 'sliding'),
       keepMirrors: true,
@@ -193,7 +193,7 @@ describe('the sliding options', () => {
     expect(o).toMatchObject({ anyOrientation: false, mirroredOrientations: false });
     expect(SLIDING_BOXES.has('anyOrientation')).toBe(true);
     expect(SLIDING_BOXES.has('mirroredOrientations')).toBe(true);
-    // the sub-option is greyed, its tick kept, until its parent is on
+    // the sub-option is grayed, its tick kept, until its parent is on
     const mirrored = { ...o, mirroredOrientations: true };
     const n = normalize(mirrored, null, 'sliding');
     expect(n.options.mirroredOrientations).toBe(true);
@@ -333,10 +333,10 @@ describe('a start/goal shape', () => {
   };
   const shapes = [shape('s1', 'S1', 1), shape('s2', 'S2'), shape('s3', 'S3')];
 
-  it('marks its cells in the pieces’ colours, the starts or the goals', () => {
+  it('marks its cells in the pieces’ colors, the starts or the goals', () => {
     const starts = marksOf(tray, false, shapes);
     expect([...starts.keys()]).toEqual(['0,0,0', '1,0,0', '2,1,0']);
-    expect(starts.get('0,0,0')).toEqual(viewColour(shapes[1], 1));
+    expect(starts.get('0,0,0')).toEqual(viewColor(shapes[1], 1));
     expect([...marksOf(tray, true, shapes).keys()]).toEqual(['1,1,0', '2,1,0']);
     // a mark of a shape the snapshot does not have is left out
     expect(
@@ -383,20 +383,20 @@ describe('a start/goal shape', () => {
     expect([...marksOf(deep, false, shapes).keys()]).toEqual(['0,0,1', '0,0,2']);
   });
 
-  it('has the colours, outline and validity as the original', () => {
-    // a board with no colour of its own takes the theme's board colour
-    setBoardColour('#c8c8c8');
-    expect(chipColour(shapes[0], 0)).toEqual(boardColour());
-    expect(viewColour(shapes[0], 0)).toEqual(fromHex('#c8c8c8'));
-    setBoardColour('#383838');
-    expect(viewColour(shapes[0], 0)).toEqual(fromHex('#383838'));
-    // a board the user gave a colour shows it
-    const painted = { ...shapes[0], colour: '#336699' };
-    expect(chipColour(painted, 0)).toEqual(fromHex('#336699'));
-    expect(viewColour(painted, 0)).toEqual(fromHex('#336699'));
-    expect(outlineColour({ fits: true, there: true })).toBe('rgb(245,150,30)');
-    expect(outlineColour({ fits: true, there: false })).toBe('rgb(60,210,80)');
-    expect(outlineColour({ fits: false, there: false })).toBe('rgb(230,40,40)');
+  it('has the colors, outline and validity as the original', () => {
+    // a board with no color of its own takes the theme's board color
+    setBoardColor('#c8c8c8');
+    expect(chipColor(shapes[0], 0)).toEqual(boardColor());
+    expect(viewColor(shapes[0], 0)).toEqual(fromHex('#c8c8c8'));
+    setBoardColor('#383838');
+    expect(viewColor(shapes[0], 0)).toEqual(fromHex('#383838'));
+    // a board the user gave a color shows it
+    const painted = { ...shapes[0], color: '#336699' };
+    expect(chipColor(painted, 0)).toEqual(fromHex('#336699'));
+    expect(viewColor(painted, 0)).toEqual(fromHex('#336699'));
+    expect(outlineColor({ fits: true, there: true })).toBe('rgb(245,150,30)');
+    expect(outlineColor({ fits: true, there: false })).toBe('rgb(60,210,80)');
+    expect(outlineColor({ fits: false, there: false })).toBe('rgb(230,40,40)');
     expect(validity(null)).toEqual({
       text: 'Valid Start/Goal positions for pieces in Start and Goal of this board',
       valid: true,
@@ -452,7 +452,7 @@ describe('the walls', () => {
     ).toBe(true);
   });
 
-  it('stand at the floor’s bottom and top, the posts between, centred on the tray', () => {
+  it('stand at the floor’s bottom and top, the posts between, centerd on the tray', () => {
     const o = wallOutline(1, 1, () => true);
     const s = wallSegments(o, 1, 1, 1);
     // 4 sides twice and 4 posts, two points each

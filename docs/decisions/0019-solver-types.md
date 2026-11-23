@@ -11,8 +11,8 @@ special case in the session, the document's guards (decision 0011) and the
 front end.
 
 ## Decision
-- ShapeLogic has two solver types: `classic`, labelled **Complete
-  (ShapeLogic)**, and `crowell`, labelled **Fast (Crowell)**.
+- ShapeLogic has two solver types: `classic`, labeled **Complete
+  (ShapeLogic)**, and `crowell`, labeled **Fast (Crowell)**.
 - The BurrTools 2 solver is removed with its code (`assembler_bt2`,
   `dancing_cells`, `work_stealing`, the paused-solve guards and their tests),
   and the engine's `bt2` solver value with it.

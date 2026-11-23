@@ -2,7 +2,7 @@
 //
 // The voxel editor for the e2e tests: where a cell of the 2D grid is on
 // the screen (inside its polygon or circle, not its box: a triangle's box
-// centre is often its neighbour's), clicks and drags on cells, the
+// center is often its neighbor's), clicks and drags on cells, the
 // workspace's controls by their data attributes, and the engine's own
 // answers (shape.get, edit.history) through the page's bridge.
 
@@ -17,7 +17,7 @@ export type Cell = [number, number, number];
 export interface EngineCell {
   at: Cell;
   state: 'fixed' | 'variable';
-  colour?: string;
+  color?: string;
 }
 
 /** What shape.get answers. */
@@ -30,7 +30,7 @@ export interface ShapeGet {
     fixed: number;
     variable: number;
     weight: number;
-    colour: string | null;
+    color: string | null;
   };
   cells: EngineCell[];
 }

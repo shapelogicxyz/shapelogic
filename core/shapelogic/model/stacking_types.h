@@ -26,7 +26,7 @@ struct RodSet {
   unsigned int definedHeight = 8;
   /// A larger size number may not sit on a smaller one. Equal sizes may stack.
   bool sizeMatters = true;
-  /// When true, a disc may move only to a neighbouring rod.
+  /// When true, a disc may move only to a neighboring rod.
   bool distanceMatters = false;
   /// Kept so older files still load. The editor no longer uses it.
   bool canMoveOver = false;

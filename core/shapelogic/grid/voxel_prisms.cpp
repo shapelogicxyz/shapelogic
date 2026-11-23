@@ -32,7 +32,7 @@ struct Cell {
 };
 
 /// Rotates cell (x, y, z) with matrix `r`: to Cartesian coordinates (the
-/// cell's centre), rotate, back to cell coordinates. The expressions are the
+/// cell's center), rotate, back to cell coordinates. The expressions are the
 /// original's, term for term, so the floating-point results are identical.
 Cell rotateCell(const double* r, int x, int y, int z) {
   const double xp = 0.5 + 0.5 * x;
@@ -114,7 +114,7 @@ bool VoxelPrisms::transform(unsigned int nr) {
   unsigned int nsy = asUnsigned(maxy - miny + 1);
   unsigned int nsz = asUnsigned(maxz - minz + 1);
 
-  // never make the space smaller than before; centre the shape in the old
+  // never make the space smaller than before; center the shape in the old
   // size instead
   if (nsz < sz_) {
     minz -= asInt((sz_ - nsz) / 2);

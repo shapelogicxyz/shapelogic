@@ -535,7 +535,7 @@ export function installAppIpc(h: AppIpcHost): void {
         });
         const folder = r.canceled ? undefined : r.filePaths[0];
         if (folder === undefined) {
-          return { status: 'cancelled' };
+          return { status: 'canceled' };
         }
         return h.cache.choose(e.sender, folder);
       }
@@ -609,7 +609,7 @@ export function installAppIpc(h: AppIpcHost): void {
           properties: ['showOverwriteConfirmation', 'createDirectory'],
         });
         if (r.canceled || r.filePath === '') {
-          return { ok: false, cancelled: true } satisfies LogExportResult;
+          return { ok: false, canceled: true } satisfies LogExportResult;
         }
         const path = extname(r.filePath) === '' ? `${r.filePath}.txt` : r.filePath;
         try {
@@ -651,7 +651,7 @@ export function installAppIpc(h: AppIpcHost): void {
       h.closeTaken(e.sender);
     } else if (op === 'close') {
       h.closeWindow(e.sender);
-    } else if (op === 'cancelled') {
+    } else if (op === 'canceled') {
       h.cancelQuit(e.sender);
     }
   });

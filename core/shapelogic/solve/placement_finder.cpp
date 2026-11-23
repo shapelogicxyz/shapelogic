@@ -63,7 +63,7 @@ void PlacementFinder::find(const Voxel& rotation, std::vector<long>& voxelOffset
   // the filled voxels of the piece as result index offsets relative to the
   // translation, in the order the matrix nodes are made
   std::vector<unsigned char> voxelColor;
-  std::vector<long> checkOffsets;  // colour-only checks for cells that are not filled
+  std::vector<long> checkOffsets;  // color-only checks for cells that are not filled
   std::vector<unsigned char> checkColor;
 
   // The anchor is the first filled voxel of the piece. Its coordinates can
@@ -85,8 +85,8 @@ void PlacementFinder::find(const Voxel& rotation, std::vector<long>& voxelOffset
           voxelOffsets.push_back(static_cast<long>(px) + sx * (static_cast<long>(py) + sy * pz));
           voxelColor.push_back(static_cast<unsigned char>(rotation.getColor(px, py, pz)));
         } else if ((colorTableWidth_ > 1) && (rotation.getColor(px, py, pz) != 0)) {
-          // a coloured cell that is not filled cannot occupy a result voxel,
-          // but it still takes part in the colour check
+          // a colored cell that is not filled cannot occupy a result voxel,
+          // but it still takes part in the color check
           checkOffsets.push_back(static_cast<long>(px) + sx * (static_cast<long>(py) + sy * pz));
           checkColor.push_back(static_cast<unsigned char>(rotation.getColor(px, py, pz)));
         }

@@ -17,17 +17,17 @@ namespace bt::hex {
 
 /// Rows are this far apart (sqrt 3 / 2).
 inline constexpr double kRow = 0.8660254037844386;
-/// A corner is this far from the centre (1 / sqrt 3).
+/// A corner is this far from the center (1 / sqrt 3).
 inline constexpr double kRadius = 0.5773502691896258;
 
-/// The centre of cell (x, y, z): the first cell of row 0 spans x from 0
+/// The center of cell (x, y, z): the first cell of row 0 spans x from 0
 /// to 1, row 0 has its lowest corner at y = 0, each row starts half a
 /// cell further right, and a cell is 1 high from z.
-[[nodiscard]] inline double centreX(int x, int y) noexcept { return x + 0.5 + 0.5 * y; }
-[[nodiscard]] inline double centreY(int y) noexcept { return kRadius + y * kRow; }
-[[nodiscard]] inline double centreZ(int z) noexcept { return z + 0.5; }
+[[nodiscard]] inline double centerX(int x, int y) noexcept { return x + 0.5 + 0.5 * y; }
+[[nodiscard]] inline double centerY(int y) noexcept { return kRadius + y * kRow; }
+[[nodiscard]] inline double centerZ(int z) noexcept { return z + 0.5; }
 
-/// The cell whose centre is at (or nearest to) a point: the row first,
+/// The cell whose center is at (or nearest to) a point: the row first,
 /// then the cell within it.
 struct HexCell {
   int x;
@@ -41,13 +41,13 @@ struct HexCell {
   return {x, y, z};
 }
 
-/// The six corners of a cell around its centre, counter clockwise from
+/// The six corners of a cell around its center, counter clockwise from
 /// the lower right: x and y offsets.
 inline constexpr double kCornerX[6] = {0.5, 0.5, 0.0, -0.5, -0.5, 0.0};
 inline constexpr double kCornerY[6] = {-kRadius / 2, kRadius / 2, kRadius,
                                        kRadius / 2,  -kRadius / 2, -kRadius};
 
-/// The six neighbours in the plane: east, north-east, north-west, west,
+/// The six neighbors in the plane: east, north-east, north-west, west,
 /// south-west, south-east (side k lies between corners k and k + 1).
 inline constexpr int kAround[6][2] = {{1, 0}, {0, 1}, {-1, 1}, {-1, 0}, {0, -1}, {1, -1}};
 

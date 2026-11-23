@@ -21,10 +21,10 @@
 namespace bt {
 
 /// One voxel space. Abstract: each grid derives its own class, which knows
-/// how cells neighbour each other and how the grid rotates. Make one with
+/// how cells neighbor each other and how the grid rotates. Make one with
 /// GridType::makeVoxel() and copy it with clone().
 ///
-/// A cell holds a state (kEmpty, kFilled, kVariable) and a colour (0..63),
+/// A cell holds a state (kEmpty, kFilled, kVariable) and a color (0..63),
 /// packed into one VoxelType; result spaces of assemblies use the whole
 /// byte as a piece number.
 ///
@@ -46,7 +46,7 @@ class Voxel {
   enum class Action {
     Fixed,     ///< make the cells filled
     Variable,  ///< make the cells variable
-    Decolor,   ///< remove their colour
+    Decolor,   ///< remove their color
   };
 
   virtual ~Voxel();
@@ -116,11 +116,11 @@ class Voxel {
   /// The number of cells whose whole value is `val`.
   [[nodiscard]] unsigned int count(VoxelType val) const;
 
-  /// True when a face neighbour (in the cube sense, the six directions) of
+  /// True when a face neighbor (in the cube sense, the six directions) of
   /// cell `p` has value `val`.
-  [[nodiscard]] bool neighbour(unsigned int p, VoxelType val) const;
+  [[nodiscard]] bool neighbor(unsigned int p, VoxelType val) const;
 
-  // ---- state and colour ---------------------------------------------------
+  // ---- state and color ---------------------------------------------------
 
   [[nodiscard]] int getState(unsigned int x, unsigned int y, unsigned int z) const {
     return get(x, y, z) & 0x3;
@@ -155,14 +155,14 @@ class Voxel {
   }
   [[nodiscard]] bool isVariable(unsigned int i) const { return getState(i) == kVariable; }
 
-  /// Sets the state of a cell, keeping its colour.
+  /// Sets the state of a cell, keeping its color.
   void setState(unsigned int x, unsigned int y, unsigned int z, int state) {
     setState(getIndex(x, y, z), state);
   }
   void setState(unsigned int i, int state) {
     set(i, static_cast<VoxelType>((get(i) & ~0x3) | state));
   }
-  /// Sets the colour of a cell (0..63), keeping its state.
+  /// Sets the color of a cell (0..63), keeping its state.
   void setColor(unsigned int x, unsigned int y, unsigned int z, unsigned int color) {
     setColor(getIndex(x, y, z), color);
   }
@@ -171,13 +171,13 @@ class Voxel {
     set(i, static_cast<VoxelType>((get(i) & 0x3u) | color << 2));
   }
 
-  /// The number of cells in a state, whatever their colour.
+  /// The number of cells in a state, whatever their color.
   [[nodiscard]] unsigned int countState(int state) const;
 
   // ---- start and goal marks (sliding puzzles) -----------------------------
   // A tray cell may be the start of a piece and the goal of one (shape
-  // index + 1), apart from its colour, which is the user's restriction
-  // colour as on every grid. The marks follow the cells through every
+  // index + 1), apart from its color, which is the user's restriction
+  // color as on every grid. The marks follow the cells through every
   // change of the shape, and go when the cell is emptied.
 
   /// Start mark of a cell (shape index + 1), or 0.
@@ -275,8 +275,8 @@ class Voxel {
 
   // ---- geometry, per grid -------------------------------------------------
 
-  /// The neighbour number `idx` of cell (x, y, z) of kind `typ` (0 = face,
-  /// 1 = edge, 2 = corner). False when there is no neighbour `idx`.
+  /// The neighbor number `idx` of cell (x, y, z) of kind `typ` (0 = face,
+  /// 1 = edge, 2 = corner). False when there is no neighbor `idx`.
   virtual bool getNeighbor(unsigned int idx, unsigned int typ, int x, int y, int z, int* xn,
                            int* yn, int* zn) const = 0;
 
@@ -335,7 +335,7 @@ class Voxel {
   /// Fills the empty cells that are completely enclosed.
   void fillHoles(char type);
 
-  /// Applies `action` to the inner cells (all face neighbours non-empty) or
+  /// Applies `action` to the inner cells (all face neighbors non-empty) or
   /// to the outer ones.
   void actionOnSpace(Action action, bool inside);
 
@@ -406,7 +406,7 @@ class Voxel {
   [[nodiscard]] unsigned int getDiskSize() const { return diskSize_; }
   void setDiskSize(unsigned int s) { diskSize_ = s; }
 
-  /// The shape's own colour, 0xRRGGBB, or -1 for the colour of its number.
+  /// The shape's own color, 0xRRGGBB, or -1 for the color of its number.
   [[nodiscard]] int getShapeColor() const { return shapeColor_; }
   void setShapeColor(int c) { shapeColor_ = c; }
 
@@ -428,7 +428,7 @@ class Voxel {
   Voxel(unsigned int x, unsigned int y, unsigned int z, GridType gt, VoxelType init);
   Voxel(const Voxel&);
 
-  /// Updates the bounding box (unless switched off), clears the colour and
+  /// Updates the bounding box (unless switched off), clears the color and
   /// goal mark of empty cells, and drops the transformation cache.
   void recalcBoundingBox();
 

@@ -114,9 +114,9 @@ std::array<float, 4> toQuat(const Mat& rot) {
           static_cast<float>(w / n)};
 }
 
-// The centre of the bounding box of a shape's drawing mesh (the faces
+// The center of the bounding box of a shape's drawing mesh (the faces
 // buildMesh draws), or none for an empty mesh.
-std::optional<Vec> meshCentre(const Voxel& v) {
+std::optional<Vec> meshCenter(const Voxel& v) {
   const mesh::Polyhedron poly = mesh::shapeMesh(v, mesh::MeshStyle::Drawing);
   bool first = true;
   Vec lo{0, 0, 0};
@@ -153,13 +153,13 @@ std::optional<Vec> meshCentre(const Voxel& v) {
 
 }  // namespace
 
-std::array<double, 3> stackingCentre(const Puzzle& puzzle, const Problem& problem) {
+std::array<double, 3> stackingCenter(const Puzzle& puzzle, const Problem& problem) {
   const stacking::BoardLayout lay = stacking::layoutBoard(puzzle, problem, false);
   if (lay.rodX.empty()) {
     return {0, 0, 0};
   }
   const auto [lo, hi] = std::minmax_element(lay.rodX.begin(), lay.rodX.end());
-  // a disc's hotspot cell is its centre: the rod runs through that cell's
+  // a disc's hotspot cell is its center: the rod runs through that cell's
   // middle
   return {static_cast<double>(*lo + *hi) / 2.0 + 0.5, 0.5,
           static_cast<double>(lay.rodHeight) / 2.0};
@@ -186,9 +186,9 @@ struct PlaybackSampler::Piece {
   int y0 = 0;
   int z0 = 0;
   Mat base0inv = Mat::identity();  // inverse of the matrix of trans0
-  Vec centre0{0, 0, 0};            // bounding box centre of the trans0 mesh
-  // the mesh centres of the other orientations the piece takes
-  std::vector<std::pair<unsigned int, Vec>> orientCentre;
+  Vec center0{0, 0, 0};            // bounding box center of the trans0 mesh
+  // the mesh centers of the other orientations the piece takes
+  std::vector<std::pair<unsigned int, Vec>> orientCenter;
 };
 
 PlaybackSampler::PlaybackSampler(PlaybackSampler&&) noexcept = default;
@@ -239,13 +239,13 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
   // else: no moves to play; the pieces stay as the assembly places them
 
   if (stack) {
-    s.centre_ = stackingCentre(puzzle, pr);
+    s.center_ = stackingCenter(puzzle, pr);
   } else {
     float cx = 0;
     float cy = 0;
     float cz = 0;
     mesh::calculateSize(pr.resultShape(puzzle), &cx, &cy, &cz);
-    s.centre_ = {static_cast<double>(cx) * 0.5, static_cast<double>(cy) * 0.5,
+    s.center_ = {static_cast<double>(cx) * 0.5, static_cast<double>(cy) * 0.5,
                  static_cast<double>(cz) * 0.5};
   }
 
@@ -258,7 +258,7 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
       }
       Piece d;
       d.shape = pr.partShape(puzzle, p).clone();
-      // a disc stands on its rod by its centre (showStackingAssembly)
+      // a disc stands on its rod by its center (showStackingAssembly)
       if (stack) {
         stacking::ensureHotspot(*d.shape);
       }
@@ -271,11 +271,11 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
       if (!v->transform(d.trans0)) {
         return fail(Errc::Internal, "A piece could not be put into its assembly orientation.");
       }
-      const std::optional<Vec> c = meshCentre(*v);
+      const std::optional<Vec> c = meshCenter(*v);
       if (!c) {
         return fail(Errc::Internal, "A piece mesh could not be generated.");
       }
-      d.centre0 = *c;
+      d.center0 = *c;
       Mat b = Mat::identity();
       v->getTransformMatrix(d.trans0, b.m.data());
       d.base0inv = b.transposed();
@@ -308,7 +308,7 @@ bool PlaybackSampler::evaluate(float step, std::vector<PiecePose>& out) {
     moves_->setStep(step * static_cast<float>(stepFrames_), false, true);
   }
   out.assign(pieces_.size(), PiecePose{});
-  const Vec centre{centre_[0], centre_[1], centre_[2]};
+  const Vec center{center_[0], center_[1], center_[2]};
 
   for (std::size_t i = 0; i < pieces_.size(); i++) {
     Piece& pi = data_[i];
@@ -327,7 +327,7 @@ bool PlaybackSampler::evaluate(float step, std::vector<PiecePose>& out) {
       return false;
     }
 
-    // the view draws the mesh of orientation t at (x - hotspot - centre)
+    // the view draws the mesh of orientation t at (x - hotspot - center)
     float x = moves_ ? moves_->getX(p) : static_cast<float>(pi.x0);
     float y = moves_ ? moves_->getY(p) : static_cast<float>(pi.y0);
     float z = moves_ ? moves_->getZ(p) : static_cast<float>(pi.z0);
@@ -350,22 +350,22 @@ bool PlaybackSampler::evaluate(float step, std::vector<PiecePose>& out) {
         return false;
       }
       std::optional<Vec> ct;
-      for (const auto& [ot, oc] : pi.orientCentre) {
+      for (const auto& [ot, oc] : pi.orientCenter) {
         if (ot == t) {
           ct = oc;
         }
       }
       if (!ct) {
-        ct = meshCentre(*v);
+        ct = meshCenter(*v);
         if (!ct) {
           return false;
         }
-        pi.orientCentre.emplace_back(t, *ct);
+        pi.orientCenter.emplace_back(t, *ct);
       }
-      d = *ct - r * pi.centre0;
+      d = *ct - r * pi.center0;
     }
 
-    // the tumble about the pivot cell's centre, local to the mesh_t frame
+    // the tumble about the pivot cell's center, local to the mesh_t frame
     Mat pm = Mat::identity();
     Vec pl{0, 0, 0};
     float ang = 0;
@@ -381,8 +381,8 @@ bool PlaybackSampler::evaluate(float step, std::vector<PiecePose>& out) {
       pl = Vec{static_cast<double>(px), static_cast<double>(py), static_cast<double>(pz)} - place;
     }
 
-    // world = P * (R * m0 + d - pl) + pl + place - centre
-    const Vec tr = pm * (d - pl) + pl + place - centre;
+    // world = P * (R * m0 + d - pl) + pl + place - center
+    const Vec tr = pm * (d - pl) + pl + place - center;
     out[i].translation = {static_cast<float>(tr.x), static_cast<float>(tr.y),
                           static_cast<float>(tr.z)};
     out[i].rotation = toQuat(pm * r);
@@ -416,7 +416,7 @@ Result<PlaybackTrack> PlaybackSampler::track(const TrackOptions& opt) {
     }
   }
 
-  // A hidden piece still has a pose, and an interpolation runs towards it
+  // A hidden piece still has a pose, and an interpolation runs toward it
   // while the piece is shown: give it the pose it has just before it
   // vanishes (or just after it appears), so it does not stall or drift.
   const float eps = 1.0F / (64.0F * static_cast<float>(k));

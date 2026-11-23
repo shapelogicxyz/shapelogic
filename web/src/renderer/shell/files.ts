@@ -388,7 +388,7 @@ export class Files {
           ],
         );
         if (k !== 'drop') {
-          this.app.closeCancelled();
+          this.app.closeCanceled();
           return;
         }
       } else if (snap?.dirty === true) {
@@ -415,11 +415,11 @@ export class Files {
         );
         if (k === 'save') {
           if (!(await this.save()) || !this.clean()) {
-            this.app.closeCancelled();
+            this.app.closeCanceled();
             return;
           }
         } else if (k !== 'drop') {
-          this.app.closeCancelled();
+          this.app.closeCanceled();
           return;
         }
       }

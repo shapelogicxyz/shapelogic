@@ -207,7 +207,7 @@ void Document::assignIds() {
     ids_.shapes.push_back(newId());
   }
   for (unsigned int i = 0; i < puzzle_->colorNumber(); i++) {
-    ids_.colours.push_back(newId());
+    ids_.colors.push_back(newId());
   }
   for (unsigned int i = 0; i < puzzle_->getNumberOfProblems(); i++) {
     ids_.problems.push_back(newId());
@@ -266,8 +266,8 @@ Result<unsigned int> indexIn(const std::vector<Id>& ids, Id id, const char* what
 
 Result<unsigned int> Document::shapeIndex(Id id) const { return indexIn(ids_.shapes, id, "shape"); }
 
-Result<unsigned int> Document::colourIndex(Id id) const {
-  return indexIn(ids_.colours, id, "colour");
+Result<unsigned int> Document::colorIndex(Id id) const {
+  return indexIn(ids_.colors, id, "color");
 }
 
 Result<unsigned int> Document::problemIndex(Id id) const {
@@ -299,7 +299,7 @@ std::string Document::shapeLabelOf(unsigned int index) const {
   return sliding::shapeLabel(*puzzle_, index);
 }
 
-std::string Document::colourLabel(unsigned int index) { return "C" + std::to_string(index + 1); }
+std::string Document::colorLabel(unsigned int index) { return "C" + std::to_string(index + 1); }
 
 std::string Document::problemLabel(unsigned int index) { return "P" + std::to_string(index + 1); }
 
@@ -395,15 +395,15 @@ void Document::touchProblem(unsigned int index) {
   open_->parts.push_back(std::move(s));
 }
 
-void Document::touchColour(unsigned int index) {
+void Document::touchColor(unsigned int index) {
   touches_++;
-  if (covered(SnapshotKind::Colour, index)) {
+  if (covered(SnapshotKind::Color, index)) {
     return;
   }
   Snapshot s;
-  s.kind = SnapshotKind::Colour;
+  s.kind = SnapshotKind::Color;
   s.index = index;
-  s.colour = puzzle_->getColor(index);
+  s.color = puzzle_->getColor(index);
   open_->parts.push_back(std::move(s));
 }
 
@@ -468,10 +468,10 @@ void Document::swapIn(Snapshot& s) {
       // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a problem's snapshot holds its problem
       std::swap(puzzle_->getProblem(s.index), *s.problem);
       return;
-    case SnapshotKind::Colour: {
+    case SnapshotKind::Color: {
       const Rgb now = puzzle_->getColor(s.index);
-      puzzle_->changeColor(s.index, s.colour.r, s.colour.g, s.colour.b);
-      s.colour = now;
+      puzzle_->changeColor(s.index, s.color.r, s.color.g, s.color.b);
+      s.color = now;
       return;
     }
     case SnapshotKind::Notes: {
@@ -695,7 +695,7 @@ void Document::problemChanged(unsigned int problem) {
 // hotspots where a run puts them and the caches warm. Then the document
 // can read them while it runs.
 void Document::prepareShapesForSolving() {
-  // a stacking solve has the discs' hotspots at their centres (cb_BtnCont)
+  // a stacking solve has the discs' hotspots at their centers (cb_BtnCont)
   const bool stack = stacking::isStacking(*puzzle_);
   for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
     Voxel& v = puzzle_->getShape(i);
@@ -802,10 +802,10 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
       if (mode == LaunchMode::Resume && solveState(problem) == SolveState::Finished) {
         return fail(Errc::InvalidState, "the problem is solved: start() solves it again");
       }
-      const unsigned int colours = puzzle_->colorNumber();
+      const unsigned int colors = puzzle_->colorNumber();
       slidingPrepared = sliding::prepareForSolving(*puzzle_, puzzle_->getProblem(*p));
-      for (unsigned int c = colours; c < puzzle_->colorNumber(); c++) {
-        ids_.colours.push_back(newId());
+      for (unsigned int c = colors; c < puzzle_->colorNumber(); c++) {
+        ids_.colors.push_back(newId());
       }
     }
   }
@@ -825,7 +825,7 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
     if (slidingPrepared) {
       // the start locks set up stay (they hold for any solve): told
       solveDirty_ = true;
-      lastChange_ = ChangeSet{kChangeShapes | kChangeColours | kChangeProblems, {}, {}, {}};
+      lastChange_ = ChangeSet{kChangeShapes | kChangeColors | kChangeProblems, {}, {}, {}};
       changed(lastChange_.what);
     }
     return r;
@@ -833,8 +833,8 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
   solveDirty_ = true;
   runsStarted_.insert(problem);
   if (slidingPrepared) {
-    // pieces repainted, maybe colours added: everything is news
-    lastChange_ = ChangeSet{kChangeShapes | kChangeColours | kChangeSolutions | kChangeProblems,
+    // pieces repainted, maybe colors added: everything is news
+    lastChange_ = ChangeSet{kChangeShapes | kChangeColors | kChangeSolutions | kChangeProblems,
                             {}, {}, {}};
   } else {
     lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}, {}};
@@ -881,7 +881,7 @@ Result<void> Document::solveAbort(Id problem, const std::string& stackingWorkDir
     return fail(Errc::InvalidState, "the problem's solutions are being taken apart: stop it first");
   }
   // the hard stop of a solve under way (the original's Abort button was
-  // greyed out once the solve thread had ended): a finished solve's
+  // grayed out once the solve thread had ended): a finished solve's
   // solutions are removed with deleteSolutions, which can be undone
   const auto it = sessions_.find(problem);
   // a stacking search shared with an identical problem whose run is

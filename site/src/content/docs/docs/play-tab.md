@@ -27,7 +27,7 @@ saving a position and the moves file work the same way for both.
 
 Click a problem to play it. Its pieces appear on the board where its
 **Start** puts them. Its **Goal** tints the cells of the tray's floor where
-each piece must end, and outlines them in the piece's colour; the outlines
+each piece must end, and outlines them in the piece's color; the outlines
 stay visible when pieces stand on them.
 
 **Hide Goal Shadows** takes the goal's tint off the floor, and **Hide Goal
@@ -36,7 +36,7 @@ where the pieces should go. Each button then reads **Show Goal Shadows** or
 **Show Goal Lines**, which brings them back. **Hide Grid** does the same for
 the lines between the cells on the tray's floor (**Show Grid** brings them
 back), and **Hide Piece Labels** for the names written on the pieces
-(**Show Piece Labels**). **Simple Pieces** draws the pieces flat and square in plain colours,
+(**Show Piece Labels**). **Simple Pieces** draws the pieces flat and square in plain colors,
 in a flat tray with square corners; **3D Pieces** brings back the rounded
 pieces with their sides showing. Each choice holds for every problem you
 play until you change it.
@@ -61,7 +61,7 @@ window. Click the button again to bring it forward.
 
 ![The buttons beside the board: the number of moves, Reset, Undo, Redo, Hide Goal Shadows, Hide Goal Lines, Show Goal Image, Hide Grid, Hide Piece Labels and Simple Pieces.](../../../assets/screens/guide/play-side.png)
 
-![The same board with Simple Pieces on: flat, square pieces in plain colours in a flat tray.](../../../assets/screens/guide/play-simple.png)
+![The same board with Simple Pieces on: flat, square pieces in plain colors in a flat tray.](../../../assets/screens/guide/play-simple.png)
 
 A problem can be played once every piece has a start. If a piece has none,
 the tab says which one and offers **Go to Puzzle**, where the Start and

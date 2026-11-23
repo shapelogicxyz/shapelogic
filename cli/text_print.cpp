@@ -129,7 +129,7 @@ void printShape(std::FILE* out, const Voxel& v, char base) {
     for (unsigned int z = 0; z < v.getZ(); z++) {
       std::fputs(" !", out);
       for (unsigned int x = 0; x < v.getX(); x++) {
-        // the whole value (colours give letters past the states'), as printf's %c wrote it
+        // the whole value (colors give letters past the states'), as printf's %c wrote it
         const int cell = v.get(x, y, z);
         std::fputc(cell != 0 ? base + cell - 1 : ' ', out);
       }

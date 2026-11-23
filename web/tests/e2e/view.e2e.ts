@@ -3,7 +3,7 @@
 // The 3D view draws every shape of a fixture of each grid (tests/helpers/
 // fixtures.ts) in the styles made from the cells, and one shape of each
 // grid in each look (drawing, wireframe, flat, the
-// STL-like style of deferred part 5, unlit, orthographic, the colour view)
+// STL-like style of deferred part 5, unlit, orthographic, the color view)
 // as reference screenshots
 // (tests/e2e/__screenshots__, compared with a tolerance; recorded with
 // `npx playwright test --update-snapshots` after a look beside the
@@ -93,7 +93,7 @@ for (const s of ['drawing', 'wireframe', 'flat', 'uniform'] as const) {
   });
 }
 
-test('a fixture of each grid is drawn unlit, orthographic and in its colours', async () => {
+test('a fixture of each grid is drawn unlit, orthographic and in its colors', async () => {
   test.setTimeout(300_000);
   const { page } = a;
   for (const f of fixtures) {
@@ -115,10 +115,10 @@ test('a fixture of each grid is drawn unlit, orthographic and in its colours', a
   }
 });
 
-/** One shape per grid, and the bricks' with colours and with variable cells. */
+/** One shape per grid, and the bricks' with colors and with variable cells. */
 const REFERENCES = [
   ['bricks', 'CubeInCage.xmpuzzle', 'S1'],
-  ['bricks-colours', 'DraculasDentalDesaster.xmpuzzle', 'S1'],
+  ['bricks-colors', 'DraculasDentalDesaster.xmpuzzle', 'S1'],
   ['prisms', 'Bermuda.xmpuzzle', 'S1'],
   ['spheres', 'BallRoom_solved.xmpuzzle', 'S1'],
   ['rhombic', 'AugmentedSecondStellation.xmpuzzle', 'S2'],
@@ -145,7 +145,7 @@ for (const [name, file, label] of REFERENCES) {
     await shot('wireframe');
     await style(page, 'flat');
     await shot('flat');
-    // the STL-like style (deferred part 5): the STL mesher's pieces in one colour
+    // the STL-like style (deferred part 5): the STL mesher's pieces in one color
     await style(page, 'stl');
     await shot('stl');
     // the uniform mesher's solid (decision 0022)
@@ -159,6 +159,6 @@ for (const [name, file, label] of REFERENCES) {
     await shot('ortho');
     await display(page, 'persp');
     await display(page, 'cvox');
-    await shot('colours');
+    await shot('colors');
   });
 }

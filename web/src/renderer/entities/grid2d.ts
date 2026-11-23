@@ -17,13 +17,13 @@
 // Shift fixed). A sliding puzzle's board (docs/webui-spec.md, sections
 // 8.1 and 8.2) is drawn as the original's grideditor.cpp drew it: dark
 // tiles; in the Puzzle workspace's Start and goal grids (stamping) the
-// marked cells in their pieces' colours, the piece to place outlined under
+// marked cells in their pieces' colors, the piece to place outlined under
 // the mouse (`drawStampPreview`), a click placing it and a right click
 // taking off the copy under the mouse. The cells of the layer next to the
 // one drawn (below or above, the Voxel hint layer setting) show faintly
 // under its empty cells, each in its own layer's outline: grideditor.cpp's
-// dimmed squares of the layer below, a sixth of the shape's colour. A
-// copy's name, when the grid is given it, is written at the bottom centre
+// dimmed squares of the layer below, a sixth of the shape's color. A
+// copy's name, when the grid is given it, is written at the bottom center
 // of the copy's cells in this layer, on a rounded box in the theme's
 // opposite (black on white in the dark theme, white on black in the light).
 
@@ -31,8 +31,8 @@ import type { Grid } from '../../engine/api.generated.ts';
 import { cursorFor } from '../shell/cursors.ts';
 import type { Tool } from '../shell/cursors.ts';
 import { esc } from '../shell/dom.ts';
-import { boardColour, dark, hex, light } from '../shell/piece-colours.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import { boardColor, dark, hex, light } from '../shell/piece-colors.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import { isDarkTheme } from '../shell/theme.ts';
 import { key } from './editor-state.ts';
 import { effectiveTool, modsOf } from './tools.ts';
@@ -53,12 +53,12 @@ export interface GridInput {
   layer: number;
   /** The layer's cells by key. */
   cells: ReadonlyMap<string, CellValue>;
-  /** The shape's own colour, #rrggbb. */
-  shapeColour: string;
-  /** The constraint colours by id, #rrggbb. */
+  /** The shape's own color, #rrggbb. */
+  shapeColor: string;
+  /** The constraint colors by id, #rrggbb. */
   palette: ReadonlyMap<string, string>;
   /**
-   * A sliding start/goal shape: its tiles, the marks shown (pieces' colours
+   * A sliding start/goal shape: its tiles, the marks shown (pieces' colors
    * by cell key), and the copies' names written on them; null for any other shape.
    */
   tray?: {
@@ -76,7 +76,7 @@ export interface GridInput {
   hint?: { geo: LayerGeometry; cells: ReadonlyMap<string, CellValue> } | null;
 }
 
-/** How much of the shape's colour a hinted cell shows (the original's sixth). */
+/** How much of the shape's color a hinted cell shows (the original's sixth). */
 const HINT_OPACITY = 1 / 6;
 /** The room around a copy's name inside its box, and between the box and the copy's bottom edge, in pixels. */
 const NAME_PAD_X = 4;
@@ -88,8 +88,8 @@ export interface GridHost {
   state: EditorState;
   /** Whether editing is refused now (a solve runs); a press then says so. */
   frozen(): boolean;
-  /** The drawing colour, #rrggbb, or null for Default (the cursor's badge). */
-  drawingColour(): string | null;
+  /** The drawing color, #rrggbb, or null for Default (the cursor's badge). */
+  drawingColor(): string | null;
   /** A stroke starts with a tool at a cell. */
   strokeStart(tool: Tool, cell: Cell): void;
   /** More cells of the stroke. */
@@ -216,12 +216,12 @@ export class Grid2D {
   }
 
   private shapeOf(
-    c: { polygon?: P2[]; circle?: { centre: P2; radius: number } },
+    c: { polygon?: P2[]; circle?: { center: P2; radius: number } },
     h: number,
     attrs: string,
   ): string {
     if (c.circle !== undefined) {
-      const [cx, cy] = c.circle.centre;
+      const [cx, cy] = c.circle.center;
       return `<circle ${attrs} cx="${this.X(cx).toFixed(1)}" cy="${this.Y(cy, h).toFixed(1)}" r="${(c.circle.radius * this.sc).toFixed(1)}"/>`;
     }
     const pts = (c.polygon ?? [])
@@ -264,7 +264,7 @@ export class Grid2D {
     let hy = ey;
     for (const c of input.geo.cells) {
       if (c.circle !== undefined) {
-        const [cx, cy] = c.circle.centre;
+        const [cx, cy] = c.circle.center;
         const r = c.circle.radius;
         lx = Math.min(lx, cx - r);
         hx = Math.max(hx, cx + r);
@@ -308,18 +308,18 @@ export class Grid2D {
     this.overlay = this.area.querySelector<SVGGElement>('.ovl');
   }
 
-  // a quarter of a cell at its top left (the cell shrunk to half towards
+  // a quarter of a cell at its top left (the cell shrunk to half toward
   // that corner: a square's top-left quarter, and inside any other cell)
   private corner(
-    c: { polygon?: P2[]; circle?: { centre: P2; radius: number } },
+    c: { polygon?: P2[]; circle?: { center: P2; radius: number } },
     h: number,
     attrs: string,
   ): string {
     if (c.circle !== undefined) {
       const r = c.circle.radius * this.sc;
       const d = r / 2 / Math.SQRT2;
-      const cx = this.X(c.circle.centre[0]) - d;
-      const cy = this.Y(c.circle.centre[1], h) - d;
+      const cx = this.X(c.circle.center[0]) - d;
+      const cy = this.Y(c.circle.center[1], h) - d;
       return `<circle ${attrs} cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(r / 2).toFixed(1)}"/>`;
     }
     const pts = (c.polygon ?? []).map((q): P2 => [this.X(q[0]), this.Y(q[1], h)]);
@@ -337,8 +337,8 @@ export class Grid2D {
   }
 
   // each cell's look from the engine's cells (the mockup's fill: a variable
-  // cell half filled with a dashed border, in the shape's colour; a
-  // constraint colour as a box in the top-left quarter)
+  // cell half filled with a dashed border, in the shape's color; a
+  // constraint color as a box in the top-left quarter)
   private paint(input: GridInput): void {
     // the hinted layer's cells under this one's, which leave their empty
     // cells clear (still painted, so they take the pointer)
@@ -353,7 +353,7 @@ export class Grid2D {
     }
     const hg = this.svg?.querySelector('.hint');
     if (hg != null) {
-      hg.setAttribute('fill', input.shapeColour);
+      hg.setAttribute('fill', input.shapeColor);
       hg.setAttribute('fill-opacity', HINT_OPACITY.toFixed(3));
       hg.innerHTML = hinted;
     }
@@ -366,8 +366,8 @@ export class Grid2D {
       }
       const v = input.cells.get(key(c.at));
       const vr = v?.state === 'variable';
-      let col = v === undefined ? 'var(--panel)' : input.shapeColour;
-      const cc = v?.colour == null ? undefined : input.palette.get(v.colour);
+      let col = v === undefined ? 'var(--panel)' : input.shapeColor;
+      const cc = v?.color == null ? undefined : input.palette.get(v.color);
       if (cc !== undefined && input.tray == null) {
         marks += this.corner(
           c,
@@ -381,7 +381,7 @@ export class Grid2D {
         // the tray's chequer, a marked cell in its piece's (grideditor.cpp);
         // a board with a picture shows it on the cells no piece stands on
         const odd = ((c.at[0] + c.at[1] + c.at[2]) & 1) === 1;
-        const base = mark ?? tray.own ?? boardColour();
+        const base = mark ?? tray.own ?? boardColor();
         col = hex(odd ? dark(base) : light(base));
       } else if (picture !== null && v !== undefined) {
         col = picture;
@@ -408,7 +408,7 @@ export class Grid2D {
   }
 
   // the piece's or board's picture as a pattern over the whole drawing, the shape's
-  // colour where the picture does not reach: the fill of its filled cells,
+  // color where the picture does not reach: the fill of its filled cells,
   // or null when it has none (the XY plane only, the one a sliding puzzle
   // is drawn in)
   private paintPicture(input: GridInput): string | null {
@@ -438,11 +438,11 @@ export class Grid2D {
     const [sx = 0, sy = 0, sw = 0, sh = 0] = im.src;
     const w = this.svg?.getAttribute('width') ?? '0';
     const h = this.svg?.getAttribute('height') ?? '0';
-    defs.innerHTML = `<clipPath id="${this.patternId}Clip"><rect x="${sx}" y="${sy}" width="${sw}" height="${sh}"/></clipPath><pattern id="${this.patternId}" patternUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${input.shapeColour}"/><g transform="matrix(${t})"><image href="${im.picture.dataUrl}" width="${im.picture.width}" height="${im.picture.height}" preserveAspectRatio="none" clip-path="url(#${this.patternId}Clip)"/></g></pattern>`;
+    defs.innerHTML = `<clipPath id="${this.patternId}Clip"><rect x="${sx}" y="${sy}" width="${sw}" height="${sh}"/></clipPath><pattern id="${this.patternId}" patternUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${input.shapeColor}"/><g transform="matrix(${t})"><image href="${im.picture.dataUrl}" width="${im.picture.width}" height="${im.picture.height}" preserveAspectRatio="none" clip-path="url(#${this.patternId}Clip)"/></g></pattern>`;
     return `url(#${this.patternId})`;
   }
 
-  // each copy's name at the bottom centre of its cells in this layer: the
+  // each copy's name at the bottom center of its cells in this layer: the
   // middle of its lowest cells on the screen, the box just above their
   // bottom edge
   private paintNames(input: GridInput): void {
@@ -465,8 +465,8 @@ export class Grid2D {
         const pts: P2[] =
           c.circle !== undefined
             ? [
-                [c.circle.centre[0] - c.circle.radius, c.circle.centre[1] - c.circle.radius],
-                [c.circle.centre[0] + c.circle.radius, c.circle.centre[1] + c.circle.radius],
+                [c.circle.center[0] - c.circle.radius, c.circle.center[1] - c.circle.radius],
+                [c.circle.center[0] + c.circle.radius, c.circle.center[1] + c.circle.radius],
               ]
             : (c.polygon ?? []);
         const xs = pts.map((q) => this.X(q[0]));
@@ -542,9 +542,9 @@ export class Grid2D {
     if (this.svg !== null) {
       this.svg.dataset.selected = String(sel.length);
     }
-    // the box: its cells' edges towards cells outside it, dashed
+    // the box: its cells' edges toward cells outside it, dashed
     b += this.outline(new Set(sel), 'stroke-dasharray="5 3"');
-    // the cursor: its cells' edges towards cells not under it
+    // the cursor: its cells' edges toward cells not under it
     b += this.outline(this.cursorCells(), '');
     // the piece to place: each of its cells on the grid outlined (drawStampPreview)
     const st = this.host.stamping() ? this.stamp : null;
@@ -557,18 +557,18 @@ export class Grid2D {
         const i = input.geo.index.get(key([x, y, z]));
         const c = i === undefined ? undefined : input.geo.cells[i];
         if (c !== undefined) {
-          b += this.shapeOf(c, h, `fill="none" stroke="${st.colour}" stroke-width="3"`);
+          b += this.shapeOf(c, h, `fill="none" stroke="${st.color}" stroke-width="3"`);
         }
       }
     }
     if (this.svg !== null) {
       this.svg.dataset.stamp =
-        st === null ? '' : `${st.colour};${st.cells.map((q) => q.join(',')).join(' ')}`;
+        st === null ? '' : `${st.color};${st.cells.map((q) => q.join(',')).join(' ')}`;
     }
     g.innerHTML = b;
   }
 
-  // the edges of a set of cells towards cells not in it (circles whole)
+  // the edges of a set of cells toward cells not in it (circles whole)
   private outline(cur: ReadonlySet<number>, extra: string): string {
     const input = this.input;
     if (input === null) {
@@ -586,7 +586,7 @@ export class Grid2D {
         continue;
       }
       const poly = c.polygon ?? [];
-      const nb = c.neighbours ?? [];
+      const nb = c.neighbors ?? [];
       let d = '';
       poly.forEach((p, j) => {
         const q = poly[(j + 1) % poly.length] ?? p;
@@ -659,7 +659,7 @@ export class Grid2D {
       this.area.style.cursor =
         this.host.state.boxMode && this.drag === null && !this.anyMod()
           ? 'crosshair'
-          : cursorFor(tool, this.host.drawingColour());
+          : cursorFor(tool, this.host.drawingColor());
       this.host.hover(c.at, this.host.state.boxMode && !this.anyMod() ? null : tool, this.lastMods);
     }
     this.drawOverlay();

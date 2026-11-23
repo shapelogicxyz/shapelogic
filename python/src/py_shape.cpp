@@ -97,7 +97,7 @@ void PyShape::fill(
     const std::vector<std::tuple<unsigned int, unsigned int, unsigned int>>& coords) {
   // The cells before one outside the shape are filled, as in the original;
   // but the bounding box is recalculated then too (the original's stayed
-  // switched off, so the shape's empty cells kept their colours from then on)
+  // switched off, so the shape's empty cells kept their colors from then on)
   struct BatchEdit {
     Voxel& v;
     explicit BatchEdit(Voxel& voxel) : v(voxel) { v.skipRecalcBoundingBox(true); }

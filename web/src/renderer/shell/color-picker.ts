@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The colour picker in the popover (the Voxel editor's pencil): a
+// The color picker in the popover (the Voxel editor's pencil): a
 // saturation and brightness square, a hue slider and a #rrggbb field, with
-// "Restore Default" below for a shape's own colour. The system's dialog
-// could not hold that button. A colour is taken when a drag ends, the hue
+// "Restore Default" below for a shape's own color. The system's dialog
+// could not hold that button. A color is taken when a drag ends, the hue
 // slider is let go or the field is confirmed: each is one step to undo.
 
 import { esc } from './dom.ts';
@@ -11,13 +11,13 @@ import { openPop } from './popover.ts';
 
 /** What the picker edits. */
 export interface PickerOptions {
-  /** The colour shown first, #rrggbb. */
+  /** The color shown first, #rrggbb. */
   rgb: string;
-  /** A colour was chosen, #rrggbb. */
+  /** A color was chosen, #rrggbb. */
   onPick(rgb: string): void;
   /** Restore Default (none: the button is left out). */
   onDefault?: () => void;
-  /** Whether the colour is the default already (the button is off). */
+  /** Whether the color is the default already (the button is off). */
   isDefault?: boolean;
 }
 
@@ -55,7 +55,7 @@ function toRgb([h, s, v]: Hsv): string {
 }
 
 /** Opens the picker above an element. */
-export function openColourPicker(anchor: Element, o: PickerOptions): void {
+export function openColorPicker(anchor: Element, o: PickerOptions): void {
   let hsv = toHsv(o.rgb);
   const def =
     o.onDefault === undefined
@@ -98,7 +98,7 @@ export function openColourPicker(anchor: Element, o: PickerOptions): void {
     if (rgb !== taken) {
       taken = rgb;
       o.onPick(rgb);
-      // a colour of its own now: Default can be restored
+      // a color of its own now: Default can be restored
       const d = pop?.querySelector<HTMLButtonElement>('[data-k="default"]');
       if (d != null) {
         d.disabled = false;

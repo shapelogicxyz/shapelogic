@@ -355,10 +355,10 @@ export interface PlayTransfer {
 export type ShapeId = string;
 
 /**
- * A constraint colour.
+ * A constraint color.
  * @pattern ^c[1-9][0-9]*$
  */
-export type ColourId = string;
+export type ColorId = string;
 
 /**
  * A problem; also names its solve and its analysis.
@@ -413,7 +413,7 @@ export interface Changed {
 export type Empty = Record<string, never>;
 
 /**
- * A colour, #rrggbb (the engine writes lower case).
+ * A color, #rrggbb (the engine writes lower case).
  * @pattern ^#[0-9a-fA-F]{6}$
  */
 export type Rgb = string;
@@ -509,7 +509,7 @@ export type ProblemState = 'unsolved' | 'solving' | 'solved' | 'unknown';
 
 export type CellState = 'fixed' | 'variable';
 
-/** The grid editor's tools; paint changes only the colour of non-empty cells. */
+/** The grid editor's tools; paint changes only the color of non-empty cells. */
 export type CellTool = 'fixed' | 'variable' | 'erase' | 'paint';
 
 /**
@@ -543,12 +543,12 @@ export type ShapeTask =
   | 'outsideFixed'
   | 'insideVariable'
   | 'outsideVariable'
-  | 'insideDecolour'
-  | 'outsideDecolour'
+  | 'insideDecolor'
+  | 'outsideDecolor'
   | 'double'
   | 'triple'
   | 'toOrigin'
-  | 'centre'
+  | 'center'
   | 'minimize'
   | 'nudge27'
   | 'nudge28'
@@ -563,17 +563,17 @@ export type ShapeTask =
  * The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, flat faces with
  * edge lines, the STL export's mesh at the view's own parameters, or the uniform mesher's solid
  * (every edge of the piece chamfered to one width whatever its angle, concave edges too;
- * neighbouring cells joined by flat strips, so the checker alone shows the cells; closed; on the
+ * neighboring cells joined by flat strips, so the checker alone shows the cells; closed; on the
  * sphere grid the drawing mesh). The STL style is (the original's "Draw pieces like STL export":
  * gap 0.02 and bevel 0.05 of a cell with the interior chamfers, the sphere grid's balls at two
  * recursions; closed; the flat mesh where the mesher fails). The STL style's cell faces carry the
- * checker flag, as the others', and bevels are flagged 16; the original drew it in one colour. It
+ * checker flag, as the others', and bevels are flagged 16; the original drew it in one color. It
  * is made with the Manifold library on the prism, rhombic and tetra-octa grids and takes a while
  * for large shapes (seconds in a release build).
  */
 export type MeshStyle = 'drawing' | 'wireframe' | 'flat' | 'stl' | 'uniform';
 
-export type ChangeKind = 'shapes' | 'colours' | 'problems' | 'solutions' | 'notes' | 'rodSets';
+export type ChangeKind = 'shapes' | 'colors' | 'problems' | 'solutions' | 'notes' | 'rodSets';
 
 /**
  * A counter the problem moves on every change of its saved list (a solution added, removed,
@@ -615,10 +615,10 @@ export interface Frame {
 /**
  * A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per
  * triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its
- * side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker colour, 2 variable
- * mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), colour (u8,
- * colour number, 0 none; padded), polygon (u32); edgeLines (f32, two points per line, flat style
- * only); and imageUv (f32, two per vertex: where a vertex on a face looking up lies in the shape's
+ * side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker color, 2 variable
+ * mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), color (u8, color
+ * number, 0 none; padded), polygon (u32); edgeLines (f32, two points per line, flat style only);
+ * and imageUv (f32, two per vertex: where a vertex on a face looking up lies in the shape's
  * picture, as fractions (s, t) across its part shown, s right and t down; -1, -1 elsewhere; empty
  * for a shape without a picture, decision 0038).
  */
@@ -675,7 +675,7 @@ export interface RodSet {
   definedHeight: number;
   /** Disc size matters - no large on small (equal sizes stack); Panex columns ignore it. */
   sizeMatters: boolean;
-  /** Disc can only move over 1 rod: to a neighbouring rod only. */
+  /** Disc can only move over 1 rod: to a neighboring rod only. */
   distanceMatters: boolean;
   /**
    * Panex Style Columns: a disc of size s sits at most s places below the top, in any order; one
@@ -718,7 +718,7 @@ export type Stacks = DiscRef[][];
  * the 3D view draws around the discs' meshes.
  */
 export interface BoardLayout {
-  /** The distance between neighbouring rods. */
+  /** The distance between neighboring rods. */
   spacing: number;
   /**
    * The rods drawn, the pocket column included.
@@ -745,7 +745,7 @@ export interface BoardLayout {
   maxSize: number;
   /**
    * Each disc of the problem (its pieces: parts, then copies) and the cell its hotspot (its
-   * centre) stands on; null for a disc on no rod. Empty for a rod set drawn alone.
+   * center) stands on; null for a disc on no rod. Empty for a rod set drawn alone.
    */
   discs: ({
     shape: ShapeId;
@@ -774,8 +774,8 @@ export interface ShapeSummary {
   /** @minimum 0 */
   variable: number;
   weight: number;
-  /** The shape's own colour, or null for the default one. */
-  colour: Rgb | null;
+  /** The shape's own color, or null for the default one. */
+  color: Rgb | null;
   /**
    * A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape.
    * @minimum 0
@@ -788,11 +788,10 @@ export interface ShapeSummary {
    */
   disc: number | null;
   /**
-   * A stacking puzzle's disc: the palette colour of its first coloured cell, which the 3D view
-   * draws the disc in (the original's diskTint); null for a disc without one, or for any other
-   * shape.
+   * A stacking puzzle's disc: the palette color of its first colored cell, which the 3D view draws
+   * the disc in (the original's diskTint); null for a disc without one, or for any other shape.
    */
-  discColour: ColourId | null;
+  discColor: ColorId | null;
   /** The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none. */
   image: ShapeImage | null;
 }
@@ -845,8 +844,8 @@ export interface ShapeImage {
   turn: number;
 }
 
-export interface Colour {
-  id: ColourId;
+export interface Color {
+  id: ColorId;
   /** C1, C2, ... by place. */
   label: string;
   rgb: Rgb;
@@ -924,7 +923,7 @@ export interface Snapshot {
   /** A solve or an analysis is active: shapes and lists are frozen (decision 0011). */
   solving: boolean;
   shapes: ShapeSummary[];
-  colours: Colour[];
+  colors: Color[];
   problems: ProblemSummary[];
   /** A stacking puzzle's boards (at least one); empty on other grids. */
   rodSets: RodSet[];
@@ -947,7 +946,7 @@ export interface ShapeInfo {
   identicalMirror: ShapeId | null;
   /** ... in any orientation, not mirrored. */
   identicalShape: ShapeId | null;
-  /** ... colours included. */
+  /** ... colors included. */
   identicalComplete: ShapeId | null;
   connectedFace: boolean;
   connectedEdge: boolean;
@@ -993,7 +992,7 @@ export interface Part {
  * The Solver tab's settings stored with a problem (saved in the file, the original's names; the
  * front end decides what they mean). Settings of other versions are kept as strings. These names
  * are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations,
- * strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested,
+ * strictColors is strictColors, justLevels is justLevels; nestedSlides, partialNested,
  * verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory are sliding's
  * nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths
  * and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as
@@ -1059,11 +1058,11 @@ export interface ProblemDetail {
   slideGrid: number;
   parts: Part[];
   /**
-   * The allowed pairs: a piece cell of colour 'piece' may sit on a result cell of colour 'result'.
+   * The allowed pairs: a piece cell of color 'piece' may sit on a result cell of color 'result'.
    */
-  colourRules: ({
-    piece: ColourId;
-    result: ColourId;
+  colorRules: ({
+    piece: ColorId;
+    result: ColorId;
   })[];
   maxHoles: number | null;
   /** A paused search position is stored (solve.continue carries on from it). */
@@ -1134,7 +1133,7 @@ export interface SolveOptions {
   keepRotations?: boolean;
   /** The thorough rotation check (the original's deep symmetry check). */
   completeRotations?: boolean;
-  strictColours?: boolean;
+  strictColors?: boolean;
   /** Drop placements that can never be part of an assembly first (default true). */
   reduce?: boolean;
   sortBy?: SortBy;
@@ -1167,7 +1166,7 @@ export interface SolveOptions {
 /**
  * A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps
  * mirrored and rotated starts and holds each piece to its start marks (the start locks), whatever
- * the brick fields say; the colour rules apply as on every grid; disassemble (the GUI's Find
+ * the brick fields say; the color rules apply as on every grid; disassemble (the GUI's Find
  * Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play
  * no part (a path found goes at the end of the list). There is one sliding solver (engine.info's
  * slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's
@@ -1589,50 +1588,50 @@ export interface MovementNode {
 /** Every method: its params, its result and the errcs it may answer. */
 export interface Methods {
   /**
-   * The colours in list order.
-   * (colour.json)
+   * The colors in list order.
+   * (color.json)
    */
-  'colour.list': {
+  'color.list': {
     params: Record<string, never>;
     result: {
-      colours: Colour[];
+      colors: Color[];
     };
     errors: never;
   };
   /**
-   * Adds a colour (at most 63); every problem allows it on itself.
-   * (colour.json)
+   * Adds a color (at most 63); every problem allows it on itself.
+   * (color.json)
    */
-  'colour.add': {
+  'color.add': {
     params: {
       rgb: Rgb;
     };
     result: {
-      colour: ColourId;
+      color: ColorId;
       revision: Revision;
     };
     errors: 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Changes how a colour looks. Allowed while solving.
-   * (colour.json)
+   * Changes how a color looks. Allowed while solving.
+   * (color.json)
    */
-  'colour.edit': {
+  'color.edit': {
     params: {
-      colour: ColourId;
+      color: ColorId;
       rgb: Rgb;
     };
     result: Changed;
     errors: 'not_found';
   };
   /**
-   * Removes a colour: its cells revert to the shape's own colour, the colours after it move up,
-   * the problems with shapes using it lose their solutions.
-   * (colour.json)
+   * Removes a color: its cells revert to the shape's own color, the colors after it move up, the
+   * problems with shapes using it lose their solutions.
+   * (color.json)
    */
-  'colour.delete': {
+  'color.delete': {
     params: {
-      colour: ColourId;
+      color: ColorId;
     };
     result: Changed;
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
@@ -1776,7 +1775,7 @@ export interface Methods {
   /**
    * The puzzle on another grid (Edit ▸ Convert brick grid type to other): each cube of a cube-grid
    * puzzle becomes the cells that fill it (5x5x5 on the rhombic grid, 3x3x3 on the tetra-octa
-   * grid), the shapes keep their names, the colours and the notes stay, and each problem's
+   * grid), the shapes keep their names, the colors and the notes stay, and each problem's
    * definition is copied with its name, without its solutions. As the original, the document is
    * replaced: it has unsaved changes, nothing to undo, and keeps its path, so document.save writes
    * the converted puzzle over the file it came from. The grids a puzzle converts to are
@@ -2055,7 +2054,7 @@ export interface Methods {
       keepMirrors?: boolean;
       keepRotations?: boolean;
       completeRotations?: boolean;
-      strictColours?: boolean;
+      strictColors?: boolean;
       /** Default true. */
       reduce?: boolean;
     };
@@ -2122,7 +2121,7 @@ export interface Methods {
       handle: MovementExplorerHandle;
       root: MovementNode;
       /**
-       * The grid's movement directions as labelled ('x', '-x', ...): direction d forward is label
+       * The grid's movement directions as labeled ('x', '-x', ...): direction d forward is label
        * 2d, reversed 2d + 1.
        */
       directions: string[];
@@ -2373,7 +2372,7 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'unsupported';
   };
   /**
-   * The mesh of piece i (of playback.open's pieces) in its assembly orientation, centred as the
+   * The mesh of piece i (of playback.open's pieces) in its assembly orientation, centerd as the
    * poses expect; in any style (wireframe pieces, showing through solid ones).
    * (playback.json)
    */
@@ -2466,7 +2465,7 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Adds a problem; it allows each colour on itself. Allowed while solving: the solves go on.
+   * Adds a problem; it allows each color on itself. Allowed while solving: the solves go on.
    * (problem.json)
    */
   'problem.create': {
@@ -2676,24 +2675,24 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Allows or forbids piece colour on result colour; removes the solutions.
+   * Allows or forbids piece color on result color; removes the solutions.
    * (problem.json)
    */
-  'problem.setColourRule': {
+  'problem.setColorRule': {
     params: {
       problem: ProblemId;
-      pieceColour: ColourId;
-      resultColour: ColourId;
+      pieceColor: ColorId;
+      resultColor: ColorId;
       allowed: boolean;
     };
     result: Changed;
     errors: 'not_found' | 'invalid_state';
   };
   /**
-   * Sets every colour rule at once: each colour on itself, all on all, or none.
+   * Sets every color rule at once: each color on itself, all on all, or none.
    * (problem.json)
    */
-  'problem.setColourRules': {
+  'problem.setColorRules': {
     params: {
       problem: ProblemId;
       preset: 'eachOnItself' | 'allowAll' | 'clear';
@@ -2766,8 +2765,8 @@ export interface Methods {
       cells: ({
         at: Cell;
         state: CellState;
-        /** Absent: the shape's own colour. */
-        colour?: ColourId;
+        /** Absent: the shape's own color. */
+        color?: ColorId;
       })[];
     };
     errors: 'not_found';
@@ -2847,10 +2846,10 @@ export interface Methods {
     errors: 'not_found' | 'invalid_state';
   };
   /**
-   * The shape's own colour, or null for the default one.
+   * The shape's own color, or null for the default one.
    * (shape.json)
    */
-  'shape.setColour': {
+  'shape.setColor': {
     params: {
       shape: ShapeId;
       rgb: Rgb | null;
@@ -2925,8 +2924,8 @@ export interface Methods {
     params: {
       shape: ShapeId;
       tool: CellTool;
-      /** The colour put on the cells; absent: none (the shape's own). */
-      colour?: ColourId;
+      /** The color put on the cells; absent: none (the shape's own). */
+      color?: ColorId;
       mirror?: Axes;
       span?: Axes;
       cells: Cell[];
@@ -2944,7 +2943,7 @@ export interface Methods {
     params: {
       shape: ShapeId;
       tool: CellTool;
-      colour?: ColourId;
+      color?: ColorId;
       mirror?: Axes;
       span?: Axes;
       from: Cell;
@@ -2971,7 +2970,7 @@ export interface Methods {
   /**
    * The tool tabs' operations the document's grid offers, in the original's button order. The
    * sliding grid leaves out what would give a shape more layers (the nudges along Z, the turns
-   * about X and Y, double, triple, the grid scale), as the original greyed them out.
+   * about X and Y, double, triple, the grid scale), as the original grayed them out.
    * (shape.json)
    */
   'shape.taskSet': {
@@ -2990,7 +2989,7 @@ export interface Methods {
   };
   /**
    * A tool tab operation on a shape (and, with toAll and a task that allows it, on every shape):
-   * flip, rotate, nudge (refused when cells would leave the grid), prune, centre, to origin,
+   * flip, rotate, nudge (refused when cells would leave the grid), prune, center, to origin,
    * minimize, double, triple, fill holes, the surface. Refused (invalid_argument) on a stacking
    * puzzle, whose shapes are discs (stacking.setDiscSize).
    * (shape.json)
@@ -3006,7 +3005,7 @@ export interface Methods {
       /** The shape changed at all (cells, size or hotspot). */
       changed: boolean;
       /**
-       * Cells whose state or colour changed (fill holes: the holes filled).
+       * Cells whose state or color changed (fill holes: the holes filled).
        * @minimum 0
        */
       cellsChanged: number;
@@ -3092,9 +3091,9 @@ export interface Methods {
         /** Counter-clockwise, y up. */
         polygon?: Point2[];
         /** Per edge (corner i to i + 1): the index in cells of the cell across it, -1 for none. */
-        neighbours?: number[];
+        neighbors?: number[];
         circle?: {
-          centre: Point2;
+          center: Point2;
           radius: number;
         };
       })[];
@@ -3108,7 +3107,7 @@ export interface Methods {
    * of the grid, or a side the cell does not have: invalid_argument.
    * (shape.json)
    */
-  'grid.neighbour': {
+  'grid.neighbor': {
     params: {
       size: Size;
       cell: Cell;
@@ -4005,7 +4004,7 @@ export interface Methods {
   };
   /**
    * A disc's size (the disc list's size field, 1 to 100): the disc is made anew, a square of 2
-   * size + 1 cells one cell thick with its centre empty, its colour kept. Solutions stay, as the
+   * size + 1 cells one cell thick with its center empty, its color kept. Solutions stay, as the
    * original kept them. One undo step.
    * (stacking.json)
    */
@@ -4160,7 +4159,7 @@ export interface Methods {
   /**
    * A problem's board as the Problems tab showed it: its rods (names, the pocket, capacities), the
    * start's or the goal's stacks, where the rods and discs stand, the validity bar's sentence, and
-   * the centre a playback's poses are placed around (playback.json: a stacking solution is centred
+   * the center a playback's poses are placed around (playback.json: a stacking solution is centerd
    * on its board).
    * (stacking.json)
    */
@@ -4183,7 +4182,7 @@ export interface Methods {
        */
       error: string | null;
       /** The middle of the board, half the rods' height up, in cells; null without a rod set. */
-      centre: [number, number, number] | null;
+      center: [number, number, number] | null;
     };
     errors: 'unsupported' | 'not_found';
   };
@@ -4459,10 +4458,10 @@ export interface Events {
 
 /** The methods of the schema (engine.info's methods must be these). */
 export const METHOD_NAMES = [
-  'colour.add',
-  'colour.delete',
-  'colour.edit',
-  'colour.list',
+  'color.add',
+  'color.delete',
+  'color.edit',
+  'color.list',
   'document.convertGrid',
   'document.exportPuzzlecad',
   'document.get',
@@ -4497,7 +4496,7 @@ export const METHOD_NAMES = [
   'export.stlMesh',
   'export.stlParameters',
   'grid.geometry',
-  'grid.neighbour',
+  'grid.neighbor',
   'playback.close',
   'playback.mesh',
   'playback.open',
@@ -4519,8 +4518,8 @@ export const METHOD_NAMES = [
   'problem.removeAllPieces',
   'problem.removePiece',
   'problem.rename',
-  'problem.setColourRule',
-  'problem.setColourRules',
+  'problem.setColorRule',
+  'problem.setColorRules',
   'problem.setGroup',
   'problem.setGroupCount',
   'problem.setPieceCount',
@@ -4543,7 +4542,7 @@ export const METHOD_NAMES = [
   'shape.resize',
   'shape.setBox',
   'shape.setCells',
-  'shape.setColour',
+  'shape.setColor',
   'shape.setImage',
   'shape.setWeight',
   'shape.table',

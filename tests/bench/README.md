@@ -108,7 +108,7 @@ build, with its assertions off, did not make: `GridType::getSymmetries()`
 `normalizeTransformation`), `Problem::getPartMaximum` / `partShape`, the
 voxel transformation cache's lookup, and an `Assembly` copied for every
 symmetry checked. They are inline now (the tables behind
-constant-initialised pointers, the cache's bound checked against its size)
+constant-initialized pointers, the cache's bound checked against its size)
 and the check reuses one scratch assembly; the assertions stay on and no
 answer changes (the oracle is green).
 

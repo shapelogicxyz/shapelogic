@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The materials of a shape's faces: the colours and the light of the
+// The materials of a shape's faces: the colors and the light of the
 // original's 3D view (voxelFrame_c::drawShape and draw() in
 // src/gui/voxelframe.cpp), as a shader over the per-vertex attributes of
 // mesh.ts, so the view's options change uniforms, not geometry.
 //
-// A face's colour, as the original chose it: in the colour view, a
-// constraint colour (aColour > 0) unless the face is the variable marker;
+// A face's color, as the original chose it: in the color view, a
+// constraint color (aColor > 0) unless the face is the variable marker;
 // the variable marker (flag 4) black; the checker's light faces (flag 1)
-// the piece colour lightened (lightPieceColor), when the style has the
-// checker; every other face the piece colour darkened (darkPieceColor).
+// the piece color lightened (lightPieceColor), when the style has the
+// checker; every other face the piece color darkened (darkPieceColor).
 // Lit, as the original's fixed-function light: GL_COLOR_MATERIAL with the
 // global ambient 0.2, a light of ambient 0.2 and diffuse 0.6 at (700, 200,
-// 700) in eye space, no specular: colour * (0.4 + 0.6 * max(0, n . l)).
-// Unlit: the colour itself. Colours are the original's numbers, written to
-// the screen as they are (no colour management), as OpenGL did.
+// 700) in eye space, no specular: color * (0.4 + 0.6 * max(0, n . l)).
+// Unlit: the color itself. Colors are the original's numbers, written to
+// the screen as they are (no color management), as OpenGL did.
 //
 // A sliding piece's picture (decision 0038) takes the place of the piece
-// colour on the faces looking up: the engine gives each of their vertices
+// color on the faces looking up: the engine gives each of their vertices
 // its place in the picture (the frame's imageUv, -1 elsewhere), so the
 // picture turns with the piece in any orientation; uImageSrc picks the
 // part shown out of the texture.
@@ -39,7 +39,7 @@ import {
 } from 'three';
 import type { IUniform } from 'three';
 
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import type { PiecePicture } from '../shell/picture-math.ts';
 
 /** Which faces a material draws, for x-ray's two passes. */
@@ -47,13 +47,13 @@ export type FacePass = 'normal' | 'inside' | 'outside';
 
 const vertexShader = /* glsl */ `
 attribute float aFlags;
-attribute float aColour;
+attribute float aColor;
 attribute vec3 aCell;
 attribute vec2 aUv;
 varying vec3 vNormal;
 varying vec3 vViewPos;
 varying float vFlags;
-varying float vColour;
+varying float vColor;
 varying vec3 vCell;
 varying vec2 vUv;
 void main() {
@@ -61,7 +61,7 @@ void main() {
   vViewPos = mv.xyz;
   vNormal = normalize(normalMatrix * normal);
   vFlags = aFlags;
-  vColour = aColour;
+  vColor = aColor;
   vCell = aCell;
   vUv = aUv;
   gl_Position = projectionMatrix * mv;
@@ -71,7 +71,7 @@ void main() {
 const fragmentShader = /* glsl */ `
 uniform vec3 uPiece;
 uniform float uChecker;
-uniform float uColourView;
+uniform float uColorView;
 uniform sampler2D uPalette;
 uniform float uLit;
 uniform vec3 uLightPos;
@@ -85,7 +85,7 @@ uniform vec4 uImageSrc;
 varying vec3 vNormal;
 varying vec3 vViewPos;
 varying float vFlags;
-varying float vColour;
+varying float vColor;
 varying vec3 vCell;
 varying vec2 vUv;
 
@@ -102,13 +102,13 @@ void main() {
   if (uPass == 2 && inside) discard;
   vec3 c;
   bool marker = has(vFlags, 4.0);
-  if (uColourView > 0.5 && vColour > 0.5 && !marker) {
-    c = texture2D(uPalette, vec2((vColour + 0.5) / 256.0, 0.5)).rgb;
+  if (uColorView > 0.5 && vColor > 0.5 && !marker) {
+    c = texture2D(uPalette, vec2((vColor + 0.5) / 256.0, 0.5)).rgb;
   } else if (marker) {
     c = vec3(0.0);
   } else if (uImageOn > 0.5 && all(greaterThanEqual(vUv, vec2(0.0))) && all(lessThanEqual(vUv, vec2(1.0)))) {
     // the picture where the piece looks up, over the checker (outside its
-    // box: the colour)
+    // box: the color)
     c = texture2D(uImage, uImageSrc.xy + vUv * uImageSrc.zw).rgb;
   } else if (uChecker > 0.5 && has(vFlags, 1.0)) {
     c = 1.0 - 0.9 * (1.0 - uPiece);
@@ -133,7 +133,7 @@ export interface FaceUniforms {
   [name: string]: IUniform;
   uPiece: IUniform<Vector3>;
   uChecker: IUniform<number>;
-  uColourView: IUniform<number>;
+  uColorView: IUniform<number>;
   uPalette: IUniform<DataTexture>;
   uLit: IUniform<number>;
   uLightPos: IUniform<Vector3>;
@@ -155,7 +155,7 @@ export function faceUniforms(): FaceUniforms {
   return {
     uPiece: { value: new Vector3(1, 1, 1) },
     uChecker: { value: 1 },
-    uColourView: { value: 0 },
+    uColorView: { value: 0 },
     uPalette: { value: palette },
     uLit: { value: 1 },
     uLightPos: { value: new Vector3(700, 200, 700) },
@@ -168,7 +168,7 @@ export function faceUniforms(): FaceUniforms {
   };
 }
 
-/** Sets the piece colour. */
+/** Sets the piece color. */
 export function setPiece(u: FaceUniforms, c: Rgb3): void {
   u.uPiece.value.set(c[0], c[1], c[2]);
 }
@@ -182,7 +182,7 @@ function pictureTexture(p: PiecePicture): Texture {
     return have;
   }
   const t = new Texture(p.picture.bitmap);
-  // the bytes as they are, as the colours (no colour management); an
+  // the bytes as they are, as the colors (no color management); an
   // ImageBitmap's first row is the picture's top, at v 0
   t.colorSpace = NoColorSpace;
   t.flipY = false;
@@ -195,7 +195,7 @@ function pictureTexture(p: PiecePicture): Texture {
   return t;
 }
 
-/** Sets the piece's picture (null: none, or not decoded yet: the piece colour). */
+/** Sets the piece's picture (null: none, or not decoded yet: the piece color). */
 export function setPicture(u: FaceUniforms, p: PiecePicture | null): void {
   if (p === null) {
     u.uImageOn.value = 0;
@@ -213,11 +213,11 @@ export function setPicture(u: FaceUniforms, p: PiecePicture | null): void {
   u.uImageOn.value = 1;
 }
 
-/** Sets the constraint colours: `colours[n - 1]` is colour number n, `#rrggbb`. */
-export function setPalette(u: FaceUniforms, colours: readonly string[]): void {
+/** Sets the constraint colors: `colors[n - 1]` is color number n, `#rrggbb`. */
+export function setPalette(u: FaceUniforms, colors: readonly string[]): void {
   const tex = u.uPalette.value;
   const data = tex.image.data as Uint8Array;
-  colours.slice(0, 255).forEach((h, i) => {
+  colors.slice(0, 255).forEach((h, i) => {
     const n = Number.parseInt(h.slice(1), 16);
     const o = 4 * (i + 1);
     data[o] = (n >> 16) & 255;

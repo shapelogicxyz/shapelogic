@@ -10,7 +10,7 @@
 /// (2, -2) and (2, 2), that is by the moves (u, v) with u and v even and
 /// u - v a multiple of 4. The pentagons have five sides of one length
 /// (the offset `kOfs` makes them so) and meet four at the lattice points,
-/// which are the grid's 4-fold centres; (0, 0) is one. In mesh units the
+/// which are the grid's 4-fold centers; (0, 0) is one. In mesh units the
 /// plane is scaled by `kScale` and moved by one so that a space's cells
 /// lie in x, y >= 0; a cell is 1 high from z.
 /// Shared by the voxel class, the meshes and the editor's layer geometry.

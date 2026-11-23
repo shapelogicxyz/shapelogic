@@ -352,12 +352,12 @@ void VoxelRhombic::scale(unsigned int amount, bool grid) {
 
               voxelGrid = false;
 
-              // the diagonals from the centre of the cube to the corners
+              // the diagonals from the center of the cube to the corners
               if ((planeCloseness & 0x03) && (planeCloseness & 0x0C) && (planeCloseness & 0x30)) {
                 voxelGrid = true;
               }
 
-              // from the centre of the cube to the centres of the faces;
+              // from the center of the cube to the centers of the faces;
               // a diagonal cut needs the second plane of the pair too
               if ((planeCloseness & 0x03) == 0x03 &&
                   std::fabs(planeDist(0, ax, ay, az)) + std::fabs(planeDist(1, ax, ay, az)) < 5) {

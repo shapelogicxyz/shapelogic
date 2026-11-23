@@ -3,7 +3,7 @@
 // The goal's picture for its window of its own (BtApp.goalWindow): a
 // board's SVG drawing made to stand alone, as the page shows it. The
 // stylesheet's rules are written into each element as it is drawn now
-// (the theme's colours, what the buttons hide), references point inside
+// (the theme's colors, what the buttons hide), references point inside
 // the drawing, and the parts that only take the pointer are left out.
 // The window shows it as an image: nothing in it runs or is fetched.
 
@@ -94,7 +94,7 @@ export function standaloneSvg(svg: SVGSVGElement, how: PictureEdit = {}): string
   return new XMLSerializer().serializeToString(copy);
 }
 
-/** The page's background colour, for the goal window (the panel the board stands on). */
+/** The page's background color, for the goal window (the panel the board stands on). */
 export function pageBackground(): string {
   const panel = getComputedStyle(document.documentElement).getPropertyValue('--panel').trim();
   return /^#[0-9a-f]{6}$/i.test(panel) ? panel : '#ffffff';

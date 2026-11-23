@@ -3,7 +3,7 @@
 // The order in which the vector image paints its faces and lines (stage
 // 7): back to front for an eye, by a BSP tree, as gl2ps sorted the
 // original's vector export (gl2ps.c, GL2PS_BSP_SORT). A painter that sorts
-// whole triangles by their centres (three.js's SVGRenderer) draws a large
+// whole triangles by their centers (three.js's SVGRenderer) draws a large
 // face over a small one in front of it, and the edge lines under the
 // faces they border; the tree splits what lies across a plane, so every
 // piece is painted after everything behind it. A line lying in a face's
@@ -161,7 +161,7 @@ function build<F, S>(faces: Face<F>[], segments: Segment<S>[]): Node<F, S> | nul
 /**
  * The faces and lines in the order to paint them for an eye: `eye` a point
  * (a perspective camera's position), or, with `direction`, an eye far away
- * in that direction (an orthographic camera's: towards the eye).
+ * in that direction (an orthographic camera's: toward the eye).
  */
 export function paintingOrder<F, S>(
   faces: readonly Face<F>[],

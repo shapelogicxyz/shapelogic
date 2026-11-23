@@ -119,7 +119,7 @@ def puzzle_sets(old_repo: Path, tmp: Path) -> dict[str, list[tuple[str, Path, li
     glar = Path(os.environ.get("BT_BURR_GLAR", Path.home() / "git/burr-tools/burr-tools-clean/examples/Burr-Glar.xmpuzzle"))
     # Assembler 1 with nothing to break the symmetry on: every cover is
     # found in each orientation and checked. The tetrominoes have no
-    # assembly (a T too many for the colouring): the search alone.
+    # assembly (a T too many for the coloring): the search alone.
     identical = [
         ("20 dominoes 2x4x5", box_file(tmp / "domino_2x4x5.xmpuzzle", (5, 4, 2), [(DOMINO, 20)]), []),
         ("12 L-trominoes 3x3x4", box_file(tmp / "ltromino_3x3x4.xmpuzzle", (4, 3, 3), [(L3, 12)]), []),

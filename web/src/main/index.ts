@@ -32,7 +32,7 @@
 // The security checklist (stage 8, security.ts): the window sandboxed and
 // isolated; the page the app's own, on its own scheme (`bt-app://app/`,
 // served from the renderer's directory only; a dev server only when not
-// packaged); every request but the app's files cancelled; no permission
+// packaged); every request but the app's files canceled; no permission
 // granted; no webview, no new window, no navigation; a call naming a file
 // the window was not handed refused before the engine sees it
 // (path-grants.ts), and so is a page's settings.set naming one of the

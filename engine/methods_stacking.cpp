@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // stacking.* (api/stacking.json): a stacking puzzle's rod sets, discs and
 // stacks (decision 0015), the reads its editor and player need (where rods
-// and discs stand, the validity bar's sentence, the board's centre), and a
+// and discs stand, the validity bar's sentence, the board's center), and a
 // puzzle played by hand (decision 0042).
 #include "convert.h"
 #include "engine.h"
@@ -179,7 +179,7 @@ Json rodsJson(const stacking::RodSet& board, unsigned int discs) {
 
 // The board of a problem as the Problems tab showed it: its rods with
 // their names and capacities, the start's or the goal's stacks, where
-// rods and discs stand, the validity bar's sentence, and the centre the
+// rods and discs stand, the validity bar's sentence, and the center the
 // playback's poses are placed around.
 Reply stackingBoard(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
@@ -200,7 +200,7 @@ Reply stackingBoard(State& s, Params& p) {
       j["rodSet"] = nullptr;
       j["rods"] = Json::array();
       j["layout"] = nullptr;
-      j["centre"] = nullptr;
+      j["center"] = nullptr;
       return j;
     }
     const stacking::RodSet& board = puzzle.getRodSet(pr.getRodSetId());
@@ -208,8 +208,8 @@ Reply stackingBoard(State& s, Params& p) {
     j["rodSet"] = rodSetId(s, pr.getRodSetId());
     j["rods"] = rodsJson(board, static_cast<unsigned int>(pieces.size()));
     j["layout"] = layoutJson(s, stacking::layoutBoard(puzzle, pr, goal), pieces);
-    const std::array<double, 3> c = app::stackingCentre(puzzle, pr);
-    j["centre"] = Json::array({c[0], c[1], c[2]});
+    const std::array<double, 3> c = app::stackingCenter(puzzle, pr);
+    j["center"] = Json::array({c[0], c[1], c[2]});
     return j;
   });
 }

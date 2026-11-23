@@ -24,12 +24,12 @@ namespace bt::mesh {
 
 /// Face flags (FF_ of the original voxel.h): how the 3D view draws a face.
 enum FaceFlag : std::uint32_t {
-  kFaceColorLight = 0x01,    ///< the lighter colour of the checker pattern
+  kFaceColorLight = 0x01,    ///< the lighter color of the checker pattern
   kFaceVariableMark = 0x02,  ///< a variable cell: draw the variable marker on it
   kFaceVariable = 0x04,      ///< the face itself is the variable marker
   kFaceWireframe = 0x08,     ///< stays when the shape is drawn as a wire frame
   kFaceBevel = 0x10,         ///< added for the bevel of a cell edge
-  kFaceOffset = 0x20,        ///< added for the gap between neighbouring cells
+  kFaceOffset = 0x20,        ///< added for the gap between neighboring cells
   kFaceProcessed = 0x40,     ///< seen by the hole filling
   kFaceInside = 0x80,        ///< the inner side of a hollow shape
 };
@@ -61,12 +61,12 @@ struct Face {
   int index = kNone;  ///< its place in the list of faces
   std::uint32_t flags = 0;  ///< FaceFlag bits
   /// The cell the face belongs to (the voxel index) and which side of it
-  /// (the neighbour number; -1 for bevel, offset and filling faces): what a
+  /// (the neighbor number; -1 for bevel, offset and filling faces): what a
   /// click on the face picks.
   std::uint32_t voxel = 0;
   std::int32_t voxelFace = 0;
-  /// The constraint colour of the cell (0: none).
-  std::uint8_t colour = 0;
+  /// The constraint color of the cell (0: none).
+  std::uint8_t color = 0;
 };
 
 /// The mesh. Faces and half-edges are named by a number that stays while

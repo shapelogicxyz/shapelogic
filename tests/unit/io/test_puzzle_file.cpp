@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The .xmpuzzle reader and writer: what the original writes, what is kept
-// although it is not modelled (decisions 0006 and 0008), and what is refused.
+// although it is not modeled (decisions 0006 and 0008), and what is refused.
 
 #include "../model/model_test_helpers.h"
 
@@ -85,7 +85,7 @@ TEST_CASE("puzzle file: every fixture is saved byte for byte as the original sav
         readText(std::filesystem::path("tests/data/saved_by_original") /
                  (path.stem().string() + ".xml"));
     REQUIRE_FALSE(theirs.empty());
-    // a sliding puzzle's start marks were its cell colours: the original's
+    // a sliding puzzle's start marks were its cell colors: the original's
     // file is converted as it loads, so its save is the new form, not
     // the original's bytes
     if (p.getGridType().getType() != GridKind::Sliding) {
@@ -281,7 +281,7 @@ TEST_CASE("puzzle file: numbers are read as the original reads them", "[io][file
   CHECK_FALSE(p.getProblem(1).resultValid());  // shape 5 does not exist
 }
 
-TEST_CASE("puzzle file: voxel content, colours and goal marks", "[io][file]") {
+TEST_CASE("puzzle file: voxel content, colors and goal marks", "[io][file]") {
   const Puzzle p = parse(
       "<puzzle version=\"1\"><gridType type=\"5\"/><colors><color red=\"1\" green=\"2\" "
       "blue=\"300\"/></colors><shapes>"
@@ -294,7 +294,7 @@ TEST_CASE("puzzle file: voxel content, colours and goal marks", "[io][file]") {
   CHECK(v.isVariable(1));
   CHECK(v.getColor(1) == 63);
   CHECK(v.isEmpty(2));
-  CHECK(v.getColor(2) == 0);  // an empty cell has no colour
+  CHECK(v.getColor(2) == 0);  // an empty cell has no color
   CHECK(v.getHx() == 1);
   CHECK(v.getWeight() == 3);
   CHECK(v.getDiskSize() == 2);
@@ -345,7 +345,7 @@ TEST_CASE("puzzle file: what the original refuses is refused", "[io][file]") {
   CHECK_THAT(parseError(voxel("<voxel x=\"1\" y=\"1\" z=\"1\" type=\"0\">#64</voxel>")),
              ContainsSubstring("color too big"));
   CHECK_THAT(parseError(voxel("<voxel x=\"1\" y=\"1\" z=\"1\" type=\"0\">#a</voxel>")),
-             ContainsSubstring("unrecognised character"));
+             ContainsSubstring("unrecognized character"));
 
   CHECK_THAT(parseError(withProblem("", "<solutions><solution><assembly>0 0 0</assembly>"
                                         "</solution></solutions>")),
@@ -566,10 +566,10 @@ TEST_CASE("puzzle file: a save keeps the file's permissions", "[io][file]") {
 // 0027), written in the problem (<slideMarks>). A file from when they were
 // the start/goal shape's (the voxel's start= and goal=, decision 0021) has
 // them given to the problems on that shape as it loads; a file of the
-// original's keeps the starts as the cell colours of its start/goal
+// original's keeps the starts as the cell colors of its start/goal
 // shapes, with the pieces painted in their marks and a palette for the
 // locks: converted as it loads. Both are written the new way.
-TEST_CASE("file: sliding start marks are read, written and converted from colours",
+TEST_CASE("file: sliding start marks are read, written and converted from colors",
           "[io][sliding]") {
   const Result<Puzzle> p = io::parsePuzzle(
       "<?xml version=\"1.0\"?><puzzle version=\"2\"><gridType type=\"5\"/><shapes>"
@@ -608,7 +608,7 @@ TEST_CASE("file: sliding start marks are read, written and converted from colour
   CHECK(again2->getProblem(1).slideMarks() == again1->getProblem(1).slideMarks());
   CHECK(again2->getProblem(1).slideMarks().goal(2) == 3);
 
-  // the original's Klotski: starts as colours, pieces painted, 11 colours
+  // the original's Klotski: starts as colors, pieces painted, 11 colors
   Puzzle k = test::loadFixture("sliding/slide_klotski.xmpuzzle");
   const Voxel& tray = k.getShape(0);
   CHECK(sliding::isStartGoalShape(&tray));
@@ -621,7 +621,7 @@ TEST_CASE("file: sliding start marks are read, written and converted from colour
       CHECK(k.getShape(s).getColor(i) == 0);
     }
   }
-  // saved and read again, the marks are the same, and no colours came back
+  // saved and read again, the marks are the same, and no colors came back
   const Result<Puzzle> again = io::parsePuzzle(io::writePuzzle(k));
   REQUIRE(again.has_value());
   CHECK(again->getShape(0) == tray);

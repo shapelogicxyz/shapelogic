@@ -36,7 +36,7 @@ as written).
 - `menu.ts`: File ▸ Export ▸ Image…, Vector Image… (a document open), STL…
   (a shape with cells: `MenuState.shapes`), Solution Animation (GLB)… (the
   Solver shows a solution with its moves stored: `MenuState.animation`);
-  Puzzlecad stays greyed.
+  Puzzlecad stays grayed.
 - `engine/app-bridge.ts`: the commands `exportImage`, `exportVector`,
   `exportStl`, `exportGlb`; `FileKind` with `ExportKind`, `isFileKind`,
   `isExportKind`; `BtApp.writeExport(path, bytes)` (the preload turns an
@@ -65,7 +65,7 @@ as written).
     (`playback.open`, closed after), then the original's dialog
     (gltfexportwindow.cpp: Seconds per move 0.50, Cell size (mm) 10.0,
     Reassemble after the disassembly, Bevelled edges as in the 3D view,
-    "N steps. Pieces keep their solution colours.", its tooltips), the save
+    "N steps. Pieces keep their solution colors.", its tooltips), the save
     dialog (`<name> solution N.glb`), `playback.mesh` per piece (drawing or
     flat), `playback.track` (8 samples a step), `export/glb.ts`.
   - A field that is not a number above 0 keeps the dialog open with a
@@ -75,12 +75,12 @@ as written).
     is read-only").
 - `export/glb.ts` (`animationGlb`, DOM-free): `gltfexport.cpp`'s scene: a
   scene named "Solution N", a root node "Puzzle" scaled by the cell size
-  (metres), a node per piece named as `playback.open` names it (the shape's
+  (meters), a node per piece named as `playback.open` names it (the shape's
   name or S1, " #2" for a second copy) with its mesh (the playback's, in
   its assembly orientation; the inside faces left out as the original's
   FF_INSIDE_FACE; indexed by `mergeVertices`, flat shaded), a
-  `MeshStandardMaterial` of the piece's colour as the player draws it (the
-  view's sRGB numbers, written linear by three.js's colour management, as
+  `MeshStandardMaterial` of the piece's color as the player draws it (the
+  view's sRGB numbers, written linear by three.js's color management, as
   the original's `srgbToLinear`), metallic 0, roughness 0.6, both sides;
   an animation "Disassembly" whose channels are `playback.track`'s
   keyframes thinned as the original thinned them (`keptKeys`: a key stays
@@ -93,9 +93,9 @@ as written).
   `faces.userData` — a shape at a revision and transformation, or a
   playback's piece; set by the view, the pieces scene, the player and the
   explorer) asked again in the flat style, placed as the view has them,
-  from the view's camera at its size: the faces turned towards the eye, in
-  the colour the view's shader gives them (the material's uniforms: piece
-  colour, colour view and palette, the variable marker, the checker, the
+  from the view's camera at its size: the faces turned toward the eye, in
+  the color the view's shader gives them (the material's uniforms: piece
+  color, color view and palette, the variable marker, the checker, the
   dimmed layers, the original's light) computed per triangle; the flat
   style's edge lines; the variable marks; a wire-frame piece as its lines;
   the faded copies and fading pieces at their opacity; painted in the
@@ -154,7 +154,7 @@ as written).
   each of the canvas's size times the scale and the view's picture (drawn
   by the page beside a screenshot of the canvas: mean difference under 2
   of 255, under 0.5% of pixels off by more than 48), and a reference image
-  of the 1x; Puzzlecad greyed; Vector Image in the flat style without the
+  of the 1x; Puzzlecad grayed; Vector Image in the flat style without the
   overlays: the SVG's viewBox the view's, drawn by the page like the view
   (mean difference under 4, under 2% off; measured 0.54 and 0.37%) and a
   reference image of it. STL of CubeInCage S2 from its dialog (the
@@ -162,10 +162,10 @@ as written).
   triangles; a unit of 0 keeps the dialog; text at 2.5; a read-only file
   refused ("read-only" in the status bar), left with its bytes and mode; a
   path no dialog gave refused by the main process and not written.
-  Solution Animation greyed in Entities, enabled once the Solver plays the
+  Solution Animation grayed in Entities, enabled once the Solver plays the
   first solution; the dialog's steps the player's; a cell size of 20 mm;
   the .glb valid (Khronos), the root's scale 0.02, the playback's pieces
-  by name, a material per piece. `files.e2e.ts`'s greyed list now Puzzlecad,
+  by name, a material per piece. `files.e2e.ts`'s grayed list now Puzzlecad,
   the imports, grid conversion and the anaglyph modes.
 - Looked at by eye in this session (a throwaway spec, not kept): the
   vector image and the PNG of the Puzzle workspace's scene and of the
@@ -190,13 +190,13 @@ against the view's flat style. The 36 earlier ones are unchanged.
 
 ## Where this stage departs from the plan, and why
 1. **The vector image's painting order is a BSP tree's, not
-   SVGRenderer's.** SVGRenderer sorts whole triangles by their centres:
+   SVGRenderer's.** SVGRenderer sorts whole triangles by their centers:
    the first SVG of CubeInCage had every edge line under the faces (none
    showed) and black inside faces painted over the cage (2.6% of its
    pixels off from the view). The tree (as gl2ps, which the original's
    vector export used) gives the view's picture (0.37%). SVGRenderer still
    projects and writes the paths, in the tree's order.
-2. **Only the faces turned towards the eye are in the SVG**, and no
+2. **Only the faces turned toward the eye are in the SVG**, and no
    overlays (axes, boundary, slab), labels or x-ray inside faces: the
    flat faces enclose each shape, and the overlays are lines three.js's
    `LineSegments2` draws, which SVGRenderer cannot.
@@ -234,19 +234,19 @@ against the view's flat style. The 36 earlier ones are unchanged.
   one-cell cube is closed (the gate); the STL meshes (later) are the real
   answer.
 - The SVG has hidden faces under the visible ones (the painter paints
-  everything turned towards the eye); its size grows with the scene
+  everything turned toward the eye); its size grows with the scene
   (CubeInCage's shape about 60 KB, the Puzzle scene about 160 KB).
 - The BSP build recurses once per plane: a scene of many differently
   turned pieces (the Puzzle scene of a large puzzle) makes a deep tree;
   not measured beyond the fixtures.
 - In the Puzzle scene a faded optional copy is painted with all its faces
-  turned towards the eye at its opacity, so its far inner faces show
+  turned toward the eye at its opacity, so its far inner faces show
   through it; the view draws its nearest surface only.
 - The PNG is the canvas: the Puzzle scene's labels and boxes, the view cube
   and the toolbar (HTML) are not in it.
 - A solution without its moves cannot be animated (the original refused
   it too: "This solution has no disassembly to animate"); the menu item is
-  greyed then.
+  grayed then.
 - On Windows the write's rename over an existing file and `access(W_OK)`
   on a read-only file are unverified (as the core's: web-6.md's Windows
   section).

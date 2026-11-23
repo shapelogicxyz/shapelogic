@@ -15,7 +15,7 @@ namespace bt {
 /// shape's look and a space is a parallelogram of cells. Cells touch at
 /// their six sides, their top and bottom, and at the twelve edges with
 /// the cells of the rows above and below, never at a corner alone.
-/// Transformations turn about the centre of cell (0, 0, 0).
+/// Transformations turn about the center of cell (0, 0, 0).
 class VoxelHex : public Voxel {
  public:
   VoxelHex(unsigned int x, unsigned int y, unsigned int z, GridType gt, VoxelType init = 0)

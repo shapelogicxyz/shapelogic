@@ -116,7 +116,7 @@ TEST_CASE("uniform mesh: one cell of every polyhedral grid is watertight and out
       CHECK(euler(*m) == 2);
       // every face belongs to the cell; the cell faces carry their side
       int sides = 0;
-      Vec3 centre;
+      Vec3 center;
       int corners = 0;
       for (int i = 0; i < m->numFaces(); i++) {
         const Face& f = m->face(m->faceAt(i));
@@ -130,11 +130,11 @@ TEST_CASE("uniform mesh: one cell of every polyhedral grid is watertight and out
         }
       }
       for (int i = 0; i < m->numVertices(); i++) {
-        centre += m->vertex(i).pos;
+        center += m->vertex(i).pos;
         corners++;
       }
-      centre /= static_cast<float>(corners);
-      requireOutward(*m, centre);
+      center /= static_cast<float>(corners);
+      requireOutward(*m, center);
       // one face per side of the cell, as the flat mesh has
       const Polyhedron flat = shapeMesh(*v, MeshStyle::Flat);
       CHECK(sides == flat.numFaces());
@@ -281,7 +281,7 @@ TEST_CASE("uniform mesh: a shape of every polyhedral grid, plain and bumpy, is w
   }
 }
 
-TEST_CASE("uniform mesh: variable cells carry the mark, colours and stretch come through",
+TEST_CASE("uniform mesh: variable cells carry the mark, colors and stretch come through",
           "[mesh]") {
   const GridType gt(GridKind::Bricks);
   std::unique_ptr<Voxel> v = test::makeVoxel(gt, 3, 3, 3);
@@ -296,7 +296,7 @@ TEST_CASE("uniform mesh: variable cells carry the mark, colours and stretch come
   float zmax = 0;
   for (int i = 0; i < m->numFaces(); i++) {
     const Face& f = m->face(m->faceAt(i));
-    CHECK(f.colour == 3);
+    CHECK(f.color == 3);
     if (f.voxelFace >= 0) {
       CHECK((f.flags & kFaceVariableMark) != 0);
       marked++;

@@ -3,7 +3,7 @@
 // The Solver view's piece labels (Display ▸ Labels ▸ Show Piece Names and
 // Show Piece Labels): a sprite of a piece's label (S1, S1.2), its shape's
 // name, or both (pieceText in solution.ts), black on a white box so that it
-// reads on any piece colour, which solution.ts places on the piece. A
+// reads on any piece color, which solution.ts places on the piece. A
 // sprite always faces the eye, so the text stays upright however the view
 // turns. Kept out of solution.ts, which is also compiled without the DOM.
 
@@ -18,7 +18,7 @@ const LABEL_RATIO = 4;
 
 /**
  * A label's sprite: black text on a white box with a thin dark edge,
- * drawn over everything, a line for each line of `text` ("\n"), centred;
+ * drawn over everything, a line for each line of `text` ("\n"), centerd;
  * its `aspect` (width over height) and its height on the screen
  * (`pixels`) in `userData`. Null where there is no 2D canvas.
  */

@@ -36,7 +36,7 @@
               "properties": {
                 "at": {"$ref": "types.json#/$defs/Cell"},
                 "state": {"$ref": "types.json#/$defs/CellState"},
-                "colour": {"$ref": "types.json#/$defs/ColourId", "description": "Absent: the shape's own colour."}
+                "color": {"$ref": "types.json#/$defs/ColorId", "description": "Absent: the shape's own color."}
               },
               "required": ["at", "state"],
               "additionalProperties": false
@@ -103,8 +103,8 @@
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_state"]
     },
-    "shape.setColour": {
-      "summary": "The shape's own colour, or null for the default one.",
+    "shape.setColor": {
+      "summary": "The shape's own color, or null for the default one.",
       "params": {
         "type": "object",
         "properties": {
@@ -169,7 +169,7 @@
         "properties": {
           "shape": {"$ref": "types.json#/$defs/ShapeId"},
           "tool": {"$ref": "types.json#/$defs/CellTool"},
-          "colour": {"$ref": "types.json#/$defs/ColourId", "description": "The colour put on the cells; absent: none (the shape's own)."},
+          "color": {"$ref": "types.json#/$defs/ColorId", "description": "The color put on the cells; absent: none (the shape's own)."},
           "mirror": {"$ref": "types.json#/$defs/Axes"},
           "span": {"$ref": "types.json#/$defs/Axes"},
           "cells": {"type": "array", "items": {"$ref": "types.json#/$defs/Cell"}}
@@ -187,7 +187,7 @@
         "properties": {
           "shape": {"$ref": "types.json#/$defs/ShapeId"},
           "tool": {"$ref": "types.json#/$defs/CellTool"},
-          "colour": {"$ref": "types.json#/$defs/ColourId"},
+          "color": {"$ref": "types.json#/$defs/ColorId"},
           "mirror": {"$ref": "types.json#/$defs/Axes"},
           "span": {"$ref": "types.json#/$defs/Axes"},
           "from": {"$ref": "types.json#/$defs/Cell"},
@@ -215,7 +215,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "shape.taskSet": {
-      "summary": "The tool tabs' operations the document's grid offers, in the original's button order. The sliding grid leaves out what would give a shape more layers (the nudges along Z, the turns about X and Y, double, triple, the grid scale), as the original greyed them out.",
+      "summary": "The tool tabs' operations the document's grid offers, in the original's button order. The sliding grid leaves out what would give a shape more layers (the nudges along Z, the turns about X and Y, double, triple, the grid scale), as the original grayed them out.",
       "params": {"type": "object", "properties": {}, "additionalProperties": false},
       "result": {
         "type": "object",
@@ -240,7 +240,7 @@
       }
     },
     "shape.task": {
-      "summary": "A tool tab operation on a shape (and, with toAll and a task that allows it, on every shape): flip, rotate, nudge (refused when cells would leave the grid), prune, centre, to origin, minimize, double, triple, fill holes, the surface. Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).",
+      "summary": "A tool tab operation on a shape (and, with toAll and a task that allows it, on every shape): flip, rotate, nudge (refused when cells would leave the grid), prune, center, to origin, minimize, double, triple, fill holes, the surface. Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).",
       "params": {
         "type": "object",
         "properties": {
@@ -256,7 +256,7 @@
         "properties": {
           "revision": {"$ref": "types.json#/$defs/Revision"},
           "changed": {"type": "boolean", "description": "The shape changed at all (cells, size or hotspot)."},
-          "cellsChanged": {"type": "integer", "minimum": 0, "description": "Cells whose state or colour changed (fill holes: the holes filled)."}
+          "cellsChanged": {"type": "integer", "minimum": 0, "description": "Cells whose state or color changed (fill holes: the holes filled)."}
         },
         "required": ["revision", "changed", "cellsChanged"],
         "additionalProperties": false
@@ -331,11 +331,11 @@
               "properties": {
                 "at": {"$ref": "types.json#/$defs/Cell"},
                 "polygon": {"type": "array", "items": {"$ref": "types.json#/$defs/Point2"}, "description": "Counter-clockwise, y up."},
-                "neighbours": {"type": "array", "items": {"type": "integer", "minimum": -1}, "description": "Per edge (corner i to i + 1): the index in cells of the cell across it, -1 for none."},
+                "neighbors": {"type": "array", "items": {"type": "integer", "minimum": -1}, "description": "Per edge (corner i to i + 1): the index in cells of the cell across it, -1 for none."},
                 "circle": {
                   "type": "object",
-                  "properties": {"centre": {"$ref": "types.json#/$defs/Point2"}, "radius": {"type": "number"}},
-                  "required": ["centre", "radius"],
+                  "properties": {"center": {"$ref": "types.json#/$defs/Point2"}, "radius": {"type": "number"}},
+                  "required": ["center", "radius"],
                   "additionalProperties": false
                 }
               },
@@ -349,7 +349,7 @@
       },
       "errors": ["invalid_argument"]
     },
-    "grid.neighbour": {
+    "grid.neighbor": {
       "summary": "The cell across a side of a cell, in a space of the document's grid (the 3D view's tools that add a cell at a face): the sides are numbered as a MeshFrame's voxelFace (Voxel::getNeighbor, faces). Null when the cell across is outside the space. A cell outside the space or not a cell of the grid, or a side the cell does not have: invalid_argument.",
       "params": {
         "type": "object",

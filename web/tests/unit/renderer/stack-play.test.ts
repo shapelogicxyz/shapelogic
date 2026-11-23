@@ -31,7 +31,7 @@ import {
 import type { Stacks, Transfer } from '../../../src/renderer/play/stack-game.ts';
 import {
   parseStack,
-  serialiseStack,
+  serializeStack,
   STACK_KIND,
   STACK_MOVES_VERSION,
   stackMismatch,
@@ -141,7 +141,7 @@ describe('a stacking game played by hand', () => {
 
 describe('a stacking puzzle’s moves file', () => {
   const setup: StackSetup = { rods: [3, 3, 3], panex: false, start: [[3, 2, 1], [], []] };
-  const text = serialiseStack({
+  const text = serializeStack({
     puzzle: 'hanoi.xmpuzzle',
     problem: 'P1 Tower',
     ...setup,
@@ -219,7 +219,7 @@ describe('a stacking puzzle’s moves file', () => {
 });
 
 describe('a stacking board’s drawing', () => {
-  const colour: [number, number, number] = [0.2, 0.4, 0.8];
+  const color: [number, number, number] = [0.2, 0.4, 0.8];
   const hanoi: StackModel = {
     rods: [0, 1, 2].map((position) => ({
       name: `rod ${String(position + 1)}`,
@@ -229,7 +229,7 @@ describe('a stacking board’s drawing', () => {
     })),
     panex: false,
     channel: false,
-    discs: [3, 2, 1].map((size) => ({ size, colour, label: String(size) })),
+    discs: [3, 2, 1].map((size) => ({ size, color, label: String(size) })),
   };
 
   it('gives every rod a column as wide as the largest disc and a gap', () => {
@@ -247,7 +247,7 @@ describe('a stacking board’s drawing', () => {
     expect(rodAt(hanoi, look, (xs[0] ?? 0) + 3)).toBe(0);
     expect(rodAt(hanoi, look, (xs[1] ?? 0) - look.u)).toBe(1);
     expect(rodAt(hanoi, look, look.width)).toBe(2);
-    // a level above another, a disc centred on its rod
+    // a level above another, a disc centerd on its rod
     expect(levelY(look, 1)).toBeCloseTo(levelY(look, 0) - look.v);
     const [x, y] = discAt(hanoi, look, 3, 1, 2);
     expect(x + (7 * look.u) / 2).toBeCloseTo(xs[1] ?? 0);
@@ -305,7 +305,7 @@ describe('a stacking board’s drawing', () => {
       ],
       panex: true,
       channel: false,
-      discs: [3, 2, 1].map((size) => ({ size, colour, label: '' })),
+      discs: [3, 2, 1].map((size) => ({ size, color, label: '' })),
     };
     expect(rodColumn(panex, 2)).toBe(0);
     expect(rodColumn(panex, 0)).toBe(1);
@@ -334,7 +334,7 @@ describe('a stacking board’s drawing', () => {
       rods,
       panex: true,
       channel: true,
-      discs: [3, 2, 1].map((size) => ({ size, colour, label: '' })),
+      discs: [3, 2, 1].map((size) => ({ size, color, label: '' })),
     };
     const look = stackLook(panex, 800, 500);
     const svg = stackSvg(panex, [[{ disc: 0, z: 0 }], [], []], look);

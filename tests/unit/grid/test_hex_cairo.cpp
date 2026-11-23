@@ -55,8 +55,8 @@ std::unique_ptr<Voxel> shapeOf(const GridType& gt, const std::vector<Cell>& cell
   return v;
 }
 
-// The face neighbours of a cell.
-std::vector<Cell> faceNeighbours(const Voxel& v, const Cell& c) {
+// The face neighbors of a cell.
+std::vector<Cell> faceNeighbors(const Voxel& v, const Cell& c) {
   std::vector<Cell> out;
   int xn = 0;
   int yn = 0;
@@ -79,7 +79,7 @@ std::size_t tilings(const GridType& gt, const std::vector<Cell>& cells, const Vo
   std::vector<std::pair<Cell, Cell>> pairs;
   const std::unique_ptr<Voxel> probe = makeVoxel(gt, 1, 1, 1);
   for (const Cell& a : cells) {
-    for (const Cell& b : faceNeighbours(*probe, a)) {
+    for (const Cell& b : faceNeighbors(*probe, a)) {
       if (a < b && all.contains(b)) {
         // the pair as a shape of its own, moved to the origin's kind
         std::vector<Cell> two{a, b};
@@ -163,16 +163,16 @@ std::size_t assembliesOf(const Puzzle& p) {
 }  // namespace
 
 TEST_CASE("new grids: the lattices and the derived symmetry tables", "[grid][newgrids]") {
-  SECTION("hexagonal: a cell's centre is found again, the rows are sheared") {
+  SECTION("hexagonal: a cell's center is found again, the rows are sheared") {
     for (int y = -3; y <= 3; y++) {
       for (int x = -3; x <= 3; x++) {
-        const hex::HexCell c = hex::cellAt(hex::centreX(x, y), hex::centreY(y), hex::centreZ(2));
+        const hex::HexCell c = hex::cellAt(hex::centerX(x, y), hex::centerY(y), hex::centerZ(2));
         CHECK(c.x == x);
         CHECK(c.y == y);
         CHECK(c.z == 2);
       }
     }
-    CHECK(hex::centreX(0, 2) == 1.5);
+    CHECK(hex::centerX(0, 2) == 1.5);
     // 12 plain transformations and 24 in all, as the triangular prism
     // grid, and the same 54 groups
     const Symmetries& sym = GridType(GridKind::Hexagonal).getSymmetries();

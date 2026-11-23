@@ -3,7 +3,7 @@
 
 /// @file
 /// The STL mesh of a shape on the cube grids (bricks, sliding, stacking):
-/// a chamfered surface with a gap between neighbouring pieces, built from
+/// a chamfered surface with a gap between neighboring pieces, built from
 /// a table of the surface inside the dual cell around each cell corner.
 /// Ported from src/lib/cubemesh.{h,cpp} (cubeMesh::generate, with the
 /// tables cubetable.h and cubetable_nofill.h copied unchanged into
@@ -47,7 +47,7 @@ struct CubeSurface {
 /// The cube mesher's surface of a shape as a finalized polyhedron in cell
 /// units (cubePolyhedron): triangles tagged with the cell they belong to
 /// and its side (what a click in the view picks), bevels and fills
-/// flagged kFaceBevel, the checker colour on the cell faces.
+/// flagged kFaceBevel, the checker color on the cell faces.
 [[nodiscard]] Result<Polyhedron> cubePolyhedron(const Voxel& v, double g, double r, bool fills);
 
 }  // namespace bt::mesh

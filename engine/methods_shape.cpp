@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// shape.*, grid.geometry and grid.neighbour (api/shape.json).
+// shape.*, grid.geometry and grid.neighbor (api/shape.json).
 #include "convert.h"
 #include "engine.h"
 
@@ -38,7 +38,7 @@ Reply shapeGet(State& s, Params& p) {
   BTE_CHECK(p.finish());
   BTE_TRY(const unsigned int index, s.document().shapeIndex(shape));
   const Voxel& v = s.document().puzzle().getShape(index);
-  const unsigned int colours = s.document().puzzle().colorNumber();
+  const unsigned int colors = s.document().puzzle().colorNumber();
   Json cells = Json::array();
   for (unsigned int z = 0; z < v.getZ(); z++) {
     if (layer && z != *layer) {
@@ -53,9 +53,9 @@ Reply shapeGet(State& s, Params& p) {
         Json c = Json::object();
         c["at"] = Json::array({x, y, z});
         c["state"] = state == Voxel::kVariable ? "variable" : "fixed";
-        const unsigned int colour = v.getColor(x, y, z);
-        if (colour > 0 && colour <= colours) {
-          c["colour"] = colourId(s, colour - 1);
+        const unsigned int color = v.getColor(x, y, z);
+        if (color > 0 && color <= colors) {
+          c["color"] = colorId(s, color - 1);
         }
         cells.push_back(std::move(c));
       }
@@ -130,20 +130,20 @@ Reply shapeSetWeight(State& s, Params& p) {
   return s.changed();
 }
 
-Reply shapeSetColour(State& s, Params& p) {
+Reply shapeSetColor(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const Json& rgb = p.value("rgb");
-  std::optional<std::uint32_t> colour;
+  std::optional<std::uint32_t> color;
   if (!rgb.is_null()) {
     const std::optional<Rgb> c = rgb.is_string() ? parseRgb(rgb.get<std::string>()) : std::nullopt;
     if (!c) {
       p.fail("'rgb' must be \"#rrggbb\" or null");
     } else {
-      colour = std::uint32_t{c->r} << 16 | std::uint32_t{c->g} << 8 | c->b;
+      color = std::uint32_t{c->r} << 16 | std::uint32_t{c->g} << 8 | c->b;
     }
   }
   BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setShapeColour(shape, colour));
+  BTE_CHECK(s.document().setShapeColor(shape, color));
   return s.changed();
 }
 
@@ -229,7 +229,7 @@ std::uint8_t readSymmetry(Params& p) {
   return bits;
 }
 
-app::Id readColour(Params& p) { return p.optId("colour", IdKind::Colour).value_or(0); }
+app::Id readColor(Params& p) { return p.optId("color", IdKind::Color).value_or(0); }
 
 Json cellsChanged(State& s, unsigned int n) {
   return Json{{"revision", s.revision()}, {"changed", n}};
@@ -238,7 +238,7 @@ Json cellsChanged(State& s, unsigned int n) {
 Reply shapeSetCells(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const app::CellTool tool = p.choice("tool", cellToolNames());
-  const app::Id colour = readColour(p);
+  const app::Id color = readColor(p);
   const std::uint8_t symmetry = readSymmetry(p);
   const Json& list = p.value("cells");
   std::vector<app::CellEdit> cells;
@@ -260,20 +260,20 @@ Reply shapeSetCells(State& s, Params& p) {
     }
   }
   BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int n, s.document().editCells(shape, tool, colour, symmetry, cells));
+  BTE_TRY(const unsigned int n, s.document().editCells(shape, tool, color, symmetry, cells));
   return cellsChanged(s, n);
 }
 
 Reply shapeSetBox(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const app::CellTool tool = p.choice("tool", cellToolNames());
-  const app::Id colour = readColour(p);
+  const app::Id color = readColor(p);
   const std::uint8_t symmetry = readSymmetry(p);
   const std::array<int, 3> from = p.cell("from");
   const std::array<int, 3> to = p.cell("to");
   BTE_CHECK(p.finish());
   const app::CellBox box{from[0], from[1], from[2], to[0], to[1], to[2]};
-  BTE_TRY(const unsigned int n, s.document().editBox(shape, tool, colour, symmetry, box));
+  BTE_TRY(const unsigned int n, s.document().editBox(shape, tool, color, symmetry, box));
   return cellsChanged(s, n);
 }
 
@@ -366,14 +366,14 @@ Reply gridGeometry(State& s, Params& p) {
     Json j = Json::object();
     j["at"] = Json::array({c.x, c.y, layer});
     if (c.circle) {
-      j["circle"] = Json{{"centre", Json::array({c.centre.x, c.centre.y})}, {"radius", c.radius}};
+      j["circle"] = Json{{"center", Json::array({c.center.x, c.center.y})}, {"radius", c.radius}};
     } else {
       Json poly = Json::array();
       for (const app::LayerPoint& q : c.polygon) {
         poly.push_back(Json::array({q.x, q.y}));
       }
       j["polygon"] = std::move(poly);
-      j["neighbours"] = c.neighbours;
+      j["neighbors"] = c.neighbors;
     }
     cells.push_back(std::move(j));
   }
@@ -384,7 +384,7 @@ Reply gridGeometry(State& s, Params& p) {
 // which is getNeighbor's (voxel_mesh.cpp, sphere_mesh.cpp). Neither
 // getNeighbor nor validCoordinate depends on the size, so a one-cell space
 // of the grid answers for any.
-Reply gridNeighbour(State& s, Params& p) {
+Reply gridNeighbor(State& s, Params& p) {
   const std::optional<std::array<unsigned int, 3>> size = readSize(p, "size");
   const std::array<int, 3> cell = p.cell("cell");
   const unsigned int face = p.count("face");
@@ -425,7 +425,7 @@ void addShapeMethods(MethodTable& t) {
   t["shape.move"] = shapeMove;
   t["shape.rename"] = shapeRename;
   t["shape.setWeight"] = shapeSetWeight;
-  t["shape.setColour"] = shapeSetColour;
+  t["shape.setColor"] = shapeSetColor;
   t["shape.setImage"] = shapeSetImage;
   t["shape.clearImage"] = shapeClearImage;
   t["shape.imageData"] = shapeImageData;
@@ -439,7 +439,7 @@ void addShapeMethods(MethodTable& t) {
   t["shape.table"] = shapeTable;
   t["shape.mesh"] = shapeMesh;
   t["grid.geometry"] = gridGeometry;
-  t["grid.neighbour"] = gridNeighbour;
+  t["grid.neighbor"] = gridNeighbor;
 }
 
 }  // namespace bt::engine

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The shapes list of the Entities workspace's left card: the engine's
-// shapes (labels S1, S2... by place, names, colours), one of them
+// shapes (labels S1, S2... by place, names, colors), one of them
 // selected; new, duplicate (added last), delete (never the last), move by
 // drag or Alt+arrows (labels renumber), rename inline (F2, Enter or a
 // double-click; Enter commits, Esc cancels; the engine refuses what a name
-// cannot hold and its message shows), the shape's own colour, the
+// cannot hold and its message shows), the shape's own color, the
 // right-click menu (weight − and + too; the Puzzle workspace's Groups
 // table has them beside each piece), and the collapsed card's chips. From
 // docs/mockup/index.html: `renderShapes`, `selectShape`, `newShape`,
@@ -26,7 +26,7 @@ import { ic } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { layout, applyLayout, tab } from '../shell/layout.ts';
 import { onTheme } from '../shell/theme.ts';
-import { chipColour, contrast, hex, isTray, shownName } from '../shell/piece-colours.ts';
+import { chipColor, contrast, hex, isTray, shownName } from '../shell/piece-colors.ts';
 import { openPopAt } from '../shell/popover.ts';
 import { prefs } from '../shell/prefs.ts';
 import { DISC_MAX, DISC_MIN, DISC_SIZE_REFUSED, discSizeOf } from '../state/stacking.ts';
@@ -44,12 +44,9 @@ export interface ListHost {
   mutate<T extends { revision: number }>(doing: string, call: () => Promise<T>): Promise<T | null>;
 }
 
-/** The colour of a shape's chip and the ink on it. */
-export function chipColours(
-  s: ShapeSummary | undefined,
-  index: number,
-): { bg: string; fg: string } {
-  const c = chipColour(s, index);
+/** The color of a shape's chip and the ink on it. */
+export function chipColors(s: ShapeSummary | undefined, index: number): { bg: string; fg: string } {
+  const c = chipColor(s, index);
   return { bg: hex(c), fg: contrast(c) };
 }
 
@@ -58,7 +55,7 @@ export class ShapesList {
   private readonly list = byId('shapeList');
   /** A sliding puzzle's boards (empty on other grids). */
   private readonly boards = byId('boardList');
-  private renaming: { id: string; input: HTMLInputElement; cancelled: boolean } | null = null;
+  private renaming: { id: string; input: HTMLInputElement; canceled: boolean } | null = null;
   /** A disc's size field being typed in (the list is not drawn over it meanwhile). */
   private sizing: string | null = null;
   private dragFrom: string | null = null;
@@ -108,7 +105,7 @@ export class ShapesList {
     byId('boardsSec').hidden = !sliding;
     if (this.renaming === null && this.sizing === null) {
       const rows = shapes.map((s, i) => {
-        const { bg, fg } = chipColours(s, i);
+        const { bg, fg } = chipColors(s, i);
         const sel = s.id === store.selected;
         if (discs) {
           // the disc list's row: the name, then "size:" with its field, + and −
@@ -141,7 +138,7 @@ export class ShapesList {
       `<button class="ib" id="btnLE" title="Expand Shapes">${ic('panelL')}</button>` +
       shapes
         .map((s, i) => {
-          const { bg, fg } = chipColours(s, i);
+          const { bg, fg } = chipColors(s, i);
           const ring =
             s.id === store.selected
               ? 'box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent);'
@@ -167,7 +164,7 @@ export class ShapesList {
       last === undefined
         ? [prefs.slideX * u, prefs.slideY * u, prefs.slideZ * u]
         : [last.size[0], last.size[1], last.size[2]];
-    // the board has no colour of its own: it takes the theme's Sliding board color
+    // the board has no color of its own: it takes the theme's Sliding board color
     const r = await this.host.mutate('New board', () =>
       this.host.store.engine.call('sliding.addStartGoal', { size }),
     );
@@ -280,11 +277,11 @@ export class ShapesList {
         }
         return;
       }
-      case 'colour':
-        this.pickColour(s);
+      case 'color':
+        this.pickColor(s);
         return;
-      case 'nocolour':
-        await this.host.mutate('Colour', () => e.call('shape.setColour', { shape: id, rgb: null }));
+      case 'nocolor':
+        await this.host.mutate('Color', () => e.call('shape.setColor', { shape: id, rgb: null }));
         return;
     }
   }
@@ -352,10 +349,10 @@ export class ShapesList {
     }
   }
 
-  // the shape's own colour: the system's colour picker, for the shape it names
-  private pickColour(s: ShapeSummary): void {
-    const pick = byId<HTMLInputElement>('shapeColourPick');
-    pick.value = hex(chipColour(s, this.shapes.indexOf(s)));
+  // the shape's own color: the system's color picker, for the shape it names
+  private pickColor(s: ShapeSummary): void {
+    const pick = byId<HTMLInputElement>('shapeColorPick');
+    pick.value = hex(chipColor(s, this.shapes.indexOf(s)));
     pick.dataset.shape = s.id;
     pick.click();
   }
@@ -379,7 +376,7 @@ export class ShapesList {
     if (input === null) {
       return;
     }
-    this.renaming = { id, input, cancelled: false };
+    this.renaming = { id, input, canceled: false };
     input.focus();
     input.select();
     input.addEventListener('keydown', (e) => {
@@ -393,7 +390,7 @@ export class ShapesList {
     });
   }
 
-  // ends a rename: commits unless cancelled
+  // ends a rename: commits unless canceled
   private endRename(cancel: boolean): void {
     const r = this.renaming;
     if (r === null) {
@@ -402,7 +399,7 @@ export class ShapesList {
     this.renaming = null;
     const name = r.input.value;
     const s = this.shapes.find((x) => x.id === r.id);
-    if (!cancel && !r.cancelled && s !== undefined && name !== shownName(s)) {
+    if (!cancel && !r.canceled && s !== undefined && name !== shownName(s)) {
       void this.host.mutate('Rename', () =>
         this.host.store.engine.call('shape.rename', { shape: r.id, name }),
       );
@@ -427,13 +424,13 @@ export class ShapesList {
     for (const list of [this.boards, this.list]) {
       this.installList(list);
     }
-    const pick = byId<HTMLInputElement>('shapeColourPick');
+    const pick = byId<HTMLInputElement>('shapeColorPick');
     pick.addEventListener('change', () => {
       const shape = pick.dataset.shape;
       const rgb = pick.value.toLowerCase();
       if (shape !== undefined && !this.host.refuse()) {
-        void this.host.mutate('Colour', () =>
-          this.host.store.engine.call('shape.setColour', { shape, rgb }),
+        void this.host.mutate('Color', () =>
+          this.host.store.engine.call('shape.setColor', { shape, rgb }),
         );
       }
     });
@@ -519,7 +516,7 @@ export class ShapesList {
       if (this.renaming === null) {
         return false;
       }
-      this.renaming.cancelled = true;
+      this.renaming.canceled = true;
       this.renaming.input.blur();
       return true;
     });
@@ -593,7 +590,7 @@ export class ShapesList {
       openPopAt(
         e.clientX,
         e.clientY,
-        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label" title="Give this shape a name">Rename…<span class="kb">F2</span></button><button data-k="copy" title="Make a copy of this shape">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${this.canMove(i, i - 1) ? '' : 'disabled'} title="Exchange this shape with the previous shape">Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${this.canMove(i, i + 1) ? '' : 'disabled'} title="Exchange this shape with the next shape">Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp" title="Make this shape heavier: when the disassembly separates pieces, the heavier group stays in place">Weight +1</button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''} title="Make this shape lighter: when the disassembly separates pieces, the lighter group moves">Weight −1</button>`}<hr><button data-k="colour" title="Choose this shape’s own color">Color…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''} title="Back to the color ShapeLogic gives this shape">Default color</button><hr><button data-k="del" title="${isTray(s) ? 'Delete this board: the problems on it are left without a result' : 'Delete this shape from the puzzle'}" style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
+        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label" title="Give this shape a name">Rename…<span class="kb">F2</span></button><button data-k="copy" title="Make a copy of this shape">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${this.canMove(i, i - 1) ? '' : 'disabled'} title="Exchange this shape with the previous shape">Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${this.canMove(i, i + 1) ? '' : 'disabled'} title="Exchange this shape with the next shape">Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp" title="Make this shape heavier: when the disassembly separates pieces, the heavier group stays in place">Weight +1</button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''} title="Make this shape lighter: when the disassembly separates pieces, the lighter group moves">Weight −1</button>`}<hr><button data-k="color" title="Choose this shape’s own color">Color…</button><button data-k="nocolor" ${s.color === null ? 'disabled' : ''} title="Back to the color ShapeLogic gives this shape">Default color</button><hr><button data-k="del" title="${isTray(s) ? 'Delete this board: the problems on it are left without a result' : 'Delete this shape from the puzzle'}" style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
         (k) => {
           void this.action(k, id);
         },

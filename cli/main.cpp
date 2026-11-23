@@ -732,7 +732,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
 
     bt::MatrixOptions matrix;
     // the start marks hold a sliding piece to its start; the older model
-    // (a tray and a goal map in piece colours) is matched strictly instead
+    // (a tray and a goal map in piece colors) is matched strictly instead
     const bool marks = sliding && bt::sliding::usesStartMarks(puzzle, problem);
     matrix.strictColors = sliding ? !marks : o.strictColors;
     matrix.startLocks = marks;

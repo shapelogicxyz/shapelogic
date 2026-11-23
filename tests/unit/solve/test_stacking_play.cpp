@@ -285,12 +285,12 @@ TEST_CASE("stacking play: a replay stops at the first transfer the rules refuse"
   REQUIRE(full.has_value());
   CHECK(full->error == "Rod 3 is full.");
 
-  // only to a neighbouring rod
+  // only to a neighboring rod
   puz.getRodSet(0).distanceMatters = true;
   const Result<PlayReplay> far = playReplay(puz, pr, Stacking{{0}, {}, {1, 2}}, {{0, 1}, {2, 0}});
   REQUIRE(far.has_value());
   CHECK(far->steps.size() == 1);
-  CHECK(far->error == "A disc can only move to a neighbouring rod.");
+  CHECK(far->error == "A disc can only move to a neighboring rod.");
 }
 
 TEST_CASE("stacking play: the play calls keep the solver's rules at every position",
@@ -300,7 +300,7 @@ TEST_CASE("stacking play: the play calls keep the solver's rules at every positi
     const Problem& pr = makeHanoi(puz, 4);
     CHECK(walkGame(puz, pr, 100000) == 81);
   }
-  SECTION("only to a neighbouring rod") {
+  SECTION("only to a neighboring rod") {
     Puzzle puz = makeBoard();
     puz.getRodSet(0).distanceMatters = true;
     const Problem& pr = makeHanoi(puz, 3);

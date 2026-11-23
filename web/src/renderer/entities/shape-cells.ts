@@ -15,20 +15,20 @@ import { reportError } from '../shell/status.ts';
 import { key } from './editor-state.ts';
 import type { Cell } from './editor-state.ts';
 
-/** A non-empty cell: its state and its colour (null: the shape's own). */
+/** A non-empty cell: its state and its color (null: the shape's own). */
 export interface CellValue {
   at: Cell;
   state: CellState;
-  colour: string | null;
+  color: string | null;
 }
 
 type Cells = Map<string, CellValue>;
 
-function toMap(cells: readonly { at: number[]; state: CellState; colour?: string }[]): Cells {
+function toMap(cells: readonly { at: number[]; state: CellState; color?: string }[]): Cells {
   const m: Cells = new Map();
   for (const c of cells) {
     const at: Cell = [c.at[0] ?? 0, c.at[1] ?? 0, c.at[2] ?? 0];
-    m.set(key(at), { at, state: c.state, colour: c.colour ?? null });
+    m.set(key(at), { at, state: c.state, color: c.color ?? null });
   }
   return m;
 }
@@ -55,7 +55,7 @@ export class ShapeCells {
         const p = c.change;
         if (
           this.shape !== null &&
-          (p.what.includes('shapes') || p.what.includes('colours')) &&
+          (p.what.includes('shapes') || p.what.includes('colors')) &&
           (p.shapes.length === 0 || p.shapes.includes(this.shape))
         ) {
           this.stale = true;

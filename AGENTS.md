@@ -55,7 +55,7 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
 ## How to port code from the original
 
 1. **Faithful first, restructured second.** Port the algorithm with its
-   behaviour intact, prove it with tests and the harness, then reshape it.
+   behavior intact, prove it with tests and the harness, then reshape it.
    Never "improve" an algorithm while porting it.
 2. **Cite the source.** At the top of each ported file, name the original
    file(s) it comes from, e.g. `// Ported from src/lib/voxel_0.cpp`.

@@ -26,7 +26,7 @@ exist in the original: its "Drop" field keeps every n-th solution
 
 ## Conventions
 
-- **Stable ids.** Shapes, colours, problems and solutions are referred to by
+- **Stable ids.** Shapes, colors, problems and solutions are referred to by
   a stable id (`"s7"`, `"c2"`, `"p1"`, `"sol42"`) that survives reordering.
   Display labels (S1, P1, C2) follow the current order and are returned with
   each item. The file format still stores positions; ids are runtime only.
@@ -56,24 +56,24 @@ exist in the original: its "Drop" field keeps every n-th solution
 | `document.new {gridType}` | new puzzle; the grid type is fixed for its life | `puzzle_c` constructor, `gridType_c` |
 | `document.open {path}` / `document.openBytes` | load `.xmpuzzle` (unknown content preserved) | `puzzle_c::load`, `xml.cpp`, `gzstream.cpp` |
 | `document.save {path?}` / `document.saveBytes` | write `.xmpuzzle` | `puzzle_c::save` |
-| `document.get` | full snapshot: grid type, shapes, colours, problems, notes, revision, dirty | new |
+| `document.get` | full snapshot: grid type, shapes, colors, problems, notes, revision, dirty | new |
 | `document.setNotes {text}` | puzzle comment | `puzzle_c::setComment` |
 | `edit.undo` / `edit.redo` / `edit.history` | undo stack | `shapeHistory_c` (generalised to everything) |
 | `edit.begin` / `edit.end` | group calls into one undo step | new |
 | `settings.get` / `settings.set` | worker threads, undo depth, solver defaults | `configuration.cpp` (only the non-UI settings) |
 
-Events: `document.changed {revision, what: [shapes|colours|problems|solutions|notes], ids}`.
+Events: `document.changed {revision, what: [shapes|colors|problems|solutions|notes], ids}`.
 
 ## 2. Shapes and voxels
 
 | Method | Purpose | Ported from |
 |---|---|---|
-| `shape.list` | ids, labels, size, cell counts (fixed/variable), weight, colour | `puzzle_c` shapes |
+| `shape.list` | ids, labels, size, cell counts (fixed/variable), weight, color | `puzzle_c` shapes |
 | `shape.create {size?}` / `shape.duplicate` / `shape.delete` | | `puzzle_c::addShape`, `removeShape` |
 | `shape.move {id, toIndex}` | reorder (labels renumber) | `puzzle_c::exchangeShapes` |
 | `shape.rename {id, label}` / `shape.setWeight` | | `voxel_c::setName`, `setWeight` |
-| `shape.get {id}` | size and all cells (state, colour) | `voxel_c` |
-| `shape.setCells {id, cells:[{x,y,z,state,colour}]}` | batch edit; the front end expands mirror/span itself or passes `mirror`/`span` options | `voxel_c::setState`, `setColor`; grid editor tools |
+| `shape.get {id}` | size and all cells (state, color) | `voxel_c` |
+| `shape.setCells {id, cells:[{x,y,z,state,color}]}` | batch edit; the front end expands mirror/span itself or passes `mirror`/`span` options | `voxel_c::setState`, `setColor`; grid editor tools |
 | `shape.selectionFill` / `shape.selectionClear` | box selection actions | grid editor |
 | `shape.resize {ids, size}` | grow/shrink one or all shapes | `voxel_c::resize` |
 | `shape.transform {id, op}` | flip / rotate / nudge, per grid; fails if the piece would leave the grid | `voxel_c::transform`, `translate` |
@@ -81,28 +81,28 @@ Events: `document.changed {revision, what: [shapes|colours|problems|solutions|no
 | `shape.prune` / `shape.center` / `shape.toOrigin` | fit to grid | `voxel_c::minimizePiece`, `resize`, `translate` |
 | `shape.minimize` / `shape.scale {factor}` | resolution down / up | `voxel_c::scaleDown`, `scale` |
 | `shape.fillHoles` | returns the number filled | `voxel_c::fillHoles` |
-| `shape.surface {part: inner|outer, action: fixed|variable|clearColour}` | returns the number changed | `voxel_c::actionOnSpace` |
+| `shape.surface {part: inner|outer, action: fixed|variable|clearColor}` | returns the number changed | `voxel_c::actionOnSpace` |
 | `shape.info {id}` | status window data: cells, symmetry, connectedness, identical shapes | `statuswindow.cpp`, `voxel_c` queries |
-| `grid.geometry {gridType, size}` | per cell: polygon/circle for the 2D layer view, layer index, neighbours | `voxel_*` geometry, grid editors |
+| `grid.geometry {gridType, size}` | per cell: polygon/circle for the 2D layer view, layer index, neighbors | `voxel_*` geometry, grid editors |
 | `shape.mesh {id}` | binary drawing mesh (bevelled, as the original 3D view) | `voxel_c::getDrawingMesh`, `halfedge/`, `voxel_2_mesh.cpp` |
 
-## 3. Colours
+## 3. Colors
 
 | Method | Purpose | Ported from |
 |---|---|---|
-| `colour.list` / `colour.add {rgb}` / `colour.edit` / `colour.delete` | constraint colours; deleting reverts cells to Default | `puzzle_c::addColor`, `changeColor`, `removeColor` |
+| `color.list` / `color.add {rgb}` / `color.edit` / `color.delete` | constraint colors; deleting reverts cells to Default | `puzzle_c::addColor`, `changeColor`, `removeColor` |
 
 ## 4. Problems
 
 | Method | Purpose | Ported from |
 |---|---|---|
 | `problem.list` / `problem.create` / `problem.duplicate` / `problem.delete` / `problem.move` / `problem.rename` | | `puzzle_c` problems |
-| `problem.get {id}` | result, pieces with min/max, groups, colour rules, solve state, counts | `problem_c` |
+| `problem.get {id}` | result, pieces with min/max, groups, color rules, solve state, counts | `problem_c` |
 | `problem.setResult {id, shape}` | | `problem_c::setResultId` |
 | `problem.setPieceCount {id, shape, min, max}` | count or range; 0 removes | `problem_c::setShapeMinimum/Maximum` |
 | `problem.setRangeAll {id, min, max}` / `problem.addOneOfEach` / `problem.removeAllPieces` | bulk actions | `bulkrangewindow.cpp` |
 | `problem.setGroup {id, shape, group}` / `problem.deleteGroup` | exclusive groups | `problem_c` groups, `groupseditor.cpp` |
-| `problem.setColourRule {id, pieceColour, resultColour, allowed}` / `problem.setColourRules {preset}` | | `problem_c::allowPlacement`, `disallowPlacement` |
+| `problem.setColorRule {id, pieceColor, resultColor, allowed}` / `problem.setColorRules {preset}` | | `problem_c::allowPlacement`, `disallowPlacement` |
 | `problem.fit {id}` | result cells (min/max), piece count range, piece cell range, holes, verdict | `mainwindow.cpp` status line |
 | `problem.kind {id}` | brick / sliding / stacking; sliding and stacking are `unsupported` for now | `sliding.cpp`, `stacking.cpp` |
 
@@ -119,7 +119,7 @@ Events: `document.changed {revision, what: [shapes|colours|problems|solutions|no
 
 Options: mode (assemble / assemble+disassemble), solver (classic, crowell), justCount, justLevels, keepMirror, keepRotated, completeRotations
 (thorough rotation check), checkRotations (rotation take-apart),
-strictColours, deepSymmetryCheck, highMemory, dropBelowLevel, keepAtMost,
+strictColors, deepSymmetryCheck, highMemory, dropBelowLevel, keepAtMost,
 dontKeepDisassemblies, sortBy, autosaveMinutes, threads.
 
 Events: `solve.state {problem, state}` (SolveState), `solve.progress {problem,
@@ -140,7 +140,7 @@ second), `solve.solutionsAdded {problem, count}`, `solve.error {problem, error}`
 
 | Method | Purpose | Ported from |
 |---|---|---|
-| `playback.open {problem, solution}` | piece list (shape, colour, mesh id), step count, moves text | `disasmToMoves_c` setup in `mainwindow.cpp` |
+| `playback.open {problem, solution}` | piece list (shape, color, mesh id), step count, moves text | `disasmToMoves_c` setup in `mainwindow.cpp` |
 | `playback.poses {handle, from, to, samplesPerStep}` | binary pose track: per piece translation, rotation (quaternion), visibility per sample; includes rotation tumbles | `disasmToMoves_c`, the original's `gltfexport.cpp` sampler |
 | `playback.close {handle}` | | |
 | `explore.placements {problem, piece}` | placements of a piece in the result | `placementbrowser.cpp`, assembler placement API |

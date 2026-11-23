@@ -40,7 +40,7 @@
       "errors": ["not_found", "invalid_argument", "unsupported"]
     },
     "playback.mesh": {
-      "summary": "The mesh of piece i (of playback.open's pieces) in its assembly orientation, centred as the poses expect; in any style (wireframe pieces, showing through solid ones).",
+      "summary": "The mesh of piece i (of playback.open's pieces) in its assembly orientation, centerd as the poses expect; in any style (wireframe pieces, showing through solid ones).",
       "params": {
         "type": "object",
         "properties": {

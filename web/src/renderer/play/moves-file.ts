@@ -70,7 +70,7 @@ export function boardOf(board: BoardCells): FileBoard {
 }
 
 /** The text of a moves file. */
-export function serialise(file: Omit<MovesFile, 'format' | 'version'>): string {
+export function serialize(file: Omit<MovesFile, 'format' | 'version'>): string {
   const whole: MovesFile = { format: MOVES_FORMAT, version: MOVES_VERSION, ...file };
   return `${JSON.stringify(whole)}\n`;
 }

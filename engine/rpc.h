@@ -96,7 +96,7 @@ using Reply = RpcResult<Json>;
 /// The kinds of id the API names things by, each with its prefix.
 enum class IdKind : std::uint8_t {
   Shape,             ///< s7
-  Colour,            ///< c2
+  Color,            ///< c2
   Problem,           ///< p1
   Solution,          ///< sol42
   Playback,          ///< pb1

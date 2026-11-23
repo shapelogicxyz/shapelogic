@@ -172,7 +172,7 @@ struct State {
 void addEngineMethods(MethodTable& t);
 void addDocumentMethods(MethodTable& t);
 void addShapeMethods(MethodTable& t);
-void addColourMethods(MethodTable& t);
+void addColorMethods(MethodTable& t);
 void addProblemMethods(MethodTable& t);
 void addSolveMethods(MethodTable& t);
 void addSolutionMethods(MethodTable& t);

@@ -100,7 +100,7 @@ Many small bug fixes and improvements.
 
 - **Export several shapes to STL.** **File ▸ Export ▸ STL** picks the shapes in two lists side by side, **All shapes** and **To export**, with arrow buttons between them. One shape is saved to a file as before; several are saved a file each into a folder you choose. The **Bumpy** switch is now called **Unit Beveled**.
 - **Puzzlecad export options.** **File ▸ Export ▸ Puzzlecad (OpenSCAD)** now asks what to write: **Pieces**, the shapes you pick in the same two lists, or **Problems**, a problem's pieces with every copy it has.
-- **Puzzlecad for sliding puzzles.** Sliding puzzles now export to Puzzlecad, laid out for flat pieces: **Export Tray** adds the board as a Puzzlecad packing box, and **Add Tray Lip** puts a wall around it of the height you choose. The export is greyed out on grids other than Brick and Sliding.
+- **Puzzlecad for sliding puzzles.** Sliding puzzles now export to Puzzlecad, laid out for flat pieces: **Export Tray** adds the board as a Puzzlecad packing box, and **Add Tray Lip** puts a wall around it of the height you choose. The export is grayed out on grids other than Brick and Sliding.
 - **Starts and goals per problem.** Problems that share a sliding board now each have their own starts and goals. A copied problem begins with the same ones and can be changed without touching the first. Editing a board keeps every problem's starts and goals in place and tells you which pieces lost one.
 
 ## [ShapeLogic v1.6](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.6) (1 November 2026)
@@ -152,13 +152,13 @@ Many small bug fixes and improvements.
 
 ### What's new in v1.3
 
-- **Tidier sliding puzzles.** Boards (start/goal positions) now always stay at the top of the shapes list and are labelled **B1**, **B2** and so on. The pieces below them are **S1**, **S2** and so on. When you delete or move a board, the others are numbered again, so there are no gaps.
+- **Tidier sliding puzzles.** Boards (start/goal positions) now always stay at the top of the shapes list and are labeled **B1**, **B2** and so on. The pieces below them are **S1**, **S2** and so on. When you delete or move a board, the others are numbered again, so there are no gaps.
 - **Name your boards.** A board shows **(START/GOAL 1)** until you rename it, and the new name also shows in the Puzzle tab's problems list. Boards no longer appear in **All pieces** and can't be added to a puzzle as pieces.
 - **New Settings pages.** A **Grid editor** page holds **Grid plane** and a new **New shape size** setting (4 × 4 × 4 unless you change it). **Performance** is now called **Solver** and adds a **Default solver type**, Complete or Fast.
 - **Quicker new shapes.** **+ New** makes the new shape the same size as the one you have selected.
 - **Piece names in the Solver.** The **Piece display** chips show each piece's name, as in **S2 - my piece**. **Compact** switches back to labels only. You can also draw each piece's label on it in the 3D view.
 - **Easier voxel editing.** You can type a size straight into the X, Y and Z boxes. The **XZ** grid now has X 0, Z 0 at the top left. Hovering over a voxel always highlights it in the 3D view, even when a click would not change it.
-- **Simpler view settings.** **Z axis direction** now offers **Z Towards** and **Z Up**. **Rotation method** offers **Free Spin** and **Top Up**.
+- **Simpler view settings.** **Z axis direction** now offers **Z Toward** and **Z Up**. **Rotation method** offers **Free Spin** and **Top Up**.
 - **Enable High Memory is on by default** for sliding and stacking puzzles.
 - **File dialogs remember where you were.** Open and Save start in the folder you used last, even after a restart.
 
@@ -204,7 +204,7 @@ These are the changes since the v1.0 release (19 October 2026).
 
 #### Voxel editor color area
 
-- The large swatch is labelled **SHAPE COLOR** or **RESTRICTION COLOR**. A shape color also shows **Default** or **Custom**.
+- The large swatch is labeled **SHAPE COLOR** or **RESTRICTION COLOR**. A shape color also shows **Default** or **Custom**.
 - The "…" menu is replaced by three buttons: **+** (add a color), a pencil (edit the color) and a trash can (remove the color).
 - An in-app color picker edits the current color. For the shape's own color it has a **Restore Default** button.
 - A new restriction color is picked to look as different as possible from the colors already in the puzzle. When you remove a color, the one before it becomes the drawing color.
@@ -215,7 +215,7 @@ These are the changes since the v1.0 release (19 October 2026).
 ### Improvements
 
 - **The last shape can be deleted.** The Delete button and menu item are no longer disabled when only one shape is left.
-- **Clearer Solver settings for spheres, rhombic and tetra-octa puzzles.** ShapeLogic cannot take apart puzzles on these grids. The Solver workspace now sets them to **Assemble Only** and greys out **Assemble and Disassemble**, **Just Levels** and **Check Rotations**. Before, you had to untick these options yourself.
+- **Clearer Solver settings for spheres, rhombic and tetra-octa puzzles.** ShapeLogic cannot take apart puzzles on these grids. The Solver workspace now sets them to **Assemble Only** and grays out **Assemble and Disassemble**, **Just Levels** and **Check Rotations**. Before, you had to untick these options yourself.
 - Larger icons in the shape rows and the color area.
 - The settings icon is now drawn as a gear.
 

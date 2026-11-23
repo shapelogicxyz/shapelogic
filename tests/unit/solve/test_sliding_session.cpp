@@ -522,8 +522,8 @@ TEST_CASE("sliding session: the solve's limit thins the kept solutions", "[slidi
 }
 
 TEST_CASE("sliding session: the holes are set up as a solve starts", "[sliding][session]") {
-  // the holes follow the floor; the pieces need no colours (an older file's
-  // start marks were its cell colours: converted as it loads, none left)
+  // the holes follow the floor; the pieces need no colors (an older file's
+  // start marks were its cell colors: converted as it loads, none left)
   Puzzle p = test::loadFixture("test_sliding_solver.xmpuzzle");
   Problem& pr = p.getProblem(0);
   pr.removeAllSolutions();
@@ -1210,10 +1210,10 @@ TEST_CASE("sliding session: a run shares the memory while it runs",
   s.abort();
 }
 
-// The cells' colours are the user's restriction colours again (the
-// original kept the start marks in them): a free piece painted a colour
-// starts only where the rules let that colour go.
-TEST_CASE("sliding session: colour rules restrict where a free piece starts",
+// The cells' colors are the user's restriction colors again (the
+// original kept the start marks in them): a free piece painted a color
+// starts only where the rules let that color go.
+TEST_CASE("sliding session: color rules restrict where a free piece starts",
           "[sliding][session]") {
   // a 3x3 tray: A starts at (0,0) and must reach (2,2); B is free
   auto puzzle = [](bool painted) {

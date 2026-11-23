@@ -5,7 +5,7 @@
 ## Done
 
 ### Before the stage's commit: one engine addition, one core fix
-- **`Engine: grid.neighbour`** (2f1c2ac): `grid.neighbour {size, cell,
+- **`Engine: grid.neighbor`** (2f1c2ac): `grid.neighbor {size, cell,
   face} -> {cell | null}`, the cell across a side, the sides numbered as a
   `MeshFrame`'s `voxelFace` (`Voxel::getNeighbor`, faces), null past the
   space's edge; a cell outside the space or not of the grid, or a side the
@@ -13,7 +13,7 @@
   grid answers: neither `getNeighbor` nor `validCoordinate` depends on the
   size), a contract call per grid, `gen_api_md.py`, `just web-gen`. An
   in-process test fills, for every side a lone cell's mesh draws on each of
-  the five grids, the cell `grid.neighbour` names, and checks that exactly
+  the five grids, the cell `grid.neighbor` names, and checks that exactly
   that side goes (a swapped numbering fails it: 10 failures).
 - **`Core: every change inside an edit group gets its own revision`**
   (e57f106), found by this stage's drag batching: a command decided
@@ -46,7 +46,7 @@ Each file names the mockup's functions it came from.
   — shapes renumbered S1…Sn"), rename in place (F2, Enter in the list, a
   double-click; Esc cancels; the engine's refusal shows as the flash
   "Rename: <its message>"), weight − and + (W badge), the shape's own
-  colour (the menu's Colour… and Default colour: added, the mockup had
+  color (the menu's Color… and Default color: added, the mockup had
   none), the collapsed card's chips.
 - `inspector.ts`: Transform, Fit & scale, Repair & surface from
   `shape.taskSet`, placed as the mockup draws each grid's set (the matrix
@@ -67,19 +67,19 @@ Each file names the mockup's functions it came from.
   size steppers in `sizeUnit` blocks shown rounded up as the original's
   (a tetra-octa shape of 4 cells shows 2 blocks of 3), "Apply to all
   shapes" ("the others grow by as much (they never shrink)"), the palette
-  (Default is the shape's own colour; + adds one of the mockup's colours
+  (Default is the shape's own color; + adds one of the mockup's colors
   and selects it; the menu edits it through the system's picker or removes
   it), the rail.
 - `grid2d.ts` (`Grid2D`): one SVG renderer for every grid over a layer
   drawing (`spaceGridSvg`'s fit; the cube planes' rulers); the cells
-  coloured as the engine has them (variable half filled and dashed); the
-  cursor outlined by its cells' edges towards cells not under it (the
+  colored as the engine has them (variable half filled and dashed); the
+  cursor outlined by its cells' edges toward cells not under it (the
   original's grid editors), the cursor being the hovered cell with its
   mirror and span cells of this layer; the box selection; the stroke's
   cells tinted until the engine answers; a drag collects every cell the
   pointer passes over (its path sampled between two moves); the right
   button erases; a drag ends on release or when the window loses focus.
-- `stroke.ts` (`Stroke`): a drag as ONE undo step: `edit.begin` (labelled
+- `stroke.ts` (`Stroke`): a drag as ONE undo step: `edit.begin` (labeled
   "Draw fixed voxels", "Draw variable voxels", "Erase voxels", "Paint
   voxels"), the cells entered sent once a frame, one `shape.setCells` at
   the engine at a time (the next batch waits for the one before), the
@@ -93,13 +93,13 @@ Each file names the mockup's functions it came from.
   a change named the shape and the snapshot after it still has it.
 - `edit3d.ts` (`Edit3D`): 3D editing (E, or a modifier held): erase and
   paint on the face's cell, fixed and variable on the cell across it
-  (`tools.ts`'s table on cubes, `grid.neighbour` on the other grids,
+  (`tools.ts`'s table on cubes, `grid.neighbor` on the other grids,
   cached), with mirror and span, one `shape.setCells` (one step); the
-  preview: boxes on cubes (an empty target in the drawing colour, a cell
-  that would change faint, an erased one in the danger colour), a cell's
+  preview: boxes on cubes (an empty target in the drawing color, a cell
+  that would change faint, an erased one in the danger color), a cell's
   own faces on the other grids, and the face a cell would grow from (the
-  drawing colour's contrast) since an empty cell's shape is not the
-  client's to know; a refused target shows its face in the danger colour;
+  drawing color's contrast) since an empty cell's shape is not the
+  client's to know; a refused target shows its face in the danger color;
   the tool cursors; the Edit button's tool (a quick tool dashed).
 - `tools.ts`: which tool a press uses (`eff2d`, `actFor`, Cmd as Alt), the
   cube's faces. `editor-state.ts`: `EditorState`, `planeMap`, `expand`
@@ -147,7 +147,7 @@ Each file names the mockup's functions it came from.
 - Engine (`tests/engine/editor.test.ts`, 3): the preview's mirror and span
   cells equal what `shape.setCells` changes on all five grids (two sizes
   each, six combinations, a seventh of the cells); the cube's face table
-  equals `grid.neighbour`; a stroke over several frames is one undo step
+  equals `grid.neighbor`; a stroke over several frames is one undo step
   with one `document.changed` per batch.
 - e2e (9 new, 30 in all): `entities.e2e.ts`, the editor on each of the five
   grids: a new puzzle and shape (the default size), every tool by key and
@@ -160,14 +160,14 @@ Each file names the mockup's functions it came from.
   copy) and Esc, PgUp/PgDn and the layer marks, the size steppers with and
   without "Apply to all shapes" (grow by as much, never shrink), every
   task of `shape.taskSet` (each equal to the engine's on a copy; the
-  blocked nudge's message), the palette (add, paint, a new cell's colour,
+  blocked nudge's message), the palette (add, paint, a new cell's color,
   Default, edit, remove), 3D editing (Shift-click on cubes, edit mode on
   the others, the cell across the face the status bar names equal to
-  `grid.neighbour`'s, the preview shown first; Ctrl-click erasing), the
+  `grid.neighbor`'s, the preview shown first; Ctrl-click erasing), the
   status bar's counts, and the call log. `shapes.e2e.ts`: the list (the
   last shape not deleted, new, Ctrl+D, ↑/↓, Alt+↑/↓, the menu's move, a
-  dragged row, F2 / Enter / double-click rename, Esc cancelling, a refused
-  name's message, weight, colour, Del and the menu's delete, the rail).
+  dragged row, F2 / Enter / double-click rename, Esc canceling, a refused
+  name's message, weight, color, Del and the menu's delete, the rail).
   `frozen.e2e.ts`: a solve of a 2x4x6 box of dominoes started through the
   bridge: frozen, the status, keys and clicks refused with no edit sent,
   looking still allowed, editing again after the abort. `rebuild.e2e.ts`:
@@ -189,7 +189,7 @@ Each file names the mockup's functions it came from.
 | `just web-e2e` | **30/30**, three times, 3.4 min each (build included): stage 1b's 21 (the 36 reference screenshots re-recorded first, below), `entities` 5 (~8.5 s per grid), `shapes` 1, `frozen` 1, `rebuild` 2 (Bermuda 18 s, Prisgon 38 s) |
 | perf (each e2e run) | mesh build 5.9, 6.2, 5.5 ms; orbit median 13.3/13.3/13.4 ms at a 13.4 ms display frame, p95 14.5/14.6/15.2 ms; 148–152 renders in 152 frames |
 | repeats while building | the shapes test 8 times after its flake was fixed; `entities`, `frozen`, `rebuild` 3 times more (24/24) |
-| `Engine: grid.neighbour` | the in-process test on five grids, its mutation (10 failures), the contract call per grid; `just test-all` (6/6, 327 s), the contract suite on the ASan engine |
+| `Engine: grid.neighbor` | the in-process test on five grids, its mutation (10 failures), the contract call per grid; `just test-all` (6/6, 327 s), the contract suite on the ASan engine |
 | `Core: …revision` | the document's group test and its mutation (4 failures), the engine's case; `just test-all` again (6/6, 329 s), `just test-asan` (6/6: unit 166 s, slow 961 s, contract, cli), the contract suite on the ASan engine. TSan not run: the change is the document's, which one thread owns. No oracle tier: `bt` does not use the app layer |
 | `just web-gen`, staleness | current (the gen-api test passes; `METHOD_NAMES` equals `engine.info`'s 95 methods) |
 
@@ -233,7 +233,7 @@ show exactly the cells a click changes.
    deliberate name with a control character. The UI never sends
    `invalid_state`: a frozen workspace refuses before calling.
 4. **3D additions outside the space are refused** (the mockup's
-   behaviour), where the original grew the space (decision 0013's list).
+   behavior), where the original grew the space (decision 0013's list).
 5. **The box selection is a mode** (a button), since the mockup's bar had
    no gesture to select with (decision 0013's list).
 6. **A temporary New…** in the top bar (the gate's "new document" on each
@@ -256,22 +256,22 @@ show exactly the cells a click changes.
 - The selection bar had no way to select: the box button.
 - 3D ghosts of the non-cube grids drew the new cell from mock geometry:
   the face it grows from.
-- A colour was edited live on every input event: on the picker's change
+- A color was edited live on every input event: on the picker's change
   (one undo step).
 - The list focused itself a moment after a press (`setTimeout`): dropped,
   since a late focus took the focus from a rename begun meanwhile (a flaky
   e2e, 3 runs in 8, until it went); the list is focusable, a press focuses
   it.
 - "New shape (Ctrl+N)": the title keeps no key the map does not have.
-- Not in the mockup: undo and redo, the shape's own colour, the frozen
+- Not in the mockup: undo and redo, the shape's own color, the frozen
   state, the temporary New….
 - The plain-DOM pattern (no UI framework) held for this card-heavy stage;
   what needed care was re-rendering under an element with the focus (the
   rename field is skipped while open) and inputs replaced by a re-render
-  (the colour pickers' change handlers are delegated).
+  (the color pickers' change handlers are delegated).
 
 ## Known issues and notes
-- The colour menu's "Edit colour…" opens the system's picker, which a test
+- The color menu's "Edit color…" opens the system's picker, which a test
   cannot drive: the e2e sets the input's value instead.
 - On the sphere grid the core's mesh gives a ball's connection and filling
   faces the number of the cap drawn before them (faithful to the

@@ -54,7 +54,7 @@
      "placed": 0
     }
    ],
-   "colourRules": [],
+   "colorRules": [],
    "maxHoles": null,
    "savedPosition": false,
    "solverSettings": {},
@@ -240,7 +240,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 50,
+     "elapsedMs": 55,
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,

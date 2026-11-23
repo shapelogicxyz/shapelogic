@@ -206,7 +206,7 @@ TEST_CASE("shape images: the picture follows the cells through the tool tabs",
   for (const ShapeTask task :
        {ShapeTask::Rotate10, ShapeTask::Rotate11, ShapeTask::Flip12, ShapeTask::Flip13,
         ShapeTask::Flip14, ShapeTask::Nudge0, ShapeTask::Nudge3, ShapeTask::ToOrigin,
-        ShapeTask::Centre, ShapeTask::Prune}) {
+        ShapeTask::Center, ShapeTask::Prune}) {
     INFO("task " << static_cast<int>(task));
     const Result<TaskOutcome> r = d.shapeTask(s, task);
     REQUIRE(r.has_value());

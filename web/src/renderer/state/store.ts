@@ -19,7 +19,7 @@ import type {
 } from '../../engine/api.generated.ts';
 import type { EngineApi, EngineStatus, EventParams } from '../../engine/client-types.ts';
 import { EngineError } from '../../engine/errors.ts';
-import { setBoardCount, isTray } from '../shell/piece-colours.ts';
+import { setBoardCount, isTray } from '../shell/piece-colors.ts';
 
 /** The engine as the store needs it: the proxy (engine-proxy.ts) or a test's stand-in. */
 export interface EngineLink extends EngineApi {
@@ -144,7 +144,7 @@ export class Store {
     });
   }
 
-  /** The place of a shape in the list (its default colour's number), or -1. */
+  /** The place of a shape in the list (its default color's number), or -1. */
   indexOf(shape: string): number {
     return this.snapshot?.shapes.findIndex((s) => s.id === shape) ?? -1;
   }

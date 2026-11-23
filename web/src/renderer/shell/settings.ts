@@ -25,7 +25,7 @@ import type { Settings } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
-import { openColourPicker } from './colour-picker.ts';
+import { openColorPicker } from './color-picker.ts';
 import { askChoice, closeDialog, openDialog, tell } from './dialog.ts';
 import { ic } from './icons.ts';
 import { keyGroups } from './keys.ts';
@@ -34,6 +34,7 @@ import type { KeyRow } from './keys.ts';
 import {
   DEFAULTS,
   LABEL_CHARS_MAX,
+  LABEL_LINE_PER_VOXEL,
   LIMIT_MAX,
   NEW_SIZE_MAX,
   prefs,
@@ -64,7 +65,7 @@ type Row = (
       warn?: (v: number) => string;
     }
   | { t: string; d: string; type: 'xyz'; sets: readonly XyzSet[] }
-  | { k: keyof Prefs; t: string; d: string; type: 'colour' }
+  | { k: keyof Prefs; t: string; d: string; type: 'color' }
   | { t: string; d: string; type: 'widths' }
   /** The cache folder: the main process's, not a setting of Prefs. */
   | { t: string; d: string; type: 'cache' }
@@ -101,7 +102,7 @@ const WIDTH_STEP = 10;
 /** The settings an X, Y and Z row sets. */
 type XyzKey = 'newX' | 'newY' | 'newZ' | 'slideX' | 'slideY' | 'slideZ';
 
-/** One labelled X, Y and Z of an xyz row. */
+/** One labeled X, Y and Z of an xyz row. */
 interface XyzSet {
   name: string;
   k: readonly [XyzKey, XyzKey, XyzKey];
@@ -310,21 +311,21 @@ const SET: readonly Page[] = [
         ],
       },
       {
-        k: 'boardColourLight',
+        k: 'boardColorLight',
         t: 'Sliding board color, Light theme',
         d: 'The color of a sliding puzzle’s boards (its start and goal shapes) in the Light theme, in the shapes list, the 2D editor and the 3D view. A board that has not been given a color of its own follows the theme: it takes this color in the Light theme and the Dark theme’s color in the Dark theme. A board you color with the pencil in the voxel editor keeps its color.',
-        type: 'colour',
+        type: 'color',
       },
       {
-        k: 'boardColourDark',
+        k: 'boardColorDark',
         t: 'Sliding board color, Dark theme',
         d: 'The color of a sliding puzzle’s boards in the Dark theme. See the Light theme’s setting.',
-        type: 'colour',
+        type: 'color',
       },
       {
         k: 'hintLayer',
         t: 'Hinted layer',
-        d: 'The voxel editor shows faintly where the shape has cells in a layer next to the one you edit, so you can see what you build on: a pale fill in the shape’s colour under the edited layer’s cells. Below hints the layer under it (the original’s), Above the layer over it. In the XZ and YZ planes the layers are along Y and X. The bottom layer has nothing below it, and the top nothing above.',
+        d: 'The voxel editor shows faintly where the shape has cells in a layer next to the one you edit, so you can see what you build on: a pale fill in the shape’s color under the edited layer’s cells. Below hints the layer under it (the original’s), Above the layer over it. In the XZ and YZ planes the layers are along Y and X. The bottom layer has nothing below it, and the top nothing above.',
         type: 'seg',
         opts: ['Below', 'Above'],
         group: 'Voxel hint layer',
@@ -357,9 +358,9 @@ const SET: readonly Page[] = [
       {
         k: 'zAxis',
         t: 'Z axis direction',
-        d: 'Which way the axes point in the home view (the view cube’s house, or Home) and in the first view when the app starts. Z Towards: X across, Y up, Z coming towards you. Z Up: X across, Z up, Y going away from you. The home view looks from a little above and to one side. A stacking puzzle always stands its stack up.',
+        d: 'Which way the axes point in the home view (the view cube’s house, or Home) and in the first view when the app starts. Z Toward: X across, Y up, Z coming toward you. Z Up: X across, Z up, Y going away from you. The home view looks from a little above and to one side. A stacking puzzle always stands its stack up.',
         type: 'seg',
-        opts: ['Z Towards', 'Z Up'],
+        opts: ['Z Toward', 'Z Up'],
       },
       {
         k: 'lights',
@@ -374,13 +375,13 @@ const SET: readonly Page[] = [
         type: 'sw',
       },
       {
-        k: 'labelChars',
+        k: 'labelCharsPerVoxel',
         t: 'Piece label length',
-        d: `How many characters of each shape’s label the Solver’s Show Piece Labels (Display ▸ Labels) draws on its pieces; the rest is cut off. Unlimited draws the whole label, on a new line every ${String(LABEL_CHARS_MAX)} characters.`,
+        d: `How many characters of each shape’s label the Solver’s Show Piece Labels (Display ▸ Labels) draws for each voxel of a piece’s width; the rest is cut off. The label sits on the piece’s widest layer (the lowest, when several are as wide), in the middle. Unlimited draws the whole label, on a new line every ${String(LABEL_LINE_PER_VOXEL)} characters per voxel.`,
         type: 'steps',
         steps: () => [...Array.from({ length: LABEL_CHARS_MAX }, (_, i) => i + 1), 0],
         label: (v) =>
-          v === 0 ? 'Unlimited' : `${String(v)} ${v === 1 ? 'character' : 'characters'}`,
+          v === 0 ? 'Unlimited' : `${String(v)} ${v === 1 ? 'character' : 'characters'} per voxel`,
       },
     ],
   },
@@ -578,7 +579,7 @@ function defaultText(r: Row): string {
       return WIDTHS.map(({ k, name }) => `${name} ${on(k)} px`).join(', ');
     case 'cache':
       return cacheInfo?.defaultFolder ?? 'ShapeLogic’s application data folder';
-    case 'colour':
+    case 'color':
     case 'seg':
     case 'select':
     case 'num':
@@ -652,8 +653,8 @@ function rowHtml(r: Row): string {
   const v = prefs[r.k];
   let c = '';
   switch (r.type) {
-    case 'colour':
-      c = `<button class="swatch" data-colour="${r.k}" aria-label="${esc(r.t)}" title="Pick the color: ${esc(String(v))}" style="width:60px;height:28px;border-radius:6px;border:1px solid var(--line2);cursor:pointer;background:${esc(String(v))}"></button>`;
+    case 'color':
+      c = `<button class="swatch" data-color="${r.k}" aria-label="${esc(r.t)}" title="Pick the color: ${esc(String(v))}" style="width:60px;height:28px;border-radius:6px;border:1px solid var(--line2);cursor:pointer;background:${esc(String(v))}"></button>`;
       break;
     case 'sw':
       c = `<div class="switch ${v === true ? 'on' : ''}" role="switch" aria-checked="${v === true}" aria-label="${esc(r.t)}" title="${esc(r.d)}" tabindex="0" data-k="${r.k}"><span class="tr"></span></div>`;
@@ -870,7 +871,7 @@ async function changeCache(useDefault: boolean): Promise<boolean> {
   const app = window.btApp;
   const c = await app.chooseCacheFolder(useDefault);
   switch (c.status) {
-    case 'cancelled':
+    case 'canceled':
     case 'same':
       return false;
     case 'busy':
@@ -1034,9 +1035,9 @@ export function installSettings(s: Store): void {
         closeDialog('cacheMoving');
         reportError(err, 'The cache folder was not changed');
       });
-    } else if (b.dataset.colour !== undefined) {
-      const k = b.dataset.colour as 'boardColourLight' | 'boardColourDark';
-      openColourPicker(b, {
+    } else if (b.dataset.color !== undefined) {
+      const k = b.dataset.color as 'boardColorLight' | 'boardColorDark';
+      openColorPicker(b, {
         rgb: prefs[k],
         onPick: (rgb) => {
           change({ [k]: rgb });

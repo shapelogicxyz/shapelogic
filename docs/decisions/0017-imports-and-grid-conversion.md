@@ -17,7 +17,7 @@ type to other, `converter.cpp`, `convertwindow.cpp`). Each import made a
 cube-grid puzzle with one problem and replaced the open one without a
 file name, so Save asked where; the conversion replaced the puzzle in
 place, its undo history gone, its file name kept. The new core had none
-of it: the menu items were greyed.
+of it: the menu items were grayed.
 
 ## Decision
 **Port the three files line for line** into the core: the readers and
@@ -62,7 +62,7 @@ solutions. The path stays, so Save writes the converted puzzle over the
 file it came from, as the original kept its file name; the dialog says
 so. The original did not check its solver thread here and replaced the
 puzzle under it; the new core refuses while anything runs
-(`invalid_state`, the front end's "pause first", the item greyed). The
+(`invalid_state`, the front end's "pause first", the item grayed). The
 grids a puzzle converts to are a fact of the engine (`engine.info`'s
 `grids[].convertsTo`), so the dialog's choices are not computed by the
 client.
@@ -79,11 +79,11 @@ the last. The export reads its problem through `readProblem`, so it is
 allowed while solving, as the original allowed it. The client asks the
 engine before the save dialog, so a refusal ("Puzzlecad export is only
 available for cube-grid puzzles.", "Nothing to export.") comes first, as
-the original's checks did; the item is greyed without a shape with cells
+the original's checks did; the item is grayed without a shape with cells
 (the original enabled it with any shape and then could not export).
 
 ## Consequences
-- The menus have no greyed items left from the deferred plan but the
+- The menus have no grayed items left from the deferred plan but the
   anaglyph modes, which the plan does not cover.
 - `document.convertGrid` is the one call that replaces the document
   while keeping its path; a client must treat its reply as a new

@@ -82,7 +82,7 @@ Each file names the mockup's functions it came from.
   reply; Solve and Prepare drop the selection and a pending playback
   first: the run drops the solutions), Pause, Abort (asked, as the
   original; enabled only while a run is under way or paused in memory,
-  so it greys out once a run has ended). The list's selection: kept by id
+  so it grays out once a run has ended). The list's selection: kept by id
   across re-reads, shown (read, played) only while the Solver is shown and
   only from rows of the list's newest version, not chosen automatically
   while a run changes the list (chosen once it is over). Remove
@@ -98,9 +98,9 @@ Each file names the mockup's functions it came from.
   solve: "solving", "paused"), what to check (Assemblies / Assemblies and
   disassembly, with Don't keep the disassemblies and Check rotations),
   the search options (Just count, Keep mirror solutions, Keep rotated
-  solutions, Thorough rotation check, Strict colours, Solver type, Sort
+  solutions, Thorough rotation check, Strict colors, Solver type, Sort
   found solutions by, Keep every n-th, Limit, Autosave every 20 min; "n
-  changed" when folded; the original's rules grey out what does not
+  changed" when folded; the original's rules gray out what does not
   apply), the run's buttons, the progress bar, the counters (Activity,
   Assemblies, Time used, Solutions, Time left), a failure (`#slvFail`), the
   notice of a puzzle this version does not solve (`#slvKind`).
@@ -115,7 +115,7 @@ Each file names the mockup's functions it came from.
 - `player.ts` (`Player`): the solution chosen is shown assembled at once
   (`solution.get`'s placements; each piece the mesh of its placement's
   transformation from the view's mesh cache at the cell minus that mesh's
-  hotspot, in mesh units: `extent.ts`'s `cellScale`, centred on the result
+  hotspot, in mesh units: `extent.ts`'s `cellScale`, centerd on the result
   as the poses are); 120 ms after the choice rests its playback is opened
   (`playback.open`, if the row is still current in the list then: a
   removal or an abort holds an open not yet asked for, and the list's next
@@ -142,7 +142,7 @@ Each file names the mockup's functions it came from.
   `refresh()` after a `document.changed` naming the problem's solutions.
 - `settings.ts`: the options over the stored `SolverSettings` (the file's
   names: `deepSymmetry`, `strictColors`, `justLevels`) and to
-  `SolveOptions` (the API's: `completeRotations`, `strictColours`), the
+  `SolveOptions` (the API's: `completeRotations`, `strictColors`), the
   original's rules (`updateSolverOptionCheckboxes`, `cb_SolverOptions`),
   the original's defaults (Autosave on, Sort by moves; Display Limit 100,
   Keep Each 1, not stored); settings this version does not show (High
@@ -155,10 +155,10 @@ Each file names the mockup's functions it came from.
   refused while solving is to offer (stage 6's Save).
 
 ### The 3D scene (`view3d/solution.ts`, `view.ts`, `extent.ts`)
-`SolutionScene`: each piece its own mesh and colour (the original's
-`pieceColor` of the shape, jittered per copy: `pieceSubColour`), a group
+`SolutionScene`: each piece its own mesh and color (the original's
+`pieceColor` of the shape, jittered per copy: `pieceSubColor`), a group
 per piece posed by a translation and a quaternion, in the turned root (the
-poses are centred on the result); solid, wire frame or hidden; with x-ray
+poses are centerd on the result); solid, wire frame or hidden; with x-ray
 the wire frames are drawn over everything (the mockup's second pass); a
 fading piece blended by its opacity. The view frames it on the result's
 extent (`View3D.setSolution`, `poseSolution`, a `SolverHost`); `#vp` says
@@ -176,11 +176,11 @@ decimals), `data-solution-view`. `extent.ts` has `cellScale`.
 - `confirm.ts`: the focus goes back where it was when the question closes
   (Del on the list after a Cancel found no list to act on).
 - `state/edits.ts`: `refuseList()`: a change of the lists of shapes,
-  colours and problems, undo and redo are refused while anything solves
+  colors and problems, undo and redo are refused while anything solves
   ("Pause the solve first") and while a BurrTools 2 search is paused in
   memory ("Abort or finish the paused BurrTools 2 solve of P1 first": the
   engine would refuse it as `invalid_state`, decision 0011); used by the
-  problems list, the shapes list's delete and move, the colours' add and
+  problems list, the shapes list's delete and move, the colors' add and
   delete, and undo/redo (`history.ts`).
 - `shell/app.ts`: the solve records, cleared on another document; the
   Solver workspace; its status line.
@@ -234,7 +234,7 @@ decimals), `data-solution-view`. `extent.ts` has `cellScale`.
   kept whole (83,442 assemblies) analysed and stopped: what was done kept,
   in the stored order; the same box with take-apart on one thread:
   pause, continue, the autosave (2 seconds here) pausing at a save point,
-  saving the file and carrying on, Abort asked (Cancel, then Abort), greyed
+  saving the file and carrying on, Abort asked (Cancel, then Abort), grayed
   after; Prepare then Continue; the contract suite's error run shown with
   its failure; two boxes solved at once (one with BurrTools 2), each with
   its own state, both paused; the paused BurrTools 2 search refusing
@@ -319,7 +319,7 @@ sliding notice) were looked at.
    solutions cannot be restored). The deletes of disassemblies do not ask
    (the mockup's).
 8. **Abort asks first** and is the hard stop (the original asked, "This
-   cannot be undone"); it greys out once a run has ended (decision 0012);
+   cannot be undone"); it grays out once a run has ended (decision 0012);
    the original's later "Reset" of a finished problem is Remove → All
    solutions.
 9. **Not in this stage:** the step-by-step explorer section of the left
@@ -342,7 +342,7 @@ sliding notice) were looked at.
 - Its "Drop below level" became "Keep every n-th" (the plan); its "Limit"
   is the engine's `keepAtMost` (0 keeps all).
 - Its options lacked this fork's: the solver type, Check rotations,
-  Strict colours, Autosave; its sort-by choices were the client's (search
+  Strict colors, Autosave; its sort-by choices were the client's (search
   order, pieces): the original's four (Unsorted, Moves for complete
   disassembly, Level, Rotations), the ones needing the take-apart disabled
   without it, as the mockup did with its own.
@@ -353,8 +353,8 @@ sliding notice) were looked at.
   steps (moves and turns).
 - Its Del took Backspace too: the one table maps Delete only.
 - Its piece chips were the shapes of one canned assembly: the pieces the
-  solution places, labelled S5.1, S5.2 for copies, in the original's
-  colours.
+  solution places, labeled S5.1, S5.2 for copies, in the original's
+  colors.
 
 ## Known issues and notes
 - **Autosave needs a file**: until stage 6, only a document given a path

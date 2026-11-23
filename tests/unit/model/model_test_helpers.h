@@ -35,10 +35,10 @@ inline Puzzle loadFixture(const std::string& name) {
 }
 
 /// Compares two puzzles for the properties a save/load round trip must keep
-/// and that this narrow probe tracks: grid, comment and popup flag, colours,
-/// shapes (size, state and colour per cell), and problems with their names
+/// and that this narrow probe tracks: grid, comment and popup flag, colors,
+/// shapes (size, state and color per cell), and problems with their names
 /// and results. It does not look at shape names, weights or hotspots, part
-/// lists, groups, colour rules, maxHoles, solve state or solutions; the
+/// lists, groups, color rules, maxHoles, solve state or solutions; the
 /// byte-for-byte cases cover those.
 inline bool puzzlesRoundtripEqual(const Puzzle& a, const Puzzle& b) {
   if (a.getGridType() != b.getGridType() || a.getComment() != b.getComment() ||

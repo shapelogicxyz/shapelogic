@@ -4,7 +4,7 @@ Part 2 of docs/DEFERRED-PLAN.md: the original GUI's sliding screens
 inventoried and written into docs/webui-spec.md (section 8), then built
 into the three workspaces: the start/goal editor (walls, starts, goals,
 the validity bar), the two trays and the walls in 3D, the sliding solver
-options with "Enable High Memory", the notices, the greyed buttons, and
+options with "Enable High Memory", the notices, the grayed buttons, and
 File ▸ New offering the sliding grid. Next: part 3, stacking and Panex in
 the core, the engine and `bt` (Opus 5.5 at extra high effort, then an
 audit).
@@ -17,9 +17,9 @@ keep plain names", then the part's "Deferred 2: …".
 ### The inventory (webui-spec.md section 8)
 The original's sliding branches, read file by file: `mainwindow.cpp`
 (`updateInterface`'s Puzzle tab: New, Copy and Delete problem, Set
-Result and Groups greyed, the colour groups hidden, a required piece's
+Result and Groups grayed, the color groups hidden, a required piece's
 count locked; `updateEntitiesTab`: the start/goal row, Delete Shape and
-the shape colour greyed on a tray; the `RS_SLIDING_CLICK` callback; the
+the shape color grayed on a tray; the `RS_SLIDING_CLICK` callback; the
 load's flattening message; the Activity line's "Sliding search, N moves
 deep."; the solver note's message box; Solve's tooltip),
 `mainwindow_rods.cpp` (`applySlidingGridMode`, `cb_NewStartGoal`,
@@ -29,7 +29,7 @@ row's buttons, the three sliding boxes and their tooltips),
 `updateSolverOptionCheckboxes`: Find Solutions, which boxes go),
 `mainwindow_help.cpp` (the three solvers' help), `tooltabs.cpp`
 (`ToolTab_0`'s Start/Goal tab, its piece list and flat preview, `lockZ`),
-`grideditor.cpp` (the tray's tiles, the marks in the pieces' colours,
+`grideditor.cpp` (the tray's tiles, the marks in the pieces' colors,
 `drawStampPreview`'s orange/green/red), `BlockList.cpp`,
 `slidingcolors.h`, `voxelframe.cpp` (`showSingleShape`'s START and GOAL
 trays, `buildSlidingWalls`, `drawSlidingWalls`), `gridtypegui.cpp`
@@ -38,7 +38,7 @@ trays, `buildSlidingWalls`, `drawSlidingWalls`), `gridtypegui.cpp`
 new Tray edit switch.
 
 ### The core (`651a7e7`)
-What the original only greyed out for sliding shapes is refused, as
+What the original only grayed out for sliding shapes is refused, as
 decision 0014 does for the rest: `taskSet(Sliding)` leaves out the tasks
 that add layers (nudges along Z, turns about X and Y, double, triple,
 the grid scale; `shape.task` answers them `unsupported`),
@@ -52,24 +52,24 @@ case `sliding_start_goal_shapes`; `docs/API.md` and the generated types.
 - **Entities:** the shapes list's "(START/GOAL n)" rows with black chips;
   New/Delete Start/Goal Positions above the list (`#sgRow`; a new tray
   takes the selected shape's X and Y, else 6 by 6); a tray's Delete and
-  Colour greyed; no Paint tool and no palette on sliding puzzles; the Z
+  Color grayed; no Paint tool and no palette on sliding puzzles; the Z
   stepper and the XZ/YZ planes off; on a tray the **Tray edit** switch:
   Walls (the tools as floor, corridor, wall), Start and Goal (the piece
   list with the chosen piece drawn flat, the marks in the pieces'
-  colours, the piece outlined under the mouse from `sliding.preview`, a
+  colors, the piece outlined under the mouse from `sliding.preview`, a
   click `sliding.place`, a right click `sliding.clearAt`, the refusal's
   reason in the status bar), its Start and Goal green or red; the
   validity bar under the view; the view's two trays with the pieces
   standing on them and their titles (`view3d/trays.ts`).
 - **Puzzle:** no New, Copy or Delete problem, no Change…, no groups or
-  colour rules; a required piece's −/+, count fields, range and remove
-  off with the reason; the tray drawn dark grey.
+  color rules; a required piece's −/+, count fields, range and remove
+  off with the reason; the tray drawn dark gray.
 - **Solver:** Assemblies or **Find Solutions** (checked at first); Just
   count, Allow Nested Slides, Allow Partially Nested (needs nested),
   Enable High Memory, the sliding Solver type (`engine.info`'s
   `slidingSolvers`), Keep every n-th, Limit, Autosave; stored with the
   problem under the file's names; `SolveOptions.sliding`; Solve and
-  Prepare greyed while the tray is invalid (the reason as Solve's
+  Prepare grayed while the tray is invalid (the reason as Solve's
   tooltip); the Activity line's "Sliding search, N moves deep. Scanned N
   arrangements."; the solver's note in a message box at the end of a run
   (after an autosave's continue too); the walls around the tray in the
@@ -113,7 +113,7 @@ All run on the final tree (2026-10-10, M-series Mac), in sequence:
 1. **The start/goal editor is a switch, not a tab** (decision 0013 item
    8): the mockup's voxel card has no tool tabs; the original's unused
    `ToolTab_Sliding` had the labels.
-2. **Refusals where the original greyed out** (decision 0013 item 9): the
+2. **Refusals where the original grayed out** (decision 0013 item 9): the
    engine is the truth, so the tasks that add layers, another Z and
    "sg:" names are refused there, not only hidden.
 3. **Movements and Analyse are not offered on sliding puzzles** (item
@@ -132,11 +132,11 @@ All run on the final tree (2026-10-10, M-series Mac), in sequence:
   different counts from run to run, as the original's did (deferred-1.md);
   the Solver does not say so.
 - The hovered cell of the 2D grid draws its own outline partly under its
-  neighbours on every grid (the cell's `:hover` stroke); with a stamp's
+  neighbors on every grid (the cell's `:hover` stroke); with a stamp's
   outline over it, a short blue corner shows. Cosmetic, older than this
   part.
-- `shape.setCells` with a colour still paints a stray mark on a sliding
-  cell: the front end offers no colour there, the engine does not refuse.
+- `shape.setCells` with a color still paints a stray mark on a sliding
+  cell: the front end offers no color there, the engine does not refuse.
 
 ## Brief for part 3
 

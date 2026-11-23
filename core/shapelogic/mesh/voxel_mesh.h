@@ -19,7 +19,7 @@ namespace bt::mesh {
 /// Which mesh of a shape.
 enum class MeshStyle : unsigned char {
   /// The view's normal one: cells with bevelled edges and a small gap
-  /// between neighbours, only the cells on the surface (getDrawingMesh).
+  /// between neighbors, only the cells on the surface (getDrawingMesh).
   /// Not closed: the faces are drawn as they are.
   Drawing,
   /// The same, closed, with the gap and bevel strips merged into the cell
@@ -37,7 +37,7 @@ enum class MeshStyle : unsigned char {
   Stl,
   /// The uniform mesher's solid (uniform_mesh.h): the drawing mesh's
   /// bevel (0.03) and gap (0.005), but the chamfer of one width on every
-  /// edge whatever its angle, concave edges too; neighbouring cells are
+  /// edge whatever its angle, concave edges too; neighboring cells are
   /// joined by flat strips, so a piece is one chamfered solid and only
   /// the checker shows its cells; closed. Spheres: the drawing mesh.
   /// Where the mesher fails, the drawing mesh.
@@ -46,14 +46,14 @@ enum class MeshStyle : unsigned char {
 
 /// The mesh of a shape in its own coordinates (mesh units, see
 /// grid_geometry.h). Each face carries its cell and side (what a click
-/// picks), its colour and its FaceFlag bits.
+/// picks), its color and its FaceFlag bits.
 /// The uniform style's bevel and gap, in cell units: the drawing mesh's.
 inline constexpr double kUniformBevel = 0.03;
 inline constexpr double kUniformOffset = 0.005;
 [[nodiscard]] Polyhedron shapeMesh(const Voxel& v, MeshStyle style);
 
 /// The mesh of cells with bevel and gap (getMeshInternal): with `fast`
-/// only the cells with an empty neighbour, no gap faces, not closed.
+/// only the cells with an empty neighbor, no gap faces, not closed.
 [[nodiscard]] Polyhedron cellMesh(const Voxel& v, double bevel, double offset, bool fast);
 
 /// The mesh of a sphere shape (voxel_2_c::getMeshInternal): balls of

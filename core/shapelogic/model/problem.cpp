@@ -405,7 +405,7 @@ void Problem::exchangeParts(unsigned int partId1, unsigned int partId2) {
   const unsigned int p1Count = parts_[partId1].max;
   const unsigned int p2Count = parts_[partId2].max;
 
-  // only neighbouring parts can be exchanged
+  // only neighboring parts can be exchanged
   BT_ASSERT(p1Start + p1Count == p2Start);
 
   std::swap(parts_[partId1], parts_[partId2]);
@@ -470,7 +470,7 @@ unsigned int Problem::getPartIndexToPieceId(unsigned int pieceId) const {
   return pieceId;
 }
 
-// ---- colours --------------------------------------------------------------------
+// ---- colors --------------------------------------------------------------------
 
 void Problem::allowPlacement(const Puzzle& puzzle, unsigned int pc, unsigned int res) {
   BT_ASSERT(pc <= puzzle.colorNumber());
@@ -503,7 +503,7 @@ bool Problem::placementAllowed(const Puzzle& puzzle, unsigned int pc, unsigned i
     return true;
   }
 
-  // strict: same colour only; neutral only matches neutral
+  // strict: same color only; neutral only matches neutral
   if (strict) {
     return pc == res;
   }

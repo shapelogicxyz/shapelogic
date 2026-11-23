@@ -41,12 +41,12 @@ vec3 cornerAt(const std::vector<float>& c, std::size_t k) {
   return {static_cast<double>(c[k]), static_cast<double>(c[k + 1]), static_cast<double>(c[k + 2])};
 }
 
-// The shape's surface, exactly: the cell faces whose neighbour is not
+// The shape's surface, exactly: the cell faces whose neighbor is not
 // filled (at bevel 0 and offset 0, the same enumeration cellMesh uses).
 // The faces between two filled cells cancel by identity here and never
 // reach a boolean, whose float arithmetic would have to rediscover them
 // and now and then leaves a seam. Corners are shared between a cell's own
-// faces and across the faces shared with filled neighbours (their corner
+// faces and across the faces shared with filled neighbors (their corner
 // coordinates agree exactly); two cells that touch only along an edge or
 // at a corner keep separate vertices there, which is what a manifold mesh
 // needs.
@@ -104,7 +104,7 @@ Manifold exactBody(const Voxel& v, std::string& err) {
             face.push_back(corner(cell, cornerAt(fc, k)));
           }
           if (filled(nx, ny, nz)) {
-            // an interior face: its corners are the neighbour's too
+            // an interior face: its corners are the neighbor's too
             const unsigned other = v.getIndex(asUnsigned(nx), asUnsigned(ny), asUnsigned(nz));
             for (const std::size_t c : face) {
               const std::size_t o = corner(other, corners[c]);
@@ -337,7 +337,7 @@ bool prismBits(const std::vector<vec3>& normals, Bits& b, std::string& err) {
 // slice through the shape, and unions whose volume depends on the order
 // of the operands. Turned, no two sweeps of different kinds are coplanar
 // any more, the unions agree to a part in a billion and carry no such
-// slivers; the turn moves nothing by more than a nanometre per metre, far
+// slivers; the turn moves nothing by more than a nanometer per meter, far
 // inside what the rebuild snaps away.
 std::vector<vec3> bitPoints(const std::vector<vec3>& unit, double size, int attempt) {
   // a later attempt turns a little more, and about a different axis, which
@@ -360,16 +360,16 @@ std::vector<vec3> bitPoints(const std::vector<vec3>& unit, double size, int atte
 // rebuilt from them.
 //
 // The booleans leave every face shattered: slivers along the seams where
-// the hulls of the sweep meet in one plane, vertices a few nanometres
+// the hulls of the sweep meet in one plane, vertices a few nanometers
 // apart, triangles whose normals mean nothing. Fed back into the next step
 // as they are, the slivers sweep into garbage-direction facets and the
 // fragmentation compounds (a small prism shape reached forty thousand
 // triangles). So after every boolean the solid is put back onto its
 // planes: vertices welded, the planes taken from the fat triangles, every
-// triangle assigned to the plane it lies on (a sliver to its neighbour's),
+// triangle assigned to the plane it lies on (a sliver to its neighbor's),
 // every vertex snapped onto the intersection of its planes, and each
 // planar face re-triangulated from its outline loops. All loop vertices
-// are kept, so the faces stay edge-consistent with their neighbours and
+// are kept, so the faces stay edge-consistent with their neighbors and
 // the rebuilt mesh is a manifold; the slivers have become exactly flat and
 // are gone.
 //
@@ -504,9 +504,9 @@ void extractFaces(const Manifold& m, Faces& out) {
     tv = mesh.triVerts;
   }
   // Short edges contracted: kWeld is far above the noise the booleans
-  // leave (nanometres) and far below any feature of a chamfer. Contracting
+  // leave (nanometers) and far below any feature of a chamfer. Contracting
   // edges keeps the mesh a manifold; welding by proximity alone does not,
-  // since two vertices of a crack a few nanometres wide are not joined by
+  // since two vertices of a crack a few nanometers wide are not joined by
   // an edge, and merging them folds the surface.
   const double kWeld = 2e-6;
   const auto contract = [&]() {
@@ -523,7 +523,7 @@ void extractFaces(const Manifold& m, Faces& out) {
       return i;
     };
     // An edge is contracted only when its two vertices have exactly the
-    // two apexes of its triangles as common neighbours (the link
+    // two apexes of its triangles as common neighbors (the link
     // condition): otherwise the collapse folds the surface, and two
     // triangles end up sharing a directed edge, which cuts the faces apart
     // in everything that follows.
@@ -609,7 +609,7 @@ void extractFaces(const Manifold& m, Faces& out) {
     }
     return true;
   };
-  const auto neighbour = [&](std::size_t t, std::size_t c) -> long {
+  const auto neighbor = [&](std::size_t t, std::size_t c) -> long {
     const auto rv =
         owner.find(std::make_pair(tv[(3 * t) + ((c + 1) % 3)], tv[(3 * t) + c]));
     return rv == owner.end() ? -1 : static_cast<long>(rv->second);
@@ -617,9 +617,9 @@ void extractFaces(const Manifold& m, Faces& out) {
   // The planes, each from its largest triangle; only triangles with a
   // decent altitude define one (a sliver's normal is noise), and the
   // planes of a Minkowski result on a grid are degrees apart, so a plane
-  // already seen is recognised generously. Every triangle to the plane it
+  // already seen is recognized generously. Every triangle to the plane it
   // lies on, nearest its own normal; a triangle on no plane (a sliver
-  // whose vertices are on several) takes the plane of a neighbour across
+  // whose vertices are on several) takes the plane of a neighbor across
   // an edge that it does lie on. A triangle on no plane at all (a spike
   // the boolean left, with a vertex well off every plane) is kept as it
   // is: put into a planar group it would make that group's outline leave
@@ -693,7 +693,7 @@ void extractFaces(const Manifold& m, Faces& out) {
             continue;
           }
           for (std::size_t c = 0; c < 3 && plane[t] < 0; c++) {
-            const long u = neighbour(t, c);
+            const long u = neighbor(t, c);
             if (u < 0 || plane[static_cast<std::size_t>(u)] < 0) {
               continue;
             }
@@ -708,7 +708,7 @@ void extractFaces(const Manifold& m, Faces& out) {
     // Every plane the vertex is close to counts, not only those of its own
     // triangles: a vertex on the line of two faces whose own triangles
     // happen to lie on only one of them would otherwise be left a few
-    // nanometres off that line, and the triangle along the line stays a
+    // nanometers off that line, and the triangle along the line stays a
     // sliver instead of going flat.
     for (std::size_t v = 0; v < pos.size(); v++) {
       std::vector<vec3> N;
@@ -799,7 +799,7 @@ void extractFaces(const Manifold& m, Faces& out) {
   };
   for (std::size_t t = 0; t < nt; t++) {
     for (std::size_t c = 0; c < 3; c++) {
-      const long u = neighbour(t, c);
+      const long u = neighbor(t, c);
       if (u >= 0 && plane[t] >= 0 && plane[static_cast<std::size_t>(u)] == plane[t]) {
         parent[find(t)] = find(static_cast<std::size_t>(u));
       }
@@ -810,7 +810,7 @@ void extractFaces(const Manifold& m, Faces& out) {
     groups[find(t)].push_back(t);
   }
   // a group that cannot be rebuilt keeps its own triangles (still
-  // consistent with its neighbours) and hulls each of them
+  // consistent with its neighbors) and hulls each of them
   const auto raw = [&](const std::vector<std::size_t>& members) {
     for (const std::size_t t : members) {
       for (std::size_t c = 0; c < 3; c++) {
@@ -818,7 +818,7 @@ void extractFaces(const Manifold& m, Faces& out) {
       }
       const vec3 n = la::cross(P(t, 1) - P(t, 0), P(t, 2) - P(t, 0));
       if (la::length(n) < 2e-10) {
-        continue;  // flat: its neighbours' hulls cover it
+        continue;  // flat: its neighbors' hulls cover it
       }
       std::vector<vec3> piece;
       piece.reserve(3);
@@ -843,7 +843,7 @@ void extractFaces(const Manifold& m, Faces& out) {
     std::multimap<std::uint64_t, std::uint64_t> next;
     for (const std::size_t t : members) {
       for (std::size_t c = 0; c < 3; c++) {
-        const long u = neighbour(t, c);
+        const long u = neighbor(t, c);
         if (u >= 0 && inGroup.contains(static_cast<std::size_t>(u))) {
           continue;
         }
@@ -907,7 +907,7 @@ void extractFaces(const Manifold& m, Faces& out) {
     }
     // Loops too short to bound anything mean a walk gone wrong; a group
     // whose loops all run backwards (a sheet facing away from its plane's
-    // normal, a sliver artefact) is kept as it is; otherwise every loop
+    // normal, a sliver artifact) is kept as it is; otherwise every loop
     // goes to the triangulator, which sorts outlines from holes by their
     // orientation, and accepts several outlines touching at a vertex.
     bool degenerate = false;
@@ -976,7 +976,7 @@ void extractFaces(const Manifold& m, Faces& out) {
     }
     // Manifold's own polygon triangulator: it keeps every loop edge (a
     // collinear vertex gives a flat triangle, flipped away below), so the
-    // face stays consistent with its neighbours across the outline.
+    // face stays consistent with its neighbors across the outline.
     std::vector<int> tt;
     {
       manifold::Polygons polys(kept.size());
@@ -1044,9 +1044,9 @@ Vec3 toVec3(const vec3& p) {
 // on a straight run of its outline can carry a triangle with no area
 // across that vertex (a needle along the line), which single precision
 // cannot tell from nothing and the STL writer chokes on. The edge opposite
-// the middle vertex is flipped with the neighbour across it, which is on
+// the middle vertex is flipped with the neighbor across it, which is on
 // the same plane, giving two triangles with area. A flat triangle whose
-// neighbour is not coplanar is left (and reported later).
+// neighbor is not coplanar is left (and reported later).
 void flipFlat(const std::vector<vec3>& pos, std::vector<std::uint64_t>& tri) {
   std::map<std::pair<std::uint64_t, std::uint64_t>, std::size_t> owner;
   const auto own = [&](std::size_t t) {
@@ -1104,7 +1104,7 @@ void flipFlat(const std::vector<vec3>& pos, std::vector<std::uint64_t>& tri) {
           D = tri[(3 * u) + c];
         }
       }
-      // the neighbour on the same plane, and the flip giving two triangles
+      // the neighbor on the same plane, and the flip giving two triangles
       // with area
       vec3 n = la::cross(pos[B] - pos[A], pos[D] - pos[A]);
       const double ln = la::length(n);
@@ -1207,8 +1207,8 @@ Manifold boundaryTube(const Faces& f, const std::vector<vec3>& bitPts) {
   for (const std::vector<vec3>& piece : f.pieces) {
     // A sliver piece (a notch or a seam a boolean left, thinner than any
     // feature) sweeps into a wedge whose faces are a hair off its
-    // neighbours' and can end up facing each other across nothing; its
-    // neighbours' hulls cover its sweep to within that hair, so it is left
+    // neighbors' and can end up facing each other across nothing; its
+    // neighbors' hulls cover its sweep to within that hair, so it is left
     // out. Width: twice the area over the perimeter.
     vec3 c(0, 0, 0);
     for (const vec3& p : piece) {
@@ -1502,7 +1502,7 @@ struct CellFaces {
 // with the voxel whose cell holds its centroid (the 3D view removes that
 // voxel on a click), and a face lying on one of that cell's faces, g
 // inside it, with the number of that cell face (the view adds the
-// neighbour across it).
+// neighbor across it).
 bool addFaces(Polyhedron& poly, const Manifold& m, const std::vector<vec3>& facets,
               const std::vector<CellFaces>& cells, double g, std::string& err) {
   const manifold::MeshGL64 mesh = m.GetMeshGL64();
@@ -1600,7 +1600,7 @@ Result<Polyhedron> minkPolyhedron(const Voxel& v, double g, double r, bool fills
         CellFaces cf;
         cf.index = v.getIndex(x, y, z);
         std::vector<std::pair<int, std::vector<vec3>>> polys;
-        vec3 centre(0, 0, 0);
+        vec3 center(0, 0, 0);
         std::size_t np = 0;
         std::vector<float> corners;
         int nx = 0;
@@ -1613,12 +1613,12 @@ Result<Polyhedron> minkPolyhedron(const Voxel& v, double g, double r, bool fills
           std::vector<vec3> pts;
           for (std::size_t k = 0; k + 2 < corners.size(); k += 3) {
             pts.push_back(cornerAt(corners, k));
-            centre = centre + pts.back();
+            center = center + pts.back();
             np++;
           }
           polys.emplace_back(asInt(n), pts);
         }
-        centre = centre / static_cast<double>(np);
+        center = center / static_cast<double>(np);
         for (const auto& pn : polys) {
           const std::vector<vec3>& pts = pn.second;
           if (pts.size() < 3) {
@@ -1633,7 +1633,7 @@ Result<Polyhedron> minkPolyhedron(const Voxel& v, double g, double r, bool fills
             continue;
           }
           nrm = nrm / ln;
-          if (la::dot(nrm, pts[0] - centre) < 0) {
+          if (la::dot(nrm, pts[0] - center) < 0) {
             nrm = nrm * -1.0;
           }
           cf.faces.push_back({pn.first, nrm, la::dot(nrm, pts[0])});

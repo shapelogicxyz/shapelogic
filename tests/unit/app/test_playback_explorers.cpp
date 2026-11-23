@@ -216,7 +216,7 @@ TEST_CASE("playback: a placed piece is its turned mesh at its cell minus the mes
   // (solution.get's placements over shape.mesh {transformation}): the mesh
   // of the placement's transformation moved by the cell minus that mesh's
   // hotspot, in mesh units, must be where the sampler puts the piece (its
-  // single pose, minus the result's centre). Every grid's fixtures.
+  // single pose, minus the result's center). Every grid's fixtures.
   std::vector<std::filesystem::path> files;
   for (const auto& e : std::filesystem::directory_iterator("tests/data/puzzles")) {
     if (e.path().extension() == ".xmpuzzle") {
@@ -312,10 +312,10 @@ TEST_CASE("playback: a stacking solution plays in transfers", "[app][playback][s
   REQUIRE(pb->pieces().size() == 3);
 
   // after transfer k every disc stands where the path's frame 3k puts it:
-  // its centre cell on the rod (the hotspot), the poses centred on the board
+  // its center cell on the rod (the hotspot), the poses centerd on the board
   const Problem& pr = hanoi.getProblem(0);
   const Separation& path = *pr.getSavedSolution(0).getDisassembly();
-  const std::array<double, 3> centre = stackingCentre(hanoi, pr);
+  const std::array<double, 3> center = stackingCenter(hanoi, pr);
   for (unsigned int k = 0; k <= 7; k++) {
     const Result<std::vector<PiecePose>> poses = pb->sample(static_cast<float>(k));
     REQUIRE(poses.has_value());
@@ -324,9 +324,9 @@ TEST_CASE("playback: a stacking solution plays in transfers", "[app][playback][s
       const auto r = static_cast<double>(hanoi.getShape(pr.getShapeIdOfPart(i)).getDiskSize());
       const PiecePose& pose = (*poses)[i];
       CHECK(pose.visible);
-      CHECK(static_cast<double>(pose.translation[0]) + centre[0] + r ==
+      CHECK(static_cast<double>(pose.translation[0]) + center[0] + r ==
             Catch::Approx(st.getX(i)));
-      CHECK(static_cast<double>(pose.translation[2]) + centre[2] == Catch::Approx(st.getZ(i)));
+      CHECK(static_cast<double>(pose.translation[2]) + center[2] == Catch::Approx(st.getZ(i)));
     }
   }
   // half a transfer: the moving disc on its way up, the others still

@@ -73,7 +73,7 @@ struct SolveOptions {
   /// search (PAR_REDUCE).
   bool reduce = true;
   /// Mirrors and rotations kept, the thorough rotation check, strict
-  /// colours (PAR_KEEP_MIRROR, PAR_KEEP_ROTATIONS, PAR_COMPLETE_ROTATIONS,
+  /// colors (PAR_KEEP_MIRROR, PAR_KEEP_ROTATIONS, PAR_COMPLETE_ROTATIONS,
   /// PAR_STRICT_COLORS).
   MatrixOptions matrix;
   /// Take each assembly apart; only those that come apart are solutions
@@ -114,7 +114,7 @@ struct SolveOptions {
   DisassemblerOptions takeApart;
   /// A sliding puzzle's search: nested slides, high memory, where the
   /// search keeps its levels. A sliding run always keeps
-  /// mirrored and rotated starts and matches colours strictly (the start
+  /// mirrored and rotated starts and matches colors strictly (the start
   /// locks), whatever `matrix` says; `disassemble` (the GUI's Find
   /// Solutions) searches each start to the goal; `checkRotations`,
   /// `dropDisassemblies`, `order` (a found path goes at the end) and the

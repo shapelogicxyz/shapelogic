@@ -65,16 +65,16 @@ namespace bt::stacking {
 // ---- discs ----------------------------------------------------------------------
 
 /// Rebuilds a flat disc. Size 1 is a 3x3 square, one cell thick, with the
-/// centre cell empty. Each larger size adds one ring, so size n is
-/// (2n+1)x(2n+1) with only the centre empty. Keeps the current colour.
+/// center cell empty. Each larger size adds one ring, so size n is
+/// (2n+1)x(2n+1) with only the center empty. Keeps the current color.
 void generateDisk(Voxel& v, unsigned int size);
 
-/// Puts the hotspot at the disc centre, so a rod position is the disc's
+/// Puts the hotspot at the disc center, so a rod position is the disc's
 /// middle; nothing for a shape that is not a disc.
 void ensureHotspot(Voxel& v);
 
 /// Puts a shape's hotspot where a stacking solve has it (the GUI's Solve:
-/// initHotspot, then ensureHotspot): a disc's at its centre, another
+/// initHotspot, then ensureHotspot): a disc's at its center, another
 /// shape's where initHotspot puts it. Writes only a hotspot that is
 /// elsewhere (a write drops the shape's caches, which a run of another
 /// problem may be reading); true when one was written.

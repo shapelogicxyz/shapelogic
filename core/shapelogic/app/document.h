@@ -3,14 +3,14 @@
 
 /// @file
 /// The document: a puzzle being edited, with its undo history, stable ids
-/// for its shapes, colours, problems and solutions, a revision number and
+/// for its shapes, colors, problems and solutions, a revision number and
 /// a dirty flag; every editing action of the front end as a command (one
 /// undo step each, or grouped); the solves of its problems; and the
 /// queries, meshes, playback and explorers the front end shows.
 ///
 /// Ported from the original GUI: the shape history (src/gui/shapehistory.cpp,
 /// generalised to every edit), the callbacks of src/gui/mainwindow.cpp
-/// (shapes, colours, problems, pieces, groups, colour rules, solutions,
+/// (shapes, colors, problems, pieces, groups, color rules, solutions,
 /// changeShape / changeProblem), mainwindow_file.cpp (assemblies to
 /// shapes, the imports, the Puzzlecad export, grid conversion) and
 /// mainwindow_solve.cpp (deleting solutions), and for sliding
@@ -51,7 +51,7 @@
 
 namespace bt::app {
 
-/// A stable runtime id: names a shape, colour or problem while the
+/// A stable runtime id: names a shape, color or problem while the
 /// document is open, whatever its place in the list (labels like "S1"
 /// follow the place). Never 0, never given twice in a document. A
 /// solution's id is Solution::getId(), unique within its problem.
@@ -60,7 +60,7 @@ using Id = std::uint64_t;
 /// What a change touched (document.changed).
 enum ChangeFlag : std::uint32_t {
   kChangeShapes = 1,
-  kChangeColours = 2,
+  kChangeColors = 2,
   kChangeProblems = 4,
   kChangeSolutions = 8,
   kChangeNotes = 16,
@@ -89,10 +89,10 @@ struct CellBox {
   int z2 = 0;
 };
 
-/// The colour rules a problem can be set to at once.
-enum class ColourPreset : std::uint8_t {
-  EachOnItself,  ///< every colour may go on itself, nothing else
-  AllowAll,      ///< every colour on every colour
+/// The color rules a problem can be set to at once.
+enum class ColorPreset : std::uint8_t {
+  EachOnItself,  ///< every color may go on itself, nothing else
+  AllowAll,      ///< every color on every color
   Clear,         ///< no rules
 };
 
@@ -169,9 +169,9 @@ struct DiscsPlaced {
 
 /// A puzzle being edited. The owner calls it from one thread. Solves run
 /// on their own threads; while a run is active (decision 0011) the
-/// document refuses (InvalidState) edits of shapes, of the shape, colour
+/// document refuses (InvalidState) edits of shapes, of the shape, color
 /// and problem lists, of problems being solved, undo, redo and saving;
-/// other problems, colour values and the notes can still be edited, and a
+/// other problems, color values and the notes can still be edited, and a
 /// problem can be added at the end (new or a copy). A problem being solved
 /// is read through readProblem().
 class Document {
@@ -269,14 +269,14 @@ class Document {
 
   /// The ids in list order.
   [[nodiscard]] const std::vector<Id>& shapeIds() const { return ids_.shapes; }
-  [[nodiscard]] const std::vector<Id>& colourIds() const { return ids_.colours; }
+  [[nodiscard]] const std::vector<Id>& colorIds() const { return ids_.colors; }
   [[nodiscard]] const std::vector<Id>& problemIds() const { return ids_.problems; }
   /// A stacking puzzle's rod sets (empty on other grids).
   [[nodiscard]] const std::vector<Id>& rodSetIds() const { return ids_.rodSets; }
-  /// The place of an id in its list (colours: 0 is colour number 1);
+  /// The place of an id in its list (colors: 0 is color number 1);
   /// NotFound for an unknown id.
   [[nodiscard]] Result<unsigned int> shapeIndex(Id id) const;
-  [[nodiscard]] Result<unsigned int> colourIndex(Id id) const;
+  [[nodiscard]] Result<unsigned int> colorIndex(Id id) const;
   [[nodiscard]] Result<unsigned int> problemIndex(Id id) const;
   [[nodiscard]] Result<unsigned int> rodSetIndex(Id id) const;
   /// The place of a solution in its problem's list.
@@ -288,7 +288,7 @@ class Document {
   /// S2, ..." for the pieces, each by place among its kind
   /// (sliding::shapeLabel).
   [[nodiscard]] std::string shapeLabelOf(unsigned int index) const;
-  [[nodiscard]] static std::string colourLabel(unsigned int index);
+  [[nodiscard]] static std::string colorLabel(unsigned int index);
   [[nodiscard]] static std::string problemLabel(unsigned int index);
   /// "R1": a rod set's label (the original's rod-set list).
   [[nodiscard]] static std::string rodSetLabel(unsigned int index);
@@ -326,8 +326,8 @@ class Document {
   Result<void> renameShape(Id shape, std::string name);
   /// The weight (heavier shapes stay in place when taken apart).
   Result<void> setShapeWeight(Id shape, int weight);
-  /// The shape's own colour, 0xRRGGBB, or none for the default one.
-  Result<void> setShapeColour(Id shape, std::optional<std::uint32_t> rgb);
+  /// The shape's own color, 0xRRGGBB, or none for the default one.
+  Result<void> setShapeColor(Id shape, std::optional<std::uint32_t> rgb);
   /// A picture for a shape (shape.setImage, decision 0038): new image bytes
   /// (PNG or JPEG) or the id of one the puzzle has, how it was fitted, and
   /// the part of it shown, in pixels.
@@ -343,18 +343,18 @@ class Document {
   Result<unsigned int> setShapeImage(Id shape, const ImageChoice& choice);
   /// Takes the shape's picture off (nothing when it has none).
   Result<void> clearShapeImage(Id shape);
-  /// Applies a cell tool to cells (shape.setCells); `colour` is a colour
+  /// Applies a cell tool to cells (shape.setCells); `color` is a color
   /// id, or 0 for none. Returns the number of cells changed (0 changes
   /// leave no undo step).
-  Result<unsigned int> editCells(Id shape, CellTool tool, Id colour, std::uint8_t symmetry,
+  Result<unsigned int> editCells(Id shape, CellTool tool, Id color, std::uint8_t symmetry,
                                  const std::vector<CellEdit>& cells);
   /// The same for every cell of a box (shape.selectionFill / selectionClear).
-  Result<unsigned int> editBox(Id shape, CellTool tool, Id colour, std::uint8_t symmetry,
+  Result<unsigned int> editBox(Id shape, CellTool tool, Id color, std::uint8_t symmetry,
                                const CellBox& box);
   /// Sets the size in the editor's units (sizeUnit(); shape.resize): with
   /// `toAll` the other shapes grow by as much as this one (never shrink).
   Result<void> resizeShape(Id shape, unsigned int x, unsigned int y, unsigned int z, bool toAll);
-  /// A button of the tool tabs (shape.transform, prune, centre, minimize,
+  /// A button of the tool tabs (shape.transform, prune, center, minimize,
   /// scale, fillHoles, surface); with `toAll` and a task that allows it,
   /// on every shape. Returns what it did to this shape.
   Result<TaskOutcome> shapeTask(Id shape, ShapeTask task, bool toAll = false);
@@ -363,18 +363,18 @@ class Document {
   /// (a nudge out of the grid is InvalidArgument), but allowed while solving.
   [[nodiscard]] Result<mesh::DrawMesh> shapeTaskPreview(Id shape, ShapeTask task) const;
 
-  // ---- colours ----------------------------------------------------------------
+  // ---- colors ----------------------------------------------------------------
 
-  /// Adds a constraint colour; every problem allows it on itself.
-  Result<Id> addColour(Rgb rgb);
-  Result<void> editColour(Id colour, Rgb rgb);
-  /// Removes a colour: its cells become neutral, the colours above move
+  /// Adds a constraint color; every problem allows it on itself.
+  Result<Id> addColor(Rgb rgb);
+  Result<void> editColor(Id color, Rgb rgb);
+  /// Removes a color: its cells become neutral, the colors above move
   /// down, the problems with shapes using it lose their solutions.
-  Result<void> deleteColour(Id colour);
+  Result<void> deleteColor(Id color);
 
   // ---- problems ---------------------------------------------------------------
 
-  /// Adds a problem; it allows each colour on itself. Allowed while
+  /// Adds a problem; it allows each color on itself. Allowed while
   /// solving: the sessions go on.
   Result<Id> createProblem();
   /// Adds a copy of a problem's definition (no name, no solutions), of a
@@ -406,15 +406,15 @@ class Document {
   Result<void> setGroup(Id problem, Id shape, unsigned int group);
   /// Removes a group from every shape.
   Result<void> deleteGroup(Id problem, unsigned int group);
-  /// Allows or forbids piece colour on result colour (colour ids).
-  Result<void> setColourRule(Id problem, Id pieceColour, Id resultColour, bool allowed);
-  Result<void> setColourRules(Id problem, ColourPreset preset);
+  /// Allows or forbids piece color on result color (color ids).
+  Result<void> setColorRule(Id problem, Id pieceColor, Id resultColor, bool allowed);
+  Result<void> setColorRules(Id problem, ColorPreset preset);
   /// In a sliding puzzle the result is the start/goal shape, a piece with
   /// starts or goals there keeps at least a copy for each
   /// (sliding::stampedCopies), bulk changes leave such pieces alone, and
   /// there are no groups: those commands are refused (InvalidArgument), as
   /// are new, copied and deleted problems (they follow the start/goal
-  /// shapes). Colours and their rules are the user's, as on every grid.
+  /// shapes). Colors and their rules are the user's, as on every grid.
   ///
   /// Stores the Solver tab's settings with a problem (cb_SolverOptions:
   /// the original's names and values, saved in the file; the front end
@@ -492,7 +492,7 @@ class Document {
   // Problems tab's brick commands, whose buttons did the stacking ones
   // below there (setResult, the piece counts and ranges, movePart, the
   // groups). Refused (Unsupported) on other grids. The rod set commands
-  // are refused while anything is solved (the GUI greyed them out while a
+  // are refused while anything is solved (the GUI grayed them out while a
   // solve ran); the stacks' commands while their problem is.
 
   /// Adds a rod set with the default rules (cb_NewRod).
@@ -514,7 +514,7 @@ class Document {
   /// their stacks fitted to the new count and lose their solutions.
   Result<void> setRodSetRules(Id rodSet, const stacking::RodSet& rules);
   /// A disc's size, 1 to 100 (the disc list's size; generateDisk: a new
-  /// square of (2 size + 1) cells, its colour kept). Solutions stay, as in
+  /// square of (2 size + 1) cells, its color kept). Solutions stay, as in
   /// the original (cb_DiskList).
   Result<void> setDiscSize(Id shape, unsigned int size);
   /// The board a problem stands on (Set Start/Goal Rods: cb_ShapeToResult's
@@ -725,16 +725,16 @@ class Document {
  private:
   struct Ids {
     std::vector<Id> shapes;
-    std::vector<Id> colours;
+    std::vector<Id> colors;
     std::vector<Id> problems;
     std::vector<Id> rodSets;
   };
-  /// What a snapshot saved: a shape, a problem, a colour's value, the
+  /// What a snapshot saved: a shape, a problem, a color's value, the
   /// notes, or everything.
   enum class SnapshotKind : std::uint8_t {
     Shape,
     Problem,
-    Colour,
+    Color,
     Notes,
     Whole,
     AppendedShape,
@@ -763,7 +763,7 @@ class Document {
   [[nodiscard]] bool covered(SnapshotKind kind, unsigned int index) const;
   void touchShape(unsigned int index);
   void touchProblem(unsigned int index);
-  void touchColour(unsigned int index);
+  void touchColor(unsigned int index);
   void touchNotes();
   void touchWhole();
   /// Before a shape is added at the end: undo takes it out again.

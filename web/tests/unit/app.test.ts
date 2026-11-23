@@ -4,7 +4,7 @@
 // whole by rename, read back keeping what is well formed, the recent
 // files), the rescue copy (its record, a record that does not match the
 // copy, a removal), the menus' template (the platforms' layouts, what is
-// greyed, the keys shown and not registered, every item's command one the
+// grayed, the keys shown and not registered, every item's command one the
 // renderer takes), the bridge's checks, the stored settings read back, and
 // the convert dialog's fields.
 
@@ -369,7 +369,7 @@ describe('the menus', () => {
     expect(build(state, 'darwin').template.find((m) => m.id === 'window')?.role).toBe('windowMenu');
   });
 
-  it('greys what this version cannot do, and what the state does not allow', () => {
+  it('grays what this version cannot do, and what the state does not allow', () => {
     const none = (): ReturnType<typeof commandItems> =>
       commandItems(build(NO_STATE, 'darwin').template);
     const items = commandItems(build(state, 'darwin').template);
@@ -463,7 +463,7 @@ describe('the menus', () => {
     }
     expect(sent).toContainEqual({ cmd: 'openPath', path: '/x/b.xmpuzzle' });
     expect(sent).toContainEqual({ cmd: 'style', style: 'flat' });
-    expect(sent).toContainEqual({ cmd: 'colourView', on: true });
+    expect(sent).toContainEqual({ cmd: 'colorView', on: true });
   });
 
   it('has Manage Cache and Autosave Files under Reload in development, at the foot of View in a release', () => {
@@ -565,15 +565,17 @@ describe('the stored settings read back', () => {
     // Z Up's name before, and the Z axis directions dropped since: back to the default
     expect(validPrefs({ zAxis: 'Z Up + Y Away' })).toEqual({ zAxis: 'Z Up' });
     expect(validPrefs({ zAxis: 'Z Away' })).toEqual({});
-    expect(validPrefs({ zAxis: 'Z Up + Y Towards' })).toEqual({});
+    expect(validPrefs({ zAxis: 'Z Up + Y Toward' })).toEqual({});
     // a new shape's size: whole, 1 to NEW_SIZE_MAX
     expect(validPrefs({ newX: 0, newY: 7, newZ: NEW_SIZE_MAX + 1 })).toEqual({ newY: 7 });
     expect(validPrefs({ slideX: 2.5, slideY: 8, slideZ: 0 })).toEqual({ slideY: 8 });
-    // the label length: 1 to 14, or 0 for unlimited
-    expect(validPrefs({ labelChars: 0 })).toEqual({ labelChars: 0 });
-    expect(validPrefs({ labelChars: 14 })).toEqual({ labelChars: 14 });
-    expect(validPrefs({ labelChars: 15 })).toEqual({});
-    expect(validPrefs({ labelChars: 3.5 })).toEqual({});
+    // the label length per voxel: 1 to 14, or 0 for unlimited; the old
+    // labelChars (a length for every piece) is not read
+    expect(validPrefs({ labelCharsPerVoxel: 0 })).toEqual({ labelCharsPerVoxel: 0 });
+    expect(validPrefs({ labelCharsPerVoxel: 14 })).toEqual({ labelCharsPerVoxel: 14 });
+    expect(validPrefs({ labelCharsPerVoxel: 15 })).toEqual({});
+    expect(validPrefs({ labelCharsPerVoxel: 3.5 })).toEqual({});
+    expect(validPrefs({ labelChars: 8 })).toEqual({});
     // the side cards: Static or Variable, widths whole, SIDE_MIN to SIDE_MAX
     expect(validPrefs({ sidebar: 'Variable' })).toEqual({ sidebar: 'Variable' });
     expect(validPrefs({ sidebar: 'Wide' })).toEqual({});

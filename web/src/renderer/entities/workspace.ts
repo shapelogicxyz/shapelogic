@@ -29,7 +29,7 @@ import type { GroupState } from '../shell/history.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { editorVisible, layout, onLayout, tab } from '../shell/layout.ts';
-import { chipColour, hex, isTray, shapeColour } from '../shell/piece-colours.ts';
+import { chipColor, hex, isTray, shapeColor } from '../shell/piece-colors.ts';
 import { onPieceImage, pieceImage } from '../shell/piece-images.ts';
 import { pictureToCells } from '../shell/picture-math.ts';
 import { flash, reportError, setCursor } from '../shell/status.ts';
@@ -37,7 +37,7 @@ import { onTheme } from '../shell/theme.ts';
 import type { View3D } from '../view3d/view.ts';
 import type { Plane } from '../view3d/overlays.ts';
 import { Edit3D, editHelp } from './edit3d.ts';
-import { EditorCard, nextColour } from './editor-card.ts';
+import { EditorCard, nextColor } from './editor-card.ts';
 import { axesOf, EditorState, expand, planeMap, TOOLS } from './editor-state.ts';
 import type { Cell, PlaneMap } from './editor-state.ts';
 import { Grid2D } from './grid2d.ts';
@@ -54,7 +54,7 @@ import type { CellValue } from './shape-cells.ts';
 import { RodsCard } from './rods-card.ts';
 import { rodSetText } from '../state/stacking.ts';
 import { ShapesList } from './shapes-list.ts';
-import { boardCentre } from '../view3d/board.ts';
+import { boardCenter } from '../view3d/board.ts';
 import { Stroke } from './stroke.ts';
 
 const isCube = (g: string | undefined): boolean =>
@@ -149,22 +149,22 @@ export class EntitiesWorkspace {
       },
       resize: (axis, delta) => void this.resize(axis, delta),
       fillBox: (clear) => void this.fillBox(clear),
-      addColour: () => void this.addColour(),
-      editColour: (id, rgb) =>
-        void this.mutate('Edit color', () => store.engine.call('colour.edit', { colour: id, rgb })),
-      setShapeColour: (shape, rgb) =>
-        void this.mutate('Color', () => store.engine.call('shape.setColour', { shape, rgb })),
+      addColor: () => void this.addColor(),
+      editColor: (id, rgb) =>
+        void this.mutate('Edit color', () => store.engine.call('color.edit', { color: id, rgb })),
+      setShapeColor: (shape, rgb) =>
+        void this.mutate('Color', () => store.engine.call('shape.setColor', { shape, rgb })),
       editImage: () => {
         this.editImage();
       },
       clearImage: (shape) =>
         void this.mutate('Remove image', () => store.engine.call('shape.clearImage', { shape })),
-      deleteColour: (id) => void this.deleteColour(id),
+      deleteColor: (id) => void this.deleteColor(id),
     });
     this.grid = new Grid2D(byId('garea'), {
       state: this.state,
       frozen: () => this.refuse(),
-      drawingColour: () => this.badge(),
+      drawingColor: () => this.badge(),
       strokeStart: (tool, cell) => {
         this.strokeStart(tool, cell);
       },
@@ -198,9 +198,9 @@ export class EntitiesWorkspace {
       refuse,
       canEdit: () => !store.solving && tab === 'entities' && store.snapshot?.grid !== 'stacking',
       drawingHex: () => this.card.drawingHex(),
-      colourHex: (c) => this.card.colourHex(c),
+      colorHex: (c) => this.card.colorHex(c),
       badge: () => this.badge(),
-      apply: (tool, cell, colour) => this.apply3d(tool, cell, colour),
+      apply: (tool, cell, color) => this.apply3d(tool, cell, color),
       track: (p) => this.track(p),
     });
     view.edit = this.edit3d;
@@ -266,23 +266,21 @@ export class EntitiesWorkspace {
     return this.store.info?.grids.find((g) => g.grid === grid)?.sizeUnit ?? 1;
   }
 
-  /** The drawing colour for a badge: null for Default. */
+  /** The drawing color for a badge: null for Default. */
   private badge(): string | null {
-    const id = this.state.colour;
-    return id === null
-      ? null
-      : (this.store.snapshot?.colours.find((c) => c.id === id)?.rgb ?? null);
+    const id = this.state.color;
+    return id === null ? null : (this.store.snapshot?.colors.find((c) => c.id === id)?.rgb ?? null);
   }
 
   private documentChanged(): void {
     const store = this.store;
     const snap = store.snapshot;
     if (store.generation !== this.generation) {
-      // another document: its own grid, colours and shapes
+      // another document: its own grid, colors and shapes
       this.generation = store.generation;
       this.state.box = null;
       this.state.layer = 0;
-      this.state.colour = null;
+      this.state.color = null;
       // the Grid plane setting's plane, where the grid has more than XY
       this.state.plane = !isCube(snap?.grid) || snap?.grid === 'sliding' ? 'XY' : prefs.gridPlane;
       this.geos.clear();
@@ -300,10 +298,10 @@ export class EntitiesWorkspace {
     this.rods.render();
     this.showRodSet();
     if (
-      this.state.colour !== null &&
-      !(snap?.colours.some((c) => c.id === this.state.colour) ?? false)
+      this.state.color !== null &&
+      !(snap?.colors.some((c) => c.id === this.state.color) ?? false)
     ) {
-      this.state.colour = null;
+      this.state.color = null;
     }
     this.state.dropPaint();
     this.loadTasks();
@@ -347,7 +345,7 @@ export class EntitiesWorkspace {
   // the inspector again only when what it shows changed (not every cell drawn)
   private renderInspector(): void {
     const s = this.store.shape;
-    const k = `${String(this.tasks?.length)}:${this.tasksFor}:${s?.id}:${s?.label}:${s?.colour}:${(s?.fixed ?? 0) + (s?.variable ?? 0) === 0}:${this.state.applyAll}:${this.store.indexOf(s?.id ?? '')}`;
+    const k = `${String(this.tasks?.length)}:${this.tasksFor}:${s?.id}:${s?.label}:${s?.color}:${(s?.fixed ?? 0) + (s?.variable ?? 0) === 0}:${this.state.applyAll}:${this.store.indexOf(s?.id ?? '')}`;
     if (k !== this.inspectorKey) {
       this.inspectorKey = k;
       this.inspector.render();
@@ -409,7 +407,7 @@ export class EntitiesWorkspace {
       label: shape.label,
       board: isTray(shape),
       cells,
-      colour: hex(chipColour(shape, this.store.indexOf(shape.id))),
+      color: hex(chipColor(shape, this.store.indexOf(shape.id))),
       current: shape.image !== null && picture !== null ? { image: shape.image, picture } : null,
       apply: (a) =>
         this.mutate('Image', () =>
@@ -457,24 +455,23 @@ export class EntitiesWorkspace {
         st.plane === 'XY' && this.cells.layer === st.layer
           ? this.cells.layerCells
           : layerOf(st.layer);
-      const own = hex(shapeColour(shape.colour, store.indexOf(shape.id)));
+      const own = hex(shapeColor(shape.color, store.indexOf(shape.id)));
       return {
         grid: snap.grid,
         geo,
         plane,
         layer: st.layer,
         cells,
-        shapeColour: own,
-        // the constraint colours (a sliding puzzle's start and goal marks
+        shapeColor: own,
+        // the constraint colors (a sliding puzzle's start and goal marks
         // are drawn apart from them); a board in its tiles
-        palette: new Map(snap.colours.map((c) => [c.id, c.rgb])),
+        palette: new Map(snap.colors.map((c) => [c.id, c.rgb])),
         tray:
           snap.grid === 'sliding' && isTray(shape)
             ? {
                 marks: new Map(),
-                // a board given a colour shows its chequer in it, else in the theme's
-                own:
-                  shape.colour == null ? null : shapeColour(shape.colour, store.indexOf(shape.id)),
+                // a board given a color shows its chequer in it, else in the theme's
+                own: shape.color == null ? null : shapeColor(shape.color, store.indexOf(shape.id)),
               }
             : null,
         image: this.pictureOf(shape),
@@ -552,7 +549,7 @@ export class EntitiesWorkspace {
       {
         shape,
         tool,
-        colour: tool === 'erase' ? null : st.colour,
+        color: tool === 'erase' ? null : st.color,
         mirror: axesOf(st.mirror),
         span: axesOf(st.span),
       },
@@ -585,7 +582,7 @@ export class EntitiesWorkspace {
     this.closing = done;
   }
 
-  private async apply3d(tool: CellTool, cell: Cell, colour?: string | null): Promise<void> {
+  private async apply3d(tool: CellTool, cell: Cell, color?: string | null): Promise<void> {
     const shape = this.store.selected;
     if (shape === null) {
       return;
@@ -593,13 +590,13 @@ export class EntitiesWorkspace {
     const st = this.state;
     const mirror = axesOf(st.mirror);
     const span = axesOf(st.span);
-    const c = colour === undefined ? st.colour : colour;
+    const c = color === undefined ? st.color : color;
     await this.mutate('The voxel could not be changed', () =>
       this.store.engine.call('shape.setCells', {
         shape,
         tool,
         cells: [cell],
-        ...(tool !== 'erase' && c !== null ? { colour: c } : {}),
+        ...(tool !== 'erase' && c !== null ? { color: c } : {}),
         ...(mirror.length === 0 ? {} : { mirror }),
         ...(span.length === 0 ? {} : { span }),
       }),
@@ -628,7 +625,7 @@ export class EntitiesWorkspace {
         tool,
         name: t?.n ?? '',
         key: t?.k ?? '',
-        colour: this.badge(),
+        color: this.badge(),
         on: this.state.edit3d,
         tmp: true,
         enabled: true,
@@ -697,43 +694,43 @@ export class EntitiesWorkspace {
         tool,
         from,
         to,
-        ...(!clear && st.colour !== null ? { colour: st.colour } : {}),
+        ...(!clear && st.color !== null ? { color: st.color } : {}),
         ...(mirror.length === 0 ? {} : { mirror }),
         ...(span.length === 0 ? {} : { span }),
       }),
     );
   }
 
-  private async addColour(): Promise<void> {
+  private async addColor(): Promise<void> {
     if (this.edits.refuseList()) {
       return;
     }
-    // unlike the colours there and the shape's own (Default)
-    const have = (this.store.snapshot?.colours ?? []).map((c) => c.rgb);
+    // unlike the colors there and the shape's own (Default)
+    const have = (this.store.snapshot?.colors ?? []).map((c) => c.rgb);
     const s = this.store.shape;
     if (s !== null) {
-      have.push(hex(shapeColour(s.colour, this.store.indexOf(s.id))));
+      have.push(hex(shapeColor(s.color, this.store.indexOf(s.id))));
     }
     const r = await this.mutate('Add color', () =>
-      this.store.engine.call('colour.add', { rgb: nextColour(have) }),
+      this.store.engine.call('color.add', { rgb: nextColor(have) }),
     );
     if (r !== null) {
-      this.state.colour = r.colour;
+      this.state.color = r.color;
       this.state.changed();
     }
   }
 
-  private async deleteColour(id: string): Promise<void> {
+  private async deleteColor(id: string): Promise<void> {
     if (this.edits.refuseList()) {
       return;
     }
-    const at = this.store.snapshot?.colours.findIndex((c) => c.id === id) ?? -1;
+    const at = this.store.snapshot?.colors.findIndex((c) => c.id === id) ?? -1;
     const r = await this.mutate('Remove color', () =>
-      this.store.engine.call('colour.delete', { colour: id }),
+      this.store.engine.call('color.delete', { color: id }),
     );
-    // the drawing colour moves to the one before (Default before the first)
+    // the drawing color moves to the one before (Default before the first)
     if (r !== null) {
-      this.state.colour = at > 0 ? (this.store.snapshot?.colours[at - 1]?.id ?? null) : null;
+      this.state.color = at > 0 ? (this.store.snapshot?.colors[at - 1]?.id ?? null) : null;
       this.state.changed();
     }
   }
@@ -762,7 +759,7 @@ export class EntitiesWorkspace {
             {
               key: `rods:${set.id}:${String(revision)}`,
               layout,
-              centre: boardCentre(layout),
+              center: boardCenter(layout),
               discs: [],
               label: rodSetText(set),
             },
@@ -789,11 +786,8 @@ export class EntitiesWorkspace {
           if (!inEntities()) {
             return false;
           }
-          // Paint only with a restriction colour chosen (where its brush shows)
-          if (
-            (t.id === 'paint' && st.colour === null) ||
-            this.store.snapshot?.grid === 'stacking'
-          ) {
+          // Paint only with a restriction color chosen (where its brush shows)
+          if ((t.id === 'paint' && st.color === null) || this.store.snapshot?.grid === 'stacking') {
             return true;
           }
           // a voxel tool keeps the box selection (its Fill uses it); the brush draws

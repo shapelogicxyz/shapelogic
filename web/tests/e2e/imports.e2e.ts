@@ -195,7 +195,7 @@ test('File ▸ Export ▸ Puzzlecad writes the text the original wrote', async (
     await menu(page, 'export.scad');
     await opts.locator('[data-a="removeAll"]').click();
     await expect(opts.locator('[data-f="chosen"] option')).toHaveCount(0);
-    // Problems greys the lists
+    // Problems grays the lists
     await opts.locator('[data-f="problems"]').check();
     await expect(opts.locator('[data-f="all"]')).toBeDisabled();
     await opts.locator('[data-x="cancel"]').click();
@@ -225,7 +225,7 @@ test('File ▸ Export ▸ Puzzlecad writes the text the original wrote', async (
     expect(readFileSync(join(dir, 'klotski.scad'), 'utf8')).toBe(klotski);
     expect(klotski).toContain('packing_box([');
 
-    // not the brick or sliding grid: greyed (the engine refuses it in the original's words)
+    // not the brick or sliding grid: grayed (the engine refuses it in the original's words)
     await openFixture(page, 'Bermuda.xmpuzzle');
     await expect.poll(async () => (await menuItem(page, 'export.scad'))?.enabled).toBe(false);
     await expect

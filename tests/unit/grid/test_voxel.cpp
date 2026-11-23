@@ -67,7 +67,7 @@ TEST_CASE("voxel: setState and getState agree on all three states", "[voxel]") {
   }
 }
 
-TEST_CASE("voxel: colour is independent of state", "[voxel]") {
+TEST_CASE("voxel: color is independent of state", "[voxel]") {
   GridType gt(GridKind::Bricks);
   std::unique_ptr<Voxel> v = makeVoxel(gt, 2, 1, 1);
 
@@ -77,12 +77,12 @@ TEST_CASE("voxel: colour is independent of state", "[voxel]") {
   REQUIRE(v->isFilled(0, 0, 0));
   REQUIRE(v->getColor(0, 0, 0) == 5);
 
-  /* changing state must not disturb the colour */
+  /* changing state must not disturb the color */
   v->setState(0, 0, 0, Voxel::kVariable);
   REQUIRE(v->isVariable(0, 0, 0));
   REQUIRE(v->getColor(0, 0, 0) == 5);
 
-  /* and changing colour must not disturb the state */
+  /* and changing color must not disturb the state */
   v->setColor(0, 0, 0, 63);
   REQUIRE(v->isVariable(0, 0, 0));
   REQUIRE(v->getColor(0, 0, 0) == 63);
@@ -491,10 +491,10 @@ TEST_CASE("voxel: getMirrorTransform finds the mirror of a chiral shape", "[voxe
   REQUIRE(square->getMirrorTransform(*square) != 0);
 }
 
-TEST_CASE("voxel: identicalInBB is colour-sensitive", "[voxel]") {
+TEST_CASE("voxel: identicalInBB is color-sensitive", "[voxel]") {
   GridType gt(GridKind::Bricks);
 
-  /* two copies with identical geometry, differing only in the colour of
+  /* two copies with identical geometry, differing only in the color of
      one filled cell */
   std::unique_ptr<Voxel> a = fromLayers(gt, {
     { "##" },

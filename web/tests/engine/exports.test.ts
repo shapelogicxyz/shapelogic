@@ -128,7 +128,7 @@ describe.skipIf(ENGINE === null)('the exports and the engine', () => {
             name: `Solution ${String(row.index + 1)}`,
             pieces: meshes.map((mesh, i) => ({
               name: pb.pieces[i]?.name ?? '',
-              colour: [0.2 + 0.1 * (i % 5), 0.5, 0.8],
+              color: [0.2 + 0.1 * (i % 5), 0.5, 0.8],
               mesh,
             })),
             track,

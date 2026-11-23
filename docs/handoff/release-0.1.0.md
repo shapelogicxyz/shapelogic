@@ -1,7 +1,7 @@
 # Handoff: the first release (0.1.0), macOS so far
 
 **Date:** 2026-10-15 · **State:** macOS signed, notarisation pending at
-Apple; Windows, Linux, the artefacts, the release notes and the tag not
+Apple; Windows, Linux, the artifacts, the release notes and the tag not
 started. **Not tagged.** Version 0.1.0 as CMakeLists.txt has it.
 
 The release is being done one operating system at a time, as the owner

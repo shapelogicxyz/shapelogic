@@ -63,7 +63,7 @@ docs/PLAN.md (stage details 1 and 2), this note, and decisions 0005 to 0007.
 - Include the editing operations that live in `voxel_c`: `transform`,
   `translate`, `scale`, `scaleDown`, `resize`/`resizeInclude`,
   `minimizePiece`, `fillHoles`, `actionOnSpace`, hotspot, cell state and
-  colour, weight, name, symmetry calculation, `unionintersect`.
+  color, weight, name, symmetry calculation, `unionintersect`.
 - Modern shape: value types, `std::unique_ptr` for the polymorphic voxel
   spaces (a `clone()` instead of `gridType_c::getVoxel` returning raw
   pointers), `Result<T>` for failures, `BT_ASSERT` for invariants.

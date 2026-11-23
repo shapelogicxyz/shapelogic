@@ -282,7 +282,7 @@ export async function menuItem(
 }
 
 /**
- * The file dialogs answer with these paths (null: cancelled), as a user
+ * The file dialogs answer with these paths (null: canceled), as a user
  * would choose them, until they are answered again.
  */
 export async function answerDialogs(

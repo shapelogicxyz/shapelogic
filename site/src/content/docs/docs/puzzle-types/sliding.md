@@ -29,7 +29,7 @@ A sliding puzzle has two kinds of shape:
 Each piece gets a **start** and a **goal** position, stamped onto a tray: the
 whole piece at a time. A piece the puzzle has several copies of gets a start
 and a goal for each copy. Trays are also called **boards**. They always stay at
-the top of the shapes list and are labelled `B1`, `B2` and so on, while the
+the top of the shapes list and are labeled `B1`, `B2` and so on, while the
 pieces below them are `S1`, `S2` and so on. When you delete or move a board,
 the boards after it are numbered again, so there is never a gap.
 

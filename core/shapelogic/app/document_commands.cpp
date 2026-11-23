@@ -314,7 +314,7 @@ Result<void> Document::setShapeWeight(Id shape, int weight) {
   return {};
 }
 
-Result<void> Document::setShapeColour(Id shape, std::optional<std::uint32_t> rgb) {
+Result<void> Document::setShapeColor(Id shape, std::optional<std::uint32_t> rgb) {
   if (Result<void> r = checkNotSolving(); !r) {
     return r;
   }
@@ -323,13 +323,13 @@ Result<void> Document::setShapeColour(Id shape, std::optional<std::uint32_t> rgb
     return std::unexpected(s.error());
   }
   if (rgb && *rgb > 0xFFFFFF) {
-    return fail(Errc::InvalidArgument, "a colour is 0xRRGGBB");
+    return fail(Errc::InvalidArgument, "a color is 0xRRGGBB");
   }
   const int value = rgb ? static_cast<int>(*rgb) : -1;
   if (puzzle_->getShape(*s).getShapeColor() == value) {
     return {};
   }
-  StepGuard g(*this, "Shape colour");
+  StepGuard g(*this, "Shape color");
   touchShape(*s);
   puzzle_->getShape(*s).setShapeColor(value);
   lastChange_.shapes = {shape};
@@ -414,7 +414,7 @@ Result<void> Document::clearShapeImage(Id shape) {
   return {};
 }
 
-Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id colour,
+Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id color,
                                          std::uint8_t symmetry,
                                          const std::vector<CellEdit>& cells) {
   if (Result<void> r = checkNotSolving(); !r) {
@@ -427,19 +427,19 @@ Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id colour,
   if (Result<void> r = refuseOnStacking("a stacking puzzle's shapes are discs: they are not edited by cells"); !r) {
     return std::unexpected(r.error());
   }
-  unsigned int colourNumber = 0;
-  if (colour != 0) {
-    const Result<unsigned int> c = colourIndex(colour);
+  unsigned int colorNumber = 0;
+  if (color != 0) {
+    const Result<unsigned int> c = colorIndex(color);
     if (!c) {
       return std::unexpected(c.error());
     }
-    colourNumber = *c + 1;
+    colorNumber = *c + 1;
   }
   // on a copy first: an edit that changes nothing leaves no step
   std::unique_ptr<Voxel> v = puzzle_->getShape(*s).clone();
   // a sliding board's cells take its problems' starts and goals along
   std::vector<sliding::BoardEdit> board = beginBoardEdit(*s, *v);
-  const unsigned int n = app::editCells(*v, tool, colourNumber, symmetry, cells);
+  const unsigned int n = app::editCells(*v, tool, colorNumber, symmetry, cells);
   for (sliding::BoardEdit& b : board) {
     sliding::readBoardTags(b, *v);
   }
@@ -456,7 +456,7 @@ Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id colour,
   return n;
 }
 
-Result<unsigned int> Document::editBox(Id shape, CellTool tool, Id colour, std::uint8_t symmetry,
+Result<unsigned int> Document::editBox(Id shape, CellTool tool, Id color, std::uint8_t symmetry,
                                        const CellBox& box) {
   const Result<unsigned int> s = shapeIndex(shape);
   if (!s) {
@@ -481,7 +481,7 @@ Result<unsigned int> Document::editBox(Id shape, CellTool tool, Id colour, std::
       }
     }
   }
-  return editCells(shape, tool, colour, symmetry, cells);
+  return editCells(shape, tool, color, symmetry, cells);
 }
 
 Result<void> Document::resizeShape(Id shape, unsigned int x, unsigned int y, unsigned int z,
@@ -672,32 +672,32 @@ Result<mesh::DrawMesh> Document::shapeTaskPreview(Id shape, ShapeTask task) cons
   return mesh::shapeDrawMesh(*copy, mesh::MeshStyle::Drawing);
 }
 
-// ---- colours -----------------------------------------------------------------------
+// ---- colors -----------------------------------------------------------------------
 
-Result<Id> Document::addColour(Rgb rgb) {
+Result<Id> Document::addColor(Rgb rgb) {
   if (Result<void> r = checkNotSolving(); !r) {
     return std::unexpected(r.error());
   }
   if (puzzle_->colorNumber() >= Puzzle::kMaxColors) {
-    return fail(Errc::InvalidArgument, "a puzzle has at most 63 colours");
+    return fail(Errc::InvalidArgument, "a puzzle has at most 63 colors");
   }
-  StepGuard g(*this, "New colour");
+  StepGuard g(*this, "New color");
   touchWhole();
   endSessions();
   (void)puzzle_->addColor(rgb.r, rgb.g, rgb.b);
-  // pieces of the new colour may go on cells of it
+  // pieces of the new color may go on cells of it
   const unsigned int col = puzzle_->colorNumber();
   for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
     puzzle_->getProblem(p).allowPlacement(*puzzle_, col, col);
   }
   const Id id = newId();
-  ids_.colours.push_back(id);
-  g.commit(kChangeColours | kChangeProblems);
+  ids_.colors.push_back(id);
+  g.commit(kChangeColors | kChangeProblems);
   return id;
 }
 
-Result<void> Document::editColour(Id colour, Rgb rgb) {
-  const Result<unsigned int> c = colourIndex(colour);
+Result<void> Document::editColor(Id color, Rgb rgb) {
+  const Result<unsigned int> c = colorIndex(color);
   if (!c) {
     return std::unexpected(c.error());
   }
@@ -705,23 +705,23 @@ Result<void> Document::editColour(Id colour, Rgb rgb) {
     return {};
   }
   // only how it looks: allowed while solving
-  StepGuard g(*this, "Change colour");
-  touchColour(*c);
+  StepGuard g(*this, "Change color");
+  touchColor(*c);
   puzzle_->changeColor(*c, rgb.r, rgb.g, rgb.b);
-  g.commit(kChangeColours);
+  g.commit(kChangeColors);
   return {};
 }
 
-Result<void> Document::deleteColour(Id colour) {
+Result<void> Document::deleteColor(Id color) {
   if (Result<void> r = checkNotSolving(); !r) {
     return r;
   }
-  const Result<unsigned int> c = colourIndex(colour);
+  const Result<unsigned int> c = colorIndex(color);
   if (!c) {
     return std::unexpected(c.error());
   }
   const unsigned int col = *c + 1;
-  StepGuard g(*this, "Delete colour");
+  StepGuard g(*this, "Delete color");
   touchWhole();
   endSessions();
   // the shapes using it change (changeColor)
@@ -735,8 +735,8 @@ Result<void> Document::deleteColour(Id colour) {
     }
   }
   puzzle_->removeColor(col);
-  ids_.colours.erase(ids_.colours.begin() + static_cast<std::ptrdiff_t>(*c));
-  g.commit(kChangeColours | kChangeShapes | kChangeProblems | lastChange_.what);
+  ids_.colors.erase(ids_.colors.begin() + static_cast<std::ptrdiff_t>(*c));
+  g.commit(kChangeColors | kChangeShapes | kChangeProblems | lastChange_.what);
   return {};
 }
 
@@ -746,9 +746,9 @@ Result<void> Document::deleteColour(Id colour) {
 // is), so the sessions go on: allowed while solving (decision 0011).
 
 Result<Id> Document::createProblem() {
-  // the original greyed New, Copy and Delete problem out on a sliding
+  // the original grayed New, Copy and Delete problem out on a sliding
   // puzzle, whose problems followed its start/goal shapes; here the user
-  // makes them and chooses a board as the result, with the colour rules
+  // makes them and chooses a board as the result, with the color rules
   // every grid starts with.
   StepGuard g(*this, "New problem");
   touchAppendedProblem();
@@ -1275,16 +1275,16 @@ Result<void> Document::deleteGroup(Id problem, unsigned int group) {
   return {};
 }
 
-Result<void> Document::setColourRule(Id problem, Id pieceColour, Id resultColour, bool allowed) {
+Result<void> Document::setColorRule(Id problem, Id pieceColor, Id resultColor, bool allowed) {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
-  const Result<unsigned int> pc = colourIndex(pieceColour);
+  const Result<unsigned int> pc = colorIndex(pieceColor);
   if (!pc) {
     return std::unexpected(pc.error());
   }
-  const Result<unsigned int> rc = colourIndex(resultColour);
+  const Result<unsigned int> rc = colorIndex(resultColor);
   if (!rc) {
     return std::unexpected(rc.error());
   }
@@ -1295,7 +1295,7 @@ Result<void> Document::setColourRule(Id problem, Id pieceColour, Id resultColour
   if (pr.placementAllowed(*puzzle_, *pc + 1, *rc + 1) == allowed) {
     return {};
   }
-  StepGuard g(*this, allowed ? "Allow colour" : "Disallow colour");
+  StepGuard g(*this, allowed ? "Allow color" : "Disallow color");
   problemChanged(*p);
   if (allowed) {
     pr.allowPlacement(*puzzle_, *pc + 1, *rc + 1);
@@ -1307,7 +1307,7 @@ Result<void> Document::setColourRule(Id problem, Id pieceColour, Id resultColour
   return {};
 }
 
-Result<void> Document::setColourRules(Id problem, ColourPreset preset) {
+Result<void> Document::setColorRules(Id problem, ColorPreset preset) {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
@@ -1317,12 +1317,12 @@ Result<void> Document::setColourRules(Id problem, ColourPreset preset) {
   }
   Problem& pr = puzzle_->getProblem(*p);
   const unsigned int n = puzzle_->colorNumber();
-  StepGuard g(*this, "Colour rules");
+  StepGuard g(*this, "Color rules");
   problemChanged(*p);
   for (unsigned int a = 1; a <= n; a++) {
     for (unsigned int b = 1; b <= n; b++) {
-      const bool allow = preset == ColourPreset::AllowAll ||
-                         (preset == ColourPreset::EachOnItself && a == b);
+      const bool allow = preset == ColorPreset::AllowAll ||
+                         (preset == ColorPreset::EachOnItself && a == b);
       if (allow) {
         pr.allowPlacement(*puzzle_, a, b);
       } else {

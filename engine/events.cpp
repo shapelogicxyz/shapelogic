@@ -159,7 +159,7 @@ void announceChange(State& s) {
   const app::ChangeSet& c = s.document().lastChange();
   Json what = Json::array();
   for (const auto& [bit, name] : {std::pair{app::kChangeShapes, "shapes"},
-                                  std::pair{app::kChangeColours, "colours"},
+                                  std::pair{app::kChangeColors, "colors"},
                                   std::pair{app::kChangeProblems, "problems"},
                                   std::pair{app::kChangeSolutions, "solutions"},
                                   std::pair{app::kChangeNotes, "notes"},

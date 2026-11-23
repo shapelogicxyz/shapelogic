@@ -21,6 +21,6 @@ later also compile to WebAssembly for an optional browser version.
 
 ## Consequences
 - The language stays the same as the code being ported, so porting is mostly
-  mechanical and the algorithms keep their behaviour (see 0007).
+  mechanical and the algorithms keep their behavior (see 0007).
 - CMake has first-class Emscripten and Node add-on support should either be
   wanted later. The original used Meson; nothing is shared with it.

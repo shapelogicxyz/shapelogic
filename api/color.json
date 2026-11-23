@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "color.json",
+  "title": "Colors",
+  "description": "The constraint colors: cells carry them, problems have rules about which piece color may sit on which result color.",
+  "methods": {
+    "color.list": {
+      "summary": "The colors in list order.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {
+        "type": "object",
+        "properties": {"colors": {"type": "array", "items": {"$ref": "types.json#/$defs/Color"}}},
+        "required": ["colors"],
+        "additionalProperties": false
+      }
+    },
+    "color.add": {
+      "summary": "Adds a color (at most 63); every problem allows it on itself.",
+      "params": {
+        "type": "object",
+        "properties": {"rgb": {"$ref": "types.json#/$defs/Rgb"}},
+        "required": ["rgb"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {"color": {"$ref": "types.json#/$defs/ColorId"}, "revision": {"$ref": "types.json#/$defs/Revision"}},
+        "required": ["color", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["invalid_argument", "invalid_state"]
+    },
+    "color.edit": {
+      "summary": "Changes how a color looks. Allowed while solving.",
+      "params": {
+        "type": "object",
+        "properties": {"color": {"$ref": "types.json#/$defs/ColorId"}, "rgb": {"$ref": "types.json#/$defs/Rgb"}},
+        "required": ["color", "rgb"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found"]
+    },
+    "color.delete": {
+      "summary": "Removes a color: its cells revert to the shape's own color, the colors after it move up, the problems with shapes using it lose their solutions.",
+      "params": {
+        "type": "object",
+        "properties": {"color": {"$ref": "types.json#/$defs/ColorId"}},
+        "required": ["color"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    }
+  }
+}

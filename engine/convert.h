@@ -3,7 +3,7 @@
 
 /// @file
 /// The engine's names for the core's values and the JSON of the items it
-/// returns (api/types.json): shapes, colours, problems, the snapshot, the
+/// returns (api/types.json): shapes, colors, problems, the snapshot, the
 /// status rows, meshes as frames, solve options, progress and solutions.
 
 #include "engine.h"
@@ -60,7 +60,7 @@ template <class E>
 
 /// The ids of the document's items, as the API writes them.
 [[nodiscard]] std::string shapeId(const State& s, unsigned int index);
-[[nodiscard]] std::string colourId(const State& s, unsigned int index);
+[[nodiscard]] std::string colorId(const State& s, unsigned int index);
 [[nodiscard]] std::string problemId(const State& s, unsigned int index);
 [[nodiscard]] std::string rodSetId(const State& s, unsigned int index);
 
@@ -75,7 +75,7 @@ template <class E>
 /// `disks` (none for a rod set alone).
 [[nodiscard]] Json layoutJson(const State& s, const stacking::BoardLayout& lay,
                               const std::vector<stacking::Disc>& pieces);
-[[nodiscard]] Json colourJson(const State& s, unsigned int index);
+[[nodiscard]] Json colorJson(const State& s, unsigned int index);
 [[nodiscard]] Json problemSummary(const State& s, unsigned int index);
 [[nodiscard]] Json problemDetail(const State& s, unsigned int index);
 [[nodiscard]] Json snapshot(const State& s);

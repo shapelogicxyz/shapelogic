@@ -26,15 +26,15 @@ function bytesOf(...arrays: (Float32Array | Uint32Array | Int32Array | Uint8Arra
 describe('a frame view', () => {
   const positions = new Float32Array([0, 1, 2, 3, 4, 5, 6, 7, 8]);
   const indices = new Uint32Array([0, 1, 2]);
-  const colour = new Uint8Array([7]);
-  const data = bytesOf(positions, indices, colour);
+  const color = new Uint8Array([7]);
+  const data = bytesOf(positions, indices, color);
   const desc = {
     frame: 3,
     bytes: data.length,
     arrays: {
       positions: { type: 'f32', offset: 0, length: 9 },
       indices: { type: 'u32', offset: 36, length: 3 },
-      colour: { type: 'u8', offset: 48, length: 1 },
+      color: { type: 'u8', offset: 48, length: 1 },
     },
   };
 
@@ -43,9 +43,9 @@ describe('a frame view', () => {
     expect(view.buffer).toBe(data.buffer);
     expect(Array.from(view.arrays.positions ?? [])).toEqual(Array.from(positions));
     expect(view.arrays.indices).toBeInstanceOf(Uint32Array);
-    expect(Array.from(view.arrays.colour ?? [])).toEqual([7]);
+    expect(Array.from(view.arrays.color ?? [])).toEqual([7]);
     data[48] = 9;
-    expect(view.arrays.colour?.[0]).toBe(9);
+    expect(view.arrays.color?.[0]).toBe(9);
     data[48] = 7;
     expect(view.layout.indices).toEqual({ type: 'u32', offset: 36, length: 3 });
   });
@@ -115,7 +115,7 @@ describe('mesh and pose arrays', () => {
       voxel: new Uint32Array(t),
       voxelFace: new Int32Array(t),
       flags: new Uint32Array(t),
-      colour: new Uint8Array(t),
+      color: new Uint8Array(t),
       polygon: new Uint32Array(t),
       edgeLines: new Float32Array(6),
     };

@@ -18,7 +18,7 @@ benchmark as fast as the original or faster). The web front end
 its host, bridge and proxy, the app's shell from the mockup, the 3D view in
 three.js, the Entities workspace (the shapes list, the voxel editor on
 every grid, the tool tabs' tasks, 3D editing, undo and redo), the Puzzle
-workspace (problems, pieces, groups, colour rules, the pieces scene), the
+workspace (problems, pieces, groups, color rules, the pieces scene), the
 Solver workspace (the search options, the runs, the solutions list,
 analysis, the disassembly player, autosave), the explorers, the debug
 panel and the status window, the menus, files and recovery, the exports,
@@ -31,7 +31,7 @@ methods, decision 0014), audited; part 2, the sliding front end (the
 start/goal editor, the sliding solver options, the trays and the walls in
 3D, the notices, New offering the sliding grid; docs/webui-spec.md section
 8); part 3a, stacking and Panex puzzles in the core and `bt` (rod sets and
-stacks modelled, the Stacking Solver's search, the Panex search with its
+stacks modeled, the Stacking Solver's search, the Panex search with its
 saved searches, blockpack, stacking solves through the solve session, the
 playback in transfers, the paused-solve file's saved searches, decision
 0015); part 3b, stacking in the document's commands and the engine (rod
@@ -133,7 +133,7 @@ Ported from the original `voxel*.cpp`, `symmetries_*.cpp`, `tabs_*`,
 `gridtype.cpp`, `voxeltable.cpp`; checked value for value against the
 original (`tests/data/grid_dump.txt`, see "Testing against the original"),
 and against the cells' own geometry (`tests/unit/grid/test_grid_oracle.cpp`
-on `mesh/cell_geometry.h`: neighbours, transformations and groups rebuilt
+on `mesh/cell_geometry.h`: neighbors, transformations and groups rebuilt
 from the face polygons; docs/V2-IDEAS-PLAN.md, idea 2).
 - `voxel_hex.h`, `hex_lattice.h`, `voxel_cairo.h`, `cairo_lattice.h`
   (decision 0023, after BurrTools V2's grids): the hexagonal prism grid
@@ -153,14 +153,14 @@ from the face polygons; docs/V2-IDEAS-PLAN.md, idea 2).
   grids are cube spaces; sliding puzzles are solved (model's `sliding.h`,
   solve's slide search), and stacking ones (model's `stacking.h`, solve's
   stacking and Panex searches).
-- `voxel.h`: `Voxel`, the abstract voxel space: cells (state + colour per
+- `voxel.h`: `Voxel`, the abstract voxel space: cells (state + color per
   byte), bounding box, hotspot, name, weight, the per-transformation hotspot
   and bounding-box queries, comparison, connectivity, and the editing
   operations (`translate`, `resize`, `minimizePiece`, `fillHoles`,
   `actionOnSpace`, `scale`, `scaleDown`, `resizeInclude`, `unionintersect`).
   It also carries the sliding/stacking data (start and goal marks, which
   only carry a sliding file's or an edited board's marks to the problems,
-  decision 0027; disc size, shape colour) and the file attributes it does not know, so files round-trip.
+  decision 0027; disc size, shape color) and the file attributes it does not know, so files round-trip.
   Copy with `clone()`; the grid is stored by value, so a voxel space never
   dangles.
 - `voxel_bricks`, `voxel_prisms`, `voxel_spheres`, `voxel_rhombic`,
@@ -177,7 +177,7 @@ from the face polygons; docs/V2-IDEAS-PLAN.md, idea 2).
   ones met at run time (lock-free reads, `Symmetry` is 16 bits). The
   instances are constant-initialized statics (`constinit`: no guard on use, which the
   assemblers' rotation checks call in their inner loops), reached through
-  constant-initialised pointers so that `GridType::getSymmetries()` is an
+  constant-initialized pointers so that `GridType::getSymmetries()` is an
   inline load (stage 8: the rotation check of every assembly asks for it).
 - `voxel_table.h`: `VoxelTable`, a hash table that finds a shape in any
   orientation; it takes a callback from index to shape.
@@ -201,21 +201,21 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
 `disassembly.cpp`; checked value for value against the original
 (`tests/data/model_dump.txt`).
 - `puzzle.h`: `Puzzle`: grid, shapes (`ClonePtr<Voxel>`), constraint
-  colours, problems, comment, and a stacking puzzle's rod sets
+  colors, problems, comment, and a stacking puzzle's rod sets
   (`stacking::RodSet`; one made with the puzzle, or with its reading when
   the file has none; `removeRodSet` and `exchangeRodSets` renumber the
   problems'). Copying copies everything. Removing or
   swapping shapes goes through the puzzle, which updates every problem.
   `replaceShape` puts another voxel space in a shape's place (undo).
 - `problem.h`: `Problem`: parts (`Part`: shape, min, max, groups), result
-  and goal shape, colour rules, max holes, `ProblemState`, counts and time,
+  and goal shape, color rules, max holes, `ProblemState`, counts and time,
   the saved search position (`getAssemblerState()`/`Version()`,
   `setAssemblerState()`: the text an assembler wrote, see `solve`), pending
   assemblies, saved solutions with their sort orders, solver options, and
   a stacking problem's rod set and start and goal stacks
   (`stacking::StackMap`, kept in step when a shape goes, two swap or a
   count is lowered: `trimStacks`). A problem holds no reference to its puzzle: what needs
-  shapes or colours takes the `Puzzle` (`resultShape(puzzle)`,
+  shapes or colors takes the `Puzzle` (`resultShape(puzzle)`,
   `placementAllowed(puzzle, ...)`, `setShapeMaximum(puzzle, ...)`).
   Pieces are numbered part by part; assemblies and solutions follow that
   order and are renumbered when parts change.
@@ -230,13 +230,13 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   `SeparationInfo`, its numbers, and a runtime id its problem gives it
   (not saved; the app layer's solution id).
 - `xml_element.h`: `XmlElement` (the tree the reader builds) and
-  `PreservedXml` (file content a model object keeps without modelling it).
+  `PreservedXml` (file content a model object keeps without modeling it).
 - `sliding.h` (deferred part 1, decision 0014; the tray part of
   `sliding.{h,cpp}`): a sliding puzzle's start/goal shapes (names
   `sg:<n>:`; a tray whose empty cells are walls and variable cells
   corridors), the starts and goals each problem has on its board
   (`slide_marks.h`, `Problem::slideMarks`: per cell a start mark and a
-  goal mark, apart from the colours, decision 0021, and the problem's
+  goal mark, apart from the colors, decision 0021, and the problem's
   own, so problems share a board, decision 0027; `adoptBoardMarks` gives
   an older file's to the problems, `beginBoardEdit`, `readBoardTags` and
   `applyBoardEdit` take them along when the board's cells are edited,
@@ -250,7 +250,7 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   `MatrixOptions::startLocks`: the assembler holds each piece to its
   start marks, so it finds only start layouts), `startGoalError`,
   `stampOverflowMessage`, `convertLegacyStarts` (a file of the original's,
-  its starts in the cell colours, converted as it loads), the older
+  its starts in the cell colors, converted as it loads), the older
   goal-map model the solver still reads (`ensureSetup`, `placeStart`,
   `placeGoal`), and `prepareForSolving` (the maximum of holes, what the
   solve thread set up as a run started).
@@ -280,7 +280,7 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
 
 - `grid_convert.h` (deferred part 6; `converter.cpp`): `convertGrid`, a
   cube-grid puzzle on the rhombic (5x5x5 cells a cube) or tetra-octa
-  (3x3x3) grid, the colours, the notes and each problem's definition
+  (3x3x3) grid, the colors, the notes and each problem's definition
   copied (`copyDefinition`, with its name); `convertTargets` (what the
   original's dialog offered); a budget of cells (`kMaxConvertedCells`).
 
@@ -330,7 +330,7 @@ solve).
 
 Unknown attributes and elements of `<puzzle>`, `<problem>` and `<solution>`,
 and unknown `<voxel>` attributes, are kept and written back in place.
-Stacking rod sets and stacks are modelled (decision 0015) and written as
+Stacking rod sets and stacks are modeled (decision 0015) and written as
 the original wrote them; what it dropped of them is dropped.
 Saves are byte-identical to the original's. A file is written beside its
 place (`<file>.tmp`) and renamed over it once whole, puzzle and paused
@@ -368,7 +368,7 @@ positions continue in both programs).
   `storePosition()` writes a paused one back, `canStartSolving()`.
   `warmShapeCaches()` before threads.
 - `search_run.h`: the run layer. `SearchRun` (one `assemble()` call: its own
-  stop source under the caller's token, the serialised hand-over to the
+  stop source under the caller's token, the serialized hand-over to the
   callback: `deliver`, `deliverOnce` with signatures), `TaskProgress` (weighted
   task units, lock-free), `SplitTasks<Task>` and `runSplitTasks()` (the
   task list of a split search over the pool's threads, decision 0024: a
@@ -420,7 +420,7 @@ positions continue in both programs).
   columns, AVX2/AVX-512/NEON kernels behind runtime checks with a scalar
   fallback, chosen through `SimdKernels`. Read only during a search; threads
   search subtrees of one solver.
-- `solver_type.h`: `SolverType` (Classic, Crowell; labelled Complete (ShapeLogic) and
+- `solver_type.h`: `SolverType` (Classic, Crowell; labeled Complete (ShapeLogic) and
   Fast (Crowell)) and its names, `chooseAssembler()` / `makeAssembler()`
   (findAssembler: assembler 0 when every part is one piece, else assembler 1).
   The original's BurrTools 2 solver (dancing cells) was not carried over.
@@ -848,8 +848,8 @@ frame by its Euler characteristic).
   the original's float arithmetic.
 - `modifiers.h`: `fillPolyhedronHoles` (the wire frame: bevel and gap strips
   merged, holes capped, never across a concave corner).
-- `grid_geometry.h`: `connectionFace` (the corners of a cell's face towards
-  a neighbour, or of a bevel face), `calculateSize`,
+- `grid_geometry.h`: `connectionFace` (the corners of a cell's face toward
+  a neighbor, or of a bevel face), `calculateSize`,
   `recalcSpaceCoordinates`, for every grid (the grid module has no
   geometry).
 - `voxel_mesh.h`: `shapeMesh(voxel, MeshStyle)` (Drawing, Wireframe, Flat),
@@ -858,7 +858,7 @@ frame by its Euler characteristic).
   were, with the conversion warnings off for that file only).
 - `draw_mesh.h`: `DrawMesh`, a mesh as plain arrays for a binary frame:
   triangles (the view's fans) with flat normals, and per triangle the cell
-  and side, flags, colour and polygon; the edge lines of the "edges"
+  and side, flags, color and polygon; the edge lines of the "edges"
   style; the hotspot of the space it was made from (an assembly puts that
   on a placement's cell). `shapeDrawMesh`.
 - `cube_mesh.h` (deferred part 5): the STL mesh of the cube grids
@@ -893,11 +893,11 @@ frame by its Euler characteristic).
   the cells of any grid as convex polyhedra from `connectionFace` at zero
   bevel and offset (`CellPolyhedron`: faces with outward normals and the
   cell across each, the distinct corners, the other face at an edge, the
-  face matching a neighbour's), and `CellGeometry`, a space's cells built
+  face matching a neighbor's), and `CellGeometry`, a space's cells built
   on first use with the walks between them: `run` (the filled cells
   around an edge from one exposed face to the other, with the sum of
-  their angles) and `derivedNeighbours` (the face, edge and corner
-  neighbours from the corners the cells share: what `getNeighbor` should
+  their angles) and `derivedNeighbors` (the face, edge and corner
+  neighbors from the corners the cells share: what `getNeighbor` should
   list). The uniform mesher is built on it and
   `tests/unit/grid/test_grid_oracle.cpp` checks the hand-written tables
   against it, and the derived movement checks start here.
@@ -916,11 +916,11 @@ frame by its Euler characteristic).
   unit, scaled so the chamfer has one width at every edge angle: the
   ported bevel's at a right angle); the cells
   around an edge are found by walking face to face through the filled
-  neighbours, which decides convex from concave and finds the face at the
+  neighbors, which decides convex from concave and finds the face at the
   other end of the run; the strips between those two faces are the bevels
   (bent) and gaps (flat), and their loose sides are chained by vertex id
   into the polygons that close the corners. "Unit Beveled": every cell a rounded
-  body, necks to its neighbours. `MeshStyle::Uniform` is the view's
+  body, necks to its neighbors. `MeshStyle::Uniform` is the view's
   style on it (the drawing mesh's bevel 0.03 and gap 0.005, every edge:
   a piece comes out as one chamfered solid, the gaps flat in its faces); the STL export's two
   switches "Uniform bevels" and "Unit Beveled" (off by default, so the defaults
@@ -934,7 +934,7 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
 `tooltabs.cpp`, `grideditor.cpp`, `statuswindow.cpp`,
 `placementbrowser.cpp`, `movementbrowser.cpp`, `mainwindow_solve.cpp`,
 `mainwindow_file.cpp`) and `gltfexport.cpp`'s sampler.
-- `document.h`: `Document`: the puzzle, the ids of its shapes, colours and
+- `document.h`: `Document`: the puzzle, the ids of its shapes, colors and
   problems (a solution's id is `Solution::getId()`), the revision, the
   dirty flag, the undo history (each step keeps the parts it changed and
   swaps them back and forth; groups for a drag, in which every command
@@ -969,12 +969,12 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   stamps off and says so in `ChangeSet::notice`, as does moving a stamped
   piece past the 255th place, a mark being a byte); sliding shapes may
   have more than one layer and keep them on open (decision 0014); what
-  the original greyed out or hid is refused (groups, the count of a piece
+  the original grayed out or hid is refused (groups, the count of a piece
   a stamp requires), while problems are made, copied,
   deleted and given a board as their result as on other grids; `solveLaunch` sets up the maximum of holes as part of the run (no
   undo step), after its checks. Stacking puzzles (decision 0015) solve
   through the same calls with `SolveOptions.stacking` (the discs' hotspots
-  put at their centres before the first run, with the others' reset); a
+  put at their centers before the first run, with the others' reset); a
   paused stacking solve is a saved search in the work folder, which
   `exportPaused` (`PausedExport`: the folder, the levels or not) and
   `importPaused` (the folder) carry in the file; the analysis and the
@@ -1037,7 +1037,7 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   pose alone (`stepCount()` 0), so every solution plays through one path.
   A sliding solution follows its routes (`applySlideRoutes`); a stacking
   solution's steps are its transfers (three frames each), its frames
-  places, and its poses are centred on its board (`stackingCentre`).
+  places, and its poses are centerd on its board (`stackingCenter`).
   `orientedMesh(shape, transformation, style)`: a shape's mesh turned by
   a transformation of its grid (the piece meshes, and
   `Document::shapeMesh` with a transformation: how a placement is drawn:
@@ -1085,7 +1085,7 @@ schema in `api/`, documented in the generated `docs/API.md`.
 - `output.h`: `Output` (lines and frames), `FrameBuilder` (typed arrays
   at multiples of four, described for the reply), base64.
 - `convert.h`: the names of the schema's enums and the JSON of the items
-  (`snapshot`, shape, colour and problem summaries, the status row, the
+  (`snapshot`, shape, color and problem summaries, the status row, the
   fit, meshes as frames, the stored solver settings, solve options over
   the settings, progress, statistics, failures, solution rows,
   placements).
@@ -1103,7 +1103,7 @@ schema in `api/`, documented in the generated `docs/API.md`.
   `solutionsVersion`; the analysis, with its failure), shapes
   (`shape.mesh` in any transformation of the grid, with that orientation's
   hotspot in `MeshFrame.hotspot`; `grid.geometry`, the
-  editor's drawing of a layer; `grid.neighbour`, the cell across a side,
+  editor's drawing of a layer; `grid.neighbor`, the cell across a side,
   the sides numbered as a mesh's `voxelFace`), playback (samplers
   behind `pb` handles: poses and keyframe tracks as frames of typed
   arrays; a solution without a disassembly as a single pose; piece meshes
@@ -1348,7 +1348,7 @@ What exists after stage 8:
   types only: the original's macOS table (File with Import, Export and
   Close; Edit; View with the Color Theme, the display modes and render styles; Help; About
   and Settings in the application menu on macOS, in Help and Edit
-  elsewhere), the not-yet-ported items greyed, the keys of the one table
+  elsewhere), the not-yet-ported items grayed, the keys of the one table
   shown with `registerAccelerator: false`, so a press reaches the page and
   is handled once), `app-ipc.ts` (stage 6: `window.btApp`'s main side: the
   file dialogs (an extension added, a file that then exists asked about),
@@ -1534,10 +1534,10 @@ What exists after stage 8:
     problem's cards for Puzzle), `track`, `refuse` (a frozen part says
     "Pause the solve first" before any call), and the count of edits
     under way as `#stage[data-busy]`; `refuseList`: a change of the lists
-    of shapes, colours and problems, and undo and redo, refused while
+    of shapes, colors and problems, and undo and redo, refused while
     anything solves. `state/stacking.ts` (deferred part 4, DOM-free):
     the disc list's bounds and message, a rod set's text and the fields
-    its rules grey out, the rod slider's places (the pocket first) and
+    its rules gray out, the rod slider's places (the pocket first) and
     captions, the validity bar's words, the paused export's size.
     `state/solves.ts`: `Solves`, the solve records,
     one per problem (several may run), DOM-free: the state as the events
@@ -1575,7 +1575,7 @@ What exists after stage 8:
     `topbar.ts` (the file's name, path and dirty mark, the window's
     title; `#stage[data-dirty]`, `[data-path]`), and from stage 6:
     `menus.ts` (`Menus`: the menu state sent when it changes (the
-    document, dirty, path, Undo and Redo labelled from `edit.history`, the
+    document, dirty, path, Undo and Redo labeled from `edit.history`, the
     Solver's problem paused, solutions saved, the display mode and style,
     the 3D focus, the table's keys as accelerators); a command with a key
     of the table runs that key's handlers (`keyboard.ts`'s `runAction`),
@@ -1621,7 +1621,7 @@ What exists after stage 8:
     one table, searchable; About with the app's and the engine's
     versions; the Notes dialog, `document.setNotes`), `icons.ts`, `cursors.ts` (the tools'
     pictures and data-URL mouse cursors),
-    `piece-colours.ts` (the original's `pieceColor` table and jitter,
+    `piece-colors.ts` (the original's `pieceColor` table and jitter,
     `ROD_CHIP`),
     `piece-images.ts` and `picture-math.ts` (decision 0038: a sliding
     piece's or board's picture fetched once per hash with `shape.imageData` and
@@ -1659,10 +1659,10 @@ What exists after stage 8:
     `mesh:<shape>:<style>:<transformation>`, dropped by what
     `document.changed` names), `mesh.ts` (a `MeshFrame` through
     `meshArrays()` into a non-indexed `BufferGeometry` with the
-    per-triangle flags, colour and cell per vertex; the wire-frame style's
+    per-triangle flags, color and cell per vertex; the wire-frame style's
     faces; the variable marks as the original's shrunk polygons),
-    `material.ts` (the faces' shader: the original's colours and its
-    fixed-function light; colour view, lighting, x-ray and the dimmed
+    `material.ts` (the faces' shader: the original's colors and its
+    fixed-function light; color view, lighting, x-ray and the dimmed
     layers as uniforms), `scene.ts` (`ShapeScene`: one shape, its passes,
     marks, edge lines, overlays), `overlays.ts` (axes, bounds, the layer's
     slab), `picking.ts` (a raycast's triangle to its cell and side),
@@ -1673,7 +1673,7 @@ What exists after stage 8:
     draws, asked again by each mesh's source (`MeshSource`, which
     `buildMesh` keeps in the geometry: a shape at a revision and
     transformation, or a playback's piece), placed as the view has them,
-    the faces turned towards the eye in the colours the shader gives them
+    the faces turned toward the eye in the colors the shader gives them
     (computed per triangle), the flat style's edge lines and the variable
     marks, painted in a BSP tree's order and written by three.js's
     SVGRenderer at the view's size over the view's background; a wire-frame
@@ -1692,7 +1692,7 @@ What exists after stage 8:
     (`PiecesScene`: one `shape.mesh` per shape, asked at the revision the
     shape last changed at, its geometry shared by every copy; the
     optional copies faded, their nearest surface only (a depth pass
-    first); each item turned about its own centre by the camera's
+    first); each item turned about its own center by the camera's
     orientation while the layout stays put (`ViewRenderer.frameScene`:
     the mockup's scale, a far eye); the labels and selection boxes as
     HTML in `#pzScene`; a click picks the smallest box, never the
@@ -1701,8 +1701,8 @@ What exists after stage 8:
     `data-scene-style`. In the Solver workspace it draws a solution
     (`View3D.setSolution`, `poseSolution`, a solver host for the tag and
     the empty message): `solution.ts` (`SolutionScene`: each piece its own
-    mesh and colour (the original's per copy), posed by a translation and
-    a quaternion in mesh units centred on the result, framed on the
+    mesh and color (the original's per copy), posed by a translation and
+    a quaternion in mesh units centerd on the result, framed on the
     result's extent; solid, wire frame or hidden; wire frames over the
     solids with x-ray; a piece taken away faded through its opacity);
     `#vp` says `data-solution`, `data-solution-pieces`, `data-poses`,
@@ -1718,7 +1718,7 @@ What exists after stage 8:
     an explorer draws around them). `extent.ts` has `cellScale` too (grid
     coordinates to mesh units, the original's recalcSpaceCoordinates) and
     `placedAt` (a piece's mesh at its cell minus its turned hotspot,
-    scaled, centred on the result: the assembled view, the explorers'
+    scaled, centerd on the result: the assembled view, the explorers'
     placements and positions), checked against the engine's poses by an
     engine test.
   - `entities/`: the Entities workspace (stage 2), from the mockup's
@@ -1731,7 +1731,7 @@ What exists after stage 8:
     "Pause the solve first" before any call; `mutate`, a call awaited to its
     revision; `data-busy`, the edits under way), `shapes-list.ts` (new,
     duplicate, delete but never the last, move by Alt+arrows, the menu or
-    a drag, rename in place, weight, the shape's own colour, the collapsed
+    a drag, rename in place, weight, the shape's own color, the collapsed
     card's chips), `inspector.ts` (Transform, Fit & scale, Repair &
     surface: the buttons of `shape.taskSet`, placed per grid as the mockup
     draws them, the rest as plain buttons of their group; `shape.task`, the
@@ -1742,7 +1742,7 @@ What exists after stage 8:
     palette, a sliding piece's or board's image button), `image-dialog.ts` (Apply
     image, decision 0038: the file shrunk to 2048 pixels, Crop or Stretch,
     the preview), `grid2d.ts` (`Grid2D`: one SVG renderer for every grid over
-    a layer drawing; the cursor outlined by its edges towards cells not
+    a layer drawing; the cursor outlined by its edges toward cells not
     under it; a drag collects every cell the pointer passes over, the right
     button erases; the box selection; a piece's or board's picture as a pattern on its
     filled cells, its id the grid's own), `layer-geometry.ts` (`grid.geometry`
@@ -1754,7 +1754,7 @@ What exists after stage 8:
     `shape.setCells` of a frame's cells at the engine at a time, the group
     closed whatever failed inside it), `edit3d.ts` (`Edit3D`: 3D editing,
     the cell across a face by `tools.ts`'s table on cubes and
-    `grid.neighbour` elsewhere, the preview with mirror and span),
+    `grid.neighbor` elsewhere, the preview with mirror and span),
     `tools.ts` (which tool a press uses; the cube's faces), `editor-state.ts`
     (`EditorState`; `planeMap`; `expand`, mirror and span's cells as the
     core makes them, for the previews), `glyphs.ts` (the mockup's `G`),
@@ -1790,8 +1790,8 @@ What exists after stage 8:
     the bulk range dialog, the right-click menus, the fit summary from
     `FitStats` (`#pzSummary[data-fit]`)), `piece-card.ts` (`PieceCard`: the selected piece's
     copies or range with the switch, its group and the copies in it, the
-    groups and their members, the colour rules over the constraint
-    colours with the presets), `counts.ts` (a part's count as the chips
+    groups and their members, the color rules over the constraint
+    colors with the presets), `counts.ts` (a part's count as the chips
     write it, `nextCount`: the count a field asks for, never a minimum
     above the maximum; the groups read off the parts; `solveActive`),
     `layout.ts` (`puzLayout`, the scene's items; `arrange`, their
@@ -1903,9 +1903,9 @@ What exists after stage 8:
     after); each asks the file of the main process's dialog and has it
     written by `writeExport`; `#stage[data-exported]` counts what was
     written), `glb.ts` (`animationGlb`: gltfexport.cpp's scene, a root
-    node "Puzzle" scaled to metres and a node per piece with its
+    node "Puzzle" scaled to meters and a node per piece with its
     playback.mesh (indexed, flat shaded, no inside faces) in its solution
-    colour, linear, metallic 0, roughness 0.6, both sides; the channels of
+    color, linear, metallic 0, roughness 0.6, both sides; the channels of
     playback.track thinned to the keys their interpolation does not
     reproduce (`keptKeys`), translation always, rotation when it turns,
     scale 0 or 1 as STEP when it hides; written by three.js's
@@ -1942,10 +1942,10 @@ What exists after stage 8:
   - Sliding puzzles (deferred part 2, docs/webui-spec.md section 8, the
     original GUI's sliding branches): `entities/tray.ts` (`TrayState`:
     `sliding.tray` of the board shown, read again at each revision; the
-    marks in the pieces' colours, the copies placed (`copiesOf`), the
-    outline's colours of `drawStampPreview`, the validity bar's words;
+    marks in the pieces' colors, the copies placed (`copiesOf`), the
+    outline's colors of `drawStampPreview`, the validity bar's words;
     DOM-free); a board drawn in the Shapes workspace with the ordinary
-    tools (floor, corridor, wall) on its dark tiles, no cell colours, no
+    tools (floor, corridor, wall) on its dark tiles, no cell colors, no
     Paint tool or palette and the XZ/YZ planes off on sliding puzzles;
     `puzzle/slide-card.ts` (`SlideCard`: the Puzzle workspace's **Start
     and goal** card in the selected piece's place, `#stage.sld`: the
@@ -1959,7 +1959,7 @@ What exists after stage 8:
     the header's + New Piece and + New Board (`#btnNewBoard`,
     `sliding.addStartGoal` of the selected shape's size), a tray deleted
     by the list's Delete (its problems kept, without a result), its
-    colour greyed;
+    color grayed;
     the validity bar under the Puzzle view (`#slideValid`);
     `view3d/trays.ts` (`TrayView`: the START and GOAL trays and the
     copies standing on them as the original's `showSingleShape`, through
@@ -1970,20 +1970,20 @@ What exists after stage 8:
     space above it and drawn over the whole view, the START and GOAL
     titles); `view3d/walls.ts` (`wallOutline`, `wallSegments`: the
     original's `buildSlidingWalls`, drawn by `SolutionScene.setWalls`
-    around the player's result, `SolutionModel.result`); the colours of
-    a tray (`piece-colours.ts`: `setBoardColour`, `boardColour`, one
-    colour for the list, the 3D view and the 2D editor, set by
+    around the player's result, `SolutionModel.result`); the colors of
+    a tray (`piece-colors.ts`: `setBoardColor`, `boardColor`, one
+    color for the list, the 3D view and the 2D editor, set by
     `theme.ts` from the Sliding board color setting of the theme in use,
-    so a board with none of its own follows the theme; `chipColour`,
-    `viewColour`, `isTray`); the Puzzle's sliding rules (Change…
+    so a board with none of its own follows the theme; `chipColor`,
+    `viewColor`, `isTray`); the Puzzle's sliding rules (Change…
     offering only the boards, no Set as result on a piece, no groups or
-    colour rules, a
+    color rules, a
     `Part.required` piece kept, with no fewer copies than `Part.placed`); the Solver's sliding options
     (`settings.ts`: `nestedSlides`, `partialNested`, `highMemory`,
     `DEFAULT_SLIDING` with Find Solutions checked, the one solver shown
     and not stored,
     `normalize`'s sliding rules, `SolveOptions.sliding`; `shortCount`,
-    `slidingDetails` for the Details line), Solve greyed while the
+    `slidingDetails` for the Details line), Solve grayed while the
     tray is invalid (`SolverWorkspace.slideError`), the solver's note in
     a message box when a run is through (`tellNote`, also after an
     autosave's continue), Continue with optimized paths when the problem
@@ -2005,7 +2005,7 @@ What exists after stage 8:
     1 to 100; no weight); `entities/rods-card.ts` (`RodsCard`, the Rods
     panel in the voxel editor's card: the rod sets with New, Delete, Copy,
     Label in a dialog and the arrows, the selected set's rules as
-    `stacking.setRules` takes them, greyed as `syncPanexFields` greyed
+    `stacking.setRules` takes them, grayed as `syncPanexFields` grayed
     them, frozen while anything solves); the inspector and the voxel
     editor hidden (`#stage.stk`); the view shows the disc chosen or the
     rod set chosen alone (`stacking.rodSetLayout`); `puzzle/stacks-card.ts`
@@ -2018,8 +2018,8 @@ What exists after stage 8:
     stacking edited (shown only once read for it: `boardGoal`) instead of
     the fit, the library's + putting a disc on the rod, + − Del on the
     stack; `view3d/board.ts` (`boardBoxes`: the original's pegs, base and
-    Panex Vs as lit boxes, `boardCentre` the engine's stackingCentre,
-    `discAt` a disc by its centre, `boardExtent`; `BoardScene`, `BoardView`
+    Panex Vs as lit boxes, `boardCenter` the engine's stackingCenter,
+    `discAt` a disc by its center, `boardExtent`; `BoardScene`, `BoardView`
     with the discs' meshes), drawn by `View3D.setBoard` in the Entities
     and Puzzle workspaces (the Puzzle's pieces scene not used there) and
     around the player's discs (`SolutionModel.board`); `ViewRenderer.tilt`,
@@ -2028,10 +2028,10 @@ What exists after stage 8:
     `Family`, `DEFAULT_STACKING` with Find Solutions, `normalize`'s
     stacking rules, `stackingSolverOf` the board's one solver,
     `SolveOptions.stacking`, `stackingDetails`), Solve and
-    Continue greyed without a board or with invalid stacks, Continue in
+    Continue grayed without a board or with invalid stacks, Continue in
     Solve's place and Abort for a saved search (`solve.status.savedSearch`, read with the
     problem), the note in a message box at a run's end; the player's
-    assembled view placed by the discs' centres around the board's middle
+    assembled view placed by the discs' centers around the board's middle
     (`Player.frame`); no 20-minute save point on a stacking puzzle and a
     save while its search runs pausing it (`autosave.ts`); the paused
     export asking about levels beyond 1 GB (`files.ts`). The main process
@@ -2056,7 +2056,7 @@ test). Tested by Vitest: `tests/unit/` (the parser at every
 chunk size over recordings of the real engine, the client against a
 scripted engine, the inbox and its deferral, the fake engine, the host,
 the bridge; `unit/renderer/`: the keyboard table against webui-spec.md
-section 6, the piece colours against the original's, the mesh
+section 6, the piece colors against the original's, the mesh
 translation, the camera, the store and the mesh cache, a stroke's
 protocol, the planes, the quick tools, mirror and span; the Puzzle's
 counts, groups, layout and labels; the Solver's options and rules, the
@@ -2071,7 +2071,7 @@ changes, a paused abort's one, a new document's last events,
 style, stage 7's scripted session, pause, save point, continue and abort,
 the event order of decision 0012, a killed engine restarted; the
 preview's mirror and span cells on every grid, the cube's faces against
-`grid.neighbour`, a stroke as one step with an event per batch; every
+`grid.neighbor`, a stroke as one step with an event per batch; every
 count the Puzzle's fields ask for taken by the engine, the groups as the
 UI reads them, every fixture's problems with a fit and a scene; the assembled view's
 placement (cellScale, gridExtent, the hotspot) against the player's
@@ -2090,7 +2090,7 @@ frozen state, every shape of Bermuda and CairoSlab rebuilt through the
 editor; the problems of CubeInCage and DemoPieceGenerator rebuilt
 through the Puzzle's actions, the chips, the table, the fit and the
 scene checked against the engine after each, a click and an orbit in
-the scene, the problems list, the colour rules, the frozen problem, the
+the scene, the problems list, the color rules, the frozen problem, the
 stacking board and stacks in the result's place; the Solver: Bermuda solved with take-apart
 with `bt --json`'s counts, played, stepped, jumped, the poses at every
 whole step the engine's, the list sorted every way and paged, its keys,
@@ -2114,7 +2114,7 @@ session that died offered at the start, the window's close asking (Cancel
 keeps it, Save saves, Don't Save closes), the settings and layouts across
 a restart, a save while solving at a save point, the paused solver state
 exported and imported, the notes, Convert Assemblies to Pieces, About,
-the help links, the greyed items, a dropped file without a path; the
+the help links, the grayed items, a dropped file without a path; the
 audit's: the rescue copy kept until its offer is answered (another
 death, the window closed, at the next start), a close while the engine
 cannot run, a quit and a close of the window's own, a close whose save
@@ -2123,7 +2123,7 @@ built; and one
 test over the keyboard table (`keymap.e2e.ts`): every row with keys
 pressed and checked, every row of mouse actions named with the test that
 drives it). Unit tests of stage 6: the store, the rescue copy's record,
-the menus' template (platforms, greyed items, keys shown and not
+the menus' template (platforms, grayed items, keys shown and not
 registered, every command one the renderer takes), the bridge's checks,
 the stored settings read back, the convert dialog's fields, the table's
 accelerators. Stage 7: an export's file (written whole, through a link,
@@ -2147,7 +2147,7 @@ the view and a reference image, STL (deferred part 5) with the
 original's labels and values, the preview's volume, a refusal in the
 original's words, the file equal to the original's byte for byte, binary
 and text, a read-only file refused and left, a path no dialog gave
-refused, Solution Animation greyed without a solution and then valid
+refused, Solution Animation grayed without a solution and then valid
 with the playback's pieces, Solutions ▸ Export to STL of CubeInCage's
 first solution equal to the original's files and names, its overwrite
 question, names and folders no dialog gave refused; `view.e2e.ts` has a
@@ -2180,7 +2180,7 @@ renderer read and nothing remote, a path no dialog gave refused, a
 fixture from the command line solved with bt's counts). Deferred part 2:
 `tests/unit/renderer/sliding.test.ts` (the sliding options over the
 stored settings, their rules and `SolveOptions.sliding`, the Details
-line's counts and saved counts, the Activity line's solver, the tray's marks and stamps, the outline's colours, the
+line's counts and saved counts, the Activity line's solver, the tray's marks and stamps, the outline's colors, the
 validity's words, New's order, the walls' outline and segments) and
 `tests/e2e/sliding.e2e.ts` (the 81-move puzzle built from File ▸ New:
 the start/goal shape, the pieces drawn and duplicated, every start and
@@ -2342,6 +2342,6 @@ architecture, the packaged app's engine for the other kind of Mac). zlib comes f
 (`cmake/Dependencies.cmake`); zstd 1.5.7 (pinned, always built from it as a
 static library, one thread a call: the slide search's level files, decision
 0040); nlohmann/json 3.12.0 (pinned, the engine only),
-pybind11 3.0.0 (pinned, the Python module only), Manifold 3.5.2 (pinned, the core's STL meshes; built optimised and without
+pybind11 3.0.0 (pinned, the Python module only), Manifold 3.5.2 (pinned, the core's STL meshes; built optimized and without
 its cross sections or parallel backend, as the original builds it; left
 uninstrumented under ASan, decision 0016) and Catch2 are fetched.

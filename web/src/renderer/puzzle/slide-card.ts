@@ -4,7 +4,7 @@
 // (docs/webui-spec.md, section 8.2), in the selected piece's place: the
 // right card holds the board twice, Start above and Goal below, each a
 // grid of the board's layer (the board's tiles, the copies placed in their
-// pieces' colours, the chosen piece outlined under the mouse: green where
+// pieces' colors, the chosen piece outlined under the mouse: green where
 // it fits, red where it does not, orange on a copy a click takes off), its
 // pieces with the copies placed of each ("S2 1/3"), a hint, and the
 // layers of a board of several; its Focus 2D editor button puts Start and
@@ -24,7 +24,7 @@ import { askConfirm } from '../shell/confirm.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { applyLayout, layout } from '../shell/layout.ts';
-import { isTray } from '../shell/piece-colours.ts';
+import { isTray } from '../shell/piece-colors.ts';
 import { onPieceImage, pieceImage } from '../shell/piece-images.ts';
 import { pictureToCells } from '../shell/picture-math.ts';
 import { openPop } from '../shell/popover.ts';
@@ -34,14 +34,7 @@ import type { Cell } from '../entities/editor-state.ts';
 import { Grid2D } from '../entities/grid2d.ts';
 import { squareLayer } from '../entities/layer-geometry.ts';
 import type { CellValue } from '../entities/shape-cells.ts';
-import {
-  copiesOf,
-  marksOf,
-  namesOf,
-  outlineColour,
-  TrayState,
-  validity,
-} from '../entities/tray.ts';
+import { copiesOf, marksOf, namesOf, outlineColor, TrayState, validity } from '../entities/tray.ts';
 import type { TrayModel } from '../view3d/trays.ts';
 import { inShapeOrder, partOf } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
@@ -100,7 +93,7 @@ export class SlideCard {
         {
           state,
           frozen: () => this.ws.refuse(),
-          drawingColour: () => null,
+          drawingColor: () => null,
           strokeStart: () => undefined,
           strokeAdd: () => undefined,
           strokeEnd: () => undefined,
@@ -191,7 +184,7 @@ export class SlideCard {
           const m = new Map<string, CellValue>();
           for (const c of r.cells) {
             const at: Cell = [c.at[0], c.at[1], c.at[2]];
-            m.set(key(at), { at, state: c.state, colour: null });
+            m.set(key(at), { at, state: c.state, color: null });
           }
           this.cells = m;
           this.cellsOf = `${String(store.generation)}:${board}`;
@@ -265,7 +258,7 @@ export class SlideCard {
         plane: planeMap('XY', shape.size),
         layer: p.layer,
         cells: this.cells ?? new Map(),
-        shapeColour: '#888888',
+        shapeColor: '#888888',
         palette: new Map(),
         tray: {
           marks: r === null ? new Map() : marksOf(r, p.goal, snap.shapes),
@@ -357,7 +350,7 @@ export class SlideCard {
       .then(
         (r) => {
           if (n === p.loads) {
-            p.grid.setStamp({ cells: r.cells, colour: outlineColour(r) });
+            p.grid.setStamp({ cells: r.cells, color: outlineColor(r) });
             if (r.why !== null) {
               setCursor(r.why);
             }

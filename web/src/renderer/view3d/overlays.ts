@@ -72,8 +72,8 @@ export function layerSlab(
   return { lo, hi };
 }
 
-/** The colours of the overlays, from the theme. */
-export interface OverlayColours {
+/** The colors of the overlays, from the theme. */
+export interface OverlayColors {
   ax: string;
   ay: string;
   az: string;
@@ -87,7 +87,7 @@ export interface OverlayOptions {
   axes: boolean;
   bounds: boolean;
   slab: { lo: V3; hi: V3 } | null;
-  colours: OverlayColours;
+  colors: OverlayColors;
 }
 
 const BOX_EDGES = [
@@ -134,19 +134,19 @@ export class Overlays {
     this.clear();
     const [dx, dy, dz] = o.extent;
     if (o.bounds) {
-      this.lines(boxLines([0, 0, 0], o.extent), o.colours.line, 1, true);
+      this.lines(boxLines([0, 0, 0], o.extent), o.colors.line, 1, true);
     }
     if (o.axes) {
       const l = 0.7;
-      this.lines([0, 0, 0, dx + l, 0, 0], o.colours.ax, 2.5);
-      this.lines([0, 0, 0, 0, dy + l, 0], o.colours.ay, 2.5);
-      this.lines([0, 0, 0, 0, 0, dz + l], o.colours.az, 2.5);
+      this.lines([0, 0, 0, dx + l, 0, 0], o.colors.ax, 2.5);
+      this.lines([0, 0, 0, 0, dy + l, 0], o.colors.ay, 2.5);
+      this.lines([0, 0, 0, 0, 0, dz + l], o.colors.az, 2.5);
     }
     if (o.slab !== null) {
       const { lo, hi } = o.slab;
       const geometry = new BoxGeometry(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
       const material = new MeshBasicMaterial({
-        color: new Color(o.colours.accent),
+        color: new Color(o.colors.accent),
         transparent: true,
         opacity: 0.11,
         depthWrite: false,
@@ -156,14 +156,14 @@ export class Overlays {
       box.position.set((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2);
       box.renderOrder = 2;
       this.group.add(box);
-      this.lines(boxLines(lo, hi), o.colours.accent, 1.8);
+      this.lines(boxLines(lo, hi), o.colors.accent, 1.8);
     }
   }
 
-  private lines(points: number[], colour: string, width: number, dashed = false): void {
+  private lines(points: number[], color: string, width: number, dashed = false): void {
     const g = new LineSegmentsGeometry().setPositions(points);
     const m = new LineMaterial({
-      color: new Color(colour).getHex(),
+      color: new Color(color).getHex(),
       linewidth: width,
       dashed,
       dashSize: 0.12,

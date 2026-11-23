@@ -8,7 +8,7 @@
 // axis directions' upright frames, its animations, and the text drawn on a
 // solution's piece (its label, its name cut short, or both).
 
-import { Quaternion, Vector3 } from 'three';
+import { BufferAttribute, BufferGeometry, Quaternion, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import type { MeshArrays } from '../../../src/engine/frames.ts';
@@ -38,11 +38,11 @@ import {
 } from '../../../src/renderer/view3d/mesh.ts';
 import { layerSlab } from '../../../src/renderer/view3d/overlays.ts';
 import { describePick, pickOf } from '../../../src/renderer/view3d/picking.ts';
-import { pieceText } from '../../../src/renderer/view3d/solution.ts';
+import { labelSpot, pieceText, SolutionScene } from '../../../src/renderer/view3d/solution.ts';
 
 /** A frame of polygons given as corner lists, emitted as the engine's fans. */
 function frame(
-  polys: { corners: number[][]; voxel: number; face: number; flags: number; colour?: number }[],
+  polys: { corners: number[][]; voxel: number; face: number; flags: number; color?: number }[],
 ): MeshArrays {
   const positions: number[] = [];
   const normals: number[] = [];
@@ -50,7 +50,7 @@ function frame(
   const voxel: number[] = [];
   const voxelFace: number[] = [];
   const flags: number[] = [];
-  const colour: number[] = [];
+  const color: number[] = [];
   const polygon: number[] = [];
   polys.forEach((p, pi) => {
     const base = positions.length / 3;
@@ -65,7 +65,7 @@ function frame(
       voxel.push(p.voxel);
       voxelFace.push(p.face);
       flags.push(p.flags);
-      colour.push(p.colour ?? 0);
+      color.push(p.color ?? 0);
       polygon.push(pi);
     }
     // drop the last, degenerate (c1, c0, c1) triangle of the loop above
@@ -73,7 +73,7 @@ function frame(
     voxel.pop();
     voxelFace.pop();
     flags.pop();
-    colour.pop();
+    color.pop();
     polygon.pop();
   });
   return {
@@ -83,7 +83,7 @@ function frame(
     voxel: new Uint32Array(voxel),
     voxelFace: new Int32Array(voxelFace),
     flags: new Uint32Array(flags),
-    colour: new Uint8Array(colour),
+    color: new Uint8Array(color),
     polygon: new Uint32Array(polygon),
     edgeLines: new Float32Array([0, 0, 0, 1, 0, 0]),
     imageUv: new Float32Array(0),
@@ -110,7 +110,7 @@ describe('mesh.ts', () => {
         voxel: 2 + 3 * (1 + 4 * 3),
         face: 4,
         flags: FLAG.light | FLAG.wireframe,
-        colour: 2,
+        color: 2,
       },
       { corners: square(0), voxel: 0, face: -1, flags: FLAG.bevel },
     ]);
@@ -121,7 +121,7 @@ describe('mesh.ts', () => {
     expect(pos.count).toBe(12);
     expect([pos.getX(0), pos.getY(0), pos.getZ(0)]).toEqual([1, 0, 1]);
     const flags = m.faces.getAttribute('aFlags');
-    const col = m.faces.getAttribute('aColour');
+    const col = m.faces.getAttribute('aColor');
     const cell = m.faces.getAttribute('aCell');
     for (let v = 0; v < 6; v++) {
       expect(flags.getX(v)).toBe(FLAG.light | FLAG.wireframe);
@@ -256,7 +256,7 @@ describe('camera.ts', () => {
     const q = quatOf({ yaw: 90, pitch: 0, roll: 0 });
     const x = toView(q, [1, 0, 0]);
     expect([x.x, x.y, x.z].map((v) => Math.round(v) + 0)).toEqual([0, 0, -1]);
-    // a positive pitch looks from above: the world's +y comes towards the viewer
+    // a positive pitch looks from above: the world's +y comes toward the viewer
     const top = toView(quatOf({ yaw: 0, pitch: 90, roll: 0 }), [0, 1, 0]);
     expect([top.x, top.y, top.z].map((v) => Math.round(v) + 0)).toEqual([0, 0, 1]);
     const back = toWorld(q, [0, 0, -1]);
@@ -279,14 +279,14 @@ describe('camera.ts', () => {
   it('stands each Z axis direction up, turned and never mirrored', () => {
     const at = (q: Quaternion, v: [number, number, number]): number[] =>
       [...toView(q, v).toArray()].map((n) => Math.round(n) + 0);
-    // the upright frame seen head on: X, Y, Z of the world on the screen (x right, y up, z towards you)
+    // the upright frame seen head on: X, Y, Z of the world on the screen (x right, y up, z toward you)
     const axes = (z: Parameters<typeof baseOf>[0]): number[][] =>
       [
         [1, 0, 0],
         [0, 1, 0],
         [0, 0, 1],
       ].map((v) => at(baseOf(z), v as [number, number, number]));
-    expect(axes('Z Towards')).toEqual([
+    expect(axes('Z Toward')).toEqual([
       [1, 0, 0],
       [0, 1, 0],
       [0, 0, 1],
@@ -323,8 +323,8 @@ describe('camera.ts', () => {
   });
 
   it('turns by the arc-ball as arcBall_c: the drag between two points of the ball, applied in front', () => {
-    const centre = arcballPoint(50, 50, 101, 101);
-    expect([centre.x, centre.y, centre.z]).toEqual([0, 0, 1]);
+    const center = arcballPoint(50, 50, 101, 101);
+    expect([center.x, center.y, center.z]).toEqual([0, 0, 1]);
     // past r² = ½ on Bell's sheet (z = 1 / 2r), a unit vector
     const edge = arcballPoint(100, 50, 101, 101);
     expect(edge.x).toBeCloseTo(2 / Math.sqrt(5), 9);
@@ -333,14 +333,14 @@ describe('camera.ts', () => {
     expect(out.length()).toBeCloseTo(1, 9);
     expect(out.z).toBeLessThan(edge.z);
     // a turn between two points of the ball: twice their angle, as the original's quaternion (cross, dot)
-    const t = arcballTurn(centre, new Vector3(1, 0, 0));
+    const t = arcballTurn(center, new Vector3(1, 0, 0));
     expect(t.equals(new Quaternion(0, 1, 0, 0))).toBe(true);
     const c = new Camera();
     c.q = new Quaternion();
     c.arcStart(50, 50, 101, 101);
     c.arcDrag(50 + 25, 50);
     const z = new Vector3(0, 0, 1).applyQuaternion(c.q);
-    // a drag to the right brings the front towards the right
+    // a drag to the right brings the front toward the right
     expect(z.x).toBeGreaterThan(0.5);
     c.arcEnd();
     const kept = c.q.clone();
@@ -365,7 +365,7 @@ describe('camera.ts', () => {
     // the front went right round more than once, about y only
     const y = new Vector3(0, 1, 0).applyQuaternion(c.q);
     expect(y.y).toBeCloseTo(1, 9);
-    // outside the ball a move about the centre rolls about the view's z
+    // outside the ball a move about the center rolls about the view's z
     const roll = arcballStep(150, 50, 50, -50, 101, 101);
     const z = new Vector3(0, 0, 1).applyQuaternion(roll);
     expect(z.z).toBeCloseTo(1, 9);
@@ -407,34 +407,228 @@ describe('camera.ts', () => {
 
 describe('the text drawn on a solution piece', () => {
   const p = { label: 'S2', name: 'My long label' };
-  const show = (label: boolean, name: boolean, chars = 8) => ({ label, name, chars });
-  it('says the label, the name cut to its first characters, or both', () => {
-    expect(DEFAULTS.labelChars).toBe(8);
+  const show = (label: boolean, name: boolean, chars = 6) => ({ label, name, chars });
+  it('says the label, the name cut to 6 characters per voxel of width, or both', () => {
+    expect(DEFAULTS.labelCharsPerVoxel).toBe(6);
     expect(pieceText(p, show(true, false))).toBe('S2');
-    expect(pieceText(p, show(false, true))).toBe('My long');
-    expect(pieceText({ label: 'S2', name: 'Corner12' }, show(true, true))).toBe('S2 - Corner12');
+    expect(pieceText(p, show(false, true))).toBe('My lon');
+    expect(pieceText(p, show(false, true), 2)).toBe('My long labe');
+    expect(pieceText(p, show(false, true), 3)).toBe('My long label');
+    expect(pieceText({ label: 'S2', name: 'Corner' }, show(true, true))).toBe('S2 - Corner');
     expect(pieceText(p, show(false, false))).toBe('');
   });
-  it('cuts the name to the characters set', () => {
+  it('cuts the name to the characters set for each voxel', () => {
     expect(pieceText(p, show(false, true, 1))).toBe('M');
+    expect(pieceText(p, show(false, true, 1), 4)).toBe('My l');
     expect(pieceText(p, show(false, true, 13))).toBe('My long label');
     expect(pieceText({ name: 'abcdefghijklmnopq' }, show(false, true, 14))).toBe('abcdefghijklmn');
+    // a width under one voxel counts as one
+    expect(pieceText(p, show(false, true), 0)).toBe('My lon');
   });
-  it('with no limit draws the whole name, a line every 14 characters', () => {
+  it('with no limit draws the whole name, a line every 6 characters per voxel', () => {
     const name = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    expect(pieceText({ name }, show(false, true, 0))).toBe(
-      'abcdefghijklmn\nopqrstuvwxyz01\n23456789',
+    expect(pieceText({ name }, show(false, true, 0), 2)).toBe(
+      'abcdefghijkl\nmnopqrstuvwx\nyz0123456789',
     );
-    expect(pieceText({ label: 'S2', name: 'My long label' }, show(true, true, 0))).toBe(
+    expect(pieceText({ label: 'S2', name: 'My long label' }, show(true, true, 0), 3)).toBe(
       'S2 - My long label',
     );
     expect(pieceText({ name: 'A very long piece name' }, show(false, true, 0))).toBe(
-      'A very long pi\nece name',
+      'A very\nlong\npiece\nname',
     );
   });
   it('falls back to what there is, and keeps an emoji whole', () => {
     expect(pieceText({ label: 'S3', name: '' }, show(true, true))).toBe('S3');
     expect(pieceText({ label: 'S3' }, show(false, true))).toBe('');
-    expect(pieceText({ name: '🧩🧩🧩🧩🧩🧩🧩🧩🧩' }, show(false, true))).toBe('🧩🧩🧩🧩🧩🧩🧩🧩');
+    expect(pieceText({ name: '🧩🧩🧩🧩🧩🧩🧩🧩🧩' }, show(false, true))).toBe('🧩🧩🧩🧩🧩🧩');
+  });
+});
+
+/** A piece of unit cubes at these cells (x, y, z), as labelSpot reads a mesh: each cube's corners and its aCell. */
+function cubes(cells: [number, number, number][], gap = 0): BufferGeometry {
+  const pos: number[] = [];
+  const cell: number[] = [];
+  for (const [x, y, z] of cells) {
+    for (let k = 0; k < 8; k++) {
+      pos.push(
+        x + (k & 1 ? 1 - gap : gap),
+        y + (k & 2 ? 1 - gap : gap),
+        z + (k & 4 ? 1 - gap : gap),
+      );
+      cell.push(x, y, z);
+    }
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+  g.setAttribute('aCell', new BufferAttribute(new Float32Array(cell), 3));
+  return g;
+}
+
+describe('where a solution piece’s label goes', () => {
+  const at = (s: { at: Vector3 }): number[] => [s.at.x, s.at.y, s.at.z];
+  it('a single cube: its middle, one voxel wide', () => {
+    const s = labelSpot(cubes([[2, 3, 4]]), 1);
+    expect(s.width).toBe(1);
+    expect(at(s)).toEqual([2.5, 3.5, 4.5]);
+  });
+  it('the widest layer from the bottom, Y up: an upside-down T has its label on the bar', () => {
+    // a bar of 3 at y 0, a stem of 2 above its middle
+    const s = labelSpot(
+      cubes([
+        [0, 0, 0],
+        [1, 0, 0],
+        [2, 0, 0],
+        [1, 1, 0],
+        [1, 2, 0],
+      ]),
+      1,
+    );
+    expect(s.width).toBe(3);
+    expect(at(s)).toEqual([1.5, 0.5, 0.5]);
+  });
+  it('the widest layer: a T has its label on the bar at the top', () => {
+    const s = labelSpot(
+      cubes([
+        [1, 0, 0],
+        [1, 1, 0],
+        [0, 2, 0],
+        [1, 2, 0],
+        [2, 2, 0],
+        [3, 2, 0],
+      ]),
+      1,
+    );
+    expect(s.width).toBe(4);
+    expect(at(s)).toEqual([2, 2.5, 0.5]);
+  });
+  it('the lowest of the widest layers', () => {
+    // two bars of 2 at y 1 and y 3, single cubes between and below
+    const s = labelSpot(
+      cubes([
+        [0, 0, 0],
+        [0, 1, 0],
+        [1, 1, 0],
+        [0, 2, 0],
+        [0, 3, 0],
+        [1, 3, 0],
+      ]),
+      1,
+    );
+    expect(s.width).toBe(2);
+    expect(at(s)).toEqual([1, 1.5, 0.5]);
+  });
+  it('with Z up, the layers are counted up Z', () => {
+    // a bar of 3 along X at z 2 over a column of two
+    const g = cubes([
+      [1, 0, 0],
+      [1, 0, 1],
+      [0, 0, 2],
+      [1, 0, 2],
+      [2, 0, 2],
+    ]);
+    const z = labelSpot(g, 2);
+    expect(z.width).toBe(3);
+    expect(at(z)).toEqual([1.5, 0.5, 2.5]);
+    // up Y they are all one layer, y 0: three columns, the front cell (z 2) holding it
+    const y = labelSpot(g, 1);
+    expect(y.width).toBe(3);
+    expect(at(y)).toEqual([1.5, 0.5, 2.5]);
+  });
+  it('a gap breaks a layer: the longest run, the leftmost of two', () => {
+    // X X . X X X at y 0; X X . X X at y 1
+    const s = labelSpot(
+      cubes([
+        [0, 0, 0],
+        [1, 0, 0],
+        [3, 0, 0],
+        [4, 0, 0],
+        [5, 0, 0],
+        [0, 1, 0],
+        [1, 1, 0],
+        [3, 1, 0],
+        [4, 1, 0],
+      ]),
+      1,
+    );
+    expect(s.width).toBe(3);
+    expect(at(s)).toEqual([4.5, 0.5, 0.5]);
+    const two = labelSpot(
+      cubes([
+        [0, 0, 0],
+        [1, 0, 0],
+        [3, 0, 0],
+        [4, 0, 0],
+      ]),
+      1,
+    );
+    expect(two.width).toBe(2);
+    expect(at(two)).toEqual([1, 0.5, 0.5]);
+  });
+  it('a layer’s cells at other depths count once per column, and the front cell holds the label', () => {
+    // an L in the layer y 0: x 0..2 at z 0, and x 0 again at z 1 and z 2
+    const s = labelSpot(
+      cubes([
+        [0, 0, 0],
+        [1, 0, 0],
+        [2, 0, 0],
+        [0, 0, 1],
+        [0, 0, 2],
+      ]),
+      1,
+    );
+    expect(s.width).toBe(3);
+    expect(at(s)).toEqual([1.5, 0.5, 0.5]);
+    // two rows of 2, one behind the other: the front one (+Z toward the eye)
+    const rows = labelSpot(
+      cubes([
+        [0, 0, 0],
+        [1, 0, 0],
+        [0, 0, 1],
+        [1, 0, 1],
+      ]),
+      1,
+    );
+    expect(rows.width).toBe(2);
+    expect(at(rows)).toEqual([1, 0.5, 1.5]);
+    // with Z up, -Y is toward the eye
+    const zUp = labelSpot(
+      cubes([
+        [0, 0, 0],
+        [1, 0, 0],
+        [0, 1, 0],
+        [1, 1, 0],
+      ]),
+      2,
+    );
+    expect(at(zUp)).toEqual([1, 0.5, 0.5]);
+  });
+  it('bevelled cubes (a little smaller than a cell) count the same', () => {
+    const s = labelSpot(
+      cubes(
+        [
+          [0, 0, 0],
+          [1, 0, 0],
+          [2, 0, 0],
+          [3, 0, 0],
+          [4, 0, 0],
+        ],
+        0.06,
+      ),
+      1,
+    );
+    expect(s.width).toBe(5);
+    expect(s.at.x).toBeCloseTo(2.5, 6);
+  });
+});
+
+describe('a sliding tray’s walls on the Solver tab', () => {
+  it('are black on the light theme and white on the dark one', () => {
+    const scene = new SolutionScene();
+    expect(scene.wallColor).toBe('#000000');
+    scene.setDark(true);
+    expect(scene.wallColor).toBe('#ffffff');
+    scene.setDark(false);
+    expect(scene.wallColor).toBe('#000000');
+    scene.dispose();
   });
 });

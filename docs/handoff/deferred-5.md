@@ -114,15 +114,15 @@ Six commits, in order:
   `writeFileSafely` (temporary file, rename, links followed, read-only
   refused).
 - The STL-like style: View ▸ Draw Pieces like STL Export (no longer
-  greyed) and the Display menu's "Like the STL export"; one colour
+  grayed) and the Display menu's "Like the STL export"; one color
   (`hasChecker`: only the bevelled style and the wire frame have the
   checker), no edge lines.
 
 ### Removed "not yet" notes
 The interim STL (`export/stl.ts`, its dialog's "later version" words, the
-three.js STLExporter path), the greyed View menu item, the disabled
+three.js STLExporter path), the grayed View menu item, the disabled
 Export to STL button and its tooltip, the menu module's list of what is
-greyed, `playback.h`'s "belongs to the exports, later", ARCHITECTURE's
+grayed, `playback.h`'s "belongs to the exports, later", ARCHITECTURE's
 mesh note, README's and web/README's status lines, FRONTEND-PLAN.md's
 rows for the STL export and the render styles, webui-spec.md's gap 4.
 
@@ -166,7 +166,7 @@ All on the final core and engine (2026-10-12, M-series Mac):
 - Front end, three times each in sequence: `just web-check` clean; `just
   web-test` 323/323 (release engine); `just web-e2e` 70/70 (5.9 min; 6 new
   reference screenshots of the STL-like style, one per grid, reviewed: one
-  colour, chamfered, the gaps between cells showing). `just web-dist
+  color, chamfered, the gaps between cells showing). `just web-dist
   --dir` and `just web-smoke` passed (a new library in the engine).
 - `just check`: not run (LLVM is not installed).
 
@@ -261,7 +261,7 @@ untitled), `document.exportPuzzlecad {problem}` (text), and
 original does: follow the original); each in its own `Engine:` commit.
 Front end: File ▸ Import ▸ PuzzleSolver3D… and Puzzlecad…, File ▸ Export
 ▸ Puzzlecad…, Edit ▸ Convert grid type… with the original's dialog
-choices; the greyed items enabled (main/menu.ts, its header comment).
+choices; the grayed items enabled (main/menu.ts, its header comment).
 Gate: each import of the original's test inputs gives a document whose
 save equals the original's import followed by its save; Puzzlecad export
 text equal to the original's for every cube-grid fixture; every

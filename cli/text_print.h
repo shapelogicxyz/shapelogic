@@ -21,7 +21,7 @@ class Voxel;
 namespace bt::cli {
 
 /// A shape: its layers framed, cells as letters from `base` (the cell's
-/// whole value: state and colour), then its bounds and hotspot.
+/// whole value: state and color), then its bounds and hotspot.
 void printShape(std::FILE* out, const Voxel& v, char base = 'a');
 
 /// Every shape, then every problem with its result and parts.

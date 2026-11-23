@@ -160,7 +160,7 @@ double signedArea(const std::vector<LayerPoint>& p) {
 }
 
 // What holds for every layer of every grid: the cells are the valid
-// coordinates of the layer, counter-clockwise, and each neighbour across
+// coordinates of the layer, counter-clockwise, and each neighbor across
 // an edge has the same edge the other way round.
 void checkLayer(const Voxel& v, unsigned int z, const LayerGeometry& g) {
   std::size_t valid = 0;
@@ -179,9 +179,9 @@ void checkLayer(const Voxel& v, unsigned int z, const LayerGeometry& g) {
       continue;
     }
     CHECK(signedArea(c.polygon) > 0);
-    REQUIRE(c.neighbours.size() == c.polygon.size());
+    REQUIRE(c.neighbors.size() == c.polygon.size());
     for (std::size_t e = 0; e < c.polygon.size(); e++) {
-      const int n = c.neighbours[e];
+      const int n = c.neighbors[e];
       if (n < 0) {
         continue;
       }
@@ -191,23 +191,23 @@ void checkLayer(const Voxel& v, unsigned int z, const LayerGeometry& g) {
       bool found = false;
       for (std::size_t f = 0; f < o.polygon.size(); f++) {
         if (o.polygon[f] == b && o.polygon[(f + 1) % o.polygon.size()] == a) {
-          found = o.neighbours[f] == static_cast<int>(i);
+          found = o.neighbors[f] == static_cast<int>(i);
         }
       }
       CHECK(found);
-      // a neighbour in the drawing is one in the grid (by face or edge),
+      // a neighbor in the drawing is one in the grid (by face or edge),
       // as drawTileCursor found them
-      bool gridNeighbour = false;
-      for (unsigned int typ = 0; typ < 2 && !gridNeighbour; typ++) {
+      bool gridNeighbor = false;
+      for (unsigned int typ = 0; typ < 2 && !gridNeighbor; typ++) {
         int nx = 0;
         int ny = 0;
         int nz = 0;
         for (unsigned int k = 0; v.getNeighbor(k, typ, c.x, c.y, static_cast<int>(z), &nx, &ny, &nz);
              k++) {
-          gridNeighbour |= nx == o.x && ny == o.y && nz == static_cast<int>(z);
+          gridNeighbor |= nx == o.x && ny == o.y && nz == static_cast<int>(z);
         }
       }
-      CHECK(gridNeighbour);
+      CHECK(gridNeighbor);
     }
   }
 }
@@ -226,9 +226,9 @@ TEST_CASE("layer geometry: cubes are the squares of grideditor_0", "[app]") {
   CHECK(g.cells[1].y == 1);
   const LayerCell& c = g.cells[4];  // (1, 1)
   CHECK(c.polygon == std::vector<LayerPoint>{{1, 1}, {2, 1}, {2, 2}, {1, 2}});
-  // right, top, left, bottom of an inner cell all have neighbours
-  CHECK(std::count(c.neighbours.begin(), c.neighbours.end(), -1) == 0);
-  CHECK(g.cells[0].neighbours == std::vector<int>{-1, 3, 1, -1});
+  // right, top, left, bottom of an inner cell all have neighbors
+  CHECK(std::count(c.neighbors.begin(), c.neighbors.end(), -1) == 0);
+  CHECK(g.cells[0].neighbors == std::vector<int>{-1, 3, 1, -1});
   CHECK(layerGeometry(*v, 2).cells.empty());
 }
 
@@ -300,7 +300,7 @@ TEST_CASE("layer geometry: tetrahedra and octahedra are grideditor_4's getPolygo
   const LayerGeometry mid = layerGeometry(*v, 1);
   REQUIRE(mid.cells.size() == 6);
   CHECK(mid.cells[0].polygon.size() == 4);
-  CHECK(std::count(mid.cells[0].neighbours.begin(), mid.cells[0].neighbours.end(), -1) == 2);
+  CHECK(std::count(mid.cells[0].neighbors.begin(), mid.cells[0].neighbors.end(), -1) == 2);
 }
 
 TEST_CASE("layer geometry: spheres are circles of the valid cells", "[app]") {
@@ -312,8 +312,8 @@ TEST_CASE("layer geometry: spheres are circles of the valid cells", "[app]") {
     for (const LayerCell& c : g.cells) {
       CHECK(c.circle);
       CHECK(c.polygon.empty());
-      CHECK(c.centre == LayerPoint{c.x + 0.5, c.y + 0.5});
-      // diagonal neighbours touch (grideditor_2's 10000 / 7072 of a cell)
+      CHECK(c.center == LayerPoint{c.x + 0.5, c.y + 0.5});
+      // diagonal neighbors touch (grideditor_2's 10000 / 7072 of a cell)
       CHECK(std::abs(c.radius * 2 - 10000.0 / 7072) < 1e-3);
     }
   }

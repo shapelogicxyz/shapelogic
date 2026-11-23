@@ -4,7 +4,7 @@
 extra high effort. The brief is at the end.
 
 ## Done
-- `core/shapelogic/model/`: `Puzzle`, `Problem` (parts, groups, colour rules,
+- `core/shapelogic/model/`: `Puzzle`, `Problem` (parts, groups, color rules,
   result/goal, state and counts, saved search position, pending
   assemblies, solutions and their sorting, solver options), `Solution`,
   `Assembly` with `Placement` and `MirrorInfo` (including `transform`,
@@ -52,7 +52,7 @@ extra high effort. The brief is at the end.
 | `just test-asan` (address + undefined) | pass |
 | `just test-tsan` | pass (still 1 `[parallel]` case) |
 | `just build release` | pass |
-| `just oracle-roundtrip` | **365/365** the same XML as the original's save, **365/365 byte-identical**; every new save is a fixpoint and reads back in the original to the original's own save. 179 differ from their input only by what the original also normalises (`timeMs`, default `solutions="0"`) |
+| `just oracle-roundtrip` | **365/365** the same XML as the original's save, **365/365 byte-identical**; every new save is a fixpoint and reads back in the original to the original's own save. 179 differ from their input only by what the original also normalizes (`timeMs`, default `solutions="0"`) |
 | model dump vs. the original | 2175/2175 lines identical |
 | grid dump vs. the original | 7014/7014 (unchanged) |
 | `just oracle` | 0/19, as expected: no solver yet |
@@ -86,7 +86,7 @@ files exist.
    ignored (the original's loop walked into it). Unknown elements inside a
    problem's `<shapes>` and `<solutions>` are ignored (the original threw).
 10. `SeparationInfo::movesText()` of an empty tree is "" (the original
-    returned an uninitialised buffer).
+    returned an uninitialized buffer).
 11. The model has no atomics, locks or shared solution pointers (the
     original's problem had them for its solver thread and viewers).
     `getShapeMinimum/Maximum` no longer assert the shape index.
@@ -103,7 +103,7 @@ files exist.
   problem. The original let a running solver append while the GUI read
   (with a mutex and `shared_ptr`s). Stage 3 must not write into a `Problem`
   that others read; stage 5 designs the hand-over.
-- `Problem::placementAllowed` takes the `Puzzle` for its colour count; the
+- `Problem::placementAllowed` takes the `Puzzle` for its color count; the
   assemblers call it in hot loops, so cache what it needs there.
 - LLVM is still missing: none of stages 0 to 2 has been through clang-tidy.
 

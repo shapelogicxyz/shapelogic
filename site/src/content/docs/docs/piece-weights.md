@@ -22,7 +22,7 @@ weight between them:
 
 - **W+** adds 1 to the shape's weight, making it heavier.
 - **W−** takes 1 from it, making it lighter. The lowest weight is 0, and
-  **W−** is greyed out there.
+  **W−** is grayed out there.
 
 The table lists only the pieces in the puzzle. To weigh a shape that isn't
 in it, use the [shape menu](/docs/shapes-tab/#the-shapes-list) in the

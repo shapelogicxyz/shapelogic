@@ -49,7 +49,7 @@ function render(store: Store): void {
 
 /**
  * Lets the file's name use the bar's free space: up to about one tab
- * button's width short of the tabs centred in the bar, or of the brand
+ * button's width short of the tabs centerd in the bar, or of the brand
  * when the tabs are at the left. The name's right end stays put (the
  * Settings button is right of it), so its room is that end less the edge.
  */

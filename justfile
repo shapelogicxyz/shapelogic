@@ -23,7 +23,7 @@ test preset="dev": (build preset)
 test-all preset="dev": (build preset)
     ctest --preset {{preset}} -j {{num_cpus()}}
 
-# Address + undefined-behaviour sanitizers
+# Address + undefined-behavior sanitizers
 test-asan: (test-all "asan")
 
 # ThreadSanitizer: the [parallel] cases (see AGENTS.md for why the puzzle choice matters),
@@ -128,7 +128,7 @@ app-test:
 app-dev:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run dev
 
-# Run the app as app-dev does, with build/release's engine (built first): the optimised engine, for long solves
+# Run the app as app-dev does, with build/release's engine (built first): the optimized engine, for long solves
 app-release: (build "release")
     cd web && env -u ELECTRON_RUN_AS_NODE BT_ENGINE="{{justfile_directory()}}/build/release/engine/shapelogic_engine" npm run dev
 

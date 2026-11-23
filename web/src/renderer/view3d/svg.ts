@@ -6,12 +6,12 @@
 // the pieces scene or the solution, each where the view has it, from the
 // view's camera, at the view's size. SVG has no depth buffer: everything
 // is painted from back to front, in the order of a BSP tree
-// (depth-order.ts; three.js's own sort, by each triangle's centre, put
+// (depth-order.ts; three.js's own sort, by each triangle's center, put
 // large faces over smaller ones in front of them and the edge lines under
 // their faces), which SVGRenderer then writes as it is. Only the faces
-// turned towards the eye are kept (a shape's flat faces enclose it), each
-// in the colour the view's shader gives it (material.ts: the piece colour
-// darkened, the constraint colour in the colour view, the variable marker
+// turned toward the eye are kept (a shape's flat faces enclose it), each
+// in the color the view's shader gives it (material.ts: the piece color
+// darkened, the constraint color in the color view, the variable marker
 // black, the dimmed layers, the original's light) computed here per
 // triangle; the flat style's black edge lines are painted just after the
 // faces they lie on, and the variable marks (a little above their faces)
@@ -61,9 +61,9 @@ interface Drawn {
 /** The flat mesh of a source (shape.mesh or playback.mesh, style flat). */
 export type FlatMesh = (source: MeshSource) => Promise<MeshArrays>;
 
-/** What a face is painted with: its colour (three.js's linear numbers) and opacity. */
+/** What a face is painted with: its color (three.js's linear numbers) and opacity. */
 interface Paint {
-  colour: [number, number, number];
+  color: [number, number, number];
   alpha: number;
 }
 
@@ -102,21 +102,21 @@ function num(u: Record<string, { value: unknown }>, name: string, fallback: numb
   return typeof v === 'number' ? v : fallback;
 }
 
-// the shader's colour of a face (material.ts), before the light
-function faceColour(
+// the shader's color of a face (material.ts), before the light
+function faceColor(
   u: Record<string, { value: unknown }>,
   flags: number,
-  colour: number,
+  color: number,
   cell: [number, number, number],
 ): [number, number, number] {
   const piece = u.uPiece?.value as Vector3 | undefined;
   const p: [number, number, number] = [piece?.x ?? 1, piece?.y ?? 1, piece?.z ?? 1];
   let c: [number, number, number];
   const marker = (flags & FLAG.variableFace) !== 0;
-  if (num(u, 'uColourView', 0) > 0.5 && colour > 0 && !marker) {
+  if (num(u, 'uColorView', 0) > 0.5 && color > 0 && !marker) {
     const data = (u.uPalette?.value as DataTexture | undefined)?.image.data as
       Uint8Array | undefined;
-    c = [0, 1, 2].map((k) => (data?.[4 * colour + k] ?? 255) / 255) as [number, number, number];
+    c = [0, 1, 2].map((k) => (data?.[4 * color + k] ?? 255) / 255) as [number, number, number];
   } else if (marker) {
     c = [0, 0, 0];
   } else if (num(u, 'uChecker', 1) > 0.5 && (flags & FLAG.light) !== 0) {
@@ -180,8 +180,8 @@ export async function vectorImage(
     if (!d.wire) {
       const v = [new Vector3(), new Vector3(), new Vector3()];
       const n = new Vector3();
-      const centre = new Vector3();
-      const colour = new Color();
+      const center = new Vector3();
+      const color = new Color();
       const triangles = a.flags.length;
       for (let t = 0; t < triangles; t++) {
         const flags = a.flags[t] ?? 0;
@@ -199,30 +199,26 @@ export async function vectorImage(
         const i0 = a.indices[3 * t] ?? 0;
         n.set(a.normals[3 * i0] ?? 0, a.normals[3 * i0 + 1] ?? 0, a.normals[3 * i0 + 2] ?? 0);
         const [v0, v1, v2] = v as [Vector3, Vector3, Vector3];
-        centre.copy(v0).add(v1).add(v2).divideScalar(3).applyMatrix4(modelView);
+        center.copy(v0).add(v1).add(v2).divideScalar(3).applyMatrix4(modelView);
         const nv = n.clone().applyMatrix3(normalMatrix).normalize();
-        // only the faces turned towards the eye (eye space: the eye at the origin)
-        const toEye = perspective ? centre.clone().negate() : new Vector3(0, 0, 1);
+        // only the faces turned toward the eye (eye space: the eye at the origin)
+        const toEye = perspective ? center.clone().negate() : new Vector3(0, 0, 1);
         if (nv.dot(toEye) <= 0) {
           continue;
         }
         const cell = a.voxel[t] ?? 0;
         const rest = Math.floor(cell / sx);
-        let c = faceColour(u, flags, a.colour[t] ?? 0, [
-          cell % sx,
-          rest % sy,
-          Math.floor(rest / sy),
-        ]);
+        let c = faceColor(u, flags, a.color[t] ?? 0, [cell % sx, rest % sy, Math.floor(rest / sy)]);
         if (lit) {
-          const l = light.clone().sub(centre).normalize();
+          const l = light.clone().sub(center).normalize();
           const k = 0.4 + 0.6 * Math.max(0, nv.dot(l));
           c = c.map((x) => x * k) as [number, number, number];
         }
         // the shader's numbers are written to the screen as they are: sRGB
-        colour.setRGB(c[0], c[1], c[2], SRGBColorSpace);
+        color.setRGB(c[0], c[1], c[2], SRGBColorSpace);
         faces.push({
           corners: [v0, v1, v2].map((p) => world(p.x, p.y, p.z, d.matrixWorld)),
-          paint: { colour: [colour.r, colour.g, colour.b], alpha },
+          paint: { color: [color.r, color.g, color.b], alpha },
         });
       }
 
@@ -236,7 +232,7 @@ export async function vectorImage(
             corners: [i, i + 1, i + 2].map((k) =>
               world(mp.getX(k), mp.getY(k), mp.getZ(k), d.matrixWorld),
             ),
-            paint: { colour: [0, 0, 0], alpha },
+            paint: { color: [0, 0, 0], alpha },
           });
         }
         built.marks.dispose();
@@ -279,7 +275,7 @@ export async function vectorImage(
     }
     if ('face' in item) {
       const c = item.face.corners;
-      const [r, g, b] = item.face.paint.colour;
+      const [r, g, b] = item.face.paint.color;
       for (let k = 1; k + 1 < c.length; k++) {
         for (const p of [c[0], c[k], c[k + 1]]) {
           run.pos.push(...(p ?? [0, 0, 0]));

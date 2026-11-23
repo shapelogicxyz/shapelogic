@@ -35,7 +35,7 @@ import {
   MOVES_VERSION,
   parse,
   remap,
-  serialise,
+  serialize,
 } from '../../../src/renderer/play/moves-file.ts';
 
 const START: Cell[] = [
@@ -237,7 +237,7 @@ describe('a dragged piece', () => {
     expect(groupFor([alone, carrying], [0, 1], [0, 0])).toBe(-1);
   });
 
-  it('moves with the pointer between stops, towards the next one only', () => {
+  it('moves with the pointer between stops, toward the next one only', () => {
     // a little way along the row: drawn that far
     expect(slide([0, 0], [0.1, 0], stops)).toEqual([0.1, 0]);
     // never more than half a cell: past that the next stop is the nearest
@@ -297,7 +297,7 @@ describe('the moves file', () => {
     { cells: [[0, 0, 0]], at: [0, 1, 0] },
   ];
   const moves = [move(1, 0, 0), move(0, 1, 0)];
-  const text = serialise({
+  const text = serialize({
     puzzle: 'box.xmpuzzle',
     problem: 'P1 Corner',
     board: boardOf(board),

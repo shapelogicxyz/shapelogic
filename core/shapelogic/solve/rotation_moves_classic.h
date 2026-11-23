@@ -19,7 +19,7 @@ class Puzzle;
 class Symmetries;
 
 /// Turns of single pieces and of groups (pieces moving as one), about one
-/// pivot, axis and sense. Pivots are cell centres, empty cells in the
+/// pivot, axis and sense. Pivots are cell centers, empty cells in the
 /// moving body's box, and faces, edges and corners in the plane of the turn
 /// (the Fortran solver's SimpleRot), in doubled cell units. A single unit
 /// cube is never turned (that frees nothing).

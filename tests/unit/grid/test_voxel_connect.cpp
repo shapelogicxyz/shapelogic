@@ -52,7 +52,7 @@ TEST_CASE("voxel: diagonal voxels are not face connected but are edge connected"
   REQUIRE_FALSE(v->connected(0, true, Voxel::kEmpty));
 
   /* type 1 is edge connectivity. voxel_0_c::getNeighbor's type-1 branch
-     (src/lib/voxel_0.cpp:172-188) lists the 12 edge neighbours of a cell,
+     (src/lib/voxel_0.cpp:172-188) lists the 12 edge neighbors of a cell,
      including idx 0: (x-1, y-1, z) -- exactly the relationship between
      (1,1,0) and (0,0,0) in this fixture, so under edge connectivity the
      SAME shape IS connected. */
@@ -92,7 +92,7 @@ TEST_CASE("voxel: connectivity spans layers", "[voxel][connect]") {
 TEST_CASE("voxel: fillHoles closes an enclosed cavity", "[voxel][connect]") {
   GridType gt(GridKind::Bricks);
 
-  /* a ring in a single layer: the centre is enclosed in x and y but open
+  /* a ring in a single layer: the center is enclosed in x and y but open
      in z, so a 3D hole fill must not close it */
   std::unique_ptr<Voxel> ring = fromLayers(gt, {
     { "###",
@@ -106,7 +106,7 @@ TEST_CASE("voxel: fillHoles closes an enclosed cavity", "[voxel][connect]") {
   /* open in z, so nothing is enclosed and nothing is filled */
   REQUIRE(ring->countState(Voxel::kFilled) == before);
 
-  /* a fully enclosed 3x3x3 shell has one trapped cell at the centre */
+  /* a fully enclosed 3x3x3 shell has one trapped cell at the center */
   std::unique_ptr<Voxel> shell = fromLayers(gt, {
     { "###",
       "###",

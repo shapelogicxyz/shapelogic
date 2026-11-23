@@ -94,7 +94,7 @@ in the quick suite, the others `[slow]`).
   search blocks such changes; the autosave flow (save point, save,
   carry on, and the file carried on in another document); reads during a
   run (`[parallel]`, for ThreadSanitizer).
-- `test_tools_queries.cpp`: task sets, nudges, turns, centre, origin,
+- `test_tools_queries.cpp`: task sets, nudges, turns, center, origin,
   prune, scale, minimize, fill holes, the surface, the cell tools; fit
   verdicts, the status line, the table, notchable / millable, the kind.
 - `test_playback_explorers.cpp`: ported from `test_gltfexport.cpp` (a burr:
@@ -128,7 +128,7 @@ could let a run slip by unseen): they are in the stage 6 commit.
 ## Faithfulness beyond the gates
 - The meshes are the original's face for face: every drawing and flat
   mesh of the 19 fixtures (all five grids) has the same faces in the same
-  order with the same corners (as floats), flags, cell tags and colours.
+  order with the same corners (as floats), flags, cell tags and colors.
 - The status window's table and the fit line of every fixture, and the
   playback keyframes of 8 solutions (4 decimals), are the original's.
 - Every tool-tab task and cell tool is the original's code path; the
@@ -144,7 +144,7 @@ could let a run slip by unseen): they are in the stage 6 commit.
    kept shapes and problem definitions and lost solutions); a command
    undone gives the file back byte for byte. Solving is not undoable.
 3. **While a run is active** shapes, the lists and the solving problems
-   are frozen (decision 0011); the original greyed out only the shapes the
+   are frozen (decision 0011); the original grayed out only the shapes the
    solving problem used. Runs read shapes only: the document resets
    hotspots and warms caches first.
 4. **Explorers work on a copy:** stepping the assembler or browsing
@@ -214,7 +214,7 @@ stdio, decision 0003) over `core/shapelogic/app`, and `api/` (the JSON Schema).
   `dirty`, `history`, groups, settings), shapes and cells (commands of
   `Document`; `shape.transformSet` is `taskSet`; `shape.info` is a row of
   `shapeTable`; `shape.mesh` a `DrawMesh` frame, by `MeshStyle`),
-  colours, problems (`problem.fit` is `FitStats`, `problem.kind`),
+  colors, problems (`problem.fit` is `FitStats`, `problem.kind`),
   solving (`solve.*` on the document's solve calls; `SolveOptions` from
   the request; `SolveProgress` and `SolveStats` into events), solutions
   (`solution.page` sorted and paged by the engine: `Problem::sortSolutions`

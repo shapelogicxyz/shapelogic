@@ -24,7 +24,7 @@ STL of the flat mesh (web stage 7).
 **Port the meshers faithfully, Manifold included.** Manifold 3.5.2, the
 original's release, is pinned in `cmake/Dependencies.cmake` and built as
 the original builds it (a static library without cross sections,
-bindings, tests or the parallel backend). It is optimised in every
+bindings, tests or the parallel backend). It is optimized in every
 preset (`MANIFOLD_OPTIMIZED`, as the original's subproject was built
 Release; Manifold sets `-ffp-contract=off` on itself, so its answers do
 not depend on the optimisation). It is the core's first third-party
@@ -73,7 +73,7 @@ the dialog caught it.
 (`shape.mesh`, `playback.mesh` style `stl`) is getSTLMesh: the meshers
 at the view's own parameters (gap 0.02, bevel 0.05 with the interior
 chamfers; the sphere grid's balls at two recursions), the flat mesh where
-the mesher fails. The front end draws it in one colour, as the original.
+the mesher fails. The front end draws it in one color, as the original.
 
 **Two guards around Manifold, results unchanged.** Manifold 3.5.2 reads
 out of bounds in two places (both seen under the sanitizers, both

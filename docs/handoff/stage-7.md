@@ -75,8 +75,8 @@ fixture); recorded twice, identical.
 ### Tests (444 cases in `bt_tests` after the audit; ctest also runs `api-schema`, `api-docs`, `contract`)
 - `test_layer_geometry.cpp`: every cell of every layer of every grid
   against the original's corner formulas (getTriangle and getPolygon
-  copied into the test, drawTileFrame's sums), the neighbours across the
-  edges (mutual, and neighbours in the grid).
+  copied into the test, drawTileFrame's sums), the neighbors across the
+  edges (mutual, and neighbors in the grid).
 - `test_analysis_files.cpp`: the analysis byte for byte against the
   original's (`analysed_by_original/`, the 314 level summaries of
   SolidSixPieceBurrs among them, `[slow]`); one solution with turns;
@@ -96,7 +96,7 @@ fixture); recorded twice, identical.
   subprocess, every reply and event checked against the schema, every
   method called with success at least once (the coverage check), 12
   sessions: engine info and settings, the protocol's errors, files, undo
-  and groups, shapes and colours, tool tasks and views on all five grids
+  and groups, shapes and colors, tool tasks and views on all five grids
   (meshes and layer drawings as frames), problems; the scripted session
   of the brief (open a fixture, solve with take-apart, page the solutions
   sorted every way, play one back with pose and track frames, explore
@@ -199,7 +199,7 @@ the core's message naming `start()` (I; `core/shapelogic/solve` was not touched)
 | `just check` | **not run: LLVM still not installed** |
 
 After the audit's fixes (nothing in `core/shapelogic/solve`, `grid` or `model`
-changes behaviour; `model/problem` gained a runtime counter and a getter):
+changes behavior; `model/problem` gained a runtime counter and a getter):
 
 | Check | Result |
 |---|---|
@@ -219,9 +219,9 @@ changes behaviour; `model/problem` gained a runtime counter and a getter):
   settings keep the original's names and values.
 
 ## Deliberate differences from the original
-1. **The sphere grid's circles** are centred on their cells; the
+1. **The sphere grid's circles** are centerd on their cells; the
    original's sat 0.09 of a cell up and to the left (a rounding of the
-   widget's pixels: 3/10 of a cell taken off where 0.207 centres it).
+   widget's pixels: 3/10 of a cell taken off where 0.207 centers it).
 2. **Layer polygons are counter-clockwise** (the original's corner order
    was its drawing calls' order); they come in cell units, not pixels.
 3. **The analysis runs on a thread of its own** with progress and a stop
@@ -230,7 +230,7 @@ changes behaviour; `model/problem` gained a runtime counter and a getter):
 4. **The solutions are sorted as a view** (`solution.page`); the original's
    sort buttons reordered the problem's list, which a later save kept.
 5. **A pause is refused when no run is under way** (the original's button
-   was greyed out).
+   was grayed out).
 6. **Strings with bytes that are not UTF-8** (Latin-1 comments in old
    files: Prisgon's "Götz") reach a client with U+FFFD in their place;
    JSON carries only UTF-8. The document keeps the bytes; a client that
@@ -246,7 +246,7 @@ changes behaviour; `model/problem` gained a runtime counter and a getter):
   the solve, `0 1 2 3 4 5` taken apart again): the same moves, the file
   differs. Both programs agree on each path; noted for anyone comparing
   files.
-- The sphere grid editor's circles are off centre (difference 1).
+- The sphere grid editor's circles are off center (difference 1).
 - **A disassembly read from a file without `<dt>` plays in orientation
   0** (found while testing the single pose): a state without
   orientations answers `getOrient()` 0, `disasmToMoves_c::getTrans`

@@ -226,7 +226,7 @@ def protocol_errors(e):
     raw('{"jsonrpc":"2.0","id":9,"method":"engine.info","params":[1]}', "invalid_params", 9)
     e.fails("no.such.method", {}, "method_not_found")
     e.fails("shape.get", {"shape": "c1"}, "invalid_params")
-    e.fails("shape.get", {"shape": "s1", "colour": 3}, "invalid_params")
+    e.fails("shape.get", {"shape": "s1", "color": 3}, "invalid_params")
     e.fails("shape.get", {}, "invalid_params")
     e.fails("shape.rename", {"shape": "s1", "name": 5}, "invalid_params")
     e.fails("shape.get", {"shape": "s999"}, "not_found")
@@ -393,31 +393,31 @@ def shapes(e):
     r = e.call("shape.setBox", {"shape": s1, "tool": "erase", "from": [9, 9, 1], "to": [0, 0, 1]})
     check(r["changed"] == 16, f"box clear {r}")
 
-    # colours
-    c1 = e.call("colour.add", {"rgb": "#FF0000"})["colour"]
-    check(e.call("colour.list")["colours"] == [{"id": c1, "label": "C1", "rgb": "#ff0000"}], "colour list")
-    r = e.call("shape.setCells", {"shape": s1, "tool": "paint", "colour": c1, "cells": [[0, 0, 0], [1, 1, 1]]})
+    # colors
+    c1 = e.call("color.add", {"rgb": "#FF0000"})["color"]
+    check(e.call("color.list")["colors"] == [{"id": c1, "label": "C1", "rgb": "#ff0000"}], "color list")
+    r = e.call("shape.setCells", {"shape": s1, "tool": "paint", "color": c1, "cells": [[0, 0, 0], [1, 1, 1]]})
     check(r["changed"] == 1, "paint changes only non-empty cells")
-    painted = [c for c in e.call("shape.get", {"shape": s1})["cells"] if c.get("colour")]
-    check([(c["at"], c["colour"]) for c in painted] == [([0, 0, 0], c1)], "the painted cell")
-    e.call("colour.edit", {"colour": c1, "rgb": "#00ff00"})
-    check(e.call("colour.list")["colours"][0]["rgb"] == "#00ff00", "colour edited")
-    e.fails("colour.add", {"rgb": "red"}, "invalid_params")
-    e.fails("colour.edit", {"colour": "c999", "rgb": "#000000"}, "not_found")
-    e.call("colour.delete", {"colour": c1})
-    check(not any(c.get("colour") for c in e.call("shape.get", {"shape": s1})["cells"]), "colour deleted")
+    painted = [c for c in e.call("shape.get", {"shape": s1})["cells"] if c.get("color")]
+    check([(c["at"], c["color"]) for c in painted] == [([0, 0, 0], c1)], "the painted cell")
+    e.call("color.edit", {"color": c1, "rgb": "#00ff00"})
+    check(e.call("color.list")["colors"][0]["rgb"] == "#00ff00", "color edited")
+    e.fails("color.add", {"rgb": "red"}, "invalid_params")
+    e.fails("color.edit", {"color": "c999", "rgb": "#000000"}, "not_found")
+    e.call("color.delete", {"color": c1})
+    check(not any(c.get("color") for c in e.call("shape.get", {"shape": s1})["cells"]), "color deleted")
 
     # the list
     s2 = e.call("shape.duplicate", {"shape": s1})["shape"]
     e.call("shape.rename", {"shape": s2, "name": "copy"})
     e.call("shape.setWeight", {"shape": s2, "weight": 3})
-    e.call("shape.setColour", {"shape": s2, "rgb": "#123456"})
+    e.call("shape.setColor", {"shape": s2, "rgb": "#123456"})
     e.call("shape.move", {"shape": s2, "toIndex": 0})
     first = e.call("shape.list")["shapes"][0]
     check(first["id"] == s2 and first["label"] == "S1" and first["name"] == "copy"
-          and first["weight"] == 3 and first["colour"] == "#123456", f"the moved copy {first}")
-    e.call("shape.setColour", {"shape": s2, "rgb": None})
-    check(e.call("shape.list")["shapes"][0]["colour"] is None, "default colour")
+          and first["weight"] == 3 and first["color"] == "#123456", f"the moved copy {first}")
+    e.call("shape.setColor", {"shape": s2, "rgb": None})
+    check(e.call("shape.list")["shapes"][0]["color"] is None, "default color")
     e.fails("shape.move", {"shape": s2, "toIndex": 5}, "invalid_argument")
     e.call("shape.delete", {"shape": s2})
     check([s["id"] for s in e.call("shape.list")["shapes"]] == [s1], "deleted")
@@ -489,19 +489,19 @@ def shape_tasks_and_views(e):
             check(all("circle" in c for c in cells), "spheres are circles")
         else:
             for i, c in enumerate(cells):
-                check(len(c["neighbours"]) == len(c["polygon"]), f"{grid}: neighbours per edge")
-                for n in c["neighbours"]:
-                    check(n == -1 or i in cells[n]["neighbours"], f"{grid}: mutual neighbours")
+                check(len(c["neighbors"]) == len(c["polygon"]), f"{grid}: neighbors per edge")
+                for n in c["neighbors"]:
+                    check(n == -1 or i in cells[n]["neighbors"], f"{grid}: mutual neighbors")
         e.fails("grid.geometry", {"size": size, "layer": size[2]}, "invalid_argument")
         # the cell across each side the mesh draws of the corner cell: a cell
         # of the space, or none past its edge
-        across = [e.call("grid.neighbour", {"size": size, "cell": corner, "face": face})["cell"]
+        across = [e.call("grid.neighbor", {"size": size, "cell": corner, "face": face})["cell"]
                   for face in sorted({fc for fc in f.array("voxelFace") if fc >= 0})]
-        check(None in across, f"{grid}: a side towards the outside")
+        check(None in across, f"{grid}: a side toward the outside")
         check(any(c is not None and all(0 <= c[i] < size[i] for i in range(3)) for c in across),
-              f"{grid}: a side towards the space {across}")
-        e.fails("grid.neighbour", {"size": size, "cell": corner, "face": 99}, "invalid_argument")
-        e.fails("grid.neighbour", {"size": size, "cell": [size[0], 0, 0], "face": 0}, "invalid_argument")
+              f"{grid}: a side toward the space {across}")
+        e.fails("grid.neighbor", {"size": size, "cell": corner, "face": 99}, "invalid_argument")
+        e.fails("grid.neighbor", {"size": size, "cell": [size[0], 0, 0], "face": 0}, "invalid_argument")
 
     e.call("document.new", {"grid": "bricks"})
     s1 = e.call("shape.create", {"size": [3, 3, 3]})["shape"]
@@ -561,17 +561,17 @@ def problems(e):
     e.call("problem.removeAllPieces", {"problem": p1})
     check(e.call("problem.get", {"problem": p1})["parts"] == [], "no pieces")
 
-    # colours and rules
-    red = e.call("colour.add", {"rgb": "#ff0000"})["colour"]
-    blue = e.call("colour.add", {"rgb": "#0000ff"})["colour"]
-    rules = e.call("problem.get", {"problem": p1})["colourRules"]
+    # colors and rules
+    red = e.call("color.add", {"rgb": "#ff0000"})["color"]
+    blue = e.call("color.add", {"rgb": "#0000ff"})["color"]
+    rules = e.call("problem.get", {"problem": p1})["colorRules"]
     check(rules == [{"piece": red, "result": red}, {"piece": blue, "result": blue}], f"rules {rules}")
-    e.call("problem.setColourRule", {"problem": p1, "pieceColour": red, "resultColour": blue, "allowed": True})
-    check(len(e.call("problem.get", {"problem": p1})["colourRules"]) == 3, "a rule")
-    e.call("problem.setColourRules", {"problem": p1, "preset": "clear"})
-    check(e.call("problem.get", {"problem": p1})["colourRules"] == [], "cleared")
-    e.call("problem.setColourRules", {"problem": p1, "preset": "allowAll"})
-    check(len(e.call("problem.get", {"problem": p1})["colourRules"]) == 4, "all")
+    e.call("problem.setColorRule", {"problem": p1, "pieceColor": red, "resultColor": blue, "allowed": True})
+    check(len(e.call("problem.get", {"problem": p1})["colorRules"]) == 3, "a rule")
+    e.call("problem.setColorRules", {"problem": p1, "preset": "clear"})
+    check(e.call("problem.get", {"problem": p1})["colorRules"] == [], "cleared")
+    e.call("problem.setColorRules", {"problem": p1, "preset": "allowAll"})
+    check(len(e.call("problem.get", {"problem": p1})["colorRules"]) == 4, "all")
 
     # the stored solver settings
     settings = {"disassemble": True, "justCount": False, "solverType": "crowell", "sortBy": "level"}
@@ -721,7 +721,7 @@ def solving_session(e):
     # the assembled view without the player: each piece's mesh in its
     # placement's transformation, at the cell minus that mesh's hotspot (on
     # bricks a cell is a mesh unit), is where the player's first pose puts
-    # it, relative to the result's centre
+    # it, relative to the result's center
     size = next(x["size"] for x in snap["shapes"] if x["id"] == detail["result"])
     at = {q["piece"]: q for q in got["placements"]}
     for i, piece in enumerate(pb["pieces"]):
@@ -870,7 +870,7 @@ def pause_continue_and_the_guards(e):
     p, box, d = domino_box(e, 2, 4, 6)
     one = {"disassemble": True, "keepAtMost": 5, "threads": 1}
     other = e.call("problem.create")["problem"]
-    c1 = e.call("colour.add", {"rgb": "#ff0000"})["colour"]
+    c1 = e.call("color.add", {"rgb": "#ff0000"})["color"]
     e.fails("solve.abort", {"problem": p}, "invalid_state")  # nothing under way
     start = len(e.events)
     e.call("solve.start", {"problem": p, "options": one})
@@ -892,7 +892,7 @@ def pause_continue_and_the_guards(e):
     # and what goes on
     check("burr_plate" in e.call("document.exportPuzzlecad", {"problem": p})["text"], "the Puzzlecad export")
     e.call("document.setNotes", {"text": "while solving"})
-    e.call("colour.edit", {"colour": c1, "rgb": "#00ff00"})
+    e.call("color.edit", {"color": c1, "rgb": "#00ff00"})
     e.call("problem.rename", {"problem": other, "name": "not solving"})
     # a problem added at the end, new or a copy of the one being solved
     e.call("problem.create")
@@ -1366,7 +1366,7 @@ def sliding_start_goal_shapes(e):
     check(row["startGoal"] == 1 and row["name"] == "" and row["size"] == [4, 3, 1], f"the tray {row}")
     check(all(s["startGoal"] is None for s in snap["shapes"] if s["id"] != tray), "pieces have no number")
     check(snap["problems"] == [], f"no problem comes with it {snap['problems']}")
-    # the board goes above the pieces, labelled B1; the pieces are S1 and S2
+    # the board goes above the pieces, labeled B1; the pieces are S1 and S2
     check([s["label"] for s in snap["shapes"]] == ["B1", "S1", "S2"] and snap["shapes"][0]["id"] == tray,
           f"the labels {snap['shapes']}")
     # the user makes a problem and chooses the board as its result (a piece is refused)
@@ -1417,11 +1417,11 @@ def sliding_start_goal_shapes(e):
     # takes it out, its starts and goals along)
     e.fails("problem.setPieceCount", {"problem": p, "shape": two, "min": 0, "max": 3}, "invalid_argument")
     e.fails("problem.setResult", {"problem": p, "shape": one}, "invalid_argument")
-    # the colours are the user's, as on every grid (the original kept the
+    # the colors are the user's, as on every grid (the original kept the
     # marks in them): none from the marks; one added and deleted leaves them
-    check(e.call("document.get")["colours"] == [], "no colours from the marks")
-    red = e.call("colour.add", {"rgb": "#ff0000"})["colour"]
-    e.call("colour.delete", {"colour": red})
+    check(e.call("document.get")["colors"] == [], "no colors from the marks")
+    red = e.call("color.add", {"rgb": "#ff0000"})["color"]
+    e.call("color.delete", {"color": red})
     check(e.call("sliding.tray", {"tray": tray})["starts"][0] == two, "the marks stay")
     # a copy of the problem shares the board, with starts and goals of its
     # own (a copy of the first's); the calls that name a problem act on its
@@ -1691,7 +1691,7 @@ def stacking_rod_sets_discs_and_stacks(e):
     check(ev["what"] == ["shapes"] and ev["shapes"] == [discs[-1]], f"the size's change {ev}")
     shapes = e.call("document.get")["shapes"]
     check([x["disc"] for x in shapes] == [3, 2, 1] and shapes[0]["size"] == [7, 7, 1], f"the discs {shapes}")
-    check([x["discColour"] for x in shapes] == [None] * 3, f"no disc colours {shapes}")
+    check([x["discColor"] for x in shapes] == [None] * 3, f"no disc colors {shapes}")
     e.fails("shape.create", {"size": [3, 3, 1]}, "invalid_argument")
     e.fails("shape.setCells", {"shape": discs[0], "tool": "erase", "cells": [[0, 0, 0]]}, "invalid_argument")
     e.fails("stacking.setDiscSize", {"shape": discs[0], "size": 101}, "invalid_params")
@@ -1732,7 +1732,7 @@ def stacking_rod_sets_discs_and_stacks(e):
     lay = b["layout"]
     check(lay["rodX"] == [0, 7, 14] and lay["spacing"] == 7 and
           [x["at"] is not None for x in lay["discs"]] == [True, True, True], f"the layout {lay}")
-    check(b["centre"] == [7.5, 0.5, lay["rodHeight"] / 2], f"the centre {b['centre']}")
+    check(b["center"] == [7.5, 0.5, lay["rodHeight"] / 2], f"the center {b['center']}")
     alone = e.call("stacking.rodSetLayout", {"rodSet": board})
     check(alone["rodHeight"] == 5 and alone["discs"] == [], f"the rod set alone {alone}")
 
@@ -1765,7 +1765,7 @@ def stacking_rod_sets_discs_and_stacks(e):
     check(r["name"] == "Hanoi" and r["rodCount"] == 4 and r["rods"] == 5 and r["pocketColumn"]
           and r["sizeMatters"] and r["growHeight"], f"the copy's rules {r}")
     e.fails("stacking.setRules", {"rodSet": copy, "rules": {"rodCount": 17}}, "invalid_params")
-    e.fails("stacking.setRules", {"rodSet": copy, "rules": {"colour": 1}}, "invalid_params")
+    e.fails("stacking.setRules", {"rodSet": copy, "rules": {"color": 1}}, "invalid_params")
     added = e.call("stacking.addRodSet")["rodSet"]
     e.call("stacking.moveRodSet", {"rodSet": added, "toIndex": 0})
     check([x["id"] for x in e.call("document.get")["rodSets"]] == [added, board, copy], "moved")
@@ -1949,8 +1949,8 @@ def panex_swap(n):
 
 
 @test
-def stacking_disc_colours(e):
-    """A disc's colour is its first coloured cell's palette colour (the
+def stacking_disc_colors(e):
+    """A disc's color is its first colored cell's palette color (the
     original's diskTint; the Panex example's shades)."""
     tower = read_puzzle_bytes(FIXTURES / "stacking" / "stack_tower_2.xmpuzzle").decode()
     tower = (tower.replace("<colors/>", '<colors><color red="255" green="220" blue="90"/>'
@@ -1958,9 +1958,9 @@ def stacking_disc_colours(e):
              .replace(">############_############<", ">" + "#2" * 12 + "_" + "#2" * 12 + "<")
              .replace(">####_####<", ">####_####1<"))
     tinted = e.call("document.openBytes", {"data": base64.b64encode(tower.encode()).decode()})
-    colours = [c["id"] for c in tinted["colours"]]
-    check([x["discColour"] for x in tinted["shapes"]] == [colours[1], colours[0]],
-          f"the discs' colours {tinted['shapes']}")
+    colors = [c["id"] for c in tinted["colors"]]
+    check([x["discColor"] for x in tinted["shapes"]] == [colors[1], colors[0]],
+          f"the discs' colors {tinted['shapes']}")
 
 
 @test
@@ -2338,7 +2338,7 @@ def unsupported_and_failures(e):
     check(pb["steps"] == 0 and pb["movesText"] is None, f"a single pose {pb}")
     e.call("playback.close", {"handle": pb["handle"]})
     e.fails("solve.start", {"problem": p, "options": {"threads": 999}}, "invalid_params")
-    e.fails("solve.start", {"problem": p, "options": {"sortBy": "colour"}}, "invalid_params")
+    e.fails("solve.start", {"problem": p, "options": {"sortBy": "color"}}, "invalid_params")
     e.fails("solve.start", {"problem": p, "options": 5}, "invalid_params")
     e.fails("solve.status", {"problem": "p999"}, "not_found")
     # a problem whose pieces cannot fill the result: the run ends in error

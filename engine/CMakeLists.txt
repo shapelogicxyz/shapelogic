@@ -5,7 +5,7 @@ add_library(btengine STATIC
   convert.cpp
   engine.cpp
   events.cpp
-  methods_colour.cpp
+  methods_color.cpp
   methods_document.cpp
   methods_engine.cpp
   methods_explore.cpp

@@ -19,7 +19,7 @@ import type { SolutionRow } from '../../engine/api.generated.ts';
 import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { openPop } from '../shell/popover.ts';
-import { hex } from '../shell/piece-colours.ts';
+import { hex } from '../shell/piece-colors.ts';
 import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
 import { isActive } from '../state/solves.ts';
 import type { SortKey } from './pager.ts';
@@ -621,7 +621,7 @@ export class SolutionsCard {
         .map((p) => {
           const m = pl.modes.get(p.piece) ?? 'solid';
           const full = p.name === '' ? p.label : `${p.label} - ${p.name}`;
-          return `<div class="pvc ${m === 'wire' ? 'wire' : m === 'hidden' ? 'hid' : ''}" data-p="${String(p.piece)}" data-mode="${m}" style="--c:${hex(p.colour)}" tabindex="0" role="button" title="${esc(full)} — ${m === 'wire' ? 'wireframe' : m}. Click, Space or Enter to cycle: solid → wireframe → hidden"><i class="sq"></i>${esc(compact ? p.label : full)}</div>`;
+          return `<div class="pvc ${m === 'wire' ? 'wire' : m === 'hidden' ? 'hid' : ''}" data-p="${String(p.piece)}" data-mode="${m}" style="--c:${hex(p.color)}" tabindex="0" role="button" title="${esc(full)} — ${m === 'wire' ? 'wireframe' : m}. Click, Space or Enter to cycle: solid → wireframe → hidden"><i class="sq"></i>${esc(compact ? p.label : full)}</div>`;
         })
         .join(''),
     );

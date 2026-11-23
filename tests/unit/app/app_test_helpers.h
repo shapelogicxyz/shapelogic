@@ -31,14 +31,14 @@ inline app::Document openFixture(const std::string& name) {
 struct DocState {
   std::string file;
   std::vector<app::Id> shapes;
-  std::vector<app::Id> colours;
+  std::vector<app::Id> colors;
   std::vector<app::Id> problems;
   std::vector<app::Id> rodSets;
   bool operator==(const DocState&) const = default;
 };
 
 inline DocState state(const app::Document& d) {
-  return DocState{io::writePuzzle(d.puzzle()), d.shapeIds(), d.colourIds(), d.problemIds(),
+  return DocState{io::writePuzzle(d.puzzle()), d.shapeIds(), d.colorIds(), d.problemIds(),
                   d.rodSetIds()};
 }
 

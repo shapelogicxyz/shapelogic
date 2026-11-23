@@ -3,7 +3,7 @@
 // Where the pieces scene puts things (from docs/mockup/index.html:
 // `puzLayout`): the result at the top, the selected piece beside it, and
 // every copy of every piece in rows below (`arrange`: five a row, or as
-// many as the view's shape is best shown with), centred under them; the
+// many as the view's shape is best shown with), centerd under them; the
 // copies above a part's minimum marked optional (drawn faded). Positions
 // are the mockup's units, in which a piece is about four wide (the result
 // RESULT_SIZE times that); the scene scales them to its largest piece;
@@ -89,7 +89,7 @@ export function puzLayout(
 /**
  * Places the items for `cols` copies a row, `pitch` apart: the result and
  * the selected piece side by side at the top (the result alone in the
- * middle), the copies in rows under them, both centred on x = 0.
+ * middle), the copies in rows under them, both centerd on x = 0.
  */
 export function arrange(items: SceneItem[], cols: number, pitch = PITCH_X): void {
   const top = items.filter((i) => i.role !== 'piece');
@@ -101,7 +101,7 @@ export function arrange(items: SceneItem[], cols: number, pitch = PITCH_X): void
   const c = Math.min(Math.max(1, cols), Math.max(1, copies.length));
   const y0 = top.length === 0 ? 0 : FIRST_ROW;
   copies.forEach((it, i) => {
-    // a short last row is centred too
+    // a short last row is centerd too
     const inRow = Math.min(c, copies.length - Math.floor(i / c) * c);
     it.pos = [((i % c) - (inRow - 1) / 2) * pitch, y0 - Math.floor(i / c) * PITCH_Y];
   });

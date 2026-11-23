@@ -20,8 +20,8 @@ void connectionFaceHex(int x, int y, int z, int n, std::vector<float>& corners) 
   if (n < 0 || n >= 8) {
     return;
   }
-  const double cx = hex::centreX(x, y);
-  const double cy = hex::centreY(y);
+  const double cx = hex::centerX(x, y);
+  const double cy = hex::centerY(y);
   const double z0 = z;
   const double z1 = z + 1;
   if (n < 6) {

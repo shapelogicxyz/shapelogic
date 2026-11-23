@@ -132,7 +132,7 @@ piece sits inside a cage.
 ## The view cube
 
 The cube at the top right of the 3D view shows which way you are looking,
-and turns the view when you click it. Its faces are labelled **+X**, **−X**,
+and turns the view when you click it. Its faces are labeled **+X**, **−X**,
 **+Y**, **−Y**, **+Z** and **−Z**. The small axes beside it show the same
 directions in color: x red, y green, z blue.
 
@@ -169,8 +169,8 @@ behaves:
   vertical axis as far as you like, but tilts it only until you look straight
   down or straight up, so it never turns upside down.
 - **Z axis direction**: which way the axes point in the home view and in the
-  first view when ShapeLogic starts. **Z Towards** (the default): X across, Y
-  up, Z coming towards you. **Z Up**: X across, Z up, Y going away from you.
+  first view when ShapeLogic starts. **Z Toward** (the default): X across, Y
+  up, Z coming toward you. **Z Up**: X across, Z up, Y going away from you.
   The axis that points up is the one Top Up keeps up. A stacking puzzle
   always stands its stack up.
 - **Lighting**: shade the pieces so they look solid. Off gives a flat, unlit

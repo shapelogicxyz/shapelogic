@@ -8,7 +8,13 @@
 // through `validPrefs`.
 
 /** Which way the axes point in the home view (the 3D view's "Z axis direction"). */
-export type ZAxis = 'Z Towards' | 'Z Up';
+/**
+ * The characters per voxel of a piece's width that Show Piece Labels draws
+ * by default, and the line length per voxel when it draws all of a name.
+ */
+export const LABEL_LINE_PER_VOXEL = 6;
+
+export type ZAxis = 'Z Toward' | 'Z Up';
 
 /** The settings and their values. */
 export interface Prefs {
@@ -16,14 +22,14 @@ export interface Prefs {
   /** The interface's text size, the same in every density: Medium and Large each about 2 points larger. */
   fontSize: 'Small' | 'Medium' | 'Large';
   theme: 'Light' | 'Dark' | 'System';
-  /** The top bar's look: Colorful, the axis colours behind the name and on the tabs; Boring, the plain bar. */
+  /** The top bar's look: Colorful, the axis colors behind the name and on the tabs; Boring, the plain bar. */
   topBar: 'Colorful' | 'Boring';
   /** The side cards' widths: Static, sideL and sideR; Variable, wider as a wide window grows. */
   sidebar: 'Static' | 'Variable';
   /** The left and right side cards' widths in Static, in pixels (SIDE_MIN to SIDE_MAX). */
   sideL: number;
   sideR: number;
-  /** Where the workspace tabs (Shapes, Puzzle, Solver) are: centred in the top bar, or the rail at the left. */
+  /** Where the workspace tabs (Shapes, Puzzle, Solver) are: centerd in the top bar, or the rail at the left. */
   tabsAt: 'Top' | 'Left';
   undo: number;
   tips: boolean;
@@ -48,18 +54,22 @@ export interface Prefs {
   slideX: number;
   slideY: number;
   slideZ: number;
-  /** The colour of a sliding board with none of its own, #rrggbb: in the Light theme, */
-  boardColourLight: string;
+  /** The color of a sliding board with none of its own, #rrggbb: in the Light theme, */
+  boardColorLight: string;
   /** and in the Dark theme. */
-  boardColourDark: string;
+  boardColorDark: string;
   lights: boolean;
   fade: boolean;
   /** The Solver's 3D view: each piece's label (S2) drawn on it (Display ▸ Show Piece Names). */
   pieceLabels: boolean;
-  /** The Solver's 3D view: each piece's name from the Shapes tab drawn on it, cut to labelChars characters (Display ▸ Show Piece Labels). */
+  /** The Solver's 3D view: each piece's name from the Shapes tab drawn on it, cut to labelCharsPerVoxel characters for each voxel of its width (Display ▸ Show Piece Labels). */
   pieceNames: boolean;
-  /** The characters of a name Show Piece Labels draws, 1 to LABEL_CHARS_MAX; 0 all of it, a line every LABEL_CHARS_MAX. */
-  labelChars: number;
+  /**
+   * The characters of a name Show Piece Labels draws for each voxel of the
+   * piece's width where the label sits, 1 to LABEL_CHARS_MAX; 0 all of it,
+   * a line every LABEL_LINE_PER_VOXEL characters per voxel.
+   */
+  labelCharsPerVoxel: number;
   /** The Solver's Piece display: labels only (Compact), not "S2 - name" (Full). */
   pieceCompact: boolean;
   /** The Solver's 3D view: while a run searches, the arrangements it is looking at (the run card's Live preview). */
@@ -116,7 +126,7 @@ export const DEFAULTS: Readonly<Prefs> = {
   cube: true,
   rev: false,
   rot: 'Free Spin',
-  zAxis: 'Z Towards',
+  zAxis: 'Z Toward',
   gridPlane: 'XY',
   hintLayer: 'Below',
   newX: 4,
@@ -125,13 +135,13 @@ export const DEFAULTS: Readonly<Prefs> = {
   slideX: 6,
   slideY: 6,
   slideZ: 1,
-  boardColourLight: '#383838',
-  boardColourDark: '#c8c8c8',
+  boardColorLight: '#383838',
+  boardColorDark: '#c8c8c8',
   lights: true,
   fade: true,
   pieceLabels: false,
   pieceNames: false,
-  labelChars: 8,
+  labelCharsPerVoxel: LABEL_LINE_PER_VOXEL,
   pieceCompact: false,
   livePreview: true,
   threads: 0,
@@ -195,8 +205,8 @@ const CHOICES: Partial<Record<keyof Prefs, readonly unknown[]>> = {
   tabsAt: ['Top', 'Left'],
   // the names before Free Spin and Top Up are dropped: back to the default
   rot: ['Free Spin', 'Top Up'],
-  // Z Away and Z Up + Y Towards are dropped: back to the default
-  zAxis: ['Z Towards', 'Z Up'],
+  // Z Away and Z Up + Y Toward are dropped: back to the default
+  zAxis: ['Z Toward', 'Z Up'],
   gridPlane: ['XY', 'XZ', 'YZ'],
   hintLayer: ['Below', 'Above'],
   solverType: ['Complete', 'Fast'],
@@ -208,7 +218,7 @@ export const NEW_SIZE_MAX = 100;
 /** The new shape size settings, each 1 to NEW_SIZE_MAX. */
 const NEW_SIZE: readonly (keyof Prefs)[] = ['newX', 'newY', 'newZ', 'slideX', 'slideY', 'slideZ'];
 
-/** The most characters of a name Show Piece Labels draws cut, and the line length when it draws all (labelChars 0). */
+/** The most characters per voxel of width a name Show Piece Labels draws cut. */
 export const LABEL_CHARS_MAX = 14;
 
 /** The narrowest and widest side card the settings take, in pixels. */
@@ -226,7 +236,11 @@ export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
   const out: Partial<Record<keyof Prefs, unknown>> = {};
   for (const k of Object.keys(DEFAULTS) as (keyof Prefs)[]) {
     // Z Up was called Z Up + Y Away
-    const v = k === 'zAxis' && saved[k] === 'Z Up + Y Away' ? 'Z Up' : saved[k];
+    // The board colors were first saved under the British spelling of Color in their names
+    const v =
+      k === 'zAxis' && saved[k] === 'Z Up + Y Away'
+        ? 'Z Up'
+        : (saved[k] ?? saved[k.replace('Color', 'Col' + 'our')]);
     const choices = CHOICES[k];
     const ok =
       choices !== undefined
@@ -235,9 +249,9 @@ export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
           ? typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= NEW_SIZE_MAX
           : SIDE.includes(k)
             ? typeof v === 'number' && Number.isInteger(v) && v >= SIDE_MIN && v <= SIDE_MAX
-            : k === 'boardColourLight' || k === 'boardColourDark'
+            : k === 'boardColorLight' || k === 'boardColorDark'
               ? typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
-              : k === 'labelChars'
+              : k === 'labelCharsPerVoxel'
                 ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= LABEL_CHARS_MAX
                 : k === 'optKeepEach'
                   ? typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= LIMIT_MAX

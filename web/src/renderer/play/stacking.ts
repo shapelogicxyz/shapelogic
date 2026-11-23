@@ -18,7 +18,7 @@ import type { Methods } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
-import { copyColour } from '../shell/piece-colours.ts';
+import { copyColor } from '../shell/piece-colors.ts';
 import { flash, reportError } from '../shell/status.ts';
 import { onTheme } from '../shell/theme.ts';
 import type { AnyGame } from './game.ts';
@@ -31,7 +31,7 @@ import { goalPicture } from './goal-picture.ts';
 import { goalTitle } from './goal-places.ts';
 import { stackLook, stackSvg } from './stack-look.ts';
 import type { StackModel } from './stack-look.ts';
-import { parseStack, serialiseStack, stackMismatch } from './stack-moves-file.ts';
+import { parseStack, serializeStack, stackMismatch } from './stack-moves-file.ts';
 import type { StackSetup } from './stack-moves-file.ts';
 
 type PlayStart = Methods['stacking.playStart']['result'];
@@ -104,7 +104,7 @@ export class StackingPlay implements PlayKind {
         void this.tellWhy(from, to);
       },
     });
-    // an open goal window takes the theme's colours (its GOAL caption, its background)
+    // an open goal window takes the theme's colors (its GOAL caption, its background)
     onTheme(() => {
       this.sendGoal(false);
     });
@@ -258,7 +258,7 @@ export class StackingPlay implements PlayKind {
         const s = shapes[i];
         return {
           size: d.size,
-          colour: copyColour(s, Math.max(0, i), d.instance, snap.colours),
+          color: copyColor(s, Math.max(0, i), d.instance, snap.colors),
           // its name, or its size: what the size rule and a Panex column go by
           label: s === undefined || s.name === '' ? String(d.size) : s.name,
         };
@@ -463,7 +463,7 @@ export class StackingPlay implements PlayKind {
 
   exportText(game: AnyGame, names: { puzzle: string; problem: string }): string {
     const start = this.start;
-    return serialiseStack({
+    return serializeStack({
       puzzle: names.puzzle,
       problem: names.problem,
       ...(start === null ? { rods: [], panex: false, start: [] } : this.setup(start)),

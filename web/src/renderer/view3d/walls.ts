@@ -85,7 +85,7 @@ export function wallOutline(
 
 /**
  * The walls as 3D line segments (x,y,z pairs) in the solution scene's
- * frame (mesh units centred on the result of size sx, sy, sz): the outline
+ * frame (mesh units centerd on the result of size sx, sy, sz): the outline
  * at the floor's bottom and its top, and the posts between.
  */
 export function wallSegments(o: WallOutline, sx: number, sy: number, sz: number): Float32Array {

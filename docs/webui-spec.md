@@ -27,11 +27,11 @@ original GUI decides (section 7).
   placeholder items are File, Toggle 3D, Export, Status, Edit comment, Help,
   About. (Section 7 lists what the menus must offer.)
 - **Workspace rail:** Entities (`Ctrl+1`), Puzzle (`Ctrl+2`), Solver (`Ctrl+3`);
-  centred in the top bar (the default) or a rail down the left side (Main
+  centerd in the top bar (the default) or a rail down the left side (Main
   tab bar location). While a sliding or a stacking puzzle is open a
   fourth, **Play** (`Ctrl+4`), follows Solver (sections 8.5 and 9.5,
   decisions 0039 and 0042).
-- **Body:** each workspace has a left card, the **3D view** in the centre and
+- **Body:** each workspace has a left card, the **3D view** in the center and
   a right card. Cards collapse to narrow rails (`Ctrl+[`, `Ctrl+]`); the 3D
   view can take focus (its Focus button, View ▸ Toggle 3D). Layout is remembered per workspace.
 - **Status bar:** messages on the left (a transient "flash" after actions,
@@ -59,9 +59,9 @@ Searchable, four pages, "Restore all defaults", changes apply immediately.
 | General | Interface density | Standard / Compact / Minimal (Standard) |
 | | Font size | Small / Medium / Large (Medium) |
 | | Sidebar width | Static / Variable (Variable); Static: left and right widths, 200 to 600 px (340, 374); Variable: past a 1600 px window each card and the 3D view take a third of the extra width, cards up to 600 px, the right card 10% wider than the left (374 to 660 px) |
-| | Main tab bar location | Top / Left (Top): the workspace tabs centred in the top bar, or a rail down the left side |
+| | Main tab bar location | Top / Left (Top): the workspace tabs centerd in the top bar, or a rail down the left side |
 | | Theme | Light / Dark / System (System) |
-| | Top bar theme | Colorful / Boring (Colorful): the axis colours behind the name, fading into the bar, and the tabs coloured Shapes green, Puzzle blue, Solver red; or the plain bar, a small square of the three colours beside the name |
+| | Top bar theme | Colorful / Boring (Colorful): the axis colors behind the name, fading into the bar, and the tabs colored Shapes green, Puzzle blue, Solver red; or the plain bar, a small square of the three colors beside the name |
 | | Undo history depth | 25, 50, 100, 200, 500 (25) |
 | | Show tooltips | on |
 | | Check for updates at startup | on |
@@ -69,8 +69,8 @@ Searchable, four pages, "Restore all defaults", changes apply immediately.
 | | Cache folder | the main process's (main/cache-folder.ts), not a setting of the page: the folders in use (sliding searches, stacking searches), Choose Folder… (a folder dialog; a `ShapeLogic` folder made in the folder chosen, with `sliding` and `panex` in it, and a file written in each at once: a folder that cannot be written is refused and the folders in use stay) and Use Default (`sliding` and `panex` in the system's application data folder for ShapeLogic: `~/Library/Application Support/ShapeLogic`, `%LOCALAPPDATA%\ShapeLogic`, `$XDG_DATA_HOME/shapelogic` or `~/.local/share/shapelogic`; what the earlier defaults, the system cache folder's `sliding` and Electron's data directory's `panex`, hold moved there at the start); data found in the folders in use is described, then moved there or deleted (Move Data, Delete and Start Clean, Cancel); refused while a solve runs in any window; Reset section and Restore all defaults leave it |
 | Grid editor | Grid plane | XY / XZ / YZ (XY) |
 | | New shape size | Normal Burrs and Sliding, each X, Y, Z: 1-100 each, in the size steppers' units (4, 4, 4; Sliding 6, 6, 1); on a sliding puzzle + New Piece takes the last piece's size and + New Board the last board's, the setting only for the first |
-| | Sliding board color, Light theme / Dark theme | a colour each (#383838, #c8c8c8): a board with no colour of its own (a new board has none) shows the colour of the theme in use, in the shapes list, the 2D editor and the 3D view, and changes with the theme; a board given a colour keeps it |
-| | Voxel hint layer: Hinted layer | Below / Above (Below): the cells of that layer drawn faintly under the edited one's, in the shape's colour (the original's layer-below hint) |
+| | Sliding board color, Light theme / Dark theme | a color each (#383838, #c8c8c8): a board with no color of its own (a new board has none) shows the color of the theme in use, in the shapes list, the 2D editor and the 3D view, and changes with the theme; a board given a color keeps it |
+| | Voxel hint layer: Hinted layer | Below / Above (Below): the cells of that layer drawn faintly under the edited one's, in the shape's color (the original's layer-below hint) |
 | 3D view | Show view cube | on |
 | | Reverse scroll zoom direction | off |
 | | Rotation method | Drag / Arc-ball (Drag) |
@@ -119,9 +119,9 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
   shape); Double ×2 / Triple ×3 (grid limit applies). Spheres: no scaling.
 - **Repair & surface**: Fill interior holes (empty cells not reachable from
   outside become fixed; message with the count); Surface voxels, inner or
-  outer: make fixed, make variable, clear colour.
+  outer: make fixed, make variable, clear color.
 
-### Right card: voxel scope ("tool, plane, layer, grid size and colour together")
+### Right card: voxel scope ("tool, plane, layer, grid size and color together")
 - **Header:** "Voxel editor" and a label "Type: <name>", the puzzle type
   as File ▸ New names it (Brick, Sliding, Stacking, Triangular Prism,
   Spheres, Rhombic, Tetrahedra-Octahedra; no lock), fixed when the file is
@@ -129,8 +129,8 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
 - **Tools:** Fixed (`1`), Variable (`2`), Erase (`3`), and a last button
   that switches to the box selection ("Select", a dotted square with a
   pointer; while selecting it reads "Paint" with the brush and goes back
-  to drawing). Paint colour (`4`) is a brush beside the palette's trash
-  can, shown only while a constraint colour is the drawing colour
+  to drawing). Paint color (`4`) is a brush beside the palette's trash
+  can, shown only while a constraint color is the drawing color
   (Default chosen: the tool goes back to Fixed, and `4` does nothing).
   Quick tools with modifiers in both 2D and 3D: Shift+click fixed,
   Alt/⌘+click variable, Ctrl+click erase. Right-click/right-drag erases in 2D.
@@ -147,29 +147,29 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
   grid's circles reach past the grid's box).
 - **Grid size** steppers X/Y/Z with **Apply to all shapes**; shrinking removes
   cells outside.
-- **Colour palette**: the current drawing colour as a large swatch,
-  labelled **Shape color** (the shape's own: **Default**, or **Custom**
+- **Color palette**: the current drawing color as a large swatch,
+  labeled **Shape color** (the shape's own: **Default**, or **Custom**
   once set) or **Restriction color** (C1, C2, ...), then + (add: the
-  candidate colour least like those there and the shape's own), the
+  candidate color least like those there and the shape's own), the
   pencil (edit: an in-app picker in the popover, a saturation and
   brightness square, a hue slider and a hex field; for the shape's own
-  colour **Restore Default** below it) and the trash can (remove: cells
-  using it revert to the shape's colour; off on the shape's colour; the
-  drawing colour moves to the one before). Once there is a constraint
-  colour, a row below holds the shape's colour and the constraint
-  colours, one row shown at a time: a full row starts another, the view
-  follows a colour chosen or added, and small up and down arrows on the
+  color **Restore Default** below it) and the trash can (remove: cells
+  using it revert to the shape's color; off on the shape's color; the
+  drawing color moves to the one before). Once there is a constraint
+  color, a row below holds the shape's color and the constraint
+  colors, one row shown at a time: a full row starts another, the view
+  follows a color chosen or added, and small up and down arrows on the
   right step through the rows once there are two. In the grid a cell
-  with a constraint colour is drawn in the shape's colour with the
-  constraint colour as a box in its top-left quarter.
+  with a constraint color is drawn in the shape's color with the
+  constraint color as a box in its top-left quarter.
 - **3D edit mode** (`E`): plain clicks in the 3D view apply the active tool;
   the cursor shows the tool, and the view's hint gains lines on what a
   click does. With fixed or variable, a face's left half adds the cell
   across it, its top-right quarter (as the screen shows the face) gives
-  its own cell the tool's state (its colour kept; nothing if it has it),
-  its bottom-right quarter erases its cell (previewed in the danger colour
+  its own cell the tool's state (its color kept; nothing if it has it),
+  its bottom-right quarter erases its cell (previewed in the danger color
   at 0.25); a click on no face adds the editor's layer's cell under the
-  mouse on the cube grids. A refused target is shown in the muted colour.
+  mouse on the cube grids. A refused target is shown in the muted color.
 
 ## 4. Puzzle workspace: problems
 
@@ -189,14 +189,14 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
 ### 3D view
 The result, the selected piece, and every copy of every piece in a grid;
 optional copies (above the minimum count) drawn faded; click to select.
-Rotation turns each piece about its own centre. The result (with the
-selected piece beside it) is centred at the top, the copies in rows under
-it, a short last row centred; the number of copies a row is the one that
+Rotation turns each piece about its own center. The result (with the
+selected piece beside it) is centerd at the top, the copies in rows under
+it, a short last row centerd; the number of copies a row is the one that
 shows them largest in the view's shape (rows of five under a sliding
 board's trays). The pieces keep their sizes to one another, the largest
 filling its place with its mesh's outline at the home view (not the
 sphere any turn stays in, nor the grid's box, which a grid's cells need
-not fill), each centred on its mesh, and are drawn 15% larger in their places than the
+not fill), each centerd on its mesh, and are drawn 15% larger in their places than the
 mockup's; the result fills a place 60% larger whatever its size, so small
 pieces of a large result are not shrunk to it. Under a result the rows
 of copies sit 35 pixels further down, the layout fitted to the height
@@ -209,9 +209,9 @@ it all).
   count) or **count range** (min–max) with a switch between the two,
   **exclusive group** (None, G1, G2…, + New).
 - **Exclusive groups** list, with members; delete a group.
-- **Colour rules** matrix: rows = piece colour, columns = result colour; a
-  ticked cell lets a piece cell of that colour sit on a result cell of that
-  colour. Buttons: each colour on itself, allow all, clear.
+- **Color rules** matrix: rows = piece color, columns = result color; a
+  ticked cell lets a piece cell of that color sit on a result cell of that
+  color. Buttons: each color on itself, allow all, clear.
 
 ## 5. Solver workspace
 
@@ -303,7 +303,7 @@ it all).
 3. **Sliding and Stacking/Panex puzzles**: sliding in section 8 (deferred
    part 2); stacking in section 9 (deferred part 4): rods, disc sizes, start/goal
    trays, Panex columns, pocket column.
-4. **Display modes:** colour-constraint colours exist (`colorView`), and the
+4. **Display modes:** color-constraint colors exist (`colorView`), and the
    original's render styles (bevelled voxels, flat with edges, the wire
    frame, and since deferred part 5 the STL-like one, section 10.3);
    anaglyph does not.
@@ -324,7 +324,7 @@ sliding check boxes), `mainwindow_solve.cpp` (`cb_BtnCont`'s checks and
 flags, `updateSolverOptionCheckboxes`), `mainwindow_help.cpp` (the three
 solvers' help), `tooltabs.cpp` (`ToolTab_0`: the Start/Goal tab, its
 piece list and preview, `lockZ`), `grideditor.cpp` (the tray's tiles,
-the marks in the pieces' colours, `drawStampPreview`), `BlockList.cpp`
+the marks in the pieces' colors, `drawStampPreview`), `BlockList.cpp`
 (the list's text and swatch), `slidingcolors.h`, `voxelframe.cpp`
 (`showSingleShape`'s two trays, `buildSlidingWalls`,
 `drawSlidingWalls`) and `gridtypegui.cpp` (Sliding second in New's
@@ -361,15 +361,15 @@ where the problem's counts are.
   `Del`), which stands in for the original's Delete Start/Goal
   Positions; the problems on it stay, without a result. A name
   beginning "sg:" is refused (the engine).
-- **Inspector:** the shape's colour button is off on a tray (it shows the
-  pieces' colours). The tasks are the bricks' (the original's `lockZ`
+- **Inspector:** the shape's color button is off on a tray (it shows the
+  pieces' colors). The tasks are the bricks' (the original's `lockZ`
   left out those that add layers; sliding shapes may have them now).
 - **Voxel editor (right card):** the Z size stepper is on (a new shape
   is one layer); the plane is XY only, the layers one at a time. The
-  **colour palette** and **Paint colour** are as on other grids (decision
-  0021: the start marks are apart from the colours; the original kept the
-  marks in the colours and hid the colour group); the grid draws the cell
-  colours as on other grids, and a board's marks over them. A tray is
+  **color palette** and **Paint color** are as on other grids (decision
+  0021: the start marks are apart from the colors; the original kept the
+  marks in the colors and hid the color group); the grid draws the cell
+  colors as on other grids, and a board's marks over them. A tray is
   drawn with the ordinary tools, as a piece is: Fixed = floor, Variable =
   corridor, Erase = wall (their tooltips say so), on the original's dark
   tiles (`EDIT_LIGHT`/`EDIT_DARK`). The original's Tray edit switch and
@@ -395,7 +395,7 @@ where the problem's counts are.
 
 ### 8.2 Puzzle workspace
 - **Problems:** as on the other grids (New, Copy, Delete, rename,
-  order); the original greyed New, Copy and Delete out, its problems
+  order); the original grayed New, Copy and Delete out, its problems
   following the trays.
 - **Result:** the board. **Change…** offers only the Boards list (and
   Clear Result; with no board yet it says to add one with + New Board),
@@ -419,7 +419,7 @@ where the problem's counts are.
   selected: select one; one copy: a click places it or moves it there;
   several: each click places one more copy, a click on a copy or a right
   click takes it off), the layers of a tray of several, and the grid: the
-  tray's tiles, each marked cell in its piece's colour (the chequer's
+  tray's tiles, each marked cell in its piece's color (the chequer's
   light and dark variants), the selected piece following the mouse, its
   slice on the layer shown outlined with the slice's top-left cell under
   the mouse, at the lowest height that fits, green where it fits, red
@@ -443,12 +443,12 @@ where the problem's counts are.
   "Invalid Start/Goal positions - <reason>" (`sliding.tray.error`: starts
   or goals that are not whole pieces, more than the problem has copies,
   or no piece with every copy at a start and at a goal).
-- **Exclusive groups** are hidden (the original greyed Groups); the
-  **Colour rules** matrix is as on other grids (decision 0021; the
-  original hid the colour groups, its cell colours being the start marks).
+- **Exclusive groups** are hidden (the original grayed Groups); the
+  **Color rules** matrix is as on other grids (decision 0021; the
+  original hid the color groups, its cell colors being the start marks).
 - **3D view** (`showSingleShape`): two trays side by side, **START** and
-  **GOAL** (dark grey, `VIEW_GREY` 0.12, a gap of 4 units), each copy
-  placed standing on a tray in its piece's colour (on a tray of layers,
+  **GOAL** (dark gray, `VIEW_GRAY` 0.12, a gap of 4 units), each copy
+  placed standing on a tray in its piece's color (on a tray of layers,
   as many layers higher as its stamp is), at the top of the view under
   its tag; below them the pieces scene's copies of the pieces (no result
   or selected item: the board is the result, and the selected piece's
@@ -499,7 +499,7 @@ where the problem's counts are.
   Time and "Remaining", or "Once continued" when paused): the move last
   searched with its time and "Complete"; the move under way, its Time
   counting up each second and its Remaining counting down from the last
-  move's time times the growth, below zero (a minus, in the danger colour)
+  move's time times the growth, below zero (a minus, in the danger color)
   once it runs past the estimate; then every fifth move past it, eleven
   from the first multiple of five (the move under way not listed twice),
   with that move's time and the time until it. From `solve.progress`'s
@@ -528,8 +528,8 @@ where the problem's counts are.
   paused one's (decision 0043) is told in a message box, with what
   differs. A paused
   sliding solve's empty card says "Search paused" and to press Continue. Keep mirror, Keep rotated, the thorough rotation check,
-  Strict colours and the sort are not shown (a sliding solve keeps every
-  start and matches colours strictly; a path found goes last). They are
+  Strict colors and the sort are not shown (a sliding solve keeps every
+  start and matches colors strictly; a path found goes last). They are
   stored with the problem under the file's names (`nestedSlides`,
   `partialNested`, `anyOrientation`, `mirroredOrientations`, `optimizedPaths`, `highMemory`; a stored `solverType`, the original's
   fast, deep or full, is kept as it was and not written).
@@ -577,7 +577,7 @@ This program's own: the original has no way to play a puzzle.
   Save position as Goal: `sliding.setLayout`, every piece, asked first
   when the problem has solutions or a paused solve; refused while a solve
   runs); **Moves file** (Export moves…, Import moves…, `.slmoves`).
-- **Centre:** the board over the 3D view, drawn from `sliding.playStart`
+- **Center:** the board over the 3D view, drawn from `sliding.playStart`
   (the floor in the board's chequer, corridors dashed, each goal tinted
   under the pieces and outlined over them, each piece with its name and
   picture); **Undo** and **Redo** right beside the board; the banner
@@ -643,7 +643,7 @@ sliding view's: the original's stacking view shows one stacking at a
 time, the start or the goal, as the Start/Goal switch says.
 
 **What a stacking puzzle is** (decision 0015): its shapes are **discs**
-(a square of 2·size+1 cells, one thick, its centre empty); a **rod set**
+(a square of 2·size+1 cells, one thick, its center empty); a **rod set**
 is a board (how many rods, their height, the rules of a move); a
 problem stands on one rod set and holds the discs of each rod at its
 **start** and its **goal**; its solution is the fewest rod transfers.
@@ -656,13 +656,13 @@ disc lies flat, the rods stand up).
   − and + (1 to 100; another value is refused with "An invalid size was
   entered, please pick a value between 1-100." and the size goes to 1, as
   the original). New makes a disc of size 1 (`shape.create`); rename,
-  duplicate, delete (never the last), reorder and the shape's colour
+  duplicate, delete (never the last), reorder and the shape's color
   stay; the weight is not shown (no take-apart). Clicking a disc shows
   it in the view. The inspector (Transform, Fit & scale, Repair &
   surface) is hidden: its tasks are the cell editor's.
 - **Right card: Rods** in the voxel editor's place (the original's Rods
   panel; the voxel editor, the tool strip and the planes are hidden;
-  the palette keeps only the drawing colour, the disc's own, and the
+  the palette keeps only the drawing color, the disc's own, and the
   pencil). The rod sets ("R1 - name" chips) with **New** ("Add
   another rod set"), **Delete** ("Delete the selected rod set"; the last
   one stays: "Keep at least one rod set"), **Copy**, **Label** ("Name
@@ -681,9 +681,9 @@ disc lies flat, the rods stand up).
     more).
   A change is `stacking.setRules` (the problems on the set lose their
   solutions, as the original). Everything here is frozen while anything
-  solves (the original greyed the fields).
+  solves (the original grayed the fields).
 - **3D view:** the disc selected (lying flat), or the selected rod set
-  drawn alone (`stacking.rodSetLayout`: grey pegs, a base, Panex
+  drawn alone (`stacking.rodSetLayout`: gray pegs, a base, Panex
   columns' Vs) once a rod set is chosen or edited, as the original's
   `showSelectedRods`; choosing a disc shows the disc again.
 
@@ -706,7 +706,7 @@ disc lies flat, the rods stand up).
   the **rod slider** ("Rod: 1", "Rod: P" for the pocket column, which
   comes first; "Select which rod in the chosen rod set to stack discs
   on"), **Stack Order** (the discs on that rod, the top first, in the
-  pieces' colours; one selected), and the original's buttons: ↑ and ↓
+  pieces' colors; one selected), and the original's buttons: ↑ and ↓
   ("Move the selected disc up/down the rod", `stacking.moveDisc`), **+1**
   (the selected piece onto the rod), **−1** (the selected disc off,
   `stacking.removeDisc`: "That rod is empty"), **All +1** (every disc,
@@ -715,9 +715,9 @@ disc lies flat, the rods stand up).
   `stacking.clear`). Under them the **validity bar** ("Whether the start
   and goal stackings obey the rod set's rules"): "Valid" in green or
   "Invalid - <reason>" in red (`stacking.board`'s error). Exclusive
-  groups and colour rules are hidden.
+  groups and color rules are hidden.
 - **3D view:** the board with the discs of the stacking edited, start or
-  goal (`stacking.board`'s layout), each disc in its colour.
+  goal (`stacking.board`'s layout), each disc in its color.
 - **Status line:** the problem's board and the validity's reason.
 
 ### 9.3 Solver workspace
@@ -735,7 +735,7 @@ disc lies flat, the rods stand up).
   no **Autosave every 20 min** (the search always saves itself as it
   runs, a minute in and then as often as saving stays cheap; the
   original's PAR_PANEX_NO_AUTOSAVE is never set). Keep
-  mirror, Keep rotated, the thorough check, Strict colours and the sort
+  mirror, Keep rotated, the thorough check, Strict colors and the sort
   are not shown.
 - **Run:** Solve, Continue, Pause, Abort. Solve and Continue are off while the problem
   has no board ("Choose a rod set with Set Start/Goal Rods") or its
@@ -759,8 +759,8 @@ disc lies flat, the rods stand up).
   Movements, Placements and Step are not offered (no take-apart, no
   assembler).
 - **Player:** the board's pegs around the discs, its steps the
-  transfers (each a lift, a move across and a drop), the poses centred
-  on the board (`stacking.board`'s centre).
+  transfers (each a lift, a move across and a drop), the poses centerd
+  on the board (`stacking.board`'s center).
 - **File ▸ Export ▸ Paused Solver State** of a stacking problem asks,
   when the saved levels take more than 1 GB, "The saved search keeps
   <size> of levels for finding the path once the search is done. Include
@@ -786,7 +786,7 @@ keys, a game kept for each problem while the document is open).
   Goal: free play"; the note under the moves says why a goal that holds
   discs is not played to, or on a Panex board how its columns work;
   **Position** saves with `stacking.setStacks`, every disc where it is.
-- **Centre:** the rods from the front, drawn from `stacking.playStart`:
+- **Center:** the rods from the front, drawn from `stacking.playStart`:
   the pegs on a base, each disc a bar as wide as its size, with its name
   or, without one, its size (too wide for the disc: each word's first
   letter, "R 1" for "Right 1"; still too wide: none); a Panex column
@@ -862,7 +862,7 @@ A dialog "Export STL" (`#exportStl`), wide, in two columns:
   the shape last picked in either list.
 - **Right:** the preview, a small 3D view of the STL mesh of the chosen
   shape at the values as they are (drag turns it, the wheel zooms), in the
-  piece's colour, lit, with the original's two modes as a pair of buttons:
+  piece's color, lit, with the original's two modes as a pair of buttons:
   **Normal** and **Insides** ("Display the insides of the STL object": the
   inner faces drawn, the outer ones faint, as x-ray). Under it the status
   line: "Volume: 123.4 cubic-units" (`%1.1f`), or the engine's refusal in
@@ -873,7 +873,7 @@ A dialog "Export STL" (`#exportStl`), wide, in two columns:
 - A changed field or shape updates the preview (on change, as the
   original's field callbacks; a field that is not a number says so in the
   status line and keeps the last preview).
-- Buttons: **Close** (the original's Abort) and **Export STL…** (greyed
+- Buttons: **Close** (the original's Abort) and **Export STL…** (grayed
   with nothing to export). With several shapes to export: the system's
   folder dialog, then a file per shape named by the engine
   (`export.stlFileNames`, as a solution's pieces), the question before
@@ -891,13 +891,13 @@ A dialog "Export STL" (`#exportStl`), wide, in two columns:
 ### 10.2 Solutions ▸ Export to STL (`stlExportSolution_c`)
 
 The Solver's solutions card's **Export to STL** (enabled with a solution
-chosen; greyed while nothing is chosen) opens "Export Solution Pieces to
+chosen; grayed while nothing is chosen) opens "Export Solution Pieces to
 STL" (`#exportStlSolution`):
 - The grid's parameters and **Binary STL**, as in 10.1 (no preview, as
   the original's).
 - **Output folder**: the folder chosen, and **Choose…** (the system's
   folder dialog; the original's "..." picked a file inside it). Until one
-  is chosen, Export All is greyed (the original started at ".", the
+  is chosen, Export All is grayed (the original started at ".", the
   folder the program was started from, which a packaged app has no use
   for).
 - The box "Pieces placed in solution N:", one line per distinct shape the
@@ -917,7 +917,7 @@ View ▸ **Draw Pieces like STL Export** (enabled; the fourth of the style
 radio items) and the Display menu's Style **Like the STL export**: the
 pieces drawn with the STL mesh at the view's own parameters (the engine's
 `shape.mesh` style `stl`: gap 0.02 and bevel 0.05 of a cell with interior
-chamfers, the sphere grid's balls at two recursions), each in one colour
+chamfers, the sphere grid's balls at two recursions), each in one color
 (no checker, no edge lines), as the original drew `styleSTL`; everything
 else as in the bevelled style (3D editing picks the cell under the
 pointer, the wire mode of a piece stays the wire frame). On the prism,
@@ -956,7 +956,7 @@ the grids a puzzle converts to are `engine.info`'s `convertsTo`.
 - Enabled when the puzzle has a shape with cells, as Export ▸ STL (the
   original enabled it with any shape and then said "Could not export
   puzzlecad file." when none had a cell).
-- Cube-grid and sliding puzzles (the original: the cube grid only); greyed
+- Cube-grid and sliding puzzles (the original: the cube grid only); grayed
   on the other grids (`scad` of the menu state). A sliding puzzle's file
   has its own template (the trays in packing_box calls, the pieces'
   burr_plate after them, api/document.json).
@@ -968,7 +968,7 @@ the grids a puzzle converts to are `engine.info`'s `convertsTo`.
   **Pieces** (the shapes picked in the two lists of 10.1, every shape but
   a sliding puzzle's boards, all on the left to start with, the ones
   exported last kept per document; `shapes`)
-  and **Problems** (the lists greyed; the problem chosen
+  and **Problems** (the lists grayed; the problem chosen
   in the list under it, the Puzzle workspace's first, with every copy of
   each part: `copies`); on a sliding puzzle only (absent on the brick
   grid, where the engine refuses `tray`), check boxes **Export Tray**
@@ -985,7 +985,7 @@ the grids a puzzle converts to are `engine.info`'s `convertsTo`.
 
 ### 11.3 Edit ▸ Convert Brick Grid Type to Other…
 
-- Enabled with a document; greyed while a solve or an analysis is active
+- Enabled with a document; grayed while a solve or an analysis is active
   (the engine refuses then: the original replaced the puzzle under its
   solver thread).
 - A dialog "Convert Grid Type" (`#convertGrid`):
@@ -1011,9 +1011,9 @@ the grids a puzzle converts to are `engine.info`'s `convertsTo`.
 | Prune, center, origin, minimize, ×2/×3 | `voxel_c::minimizePiece`, `resize`/`resizeInclude`, `scale`, `scaleDown`; GUI buttons in `mainwindow.cpp` |
 | Fill holes, surface inner/outer | `voxel_c::fillHoles`, `actionOnSpace` |
 | Tools, mirror, span, layers, planes | `grideditor*.cpp` (logic to move into the core's commands) |
-| Colours | `puzzle_c` colour list, `voxel_c` cell colours |
+| Colors | `puzzle_c` color list, `voxel_c` cell colors |
 | Problems, result, counts, ranges, groups | `problem_c`, `groupseditor.cpp`, `bulkrangewindow.cpp` |
-| Colour rules | `problem_c` colour constraints, `constraintsgroup.cpp` |
+| Color rules | `problem_c` color constraints, `constraintsgroup.cpp` |
 | Fit summary | `mainwindow.cpp` status line (problem info) |
 | Solve, Continue, Pause, Abort, progress | `solvethread.cpp`, `mainwindow_solve.cpp` |
 | Search options | `solveThread_c::PAR_*` flags, `mainwindow_layout.cpp` checkboxes |

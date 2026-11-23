@@ -32,7 +32,7 @@ class PyShape {
   [[nodiscard]] unsigned int getSizeZ() const;
   [[nodiscard]] std::tuple<unsigned int, unsigned int, unsigned int> getDimensions() const;
 
-  /// The cell's whole value (state in the low two bits, colour above).
+  /// The cell's whole value (state in the low two bits, color above).
   [[nodiscard]] int get(unsigned int x, unsigned int y, unsigned int z) const;
   void set(unsigned int x, unsigned int y, unsigned int z, int val);
 

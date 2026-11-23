@@ -16,7 +16,7 @@ puzzle itself is not changed.
 | **Solution Animation (GLB)…** | an animated 3D model (`.glb`) | show a disassembly in 3D viewers, on the web or in AR |
 | **Paused Solver State…** | a paused solve (`.slsolve`) | carry a solve on, on another computer |
 
-An item is greyed out when there is nothing for it to export, for example
+An item is grayed out when there is nothing for it to export, for example
 **Solution Animation** before a solution is chosen.
 
 The moves of a sliding or a stacking puzzle played by hand are exported from the
@@ -54,7 +54,7 @@ Puzzlecad `packing_box` (16 mm voxels, 5.6 mm thick, 8 mm walls) and the
 pieces follow in a `burr_plate` that starts switched off with OpenSCAD's
 `*`, so the box is rendered first; remove the `*` to render the pieces.
 
-The dialog remembers your choices. The menu item is greyed out except for
+The dialog remembers your choices. The menu item is grayed out except for
 **brick** (cube grid) and **sliding** puzzles, and it can be used while a
 solve is running.
 
@@ -113,14 +113,14 @@ grids:
 | **Offset** | 0.01 | How far each face is pulled in. A small offset leaves a gap between pieces, so printed pieces fit together. |
 | **Interior chamfers** | on | Also bevel the inside (concave) edges, not only the outside ones. |
 | **Uniform bevels** | off | Use the uniform mesher instead of the original's: every edge gets a bevel of the same width whatever its angle, on every grid. Faster on large rhombic and tetrahedra-octahedra shapes. |
-| **Unit Beveled** | off | Each voxel becomes a rounded body of its own, joined to its neighbours by a neck (uses the uniform mesher). |
+| **Unit Beveled** | off | Each voxel becomes a rounded body of its own, joined to its neighbors by a neck (uses the uniform mesher). |
 
 The settings for sphere grids:
 
 | Setting | Default | What it does |
 |---|---|---|
 | **Sphere radius** | 10 | The radius of the spheres, which sets how far apart they are. |
-| **Connection radius** | 0.75 | The radius of the cylinder joining neighbouring spheres: 1 is the largest, 0 means no connection. |
+| **Connection radius** | 0.75 | The radius of the cylinder joining neighboring spheres: 1 is the largest, 0 means no connection. |
 | **Curvature radius** | 1.0 | The radius of the curve between a sphere and its connection: 1 is the largest. |
 | **Offset** | 0 | Makes the spheres a little smaller, by this much. |
 | **Recursions** | 2 | How finely the spheres are divided; 3 or 4 is enough. More takes much longer, and more than 6 is refused. |
@@ -181,7 +181,7 @@ the search. Open it with **File ▸ Import ▸ Paused Solver State…** (see
 and click **Continue** on the Solver tab to carry the solve on.
 
 - **Pause** the solve of the problem shown on the Solver tab first. The item
-  is greyed out while a solve is running.
+  is grayed out while a solve is running.
 - For a **stacking** puzzle the file carries the Panex search, packed. If
   the search's saved levels are larger than 1 GB, ShapeLogic asks whether to
   **Include** them or **Leave Out**. Left out, the file is much smaller, but

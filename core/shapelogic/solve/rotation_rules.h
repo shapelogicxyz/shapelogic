@@ -15,7 +15,7 @@
 /// - along the axis, on each layer where the moving body touches another
 ///   piece face to face, look at the moving cells on the pivot's column
 ///   only and collect the other pieces' cells beside them in the plane: one
-///   such layer with a neighbour on -U and another with one on +U (or the
+///   such layer with a neighbor on -U and another with one on +U (or the
 ///   same for V) refuse the turn;
 /// - arc sweep: the turn is followed in 24 steps with bevelled squares
 ///   (0.0405 cut off, as Andrew Crowell's Fortran solver), and where it
@@ -44,7 +44,7 @@ class RotationRules {
     Cell(int x_, int y_, int z_) : x(x_), y(y_), z(z_) {}
   };
 
-  /// The centre of a turn in doubled cell units: the centre of cell (x, y,
+  /// The center of a turn in doubled cell units: the center of cell (x, y,
   /// z) is (2x, 2y, 2z); an odd coordinate is a face, edge or corner.
   struct Pivot {
     int hx = 0, hy = 0, hz = 0;

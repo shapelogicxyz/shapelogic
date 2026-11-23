@@ -14,7 +14,7 @@ from apischema import API_DIR, Api
 OUT = API_DIR.parent / "docs" / "API.md"
 
 # the areas in the order the reference lists them
-ORDER = ["engine.json", "document.json", "shape.json", "colour.json", "problem.json",
+ORDER = ["engine.json", "document.json", "shape.json", "color.json", "problem.json",
          "sliding.json", "stacking.json", "solve.json", "solution.json", "playback.json", "explore.json",
          "export.json"]
 
@@ -31,7 +31,7 @@ exactly L raw bytes; the reply referring to frame N follows. A frame holds
 little-endian typed arrays at offsets that are multiples of 4, described by
 the reply's `Frame` object.
 
-**Ids** are strings: shapes `s7`, colours `c2`, problems `p1`, solutions
+**Ids** are strings: shapes `s7`, colors `c2`, problems `p1`, solutions
 `sol42` (unique within their problem), playbacks `pb1`, explorers `ax1` and
 `mx1`. Labels (`S1`, `C1`, `P1`) follow the list order.
 
@@ -44,7 +44,7 @@ the reply's `Frame` object.
 | -32601 | method_not_found | no such method |
 | -32602 | invalid_params | a parameter is missing, of the wrong type, or unknown |
 | -32001 | invalid_argument | a value out of range or malformed |
-| -32002 | not_found | no such shape, colour, problem, solution or handle |
+| -32002 | not_found | no such shape, color, problem, solution or handle |
 | -32003 | parse_error | a file or bytes that are no puzzle |
 | -32004 | io_error | reading or writing a file failed |
 | -32005 | unsupported | valid, but not for this puzzle (what a grid or a solver lacks: a take-apart, an assembler, Panex columns) |

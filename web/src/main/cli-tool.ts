@@ -104,7 +104,7 @@ export const macPrivileged: Privileged = (command) =>
   });
 
 /** The user closed the system's password dialog (osascript error -128). */
-function wasCancelled(e: unknown): boolean {
+function wasCanceled(e: unknown): boolean {
   return e instanceof Error && /-128|User canceled/i.test(e.message);
 }
 
@@ -118,11 +118,11 @@ function done(path: string | null, link: string | null): CliToolResult {
 }
 
 function failed(e: unknown): CliToolResult {
-  return wasCancelled(e)
+  return wasCanceled(e)
     ? {
         ok: false,
-        error: 'Cancelled: the administrator’s password was not given.',
-        cancelled: true,
+        error: 'Canceled: the administrator’s password was not given.',
+        canceled: true,
       }
     : { ok: false, error: e instanceof Error ? e.message : String(e) };
 }

@@ -215,7 +215,7 @@ void dumpView(Out& out, const Polyhedron& poly) {
     h.add<std::uint32_t>(face.flags);
     h.add<std::uint32_t>(face.voxel);
     h.add<std::int32_t>(face.voxelFace);
-    h.add<std::uint8_t>(face.colour);
+    h.add<std::uint8_t>(face.color);
     h.add<std::int32_t>(corners);
   }
   out.line("view faces %d holes %d vertices %d attributes %016llx lo %.4f %.4f %.4f hi %.4f %.4f "

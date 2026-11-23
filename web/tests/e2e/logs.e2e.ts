@@ -62,7 +62,7 @@ test('the log tells what was opened and what could not be, newest first, filtere
 
   await openWith(page, 'damaged.xmpuzzle');
   const dlg = page.locator('#logFiles');
-  // Pretty first: a table, the level in its colour, the event apart
+  // Pretty first: a table, the level in its color, the event apart
   await expect(dlg.locator('.lf-view [data-v="pretty"]')).toHaveClass(/\bon\b/);
   await expect(dlg.locator('.lf-table th')).toHaveText([
     'Date',

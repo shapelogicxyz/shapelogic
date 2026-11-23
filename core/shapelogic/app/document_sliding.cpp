@@ -25,7 +25,7 @@ namespace bt::app {
 namespace {
 
 constexpr std::uint32_t kChangeAll =
-    kChangeShapes | kChangeColours | kChangeProblems | kChangeSolutions;
+    kChangeShapes | kChangeColors | kChangeProblems | kChangeSolutions;
 
 // "B1, B3": shapes by their labels.
 std::string shapeList(const Puzzle& puzzle, const std::vector<unsigned int>& shapes) {

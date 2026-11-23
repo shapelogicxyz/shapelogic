@@ -7,7 +7,7 @@
 // clear, layers, the grid size with and without "Apply to all shapes",
 // every task of shape.taskSet (and a blocked nudge's message), the
 // palette and paint, and 3D editing (the cell across a face from the
-// client's table on cubes, from grid.neighbour elsewhere). What the UI
+// client's table on cubes, from grid.neighbor elsewhere). What the UI
 // did is checked against the engine (shape.get through the bridge), and
 // what it asked for against the same request made through the bridge on
 // a copy of the shape; the call log holds no invalid_state or
@@ -50,13 +50,13 @@ const GRIDS = [
 interface GeoCell {
   at: Cell;
   polygon?: [number, number][];
-  neighbours?: number[];
-  circle?: { centre: [number, number]; radius: number };
+  neighbors?: number[];
+  circle?: { center: [number, number]; radius: number };
 }
 
 const key = (c: readonly number[]): string => c.join(',');
 const cellsOf = (g: ShapeGet): string[] =>
-  g.cells.map((c) => `${key(c.at)}:${c.state}:${c.colour ?? ''}`).sort();
+  g.cells.map((c) => `${key(c.at)}:${c.state}:${c.color ?? ''}`).sort();
 
 /** The engine's drawing of a layer of the selected shape's space. */
 async function geometry(page: Page, size: Cell, l: number): Promise<GeoCell[]> {
@@ -68,12 +68,12 @@ function chain(cells: GeoCell[], n: number): Cell[] {
   const near = (a: GeoCell, b: GeoCell): boolean => {
     if (a.circle !== undefined && b.circle !== undefined) {
       const d = Math.hypot(
-        a.circle.centre[0] - b.circle.centre[0],
-        a.circle.centre[1] - b.circle.centre[1],
+        a.circle.center[0] - b.circle.center[0],
+        a.circle.center[1] - b.circle.center[1],
       );
       return d <= a.circle.radius + b.circle.radius + 1e-6;
     }
-    return (a.neighbours ?? []).some((i) => cells[i] === b);
+    return (a.neighbors ?? []).some((i) => cells[i] === b);
   };
   // a simple path of n cells, depth first
   const walk = (path: GeoCell[]): GeoCell[] | null => {
@@ -424,7 +424,7 @@ for (const grid of GRIDS) {
           await settled(page);
         }
       }
-      // a nudge towards the space's edge is blocked: the cells at the corner
+      // a nudge toward the space's edge is blocked: the cells at the corner
       if (blocked === 0) {
         await clearShape(page, s1);
         await clickCell(page, A);
@@ -455,9 +455,9 @@ for (const grid of GRIDS) {
       await clickCell(page, P);
       await page.click('#cAdd');
       await settled(page);
-      const colours = async (): Promise<{ id: string; rgb: string }[]> =>
-        (await engineCall<{ colours: { id: string; rgb: string }[] }>(page, 'colour.list')).colours;
-      const [c1] = await colours();
+      const colors = async (): Promise<{ id: string; rgb: string }[]> =>
+        (await engineCall<{ colors: { id: string; rgb: string }[] }>(page, 'color.list')).colors;
+      const [c1] = await colors();
       expect(c1).toBeDefined();
       await expect(page.locator(`#colFoot .sw[data-c="${c1?.id}"]`)).toHaveClass(/\bon\b/);
       await expect(page.locator(`#colFoot .sw[data-c="${c1?.id}"]`)).toHaveText('C1');
@@ -472,12 +472,12 @@ for (const grid of GRIDS) {
       await expect(page.locator('#toolStrip [data-t="fixed"]')).toHaveClass(/\bon\b/);
       await page.click('#cPaint');
       await clickCell(page, P);
-      expect((await shapeGet(page, s3)).cells[0]?.colour).toBe(c1?.id);
-      // a new voxel takes the drawing colour; Default is the shape's own
+      expect((await shapeGet(page, s3)).cells[0]?.color).toBe(c1?.id);
+      // a new voxel takes the drawing color; Default is the shape's own
       await page.keyboard.press('1');
       await clickCell(page, Q);
       expect(
-        (await shapeGet(page, s3)).cells.find((c: EngineCell) => key(c.at) === key(Q))?.colour,
+        (await shapeGet(page, s3)).cells.find((c: EngineCell) => key(c.at) === key(Q))?.color,
       ).toBe(c1?.id);
       await page.keyboard.press('4');
       await expect(page.locator('#cPaint')).toHaveClass(/\bon\b/);
@@ -488,9 +488,9 @@ for (const grid of GRIDS) {
       await expect(page.locator('#toolStrip [data-t="fixed"]')).toHaveClass(/\bon\b/);
       await clickCell(page, R);
       expect(
-        (await shapeGet(page, s3)).cells.find((c: EngineCell) => key(c.at) === key(R))?.colour,
+        (await shapeGet(page, s3)).cells.find((c: EngineCell) => key(c.at) === key(R))?.color,
       ).toBeUndefined();
-      // edit the colour, then remove it: its cells go back to the shape's own
+      // edit the color, then remove it: its cells go back to the shape's own
       await page.click(`#colFoot .sw[data-c="${c1?.id}"]`);
       await expect(page.locator('#colFoot .colmeta small')).toHaveText('Restriction color');
       // a restriction color has no default to restore
@@ -498,14 +498,14 @@ for (const grid of GRIDS) {
       await expect(page.locator('#pop [data-k="default"]')).toHaveCount(0);
       await page.locator('#pop .cpk-hex').fill('#123456');
       await page.locator('#pop .cpk-hex').press('Enter');
-      await expect.poll(async () => (await colours())[0]?.rgb).toBe('#123456');
+      await expect.poll(async () => (await colors())[0]?.rgb).toBe('#123456');
       await page.keyboard.press('Escape');
       await page.click('#cRm');
-      await expect.poll(async () => (await colours()).length).toBe(0);
-      expect((await shapeGet(page, s3)).cells.every((c) => c.colour === undefined)).toBe(true);
+      await expect.poll(async () => (await colors()).length).toBe(0);
+      expect((await shapeGet(page, s3)).cells.every((c) => c.color === undefined)).toBe(true);
       await expect(page.locator('#colFoot .colmeta small')).toHaveText('Shape color');
       await expect(page.locator('#colFoot .colmeta b')).toHaveText('Default');
-      // no constraint colour left: one row; the pencil works on Default too (the shape's own color)
+      // no constraint color left: one row; the pencil works on Default too (the shape's own color)
       await expect(page.locator('#palView')).toHaveCount(0);
       await expect(page.locator('#cEdit')).toBeEnabled();
       await expect(page.locator('#cRm')).toBeDisabled();
@@ -518,11 +518,11 @@ for (const grid of GRIDS) {
         .poll(
           async () =>
             (
-              await engineCall<{ shapes: { id: string; colour: string | null }[] }>(
+              await engineCall<{ shapes: { id: string; color: string | null }[] }>(
                 page,
                 'shape.list',
               )
-            ).shapes.find((x) => x.id === s3)?.colour,
+            ).shapes.find((x) => x.id === s3)?.color,
         )
         .toBe('#336699');
       await expect(page.locator('#colFoot .colmeta b')).toHaveText('Custom');
@@ -577,7 +577,7 @@ for (const grid of GRIDS) {
           const cell: Cell = [Number(m[1]) - from, Number(m[2]) - from, Number(m[3]) - from];
           const face = Number(m[4]);
           const across = (
-            await engineCall<{ cell: Cell | null }>(page, 'grid.neighbour', {
+            await engineCall<{ cell: Cell | null }>(page, 'grid.neighbor', {
               size: size1,
               cell,
               face,
@@ -696,7 +696,7 @@ test('the palette shows its colors one row at a time', async () => {
     await expect(page.locator('#palView .sw:text-is("C1")')).toHaveClass(/\bon\b/);
     await expect(page.locator('#colFoot .colmeta small')).toHaveText('Restriction color');
     // the colors added are all different
-    const rgbs = (await engineCall<{ colours: { rgb: string }[] }>(page, 'colour.list')).colours;
+    const rgbs = (await engineCall<{ colors: { rgb: string }[] }>(page, 'color.list')).colors;
     expect(new Set(rgbs.map((c) => c.rgb)).size).toBe(rgbs.length);
     // Default is on the first row: choosing it leaves nothing to remove, the pencil stays
     await page.click('#palView .sw.def');

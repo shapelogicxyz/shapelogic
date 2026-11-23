@@ -49,7 +49,7 @@ TEST_CASE("document: new, open, save, and the ids of what it holds", "[app][docu
   CHECK_FALSE(d.dirty());
   // ids are unique
   std::vector<Id> all = d.shapeIds();
-  all.insert(all.end(), d.colourIds().begin(), d.colourIds().end());
+  all.insert(all.end(), d.colorIds().begin(), d.colorIds().end());
   all.insert(all.end(), d.problemIds().begin(), d.problemIds().end());
   std::sort(all.begin(), all.end());
   CHECK(std::adjacent_find(all.begin(), all.end()) == all.end());
@@ -59,7 +59,7 @@ TEST_CASE("document: new, open, save, and the ids of what it holds", "[app][docu
   CHECK(d.shapeIndex(12345).error().code == Errc::NotFound);
   CHECK(Document::shapeLabel(0) == "S1");
   CHECK(Document::problemLabel(1) == "P2");
-  CHECK(Document::colourLabel(2) == "C3");
+  CHECK(Document::colorLabel(2) == "C3");
 
   // solutions: ids from the file, unique, found back
   const Problem& pr = problem0(d);
@@ -104,7 +104,7 @@ TEST_CASE("document: notes", "[app][document]") {
   CHECK(d.revision() == rev);
 }
 
-TEST_CASE("document: shapes are made, copied, deleted, moved, named, weighed and coloured",
+TEST_CASE("document: shapes are made, copied, deleted, moved, named, weighed and colored",
           "[app][document]") {
   Document d = openFixture("PelikanBurr.xmpuzzle");
   const unsigned int n = d.puzzle().getNumberOfShapes();
@@ -147,24 +147,24 @@ TEST_CASE("document: shapes are made, copied, deleted, moved, named, weighed and
     CHECK(d.shapeIds()[problem0(d).getResultId()] == ids[result]);
     refused(d, Errc::InvalidArgument, [&ids](Document& x) { return x.moveShape(ids[1], 99); });
   }
-  SECTION("rename, weight, colour") {
+  SECTION("rename, weight, color") {
     const Id s = firstShape(d);
     roundTrip(d, [s](Document& x) { return x.renameShape(s, "cage"); });
     CHECK(d.puzzle().getShape(0).getName() == "cage");
     roundTrip(d, [s](Document& x) { return x.setShapeWeight(s, 5); });
     CHECK(d.puzzle().getShape(0).getWeight() == 5);
-    roundTrip(d, [s](Document& x) { return x.setShapeColour(s, 0x336699U); });
+    roundTrip(d, [s](Document& x) { return x.setShapeColor(s, 0x336699U); });
     CHECK(d.puzzle().getShape(0).getShapeColor() == 0x336699);
-    roundTrip(d, [s](Document& x) { return x.setShapeColour(s, std::nullopt); });
+    roundTrip(d, [s](Document& x) { return x.setShapeColor(s, std::nullopt); });
     CHECK(d.puzzle().getShape(0).getShapeColor() == -1);
-    refused(d, Errc::InvalidArgument, [s](Document& x) { return x.setShapeColour(s, 0x1000000U); });
+    refused(d, Errc::InvalidArgument, [s](Document& x) { return x.setShapeColor(s, 0x1000000U); });
   }
 }
 
 TEST_CASE("document: cells are edited with the tools, mirror and span", "[app][document]") {
   Document d(GridKind::Bricks);
   const Id s = d.createShape(std::array<unsigned int, 3>{4, 4, 4}).value();
-  const Id c = d.addColour(Rgb{200, 10, 10}).value();
+  const Id c = d.addColor(Rgb{200, 10, 10}).value();
   const auto& shape = [&d]() -> const Voxel& { return d.puzzle().getShape(0); };
 
   CHECK(roundTrip(d, [s](Document& x) {
@@ -175,13 +175,13 @@ TEST_CASE("document: cells are edited with the tools, mirror and span", "[app][d
           return x.editCells(s, CellTool::Variable, 0, 0, {{2, 1, 1}});
         }).value() == 1);
   CHECK(shape().isVariable(2, 1, 1));
-  // paint: colour only, on cells that are not empty
+  // paint: color only, on cells that are not empty
   CHECK(roundTrip(d, [s, c](Document& x) {
           return x.editCells(s, CellTool::Paint, c, 0, {{1, 1, 1}, {0, 0, 0}});
         }).value() == 1);
   CHECK(shape().getColor(1, 1, 1) == 1);
   CHECK(shape().isEmpty(0, 0, 0));
-  // erase: the cell and its colour go
+  // erase: the cell and its color go
   CHECK(roundTrip(d, [s](Document& x) {
           return x.editCells(s, CellTool::Erase, 0, 0, {{1, 1, 1}});
         }).value() == 1);
@@ -376,41 +376,41 @@ TEST_CASE("document: minimize scales all shapes down together", "[app][document]
   CHECK(d.puzzle().getShape(0).countState(Voxel::kFilled) == 1);
 }
 
-TEST_CASE("document: colours", "[app][document]") {
+TEST_CASE("document: colors", "[app][document]") {
   Document d = openFixture("PelikanBurr.xmpuzzle");
-  const Id a = roundTrip(d, [](Document& x) { return x.addColour(Rgb{1, 2, 3}); }).value();
-  // every problem allows the new colour on itself
+  const Id a = roundTrip(d, [](Document& x) { return x.addColor(Rgb{1, 2, 3}); }).value();
+  // every problem allows the new color on itself
   CHECK(problem0(d).placementAllowed(d.puzzle(), 1, 1));
-  const Id b = d.addColour(Rgb{4, 5, 6}).value();
-  roundTrip(d, [b](Document& x) { return x.editColour(b, Rgb{7, 8, 9}); });
+  const Id b = d.addColor(Rgb{4, 5, 6}).value();
+  roundTrip(d, [b](Document& x) { return x.editColor(b, Rgb{7, 8, 9}); });
   CHECK(d.puzzle().getColor(1) == Rgb{7, 8, 9});
 
-  // a shape coloured with the first colour
+  // a shape colored with the first color
   const Id s = firstShape(d);
   REQUIRE(d.editCells(s, CellTool::Paint, a, kSpanX | kSpanY | kSpanZ, {{0, 0, 0}}).has_value());
   const Id other = d.createShape().value();
   REQUIRE(d.editCells(other, CellTool::Fixed, b, 0, {{0, 0, 0}}).has_value());
-  roundTrip(d, [a](Document& x) { return x.deleteColour(a); });
+  roundTrip(d, [a](Document& x) { return x.deleteColor(a); });
   CHECK(d.puzzle().colorNumber() == 1);
-  CHECK(d.colourIds() == std::vector<Id>{b});
-  // the cells of the deleted colour are neutral, the higher colour moved down
+  CHECK(d.colorIds() == std::vector<Id>{b});
+  // the cells of the deleted color are neutral, the higher color moved down
   const Voxel& o = d.puzzle().getShape(d.shapeIndex(other).value());
   CHECK(o.getColor(0, 0, 0) == 1);
 
   Document full(GridKind::Bricks);
   for (unsigned int i = 0; i < Puzzle::kMaxColors; i++) {
-    REQUIRE(full.addColour(Rgb{}).has_value());
+    REQUIRE(full.addColor(Rgb{}).has_value());
   }
-  refused(full, Errc::InvalidArgument, [](Document& x) { return x.addColour(Rgb{}); });
+  refused(full, Errc::InvalidArgument, [](Document& x) { return x.addColor(Rgb{}); });
 }
 
 TEST_CASE("document: problems are made, copied, deleted, moved and named", "[app][document]") {
   Document d = openFixture("PelikanBurr.xmpuzzle");
-  REQUIRE(d.addColour(Rgb{1, 1, 1}).has_value());
+  REQUIRE(d.addColor(Rgb{1, 1, 1}).has_value());
   const Id p0 = firstProblem(d);
   const Id p1 = roundTrip(d, [](Document& x) { return x.createProblem(); }).value();
   CHECK(d.puzzle().getNumberOfProblems() == 2);
-  // a new problem allows each colour on itself
+  // a new problem allows each color on itself
   CHECK(d.puzzle().getProblem(1).placementAllowed(d.puzzle(), 1, 1));
   const Id p2 = roundTrip(d, [p0](Document& x) { return x.duplicateProblem(p0); }).value();
   const Problem& copy = d.puzzle().getProblem(2);
@@ -526,21 +526,21 @@ TEST_CASE("document: the pieces of a problem", "[app][document]") {
   }
 }
 
-TEST_CASE("document: colour rules", "[app][document]") {
+TEST_CASE("document: color rules", "[app][document]") {
   Document d = openFixture("PelikanBurr.xmpuzzle");
   const Id p = firstProblem(d);
-  const Id a = d.addColour(Rgb{1, 0, 0}).value();
-  const Id b = d.addColour(Rgb{0, 1, 0}).value();
-  roundTrip(d, [p, a, b](Document& x) { return x.setColourRule(p, a, b, true); });
+  const Id a = d.addColor(Rgb{1, 0, 0}).value();
+  const Id b = d.addColor(Rgb{0, 1, 0}).value();
+  roundTrip(d, [p, a, b](Document& x) { return x.setColorRule(p, a, b, true); });
   CHECK(problem0(d).placementAllowed(d.puzzle(), 1, 2));
-  roundTrip(d, [p, a](Document& x) { return x.setColourRule(p, a, a, false); });
+  roundTrip(d, [p, a](Document& x) { return x.setColorRule(p, a, a, false); });
   CHECK_FALSE(problem0(d).placementAllowed(d.puzzle(), 1, 1));
-  roundTrip(d, [p](Document& x) { return x.setColourRules(p, ColourPreset::AllowAll); });
+  roundTrip(d, [p](Document& x) { return x.setColorRules(p, ColorPreset::AllowAll); });
   CHECK(problem0(d).placementAllowed(d.puzzle(), 2, 1));
-  roundTrip(d, [p](Document& x) { return x.setColourRules(p, ColourPreset::EachOnItself); });
+  roundTrip(d, [p](Document& x) { return x.setColorRules(p, ColorPreset::EachOnItself); });
   CHECK(problem0(d).placementAllowed(d.puzzle(), 2, 2));
   CHECK_FALSE(problem0(d).placementAllowed(d.puzzle(), 2, 1));
-  roundTrip(d, [p](Document& x) { return x.setColourRules(p, ColourPreset::Clear); });
+  roundTrip(d, [p](Document& x) { return x.setColorRules(p, ColorPreset::Clear); });
   CHECK(problem0(d).getColorConstraints().empty());
 }
 

@@ -48,13 +48,13 @@ enum class ShapeTask : std::uint8_t {
   OutsideFixed = 17,
   InsideVariable = 18,
   OutsideVariable = 19,
-  InsideDecolour = 20,
-  OutsideDecolour = 21,
+  InsideDecolor = 20,
+  OutsideDecolor = 21,
   Double = 22,
   Triple = 23,
   /// Moves the shape to the corner of the grid.
   ToOrigin = 24,
-  Centre = 25,
+  Center = 25,
   /// Scales the shape down by the largest factor that keeps it.
   Minimize = 26,
   Nudge27 = 27,
@@ -89,7 +89,7 @@ struct ShapeTaskInfo {
 
 /// What a task did to a shape.
 struct TaskOutcome {
-  /// Cells whose state or colour changed.
+  /// Cells whose state or color changed.
   unsigned int cellsChanged = 0;
   /// Whether the space changed at all (cells, size or hotspot).
   bool changed = false;
@@ -111,7 +111,7 @@ enum class CellTool : std::uint8_t {
   Fixed,     ///< the cell becomes filled (TSK_SET)
   Variable,  ///< the cell becomes variable (TSK_VAR)
   Erase,     ///< the cell becomes empty (TSK_RESET)
-  Paint,     ///< only the colour of a non-empty cell (TSK_COLOR)
+  Paint,     ///< only the color of a non-empty cell (TSK_COLOR)
 };
 
 /// Mirror and span bits (TOOL_MIRROR_ and TOOL_STACK_ of the original):
@@ -126,11 +126,11 @@ enum EditSymmetry : std::uint8_t {
 };
 
 /// Applies a tool to cell (x, y, z) and, with `symmetry`, to its mirrored
-/// cells and spans (setRecursive). The colour (0: none) goes on every cell
-/// that is not empty afterwards; an erased cell loses its colour. Cells
+/// cells and spans (setRecursive). The color (0: none) goes on every cell
+/// that is not empty afterwards; an erased cell loses its color. Cells
 /// outside the space or not valid in the grid are left out. Returns the
 /// number of cells changed. The hotspot is not touched (see editCells).
-unsigned int applyCellTool(Voxel& v, CellTool tool, unsigned int colour, std::uint8_t symmetry,
+unsigned int applyCellTool(Voxel& v, CellTool tool, unsigned int color, std::uint8_t symmetry,
                            int x, int y, int z);
 
 /// A cell to edit.
@@ -142,7 +142,7 @@ struct CellEdit {
 
 /// Applies a tool to cells (each with the symmetry); resets the hotspot
 /// when anything changed (setLayer). Returns the cells changed.
-unsigned int editCells(Voxel& v, CellTool tool, unsigned int colour, std::uint8_t symmetry,
+unsigned int editCells(Voxel& v, CellTool tool, unsigned int color, std::uint8_t symmetry,
                        const std::vector<CellEdit>& cells);
 
 /// The size a new shape gets on a grid (guiGridType_c::defaultSize).

@@ -26,7 +26,7 @@ which ones to run after a change, is in
 ```bash
 just build              # the dev preset, into build/dev
 just test               # unit and contract tests, without the slow cases
-just build release      # the optimised engine the app and its tests use
+just build release      # the optimized engine the app and its tests use
 just app-install        # the app's packages (npm ci)
 just app-dev            # run the app against the dev engine
 ```

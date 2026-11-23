@@ -50,7 +50,7 @@ front end's notices, the documents).
   the statistics.
 - The document (`document_sliding.cpp` and hooks in the commands): the
   start/goal commands, the shape commands keeping stamps and problems in
-  step, the refusals of what the GUI greyed out, Solve's checks
+  step, the refusals of what the GUI grayed out, Solve's checks
   (`startGoalError`, `stampOverflowMessage`) and its setup at launch,
   flattening on open with `openNotice()`, `ChangeSet::notice`,
   `solveNote()`. Playback follows routes; the assembly explorer works on
@@ -62,7 +62,7 @@ front end's notices, the documents).
   pauses, the save point, the notes, abort, Find Solutions off, the
   limit, the start locks, the playback's corners);
   `test_document_sliding.cpp` (6 cases: the 81-move fixture rebuilt
-  through the commands and solved, stamps, the shape commands, the greyed
+  through the commands and solved, stamps, the shape commands, the grayed
   buttons, Solve's checks, flattening); `test_slide_routes.cpp` (below).
 
 ### The engine (`d9b26cd`, `91c3a4e`)
@@ -95,7 +95,7 @@ front end's notices, the documents).
   `--partial-nested` (implies nested), `--high-memory`, and the A/B
   switches `--slide-legacy`, `--slide-apart`, `--slide-queue`,
   `--slide-trace`; a help section for sliding puzzles.
-- The solve: the matrix as the solve thread built it (strict colours,
+- The solve: the matrix as the solve thread built it (strict colors,
   mirrors and rotations kept, the start locks and maximum of holes set
   up), a slide search per start layout in the callback, the shorter path
   per ending, the original's notes after the summary; `-x` (the saved
@@ -278,7 +278,7 @@ part 2" of the Audit section below first.
 `4a3d6ba..ed37914` (`ab15050` Core, `d9b26cd` and `91c3a4e` Engine,
 `ed37914` Deferred 1), the gate results above, this note, the plan and
 decision 0014. The fixes are one commit after the part's: `Deferred 1
-audit: refusals the GUI's greyed buttons gave, marks past the 63rd place`.
+audit: refusals the GUI's grayed buttons gave, marks past the 63rd place`.
 
 ### How it was done
 - The three searches, the level files, the routes and the tray model read
@@ -286,32 +286,32 @@ audit: refusals the GUI's greyed buttons gave, marks past the 63rd place`.
   sliding branches of `solvethread.cpp`, `burrTxt.cpp` and
   `mainwindow.cpp`; the session's sliding run against the solve thread's
   callback, stops, note and statistics; the document's hooks against the
-  GUI's callbacks and the buttons it greyed out or hid.
+  GUI's callbacks and the buttons it grayed out or hid.
 - Suspicions probed with small programs against
   `build/release/core/libbtcore.a` in the session's scratchpad (not
   committed), and `bt -x` against `burrTxt -x` on three solved files
   (`-x`, `-x -p`, `-x -s`, `-x -q`: byte-identical).
 - Each test added was run against the part's sources (the fixed files
   copied aside, the part's versions written in their place, copied back)
-  and the colour refusal against a mutant with that block alone removed:
+  and the color refusal against a mutant with that block alone removed:
   each fails without its fix.
 
 ### Findings, by severity
-1. **Medium: deleting a colour renumbered a sliding puzzle's start marks
-   and locks.** The start marks are cell colours (shape index + 1) and the
+1. **Medium: deleting a color renumbered a sliding puzzle's start marks
+   and locks.** The start marks are cell colors (shape index + 1) and the
    pieces' locks the same numbers; `Puzzle::removeColor` moves every
-   higher cell colour down by one and leaves the goal marks (`goalPiece_`)
-   where they are. The original hid the colour group on sliding puzzles;
-   the document, and so `colour.delete` (the Entities workspace offers
-   the colour chips on every grid), allowed it. Probe: the 81-move
-   fixture opened, colour 1 deleted: every start mark and lock one lower
+   higher cell color down by one and leaves the goal marks (`goalPiece_`)
+   where they are. The original hid the color group on sliding puzzles;
+   the document, and so `color.delete` (the Entities workspace offers
+   the color chips on every grid), allowed it. Probe: the 81-move
+   fixture opened, color 1 deleted: every start mark and lock one lower
    (S3's start now says S2, and so on), `startGoalError` "The start of S2
    is not the whole piece. Place it again.", the file saved wrong, the
-   problem unsolvable. Fix: `Document::deleteColour` refuses
-   (`invalid_argument`) on a sliding puzzle; `colour.delete` declares the
-   error. `colour.add` stays (harmless: the marks keep their numbers).
-   Tests: "what the original greyed out is refused" (`deleteColour`
-   refused, `addColour` leaves the start/goal check as it was), the
+   problem unsolvable. Fix: `Document::deleteColor` refuses
+   (`invalid_argument`) on a sliding puzzle; `color.delete` declares the
+   error. `color.add` stays (harmless: the marks keep their numbers).
+   Tests: "what the original grayed out is refused" (`deleteColor`
+   refused, `addColor` leaves the start/goal check as it was), the
    contract case `sliding_start_goal_shapes`.
 2. **Low: a stamped piece moved past the 63rd place threw an
    assertion.** A mark is six bits; `noteShapeSwap` swapped mark 63 to 64
@@ -328,7 +328,7 @@ audit: refusals the GUI's greyed buttons gave, marks past the 63rd place`.
    place loses its marks, not the puzzle" (moved up, and crossed by a
    shape moved down; undo and redo byte for byte; no notice when nothing
    crossed).
-3. **Low: the problem buttons the original greyed out (New, Copy and
+3. **Low: the problem buttons the original grayed out (New, Copy and
    Delete problem) were not refused.** A sliding puzzle's problems follow
    its start/goal shapes (`syncSlidingProblems`): a problem added was
    dropped by the next stamp (its id gone), a deleted START/GOAL problem
@@ -338,7 +338,7 @@ audit: refusals the GUI's greyed buttons gave, marks past the 63rd place`.
    `createProblem`, `duplicateProblem` and `deleteProblem` refuse
    (`invalid_argument`) on a sliding puzzle; `problem.create`,
    `problem.duplicate` and `problem.delete` declare the error. Tests: the
-   greyed-out case, the contract case.
+   grayed-out case, the contract case.
 
 ### Probed and cleared
 - Concurrent slide searches: `onSlidingAssembly` runs the search outside
@@ -374,10 +374,10 @@ audit: refusals the GUI's greyed buttons gave, marks past the 63rd place`.
   docs, the contract suite, the CLI), 395 s; `just web-check` clean.
 
 ### Notes for part 2
-- Hide the colour chips and the New/Copy/Delete problem buttons on
+- Hide the color chips and the New/Copy/Delete problem buttons on
   sliding puzzles (the engine refuses them now) and show
   `document.changed.notice`.
-- The editor should offer no colours on a sliding puzzle: a cell painted
+- The editor should offer no colors on a sliding puzzle: a cell painted
   with one is a stray start mark cell (the GUI forced the Walls tool
   there); `shape.setCells` does not refuse it.
 - `shape.rename` with a name beginning "sg:" turns a piece into a

@@ -93,7 +93,7 @@ export class ShapePicker {
     });
   }
 
-  /** Greys the lists and the arrows (the dialog exports something else). */
+  /** Grays the lists and the arrows (the dialog exports something else). */
   setDisabled(disabled: boolean): void {
     for (const x of this.root?.querySelectorAll<HTMLSelectElement | HTMLButtonElement>(
       'select, button',

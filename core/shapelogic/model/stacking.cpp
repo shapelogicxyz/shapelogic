@@ -1202,7 +1202,7 @@ std::string moveRefusal(const RodSet& board, const std::vector<Disc>& discs, con
     return "A larger disc cannot sit on a smaller one.";
   }
   if (board.distanceMatters && !board.canMoveOver && a - b != 1 && b - a != 1) {
-    return "A disc can only move to a neighbouring rod.";
+    return "A disc can only move to a neighboring rod.";
   }
   return "The rules do not allow that transfer.";
 }

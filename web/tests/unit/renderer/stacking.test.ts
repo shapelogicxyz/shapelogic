@@ -6,7 +6,7 @@
 // the board's one solver, the Details lines of the Panex and the stacking
 // search; the board's boxes as the original's voxelframe.cpp built them
 // (addPeg, addRodBase, addPanexV), its middle and the discs' places; the
-// disc list's sizes, a rod set's text and the fields its rules grey out,
+// disc list's sizes, a rod set's text and the fields its rules gray out,
 // the rod slider's places and captions, the validity bar's words, the
 // export's size; the main process's refusal of a page's folder settings.
 
@@ -37,11 +37,11 @@ import {
 } from '../../../src/renderer/state/stacking.ts';
 import {
   boardBoxes,
-  boardCentre,
+  boardCenter,
   boardExtent,
   discAt,
-  PANEX_GREY,
-  PEG_GREY,
+  PANEX_GRAY,
+  PEG_GRAY,
 } from '../../../src/renderer/view3d/board.ts';
 
 const rodSet = (r: Partial<RodSet> = {}): RodSet => ({
@@ -91,7 +91,7 @@ describe('the stacking solver options', () => {
     expect('nestedSlides' in w).toBe(false);
   });
 
-  it('follow the original rules: Just Count or Just Levels, no symmetry or colours', () => {
+  it('follow the original rules: Just Count or Just Levels, no symmetry or colors', () => {
     const o = {
       ...readOptions({}, undefined, 'stacking'),
       strictColors: true,
@@ -144,10 +144,10 @@ describe('the board in the 3D view', () => {
   it('has a peg per rod and the base under them (addPeg, addRodBase)', () => {
     const boxes = boardBoxes(layout());
     expect(boxes).toEqual([
-      { min: [0, 0, 0], max: [1, 1, 3], colour: PEG_GREY },
-      { min: [7, 0, 0], max: [8, 1, 3], colour: PEG_GREY },
-      { min: [14, 0, 0], max: [15, 1, 3], colour: PEG_GREY },
-      { min: [0, 0, -1], max: [15, 1, 0], colour: PEG_GREY },
+      { min: [0, 0, 0], max: [1, 1, 3], color: PEG_GRAY },
+      { min: [7, 0, 0], max: [8, 1, 3], color: PEG_GRAY },
+      { min: [14, 0, 0], max: [15, 1, 3], color: PEG_GRAY },
+      { min: [0, 0, -1], max: [15, 1, 0], color: PEG_GRAY },
     ]);
   });
 
@@ -160,26 +160,26 @@ describe('the board in the 3D view', () => {
       pocket: true,
     });
     const boxes = boardBoxes(lay);
-    const vs = boxes.filter((b) => b.colour === PANEX_GREY);
+    const vs = boxes.filter((b) => b.color === PANEX_GRAY);
     // three columns of three layers; the pocket (the last rod) a plain peg of its height
     expect(vs).toHaveLength(9);
-    expect(boxes.filter((b) => b.colour === PEG_GREY)).toHaveLength(5);
-    expect(boxes).toContainEqual({ min: [0, 0, 0], max: [1, 1, 2], colour: PEG_GREY });
+    expect(boxes.filter((b) => b.color === PEG_GRAY)).toHaveLength(5);
+    expect(boxes).toContainEqual({ min: [0, 0, 0], max: [1, 1, 2], color: PEG_GRAY });
     // narrowing to the top: half widths 3, 2, 1 at depths 3, 2, 1, one row behind the largest disc
     expect(vs.slice(0, 3)).toEqual([
-      { min: [4, 4, 0], max: [11, 5, 1], colour: PANEX_GREY },
-      { min: [5, 4, 1], max: [10, 5, 2], colour: PANEX_GREY },
-      { min: [6, 4, 2], max: [9, 5, 3], colour: PANEX_GREY },
+      { min: [4, 4, 0], max: [11, 5, 1], color: PANEX_GRAY },
+      { min: [5, 4, 1], max: [10, 5, 2], color: PANEX_GRAY },
+      { min: [6, 4, 2], max: [9, 5, 3], color: PANEX_GRAY },
     ]);
     // the base from the pocket (left of rod 1) to the last rod
-    expect(boxes.at(-1)).toEqual({ min: [0, 0, -1], max: [22, 1, 0], colour: PEG_GREY });
+    expect(boxes.at(-1)).toEqual({ min: [0, 0, -1], max: [22, 1, 0], color: PEG_GRAY });
   });
 
-  it('is centred as the poses are; a disc stands by its centre', () => {
+  it('is centerd as the poses are; a disc stands by its center', () => {
     const lay = layout();
-    // the engine's stackingCentre (stacking.board's centre)
-    expect(boardCentre(lay)).toEqual([7.5, 0.5, 1.5]);
-    expect(boardCentre(layout({ rodX: [] }))).toEqual([0, 0, 0]);
+    // the engine's stackingCenter (stacking.board's center)
+    expect(boardCenter(lay)).toEqual([7.5, 0.5, 1.5]);
+    expect(boardCenter(layout({ rodX: [] }))).toEqual([0, 0, 0]);
     expect(discAt([14, 0, 2], 1, [7.5, 0.5, 1.5])).toEqual([5.5, -1.5, 0.5]);
     expect(boardExtent(lay)).toEqual([21, 7, 5]);
     expect(boardExtent(layout({ panex: true }))).toEqual([21, 9, 5]);
@@ -197,7 +197,7 @@ describe('the stacking cards', () => {
     expect(discSizeOf('x')).toBeNull();
   });
 
-  it('name a rod set and grey out its fields as the original (loadRodFields, syncPanexFields)', () => {
+  it('name a rod set and gray out its fields as the original (loadRodFields, syncPanexFields)', () => {
     expect(rodSetText(rodSet())).toBe('R1');
     expect(rodSetText(rodSet({ label: 'R2', name: 'Hanoi' }))).toBe('R2 - Hanoi');
     expect([...rodFieldsOff(rodSet())].sort()).toEqual([

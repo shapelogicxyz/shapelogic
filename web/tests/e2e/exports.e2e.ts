@@ -12,10 +12,10 @@
 // Solutions ▸ Export to STL (the pieces of CubeInCage's first solution
 // into a folder: the original's names and bytes, the question before
 // files are replaced); Solution Animation of a solution the Solver
-// shows, greyed without one, its .glb passing Khronos's validator with
-// the playback's pieces and the player's colours; an export refused for
+// shows, grayed without one, its .glb passing Khronos's validator with
+// the playback's pieces and the player's colors; an export refused for
 // a path no dialog gave and for a read-only file, which is left as it
-// was; Puzzlecad greyed without a shape (its export: imports.e2e.ts). The engine tests check the .glb's poses
+// was; Puzzlecad grayed without a shape (its export: imports.e2e.ts). The engine tests check the .glb's poses
 // against the player's and the STL's surface (tests/engine/exports.test.ts).
 
 import {
@@ -374,7 +374,7 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
     expect(refused).toContain('not chosen');
     expect(() => statSync(stray)).toThrow();
 
-    // the animation: greyed without a solution shown, then of the first one
+    // the animation: grayed without a solution shown, then of the first one
     expect(await menuItem(page, 'export.glb')).toMatchObject({ enabled: false });
     await toSolver(page);
     const rows = await listRows(page);
@@ -408,7 +408,7 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
       pb.pieces.map((p) => p.name),
     );
     expect(file.json.animations[0]?.channels.length).toBeGreaterThan(0);
-    // the pieces' colours: the player's, in glTF's linear colours
+    // the pieces' colors: the player's, in glTF's linear colors
     expect(file.json.materials.length).toBe(pb.pieces.length);
     for (const m of file.json.materials) {
       const c = m.pbrMetallicRoughness?.baseColorFactor ?? [];

@@ -13,12 +13,12 @@
 
 import { $$ } from './dom.ts';
 import { DEFAULTS, onPrefs, prefs, SIDE_MAX } from './prefs.ts';
-import { setBoardColour } from './piece-colours.ts';
+import { setBoardColor } from './piece-colors.ts';
 import { installTooltips, releaseTip } from './tooltip.ts';
 
 const themeListeners = new Set<() => void>();
 
-/** Listens to the theme's changes (the 3D view reads its colours again). */
+/** Listens to the theme's changes (the 3D view reads its colors again). */
 export function onTheme(listener: () => void): () => void {
   themeListeners.add(listener);
   return () => {
@@ -27,14 +27,14 @@ export function onTheme(listener: () => void): () => void {
 }
 
 function themeChanged(): void {
-  // a board with no colour of its own takes the theme's
-  setBoardColour(isDarkTheme() ? prefs.boardColourDark : prefs.boardColourLight);
+  // a board with no color of its own takes the theme's
+  setBoardColor(isDarkTheme() ? prefs.boardColorDark : prefs.boardColorLight);
   for (const l of [...themeListeners]) {
     l();
   }
 }
 
-/** Whether the dark colours are in use. */
+/** Whether the dark colors are in use. */
 export function isDarkTheme(): boolean {
   const t = document.documentElement.dataset.theme;
   return t === 'dark' || (t === undefined && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -167,7 +167,7 @@ export function installTheme(): void {
     if (changed.includes('density')) {
       applyDensity();
     }
-    if (changed.includes('boardColourLight') || changed.includes('boardColourDark')) {
+    if (changed.includes('boardColorLight') || changed.includes('boardColorDark')) {
       themeChanged();
     }
     if (changed.includes('fontSize')) {

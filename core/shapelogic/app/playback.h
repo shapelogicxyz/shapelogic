@@ -29,12 +29,12 @@ class Voxel;
 
 namespace bt::app {
 
-/// Where the poses of a stacking problem's playback are centred, in grid
+/// Where the poses of a stacking problem's playback are centerd, in grid
 /// units (the cells of the discs, whose hotspots stand on the rods at a
 /// BoardLayout's places): the middle of the rods' row, the discs' middle
 /// across it, and half the rods' drawn height up. A front end draws the
 /// board around it.
-[[nodiscard]] std::array<double, 3> stackingCentre(const Puzzle& puzzle, const Problem& problem);
+[[nodiscard]] std::array<double, 3> stackingCenter(const Puzzle& puzzle, const Problem& problem);
 
 /// The drawing mesh of a shape turned by one of its grid's
 /// transformations (an assembly's Placement.transformation): what the
@@ -46,7 +46,7 @@ namespace bt::app {
 
 /// Where a piece is: its mesh (in the assembly orientation, see
 /// PlaybackSampler::pieceMesh) is turned by `rotation` and moved by
-/// `translation`. Coordinates are mesh units, centred on the result.
+/// `translation`. Coordinates are mesh units, centerd on the result.
 struct PiecePose {
   std::array<float, 3> translation = {0, 0, 0};
   /// A unit quaternion x, y, z, w.
@@ -98,7 +98,7 @@ class PlaybackSampler {
   /// (a sliding solution's moves follow their routes round corners; a
   /// stacking solution's steps are its transfers, each a lift, a cross and
   /// a drop, as the original's slider counted them, and the poses are
-  /// centred on its board: stackingCentre()). Refused for a problem
+  /// centerd on its board: stackingCenter()). Refused for a problem
   /// without a result (a stacking one without a rod set), a missing
   /// solution (InvalidArgument / NotFound, with the original's messages),
   /// and a piece that cannot take its orientation.
@@ -142,7 +142,7 @@ class PlaybackSampler {
   std::vector<PlaybackPiece> pieces_;
   std::vector<Piece> data_;
   std::unique_ptr<DisasmToMoves> moves_;
-  std::array<double, 3> centre_ = {0, 0, 0};
+  std::array<double, 3> center_ = {0, 0, 0};
   unsigned int steps_ = 0;
   /// The frames a step plays (a stacking transfer's three).
   unsigned int stepFrames_ = 1;

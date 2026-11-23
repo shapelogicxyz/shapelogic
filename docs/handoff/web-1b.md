@@ -37,28 +37,28 @@ Cmd, a physical key as well, Shift free unless named; keys go to text
 fields; a modal dialog keeps them). A unit test reads section 6 of
 webui-spec.md and fails when a key of it is missing from the table.
 
-**Piece colours:** `shell/piece-colours.ts` is the original's
-`src/gui/piececolor.cpp` (the 18-colour table, the sine formula after it,
+**Piece colors:** `shell/piece-colors.ts` is the original's
+`src/gui/piececolor.cpp` (the 18-color table, the sine formula after it,
 the jitter of a piece's copies, dark, light, contrast), checked against
 values printed by a probe compiled against that file.
 
 ### The 3D view (`web/src/renderer/view3d/`)
 - `mesh.ts`: a `MeshFrame` through `meshArrays()` into a non-indexed
-  `BufferGeometry`; the per-triangle flags, colour number and cell (from
-  `voxel` and the shape's size) expanded per vertex, so the colour view,
+  `BufferGeometry`; the per-triangle flags, color number and cell (from
+  `voxel` and the shape's size) expanded per vertex, so the color view,
   lighting, x-ray and the dimmed layers are uniforms (no rebuild); the
   wire-frame style keeps the flag-8 faces, with a map from drawn triangle
   to frame triangle; a variable cell's faces (flag 2) get the black inner
   polygon of the original's `drawShrinkTriangle` /
   `drawShrinkQuadrilateral` (SHRINK 0.13, MY 0.005), the polygons rebuilt
   from the engine's fans; the flat style's `edgeLines`.
-- `material.ts`: the faces' shader, colours and light as
-  `voxelFrame_c::drawShape` and `draw()`: the colour view's constraint
-  colour, the variable marker black, the checker's light faces
+- `material.ts`: the faces' shader, colors and light as
+  `voxelFrame_c::drawShape` and `draw()`: the color view's constraint
+  color, the variable marker black, the checker's light faces
   `lightPieceColor`, the rest `darkPieceColor`; lit as GL_COLOR_MATERIAL
   with global ambient 0.2, a light of ambient 0.2 and diffuse 0.6 at
   (700, 200, 700) in eye space: `c · (0.4 + 0.6 · max(0, n·l))`; written
-  without colour management, as OpenGL did. X-ray is the original's
+  without color management, as OpenGL did. X-ray is the original's
   `insideVisible` (inside faces opaque, the others at 0.1 through).
 - `camera.ts`: one orientation quaternion; the mockup's yaw, pitch and
   roll are its Euler angles (Z, X, Y). The mockup's Drag orbit (half a
@@ -80,11 +80,11 @@ values printed by a probe compiled against that file.
 - `overlays.ts`: axes, the space's bounds, the editor layer's slab (one
   unit on cubes; on the other grids the layer's cells as the mesh has
   them). `extent.ts`: a space's size in mesh units (the original's
-  `calculateSize`), what the view centres and frames.
+  `calculateSize`), what the view centers and frames.
 - `scene.ts` (one shape), `meshcache.ts` (by shape, style and
   transformation with the revision asked at; coalesced by
   `mesh:<shape>:<style>:<transformation>`; dropped by what
-  `document.changed` names, everything on `colours`), `toolbar.ts` (Orbit,
+  `document.changed` names, everything on `colors`), `toolbar.ts` (Orbit,
   Pan, Edit (disabled until the editor), Display, Focus; the Display menu
   with the original's three styles and x-ray added; Minimal's hiding
   toolbar), `view.ts` (glue; the empty message; the view's state as
@@ -113,7 +113,7 @@ values printed by a probe compiled against that file.
 
 ### Tests
 - Unit (`tests/unit/renderer/`, 29): the keyboard table against
-  webui-spec.md section 6, its chords and groups; the piece colours
+  webui-spec.md section 6, its chords and groups; the piece colors
   against the original's; `mesh.ts` (expansion, the wire-frame filter and
   the pick mapping, the marked polygons from the fans, the shrink against
   hand values); extents and slabs; the camera (angles, Drag, the pitch
@@ -127,9 +127,9 @@ values printed by a probe compiled against that file.
   reload with 300 slow calls in flight whose ids the new page reuses, the
   lowest answered last: the new page loads its own replies), `view` (all
   170 shapes of the 19 fixtures in the three styles; every fixture unlit,
-  orthographic and in its colours; 36 reference screenshots: one shape of
-  each grid and the bricks with colours, each drawn, wire frame, flat,
-  unlit, orthographic, in its colours), `picking` (every fixture: the view
+  orthographic and in its colors; 36 reference screenshots: one shape of
+  each grid and the bricks with colors, each drawn, wire frame, flat,
+  unlit, orthographic, in its colors), `picking` (every fixture: the view
   turned by the cube's +Z face, orthographic; a face chosen from the
   frame's arrays of the test's own engine as the front-most triangle at a
   point; the click names its cell and side), `keys` (Ctrl+1/2/3, Ctrl+,,
@@ -157,12 +157,12 @@ values printed by a probe compiled against that file.
 1280 × 800 window; compared with `maxDiffPixelRatio` 0.01 and
 `threshold` 0.15). Looked at as contact sheets: bevels and the checker on
 every grid, the black variable marks of CubeInCage's result, the flat
-style's black edge lines, the wire frame's bars, the constraint colours
-of Dracula's and the Augmented Second Stellation's shapes in the colour
-view, unlit flat colours, the orthographic framing. **The look beside the
+style's black edge lines, the wire frame's bars, the constraint colors
+of Dracula's and the Augmented Second Stellation's shapes in the color
+view, unlit flat colors, the orthographic framing. **The look beside the
 original GUI could not be taken here:** the original (`build/burrtools`)
 started, but screen capture from this session gives a black picture (no
-Screen Recording permission for the terminal). The colours and the light
+Screen Recording permission for the terminal). The colors and the light
 are ported from its code (`voxelFrame_c::drawShape`, `draw()`); someone
 should open CubeInCage and DraculasDentalDesaster in both once and compare
 (the orientation differs by design: the mockup's home view). If the
@@ -172,7 +172,7 @@ screenshots change, `just web-e2e --update-snapshots` after a look.
 1. **The wire-frame style draws the flag-8 faces filled**, not "as
    lines": they are the bars of the frame (the original's `gridline` mode
    draws them as triangles); lines would outline every bar.
-2. **The colour view, lighting, x-ray and dimming are uniforms** of one
+2. **The color view, lighting, x-ray and dimming are uniforms** of one
    shader, and each style is its own mesh from the engine (the cache has
    all three): switching costs no rebuild.
 3. **The space's extent is a client table** (`extent.ts`, five formulas
@@ -203,7 +203,7 @@ screenshots change, `just web-e2e --update-snapshots` after a look.
 - "Show tooltips" did nothing: it holds the titles back.
 - "Use OpenGL display lists": dropped (webui-spec.md section 1).
 - "Dim other layers" made faces transparent (0.28): they are lightened as
-  the original dimmed a piece, opaque (no sorting artefacts).
+  the original dimmed a piece, opaque (no sorting artifacts).
 - The Display menu offered "Show through solid pieces" in the Solver only:
   here in every workspace, with the original's three styles.
 - Animations interpolated yaw, pitch and roll: a quaternion is slerped.
@@ -231,7 +231,7 @@ runs in the table above.
   them, as the engine's wire-frame mesh has it (not compared with the
   original).
 - The light is the original's positional light taken at its eye-space
-  point per fragment; the original's camera distance is not modelled.
+  point per fragment; the original's camera distance is not modeled.
 - The e2e tests open windows on the screen, one at a time (about 2
   minutes for all); the screenshots are in CSS pixels but were taken on
   this Mac's fonts and GPU: another machine may need `--update-snapshots`.
@@ -261,8 +261,8 @@ are:
   `document.changed` and the mesh cache drops the shapes it names. For a
   drag, reloading the whole snapshot per batch may be too much: consider
   `shape.get` of the shape alone.
-- The engine addition `grid.neighbour` is its own commit
-  (`Engine: grid.neighbour`, api/README.md's "Adding a method"), then
+- The engine addition `grid.neighbor` is its own commit
+  (`Engine: grid.neighbor`, api/README.md's "Adding a method"), then
   `just web-gen`.
 - e2e helpers: `tests/e2e/app.ts` (`launch`, `openFixture`, `shapes`,
   `selectShape`, `display`, `style`, `setting3d`, `settle`, `camera`).

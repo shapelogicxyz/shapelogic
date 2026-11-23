@@ -7,8 +7,8 @@
 // (F2), the weight buttons, and its cells layer by layer with the fixed
 // and variable tools, drawn as drags along runs of cells next to each
 // other (the engine's layer drawing says which are) or clicks, then its
-// constraint colours painted (+ in the palette, its swatch, Paint); the
-// result's shape.get equals the fixture's (the colours by the order they
+// constraint colors painted (+ in the palette, its swatch, Paint); the
+// result's shape.get equals the fixture's (the colors by the order they
 // were made), and the engine refused nothing.
 
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -26,23 +26,23 @@ test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run buil
 
 interface GeoCell {
   at: Cell;
-  neighbours?: number[];
+  neighbors?: number[];
 }
 
 const key = (c: readonly number[]): string => c.join(',');
 
-/** What is compared: the summary but the id and label, and the cells (colours as `colour` names them). */
-function comparable(g: ShapeGet, colour: (id: string) => string = (id) => id): unknown {
+/** What is compared: the summary but the id and label, and the cells (colors as `color` names them). */
+function comparable(g: ShapeGet, color: (id: string) => string = (id) => id): unknown {
   const s = g.shape;
   return {
-    shape: [s.name, s.size, s.fixed, s.variable, s.weight, s.colour],
-    cells: g.cells.map((c) => (c.colour === undefined ? c : { ...c, colour: colour(c.colour) })),
+    shape: [s.name, s.size, s.fixed, s.variable, s.weight, s.color],
+    cells: g.cells.map((c) => (c.color === undefined ? c : { ...c, color: color(c.color) })),
   };
 }
 
-/** The constraint colours' ids, in the palette's order. */
-async function colourIds(page: Page): Promise<string[]> {
-  return (await engineCall<{ colours: { id: string }[] }>(page, 'colour.list')).colours.map(
+/** The constraint colors' ids, in the palette's order. */
+async function colorIds(page: Page): Promise<string[]> {
+  return (await engineCall<{ colors: { id: string }[] }>(page, 'color.list')).colors.map(
     (c) => c.id,
   );
 }
@@ -59,7 +59,7 @@ async function runs(page: Page, size: Cell, z: number, cells: Cell[]): Promise<C
     const last = run?.at(-1);
     const li = last === undefined ? undefined : index.get(key(last));
     const ci = index.get(key(c));
-    const near = li !== undefined && ci !== undefined && (geo[li]?.neighbours ?? []).includes(ci);
+    const near = li !== undefined && ci !== undefined && (geo[li]?.neighbors ?? []).includes(ci);
     if (run !== undefined && near) {
       run.push(c);
     } else {
@@ -81,7 +81,7 @@ async function steps(page: Page, shape: string, axis: number, target: number): P
 }
 
 /**
- * Rebuilds a shape; `made` maps the fixture's colour ids to the ones made
+ * Rebuilds a shape; `made` maps the fixture's color ids to the ones made
  * here, and grows as a shape needs another.
  */
 async function rebuild(page: Page, want: ShapeGet, made: Map<string, string>): Promise<string> {
@@ -123,24 +123,24 @@ async function rebuild(page: Page, want: ShapeGet, made: Map<string, string>): P
       }
     }
   }
-  const painted = want.cells.filter((c) => c.colour !== undefined);
-  for (const from of [...new Set(painted.map((c) => c.colour ?? ''))]) {
+  const painted = want.cells.filter((c) => c.color !== undefined);
+  for (const from of [...new Set(painted.map((c) => c.color ?? ''))]) {
     let to = made.get(from);
     if (to === undefined) {
-      const before = await colourIds(page);
+      const before = await colorIds(page);
       await page.click('#cAdd');
       await settled(page);
-      to = (await colourIds(page)).find((c) => !before.includes(c)) ?? '';
+      to = (await colorIds(page)).find((c) => !before.includes(c)) ?? '';
       made.set(from, to);
     }
     await page.click(`#colFoot .sw[data-c="${to}"]`);
     await page.keyboard.press('4');
     await expect(page.locator('#cPaint')).toHaveClass(/\bon\b/);
-    for (const c of painted.filter((x) => x.colour === from)) {
+    for (const c of painted.filter((x) => x.color === from)) {
       await layer(page, c.at[2]);
       await clickCell(page, c.at);
     }
-    // Default again: a new cell takes the colour chosen
+    // Default again: a new cell takes the color chosen
     await page.click('#colFoot .sw.def');
     await settled(page);
   }

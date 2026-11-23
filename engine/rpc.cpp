@@ -31,7 +31,7 @@ namespace {
 std::string_view prefix(IdKind kind) {
   switch (kind) {
     case IdKind::Shape: return "s";
-    case IdKind::Colour: return "c";
+    case IdKind::Color: return "c";
     case IdKind::Problem: return "p";
     case IdKind::Solution: return "sol";
     case IdKind::Playback: return "pb";
@@ -45,7 +45,7 @@ std::string_view prefix(IdKind kind) {
 std::string_view kindName(IdKind kind) {
   switch (kind) {
     case IdKind::Shape: return "a shape";
-    case IdKind::Colour: return "a colour";
+    case IdKind::Color: return "a color";
     case IdKind::Problem: return "a problem";
     case IdKind::Solution: return "a solution";
     case IdKind::Playback: return "a playback";
@@ -80,7 +80,7 @@ std::optional<std::uint64_t> parseId(IdKind kind, std::string_view text) {
 }
 
 std::optional<IdKind> idKindOf(std::string_view text) {
-  for (const IdKind k : {IdKind::Solution, IdKind::Shape, IdKind::Colour, IdKind::Problem,
+  for (const IdKind k : {IdKind::Solution, IdKind::Shape, IdKind::Color, IdKind::Problem,
                          IdKind::Playback, IdKind::AssemblyExplorer, IdKind::MovementExplorer,
                          IdKind::RodSet}) {
     if (parseId(k, text)) {

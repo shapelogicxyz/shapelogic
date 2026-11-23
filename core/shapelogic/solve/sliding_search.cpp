@@ -132,7 +132,7 @@ class GoalCheck {
     startGoal_ = tray_ != nullptr && isStartGoalShape(tray_);
     goal_ = (!startGoal_ && problem.goalValid()) ? &puzzle.getShape(problem.getGoalId()) : nullptr;
 
-    // each placement's part, to look up the colours
+    // each placement's part, to look up the colors
     std::vector<unsigned int> partOf(pieces.size());
     {
       unsigned int pc = 0;
@@ -296,7 +296,7 @@ class GoalCheck {
   const SlideMarks* marks_ = nullptr;  ///< the problem's goals on the tray
   const Voxel* goal_ = nullptr;
   bool startGoal_ = false;
-  // The goal colour of each piece; 0 when the goal does not place it.
+  // The goal color of each piece; 0 when the goal does not place it.
   std::vector<unsigned int> color_;
   // Each piece's group (-1: none) and each group's count of goals.
   std::vector<int> group_;
@@ -936,7 +936,7 @@ struct PosTable {
   std::vector<int> px;
   std::vector<int> py;
   std::vector<int> pz;
-  // The neighbouring position one step along kDx/kDy/kDz, or -1.
+  // The neighboring position one step along kDx/kDy/kDz, or -1.
   std::vector<std::array<int, kDirs>> next;
   // The tray cells each position covers, `words` 64-bit words a position.
   std::vector<std::uint64_t> mask;

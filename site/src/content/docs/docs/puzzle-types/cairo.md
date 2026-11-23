@@ -8,7 +8,7 @@ pentagon with five sides of the same length, and the pentagons lie in four
 orientations, meeting four at a time at every other corner and three at a
 time at the others. Layers stack on top of one another. This grid is new in
 ShapeLogic; BurrTools has no Cairo grid. It suits puzzles cut from the Cairo
-tiling, a favourite of puzzle designers for its irregular look.
+tiling, a favorite of puzzle designers for its irregular look.
 
 ![A pentagon slab, an example shape on the Cairo Prism grid.](../../../../assets/grids/cairo.png)
 
@@ -21,7 +21,7 @@ a cell: a coordinate (x, y) is a cell when x + y is odd. The four
 orientations of the pentagon repeat with a period of four cells along each
 axis, so a shape keeps its look when moved by four cells along x or y, by
 two cells diagonally, or by any number of layers. The editor's **Nudge**
-tools move by exactly these amounts, and **To origin** and **Centre** keep
+tools move by exactly these amounts, and **To origin** and **Center** keep
 to them too.
 
 A cell touches five cells of its own layer at its sides, and the cells

@@ -926,7 +926,7 @@ std::vector<int> sidesOf(Harness& h, const std::string& shape, std::uint32_t vox
 
 }  // namespace
 
-TEST_CASE("engine: grid.neighbour numbers the sides as the meshes do", "[engine]") {
+TEST_CASE("engine: grid.neighbor numbers the sides as the meshes do", "[engine]") {
   Harness h;
   for (const char* grid : {"bricks", "prisms", "spheres", "rhombic", "tetraOcta"}) {
     INFO(grid);
@@ -953,7 +953,7 @@ TEST_CASE("engine: grid.neighbour numbers the sides as the meshes do", "[engine]
     REQUIRE(sides.size() >= 4);
     for (const int face : sides) {
       INFO("side " << face);
-      const Json n = h.result("grid.neighbour", {{"size", size}, {"cell", cell}, {"face", face}})["cell"];
+      const Json n = h.result("grid.neighbor", {{"size", size}, {"cell", cell}, {"face", face}})["cell"];
       REQUIRE(n.is_array());
       // the cell across the side, filled, takes exactly that side away
       CHECK(h.result("shape.setCells", {{"shape", s}, {"tool", "fixed"}, {"cells", {n}}})["changed"] == 1);
@@ -962,17 +962,17 @@ TEST_CASE("engine: grid.neighbour numbers the sides as the meshes do", "[engine]
       CHECK(sidesOf(h, s, voxel, spheres) == rest);
       h.result("edit.undo");
     }
-    CHECK(h.errc("grid.neighbour", {{"size", size}, {"cell", cell}, {"face", 99}}) == "invalid_argument");
-    CHECK(h.errc("grid.neighbour", {{"size", size}, {"cell", {10, 0, 0}}, {"face", 0}}) ==
+    CHECK(h.errc("grid.neighbor", {{"size", size}, {"cell", cell}, {"face", 99}}) == "invalid_argument");
+    CHECK(h.errc("grid.neighbor", {{"size", size}, {"cell", {10, 0, 0}}, {"face", 0}}) ==
           "invalid_argument");
   }
   // across the edge of the space: none; a cell the grid does not have
   h.result("document.new", {{"grid", "bricks"}});
-  CHECK(h.result("grid.neighbour", {{"size", {2, 2, 2}}, {"cell", {0, 0, 0}}, {"face", 0}})["cell"].is_null());
-  CHECK(h.result("grid.neighbour", {{"size", {2, 2, 2}}, {"cell", {0, 0, 0}}, {"face", 3}})["cell"] ==
+  CHECK(h.result("grid.neighbor", {{"size", {2, 2, 2}}, {"cell", {0, 0, 0}}, {"face", 0}})["cell"].is_null());
+  CHECK(h.result("grid.neighbor", {{"size", {2, 2, 2}}, {"cell", {0, 0, 0}}, {"face", 3}})["cell"] ==
         Json::array({1, 0, 0}));
   h.result("document.new", {{"grid", "spheres"}});
-  CHECK(h.errc("grid.neighbour", {{"size", {3, 3, 3}}, {"cell", {1, 0, 0}}, {"face", 0}}) ==
+  CHECK(h.errc("grid.neighbor", {{"size", {3, 3, 3}}, {"cell", {1, 0, 0}}, {"face", 0}}) ==
         "invalid_argument");
 }
 

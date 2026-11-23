@@ -132,7 +132,7 @@ function close(o: Open, key: string | null): void {
 
 /**
  * Opens a dialog; resolves with the key of the button pressed, or null
- * when it was cancelled (Esc, a click beside it) or closed by `closeDialog`.
+ * when it was canceled (Esc, a click beside it) or closed by `closeDialog`.
  */
 export function openDialog(options: DialogOptions): Promise<string | null> {
   return new Promise((done) => {
@@ -191,7 +191,7 @@ export function openDialog(options: DialogOptions): Promise<string | null> {
   });
 }
 
-/** Closes the dialog of an id, as if cancelled. */
+/** Closes the dialog of an id, as if canceled. */
 export function closeDialog(id: string): void {
   const o = stack.find((x) => x.options.id === id);
   if (o !== undefined) {

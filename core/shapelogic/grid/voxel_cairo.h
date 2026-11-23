@@ -14,7 +14,7 @@ namespace bt {
 /// odd are cells, of four kinds; a shape keeps its look when moved by a
 /// lattice vector (both of x and y even, their difference a multiple of
 /// 4) and by any number of layers. Transformations turn about the 4-fold
-/// centre at the lattice point (0, 0); the mirrors and turns over, which
+/// center at the lattice point (0, 0); the mirrors and turns over, which
 /// are glides of the tiling, land on the right cells by an offset found
 /// once from the pentagons.
 class VoxelCairo : public Voxel {

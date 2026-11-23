@@ -6,7 +6,7 @@
 // display modes and render styles, Help; About and Settings in the
 // application menu on macOS, at the foot of Help and Edit elsewhere) and
 // the mockup's placeholders (File, Toggle 3D, Export, Status, Edit comment,
-// Help, About). What this version cannot do is shown greyed: the
+// Help, About). What this version cannot do is shown grayed: the
 // anaglyph modes. The keys shown
 // are the one keyboard table's (renderer/shell/keys.ts, sent in the
 // state): the menus show them and do not register them, so a key press
@@ -51,7 +51,7 @@ export const NO_STATE: MenuState = {
   shapes: false,
   scad: false,
   animation: false,
-  colourView: false,
+  colorView: false,
   style: 'drawing',
   focus3d: false,
   theme: 'System',
@@ -260,12 +260,12 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         },
       },
       SEP,
-      radio('colourView.off', 'Display Normally with Shape Color', !s.colourView, {
-        cmd: 'colourView',
+      radio('colorView.off', 'Display Normally with Shape Color', !s.colorView, {
+        cmd: 'colorView',
         on: false,
       }),
-      radio('colourView.on', 'Display with Color Constraint Colors', s.colourView, {
-        cmd: 'colourView',
+      radio('colorView.on', 'Display with Color Constraint Colors', s.colorView, {
+        cmd: 'colorView',
         on: true,
       }),
       radio('anaglyph', 'Display in Anaglyph Mode', false, null),

@@ -19,7 +19,7 @@ import type { Store } from '../state/store.ts';
 import { byId, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { tab } from '../shell/layout.ts';
-import { copyColour, fromHex, shapeColour } from '../shell/piece-colours.ts';
+import { copyColor, fromHex, shapeColor } from '../shell/piece-colors.ts';
 import { onPieceImage, pieceImage } from '../shell/piece-images.ts';
 import { onPrefs } from '../shell/prefs.ts';
 import { reportError } from '../shell/status.ts';
@@ -32,7 +32,7 @@ import type { AnyGame, Cell, Game, Move } from './game.ts';
 import type { Loaded, PlayKind, PlayKindHost } from './kind.ts';
 import { goalPicture } from './goal-picture.ts';
 import { goalPlaces, goalTitle } from './goal-places.ts';
-import { boardOf, matchStart, parse, remap, serialise } from './moves-file.ts';
+import { boardOf, matchStart, parse, remap, serialize } from './moves-file.ts';
 
 type PlayStart = Methods['sliding.playStart']['result'];
 type Step = Methods['sliding.playReplay']['result']['steps'][number];
@@ -102,11 +102,11 @@ export class SlidingPlay implements PlayKind {
       }
     };
     onPrefs((changed) => {
-      if (changed.includes('boardColourLight') || changed.includes('boardColourDark')) {
+      if (changed.includes('boardColorLight') || changed.includes('boardColorDark')) {
         redraw();
       }
     });
-    // the tray's colour follows the theme
+    // the tray's color follows the theme
     onTheme(redraw);
     // a piece's picture, decoded: drawn now
     onPieceImage(() => {
@@ -255,7 +255,7 @@ export class SlidingPlay implements PlayKind {
     const trayPicture = pieceImage(this.store.engine, trayImage);
     return {
       size: cell(start.board.size),
-      colour: tray?.colour == null ? null : fromHex(tray.colour),
+      color: tray?.color == null ? null : fromHex(tray.color),
       floor: start.board.cells.map((c) => ({ at: cell(c.at), variable: c.state === 'variable' })),
       picture:
         trayImage === null || trayPicture === null
@@ -269,7 +269,7 @@ export class SlidingPlay implements PlayKind {
       goals: start.goals.map((g) => {
         const i = indexOf(g.piece);
         return {
-          colour: shapeColour(shapes[i]?.colour ?? null, Math.max(0, i)),
+          color: shapeColor(shapes[i]?.color ?? null, Math.max(0, i)),
           cells: g.cells.map(cell),
         };
       }),
@@ -283,7 +283,7 @@ export class SlidingPlay implements PlayKind {
         return {
           cells: p.cells.map(cell),
           origin: cell(p.origin),
-          colour: copyColour(s, Math.max(0, i), sub, snap.colours),
+          color: copyColor(s, Math.max(0, i), sub, snap.colors),
           name: s?.name ?? '',
           picture:
             image === null || picture === null
@@ -482,7 +482,7 @@ export class SlidingPlay implements PlayKind {
     b.innerHTML = `${ic(on ? 'cube' : 'square', 22)}<span>${on ? '3D Pieces' : 'Simple Pieces'}</span>`;
     b.title = on
       ? '3D Pieces: rounded pieces with their sides showing, in a tray with walls'
-      : 'Simple Pieces: flat, square pieces in plain colours, in a flat square tray';
+      : 'Simple Pieces: flat, square pieces in plain colors, in a flat square tray';
     b.setAttribute('aria-pressed', String(on));
   }
 
@@ -525,7 +525,7 @@ export class SlidingPlay implements PlayKind {
   exportText(game: AnyGame, names: { puzzle: string; problem: string }): string {
     const start = this.start;
     const rules = this.rules;
-    return serialise({
+    return serialize({
       puzzle: names.puzzle,
       problem: names.problem,
       board: boardOf(start?.board ?? { size: [0, 0, 0], cells: [] }),

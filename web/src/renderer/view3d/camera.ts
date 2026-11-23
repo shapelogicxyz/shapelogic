@@ -9,14 +9,14 @@
 // original's arc-ball (src/gui/arcball.cpp, arcBall_c: two points of a
 // virtual ball, their rotation added in front), turned step by step as the
 // pointer moves rather than from the drag's start as the original did, on
-// a ball that flattens smoothly towards its rim (arcballPoint): a drag past
+// a ball that flattens smoothly toward its rim (arcballPoint): a drag past
 // the far side no longer snaps back, and outside the rim a move about the
-// centre rolls and a move away from it or towards it tilts, so the turn
+// center rolls and a move away from it or toward it tilts, so the turn
 // goes on however far the pointer goes. three.js's
 // own controls follow neither map, so the logic is ported.
 //
 // The orientation is one quaternion `q` turning world (the mesh's
-// coordinates) into view space (x right, y up, z towards the viewer); the
+// coordinates) into view space (x right, y up, z toward the viewer); the
 // mockup's yaw, pitch and roll are its Euler angles in the order Z, X, Y
 // (view = Rz(roll) Rx(pitch) Ry(yaw) B world), so both methods turn the same
 // camera and the view cube reads it. B is the "Z axis direction" setting's
@@ -53,12 +53,12 @@ export const HOME: Readonly<Angles & { zoom: number; px: number; py: number }> =
   py: 0,
 };
 
-/** World to the upright frame of a "Z axis direction" (its Y is up, its Z towards the viewer). */
+/** World to the upright frame of a "Z axis direction" (its Y is up, its Z toward the viewer). */
 export function baseOf(z: ZAxis): Quaternion {
   const turn = (x: number, y: number, z: number, deg: number): Quaternion =>
     new Quaternion().setFromAxisAngle(new Vector3(x, y, z), MathUtils.degToRad(deg));
   switch (z) {
-    case 'Z Towards':
+    case 'Z Toward':
       return new Quaternion();
     case 'Z Up':
       return turn(1, 0, 0, -90);
@@ -114,7 +114,7 @@ export function dirToView(n: readonly [number, number, number], keepYaw: number)
   };
 }
 
-/** A point of the viewport (pixels from its top left) in the arc-ball's plane: the centre 0, the rim 1, y up. */
+/** A point of the viewport (pixels from its top left) in the arc-ball's plane: the center 0, the rim 1, y up. */
 function ballPlane(x: number, y: number, width: number, height: number): [number, number] {
   const aw = width > 1 && height > 1 ? 1 / ((width - 1) * 0.5) : 1;
   const ah = width > 1 && height > 1 ? 1 / ((height - 1) * 0.5) : 1;
@@ -123,7 +123,7 @@ function ballPlane(x: number, y: number, width: number, height: number): [number
 
 /**
  * A point of the viewport (pixels from its top left) on the arc-ball, as a
- * unit vector (arcBall_c::mapToSphere): on the ball near the centre, then
+ * unit vector (arcBall_c::mapToSphere): on the ball near the center, then
  * on Bell's sheet z = 1 / (2r) where the two meet (r² = ½), as three.js's
  * TrackballControls. The original's ball alone grows steep at its rim (a
  * small move there turned by a lot) and clamped every point outside onto
@@ -145,7 +145,7 @@ export function arcballTurn(from: Vector3, to: Vector3): Quaternion {
   return new Quaternion();
 }
 
-/** The sheet's tilt (radians per radius) and roll (per radian about the centre) at the rim, which carry on outside it. */
+/** The sheet's tilt (radians per radius) and roll (per radian about the center) at the rim, which carry on outside it. */
 const RIM_TILT = 1.6;
 const rimRoll = (r: number): number => (2 * r) / Math.sqrt(r * r + 0.25 / (r * r));
 
@@ -153,8 +153,8 @@ const rimRoll = (r: number): number => (2 * r) / Math.sqrt(r * r + 0.25 / (r * r
  * The turn of one pointer move from (x0, y0) to (x1, y1) of a viewport of
  * this size: turned step by step, so it never snaps back. Inside the rim,
  * the arc-ball's between the two points. Outside it, where the sheet flattens
- * out and the turn would fade: the angle swept about the centre rolls and
- * the move away from it or towards it tilts, at the rim's rates, so the
+ * out and the turn would fade: the angle swept about the center rolls and
+ * the move away from it or toward it tilts, at the rim's rates, so the
  * turn goes on however far the pointer goes.
  */
 export function arcballStep(
@@ -172,7 +172,7 @@ export function arcballStep(
   if (ra <= 1 && rb <= 1) {
     return arcballTurn(arcballPoint(x0, y0, width, height), arcballPoint(x1, y1, width, height));
   }
-  // the tilt is about the axis across the line to the centre, in the screen's plane
+  // the tilt is about the axis across the line to the center, in the screen's plane
   const mx = (ax + bx) / 2;
   const my = (ay + by) / 2;
   const rm = Math.hypot(mx, my);
@@ -368,7 +368,7 @@ export class Camera {
 }
 
 /**
- * Pixels per mesh unit at the centre (the mockup's `sc`): the space's
+ * Pixels per mesh unit at the center (the mockup's `sc`): the space's
  * largest side, with a margin, fills the smaller side of the viewport at
  * zoom 1.
  */
@@ -382,5 +382,5 @@ export function pixelsPerUnit(
   return (Math.min(width, height) / (big * 2.05 + 1.5)) * zoom;
 }
 
-/** The eye's distance from the centre in mesh units: the mockup's gentle perspective (64 / (64 − z)). */
+/** The eye's distance from the center in mesh units: the mockup's gentle perspective (64 / (64 − z)). */
 export const EYE_DISTANCE = 64;

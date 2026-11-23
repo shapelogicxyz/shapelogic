@@ -22,9 +22,9 @@
   counts), plus `test_grid_port.cpp` (7 new cases) and the value comparison
   `test_grid_dump.cpp`.
 - **Value comparison with the original:** `tests/unit/grid/grid_dump.h` dumps
-  the symmetry tables (hashed), neighbours, `validCoordinate`/`onGrid`,
+  the symmetry tables (hashed), neighbors, `validCoordinate`/`onGrid`,
   `transformPoint`, and for 12 generated shapes per grid: symmetry group,
-  every transformation (size, hotspot, box, content, normalised number),
+  every transformation (size, hotspot, box, content, normalized number),
   the per-transformation box/hotspot queries, `minimizePiece`, `connected`,
   `fillHoles`, `actionOnSpace`, `scale` (both modes, 2 and 3) with
   `scaleDown`, `translate`, `resizeInclude`, the mirror transformation, and
@@ -64,7 +64,7 @@
    resetting them: they describe the same content and hotspot.
 5. `transformPoint` with an out-of-range transformation, and the sphere
    grid's odd-parity input, are `BT_ASSERT`s (the original threw
-   `bt_te` too, so behaviour is the same: an exception).
+   `bt_te` too, so behavior is the same: an exception).
 
 ## Known issues and notes for later stages
 - **Caches are not thread-safe.** `selfSymmetries()`, `getHotspot()` and
@@ -102,7 +102,7 @@ these are pointers, not the whole story):
   Port `xmlWriter_c` exactly: its output format (header line, one space of
   indent per level, `<tag/>` for empty tags, the five escapes, no mixed
   content) is what "same formatting as the original" means.
-- Parser behaviour to keep: the five named entities and numeric character
+- Parser behavior to keep: the five named entities and numeric character
   references; text is merged across comments and CDATA; whitespace-only text
   between elements is ignored; a newline inside an attribute value becomes a
   space; \r\n becomes \n. Numeric references above 255 were truncated to a
@@ -122,13 +122,13 @@ these are pointers, not the whole story):
   `problem`: shapes (the parts), result, goal, stacking, solverOptions,
   bitmap, assembler (only while solving), pending, solutions.
 - The voxel reader must keep the original's checks (each size <= 0x10000,
-  at most 0x40000000 cells, colour <= 63, exact cell count, type 0), and
+  at most 0x40000000 cells, color <= 63, exact cell count, type 0), and
   reject unknown grid types. Reading is where `Result<T>` errors come from.
 - `problem_c` holds a reference to its puzzle. In the port a `Problem` is a
-  value inside `Puzzle`; operations that need shapes or colours take the
+  value inside `Puzzle`; operations that need shapes or colors take the
   puzzle (or live on `Puzzle`). Port the problem editing operations
   (`setShapeMinimum/Maximum`, `removeShape`, `exchangeShapes`,
-  `exchangeParts`, colour rules, groups, solution sorting) with the solution
+  `exchangeParts`, color rules, groups, solution sorting) with the solution
   and assembly operations they call; the solver hooks (`setAssembler`,
   `incNumAssemblies` and the like) wait for stages 3 and 5.
 - zlib: add it in `cmake/Dependencies.cmake` (`find_package(ZLIB)` with a

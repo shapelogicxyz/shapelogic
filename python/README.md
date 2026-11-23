@@ -48,7 +48,7 @@ As the original's:
   `piece_id`, `x`, `y`, `z`, `transformation`, `is_placed`); `stop()`,
   `is_finished`, `iterations`. Ctrl-C while it waits stops the solve.
 - Errors: `RuntimeError` for a file that cannot be read, a cell outside
-  its shape, a colour past 63 and a solve that fails (raised by `next()`);
+  its shape, a color past 63 and a solve that fails (raised by `next()`);
   `IndexError` for a shape or problem that does not exist.
 
 New here:

@@ -6,7 +6,7 @@
 // shape is drawn in a style (drawing: the bevelled cells with
 // the checker; wireframe: the frame of the original's "gridline" mode;
 // flat: faces with black edge lines, the original's "edges" style), in a
-// colour view (the piece colour, or the constraint colours), lit or not,
+// color view (the piece color, or the constraint colors), lit or not,
 // with x-ray (the original's insideVisible: the inner faces drawn, the
 // others faint and through) and the editor's layer dimmed or not.
 // The edge lines are black, 2 px, as voxelFrame_c::drawShape drew them.
@@ -19,7 +19,7 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
 import type { MeshStyle } from '../../engine/api.generated.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import { faceMaterial, faceUniforms, setPalette, setPicture, setPiece } from './material.ts';
 import type { PiecePicture } from '../shell/picture-math.ts';
 import type { FaceUniforms } from './material.ts';
@@ -33,14 +33,14 @@ import type { Ghost } from './preview.ts';
 /** How the shape is shown. */
 export interface ShapeLook {
   style: MeshStyle;
-  /** The constraint colours instead of the piece colour. */
-  colourView: boolean;
+  /** The constraint colors instead of the piece color. */
+  colorView: boolean;
   lit: boolean;
   xray: boolean;
   piece: Rgb3;
   /** A sliding piece's picture on its faces looking up (null: none). */
   picture?: PiecePicture | null;
-  /** The constraint colours, `#rrggbb`, colour n at n − 1. */
+  /** The constraint colors, `#rrggbb`, color n at n − 1. */
   palette: readonly string[];
   /** The editor's layer: cells of other layers dimmed along this axis; null: none dimmed. */
   dim: { axis: 0 | 1 | 2; layer: number } | null;
@@ -121,7 +121,7 @@ export class ShapeScene {
     setPiece(u, look.piece);
     setPicture(u, look.picture ?? null);
     setPalette(u, look.palette);
-    u.uColourView.value = look.colourView ? 1 : 0;
+    u.uColorView.value = look.colorView ? 1 : 0;
     u.uLit.value = look.lit ? 1 : 0;
     // the checker is the bevelled style's and the wire frame's (drawShape's `checker`)
     u.uChecker.value = hasChecker(look.style) ? 1 : 0;

@@ -137,7 +137,7 @@ TEST_CASE("stacking: three-disc Hanoi is seven transfers", "[stacking]") {
   REQUIRE(path->getMoves() == 21);
 }
 
-TEST_CASE("stacking: distance limits a jump to the neighbouring rod", "[stacking]") {
+TEST_CASE("stacking: distance limits a jump to the neighboring rod", "[stacking]") {
   Puzzle puz = makeBoard();
   RodSet& board = puz.getRodSet(0);
   board.sizeMatters = false;

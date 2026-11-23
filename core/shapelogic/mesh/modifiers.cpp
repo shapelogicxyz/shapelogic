@@ -122,7 +122,7 @@ float rayDepthSnapshot(const TriSnapshot& snap, const Vec3& p, const Vec3& d) {
 }
 
 // Whether a replacement or cap face lies on the solid: points just below
-// its centre and towards its corners must be inside the original surface.
+// its center and toward its corners must be inside the original surface.
 // A face failing this bridges a concave corner and adds material outside.
 bool faceOnSolid(const TriSnapshot& snap, const std::vector<Vec3>& pts) {
   Vec3 cen(0, 0, 0);
@@ -237,23 +237,23 @@ void findOptimizedFaces(Polyhedron& poly, const std::vector<int>& corners,
                         const TriSnapshot& snap) {
   std::vector<int> work;
   std::uint32_t flags = 0;
-  std::uint8_t colour = 0;
+  std::uint8_t color = 0;
 
   // the hole runs the other way round
   for (auto rit = corners.rbegin(); rit != corners.rend(); ++rit) {
     work.push_back(*rit);
     const Face& f = poly.face(poly.he(poly.vertex(*rit).edge).face);
     flags |= f.flags;
-    if (colour == 0 && f.colour != 0) {
-      colour = f.colour;
+    if (color == 0 && f.color != 0) {
+      color = f.color;
     }
   }
 
-  const auto addCap = [&poly, flags, colour](const std::vector<int>& pts) {
+  const auto addCap = [&poly, flags, color](const std::vector<int>& pts) {
     const int f = poly.addFace(pts);
     poly.face(f).flags = flags;
     poly.face(f).voxelFace = -1;
-    poly.face(f).colour = colour;
+    poly.face(f).color = color;
   };
 
   while (work.size() > 2) {
@@ -333,7 +333,7 @@ void fillPolyhedronHoles(Polyhedron& poly, bool fillOutsides) {
     const int sentinel = ei;
     int f = start;
     std::set<int> faces;
-    const std::uint8_t colour = poly.face(start).colour;
+    const std::uint8_t color = poly.face(start).color;
 
     do {
       int edge = ei;
@@ -349,7 +349,7 @@ void fillPolyhedronHoles(Polyhedron& poly, bool fillOutsides) {
             if (fillOutsides) {
               faces.insert(f);
             }
-            ff.colour = colour;
+            ff.color = color;
           }
           f = poly.he(poly.he(edge).twin).face;
           edge = poly.he(poly.he(poly.he(edge).twin).next).next;
@@ -399,7 +399,7 @@ void fillPolyhedronHoles(Polyhedron& poly, bool fillOutsides) {
         poly.face(nf).flags = angle < kEpsilon ? (newflag & ~std::uint32_t{kFaceWireframe}) : newflag;
         // no tubes connected here
         poly.face(nf).voxelFace = -1;
-        poly.face(nf).colour = colour;
+        poly.face(nf).color = color;
       }
 
       faces.clear();
@@ -602,7 +602,7 @@ std::vector<int> faceCorners(const Polyhedron& poly, int f) {
 
 void copyAttributes(Face& dst, const Face& src) {
   dst.flags = src.flags;
-  dst.colour = src.colour;
+  dst.color = src.color;
   dst.voxel = src.voxel;
   dst.voxelFace = src.voxelFace;
 }

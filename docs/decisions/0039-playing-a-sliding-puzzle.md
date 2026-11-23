@@ -78,7 +78,7 @@ Start begins one.
 **The board** (`board.ts`) is an SVG drawing of one layer, made for whole
 pieces that move (the 2D grid paints cells and has no piece to move). At
 the press the page asks `sliding.playReach` once; the drag then walks the
-stops a step at a time towards the pointer (`follow.ts`), so a piece
+stops a step at a time toward the pointer (`follow.ts`), so a piece
 slides along what is in its way and never jumps it. With nested slides
 the first step chooses the group: the piece alone when it can step that
 way, else with what it carries; Shift chooses the carrying group first.

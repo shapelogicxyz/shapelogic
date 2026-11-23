@@ -309,7 +309,7 @@ TEST_CASE("Minkowski mesher: random shapes", "[mesh][stl][slow]") {
   for (const GridTestDef& gr : grids) {
     const GridType gt(gr.g);
     for (int n = 0; n < count; n++) {
-      // a random connected blob: grown from a seed cell through face neighbours
+      // a random connected blob: grown from a seed cell through face neighbors
       std::unique_ptr<Voxel> v = test::makeVoxel(gt, gr.sx, gr.sy, gr.sz);
       std::vector<std::array<int, 3>> cells;
       for (int tries = 0; cells.empty() && tries < 1000; tries++) {
@@ -363,7 +363,7 @@ TEST_CASE("Minkowski mesher: random shapes", "[mesh][stl][slow]") {
 // The 3D view removes the voxel a clicked face is tagged with and adds a
 // voxel across the tagged cell face: every face of the view's mesh must
 // lie in the cell of its voxel, and a tagged cell face must face the
-// neighbour it names.
+// neighbor it names.
 TEST_CASE("the view's STL mesh tags every face with its voxel on every grid", "[mesh][stl]") {
   const GridTestDef grids[] = {
       {GridKind::Bricks, 3, 3, 2, "bricks"},
@@ -391,7 +391,7 @@ TEST_CASE("the view's STL mesh tags every face with its voxel on every grid", "[
       int nx = 0;
       int ny = 0;
       int nz = 0;
-      Vec3 centre(0, 0, 0);
+      Vec3 center(0, 0, 0);
       int nc = 0;
       std::vector<std::vector<Vec3>> polys;
       const int ix = static_cast<int>(x);
@@ -403,19 +403,19 @@ TEST_CASE("the view's STL mesh tags every face with its voxel on every grid", "[
         std::vector<Vec3> pts;
         for (std::size_t k = 0; k + 2 < corners.size(); k += 3) {
           pts.emplace_back(corners[k], corners[k + 1], corners[k + 2]);
-          centre += pts.back();
+          center += pts.back();
           nc++;
         }
         polys.push_back(pts);
       }
-      centre = centre / static_cast<float>(nc);
+      center = center / static_cast<float>(nc);
       for (std::size_t n = 0; n < polys.size(); n++) {
         const std::vector<Vec3>& pts = polys[n];
         if (pts.size() < 3) {
           continue;
         }
         Vec3 nrm = (pts[1] - pts[0]).cross(pts[2] - pts[0]);
-        if (nrm.dot(pts[0] - centre) < 0) {
+        if (nrm.dot(pts[0] - center) < 0) {
           nrm = -nrm;
         }
         nrm.normalize();
@@ -424,12 +424,12 @@ TEST_CASE("the view's STL mesh tags every face with its voxel on every grid", "[
         if (face.voxelFace == static_cast<int>(n)) {
           tagged++;
           CHECK(static_cast<double>(view.faceNormal(f).dot(nrm)) > 0.99);
-          // The neighbour the view would add lies across this face: its
-          // centre (from its own cell geometry) is on the outside of the
+          // The neighbor the view would add lies across this face: its
+          // center (from its own cell geometry) is on the outside of the
           // face plane, and the face plane cuts the segment between the
-          // two centres.
+          // two centers.
           REQUIRE(v->getNeighbor(static_cast<unsigned>(n), 0, ix, iy, iz, &nx, &ny, &nz));
-          Vec3 nbCentre(0, 0, 0);
+          Vec3 nbCenter(0, 0, 0);
           int nn = 0;
           int qx = 0;
           int qy = 0;
@@ -438,18 +438,18 @@ TEST_CASE("the view's STL mesh tags every face with its voxel on every grid", "[
             corners.clear();
             connectionFace(*v, nx, ny, nz, static_cast<int>(m), 0, 0, corners);
             for (std::size_t k = 0; k + 2 < corners.size(); k += 3) {
-              nbCentre += Vec3(corners[k], corners[k + 1], corners[k + 2]);
+              nbCenter += Vec3(corners[k], corners[k + 1], corners[k + 2]);
               nn++;
             }
           }
-          nbCentre = nbCentre / static_cast<float>(nn);
-          const double outside = static_cast<double>(nrm.dot(nbCentre - pts[0]));
-          const double inside = static_cast<double>(nrm.dot(centre - pts[0]));
-          INFO("neighbour " << nx << "," << ny << "," << nz << " outside " << outside
-                            << " own centre inside " << inside);
+          nbCenter = nbCenter / static_cast<float>(nn);
+          const double outside = static_cast<double>(nrm.dot(nbCenter - pts[0]));
+          const double inside = static_cast<double>(nrm.dot(center - pts[0]));
+          INFO("neighbor " << nx << "," << ny << "," << nz << " outside " << outside
+                            << " own center inside " << inside);
           CHECK(outside > 0);
           CHECK(inside < 0);
-          CHECK((nbCentre - centre).module() < 2.0);
+          CHECK((nbCenter - center).module() < 2.0);
         }
       }
     }

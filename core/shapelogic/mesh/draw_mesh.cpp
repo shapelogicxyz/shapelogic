@@ -70,7 +70,7 @@ DrawMesh toDrawMesh(const Polyhedron& poly, bool edgeLines) {
       m.voxel.push_back(face.voxel);
       m.voxelFace.push_back(face.voxelFace);
       m.flags.push_back(face.flags);
-      m.colour.push_back(face.colour);
+      m.color.push_back(face.color);
       m.polygon.push_back(polygon);
     } while (e != sentinel);
     polygon++;

@@ -19,7 +19,7 @@ The JSON Schema of every `shapelogic_engine` method and event (decisions 0003 an
 | `engine.json` | `engine.*`, `settings.*`, the `frame` announcement |
 | `document.json` | `document.*`, `edit.*`, `document.changed` |
 | `shape.json` | `shape.*`, `grid.geometry` |
-| `colour.json` | `colour.*` |
+| `color.json` | `color.*` |
 | `problem.json` | `problem.*` |
 | `sliding.json` | `sliding.*`: a sliding puzzle's start/goal shapes and stamps |
 | `stacking.json` | `stacking.*`: a stacking puzzle's rod sets, discs and stacks |

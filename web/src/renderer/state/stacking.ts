@@ -3,7 +3,7 @@
 // What a stacking puzzle's screens work out for themselves (docs/webui-
 // spec.md, section 9), DOM-free for the unit tests: the disc list's bounds
 // and message (BlockList.cpp's DiskSelector), a rod set's name in the lists
-// and the fields its rules grey out (BlockList.cpp's RodSelector,
+// and the fields its rules gray out (BlockList.cpp's RodSelector,
 // mainwindow_rods.cpp's loadRodFields and syncPanexFields), the rod
 // slider's places and caption (rodbars.h's RodIndexBar_c,
 // mainwindow_rods.cpp's selectedStackRod), the validity bar's words
@@ -44,7 +44,7 @@ export type RodRules = Partial<
   >
 >;
 
-/** The fields the original greyed out for a rod set's rules (syncPanexFields, loadRodFields). */
+/** The fields the original grayed out for a rod set's rules (syncPanexFields, loadRodFields). */
 export function rodFieldsOff(r: RodSet): Set<keyof RodRules> {
   const off = new Set<keyof RodRules>();
   if (r.growHeight) {

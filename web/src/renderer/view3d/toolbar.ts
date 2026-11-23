@@ -3,7 +3,7 @@
 // The 3D view's toolbar and its Display menu. From docs/mockup/index.html:
 // the toolbar (`vt`: Orbit, Pan, Edit, Display, Focus; `tbn`), `bDisp`'s
 // popover (Show: axes, grid boundary, active layer slab and dim other
-// layers when the voxel editor is on screen; Projection; Voxel colour),
+// layers when the voxel editor is on screen; Projection; Voxel color),
 // the mode buttons' handler (the navigation hint follows the mode),
 // `renderEditBtn` and the Minimal density's auto-hiding toolbar (shown near
 // the view's bottom edge, on focus, while its menu is open, briefly after a
@@ -33,8 +33,8 @@ export interface Display {
   layer: boolean;
   dim: boolean;
   persp: boolean;
-  /** The constraint colours (the mockup's "Voxel colour"). */
-  colourView: boolean;
+  /** The constraint colors (the mockup's "Voxel color"). */
+  colorView: boolean;
   style: MeshStyle;
   xray: boolean;
   /** The shapes' names after their labels in the Puzzle tab's pieces scene ("S2 – name"). */
@@ -73,8 +73,8 @@ export interface EditButton {
   /** The tool's name and key, e.g. "Fixed voxel", "1". */
   name: string;
   key: string;
-  /** The drawing colour of the badge (null: Default). */
-  colour: string | null;
+  /** The drawing color of the badge (null: Default). */
+  color: string | null;
   /** 3D edit mode is on. */
   on: boolean;
   /** A modifier's quick tool is shown for now. */
@@ -152,7 +152,7 @@ export class Toolbar {
       tool: 'fixed',
       name: 'Fixed voxel',
       key: '1',
-      colour: null,
+      color: null,
       on: false,
       tmp: false,
       enabled: false,
@@ -161,7 +161,7 @@ export class Toolbar {
     const hint = byId('editHint');
     hint.hidden = !(s.on && s.enabled) || s.help.length === 0;
     hint.innerHTML = s.help.map((l) => `<div>${l}</div>`).join('');
-    b.innerHTML = `${toolIcon(s.tool, s.colour)}<span>Edit</span><i class="kb">${s.key}</i>`;
+    b.innerHTML = `${toolIcon(s.tool, s.color)}<span>Edit</span><i class="kb">${s.key}</i>`;
     b.disabled = !s.enabled;
     b.classList.toggle('on', s.on);
     b.classList.toggle('tmp', s.tmp);
@@ -189,9 +189,9 @@ export class Toolbar {
     const solved = prefs.pieceLabels;
     const named = prefs.pieceNames;
     const cut =
-      prefs.labelChars === 0
+      prefs.labelCharsPerVoxel === 0
         ? 'all of it'
-        : `its first ${String(prefs.labelChars)} ${prefs.labelChars === 1 ? 'character' : 'characters'}`;
+        : `${String(prefs.labelCharsPerVoxel)} ${prefs.labelCharsPerVoxel === 1 ? 'character' : 'characters'} for each voxel of the piece’s widest layer`;
     const labels =
       tab === 'puzzle'
         ? `<hr><div class="ph">Labels</div>
@@ -205,8 +205,8 @@ export class Toolbar {
 <button data-k="persp" data-keep="1" title="Far things look smaller, as a camera sees them" role="menuitemradio" aria-checked="${d.persp}">${ck(d.persp)}Perspective</button>
 <button data-k="ortho" data-keep="1" title="Parallel lines stay parallel: no perspective" role="menuitemradio" aria-checked="${!d.persp}">${ck(!d.persp)}Orthographic</button><hr>
 <div class="ph">Voxel color</div>
-<button data-k="cpiece" data-keep="1" title="Display normally, each piece in its shape’s color" role="menuitemradio" aria-checked="${!d.colourView}">${ck(!d.colourView)}Shape color</button>
-<button data-k="cvox" data-keep="1" title="Display each voxel in its color constraint color" role="menuitemradio" aria-checked="${d.colourView}">${ck(d.colourView)}Constraint color</button><hr>
+<button data-k="cpiece" data-keep="1" title="Display normally, each piece in its shape’s color" role="menuitemradio" aria-checked="${!d.colorView}">${ck(!d.colorView)}Shape color</button>
+<button data-k="cvox" data-keep="1" title="Display each voxel in its color constraint color" role="menuitemradio" aria-checked="${d.colorView}">${ck(d.colorView)}Constraint color</button><hr>
 <div class="ph">Style</div>
 <button data-k="drawing" data-keep="1" title="Draw each voxel separately, with bevelled edges" role="menuitemradio" aria-checked="${d.style === 'drawing'}">${ck(d.style === 'drawing')}Bevelled voxels</button>
 <button data-k="flat" data-keep="1" title="Draw flat faces with edges" role="menuitemradio" aria-checked="${d.style === 'flat'}">${ck(d.style === 'flat')}Flat with edges</button>
@@ -226,10 +226,10 @@ export class Toolbar {
         d.persp = false;
         break;
       case 'cpiece':
-        d.colourView = false;
+        d.colorView = false;
         break;
       case 'cvox':
-        d.colourView = true;
+        d.colorView = true;
         break;
       case 'drawing':
       case 'flat':

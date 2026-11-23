@@ -14,7 +14,7 @@ a new session at extra high effort. The brief is at the end.
   `StopSource(const StopToken& parent)`.
 - `core/shapelogic/solve/`:
   - `search_run.h`: `SearchRun` (a run's own stop source under the
-    caller's token; serialised hand-over; `deliverOnce` with signatures),
+    caller's token; serialized hand-over; `deliverOnce` with signatures),
     `TaskProgress`, `runTasks()`, `effectiveThreads()`.
   - `resume_state.h`: `SplitSearchState<Task>` and the saved-position tail
     (port of `assembler_resume.h`, byte-compatible).
@@ -121,7 +121,7 @@ a new session at extra high effort. The brief is at the end.
     `canPlace` is BT2's, 3b), `setNumThreads` / `getNumThreads` (now
     `SearchOptions::threads`), `problem_c::setAssembler` / `getAssembler`
     (the problem holds no assembler; `beginSolving` / `storePosition`).
-15. Speed, no behaviour change: `Assembly` keeps a pointer to its grid's
+15. Speed, no behavior change: `Assembly` keeps a pointer to its grid's
     tables as `assembly_c` did, and the symmetry tables are `constinit`
     (the rotation checks called the lookup millions of times).
 
@@ -144,7 +144,7 @@ sphere, rhombic and tetra-octa examples match on the harness.
   what it skipped never finishes** (it restarts from the beginning each
   time). The same in the original; a session (stage 5) should not pause
   and continue it in a tight loop.
-- The `bt` CLI initialises hotspots (`initHotspot`) before solving as
+- The `bt` CLI initializes hotspots (`initHotspot`) before solving as
   burrTxt does; the original's solve thread did it after building the
   matrix. Stage 5 must decide which the session follows (assembly
   positions depend on it) and keep it consistent with stage 4's file

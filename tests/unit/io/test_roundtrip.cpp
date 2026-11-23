@@ -120,7 +120,7 @@ TEST_CASE("puzzle: an in-memory puzzle survives a save and reload", "[io][roundt
   REQUIRE(puzzlesRoundtripEqual(original, reloaded(original)));
 }
 
-TEST_CASE("puzzle: a shape's own colour survives a save and reload", "[io][roundtrip]") {
+TEST_CASE("puzzle: a shape's own color survives a save and reload", "[io][roundtrip]") {
   Puzzle original;
   original.addShape(2, 1, 1);
   original.addShape(1, 1, 1);

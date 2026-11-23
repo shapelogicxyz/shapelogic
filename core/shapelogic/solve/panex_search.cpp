@@ -1450,7 +1450,7 @@ class Searcher {
       return true;
     }
 
-    // Trace back through the kept levels: each step a neighbour one level
+    // Trace back through the kept levels: each step a neighbor one level
     // nearer the end.
     auto stepBack = [&](const Layer& level, bool viaMirror, PKey from, PKey& to) {
       PState s;

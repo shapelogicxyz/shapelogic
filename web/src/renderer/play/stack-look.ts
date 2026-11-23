@@ -11,8 +11,8 @@
 // small, is the goal's picture beside the board.
 
 import { esc } from '../shell/html.ts';
-import { contrast, hex } from '../shell/piece-colours.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import { contrast, hex } from '../shell/piece-colors.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import type { Stacks } from './stack-game.ts';
 
 /** A rod as the board draws it (stacking.playStart's). */
@@ -29,7 +29,7 @@ export interface StackRod {
 /** A disc as the board draws it. */
 export interface StackDisc {
   size: number;
-  colour: Rgb3;
+  color: Rgb3;
   /** What is written on it; '' for nothing. */
   label: string;
 }
@@ -168,9 +168,9 @@ function discSvg(
   if (text !== '') {
     // the short form ("R1") is always drawn: smaller where even it does not fit
     size = Math.max(6, Math.min(size, Math.floor((w - 6) / (text.length * 0.62))));
-    label = `<text class="sk-name" x="${fmt(w / 2)}" y="${fmt(gap + h / 2)}" font-size="${String(size)}" fill="${contrast(d.colour)}">${esc(text)}</text>`;
+    label = `<text class="sk-name" x="${fmt(w / 2)}" y="${fmt(gap + h / 2)}" font-size="${String(size)}" fill="${contrast(d.color)}">${esc(text)}</text>`;
   }
-  return `<g class="sk-disc" data-i="${String(i)}" data-rod="${String(rod)}" data-z="${String(z)}" style="transform:translate(${at[0].toFixed(2)}px,${at[1].toFixed(2)}px)"><rect class="sk-bar" x="${fmt(gap)}" y="${fmt(gap)}" width="${fmt(w - 2 * gap)}" height="${fmt(h)}" rx="${fmt(r)}" fill="${hex(d.colour)}"/>${small ? '' : `<rect class="sk-sheen" x="${fmt(gap)}" y="${fmt(gap)}" width="${fmt(w - 2 * gap)}" height="${fmt(h)}" rx="${fmt(r)}"/>`}${label}</g>`;
+  return `<g class="sk-disc" data-i="${String(i)}" data-rod="${String(rod)}" data-z="${String(z)}" style="transform:translate(${at[0].toFixed(2)}px,${at[1].toFixed(2)}px)"><rect class="sk-bar" x="${fmt(gap)}" y="${fmt(gap)}" width="${fmt(w - 2 * gap)}" height="${fmt(h)}" rx="${fmt(r)}" fill="${hex(d.color)}"/>${small ? '' : `<rect class="sk-sheen" x="${fmt(gap)}" y="${fmt(gap)}" width="${fmt(w - 2 * gap)}" height="${fmt(h)}" rx="${fmt(r)}"/>`}${label}</g>`;
 }
 
 /** Where a disc's group goes: its bar's top left, for a disc of `size` on `rod` at height `z`. */

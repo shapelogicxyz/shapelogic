@@ -123,7 +123,7 @@ class HoleChainer {
   explicit HoleChainer(Polyhedron& poly) : poly_(poly) {}
 
   void addEdge(int e1, int e2, const Vec3d& normal, std::uint32_t voxel, std::uint32_t type,
-               std::uint8_t colour) {
+               std::uint8_t color) {
     if (e1 == e2) {
       return;
     }
@@ -139,7 +139,7 @@ class HoleChainer {
       h.points.push_back({e2, normal});
       h.voxel = voxel;
       h.type = type;
-      h.colour = colour;
+      h.color = color;
       byStart_[e1] = holes_.size();
       byEnd_[e2] = holes_.size();
       holes_.push_back(std::move(h));
@@ -186,7 +186,7 @@ class HoleChainer {
       face.flags = kFaceWireframe | f.type | (f.flat ? kFaceOffset : kFaceBevel);
       face.voxel = f.voxel;
       face.voxelFace = -1;
-      face.colour = f.colour;
+      face.color = f.color;
     }
     finished_.clear();
   }
@@ -202,14 +202,14 @@ class HoleChainer {
     std::vector<Point> points;
     std::uint32_t voxel = 0;
     std::uint32_t type = 0;
-    std::uint8_t colour = 0;
+    std::uint8_t color = 0;
   };
   struct Finished {
     std::vector<int> vertices;
     bool flat = false;
     std::uint32_t voxel = 0;
     std::uint32_t type = 0;
-    std::uint8_t colour = 0;
+    std::uint8_t color = 0;
   };
 
   [[nodiscard]] Vec3d pos(int vertex) const { return Vec3d(poly_.vertex(vertex).pos); }
@@ -245,7 +245,7 @@ class HoleChainer {
   }
 
   void finish(std::vector<int> vertices, bool flat, const Hole& h) {
-    finished_.push_back({std::move(vertices), flat, h.voxel, h.type, h.colour});
+    finished_.push_back({std::move(vertices), flat, h.voxel, h.type, h.color});
   }
 
   void close(const Hole& h) {
@@ -273,7 +273,7 @@ class HoleChainer {
 
     // A bent corner. First snip off the triangles whose two strips lie
     // in one plane with them (a flat part of the corner), then fan what
-    // is left around its centre.
+    // is left around its center.
     bool found = true;
     while (found && pts.size() > 3) {
       found = false;
@@ -306,12 +306,12 @@ class HoleChainer {
       finish({pts[0].vertex, pts[1].vertex, pts[2].vertex}, false, h);
       return;
     }
-    Vec3d centre{0, 0, 0};
+    Vec3d center{0, 0, 0};
     for (const Point& p : pts) {
-      centre = centre + pos(p.vertex);
+      center = center + pos(p.vertex);
     }
-    centre = centre * (1.0 / static_cast<double>(pts.size()));
-    const int c = poly_.addVertex(centre.toFloat());
+    center = center * (1.0 / static_cast<double>(pts.size()));
+    const int c = poly_.addVertex(center.toFloat());
     for (std::size_t i = 0; i < pts.size(); i++) {
       finish({c, pts[i].vertex, pts[(i + 1) % pts.size()].vertex}, false, h);
     }
@@ -514,7 +514,7 @@ class Mesher {
   struct CellInfo {
     std::uint32_t idx = 0;
     std::uint32_t type = 0;
-    std::uint8_t colour = 0;
+    std::uint8_t color = 0;
     bool variable = false;
   };
 
@@ -525,7 +525,7 @@ class Mesher {
     CellInfo info;
     info.idx = v_.getIndex(x, y, z);
     info.type = ((x + y + z) & 1) == 0 ? kFaceColorLight : 0;
-    info.colour = static_cast<std::uint8_t>(v_.getColor(x, y, z));
+    info.color = static_cast<std::uint8_t>(v_.getColor(x, y, z));
     info.variable = v_.isVariable(x, y, z);
     return info;
   }
@@ -550,7 +550,7 @@ class Mesher {
     f.flags = flags;
     f.voxel = info.idx;
     f.voxelFace = side;
-    f.colour = info.colour;
+    f.color = info.color;
     return id;
   }
 
@@ -573,8 +573,8 @@ class Mesher {
     const bool flat = n.dot(Vec3d(faceNormal)) > kSamePlane;
     poly_.face(id).flags = kFaceWireframe | info.type | (flat ? kFaceOffset : kFaceBevel);
     if (chain) {
-      holes_.addEdge(a2, a1, n, info.idx, info.type, info.colour);
-      holes_.addEdge(b1, b2, n, info.idx, info.type, info.colour);
+      holes_.addEdge(a2, a1, n, info.idx, info.type, info.color);
+      holes_.addEdge(b1, b2, n, info.idx, info.type, info.color);
     }
   }
 
@@ -663,7 +663,7 @@ class Mesher {
         }
       }
       if (!empty && offset_ > 0) {
-        // the neck to the filled neighbour, drawn by the lower cell
+        // the neck to the filled neighbor, drawn by the lower cell
         const CellAt d = f.across;
         if (!(c < d)) {
           continue;
@@ -674,7 +674,7 @@ class Mesher {
         }
         const std::optional<int> fd = gd->matchingFace(f);
         if (!fd) {
-          failWith(Errc::Internal, "neighbouring cells whose shared faces differ");
+          failWith(Errc::Internal, "neighboring cells whose shared faces differ");
           return;
         }
         const CellFace& fOther = gd->faces[asUnsigned(*fd)];
@@ -689,7 +689,7 @@ class Mesher {
             }
           }
           if (k < 0) {
-            failWith(Errc::Internal, "neighbouring cells whose shared faces differ");
+            failWith(Errc::Internal, "neighboring cells whose shared faces differ");
             return;
           }
           const int a1 = vertexOf(c, face, asInt(e));

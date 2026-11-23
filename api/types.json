@@ -5,7 +5,7 @@
   "description": "The types the methods and events of shapelogic_engine share (decision 0012).",
   "$defs": {
     "ShapeId": {"type": "string", "pattern": "^s[1-9][0-9]*$", "description": "A shape, stable while the document is open."},
-    "ColourId": {"type": "string", "pattern": "^c[1-9][0-9]*$", "description": "A constraint colour."},
+    "ColorId": {"type": "string", "pattern": "^c[1-9][0-9]*$", "description": "A constraint color."},
     "ProblemId": {"type": "string", "pattern": "^p[1-9][0-9]*$", "description": "A problem; also names its solve and its analysis."},
     "RodSetId": {"type": "string", "pattern": "^r[1-9][0-9]*$", "description": "A stacking puzzle's rod set (a board), stable while the document is open."},
     "SolutionId": {"type": "string", "pattern": "^sol[1-9][0-9]*$", "description": "A saved solution, unique within its problem."},
@@ -21,7 +21,7 @@
       "additionalProperties": false
     },
     "Empty": {"type": "object", "properties": {}, "additionalProperties": false, "description": "No result."},
-    "Rgb": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "description": "A colour, #rrggbb (the engine writes lower case)."},
+    "Rgb": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "description": "A color, #rrggbb (the engine writes lower case)."},
     "Cell": {"type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3, "description": "A cell [x, y, z] in the grid's own coordinates."},
     "Size": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 3, "maxItems": 3, "description": "A size [x, y, z]."},
     "Point2": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "description": "A point [x, y] of a layer drawing, y up."},
@@ -33,14 +33,14 @@
     "SolveStage": {"enum": ["idle", "prepare", "reduce", "assemble", "disassemble", "stopping", "paused", "done", "error", "search"], "description": "What a solve is doing; search is a sliding puzzle's search from a start to the goal, or a stacking puzzle's from its start stacking (SolveProgress.searched, searchDepth, searchTraced, panexSearch)."},
     "ProblemState": {"enum": ["unsolved", "solving", "solved", "unknown"], "description": "What the problem holds of solving: nothing, a started solve (maybe paused), a finished one, or counts lost by an edit."},
     "CellState": {"enum": ["fixed", "variable"]},
-    "CellTool": {"enum": ["fixed", "variable", "erase", "paint"], "description": "The grid editor's tools; paint changes only the colour of non-empty cells."},
+    "CellTool": {"enum": ["fixed", "variable", "erase", "paint"], "description": "The grid editor's tools; paint changes only the color of non-empty cells."},
     "Axes": {"type": "array", "items": {"enum": ["x", "y", "z"]}, "maxItems": 3, "description": "Mirror or span axes."},
     "ShapeTask": {
-      "enum": ["nudge0", "nudge1", "nudge2", "nudge3", "nudge4", "nudge5", "rotate6", "rotate7", "rotate8", "rotate9", "rotate10", "rotate11", "flip12", "flip13", "flip14", "prune", "insideFixed", "outsideFixed", "insideVariable", "outsideVariable", "insideDecolour", "outsideDecolour", "double", "triple", "toOrigin", "centre", "minimize", "nudge27", "nudge28", "nudge29", "nudge30", "nudge31", "nudge32", "fillHoles", "gridScale"],
+      "enum": ["nudge0", "nudge1", "nudge2", "nudge3", "nudge4", "nudge5", "rotate6", "rotate7", "rotate8", "rotate9", "rotate10", "rotate11", "flip12", "flip13", "flip14", "prune", "insideFixed", "outsideFixed", "insideVariable", "outsideVariable", "insideDecolor", "outsideDecolor", "double", "triple", "toOrigin", "center", "minimize", "nudge27", "nudge28", "nudge29", "nudge30", "nudge31", "nudge32", "fillHoles", "gridScale"],
       "description": "A button of the tool tabs; what the numbered ones do depends on the grid (shape.taskSet gives each one's group and label)."
     },
-    "MeshStyle": {"enum": ["drawing", "wireframe", "flat", "stl", "uniform"], "description": "The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, flat faces with edge lines, the STL export's mesh at the view's own parameters, or the uniform mesher's solid (every edge of the piece chamfered to one width whatever its angle, concave edges too; neighbouring cells joined by flat strips, so the checker alone shows the cells; closed; on the sphere grid the drawing mesh). The STL style is (the original's \"Draw pieces like STL export\": gap 0.02 and bevel 0.05 of a cell with the interior chamfers, the sphere grid's balls at two recursions; closed; the flat mesh where the mesher fails). The STL style's cell faces carry the checker flag, as the others', and bevels are flagged 16; the original drew it in one colour. It is made with the Manifold library on the prism, rhombic and tetra-octa grids and takes a while for large shapes (seconds in a release build)."},
-    "ChangeKind": {"enum": ["shapes", "colours", "problems", "solutions", "notes", "rodSets"]},
+    "MeshStyle": {"enum": ["drawing", "wireframe", "flat", "stl", "uniform"], "description": "The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, flat faces with edge lines, the STL export's mesh at the view's own parameters, or the uniform mesher's solid (every edge of the piece chamfered to one width whatever its angle, concave edges too; neighboring cells joined by flat strips, so the checker alone shows the cells; closed; on the sphere grid the drawing mesh). The STL style is (the original's \"Draw pieces like STL export\": gap 0.02 and bevel 0.05 of a cell with the interior chamfers, the sphere grid's balls at two recursions; closed; the flat mesh where the mesher fails). The STL style's cell faces carry the checker flag, as the others', and bevels are flagged 16; the original drew it in one color. It is made with the Manifold library on the prism, rhombic and tetra-octa grids and takes a while for large shapes (seconds in a release build)."},
+    "ChangeKind": {"enum": ["shapes", "colors", "problems", "solutions", "notes", "rodSets"]},
     "SolutionsVersion": {"type": "integer", "minimum": 0, "description": "A counter the problem moves on every change of its saved list (a solution added, removed, re-sorted or edited), kept while the document is open: solution.page and solve.solutionsAdded carry it, so pages read at one value belong together and a client knows when to page again."},
     "SortBy": {"enum": ["unsorted", "moves", "level", "rotations"], "description": "Where a new solution goes in the saved list while solving: the original's sort-by choice."},
     "ArrayRef": {
@@ -67,7 +67,7 @@
     },
     "MeshFrame": {
       "type": "object",
-      "description": "A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker colour, 2 variable mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), colour (u8, colour number, 0 none; padded), polygon (u32); edgeLines (f32, two points per line, flat style only); and imageUv (f32, two per vertex: where a vertex on a face looking up lies in the shape's picture, as fractions (s, t) across its part shown, s right and t down; -1, -1 elsewhere; empty for a shape without a picture, decision 0038).",
+      "description": "A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker color, 2 variable mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), color (u8, color number, 0 none; padded), polygon (u32); edgeLines (f32, two points per line, flat style only); and imageUv (f32, two per vertex: where a vertex on a face looking up lies in the shape's picture, as fractions (s, t) across its part shown, s right and t down; -1, -1 elsewhere; empty for a shape without a picture, decision 0038).",
       "properties": {
         "frame": {"$ref": "#/$defs/Frame"},
         "triangles": {"type": "integer", "minimum": 0},
@@ -91,7 +91,7 @@
         "growHeight": {"type": "boolean", "description": "Grow to the height of all pieces: a rod holds every disc of the problem."},
         "definedHeight": {"type": "integer", "minimum": 1, "description": "Defined height: the discs a rod holds when it does not grow."},
         "sizeMatters": {"type": "boolean", "description": "Disc size matters - no large on small (equal sizes stack); Panex columns ignore it."},
-        "distanceMatters": {"type": "boolean", "description": "Disc can only move over 1 rod: to a neighbouring rod only."},
+        "distanceMatters": {"type": "boolean", "description": "Disc can only move over 1 rod: to a neighboring rod only."},
         "panexColumns": {"type": "boolean", "description": "Panex Style Columns: a disc of size s sits at most s places below the top, in any order; one disc more may wait raised into the bridge, blocking moves that pass over it."},
         "pocketColumn": {"type": "boolean", "description": "Add pocket column (with Panex columns): an extra rod beside rod 1 that holds any disc."},
         "pocketHeight": {"type": "integer", "minimum": 1, "description": "The discs the pocket column holds."},
@@ -119,7 +119,7 @@
       "type": "object",
       "description": "Where the rods and the discs of a stacking stand (the original's layoutBoard), in cells: what the 3D view draws around the discs' meshes.",
       "properties": {
-        "spacing": {"type": "integer", "description": "The distance between neighbouring rods."},
+        "spacing": {"type": "integer", "description": "The distance between neighboring rods."},
         "rodCount": {"type": "integer", "minimum": 0, "description": "The rods drawn, the pocket column included."},
         "rodHeight": {"type": "integer", "minimum": 1, "description": "The rods' drawn height."},
         "rodX": {"type": "array", "items": {"type": "integer"}, "description": "x of each rod, in the stack map's order (the pocket last, standing left of rod 1)."},
@@ -129,7 +129,7 @@
         "maxSize": {"type": "integer", "minimum": 1, "description": "The largest disc size, so the V stays inside the rod spacing."},
         "discs": {
           "type": "array",
-          "description": "Each disc of the problem (its pieces: parts, then copies) and the cell its hotspot (its centre) stands on; null for a disc on no rod. Empty for a rod set drawn alone.",
+          "description": "Each disc of the problem (its pieces: parts, then copies) and the cell its hotspot (its center) stands on; null for a disc on no rod. Empty for a rod set drawn alone.",
           "items": {
             "type": "object",
             "properties": {
@@ -156,13 +156,13 @@
         "fixed": {"type": "integer", "minimum": 0},
         "variable": {"type": "integer", "minimum": 0},
         "weight": {"type": "integer"},
-        "colour": {"oneOf": [{"$ref": "#/$defs/Rgb"}, {"type": "null"}], "description": "The shape's own colour, or null for the default one."},
+        "color": {"oneOf": [{"$ref": "#/$defs/Rgb"}, {"type": "null"}], "description": "The shape's own color, or null for the default one."},
         "startGoal": {"type": ["integer", "null"], "minimum": 0, "description": "A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape."},
         "disc": {"type": ["integer", "null"], "minimum": 1, "description": "A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape."},
-        "discColour": {"oneOf": [{"$ref": "#/$defs/ColourId"}, {"type": "null"}], "description": "A stacking puzzle's disc: the palette colour of its first coloured cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape."},
+        "discColor": {"oneOf": [{"$ref": "#/$defs/ColorId"}, {"type": "null"}], "description": "A stacking puzzle's disc: the palette color of its first colored cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape."},
         "image": {"oneOf": [{"$ref": "#/$defs/ShapeImage"}, {"type": "null"}], "description": "The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none."}
       },
-      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "colour", "startGoal", "disc", "discColour", "image"],
+      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "color", "startGoal", "disc", "discColor", "image"],
       "additionalProperties": false
     },
     "ImageFit": {"enum": ["crop", "stretch"], "description": "How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, or squashed to it."},
@@ -183,10 +183,10 @@
       "required": ["image", "hash", "width", "height", "fit", "src", "box", "turn"],
       "additionalProperties": false
     },
-    "Colour": {
+    "Color": {
       "type": "object",
       "properties": {
-        "id": {"$ref": "#/$defs/ColourId"},
+        "id": {"$ref": "#/$defs/ColorId"},
         "label": {"type": "string", "description": "C1, C2, ... by place."},
         "rgb": {"$ref": "#/$defs/Rgb"}
       },
@@ -230,12 +230,12 @@
         "canRedo": {"type": "boolean"},
         "solving": {"type": "boolean", "description": "A solve or an analysis is active: shapes and lists are frozen (decision 0011)."},
         "shapes": {"type": "array", "items": {"$ref": "#/$defs/ShapeSummary"}},
-        "colours": {"type": "array", "items": {"$ref": "#/$defs/Colour"}},
+        "colors": {"type": "array", "items": {"$ref": "#/$defs/Color"}},
         "problems": {"type": "array", "items": {"$ref": "#/$defs/ProblemSummary"}},
         "rodSets": {"type": "array", "items": {"$ref": "#/$defs/RodSet"}, "description": "A stacking puzzle's boards (at least one); empty on other grids."},
         "notice": {"type": "string", "description": "What opening the file changed, to tell the user (the original's load message). Only in the result of document.open, document.openBytes and solve.importPaused, and only when there is something to tell."}
       },
-      "required": ["revision", "dirty", "grid", "path", "notes", "canUndo", "canRedo", "solving", "shapes", "colours", "problems", "rodSets"],
+      "required": ["revision", "dirty", "grid", "path", "notes", "canUndo", "canRedo", "solving", "shapes", "colors", "problems", "rodSets"],
       "additionalProperties": false
     },
     "ShapeInfo": {
@@ -247,7 +247,7 @@
         "variable": {"type": "integer", "minimum": 0},
         "identicalMirror": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}], "description": "An earlier shape it is identical to, mirrors allowed."},
         "identicalShape": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}], "description": "... in any orientation, not mirrored."},
-        "identicalComplete": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}], "description": "... colours included."},
+        "identicalComplete": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}], "description": "... colors included."},
         "connectedFace": {"type": "boolean"},
         "connectedEdge": {"type": "boolean"},
         "connectedCorner": {"type": "boolean"},
@@ -284,7 +284,7 @@
     },
     "SolverSettings": {
       "type": "object",
-      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory are sliding's nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.",
+      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColors, justLevels is justLevels; nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory are sliding's nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.",
       "properties": {
         "disassemble": {"type": "boolean"},
         "checkRotations": {"type": "boolean"},
@@ -329,12 +329,12 @@
         "triedApart": {"type": "integer", "minimum": 0},
         "slideGrid": {"type": "integer", "minimum": 0},
         "parts": {"type": "array", "items": {"$ref": "#/$defs/Part"}},
-        "colourRules": {
+        "colorRules": {
           "type": "array",
-          "description": "The allowed pairs: a piece cell of colour 'piece' may sit on a result cell of colour 'result'.",
+          "description": "The allowed pairs: a piece cell of color 'piece' may sit on a result cell of color 'result'.",
           "items": {
             "type": "object",
-            "properties": {"piece": {"$ref": "#/$defs/ColourId"}, "result": {"$ref": "#/$defs/ColourId"}},
+            "properties": {"piece": {"$ref": "#/$defs/ColorId"}, "result": {"$ref": "#/$defs/ColorId"}},
             "required": ["piece", "result"],
             "additionalProperties": false
           }
@@ -360,7 +360,7 @@
           "description": "A sliding solve that is open (under way or paused, kept in the file): the forecast from the times of the moves its search has searched (runningMs 0; while it runs, solve.progress has the live one). Null when there are none, and once the solve is through."
         }
       },
-      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "searched", "searchDepth", "triedApart", "slideGrid", "parts", "colourRules", "maxHoles", "savedPosition", "solverSettings", "stacks", "slideForecast"],
+      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "searched", "searchDepth", "triedApart", "slideGrid", "parts", "colorRules", "maxHoles", "savedPosition", "solverSettings", "stacks", "slideForecast"],
       "additionalProperties": false
     },
     "FitStats": {
@@ -395,7 +395,7 @@
         "keepMirrors": {"type": "boolean"},
         "keepRotations": {"type": "boolean"},
         "completeRotations": {"type": "boolean", "description": "The thorough rotation check (the original's deep symmetry check)."},
-        "strictColours": {"type": "boolean"},
+        "strictColors": {"type": "boolean"},
         "reduce": {"type": "boolean", "description": "Drop placements that can never be part of an assembly first (default true)."},
         "sortBy": {"$ref": "#/$defs/SortBy"},
         "keepAtMost": {"type": "integer", "minimum": 0, "description": "Keep at most this many solutions; 0 all (default 10)."},
@@ -409,7 +409,7 @@
     },
     "SlidingOptions": {
       "type": "object",
-      "description": "A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and holds each piece to its start marks (the start locks), whatever the brick fields say; the colour rules apply as on every grid; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).",
+      "description": "A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and holds each piece to its start marks (the start locks), whatever the brick fields say; the color rules apply as on every grid; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).",
       "properties": {
         "nestedSlides": {"type": "boolean", "description": "A piece may carry what is nested in its outline (Allow Nested Slides)."},
         "partialNested": {"type": "boolean", "description": "And what is partly nested in it (Allow Partially Nested); implies nestedSlides."},

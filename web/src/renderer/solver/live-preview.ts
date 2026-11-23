@@ -32,7 +32,7 @@ export interface LivePreviewHost {
   /** The problem shown (its parts number the pieces). */
   detail(): ProblemDetail | null;
   /** A stacking problem's board and the middle its discs are placed around (null: none). */
-  board(): { layout: BoardLayout; centre: [number, number, number] } | null;
+  board(): { layout: BoardLayout; center: [number, number, number] } | null;
   /** The preview was drawn or taken away (the view's message, the tag). */
   changed(): void;
 }
@@ -180,7 +180,7 @@ export class LivePreview {
         this.drawn.set(pl.piece, {
           transformation: pl.transformation,
           built,
-          // a disc is placed by its centre (ensureHotspot), as the player places it
+          // a disc is placed by its center (ensureHotspot), as the player places it
           hotspot: discs ? [disc, disc, 0] : [...r.hotspot],
         });
       });
@@ -229,7 +229,7 @@ export class LivePreview {
         return {
           piece,
           shape: p?.shape ?? '',
-          colour: p?.colour ?? [1, 1, 1],
+          color: p?.color ?? [1, 1, 1],
           mode: 'solid' as const,
           built: d.built,
           ...(p === undefined ? {} : { label: p.label, name: p.name }),

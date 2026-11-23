@@ -26,7 +26,7 @@ class Voxel;
 /// matrices are built identically.
 class PlacementFinder {
  public:
-  /// A finder for `result`, with the colour rules of `problem`; with
+  /// A finder for `result`, with the color rules of `problem`; with
   /// startLocks, the problem's start marks on the result
   /// (Problem::slideMarks) hold the pieces to their starts
   /// (MatrixOptions::startLocks).
@@ -52,14 +52,14 @@ class PlacementFinder {
   struct ResultVoxel {
     int x, y, z;          ///< coordinates of the voxel
     unsigned long index;  ///< index within the result voxel space
-    unsigned char color;  ///< colour of the result voxel
+    unsigned char color;  ///< color of the result voxel
   };
 
   const Voxel& res_;
   const SlideMarks& marks_;  ///< the problem's starts on the result
   bool startLocks_;
   std::vector<ResultVoxel> resultVoxels_;   ///< all non-empty voxels of the result
-  unsigned int colorTableWidth_;            ///< number of colours + 1
+  unsigned int colorTableWidth_;            ///< number of colors + 1
   std::vector<unsigned char> colorAllowed_; ///< placementAllowed lookup table
 };
 

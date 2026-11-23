@@ -11,14 +11,14 @@ would see, and the difficulty. It was written on 2026-11-08 from a reading
 of both codebases; nothing here is scheduled.
 
 **What V2 changed.** In the original and in ShapeLogic a grid is code: one
-`Voxel` subclass per grid with hand-written neighbour tables, symmetry
+`Voxel` subclass per grid with hand-written neighbor tables, symmetry
 tables generated offline (`core/shapelogic/grid/TABLES.md`), and a mesh
 corner table per grid (`core/shapelogic/mesh/tabs_*/meshverts.inc`). In V2
 a grid is data: a Lua script (`data/scripts/grid_*.lua`) giving the lattice
 vectors in voxel and physical coordinates, the valid voxel positions in
 one lattice cell, one convex polyhedron per such position, the movement
 directions, and the camera snap orientations for its editor. From that,
-`src/lib/grid.cpp` derives the face, edge and corner neighbourhoods by
+`src/lib/grid.cpp` derives the face, edge and corner neighborhoods by
 geometric matching, the bevel and offset vectors per face corner, the
 grid's rotational and mirror symmetries (searched by testing candidate
 rotations, not declared), and the cells a one-step move must find empty
@@ -53,9 +53,9 @@ switches in the STL dialog.
   exposed face it walks the edge loop (the ring of voxels around that
   edge), decides convex or concave, emits bevel quads scaled by the
   dihedral angle so the bevel width is uniform, emits flat connector
-  strips between inset neighbouring faces, and closes corners with a
+  strips between inset neighboring faces, and closes corners with a
   generic hole filler that chains loose edges into polygons. A "bumpy"
-  mode renders each voxel as a rounded pillow joined to its neighbours by
+  mode renders each voxel as a rounded pillow joined to its neighbors by
   necks. STL export accepts pre-stretch matrices and computes the bevels
   after stretching.
 - **The user would see:** a new entry in the 3D view's style menu beside
@@ -75,26 +75,26 @@ switches in the STL dialog.
 **First stage done 2026-11-08:** `tests/unit/grid/test_grid_oracle.cpp`
 rebuilds the tables from the cells' face polygons (`connectionFace` at
 zero bevel and offset) and checks them: every cell a closed convex
-polyhedron; the face, edge and corner neighbour tables of every grid
+polyhedron; the face, edge and corner neighbor tables of every grid
 against the corners the cells share; every transformation a rigid
 motion of the cells with the matrix of `getTransformMatrix`; the
 transformation tables a group with that matrix product; every symmetry
 group a subgroup whose unique and minimal transformations are its coset
 representatives; the bevel faces closing each cell. All pass. Two
 findings, both the original's as well:
-- The rhombic and tetra-octa grids have no corner-neighbour table
+- The rhombic and tetra-octa grids have no corner-neighbor table
   (`getNeighbor` kind 2 answers false), though their cells do touch at
   corners; a corner-connectivity check on them sees faces and edges
   only. The geometry the test derives is what such a table would hold.
 - On those two grids `transformPoint` turns coordinates about their
-  origin as cubes', half a cell off the grids' symmetry centres, so some
+  origin as cubes', half a cell off the grids' symmetry centers, so some
   turns land cells between cells or on cells of another kind. One
   whole-cell offset per transformation puts them right, which is what
   `Assembly::transform` supplies through the hotspot's real move; the
   test finds and checks that offset. Brick and prism need none.
 **Runtime half done 2026-11-08:** the derivation lives in core as
 `core/shapelogic/mesh/cell_geometry.h` (`cellPolyhedron`, `CellGeometry`
-with `run` and `derivedNeighbours`), shared by the uniform mesher and the
+with `run` and `derivedNeighbors`), shared by the uniform mesher and the
 oracle test, and the derived movement checks (idea 4) are built on it,
 with the sweep test that was still missing here: which cells a cell
 passes through when moved one step along a direction
@@ -109,12 +109,12 @@ Tested by the grid oracle, the grid
 invariants and a brute-force domino-tiling count the assembler reproduces;
 the original has no such grids, so the oracle harness cannot cover them.
 - **We have:** per-grid `Voxel` subclasses with hand-written tables
-  (`voxel_rhombic.cpp` carries a literal 24 by 15 edge-neighbour array),
+  (`voxel_rhombic.cpp` carries a literal 24 by 15 edge-neighbor array),
   symmetry tables copied from generators that exist only in the original
   repo, per-grid mesh corner tables. Nothing checks these against
   geometry.
 - **V2 has:** lattice vectors plus one convex polyhedron per base
-  position; neighbourhoods derived by matching, symmetries found by
+  position; neighborhoods derived by matching, symmetries found by
   search.
 - **The user would see:** nothing at first. The first stage is a unit test
   in `tests/unit/grid` that rebuilds our tables from geometry and fails on
@@ -144,7 +144,7 @@ the original has no such grids, so the oracle harness cannot cover them.
   natural planes of the grid become visible and editable.
 - **Difficulty: high.** Engine: a plane-to-cell cross-section per grid
   (polyhedron per cell intersected with a plane) and a method returning
-  the cell polygons in 3D with neighbour positions. Front end: a clipped
+  the cell polygons in 3D with neighbor positions. Front end: a clipped
   render pass, picking on the plane, snap animation, key bindings, all in
   `view3d`. A cheaper first step is XZ and YZ for the prism grid.
 
@@ -180,7 +180,7 @@ keeps the "no disassembler" warning. Turns stay the cubes'.
   "no disassembler" warning in File ▸ New and Assemble Only in the Solver.
 - **V2 has:** movement vectors declared per grid; the cells that must be
   empty for a one-step move are computed by sweeping a slightly shrunk
-  voxel along the vector and testing intersection against neighbours.
+  voxel along the vector and testing intersection against neighbors.
   Rhombic and octahedral grids get disassembly this way.
 - **The user would see:** the warning gone for rhombic and tetra-octa,
   Solutions with levels and moves, the solution animation for those

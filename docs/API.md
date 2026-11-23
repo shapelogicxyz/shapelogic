@@ -11,7 +11,7 @@ exactly L raw bytes; the reply referring to frame N follows. A frame holds
 little-endian typed arrays at offsets that are multiples of 4, described by
 the reply's `Frame` object.
 
-**Ids** are strings: shapes `s7`, colours `c2`, problems `p1`, solutions
+**Ids** are strings: shapes `s7`, colors `c2`, problems `p1`, solutions
 `sol42` (unique within their problem), playbacks `pb1`, explorers `ax1` and
 `mx1`. Labels (`S1`, `C1`, `P1`) follow the list order.
 
@@ -24,7 +24,7 @@ the reply's `Frame` object.
 | -32601 | method_not_found | no such method |
 | -32602 | invalid_params | a parameter is missing, of the wrong type, or unknown |
 | -32001 | invalid_argument | a value out of range or malformed |
-| -32002 | not_found | no such shape, colour, problem, solution or handle |
+| -32002 | not_found | no such shape, color, problem, solution or handle |
 | -32003 | parse_error | a file or bytes that are no puzzle |
 | -32004 | io_error | reading or writing a file failed |
 | -32005 | unsupported | valid, but not for this puzzle (what a grid or a solver lacks: a take-apart, an assembler, Panex columns) |
@@ -40,7 +40,7 @@ follows it.
 - [Engine and settings](#engine-and-settings)
 - [Document and history](#document-and-history)
 - [Shapes and cells](#shapes-and-cells)
-- [Colours](#colours)
+- [Colors](#colors)
 - [Problems](#problems)
 - [Sliding puzzles](#sliding-puzzles)
 - [Stacking puzzles](#stacking-puzzles)
@@ -283,7 +283,7 @@ Errors: `invalid_argument`, `not_found`
 
 ### `document.convertGrid`
 
-The puzzle on another grid (Edit ▸ Convert brick grid type to other): each cube of a cube-grid puzzle becomes the cells that fill it (5x5x5 on the rhombic grid, 3x3x3 on the tetra-octa grid), the shapes keep their names, the colours and the notes stay, and each problem's definition is copied with its name, without its solutions. As the original, the document is replaced: it has unsaved changes, nothing to undo, and keeps its path, so document.save writes the converted puzzle over the file it came from. The grids a puzzle converts to are engine.info's grids[].convertsTo; another is unsupported. Refused while solving (invalid_state), and when the converted shapes would hold more than 2^27 cells together (invalid_argument). The open document goes as with document.new.
+The puzzle on another grid (Edit ▸ Convert brick grid type to other): each cube of a cube-grid puzzle becomes the cells that fill it (5x5x5 on the rhombic grid, 3x3x3 on the tetra-octa grid), the shapes keep their names, the colors and the notes stay, and each problem's definition is copied with its name, without its solutions. As the original, the document is replaced: it has unsaved changes, nothing to undo, and keeps its path, so document.save writes the converted puzzle over the file it came from. The grids a puzzle converts to are engine.info's grids[].convertsTo; another is unsupported. Refused while solving (invalid_state), and when the converted shapes would hold more than 2^27 cells together (invalid_argument). The open document goes as with document.new.
 
 Params:
 
@@ -473,7 +473,7 @@ Result:
 |---|---|---|---|
 | `cells.at` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
 | `cells.state` | [CellState](#cellstate) | required |  |
-| `cells.colour` | [ColourId](#colourid) |  | Absent: the shape's own colour. |
+| `cells.color` | [ColorId](#colorid) |  | Absent: the shape's own color. |
 
 Errors: `not_found`
 
@@ -564,9 +564,9 @@ Result: [Changed](#changed)
 
 Errors: `not_found`, `invalid_state`
 
-### `shape.setColour`
+### `shape.setColor`
 
-The shape's own colour, or null for the default one.
+The shape's own color, or null for the default one.
 
 Params:
 
@@ -642,8 +642,8 @@ Params:
 | name | type | | description |
 |---|---|---|---|
 | `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
-| `tool` | [CellTool](#celltool) | required | The grid editor's tools; paint changes only the colour of non-empty cells. |
-| `colour` | [ColourId](#colourid) |  | The colour put on the cells; absent: none (the shape's own). |
+| `tool` | [CellTool](#celltool) | required | The grid editor's tools; paint changes only the color of non-empty cells. |
+| `color` | [ColorId](#colorid) |  | The color put on the cells; absent: none (the shape's own). |
 | `mirror` | [Axes](#axes) |  | Mirror or span axes. |
 | `span` | [Axes](#axes) |  | Mirror or span axes. |
 | `cells` | [Cell](#cell)[] | required |  |
@@ -661,8 +661,8 @@ Params:
 | name | type | | description |
 |---|---|---|---|
 | `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
-| `tool` | [CellTool](#celltool) | required | The grid editor's tools; paint changes only the colour of non-empty cells. |
-| `colour` | [ColourId](#colourid) |  | A constraint colour. |
+| `tool` | [CellTool](#celltool) | required | The grid editor's tools; paint changes only the color of non-empty cells. |
+| `color` | [ColorId](#colorid) |  | A constraint color. |
 | `mirror` | [Axes](#axes) |  | Mirror or span axes. |
 | `span` | [Axes](#axes) |  | Mirror or span axes. |
 | `from` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
@@ -690,7 +690,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `shape.taskSet`
 
-The tool tabs' operations the document's grid offers, in the original's button order. The sliding grid leaves out what would give a shape more layers (the nudges along Z, the turns about X and Y, double, triple, the grid scale), as the original greyed them out.
+The tool tabs' operations the document's grid offers, in the original's button order. The sliding grid leaves out what would give a shape more layers (the nudges along Z, the turns about X and Y, double, triple, the grid scale), as the original grayed them out.
 
 Params:
 
@@ -713,7 +713,7 @@ Result:
 
 ### `shape.task`
 
-A tool tab operation on a shape (and, with toAll and a task that allows it, on every shape): flip, rotate, nudge (refused when cells would leave the grid), prune, centre, to origin, minimize, double, triple, fill holes, the surface. Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).
+A tool tab operation on a shape (and, with toAll and a task that allows it, on every shape): flip, rotate, nudge (refused when cells would leave the grid), prune, center, to origin, minimize, double, triple, fill holes, the surface. Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).
 
 Params:
 
@@ -729,7 +729,7 @@ Result:
 |---|---|---|---|
 | `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
 | `changed` | boolean | required | The shape changed at all (cells, size or hotspot). |
-| `cellsChanged` | integer | required | Cells whose state or colour changed (fill holes: the holes filled). |
+| `cellsChanged` | integer | required | Cells whose state or color changed (fill holes: the holes filled). |
 
 Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
 
@@ -817,19 +817,19 @@ Result:
 |---|---|---|---|
 | `cells.at` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
 | `cells.polygon` | [Point2](#point2)[] |  | Counter-clockwise, y up. |
-| `cells.neighbours` | integer[] |  | Per edge (corner i to i + 1): the index in cells of the cell across it, -1 for none. |
+| `cells.neighbors` | integer[] |  | Per edge (corner i to i + 1): the index in cells of the cell across it, -1 for none. |
 | `cells.circle` | object |  |  |
 
 `cells.circle`:
 
 | name | type | | description |
 |---|---|---|---|
-| `cells.circle.centre` | [Point2](#point2) | required | A point [x, y] of a layer drawing, y up. |
+| `cells.circle.center` | [Point2](#point2) | required | A point [x, y] of a layer drawing, y up. |
 | `cells.circle.radius` | number | required |  |
 
 Errors: `invalid_argument`
 
-### `grid.neighbour`
+### `grid.neighbor`
 
 The cell across a side of a cell, in a space of the document's grid (the 3D view's tools that add a cell at a face): the sides are numbered as a MeshFrame's voxelFace (Voxel::getNeighbor, faces). Null when the cell across is outside the space. A cell outside the space or not a cell of the grid, or a side the cell does not have: invalid_argument.
 
@@ -869,13 +869,13 @@ Errors: `invalid_argument`
 | `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
 | `changed` | integer | required | Cells changed; 0 leaves no undo step. |
 
-## Colours
+## Colors
 
-The constraint colours: cells carry them, problems have rules about which piece colour may sit on which result colour.
+The constraint colors: cells carry them, problems have rules about which piece color may sit on which result color.
 
-### `colour.list`
+### `color.list`
 
-The colours in list order.
+The colors in list order.
 
 Params:
 
@@ -885,51 +885,51 @@ Result:
 
 | name | type | | description |
 |---|---|---|---|
-| `colours` | [Colour](#colour)[] | required |  |
+| `colors` | [Color](#color)[] | required |  |
 
-### `colour.add`
+### `color.add`
 
-Adds a colour (at most 63); every problem allows it on itself.
+Adds a color (at most 63); every problem allows it on itself.
 
 Params:
 
 | name | type | | description |
 |---|---|---|---|
-| `rgb` | [Rgb](#rgb) | required | A colour, #rrggbb (the engine writes lower case). |
+| `rgb` | [Rgb](#rgb) | required | A color, #rrggbb (the engine writes lower case). |
 
 Result:
 
 | name | type | | description |
 |---|---|---|---|
-| `colour` | [ColourId](#colourid) | required | A constraint colour. |
+| `color` | [ColorId](#colorid) | required | A constraint color. |
 | `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
 
 Errors: `invalid_argument`, `invalid_state`
 
-### `colour.edit`
+### `color.edit`
 
-Changes how a colour looks. Allowed while solving.
+Changes how a color looks. Allowed while solving.
 
 Params:
 
 | name | type | | description |
 |---|---|---|---|
-| `colour` | [ColourId](#colourid) | required | A constraint colour. |
-| `rgb` | [Rgb](#rgb) | required | A colour, #rrggbb (the engine writes lower case). |
+| `color` | [ColorId](#colorid) | required | A constraint color. |
+| `rgb` | [Rgb](#rgb) | required | A color, #rrggbb (the engine writes lower case). |
 
 Result: [Changed](#changed)
 
 Errors: `not_found`
 
-### `colour.delete`
+### `color.delete`
 
-Removes a colour: its cells revert to the shape's own colour, the colours after it move up, the problems with shapes using it lose their solutions.
+Removes a color: its cells revert to the shape's own color, the colors after it move up, the problems with shapes using it lose their solutions.
 
 Params:
 
 | name | type | | description |
 |---|---|---|---|
-| `colour` | [ColourId](#colourid) | required | A constraint colour. |
+| `color` | [ColorId](#colorid) | required | A constraint color. |
 
 Result: [Changed](#changed)
 
@@ -937,7 +937,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ## Problems
 
-The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011). A sliding problem's result is a start/goal shape (a board) the user chooses (problem.setResult refuses any other shape); the problems on a board keep its stamped pieces as parts (sliding.json), it has no groups (refused), and a piece with a start or goal keeps its count (Part.required). A stacking problem stands on a rod set and holds its discs on the rods at its start and goal (stacking.json; problem.get's stacks): its result, piece counts and groups are refused, the stacking commands set them.
+The problems: a result shape, pieces with counts or ranges, groups, color rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011). A sliding problem's result is a start/goal shape (a board) the user chooses (problem.setResult refuses any other shape); the problems on a board keep its stamped pieces as parts (sliding.json), it has no groups (refused), and a piece with a start or goal keeps its count (Part.required). A stacking problem stands on a rod set and holds its discs on the rods at its start and goal (stacking.json; problem.get's stacks): its result, piece counts and groups are refused, the stacking commands set them.
 
 ### `problem.list`
 
@@ -969,7 +969,7 @@ Errors: `not_found`
 
 ### `problem.create`
 
-Adds a problem; it allows each colour on itself. Allowed while solving: the solves go on.
+Adds a problem; it allows each color on itself. Allowed while solving: the solves go on.
 
 Params:
 
@@ -1221,26 +1221,26 @@ Result: [Changed](#changed)
 
 Errors: `not_found`, `invalid_argument`, `invalid_state`
 
-### `problem.setColourRule`
+### `problem.setColorRule`
 
-Allows or forbids piece colour on result colour; removes the solutions.
+Allows or forbids piece color on result color; removes the solutions.
 
 Params:
 
 | name | type | | description |
 |---|---|---|---|
 | `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
-| `pieceColour` | [ColourId](#colourid) | required | A constraint colour. |
-| `resultColour` | [ColourId](#colourid) | required | A constraint colour. |
+| `pieceColor` | [ColorId](#colorid) | required | A constraint color. |
+| `resultColor` | [ColorId](#colorid) | required | A constraint color. |
 | `allowed` | boolean | required |  |
 
 Result: [Changed](#changed)
 
 Errors: `not_found`, `invalid_state`
 
-### `problem.setColourRules`
+### `problem.setColorRules`
 
-Sets every colour rule at once: each colour on itself, all on all, or none.
+Sets every color rule at once: each color on itself, all on all, or none.
 
 Params:
 
@@ -1323,7 +1323,7 @@ Errors: `not_found`, `invalid_state`
 
 ## Sliding puzzles
 
-A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. The problems are the user's (problem.create), each with a board chosen as its result (problem.setResult; the original gave each board a problem of its own); several may share a board, each with starts and goals of its own (they are the problem's, not the board's: the sliding.* calls take the problem, and without one mean the board's first; a board no problem uses has none, and the calls that change them are refused, invalid_argument). An edit of a board (shape.setCells, shape.resize, shape.task) takes the starts and goals of its problems along with its cells: one whose cells are all still floor stays, where they now are, one that lost a cell is removed whole, with a notice; a problem given another board (problem.setResult) keeps those that fit it at the same cells. A problem on a board keeps the pieces it has stamped as parts and its colour locks follow them; no board is a piece of any problem; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). A problem with a start for every piece can also be played by hand (decision 0039): sliding.playStart, sliding.playReach and sliding.playReplay answer what a position allows by the search's rules and keep no game, and sliding.setLayout makes a position the problem's starts or goals. Refused (unsupported) on other grids.
+A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labeled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. The problems are the user's (problem.create), each with a board chosen as its result (problem.setResult; the original gave each board a problem of its own); several may share a board, each with starts and goals of its own (they are the problem's, not the board's: the sliding.* calls take the problem, and without one mean the board's first; a board no problem uses has none, and the calls that change them are refused, invalid_argument). An edit of a board (shape.setCells, shape.resize, shape.task) takes the starts and goals of its problems along with its cells: one whose cells are all still floor stays, where they now are, one that lost a cell is removed whole, with a notice; a problem given another board (problem.setResult) keeps those that fit it at the same cells. A problem on a board keeps the pieces it has stamped as parts and its color locks follow them; no board is a piece of any problem; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). A problem with a start for every piece can also be played by hand (decision 0039): sliding.playStart, sliding.playReach and sliding.playReplay answer what a position allows by the search's rules and keep no game, and sliding.setLayout makes a position the problem's starts or goals. Refused (unsupported) on other grids.
 
 ### `sliding.addStartGoal`
 
@@ -1775,7 +1775,7 @@ Errors: `unsupported`, `not_found`, `invalid_state`
 
 ### `stacking.setDiscSize`
 
-A disc's size (the disc list's size field, 1 to 100): the disc is made anew, a square of 2 size + 1 cells one cell thick with its centre empty, its colour kept. Solutions stay, as the original kept them. One undo step.
+A disc's size (the disc list's size field, 1 to 100): the disc is made anew, a square of 2 size + 1 cells one cell thick with its center empty, its color kept. Solutions stay, as the original kept them. One undo step.
 
 Params:
 
@@ -1899,7 +1899,7 @@ Errors: `unsupported`, `not_found`, `invalid_argument`, `invalid_state`
 
 ### `stacking.board`
 
-A problem's board as the Problems tab showed it: its rods (names, the pocket, capacities), the start's or the goal's stacks, where the rods and discs stand, the validity bar's sentence, and the centre a playback's poses are placed around (playback.json: a stacking solution is centred on its board).
+A problem's board as the Problems tab showed it: its rods (names, the pocket, capacities), the start's or the goal's stacks, where the rods and discs stand, the validity bar's sentence, and the center a playback's poses are placed around (playback.json: a stacking solution is centerd on its board).
 
 Params:
 
@@ -1917,7 +1917,7 @@ Result:
 | `stacks` | [Stacks](#stacks) | required | Each rod of a stack map, its discs bottom to top; rods past the board's count are kept while they hold discs. |
 | `layout` | [BoardLayout](#boardlayout) or null | required | Null without a rod set. |
 | `error` | string or null | required | Why the problem cannot be solved as it stands (the original's setupError: a rule broken, a disc missing from the start or the goal, no rod set); null when it is ready. |
-| `centre` | number[] or null | required | The middle of the board, half the rods' height up, in cells; null without a rod set. |
+| `center` | number[] or null | required | The middle of the board, half the rods' height up, in cells; null without a rod set. |
 
 Errors: `unsupported`, `not_found`
 
@@ -2601,7 +2601,7 @@ Errors: `not_found`, `invalid_argument`, `unsupported`
 
 ### `playback.mesh`
 
-The mesh of piece i (of playback.open's pieces) in its assembly orientation, centred as the poses expect; in any style (wireframe pieces, showing through solid ones).
+The mesh of piece i (of playback.open's pieces) in its assembly orientation, centerd as the poses expect; in any style (wireframe pieces, showing through solid ones).
 
 Params:
 
@@ -2688,7 +2688,7 @@ Params:
 | `keepMirrors` | boolean |  |  |
 | `keepRotations` | boolean |  |  |
 | `completeRotations` | boolean |  |  |
-| `strictColours` | boolean |  |  |
+| `strictColors` | boolean |  |  |
 | `reduce` | boolean |  | Default true. |
 
 Result:
@@ -2766,7 +2766,7 @@ Result:
 |---|---|---|---|
 | `handle` | [MovementExplorerHandle](#movementexplorerhandle) | required | A movement explorer opened by explore.openMovements. |
 | `root` | [MovementNode](#movementnode) | required |  |
-| `directions` | string[] | required | The grid's movement directions as labelled ('x', '-x', ...): direction d forward is label 2d, reversed 2d + 1. |
+| `directions` | string[] | required | The grid's movement directions as labeled ('x', '-x', ...): direction d forward is label 2d, reversed 2d + 1. |
 | `vectors` | [Cell](#cell)[] | required | Direction d's step in grid coordinates (reversed: negated), one per direction: what explore.findMatching's delta is one of (a label does not say how far a step goes: a prism's x step is 2). |
 
 Errors: `not_found`, `unsupported`
@@ -3006,9 +3006,9 @@ A shape, stable while the document is open.
 
 string matching `^s[1-9][0-9]*$`
 
-### ColourId
+### ColorId
 
-A constraint colour.
+A constraint color.
 
 string matching `^c[1-9][0-9]*$`
 
@@ -3070,7 +3070,7 @@ No result.
 
 ### Rgb
 
-A colour, #rrggbb (the engine writes lower case).
+A color, #rrggbb (the engine writes lower case).
 
 string matching `^#[0-9a-fA-F]{6}$`
 
@@ -3140,7 +3140,7 @@ What the problem holds of solving: nothing, a started solve (maybe paused), a fi
 
 ### CellTool
 
-The grid editor's tools; paint changes only the colour of non-empty cells.
+The grid editor's tools; paint changes only the color of non-empty cells.
 
 `"fixed"` \| `"variable"` \| `"erase"` \| `"paint"`
 
@@ -3154,17 +3154,17 @@ Mirror or span axes.
 
 A button of the tool tabs; what the numbered ones do depends on the grid (shape.taskSet gives each one's group and label).
 
-`"nudge0"` \| `"nudge1"` \| `"nudge2"` \| `"nudge3"` \| `"nudge4"` \| `"nudge5"` \| `"rotate6"` \| `"rotate7"` \| `"rotate8"` \| `"rotate9"` \| `"rotate10"` \| `"rotate11"` \| `"flip12"` \| `"flip13"` \| `"flip14"` \| `"prune"` \| `"insideFixed"` \| `"outsideFixed"` \| `"insideVariable"` \| `"outsideVariable"` \| `"insideDecolour"` \| `"outsideDecolour"` \| `"double"` \| `"triple"` \| `"toOrigin"` \| `"centre"` \| `"minimize"` \| `"nudge27"` \| `"nudge28"` \| `"nudge29"` \| `"nudge30"` \| `"nudge31"` \| `"nudge32"` \| `"fillHoles"` \| `"gridScale"`
+`"nudge0"` \| `"nudge1"` \| `"nudge2"` \| `"nudge3"` \| `"nudge4"` \| `"nudge5"` \| `"rotate6"` \| `"rotate7"` \| `"rotate8"` \| `"rotate9"` \| `"rotate10"` \| `"rotate11"` \| `"flip12"` \| `"flip13"` \| `"flip14"` \| `"prune"` \| `"insideFixed"` \| `"outsideFixed"` \| `"insideVariable"` \| `"outsideVariable"` \| `"insideDecolor"` \| `"outsideDecolor"` \| `"double"` \| `"triple"` \| `"toOrigin"` \| `"center"` \| `"minimize"` \| `"nudge27"` \| `"nudge28"` \| `"nudge29"` \| `"nudge30"` \| `"nudge31"` \| `"nudge32"` \| `"fillHoles"` \| `"gridScale"`
 
 ### MeshStyle
 
-The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, flat faces with edge lines, the STL export's mesh at the view's own parameters, or the uniform mesher's solid (every edge of the piece chamfered to one width whatever its angle, concave edges too; neighbouring cells joined by flat strips, so the checker alone shows the cells; closed; on the sphere grid the drawing mesh). The STL style is (the original's "Draw pieces like STL export": gap 0.02 and bevel 0.05 of a cell with the interior chamfers, the sphere grid's balls at two recursions; closed; the flat mesh where the mesher fails). The STL style's cell faces carry the checker flag, as the others', and bevels are flagged 16; the original drew it in one colour. It is made with the Manifold library on the prism, rhombic and tetra-octa grids and takes a while for large shapes (seconds in a release build).
+The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, flat faces with edge lines, the STL export's mesh at the view's own parameters, or the uniform mesher's solid (every edge of the piece chamfered to one width whatever its angle, concave edges too; neighboring cells joined by flat strips, so the checker alone shows the cells; closed; on the sphere grid the drawing mesh). The STL style is (the original's "Draw pieces like STL export": gap 0.02 and bevel 0.05 of a cell with the interior chamfers, the sphere grid's balls at two recursions; closed; the flat mesh where the mesher fails). The STL style's cell faces carry the checker flag, as the others', and bevels are flagged 16; the original drew it in one color. It is made with the Manifold library on the prism, rhombic and tetra-octa grids and takes a while for large shapes (seconds in a release build).
 
 `"drawing"` \| `"wireframe"` \| `"flat"` \| `"stl"` \| `"uniform"`
 
 ### ChangeKind
 
-`"shapes"` \| `"colours"` \| `"problems"` \| `"solutions"` \| `"notes"` \| `"rodSets"`
+`"shapes"` \| `"colors"` \| `"problems"` \| `"solutions"` \| `"notes"` \| `"rodSets"`
 
 ### SolutionsVersion
 
@@ -3200,7 +3200,7 @@ A binary frame sent before the reply (decision 0012): its number, its size, and 
 
 ### MeshFrame
 
-A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker colour, 2 variable mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), colour (u8, colour number, 0 none; padded), polygon (u32); edgeLines (f32, two points per line, flat style only); and imageUv (f32, two per vertex: where a vertex on a face looking up lies in the shape's picture, as fractions (s, t) across its part shown, s right and t down; -1, -1 elsewhere; empty for a shape without a picture, decision 0038).
+A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker color, 2 variable mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), color (u8, color number, 0 none; padded), polygon (u32); edgeLines (f32, two points per line, flat style only); and imageUv (f32, two per vertex: where a vertex on a face looking up lies in the shape's picture, as fractions (s, t) across its part shown, s right and t down; -1, -1 elsewhere; empty for a shape without a picture, decision 0038).
 
 | name | type | | description |
 |---|---|---|---|
@@ -3225,7 +3225,7 @@ A stacking puzzle's board: a row of rods and the rules of a move (the original's
 | `growHeight` | boolean | required | Grow to the height of all pieces: a rod holds every disc of the problem. |
 | `definedHeight` | integer | required | Defined height: the discs a rod holds when it does not grow. |
 | `sizeMatters` | boolean | required | Disc size matters - no large on small (equal sizes stack); Panex columns ignore it. |
-| `distanceMatters` | boolean | required | Disc can only move over 1 rod: to a neighbouring rod only. |
+| `distanceMatters` | boolean | required | Disc can only move over 1 rod: to a neighboring rod only. |
 | `panexColumns` | boolean | required | Panex Style Columns: a disc of size s sits at most s places below the top, in any order; one disc more may wait raised into the bridge, blocking moves that pass over it. |
 | `pocketColumn` | boolean | required | Add pocket column (with Panex columns): an extra rod beside rod 1 that holds any disc. |
 | `pocketHeight` | integer | required | The discs the pocket column holds. |
@@ -3252,7 +3252,7 @@ Where the rods and the discs of a stacking stand (the original's layoutBoard), i
 
 | name | type | | description |
 |---|---|---|---|
-| `spacing` | integer | required | The distance between neighbouring rods. |
+| `spacing` | integer | required | The distance between neighboring rods. |
 | `rodCount` | integer | required | The rods drawn, the pocket column included. |
 | `rodHeight` | integer | required | The rods' drawn height. |
 | `rodX` | integer[] | required | x of each rod, in the stack map's order (the pocket last, standing left of rod 1). |
@@ -3260,7 +3260,7 @@ Where the rods and the discs of a stacking stand (the original's layoutBoard), i
 | `panex` | boolean | required | Panex columns: drawn with a V that narrows to the bottom. |
 | `pocket` | boolean | required | The last rod is the pocket column, drawn as a plain peg. |
 | `maxSize` | integer | required | The largest disc size, so the V stays inside the rod spacing. |
-| `discs` | object[] | required | Each disc of the problem (its pieces: parts, then copies) and the cell its hotspot (its centre) stands on; null for a disc on no rod. Empty for a rod set drawn alone. |
+| `discs` | object[] | required | Each disc of the problem (its pieces: parts, then copies) and the cell its hotspot (its center) stands on; null for a disc on no rod. Empty for a rod set drawn alone. |
 
 `discs`:
 
@@ -3282,10 +3282,10 @@ Where the rods and the discs of a stacking stand (the original's layoutBoard), i
 | `fixed` | integer | required |  |
 | `variable` | integer | required |  |
 | `weight` | integer | required |  |
-| `colour` | [Rgb](#rgb) or null | required | The shape's own colour, or null for the default one. |
+| `color` | [Rgb](#rgb) or null | required | The shape's own color, or null for the default one. |
 | `startGoal` | integer or null | required | A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape. |
 | `disc` | integer or null | required | A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape. |
-| `discColour` | [ColourId](#colourid) or null | required | A stacking puzzle's disc: the palette colour of its first coloured cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape. |
+| `discColor` | [ColorId](#colorid) or null | required | A stacking puzzle's disc: the palette color of its first colored cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape. |
 | `image` | [ShapeImage](#shapeimage) or null | required | The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none. |
 
 ### ImageFit
@@ -3315,13 +3315,13 @@ A shape's picture (decision 0038). Seen from above, the part 'src' is laid over 
 | `box` | integer[] | required | [x, y, width, height] in cells of the shape's own grid; it may reach outside the grid after a nudge. |
 | `turn` | integer | required |  |
 
-### Colour
+### Color
 
 | name | type | | description |
 |---|---|---|---|
-| `id` | [ColourId](#colourid) | required | A constraint colour. |
+| `id` | [ColorId](#colorid) | required | A constraint color. |
 | `label` | string | required | C1, C2, ... by place. |
-| `rgb` | [Rgb](#rgb) | required | A colour, #rrggbb (the engine writes lower case). |
+| `rgb` | [Rgb](#rgb) | required | A color, #rrggbb (the engine writes lower case). |
 
 ### ProblemSummary
 
@@ -3360,7 +3360,7 @@ Everything a front end shows of the document's lists.
 | `canRedo` | boolean | required |  |
 | `solving` | boolean | required | A solve or an analysis is active: shapes and lists are frozen (decision 0011). |
 | `shapes` | [ShapeSummary](#shapesummary)[] | required |  |
-| `colours` | [Colour](#colour)[] | required |  |
+| `colors` | [Color](#color)[] | required |  |
 | `problems` | [ProblemSummary](#problemsummary)[] | required |  |
 | `rodSets` | [RodSet](#rodset)[] | required | A stacking puzzle's boards (at least one); empty on other grids. |
 | `notice` | string |  | What opening the file changed, to tell the user (the original's load message). Only in the result of document.open, document.openBytes and solve.importPaused, and only when there is something to tell. |
@@ -3376,7 +3376,7 @@ A row of the status window.
 | `variable` | integer | required |  |
 | `identicalMirror` | [ShapeId](#shapeid) or null | required | An earlier shape it is identical to, mirrors allowed. |
 | `identicalShape` | [ShapeId](#shapeid) or null | required | ... in any orientation, not mirrored. |
-| `identicalComplete` | [ShapeId](#shapeid) or null | required | ... colours included. |
+| `identicalComplete` | [ShapeId](#shapeid) or null | required | ... colors included. |
 | `connectedFace` | boolean | required |  |
 | `connectedEdge` | boolean | required |  |
 | `connectedCorner` | boolean | required |  |
@@ -3407,7 +3407,7 @@ A row of the status window.
 
 ### SolverSettings
 
-The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory are sliding's nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.
+The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColors, justLevels is justLevels; nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory are sliding's nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.
 
 | name | type | | description |
 |---|---|---|---|
@@ -3454,19 +3454,19 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `triedApart` | integer | required |  |
 | `slideGrid` | integer | required |  |
 | `parts` | [Part](#part)[] | required |  |
-| `colourRules` | object[] | required | The allowed pairs: a piece cell of colour 'piece' may sit on a result cell of colour 'result'. |
+| `colorRules` | object[] | required | The allowed pairs: a piece cell of color 'piece' may sit on a result cell of color 'result'. |
 | `maxHoles` | integer or null | required |  |
 | `savedPosition` | boolean | required | A paused search position is stored (solve.continue carries on from it). |
 | `solverSettings` | [SolverSettings](#solversettings) | required |  |
 | `stacks` | object or null | required | Null on other grids. |
 | `slideForecast` | [SlideForecast](#slideforecast) or null | required | A sliding solve that is open (under way or paused, kept in the file): the forecast from the times of the moves its search has searched (runningMs 0; while it runs, solve.progress has the live one). Null when there are none, and once the solve is through. |
 
-`colourRules`:
+`colorRules`:
 
 | name | type | | description |
 |---|---|---|---|
-| `colourRules.piece` | [ColourId](#colourid) | required | A constraint colour. |
-| `colourRules.result` | [ColourId](#colourid) | required | A constraint colour. |
+| `colorRules.piece` | [ColorId](#colorid) | required | A constraint color. |
+| `colorRules.result` | [ColorId](#colorid) | required | A constraint color. |
 
 ### FitStats
 
@@ -3501,7 +3501,7 @@ What a solve does (the solve thread's flags); a missing field takes the engine's
 | `keepMirrors` | boolean |  |  |
 | `keepRotations` | boolean |  |  |
 | `completeRotations` | boolean |  | The thorough rotation check (the original's deep symmetry check). |
-| `strictColours` | boolean |  |  |
+| `strictColors` | boolean |  |  |
 | `reduce` | boolean |  | Drop placements that can never be part of an assembly first (default true). |
 | `sortBy` | [SortBy](#sortby) |  | Where a new solution goes in the saved list while solving: the original's sort-by choice. |
 | `keepAtMost` | integer |  | Keep at most this many solutions; 0 all (default 10). |
@@ -3513,7 +3513,7 @@ What a solve does (the solve thread's flags); a missing field takes the engine's
 
 ### SlidingOptions
 
-A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and holds each piece to its start marks (the start locks), whatever the brick fields say; the colour rules apply as on every grid; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
+A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and holds each piece to its start marks (the start locks), whatever the brick fields say; the color rules apply as on every grid; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
 
 | name | type | | description |
 |---|---|---|---|

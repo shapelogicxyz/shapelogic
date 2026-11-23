@@ -93,7 +93,7 @@ may use different pieces.
 
 Keeps solutions that are only a rotation of another solution. Normally they
 are removed as duplicates. When it is on, **Deep Symmetry Check** and **Keep
-Mirror Solutions** don't apply and are greyed out.
+Mirror Solutions** don't apply and are grayed out.
 
 ### Deep Symmetry Check
 

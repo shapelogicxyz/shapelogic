@@ -4,13 +4,13 @@
 /// @file
 /// The cells of a grid as convex polyhedra, and what follows from them:
 /// which cells share a face, an edge or a corner, the other face of a
-/// cell at an edge, the face of a neighbour that coincides with one of
+/// cell at an edge, the face of a neighbor that coincides with one of
 /// ours, and the run of filled cells around an edge. Everything comes
 /// from connectionFace at zero bevel and offset (grid_geometry.h) and
 /// getNeighbor's face list, so it holds for any grid whose cells are
 /// convex polyhedra whose shared faces coincide (every grid but the
 /// spheres' balls, whose faces are those of the rhombic dodecahedron
-/// around each ball and still give the face neighbours).
+/// around each ball and still give the face neighbors).
 /// This is the runtime half of docs/V2-IDEAS-PLAN.md's idea 2: BurrTools
 /// V2 derives the same from each grid's registered polyhedra
 /// (src/lib/grid.cpp); here the derivation serves the uniform mesher
@@ -42,7 +42,7 @@ struct CellAt {
 };
 
 /// Whether two points are one point: the corners come from float tables,
-/// exactly equal between neighbouring cells; the tolerance covers the
+/// exactly equal between neighboring cells; the tolerance covers the
 /// computed ones (1e-5 mesh units).
 [[nodiscard]] bool samePoint(const Vec3& a, const Vec3& b);
 
@@ -56,7 +56,7 @@ struct CellFace {
   std::vector<Vec3> corners;
   /// The unit normal, outward.
   Vec3 normal;
-  /// The cell across the face (getNeighbor's face neighbour).
+  /// The cell across the face (getNeighbor's face neighbor).
   CellAt across;
 
   [[nodiscard]] std::size_t size() const { return corners.size(); }
@@ -80,7 +80,7 @@ struct CellPolyhedron {
   /// edge from b to a): the face and the index of b in it.
   [[nodiscard]] std::optional<std::pair<int, int>> otherFace(int face, const Vec3& a,
                                                               const Vec3& b) const;
-  /// The face that coincides with `other` (a neighbour's face towards
+  /// The face that coincides with `other` (a neighbor's face toward
   /// this cell), or none.
   [[nodiscard]] std::optional<int> matchingFace(const CellFace& other) const;
 };
@@ -125,18 +125,18 @@ class CellGeometry {
 
   /// From the face `start` through the cell behind it, across the next
   /// face and so on to the last filled cell before an empty one: that
-  /// cell's face towards the empty one, with the index of the edge in
+  /// cell's face toward the empty one, with the index of the edge in
   /// it, and the sum of the cells' angles at the edge. None after a
   /// failure (see error()); `start` must be a face of a filled cell
-  /// towards an empty one.
+  /// toward an empty one.
   [[nodiscard]] std::optional<EdgeRun> run(const EdgeAt& start);
 
-  /// The neighbours of a cell of a kind (0: share a face, 1: two or more
+  /// The neighbors of a cell of a kind (0: share a face, 1: two or more
   /// corners but no face, 2: one corner), from the corners the cells
   /// share, among the cells of the space within `reach` coordinates: what
   /// getNeighbor should list, in coordinate order. For kind 0 also the
   /// face of `c` shared with each, in the same order.
-  [[nodiscard]] Result<std::vector<CellAt>> derivedNeighbours(CellAt c, unsigned int kind,
+  [[nodiscard]] Result<std::vector<CellAt>> derivedNeighbors(CellAt c, unsigned int kind,
                                                               int reach = 7,
                                                               std::vector<int>* faces = nullptr);
 

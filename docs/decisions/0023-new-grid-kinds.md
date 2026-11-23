@@ -13,7 +13,7 @@
 ## Context
 BurrTools V2 added hexagonal and cairo prism grids as Lua scripts over
 its generic grid machinery (docs/V2-IDEAS-PLAN.md, idea 2). This core
-keys everything on `GridKind`: a voxel class per grid with its neighbour,
+keys everything on `GridKind`: a voxel class per grid with its neighbor,
 transformation and alignment code, symmetry tables generated offline, mesh
 tables per grid, the editor's layer geometry, the shape tools, the file
 format's `type` number, the engine's grid names and the front end's lists.
@@ -49,8 +49,8 @@ triangular prism grid's count, which checks the generated tables as well.
 `Symmetries::getNumSymmetryGroups()` is new, for the tests.
 
 **Transformations through the lattice.** `transformPoint` turns a cell's
-centre by the matrix about the centre of cell (0, 0, 0) (hexagonal) or the
-4-fold centre at the lattice point (0, 0) (cairo) and finds the cell there.
+center by the matrix about the center of cell (0, 0, 0) (hexagonal) or the
+4-fold center at the lattice point (0, 0) (cairo) and finds the cell there.
 On the cairo grid the mirrors and the turns over are glides of the tiling,
 so an offset per transformation, found once from the pentagons, puts them
 on the right cells. The grid oracle test checks all of this as it checks

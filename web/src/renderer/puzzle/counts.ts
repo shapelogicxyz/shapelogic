@@ -10,15 +10,15 @@
 // group exists while a part has copies in it (the mockup kept a list of
 // its own, with empty groups).
 
-import { contrast, hex, pieceColour } from '../shell/piece-colours.ts';
+import { contrast, hex, pieceColor } from '../shell/piece-colors.ts';
 import type { Part, ProblemDetail, SolveState } from '../../engine/api.generated.ts';
 
-/** The colour of the problems' chips (the mockup's). */
+/** The color of the problems' chips (the mockup's). */
 export const PROBLEM_CHIP = '#2f6df6';
 
-/** A problem's chip style: the colour of its place in the list, as a shape's. */
+/** A problem's chip style: the color of its place in the list, as a shape's. */
 export function problemChipStyle(index: number): string {
-  const c = pieceColour(Math.max(0, index));
+  const c = pieceColor(Math.max(0, index));
   return `background:${hex(c)};color:${contrast(c)}`;
 }
 

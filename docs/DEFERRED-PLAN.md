@@ -25,10 +25,10 @@ dropped (end of this document).
     reports `supported: false`, `solve.*` answers `unsupported`, and `bt`
     refuses them with burrTxt's message. The front end shows them with the
     solver disabled.
-  - **STL**: File ▸ Export ▸ STL writes the shape's flat mesh, labelled
+  - **STL**: File ▸ Export ▸ STL writes the shape's flat mesh, labeled
     "interim" in the dialog. Solutions ▸ "Export to STL" is disabled. The
     "STL-like" render style is missing.
-  - **Imports, Puzzlecad export, Convert grid type**: greyed out in the
+  - **Imports, Puzzlecad export, Convert grid type**: grayed out in the
     menus.
   - **Python bindings**: none.
 - The GLB solution animation is **done** (the client builds it from
@@ -130,7 +130,7 @@ Read first, in this order:
 - **Remove the "not yet" notes** a part makes untrue, in the same part:
   `engine.info.grids[].supported`, `problem.kind.supported`, the
   descriptions in `api/*.json` ("sliding and stacking: not yet"), `bt`'s
-  refusal, the front end's disabled solver and notices, greyed menu items,
+  refusal, the front end's disabled solver and notices, grayed menu items,
   the STL dialog's "interim" words, README and ARCHITECTURE status lines,
   `grid_type.h`'s "(not ported yet)".
 - **New decisions** get records (`docs/decisions/0014-…` onward), e.g. the
@@ -203,7 +203,7 @@ In this order:
   - routes: `slideRoute`, `applySlideRoutes`, `finalPlacementKey`.
 - The sliding parts of `solvethread.cpp` (its sliding run, start layouts,
   `slidingSummary`).
-- `problem.cpp` and `puzzle.cpp`: what is not yet modelled (sliding
+- `problem.cpp` and `puzzle.cpp`: what is not yet modeled (sliding
   options, start/goal data) instead of preserved XML. Keep byte-identical
   saves (`just oracle-roundtrip` stays 100%).
 - `disasmtomoves.cpp`: routes in the playback sampler (`app/playback`).
@@ -395,7 +395,7 @@ original does: follow the original).
 
 **Front end:** File ▸ Import ▸ PuzzleSolver3D… and Puzzlecad…, File ▸
 Export ▸ Puzzlecad…, Edit ▸ Convert grid type… (with the original's
-dialog choices); the greyed items enabled.
+dialog choices); the grayed items enabled.
 
 **Gate:**
 - each import of the original's test inputs (find them in its tests and

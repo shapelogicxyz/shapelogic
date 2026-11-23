@@ -587,7 +587,7 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; a solve
       .toBeGreaterThan(pausedAt);
     expect(existsSync(file)).toBe(true);
 
-    // aborted: asked first, the results thrown away; once over the button is Reset, greyed with nothing kept
+    // aborted: asked first, the results thrown away; once over the button is Reset, grayed with nothing kept
     await runButton(page, 'abort');
     await confirm(page, /^Abort the solve\?$/, false);
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');

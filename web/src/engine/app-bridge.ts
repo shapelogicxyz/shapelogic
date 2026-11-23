@@ -51,7 +51,7 @@ export type AppCommand =
   | { cmd: 'cacheFiles' }
   /** View ▸ Log File Manager…: the app's log, newest first, with its filters, Export and Clear. */
   | { cmd: 'logFiles' }
-  | { cmd: 'colourView'; on: boolean }
+  | { cmd: 'colorView'; on: boolean }
   | { cmd: 'style'; style: MeshStyle }
   | { cmd: 'focus3d' }
   /** View ▸ Color Theme: the Theme setting. */
@@ -88,7 +88,7 @@ export interface MenuState {
   scad: boolean;
   /** The Solver shows a solution with its moves stored (Export ▸ Solution Animation). */
   animation: boolean;
-  colourView: boolean;
+  colorView: boolean;
   style: MeshStyle;
   focus3d: boolean;
   theme: 'Light' | 'Dark' | 'System';
@@ -116,7 +116,7 @@ export interface CliToolInfo {
 
 /** The answer to installing or removing the tool: the new state, or why not. */
 export type CliToolResult =
-  { ok: true; info: CliToolInfo } | { ok: false; error: string; cancelled?: boolean };
+  { ok: true; info: CliToolInfo } | { ok: false; error: string; canceled?: boolean };
 
 /**
  * The cache folder in use (main/cache-folder.ts): the engine's folders for
@@ -137,13 +137,13 @@ export interface CacheFolderInfo {
 }
 
 /**
- * What choosing a cache folder found: the dialog cancelled; a solve running
+ * What choosing a cache folder found: the dialog canceled; a solve running
  * (or another window changing it); the folders in use; a folder that
  * cannot be written (the folders in use stay); or one made and written,
  * with what the folders in use hold ('' nothing), for `finishCacheFolder`.
  */
 export type CacheChoice =
-  | { status: 'cancelled' }
+  | { status: 'canceled' }
   | { status: 'busy'; reason: string }
   | { status: 'same' }
   | { status: 'invalid'; folder: string; error: string }
@@ -307,7 +307,7 @@ export interface LogExportSizes {
 
 /** The answer to exporting the log: where it went, or why not. */
 export type LogExportResult =
-  { ok: true; path: string } | { ok: false; cancelled: true } | { ok: false; error: string };
+  { ok: true; path: string } | { ok: false; canceled: true } | { ok: false; error: string };
 
 /** The links of the Help menu (the main process holds the addresses). */
 export type HelpLink = 'tutorial' | 'guide' | 'author' | 'issues';
@@ -382,7 +382,7 @@ export interface StoredState {
 /**
  * The Play tab's goal picture, for its window of its own: an SVG drawing
  * with its styles written into it (no stylesheet, no script, nothing
- * fetched), its size, the window's title and its background colour.
+ * fetched), its size, the window's title and its background color.
  */
 export interface GoalPicture {
   title: string;
@@ -390,7 +390,7 @@ export interface GoalPicture {
   /** The drawing's size in pixels: the window's first size keeps its shape. */
   width: number;
   height: number;
-  /** A CSS colour: `#rrggbb` or `rgb(…)`. */
+  /** A CSS color: `#rrggbb` or `rgb(…)`. */
   background: string;
   /** The dark theme is in use: the GOAL caption above the drawing is white, else black. */
   dark: boolean;
@@ -475,9 +475,9 @@ export interface BtApp {
   onCommand(handler: (command: AppCommand) => void): () => void;
   /** The menus show this. */
   setMenuState(state: MenuState): void;
-  /** The open dialog; null when cancelled. */
+  /** The open dialog; null when canceled. */
   chooseOpen(kind: OpenKind): Promise<string | null>;
-  /** The save dialog with a name proposed; null when cancelled. */
+  /** The save dialog with a name proposed; null when canceled. */
   chooseSave(kind: FileKind, name: string): Promise<string | null>;
   /**
    * Writes an export's bytes to a path the save dialog gave for an export
@@ -487,7 +487,7 @@ export interface BtApp {
   writeExport(path: string, data: Uint8Array): Promise<void>;
   /**
    * The folder dialog (a solution's STL files, several shapes'); null when
-   * cancelled. `save`: the files are written as soon as it is chosen, and
+   * canceled. `save`: the files are written as soon as it is chosen, and
    * its button says Save rather than Open.
    */
   chooseFolder(save?: boolean): Promise<string | null>;
@@ -564,7 +564,7 @@ export interface BtApp {
   chooseCacheFolder(useDefault: boolean): Promise<CacheChoice>;
   /**
    * Takes the ready choice: moves the data of the folders in use into it or
-   * deletes it, then uses it; or, cancelled, keeps the folders in use.
+   * deletes it, then uses it; or, canceled, keeps the folders in use.
    */
   finishCacheFolder(action: CacheAction): Promise<CacheResult>;
   /** What the cache folder and the rescue copy hold, newest first; null where there is none (the demo). */
@@ -594,7 +594,7 @@ export interface BtApp {
   /** The `close` command was taken: the renderer asks (a close not taken soon is asked natively). */
   closeTaken(): void;
   /** The question about unsaved changes was answered Cancel: a quit waiting on the window is given up. */
-  closeCancelled(): void;
+  closeCanceled(): void;
 }
 
 const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
@@ -623,7 +623,7 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'statusWindow',
   'cacheFiles',
   'logFiles',
-  'colourView',
+  'colorView',
   'style',
   'focus3d',
   'theme',
@@ -655,7 +655,7 @@ export function isAppCommand(v: unknown): v is AppCommand {
   switch (c.cmd) {
     case 'openPath':
       return typeof c.path === 'string' && c.path !== '';
-    case 'colourView':
+    case 'colorView':
       return typeof c.on === 'boolean';
     case 'style':
       return isMeshStyle(c.style);
@@ -694,7 +694,7 @@ export function isMenuState(v: unknown): v is MenuState {
     'solutions',
     'shapes',
     'animation',
-    'colourView',
+    'colorView',
     'focus3d',
   ];
   const label = (x: unknown): boolean => x === null || typeof x === 'string';

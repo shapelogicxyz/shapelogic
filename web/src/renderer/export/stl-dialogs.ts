@@ -19,7 +19,7 @@ import { fileBytes, meshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { askChoice, openDialog, tell } from '../shell/dialog.ts';
 import { css, esc } from '../shell/dom.ts';
-import { viewColour } from '../shell/piece-colours.ts';
+import { viewColor } from '../shell/piece-colors.ts';
 import { flash, reportError } from '../shell/status.ts';
 import {
   exportedLine,
@@ -140,7 +140,7 @@ export async function shapeStlDialog(ctx: StlContext): Promise<void> {
   let generation = 0;
   let exporting = false;
   let dialogEl: HTMLElement | null = null;
-  // Export STL… is greyed with nothing to export
+  // Export STL… is grayed with nothing to export
   const syncGo = (): void => {
     const go = dialogEl?.querySelector<HTMLButtonElement>('[data-x="go"]');
     if (go != null) {
@@ -186,7 +186,7 @@ export async function shapeStlDialog(ctx: StlContext): Promise<void> {
       if (g !== generation) {
         return;
       }
-      preview?.setMesh(meshArrays(r), viewColour(shapes[index], index));
+      preview?.setMesh(meshArrays(r), viewColor(shapes[index], index));
       setStatus(el, volumeLine(r.volume));
       el.dataset.volume = r.volume.toFixed(1);
       el.dataset.triangles = String(r.triangles);

@@ -23,7 +23,7 @@ class VoxelTable {
   /// Flags for addSpace() and getSpace(), to be or-ed.
   enum : unsigned int {
     kParMirror = 1,  ///< include the mirrored orientations
-    kParColour = 2,  ///< differently coloured shapes are different
+    kParColor = 2,  ///< differently colored shapes are different
   };
 
   using FindSpace = std::function<const Voxel&(unsigned int index)>;
@@ -34,14 +34,14 @@ class VoxelTable {
   /// the shape found and the orientation it was found in.
   /// - kParMirror: mirrored orientations may match (only those added with
   ///   kParMirror exist)
-  /// - kParColour: hash with colours, so differently coloured shapes do not
-  ///   match (the final comparison, as in the original, ignores colour)
+  /// - kParColor: hash with colors, so differently colored shapes do not
+  ///   match (the final comparison, as in the original, ignores color)
   bool getSpace(const Voxel& v, unsigned int* index = nullptr, unsigned char* trans = nullptr,
                 unsigned int params = 0) const;
 
   /// Adds every distinct orientation of shape `index` (mirrored ones too
-  /// with kParMirror; colour-sensitive hashes with kParColour). To search
-  /// both ways, add with kParMirror and again with kParMirror | kParColour.
+  /// with kParMirror; color-sensitive hashes with kParColor). To search
+  /// both ways, add with kParMirror and again with kParMirror | kParColor.
   void addSpace(unsigned int index, unsigned int params = 0);
 
  private:

@@ -48,8 +48,8 @@ import { ic } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
 import type { KeyAction } from '../shell/keys.ts';
 import { tab } from '../shell/layout.ts';
-import { pieceSubColour, shapeColour } from '../shell/piece-colours.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import { pieceSubColor, shapeColor } from '../shell/piece-colors.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import { flash, reportError } from '../shell/status.ts';
 import { cellToMesh, gridExtent, placedAt } from '../view3d/extent.ts';
 import { buildMesh } from '../view3d/mesh.ts';
@@ -64,12 +64,12 @@ export type ExplorerMode = 'placements' | 'step' | 'movements';
 type V3 = [number, number, number];
 type ExplorePlacement = Methods['explore.placements']['result']['placements'][number];
 
-/** A piece of the problem: its number, shape, label (S1, S1.2) and colour. */
+/** A piece of the problem: its number, shape, label (S1, S1.2) and color. */
 export interface ProblemPiece {
   piece: number;
   shape: string;
   label: string;
-  colour: Rgb3;
+  color: Rgb3;
 }
 
 /** What the explorer needs of the Solver workspace. */
@@ -93,17 +93,17 @@ export interface ExplorerHost {
   changed(): void;
 }
 
-/** A piece to draw: where, how, in which colour; piece -1 is the result. */
+/** A piece to draw: where, how, in which color; piece -1 is the result. */
 interface DrawItem {
   piece: number;
   shape: string;
-  colour: Rgb3;
+  color: Rgb3;
   mode: PieceMode;
   transformation: number;
   at: V3;
 }
 
-/** The pieces of a problem, numbered part by part, labelled and coloured as the original's. */
+/** The pieces of a problem, numbered part by part, labeled and colored as the original's. */
 export function problemPieces(detail: ProblemDetail | null, store: Store): ProblemPiece[] {
   const snap = store.snapshot;
   const out: ProblemPiece[] = [];
@@ -111,13 +111,13 @@ export function problemPieces(detail: ProblemDetail | null, store: Store): Probl
   for (const part of detail?.parts ?? []) {
     const i = store.indexOf(part.shape);
     const s = snap?.shapes[i];
-    const base = shapeColour(s?.colour ?? null, i);
+    const base = shapeColor(s?.color ?? null, i);
     for (let q = 0; q < part.max; q++) {
       out.push({
         piece: n++,
         shape: part.shape,
         label: (s?.label ?? part.shape) + (part.max > 1 ? `.${String(q + 1)}` : ''),
-        colour: pieceSubColour(i, q, base),
+        color: pieceSubColor(i, q, base),
       });
     }
   }
@@ -396,7 +396,7 @@ export class Explorer {
         keepMirrors: o.keepMirrors ?? false,
         keepRotations: o.keepRotations ?? false,
         completeRotations: o.completeRotations ?? false,
-        strictColours: o.strictColours ?? false,
+        strictColors: o.strictColors ?? false,
       });
       if (problem !== this.problem || gen !== this.host.store.generation) {
         this.host.store.engine.call('explore.close', { handle: r.handle }).catch(() => undefined);
@@ -996,7 +996,7 @@ export class Explorer {
       return {
         piece: -1,
         shape: result,
-        colour: shapeColour(snap?.shapes[i]?.colour ?? null, i),
+        color: shapeColor(snap?.shapes[i]?.color ?? null, i),
         mode: 'wire',
         transformation: 0,
         at: [0, 0, 0],
@@ -1090,7 +1090,7 @@ export class Explorer {
           pieces: items.map((it, i) => ({
             piece: it.piece,
             shape: it.shape,
-            colour: it.colour,
+            color: it.color,
             mode: it.mode,
             built: built[i] ?? null,
             // the result drawn around the pieces (piece -1) has none

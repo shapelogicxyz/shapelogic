@@ -8,7 +8,7 @@
 // reads it; solved with each sliding solver, counted and moved as `bt
 // --json`; played step by step on the engine's poses with the walls
 // drawn; the nested fixture with and without nested slides; what the
-// original greyed out hidden; the notices in message boxes; copies of a
+// original grayed out hidden; the notices in message boxes; copies of a
 // piece placed one by one; problems on one board, each with starts and
 // goals of its own, taken along when the board is edited; optimized paths
 // asked about before a solve, and the full search offered when they find
@@ -228,7 +228,7 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
     // a board is drawn with the ordinary tools, which say what its cells are
     await expect(page.locator('#trayRow')).toHaveCount(0);
     await expect(page.locator('#toolStrip [data-t="erase"]')).toHaveAttribute('title', /^Wall/);
-    // constraint colours as on every grid (the start marks are apart from
+    // constraint colors as on every grid (the start marks are apart from
     // them): none yet, so the shape's own color, with only the pencil
     await expect(page.locator('#cEdit')).toBeVisible();
     await expect(page.locator('#cAdd')).toBeVisible();
@@ -403,7 +403,7 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
       'false',
     );
     // and are placed as drawn: after Just Count, the orientation switch and
-    // under it the mirrored one, greyed until the first is on
+    // under it the mirrored one, grayed until the first is on
     const order = await page
       .locator('#slvOpts .switch[data-o]')
       .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.o));
@@ -527,7 +527,7 @@ test('the nested fixture with and without nested slides, as bt; partially nested
   }
 });
 
-test('notices in message boxes; what the original greyed out is not offered or is refused', async () => {
+test('notices in message boxes; what the original grayed out is not offered or is refused', async () => {
   test.setTimeout(120_000);
   const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
   const a = await launch();
@@ -549,7 +549,7 @@ test('notices in message boxes; what the original greyed out is not offered or i
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
     const s3 = await idOf(page, 'S2');
     await selectShape(page, s3);
-    // the file's lock colours were converted away: no colours, the Add button
+    // the file's lock colors were converted away: no colors, the Add button
     await expect(page.locator('#cAdd')).toBeVisible();
     await expect(page.locator('#colFoot .sw.c')).toHaveCount(0);
     // the tasks that add layers are offered
@@ -1393,7 +1393,7 @@ test('optimized paths: asked about before a solve, the full search offered when 
       engineCall(page, 'problem.get', { problem: p });
     expect(await found()).toMatchObject({ slideGrid: 0, solutions: 1 });
 
-    // cancelled, nothing is solved
+    // canceled, nothing is solved
     await runButton(page, 'start');
     await expect(ask).toBeVisible();
     await page.keyboard.press('Escape');
@@ -1483,7 +1483,7 @@ test('a search paused in v1.8.1: Continue asks first, Abort then Solve searches 
     expect(existsSync(saved)).toBe(true);
     expect(calls()).not.toContain('solve.continue');
     expect(calls()).not.toContain('solve.start');
-    // cancelled: the same
+    // canceled: the same
     await runButton(page, 'continue');
     await page.click('#fromStartAlone [data-x="cancel"]');
     await expect(ask).toHaveCount(0);

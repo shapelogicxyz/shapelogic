@@ -57,7 +57,7 @@ indices by voxel count ascending and drop Iorder[n-1], not "last max index".
 ### 3. Sparse pivots (Fortran SimpleRot CxVec / CyVec, Rmult=1)
 IMPLEMENTED in rebuildPivotCells.
 For in-plane bbox [umin,umax] x [vmin,vmax], emit:
-  voxel centres (2u, 2v), SW corners (2u-1, 2v-1),
+  voxel centers (2u, 2v), SW corners (2u-1, 2v-1),
   max-v edge (2u-1, 2*vmax+1), max-u edge (2*umax+1, 2v-1),
   far corner (2*umax+1, 2*vmax+1).
 Axis coordinate of the pivot is 2*amin (min axial coord of moving cells).
@@ -91,7 +91,7 @@ the way TrackCurr stores piece ids.
 
 ### 6. Nkeep = 100 successors per BFS node
 IMPLEMENTED in Disassembler::searchLevels (kCrowellMaxSuccessors) (Disassembler::kCrowellMaxSuccessors).
-After 100 *new* non-separation neighbours are seen, stop calling find()
+After 100 *new* non-separation neighbors are seen, stop calling find()
 for that node. Duplicates do not count. A separation still returns
 immediately if found before the cap.
 Fortran CheckAvailMoves Nkeep=100 is the total PossMoves slot count for

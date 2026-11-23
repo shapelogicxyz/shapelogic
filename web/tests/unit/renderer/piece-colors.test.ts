@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The default piece colours against the original: the values are
+// The default piece colors against the original: the values are
 // src/gui/piececolor.cpp's pieceColorRi/Gi/Bi(x) and (x, sub) and
 // contrastPieceColor, printed by a probe compiled against that file.
 
@@ -9,17 +9,17 @@ import { describe, expect, it } from 'vitest';
 import {
   bytes,
   contrast,
-  copyColour,
+  copyColor,
   dark,
   hex,
   light,
-  pieceColour,
+  pieceColor,
   pieceSubBytes,
-  pieceSubColour,
-  shapeColour,
-} from '../../../src/renderer/shell/piece-colours.ts';
+  pieceSubColor,
+  shapeColor,
+} from '../../../src/renderer/shell/piece-colors.ts';
 
-describe('piece colours', () => {
+describe('piece colors', () => {
   it('are the original table, then its sine formula', () => {
     const want: [number, [number, number, number]][] = [
       [0, [0, 0, 255]],
@@ -31,7 +31,7 @@ describe('piece colours', () => {
       [40, [162, 115, 25]],
     ];
     for (const [x, rgb] of want) {
-      expect(bytes(pieceColour(x)), `shape ${x}`).toEqual(rgb);
+      expect(bytes(pieceColor(x)), `shape ${x}`).toEqual(rgb);
     }
   });
 
@@ -53,37 +53,33 @@ describe('piece colours', () => {
     ];
     for (const [x, sub, rgb] of want) {
       expect(pieceSubBytes(x, sub), `shape ${x} copy ${sub}`).toEqual(rgb);
-      expect(pieceSubColour(x, sub)[0]).toBeCloseTo(rgb[0] / 255, 2);
+      expect(pieceSubColor(x, sub)[0]).toBeCloseTo(rgb[0] / 255, 2);
     }
   });
 
-  it('give the contrast colour, the checker shades and the own colour', () => {
-    expect(contrast(pieceColour(0))).toBe('#ffffff');
-    expect(contrast(pieceColour(1))).toBe('#000000');
-    expect(contrast(pieceColour(12))).toBe('#000000');
+  it('give the contrast color, the checker shades and the own color', () => {
+    expect(contrast(pieceColor(0))).toBe('#ffffff');
+    expect(contrast(pieceColor(1))).toBe('#000000');
+    expect(contrast(pieceColor(12))).toBe('#000000');
     expect(dark([1, 0.5, 0])).toEqual([0.9, 0.45, 0]);
     expect(light([0, 1, 0.5])[0]).toBeCloseTo(0.1);
     expect(light([0, 1, 0.5])[2]).toBeCloseTo(0.55);
-    expect(hex(shapeColour('#12ab34', 3))).toBe('#12ab34');
-    expect(hex(shapeColour(null, 2))).toBe('#ff0000');
+    expect(hex(shapeColor('#12ab34', 3))).toBe('#12ab34');
+    expect(hex(shapeColor(null, 2))).toBe('#ff0000');
   });
 
-  it("give a disc its palette colour, else the copy's (diskTint)", () => {
+  it("give a disc its palette color, else the copy's (diskTint)", () => {
     const palette = [
       { id: 'c1', rgb: '#ffdc5a' },
       { id: 'c2', rgb: '#aa1919' },
     ];
-    const disc = { colour: null, discColour: 'c2' };
-    expect(hex(copyColour(disc, 0, 0, palette))).toBe('#aa1919');
-    expect(hex(copyColour(disc, 0, 3, palette))).toBe('#aa1919');
-    const plain = { colour: '#12ab34', discColour: null };
-    expect(copyColour(plain, 4, 2, palette)).toEqual(
-      pieceSubColour(4, 2, shapeColour('#12ab34', 4)),
-    );
-    // a colour the palette no longer has: the copy's
-    expect(copyColour({ colour: null, discColour: 'c9' }, 7, 1, palette)).toEqual(
-      pieceSubColour(7, 1),
-    );
-    expect(copyColour(undefined, 7, 1, palette)).toEqual(pieceSubColour(7, 1));
+    const disc = { color: null, discColor: 'c2' };
+    expect(hex(copyColor(disc, 0, 0, palette))).toBe('#aa1919');
+    expect(hex(copyColor(disc, 0, 3, palette))).toBe('#aa1919');
+    const plain = { color: '#12ab34', discColor: null };
+    expect(copyColor(plain, 4, 2, palette)).toEqual(pieceSubColor(4, 2, shapeColor('#12ab34', 4)));
+    // a color the palette no longer has: the copy's
+    expect(copyColor({ color: null, discColor: 'c9' }, 7, 1, palette)).toEqual(pieceSubColor(7, 1));
+    expect(copyColor(undefined, 7, 1, palette)).toEqual(pieceSubColor(7, 1));
   });
 });

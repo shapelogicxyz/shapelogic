@@ -22,8 +22,8 @@ export interface LayerCell {
   /** Counter-clockwise, y up; absent on the sphere grid. */
   polygon?: P2[];
   /** Per edge (corner i to i + 1): the index of the cell across it, -1 for none. */
-  neighbours?: number[];
-  circle?: { centre: P2; radius: number };
+  neighbors?: number[];
+  circle?: { center: P2; radius: number };
 }
 
 /** A layer drawing: its size in drawing units, its cells and their index by cell. */
@@ -54,7 +54,7 @@ export function squareLayer(plane: Plane, size: Size, layer: number): LayerGeome
           [c + 1, r + 1],
           [c, r + 1],
         ],
-        neighbours: [at(c, r - 1), at(c + 1, r), at(c, r + 1), at(c - 1, r)],
+        neighbors: [at(c, r - 1), at(c + 1, r), at(c, r + 1), at(c - 1, r)],
       });
     }
   }
@@ -91,12 +91,12 @@ export class LayerGeometries {
         g.cells.map((c) => ({
           at: [c.at[0], c.at[1], c.at[2]],
           ...(c.polygon === undefined ? {} : { polygon: c.polygon.map((q): P2 => [q[0], q[1]]) }),
-          ...(c.neighbours === undefined ? {} : { neighbours: c.neighbours }),
+          ...(c.neighbors === undefined ? {} : { neighbors: c.neighbors }),
           ...(c.circle === undefined
             ? {}
             : {
                 circle: {
-                  centre: [c.circle.centre[0], c.circle.centre[1]] as P2,
+                  center: [c.circle.center[0], c.circle.center[1]] as P2,
                   radius: c.circle.radius,
                 },
               }),

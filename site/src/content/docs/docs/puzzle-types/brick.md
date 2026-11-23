@@ -27,7 +27,7 @@ start there for the full workflow. In short:
 - A **fixed** cell must be filled.
 - A **variable** cell may or may not be filled. Use variable cells to leave
   room in a result, or to mark parts of a piece that can be present or absent.
-- A piece or result can also be coloured, and **colour constraints** then
+- A piece or result can also be colored, and **color constraints** then
   limit which piece cells may sit on which result cells.
 
 ## Assembly and disassembly

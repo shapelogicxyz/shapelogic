@@ -55,8 +55,8 @@ button{font:inherit;color:inherit}
 .top{grid-column:1/3;display:flex;align-items:center;gap:2px;padding:0 10px 0 14px;background:var(--panel);border-bottom:1px solid var(--line);position:relative}
 .brand{font-weight:700;letter-spacing:.2px;margin-right:12px;display:flex;align-items:center;gap:10px;font-size:calc(22px + var(--fs))}
 .brand i{width:calc(20px + var(--fs));height:calc(20px + var(--fs));border-radius:6px;background:linear-gradient(135deg,var(--ax),var(--ay),var(--az));display:block}
-/* Top bar theme Colorful (data-topbar; Boring keeps the square beside the word): the axis colours, red, green and
-   blue, 20% washed out in the Light theme, 20% darker in the Dark (--bx, --by, --bz; --bmix), behind the word from the bar's left edge, the blue easing into the bar's colour hints after it; each tab in its colour */
+/* Top bar theme Colorful (data-topbar; Boring keeps the square beside the word): the axis colors, red, green and
+   blue, 20% washed out in the Light theme, 20% darker in the Dark (--bx, --by, --bz; --bmix), behind the word from the bar's left edge, the blue easing into the bar's color hints after it; each tab in its color */
 html[data-topbar=colorful] .brand{align-self:stretch;margin-left:-14px;padding:0 64px 0 16px;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.75),0 2px 4px rgba(0,0,0,.9),0 3px 10px rgba(0,0,0,.8),0 4px 18px rgba(0,0,0,.55);
   --bx:color-mix(in srgb,var(--ax) 80%,var(--bmix));--by:color-mix(in srgb,var(--ay) 80%,var(--bmix));--bz:color-mix(in srgb,var(--az) 80%,var(--bmix));
   background:linear-gradient(in oklab 90deg,var(--bx) 22%,var(--by) 40% 55%,var(--bz) 70% var(--bz0),color-mix(in srgb,var(--bz) var(--ba1),transparent) var(--bz1),
@@ -64,7 +64,7 @@ html[data-topbar=colorful] .brand{align-self:stretch;margin-left:-14px;padding:0
 /* the blue's tail: from where the word's gradient ends to nothing, so it runs into the patches below */
 html[data-topbar=colorful] .brand::after{content:"";position:absolute;left:100%;top:0;bottom:0;width:var(--bzt);pointer-events:none;
   background:linear-gradient(90deg,color-mix(in srgb,var(--bz) var(--ba3),transparent),color-mix(in srgb,var(--bz) var(--ta1),transparent) 45%,transparent)}
-/* ... and past it a hint of the same colours: faint soft patches over the bar */
+/* ... and past it a hint of the same colors: faint soft patches over the bar */
 /* --bz* where the blue's steps are, --ba* their strengths, --ta1 the tail's middle, --bzt its length; the Light
    theme's: brighter patches (--hint) and a tail 40px longer (a pale fade reads shorter than the Dark's) */
 html[data-topbar=colorful] .top{--hint:26%;--bmix:#fff;--bz0:calc(70% + 20px);--bz1:calc(81% + 18px);--bz2:calc(91% + 15px);--ba1:60%;--ba2:30%;--ba3:18%;--ta1:10%;--bzt:200px;background:
@@ -239,7 +239,7 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 .bigsw{width:40px;height:40px;border-radius:10px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line2);flex:none}
 .colmeta{min-width:78px}
 .colmeta small{display:block;color:var(--muted);font-size:calc(11px + var(--fs));text-transform:uppercase;letter-spacing:.4px;font-weight:600}
-/* the constraint colours, one row shown at a time (the 4px pad leaves room for the chosen ring) */
+/* the constraint colors, one row shown at a time (the 4px pad leaves room for the chosen ring) */
 .colrow{display:flex;align-items:center;gap:4px;margin-left:-4px}
 .palv{position:relative;flex:1;min-width:0;height:34px;overflow:hidden}
 .pal{display:flex;gap:8px 6px;flex-wrap:wrap;align-items:center;padding:4px}
@@ -266,7 +266,7 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 #pop hr{border:0;border-top:1px solid var(--line);margin:4px 0}
 #pop .ph{font-size:calc(11px + var(--fs));font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:4px 10px}
 #pop .kb{margin-left:auto;color:var(--muted);font-size:calc(11px + var(--fs))}
-/* the colour picker (shell/colour-picker.ts) */
+/* the color picker (shell/color-picker.ts) */
 .cpk{display:flex;flex-direction:column;gap:8px;padding:4px;width:200px}
 .cpk-sv{position:relative;height:130px;border-radius:6px;background-image:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,rgba(255,255,255,0));cursor:crosshair;touch-action:none}
 .cpk-knob{position:absolute;width:12px;height:12px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5);transform:translate(-50%,-50%);pointer-events:none}
@@ -310,7 +310,7 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .setrow>.step{flex:none}.setrow>.step .v{width:64px}
 .setrow .switch{margin:0;flex:none}
 /* a stacked slider (Search memory): the value over a taller slider, its tick marks under it set in by half the
-   18px thumb so each sits under the thumb's centre at its stop, the automatic stop's bold; the warning under them */
+   18px thumb so each sits under the thumb's center at its stop, the automatic stop's bold; the warning under them */
 .setrow .rangebox{width:260px;flex:none;display:flex;flex-direction:column}
 .rangebox>b{white-space:nowrap;margin-bottom:4px}
 .rangebox input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;margin:0;background:transparent;cursor:pointer}
@@ -1258,7 +1258,7 @@ html:is([data-density=compact],[data-density=minimal]) #boardList{max-height:cal
 .stl-dlg{display:grid;grid-template-columns:minmax(320px,380px) minmax(0,1fr);gap:16px;min-height:360px}
 .stl-side{min-width:0}
 .pick-h{font-weight:600;margin-top:4px}
-/* the two lists are six arrow buttons high, the four arrows centred with a button's space above and below */
+/* the two lists are six arrow buttons high, the four arrows centerd with a button's space above and below */
 .pick{--stlb:calc(28px + var(--fh));--stlg:4px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:4px 6px;align-items:start}
 .pick-cap{font-size:calc(12px + var(--fs));color:var(--muted)}
 .pick-cap-r{grid-column:3}
@@ -1297,7 +1297,7 @@ html:is([data-density=compact],[data-density=minimal]) #boardList{max-height:cal
 :root:is([data-font=medium],[data-font=large]) :is(.slv-run,.slv-adv) button{flex:1 1 auto;padding:0 6px}
 :root:is([data-font=medium],[data-font=large]) #pzLibHint{min-width:0;overflow:hidden;text-overflow:ellipsis}
 
-/* ---- the main tab bar at the top (Settings: Main tab bar location): the rail's buttons centred in the top bar ---- */
+/* ---- the main tab bar at the top (Settings: Main tab bar location): the rail's buttons centerd in the top bar ---- */
 html[data-tabs=top] #stage{--wrail:0px}
 html[data-tabs=top] .top{grid-row:1}
 html[data-tabs=top] .rail{grid-column:1/3;grid-row:1;justify-self:center;align-self:center;z-index:1;flex-direction:row;gap:6px;padding:0;background:transparent;border:0}

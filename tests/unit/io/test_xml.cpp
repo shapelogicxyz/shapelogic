@@ -151,7 +151,7 @@ TEST_CASE("xml parser: entities in content are resolved", "[io][xml]") {
   REQUIRE(pars.getText() == "a<b&c>d\"e'f");
 }
 
-TEST_CASE("xml parser: an empty element tag is recognised as such", "[io][xml]") {
+TEST_CASE("xml parser: an empty element tag is recognized as such", "[io][xml]") {
   XmlPullParser pars("<a><short/></a>");
   REQUIRE(pars.nextTag() == XmlPullParser::START_TAG);
   REQUIRE_FALSE(pars.isEmptyElementTag());
@@ -280,7 +280,7 @@ TEST_CASE("xml parser: an escaped '<' inside an attribute value still resolves",
   }
 }
 
-// ---- behaviour kept from the original (new cases) -----------------------------------
+// ---- behavior kept from the original (new cases) -----------------------------------
 
 TEST_CASE("xml parser: line ends, attribute newlines, comments and CDATA", "[io][xml]") {
   SECTION("\\r\\n and a lone \\r become \\n") {

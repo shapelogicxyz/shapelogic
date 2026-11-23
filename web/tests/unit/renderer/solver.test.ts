@@ -52,7 +52,7 @@ describe('the search options', () => {
       sortBy: 'level',
     });
     // an unknown solver type (the original's sliding one) or sort keeps the default
-    expect(readOptions({ solverType: 'deep', sortBy: 'colour' })).toMatchObject({
+    expect(readOptions({ solverType: 'deep', sortBy: 'color' })).toMatchObject({
       solver: 'classic',
       sortBy: 'moves',
     });
@@ -88,7 +88,7 @@ describe('the search options', () => {
     );
     expect(o).toMatchObject({
       completeRotations: true,
-      strictColours: true,
+      strictColors: true,
       disassemble: true,
       keepAtMost: 7,
       keepEach: 3,
@@ -139,7 +139,7 @@ describe('the search options', () => {
     const on = { ...DEFAULT_OPTIONS, disassemble: true, keepAssemblies: true };
     expect(normalize(on, null).disabled.has('keepAssemblies')).toBe(false);
     expect(solveOptions(on, DEFAULT_LIMITS).keepAssemblies).toBe(true);
-    // Assemble Only: greyed, its tick kept, not asked for
+    // Assemble Only: grayed, its tick kept, not asked for
     const off = normalize({ ...on, disassemble: false }, 'disassemble');
     expect(off.disabled.has('keepAssemblies')).toBe(true);
     expect(off.options.keepAssemblies).toBe(true);
@@ -271,7 +271,7 @@ describe('the poses', () => {
     // -b is +90° about z: half way is +45°
     expect(2 * Math.atan2(m[2], m[3])).toBeCloseTo(Math.PI / 4, 6);
     expect(slerp(a, b, 0)).toEqual(a);
-    // a quarter of the way: 22.5 degrees (a normalised straight line gives 21.6)
+    // a quarter of the way: 22.5 degrees (a normalized straight line gives 21.6)
     const r = slerp(a, b, 0.25);
     expect(2 * Math.atan2(r[2], r[3])).toBeCloseTo(Math.PI / 8, 6);
     expect(Math.hypot(...slerp(a, a, 0.3))).toBeCloseTo(1, 9);

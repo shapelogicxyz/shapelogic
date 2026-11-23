@@ -14,16 +14,16 @@ namespace bt {
 
 namespace {
 
-// Cell (x, y, z) turned by transformation `trans` about the centre of
-// cell (0, 0, 0): its centre moved by the matrix, then the cell there.
+// Cell (x, y, z) turned by transformation `trans` about the center of
+// cell (0, 0, 0): its center moved by the matrix, then the cell there.
 hex::HexCell turned(int x, int y, int z, unsigned int trans) {
   const auto& m = detail::hexagonalSymmetries().matrix(trans);
-  const double px = hex::centreX(x, y) - hex::centreX(0, 0);
-  const double py = hex::centreY(y) - hex::centreY(0);
-  const double pz = hex::centreZ(z) - hex::centreZ(0);
-  const double qx = m[0] * px + m[1] * py + m[2] * pz + hex::centreX(0, 0);
-  const double qy = m[3] * px + m[4] * py + m[5] * pz + hex::centreY(0);
-  const double qz = m[6] * px + m[7] * py + m[8] * pz + hex::centreZ(0);
+  const double px = hex::centerX(x, y) - hex::centerX(0, 0);
+  const double py = hex::centerY(y) - hex::centerY(0);
+  const double pz = hex::centerZ(z) - hex::centerZ(0);
+  const double qx = m[0] * px + m[1] * py + m[2] * pz + hex::centerX(0, 0);
+  const double qy = m[3] * px + m[4] * py + m[5] * pz + hex::centerY(0);
+  const double qz = m[6] * px + m[7] * py + m[8] * pz + hex::centerZ(0);
   return hex::cellAt(qx, qy, qz);
 }
 
@@ -85,7 +85,7 @@ bool VoxelHex::transform(unsigned int nr) {
   unsigned int nsy = asUnsigned(maxy - miny + 1);
   unsigned int nsz = asUnsigned(maxz - minz + 1);
 
-  // never make the space smaller than before; centre the shape in the old
+  // never make the space smaller than before; center the shape in the old
   // size instead
   if (nsx < sx_) {
     minx -= asInt((sx_ - nsx) / 2);
@@ -165,7 +165,7 @@ bool VoxelHex::getNeighbor(unsigned int idx, unsigned int typ, int x, int y, int
       return false;
     default:
       // a corner of a hexagonal prism is shared by cells that also share
-      // an edge with it: no corner-only neighbours
+      // an edge with it: no corner-only neighbors
       return false;
   }
 }

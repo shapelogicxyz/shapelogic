@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The size of a shape's space in mesh units, per grid: what the original's
-// view centred a shape on and framed (calculateSize of src/lib/voxel_0.cpp
+// view centerd a shape on and framed (calculateSize of src/lib/voxel_0.cpp
 // to voxel_4.cpp, the core's bt/mesh/grid_geometry.cpp). The engine's
 // meshes lie inside [0, extent]; the view needs the space's size, not the
 // cells', so a shape does not jump as cells are drawn. And the spacing of
 // the cells in mesh units (recalcSpaceCoordinates), which places a piece
 // of an assembly at its cell minus its hotspot (stage 4). Client tables,
-// as the plan allows the cube grid's neighbours: one-line formulas,
+// as the plan allows the cube grid's neighbors: one-line formulas,
 // checked against the engine's playback poses by an engine test.
 
 import type { Grid, Size } from '../../engine/api.generated.ts';
@@ -74,7 +74,7 @@ export function cellToMesh(
 }
 
 /**
- * Where a placed piece's mesh goes, in mesh units centred on the result
+ * Where a placed piece's mesh goes, in mesh units centerd on the result
  * (the poses' frame): an assembly puts the turned shape's hotspot on the
  * placement's cell (decision 0012, "Meshes in an orientation"), so the
  * mesh moves by the cell minus that hotspot, scaled; the assembled view,

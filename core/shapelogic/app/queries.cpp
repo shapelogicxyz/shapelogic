@@ -96,7 +96,7 @@ std::vector<ShapeInfo> shapeTable(const Puzzle& puzzle) {
     if (tab.getSpace(v, &idx, &trans, 0)) {
       r.identicalShape = idx;
     }
-    if (tab.getSpace(v, &idx, &trans, VoxelTable::kParColour) &&
+    if (tab.getSpace(v, &idx, &trans, VoxelTable::kParColor) &&
         trans < sym.getNumTransformations()) {
       r.identicalComplete = idx;
     }
@@ -116,7 +116,7 @@ std::vector<ShapeInfo> shapeTable(const Puzzle& puzzle) {
     rows.push_back(r);
 
     tab.addSpace(s, VoxelTable::kParMirror);
-    tab.addSpace(s, VoxelTable::kParMirror | VoxelTable::kParColour);
+    tab.addSpace(s, VoxelTable::kParMirror | VoxelTable::kParColor);
   }
   return rows;
 }

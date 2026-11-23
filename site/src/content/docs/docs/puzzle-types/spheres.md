@@ -15,7 +15,7 @@ market. This grid is good for pyramid and ball packing puzzles.
 This space grid has no disassembler. The solver finds every assembly, every
 way the pieces fill the result, but cannot check whether an assembly can be
 taken apart, or show how. The Solver workspace offers **Assemble Only**;
-**Assemble and Disassemble** is greyed out. The Solutions count stays empty
+**Assemble and Disassemble** is grayed out. The Solutions count stays empty
 and the assemblies are what you get.
 :::
 
@@ -23,7 +23,7 @@ and the assemblies are what you get.
 
 - **Transforms:** spheres rotate by ±90° about each axis, and the nudge buttons
   work layer by layer. Spheres cannot be scaled.
-- **Neighbours:** each ball touches 12 others.
+- **Neighbors:** each ball touches 12 others.
 
 ## Keep pieces connected
 
@@ -35,5 +35,5 @@ transformations. In a sphere grid, a piece with separated parts can have
 infinitely many symmetries, and only the ones that can occur in a connected
 piece are on the list. Some disconnected shapes happen to work, but there is no
 guarantee. A piece is *connected* when you can get from every ball to every
-other ball by stepping between neighbouring balls. If you want reliable
+other ball by stepping between neighboring balls. If you want reliable
 results, keep every piece, and the result, connected.

@@ -27,7 +27,7 @@ under [`--save`](#--save-solve-and-write-the-solved-file).
 - [Solving](#solving)
   - [What a solve does](#what-a-solve-does) · [Output](#output) · [The level text](#the-level-text)
   - [`-d`](#-d-solve-completely) · [`-q`](#-q-quiet) · [`-s`](#-s-print-the-assemblies) · [`-p`](#-p-print-the-moves) · [`-n`](#-n-no-newline) · [`-o`](#-o-choose-the-problem) · [`-r`](#-r-reduce-the-placements) · [`-t`](#-t-threads) · [`--progress`](#--progress)
-- [Brick puzzles](#brick-puzzles-1): [`--solver`](#--solver-complete-or-fast) · [`-R`](#-r-rotations) · [`-C`](#-c-strict-colours)
+- [Brick puzzles](#brick-puzzles-1): [`--solver`](#--solver-complete-or-fast) · [`-R`](#-r-rotations) · [`-C`](#-c-strict-colors)
 - [Sliding puzzles](#sliding-puzzles-1): [`--solver`](#--solver-one-solver) · [`--nested-slides`, `--partial-nested`](#--nested-slides-and---partial-nested) · [`--vertical-moves`](#--vertical-moves) · [`--optimized-paths`](#--optimized-paths) · [`--any-orientation`, `--mirrored-orientations`](#--any-orientation-and---mirrored-orientations) · [`--high-memory`](#--high-memory)
 - [Stacking puzzles](#stacking-puzzles-1): [`--solver`](#--solver-stacking-or-panex) · [Long Panex searches](#long-panex-searches-stop-and-carry-on)
 - [`--json`: machine-readable output](#--json-machine-readable-output)
@@ -153,7 +153,7 @@ The tool has four modes. Which one runs depends on the options:
 |---|---|
 | `-r` | Reduce the placements before solving. |
 | `-R` | Also try 90° piece rotations when taking apart. Implies `-d`. |
-| `-C` | Strict colour rules: a coloured cell fits only a result cell of the same colour. |
+| `-C` | Strict color rules: a colored cell fits only a result cell of the same color. |
 | `--solver` | `"Complete (ShapeLogic)"` (default, also `classic`) or `"Fast (Crowell)"` (also `crowell`). |
 
 ### Sliding puzzles
@@ -441,17 +441,17 @@ apart this way, so `-R` can find more solutions, at the cost of time. The
 example puzzle has 1 solution without `-R` and 2 with it. `-R` implies `-d`.
 The level text then shows the turns (see [the level text](#the-level-text)).
 
-### `-C`: strict colours
+### `-C`: strict colors
 
 ```sh
 shapelogic_cli -dC puzzle.xmpuzzle
 ```
 
-Colour rules in a puzzle limit which piece cells may sit on which result
-cells. By default a coloured piece cell also fits a neutral (uncoloured)
+Color rules in a puzzle limit which piece cells may sit on which result
+cells. By default a colored piece cell also fits a neutral (uncolored)
 result cell, and a neutral piece cell fits any result cell. With `-C`, a cell
-fits only a result cell of exactly the same colour: coloured on the same
-colour, neutral on neutral.
+fits only a result cell of exactly the same color: colored on the same
+color, neutral on neutral.
 
 ## Sliding puzzles
 
@@ -882,7 +882,7 @@ shape 3:
 - Each framed box is one **layer**, in Z order from left to right. Inside a
   box, X runs to the right and Y runs down.
 - **In shape drawings** a letter is the cell's value: `a` is a fixed cell, `b` a
-  variable cell, and later letters are cells with a colour. A space is empty.
+  variable cell, and later letters are cells with a color. A space is empty.
 - **In assembly and move drawings** each letter is one piece, `a` for the first
   piece placed, `b` for the second, and so on.
 - `bx`, `by` and `bz` are the shape's bounds: the first and last filled cell

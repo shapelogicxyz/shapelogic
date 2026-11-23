@@ -112,7 +112,7 @@ constexpr double kHalfThick = 0.5 - kBevelRemove;
 
 double pivotWorld(int doubled) { return doubled * 0.5 + 0.5; }
 
-// Cell (i, j, k) is [i, i+1] x [j, j+1] x [k, k+1]. A unit cube centred at
+// Cell (i, j, k) is [i, i+1] x [j, j+1] x [k, k+1]. A unit cube centerd at
 // C overlaps the cells from floor(C - 0.5) to floor(C + 0.5 - eps).
 void addOverlappedCells(double cx, double cy, double cz, CellSet& out) {
   const double eps = 1e-9;
@@ -132,7 +132,7 @@ void addOverlappedCells(double cx, double cy, double cz, CellSet& out) {
   }
 }
 
-// (u, v) turned by theta towards a +90 (sense 0) or -90 (sense 1) turn.
+// (u, v) turned by theta toward a +90 (sense 0) or -90 (sense 1) turn.
 void rotateInPlane(double u, double v, double theta, unsigned int sense, double* uOut,
                    double* vOut) {
   const double c = std::cos(theta);
@@ -146,7 +146,7 @@ void rotateInPlane(double u, double v, double theta, unsigned int sense, double*
   }
 }
 
-// A cell's centre, relative to the pivot, turned by theta.
+// A cell's center, relative to the pivot, turned by theta.
 void rotatedCenter(double dx, double dy, double dz, unsigned int axis, unsigned int sense,
                    double theta, double* ox, double* oy, double* oz) {
   if (axis == 0) {
@@ -252,7 +252,7 @@ void bevelCornersWorld(const Cell& cell, unsigned int axis, double ht, double ou
 }
 
 // One static cell as the arc sweep sees it: its layer along the axis, and
-// its bevelled square in the plane of the turn, centre and corners.
+// its bevelled square in the plane of the turn, center and corners.
 struct StaticSquare {
   int layer = 0;
   double cu = 0;
@@ -343,16 +343,16 @@ void rotatedCenterCS(double dx, double dy, double dz, unsigned int axis, unsigne
 
 // The largest wiggle half way: the third amount along a diagonal.
 const double kWiggleMax = 0.378680 * 1.4142135623730951 + 0.001;
-// Squares further apart than this, centre to centre, cannot touch (each
-// reaches kHalfThick * sqrt(2), about 0.65, from its centre); with room to
+// Squares further apart than this, center to center, cannot touch (each
+// reaches kHalfThick * sqrt(2), about 0.65, from its center); with room to
 // spare, so leaving them out never changes an answer.
 constexpr double kNear = 1.36;
 
-// One moving cell of a sweep: its bevelled square's corners and centre
+// One moving cell of a sweep: its bevelled square's corners and center
 // from the pivot, and the static squares it can come near at all.
 struct ArcMover {
   double corner[4][3];
-  double centre[3];
+  double center[3];
   std::size_t firstNear;
   std::size_t endNear;  // into ArcSweep::nearSquares
 };
@@ -440,7 +440,7 @@ bool bevelArcClearOne(ArcSweep& sweep, const Pivot& pivot, unsigned int axis, un
       double oz = 0;
       double mu = 0;
       double mv = 0;
-      rotatedCenterCS(m.centre[0], m.centre[1], m.centre[2], axis, sense, step.c, step.s, &ox, &oy,
+      rotatedCenterCS(m.center[0], m.center[1], m.center[2], axis, sense, step.c, step.s, &ox, &oy,
                       &oz);
       inPlaneFromWorld(pcx + ox, pcy + oy, pcz + oz, axis, &mu, &mv);
       mu += wu;
@@ -502,7 +502,7 @@ bool arcClear(ArcSweep& sweep, const std::vector<StaticSquare>& squares,
       continue;
     }
 
-    // the cell's centre turns on a circle about the pivot, wiggle aside: a
+    // the cell's center turns on a circle about the pivot, wiggle aside: a
     // static square can only come near when it lies about as far out
     double cu = 0;
     double cv = 0;
@@ -532,9 +532,9 @@ bool arcClear(ArcSweep& sweep, const std::vector<StaticSquare>& squares,
       m.corner[k][1] = corners[k][1] - pcy;
       m.corner[k][2] = corners[k][2] - pcz;
     }
-    m.centre[0] = cell.x + 0.5 - pcx;
-    m.centre[1] = cell.y + 0.5 - pcy;
-    m.centre[2] = cell.z + 0.5 - pcz;
+    m.center[0] = cell.x + 0.5 - pcx;
+    m.center[1] = cell.y + 0.5 - pcy;
+    m.center[2] = cell.z + 0.5 - pcz;
     sweep.movers.push_back(m);
   }
 
@@ -942,7 +942,7 @@ bool RotationRules::allowRotation(const std::vector<Cell>& occupied,
     return false;
   }
 
-  // opposite neighbours across layers that touch another piece
+  // opposite neighbors across layers that touch another piece
   if (!axisCrossClear(occ, startCells, Occupancy(startCells), pivot, axis)) {
     return false;
   }

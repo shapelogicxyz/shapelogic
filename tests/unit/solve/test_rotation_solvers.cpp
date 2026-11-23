@@ -593,7 +593,7 @@ TEST_CASE("movement analysator: completeFind and findMatching", "[solve][disasm]
 }
 
 // The turn generators hold a position's pieces in a 32-bit mask. The
-// original shifted past it on a position of 33 pieces (undefined behaviour,
+// original shifted past it on a position of 33 pieces (undefined behavior,
 // which the sanitizer build stops at) and would go through 2^32 groups at
 // 32; now a position of more than kMaxTurnPieces gets no turns, and the
 // parts it comes apart into get them again (stage 4 audit, finding 3).

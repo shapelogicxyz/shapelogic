@@ -51,11 +51,11 @@ Start Over), which is built.
 - The shapes list's rows are the disc list on a stacking puzzle: "size"
   with its field, + and − (1 to 100; another value is refused with the
   original's message and the size goes to 1), no weight; New makes a disc
-  of size 1; rename, duplicate, delete, reorder and the colour stay.
+  of size 1; rename, duplicate, delete, reorder and the color stay.
 - The Rods card in the voxel editor's place (`entities/rods-card.ts`): the
   rod sets with New, Delete (never the last), Copy, Label (a dialog, as
   `fl_input`), ← and →; the selected set's rules with the original's
-  labels, tooltips and bounds, greyed as `syncPanexFields` greyed them;
+  labels, tooltips and bounds, grayed as `syncPanexFields` grayed them;
   each change `stacking.setRules`; frozen while anything solves. The rod
   history is the document's undo.
 - The inspector and the voxel editor are hidden (`#stage.stk`); the view
@@ -68,13 +68,13 @@ Start Over), which is built.
   rod set chosen shows alone in the view (`cb_ProblemRod`).
 - The Stacks card in the selected piece's place: Start or Goal, the rod
   slider ("Rod: P" first with a pocket; the rod taken when let go), Stack
-  Order top first in the pieces' colours, ↑ ↓ +1 −1 All +1 Clear All as the
+  Order top first in the pieces' colors, ↑ ↓ +1 −1 All +1 Clear All as the
   `stacking.*` commands (a refusal's reason in the status bar, as the
   original's status line; +1 and All +1 work without a board to say why),
   the validity bar ("Valid" or "Invalid - reason").
 - "All pieces" lists the discs with their size: + or a double-click puts
   one on the rod chosen; + − Del act on the stack. "In this puzzle", the
-  fit summary, groups and colour rules are hidden; `problem.fit` is not
+  fit summary, groups and color rules are hidden; `problem.fit` is not
   asked on a stacking puzzle (`stacking.board` instead, read for the
   stacking edited and shown only once read for it).
 - The view draws the board with the stacking's discs (`view3d/board.ts`)
@@ -86,7 +86,7 @@ Start Over), which is built.
   one solver ("Stacking Solver" or "Panex Solver", `stackingSolverOf`,
   sent as `SolveOptions.stacking.solver`), Keep every n-th, Limit,
   Autosave (the search's own 20 minutes). No Prepare; Solve and Continue
-  greyed without a board or with invalid stacks, with the original's
+  grayed without a board or with invalid stacks, with the original's
   tooltip.
 - Solve with a saved search asks "This problem has … Continue it, or start
   over and discard it?" (Cancel, Continue, Start Over). Continue is on for
@@ -98,7 +98,7 @@ Start Over), which is built.
 - No 20-minute save point on a stacking puzzle (the search saves itself);
   File ▸ Save while its search runs pauses it, saves and carries it on.
   The paused export asks about the levels beyond 1 GB.
-- The player steps in transfers; the discs are placed by their centres
+- The player steps in transfers; the discs are placed by their centers
   around the board's middle, the pegs drawn around them; Analyse and the
   explorers are not offered (no take-apart, no assembler).
 
@@ -119,7 +119,7 @@ README, FRONTEND-PLAN.md, ARCHITECTURE.md and decision 0015's lines.
 - `tests/unit/renderer/stacking.test.ts` (13 cases): the stacking options,
   their rules and `SolveOptions.stacking`, the Activity lines, the board's
   boxes (pegs, base, Panex Vs, the pocket), its middle and the discs'
-  places, the disc sizes, the rod sets' text and greyed fields, the rod
+  places, the disc sizes, the rod sets' text and grayed fields, the rod
   slider with a pocket, the validity's words, the export's size, the
   folder settings refused; `host.test.ts`: the setup before `running`, a
   failed setup failing the start.
@@ -165,7 +165,7 @@ All run on the final tree (2026-10-11/12, M-series Mac):
 3. **Save while a stacking search runs pauses it** (it saves itself), then
    saves and carries it on; the original saved the file as it stood.
 4. **Prepare is not offered, Placements and Step are off** on stacking
-   puzzles (the engine refuses them; the original greyed some and answered
+   puzzles (the engine refuses them; the original grayed some and answered
    others with a message).
 5. **The rod slider takes the rod when it is let go**, not while dragged
    (each rod is a re-read of the stack list here).

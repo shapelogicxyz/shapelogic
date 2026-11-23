@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The default colours of the shapes, by shape number, and the varied
-// colours of a piece's copies. Ported from src/gui/piececolor.cpp of the
+// The default colors of the shapes, by shape number, and the varied
+// colors of a piece's copies. Ported from src/gui/piececolor.cpp of the
 // original (pieceColorR/G/B, pieceColorRi/Gi/Bi, the jitter of the
 // multi-pieces, darkPieceColor, lightPieceColor, contrastPieceColor) and
-// diskTint of src/gui/voxelframe.cpp. A shape with a colour of its own
-// (ShapeSummary.colour) uses that instead.
+// diskTint of src/gui/voxelframe.cpp. A shape with a color of its own
+// (ShapeSummary.color) uses that instead.
 
-/** A colour as three numbers from 0 to 1. */
+/** A color as three numbers from 0 to 1. */
 export type Rgb3 = readonly [number, number, number];
 
-// the table of the first 18 colours
+// the table of the first 18 colors
 const R = [0, 0, 1, 0, 1, 1, 0, 0, 0.6, 0, 0.6, 0.6, 0, 0.6, 0, 0.6, 1, 1];
 const G = [0, 1, 0, 1, 1, 0, 0, 0.6, 0, 0.6, 0.6, 0, 1, 1, 0.6, 0, 0.6, 0];
 const B = [1, 0, 0, 1, 0, 1, 0.6, 0, 0, 0.6, 0, 0.6, 0.6, 0, 1, 1, 0, 0.6];
@@ -35,8 +35,8 @@ const JB = [
 /** The original computed in single precision; so does this. */
 const f32 = Math.fround;
 
-/** The default colour of shape number `x` (from 0), as the original's pieceColorR/G/B. */
-export function pieceColour(x: number): Rgb3 {
+/** The default color of shape number `x` (from 0), as the original's pieceColorR/G/B. */
+export function pieceColor(x: number): Rgb3 {
   const r = R[x];
   const g = G[x];
   const b = B[x];
@@ -82,8 +82,8 @@ const ramp = (v: number): number => f32(0.5 + 0.5 * Math.abs(1 - 2 * v));
 // val + jitter * k * ramp(val), in the original's float and double steps
 const vary = (v: number, d: number, k: number): number => f32(v) + f32(d) * k * ramp(f32(v));
 
-/** The colour of copy `sub` of shape `x` (copy 0 is the shape's own), as pieceColorR/G/B(x, sub). */
-export function pieceSubColour(x: number, sub: number, base: Rgb3 = pieceColour(x)): Rgb3 {
+/** The color of copy `sub` of shape `x` (copy 0 is the shape's own), as pieceColorR/G/B(x, sub). */
+export function pieceSubColor(x: number, sub: number, base: Rgb3 = pieceColor(x)): Rgb3 {
   const j = jitter(base, sub);
   return [
     f32(vary(base[0], at(JR, j), 0.5)),
@@ -94,12 +94,12 @@ export function pieceSubColour(x: number, sub: number, base: Rgb3 = pieceColour(
 
 /**
  * The byte channels of copy `sub` of shape `x`, as pieceColorRi/Gi/Bi(x,
- * sub): truncated from the unrounded value (the chips' colours).
+ * sub): truncated from the unrounded value (the chips' colors).
  */
 export function pieceSubBytes(
   x: number,
   sub: number,
-  base: Rgb3 = pieceColour(x),
+  base: Rgb3 = pieceColor(x),
 ): [number, number, number] {
   const j = jitter(base, sub);
   return [
@@ -109,12 +109,12 @@ export function pieceSubBytes(
   ];
 }
 
-/** The darker colour faces are drawn in (darkPieceColor). */
+/** The darker color faces are drawn in (darkPieceColor). */
 export function dark(c: Rgb3): Rgb3 {
   return [c[0] * 0.9, c[1] * 0.9, c[2] * 0.9];
 }
 
-/** The lighter colour of the checker pattern (lightPieceColor). */
+/** The lighter color of the checker pattern (lightPieceColor). */
 export function light(c: Rgb3): Rgb3 {
   return [1 - 0.9 * (1 - c[0]), 1 - 0.9 * (1 - c[1]), 1 - 0.9 * (1 - c[2])];
 }
@@ -124,7 +124,7 @@ export function bytes(c: Rgb3): [number, number, number] {
   return [Math.trunc(c[0] * 255), Math.trunc(c[1] * 255), Math.trunc(c[2] * 255)];
 }
 
-/** `#rrggbb` of a colour. */
+/** `#rrggbb` of a color. */
 export function hex(c: Rgb3): string {
   return (
     '#' +
@@ -134,21 +134,21 @@ export function hex(c: Rgb3): string {
   );
 }
 
-/** A colour from `#rrggbb`. */
+/** A color from `#rrggbb`. */
 export function fromHex(h: string): Rgb3 {
   const n = Number.parseInt(h.slice(1), 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
-/** White or black, whichever reads on the colour (contrastPieceColor). */
+/** White or black, whichever reads on the color (contrastPieceColor). */
 export function contrast(c: Rgb3): '#ffffff' | '#000000' {
   const [r, g, b] = bytes(c);
   return 3 * r + 6 * g + b < 1275 ? '#ffffff' : '#000000';
 }
 
 // The boards (sliding start/goal shapes) lead the list but are no pieces:
-// they take no number of the default colours, so adding one leaves every
-// other shape's colour as it was.
+// they take no number of the default colors, so adding one leaves every
+// other shape's color as it was.
 let boardCount = 0;
 
 /** Sets how many boards lead the shapes list (the store does, at each snapshot). */
@@ -156,73 +156,73 @@ export function setBoardCount(n: number): void {
   boardCount = n;
 }
 
-/** A shape's colour: its own (`#rrggbb`), else the default of its number. */
-export function shapeColour(own: string | null, index: number): Rgb3 {
-  return own === null ? pieceColour(Math.max(0, index - boardCount)) : fromHex(own);
+/** A shape's color: its own (`#rrggbb`), else the default of its number. */
+export function shapeColor(own: string | null, index: number): Rgb3 {
+  return own === null ? pieceColor(Math.max(0, index - boardCount)) : fromHex(own);
 }
 
-// A sliding puzzle's start/goal shape (a tray) has no colour of its own
+// A sliding puzzle's start/goal shape (a tray) has no color of its own
 // until the user gives it one (the original's cb_ShapeColor did nothing
-// there): its cells show the pieces' colours. Its look meanwhile is one
-// colour for the list's swatch, the 3D view and the 2D editor's chequer:
+// there): its cells show the pieces' colors. Its look meanwhile is one
+// color for the list's swatch, the 3D view and the 2D editor's chequer:
 // the Sliding board color setting of the theme in use (the original's
-// slidingcolors.h had a fixed dark grey), so a board follows the theme.
+// slidingcolors.h had a fixed dark gray), so a board follows the theme.
 
 let boardDefault: Rgb3 = fromHex('#383838');
 
-/** Sets the colour of a board with none of its own (the theme's setting, #rrggbb). */
-export function setBoardColour(rgb: string): void {
+/** Sets the color of a board with none of its own (the theme's setting, #rrggbb). */
+export function setBoardColor(rgb: string): void {
   boardDefault = fromHex(rgb);
 }
 
-/** The colour of a board with none of its own. */
-export function boardColour(): Rgb3 {
+/** The color of a board with none of its own. */
+export function boardColor(): Rgb3 {
   return boardDefault;
 }
 
 /** A stacking puzzle's rod set chip (BlockList.cpp's RodSelector: 70, 110, 150). */
 export const ROD_CHIP = '#466e96';
 
-/** What a shape's colour depends on (a ShapeSummary). */
+/** What a shape's color depends on (a ShapeSummary). */
 export interface ShapeLike {
-  colour: string | null;
+  color: string | null;
   /** A sliding start/goal shape's number; null (or absent) for any other shape. */
   startGoal?: number | null;
 }
 
-/** A palette colour (a Colour of the snapshot). */
-export interface PaletteColour {
+/** A palette color (a Color of the snapshot). */
+export interface PaletteColor {
   id: string;
   rgb: string;
 }
 
 /**
- * The colour of copy `sub` of shape number `index` in a solution or on a
- * stacking board: a disc's palette colour when its cells carry one (the
+ * The color of copy `sub` of shape number `index` in a solution or on a
+ * stacking board: a disc's palette color when its cells carry one (the
  * original's diskTint, so a Panex tower's discs are shades the file
  * chose), else the copy's.
  */
-export function copyColour(
-  s: (ShapeLike & { discColour?: string | null }) | undefined,
+export function copyColor(
+  s: (ShapeLike & { discColor?: string | null }) | undefined,
   index: number,
   sub: number,
-  palette: readonly PaletteColour[],
+  palette: readonly PaletteColor[],
 ): Rgb3 {
-  const disc = s?.discColour ?? null;
+  const disc = s?.discColor ?? null;
   const rgb = disc === null ? undefined : palette.find((c) => c.id === disc)?.rgb;
   return rgb === undefined
-    ? pieceSubColour(index, sub, shapeColour(s?.colour ?? null, index))
+    ? pieceSubColor(index, sub, shapeColor(s?.color ?? null, index))
     : fromHex(rgb);
 }
 
-/** A shape's chip colour: a board's theme colour until it is given one, else its own or its number's. */
-export function chipColour(s: ShapeLike | undefined, index: number): Rgb3 {
-  return isTray(s) && s?.colour == null ? boardDefault : shapeColour(s?.colour ?? null, index);
+/** A shape's chip color: a board's theme color until it is given one, else its own or its number's. */
+export function chipColor(s: ShapeLike | undefined, index: number): Rgb3 {
+  return isTray(s) && s?.color == null ? boardDefault : shapeColor(s?.color ?? null, index);
 }
 
-/** A shape's colour in the 3D view: a board's theme colour until it is given one, else its own or its number's. */
-export function viewColour(s: ShapeLike | undefined, index: number): Rgb3 {
-  return isTray(s) && s?.colour == null ? boardDefault : shapeColour(s?.colour ?? null, index);
+/** A shape's color in the 3D view: a board's theme color until it is given one, else its own or its number's. */
+export function viewColor(s: ShapeLike | undefined, index: number): Rgb3 {
+  return isTray(s) && s?.color == null ? boardDefault : shapeColor(s?.color ?? null, index);
 }
 
 /** Whether a shape is a sliding start/goal shape. */

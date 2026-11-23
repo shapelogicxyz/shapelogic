@@ -6,7 +6,7 @@
 // shown's result and piece shapes below it), what to check
 // (assemblies, or assemblies and their disassembly, with Just Levels and
 // Check Rotations), the search options (stored with the problem, the
-// original's rules greying out what does not apply; Keep at most and Keep
+// original's rules graying out what does not apply; Keep at most and Keep
 // every n-th are not stored, as in the original), the run: Solve
 // (Continue in its place while a solve runs, is paused or has a saved
 // search; starting over is Abort, then Solve), Pause, Abort while a solve
@@ -17,16 +17,16 @@
 // wording and tooltips, `SVTIP`, `SVOPTSORT`) and its handlers in `svWire`;
 // the run's buttons and the option names are the original's
 // (mainwindow_layout.cpp) where the mockup had none: Solve, Pause, Abort,
-// Check Rotations, Strict Colours, the solver type. The original's
+// Check Rotations, Strict Colors, the solver type. The original's
 // Autosave box is not shown: the crash recovery journal in its place is
 // always on (autosave.ts). A sliding
 // puzzle (docs/webui-spec.md, section 8.3) shows the original's sliding
 // boxes and solvers instead (mainwindow_layout.cpp's tooltips,
 // mainwindow_help.cpp's solver help), "Find Solutions" for the second
-// mode, and Solve greyed while its start/goal shape is not valid
+// mode, and Solve grayed while its start/goal shape is not valid
 // (mainwindow.cpp's Solve tooltip). A stacking puzzle (section 9.3): Find
 // Solutions with Just Levels, Just count and the one solver of its board (syncSolverTypeMenu, mainwindow_help.cpp),
-// Solve and Continue greyed without a board or with invalid
+// Solve and Continue grayed without a board or with invalid
 // stacks ("Fix the puzzle on the Puzzle tab first"), Continue in Solve's
 // place for a saved search ("Carry on …").
 

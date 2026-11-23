@@ -246,10 +246,10 @@ TEST_CASE("puzzle: getColor and changeColor use the 0-based id addColor returned
   REQUIRE(p.getColor(green) == Rgb{0, 255, 0});
 }
 
-TEST_CASE("puzzle: removeColor takes a 1-based colour number and renumbers the ones above",
+TEST_CASE("puzzle: removeColor takes a 1-based color number and renumbers the ones above",
           "[model][puzzle][color]") {
   // addColor/getColor/changeColor use 0-based indices; removeColor, like
-  // cells and colour rules, the colour number (index + 1)
+  // cells and color rules, the color number (index + 1)
   Puzzle p;
   const unsigned int first = p.addColor(255, 0, 0);
   p.addColor(0, 255, 0);
@@ -261,11 +261,11 @@ TEST_CASE("puzzle: removeColor takes a 1-based colour number and renumbers the o
   REQUIRE(p.getColor(0) == Rgb{0, 255, 0});
   REQUIRE(p.getColor(1) == Rgb{0, 0, 255});
 
-  // colour 0 does not exist; the original erased at a wild offset
+  // color 0 does not exist; the original erased at a wild offset
   REQUIRE_THROWS_AS(p.removeColor(0), InternalError);
 }
 
-TEST_CASE("puzzle: removeColor updates cells and colour rules", "[model][puzzle][color]") {
+TEST_CASE("puzzle: removeColor updates cells and color rules", "[model][puzzle][color]") {
   Puzzle p;
   p.addColor(1, 1, 1);
   p.addColor(2, 2, 2);
@@ -289,7 +289,7 @@ TEST_CASE("puzzle: removeColor updates cells and colour rules", "[model][puzzle]
   CHECK(p.getShape(s).getColor(2) == 2);
   const Problem& after = p.getProblem(0);
   CHECK(after.placementAllowed(p, 2, 2));        // was 3 -> 3
-  CHECK_FALSE(after.placementAllowed(p, 1, 2));  // 1 -> 2 is gone with colour 2
+  CHECK_FALSE(after.placementAllowed(p, 1, 2));  // 1 -> 2 is gone with color 2
   CHECK(after.getColorConstraints().size() == 1);
 }
 
@@ -616,7 +616,7 @@ TEST_CASE("problem: sortSolutions(3) orders by the pieces used", "[model][proble
   REQUIRE(firstOutOfOrder(n, laterBelongsBefore) == n);
 }
 
-TEST_CASE("problem: strict colour placement requires an exact colour match",
+TEST_CASE("problem: strict color placement requires an exact color match",
           "[model][puzzle][color]") {
   Puzzle puzzle;
   puzzle.addShape(1, 1, 1);
@@ -765,7 +765,7 @@ TEST_CASE("problem: exchangeParts renumbers the pieces of the solutions",
   CHECK(after.getX(2) == before.getX(1));
   CHECK(pr.getSavedSolution(0).getDisassembly()->movesText() ==
         pelikan().getProblem(0).getSavedSolution(0).getDisassembly()->movesText());
-  // only neighbouring parts
+  // only neighboring parts
   REQUIRE_THROWS_AS(pr.exchangeParts(0, 2), InternalError);
 }
 

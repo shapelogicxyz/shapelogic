@@ -3,12 +3,12 @@
 // The status window (FRONTEND-PLAN.md, stage 5; webui-spec.md section 7):
 // a row per shape from the engine's shape.table: its cells (normal,
 // variable, total), the earlier shape it is identical to (mirrored, as a
-// shape, with its colours), its connectivity by faces, edges and corners,
+// shape, with its colors), its connectivity by faces, edges and corners,
 // its holes, on the cube grid whether it can be notched or milled, its
 // symmetry group; the shape's status line as the row's tooltip. Refresh,
 // Close, Remove selected (one undo step; refused while solving, and never
 // every shape), and the selections of the original (holes, identical
-// shapes, identical with colours, identical mirrored). Read again when a
+// shapes, identical with colors, identical mirrored). Read again when a
 // change names the shapes. Ported from src/gui/statuswindow.cpp (the
 // layout of its columns and its buttons); the mockup has no status window.
 
@@ -19,7 +19,7 @@ import type { Store } from '../state/store.ts';
 import { esc } from '../shell/dom.ts';
 import { openPanel } from '../shell/panel.ts';
 import type { Panel } from '../shell/panel.ts';
-import { contrast, hex, shapeColour } from '../shell/piece-colours.ts';
+import { contrast, hex, shapeColor } from '../shell/piece-colors.ts';
 import { flash, reportError } from '../shell/status.ts';
 
 export class StatusWindow {
@@ -39,7 +39,7 @@ export class StatusWindow {
       }
       if (
         c.kind === 'changed' &&
-        (c.change.what.includes('shapes') || c.change.what.includes('colours'))
+        (c.change.what.includes('shapes') || c.change.what.includes('colors'))
       ) {
         this.load();
       } else if (c.kind === 'document') {
@@ -141,15 +141,15 @@ export class StatusWindow {
         return '';
       }
       const i = this.store.indexOf(id);
-      const c = shapeColour(snap?.shapes[i]?.colour ?? null, i);
+      const c = shapeColor(snap?.shapes[i]?.color ?? null, i);
       return `<span class="chip" style="background:${hex(c)};color:${contrast(c)}">${esc(snap?.shapes[i]?.label ?? id)}</span>`;
     };
-    // a mark: X, or the shape's colour where the original coloured the box
-    const mark = (x: boolean, colourIt: boolean, i: number): string =>
+    // a mark: X, or the shape's color where the original colored the box
+    const mark = (x: boolean, colorIt: boolean, i: number): string =>
       x
         ? 'X'
-        : colourIt
-          ? `<i style="background:${hex(shapeColour(snap?.shapes[i]?.colour ?? null, i))}"></i>`
+        : colorIt
+          ? `<i style="background:${hex(shapeColor(snap?.shapes[i]?.color ?? null, i))}"></i>`
           : '';
     const head =
       `<tr><th rowspan="2"></th><th rowspan="2">Shape</th><th colspan="3">Units</th><th colspan="3">Identical</th><th colspan="3">Connectivity</th><th colspan="2">Holes</th>${cube ? '<th colspan="2">Tools</th>' : ''}<th rowspan="2">Sym</th></tr>` +
@@ -159,7 +159,7 @@ export class StatusWindow {
         const i = this.store.indexOf(r.shape);
         const s = snap?.shapes[i];
         const name = s === undefined ? r.shape : s.name === '' ? s.label : `${s.label} - ${s.name}`;
-        const c = shapeColour(s?.colour ?? null, i);
+        const c = shapeColor(s?.color ?? null, i);
         const holeMark = (x: boolean): string =>
           x ? `<span class="chip" style="background:${hex(c)};color:${contrast(c)}">X</span>` : '';
         return (

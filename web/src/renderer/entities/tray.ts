@@ -4,16 +4,16 @@
 // Start and goal card shows it (docs/webui-spec.md, section 8.2): what the
 // engine says it holds (`sliding.tray`: each cell's start and goal, each
 // copy placed, the validity bar's reason), read again at each revision
-// while a board is shown, the marks in the pieces' colours, the copies
-// for the view's two trays, the copies' names, the preview's colour, and
+// while a board is shown, the marks in the pieces' colors, the copies
+// for the view's two trays, the copies' names, the preview's color, and
 // the validity bar's words. From the original's grideditor.cpp (`drawStampPreview`'s
-// colours, the marks drawn in the piece's colour) and mainwindow_rods.cpp
-// (`refreshSlideValid`'s words and colours). DOM-free.
+// colors, the marks drawn in the piece's color) and mainwindow_rods.cpp
+// (`refreshSlideValid`'s words and colors). DOM-free.
 
 import type { Methods, ShapeSummary } from '../../engine/api.generated.ts';
 import type { EngineApi } from '../../engine/client-types.ts';
-import { shapeColour } from '../shell/piece-colours.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import { shapeColor } from '../shell/piece-colors.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import { key } from './editor-state.ts';
 
 /** What `sliding.tray` answers. */
@@ -34,17 +34,17 @@ export interface TrayName {
 /** What `sliding.preview` answers. */
 export type PreviewReply = Methods['sliding.preview']['result'];
 
-/** The piece outlined under the mouse: its cells [x, y, z] and the outline's colour. */
+/** The piece outlined under the mouse: its cells [x, y, z] and the outline's color. */
 export interface StampOutline {
   cells: [number, number, number][];
-  colour: string;
+  color: string;
 }
 
 /**
- * The outline's colour (drawStampPreview): orange where the piece already
+ * The outline's color (drawStampPreview): orange where the piece already
  * is (a click takes it off), green where it fits, red where it does not.
  */
-export function outlineColour(p: Pick<PreviewReply, 'fits' | 'there'>): string {
+export function outlineColor(p: Pick<PreviewReply, 'fits' | 'there'>): string {
   if (p.there) {
     return 'rgb(245,150,30)';
   }
@@ -59,8 +59,8 @@ export function validity(error: string | null): { text: string; valid: boolean }
 }
 
 /**
- * Each marked cell's piece colour, by cell key (the starts, or the goals):
- * the mark is the piece's number, drawn in its colour.
+ * Each marked cell's piece color, by cell key (the starts, or the goals):
+ * the mark is the piece's number, drawn in its color.
  */
 export function marksOf(
   t: TrayReply,
@@ -81,7 +81,7 @@ export function marksOf(
     const x = i % X;
     const y = Math.trunc(i / X) % Y;
     const z = Math.trunc(i / (X * Y));
-    out.set(key([x, y, z]), shapeColour(shapes[index]?.colour ?? null, index));
+    out.set(key([x, y, z]), shapeColor(shapes[index]?.color ?? null, index));
   });
   return out;
 }

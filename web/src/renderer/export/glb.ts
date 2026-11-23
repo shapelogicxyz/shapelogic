@@ -3,9 +3,9 @@
 // File ▸ Export ▸ Solution Animation (stage 7): a solution's disassembly
 // as a binary glTF (.glb) that any glTF viewer plays as the player does.
 // Ported from the original's src/lib/gltfexport.cpp (solutionAnimation:
-// the scene of a root node scaling cells to metres with one child per
+// the scene of a root node scaling cells to meters with one child per
 // placed piece, each piece one mesh in its assembly orientation in its
-// solution colour, linear in glTF's colours, metallic 0 and roughness
+// solution color, linear in glTF's colors, metallic 0 and roughness
 // 0.6, both sides; the keyframes of each channel thinned to those its
 // interpolation does not reproduce; translation always, rotation when the
 // piece turns, scale 0 or 1 as STEP when it is hidden at some time). The
@@ -36,13 +36,13 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 import type { MeshArrays, PoseArrays } from '../../engine/frames.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 
 /** The original's options (gltfexport.h's options_c) with their defaults. */
 export interface AnimationOptions {
   /** The time of one move or one 90 degree turn. */
   secondsPerStep: number;
-  /** The edge of a cell in metres (AR viewers show the puzzle this size). */
+  /** The edge of a cell in meters (AR viewers show the puzzle this size). */
   cellSize: number;
   /** The moves backwards after the disassembly, so a looping viewer goes apart and back. */
   reassemble: boolean;
@@ -60,10 +60,10 @@ export const ANIMATION_DEFAULTS: AnimationOptions = {
 /** Keyframes per step, as the original's samplesPerStep. */
 export const ANIMATION_SAMPLES = 8;
 
-/** A placed piece: its name, its colour (the 3D view's, 0 to 1) and its mesh. */
+/** A placed piece: its name, its color (the 3D view's, 0 to 1) and its mesh. */
 export interface AnimationPiece {
   name: string;
-  colour: Rgb3;
+  color: Rgb3;
   mesh: MeshArrays;
 }
 
@@ -74,7 +74,7 @@ export interface AnimationInput {
   pieces: readonly AnimationPiece[];
   /** playback.track's keyframes, the pieces in the same order. */
   track: PoseArrays;
-  /** The edge of a cell in metres. */
+  /** The edge of a cell in meters. */
   cellSize: number;
 }
 
@@ -182,7 +182,7 @@ function pick(values: ArrayLike<number>, comps: number, keys: readonly number[])
   return out;
 }
 
-/** The scene and its animation: a root node "Puzzle" scaled to metres, a node per piece. */
+/** The scene and its animation: a root node "Puzzle" scaled to meters, a node per piece. */
 export function animationScene(input: AnimationInput): { scene: Scene; clip: AnimationClip } {
   const { track, pieces } = input;
   const keys = track.at.length;
@@ -198,7 +198,7 @@ export function animationScene(input: AnimationInput): { scene: Scene; clip: Ani
   pieces.forEach((piece, i) => {
     const material = new MeshStandardMaterial({
       name: piece.name,
-      color: new Color().setRGB(piece.colour[0], piece.colour[1], piece.colour[2], SRGBColorSpace),
+      color: new Color().setRGB(piece.color[0], piece.color[1], piece.color[2], SRGBColorSpace),
       metalness: 0,
       roughness: 0.6,
       side: DoubleSide,

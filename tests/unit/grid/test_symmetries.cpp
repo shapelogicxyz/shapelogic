@@ -95,7 +95,7 @@ TEST_CASE("symmetries: transformation 0 is the identity", "[symmetry]") {
        guarantees `v` is untouched before this assertion even runs, so the
        assertion below is trivially true there by construction. It stays
        in the loop (rather than being skipped) so the case still documents
-       the actual, if trivial, per-grid behaviour instead of silently
+       the actual, if trivial, per-grid behavior instead of silently
        narrowing ALL_GRIDS down to three. */
     REQUIRE(copy->identicalInBB(*v));
   }
@@ -113,7 +113,7 @@ TEST_CASE("symmetries: transAdd composes transformations", "[symmetry]") {
        whenever the composed transformation exists.
 
        The fixture is built only from cells with (x+y+z) even, because the
-       spheres grid (GT_SPHERES) only has sphere centres on that half of a
+       spheres grid (GT_SPHERES) only has sphere centers on that half of a
        cubic lattice; the other cells are not valid sphere positions, and
        voxel_2_c::transform() silently drops filled cells that don't land on
        one (src/lib/voxel_2.cpp, the `if (((x+y+z) & 1) == 0)` guard around
@@ -220,7 +220,7 @@ TEST_CASE("symmetries: a shape is identical to its own rotations", "[symmetry]")
   }
 }
 
-TEST_CASE("symmetries: identicalWithRots is colour-sensitive", "[symmetry][color]") {
+TEST_CASE("symmetries: identicalWithRots is color-sensitive", "[symmetry][color]") {
   GridType gt(GridKind::Bricks);
 
   /* lopsidedSpiral has a trivial rotation stabiliser, including mirrors:
@@ -230,13 +230,13 @@ TEST_CASE("symmetries: identicalWithRots is colour-sensitive", "[symmetry][color
      thing that can flip the result below -- a coincidental geometric match
      at some other transform cannot smuggle a false positive/negative in. */
   std::unique_ptr<Voxel> original = lopsidedSpiral(gt);
-  std::unique_ptr<Voxel> recoloured = original->clone();
-  recoloured->setColor(0, 0, 0, 1);
+  std::unique_ptr<Voxel> recolored = original->clone();
+  recolored->setColor(0, 0, 0, 1);
 
   /* state (geometry) alone still matches, via transform 0 */
-  REQUIRE(original->identicalWithRots(*recoloured, false, false));
-  /* with colours included, no transform makes the two agree */
-  REQUIRE_FALSE(original->identicalWithRots(*recoloured, false, true));
+  REQUIRE(original->identicalWithRots(*recolored, false, false));
+  /* with colors included, no transform makes the two agree */
+  REQUIRE_FALSE(original->identicalWithRots(*recolored, false, true));
 }
 
 TEST_CASE("symmetries: a cube is symmetric under every transformation", "[symmetry]") {

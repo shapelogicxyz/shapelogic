@@ -227,7 +227,7 @@ TEST_CASE("movement checks: the hexagonal prism's, by hand", "[solve][disasm][mo
   const double across = distance(checks->directions[1]);
   for (std::size_t dir = 1; dir < 4; dir++) {
     INFO("direction " << dir);
-    // to a neighbour
+    // to a neighbor
     CHECK(std::abs(distance(checks->directions[dir]) - across) < 1e-4);
     const Offsets cells = asSet(checks->at(dir, 0));
     CHECK(cells.size() == 3);
@@ -238,15 +238,15 @@ TEST_CASE("movement checks: the hexagonal prism's, by hand", "[solve][disasm][mo
   }
   for (std::size_t dir = 4; dir < 7; dir++) {
     INFO("direction " << dir);
-    // to the next cell but one, between two neighbours
+    // to the next cell but one, between two neighbors
     CHECK(std::abs(distance(checks->directions[dir]) - across * std::sqrt(3.0)) < 1e-4);
     const Offsets cells = asSet(checks->at(dir, 0));
     CHECK(cells.contains(checks->directions[dir]));
-    unsigned int neighbours = 0;
+    unsigned int neighbors = 0;
     for (const std::array<int, 3>& c : cells) {
-      neighbours += std::abs(distance(c) - across) < 1e-4 ? 1 : 0;
+      neighbors += std::abs(distance(c) - across) < 1e-4 ? 1 : 0;
     }
-    CHECK(neighbours == 2);
+    CHECK(neighbors == 2);
   }
 }
 
@@ -497,24 +497,24 @@ void sameChecksAsV2(const V2Match& m, const V2Grid& v2) {
     return out;
   };
 
-  // the recording's unit in the mesh's, and where the centre of the cube
+  // the recording's unit in the mesh's, and where the center of the cube
   // at the origin is in the mesh
   const std::array<double, 3> side = w.vectorOf({m.cube, 0, 0});
   REQUIRE(side[0] > 0);
   REQUIRE(std::abs(side[1]) + std::abs(side[2]) < 1e-6);
   const double scale = side[0] / static_cast<double>(m.v2Cube);
-  std::array<double, 3> centre{};
+  std::array<double, 3> center{};
   const std::vector<mesh::CellAt> cube = cellsIn(0, m.cube);
   REQUIRE_FALSE(cube.empty());
   for (const mesh::CellAt& c : cube) {
     for (std::size_t a = 0; a < 3; a++) {
-      centre[a] += w.cell(c).centre[a] / static_cast<double>(cube.size());
+      center[a] += w.cell(c).center[a] / static_cast<double>(cube.size());
     }
   }
   const auto toMesh = [&](const Point& p) {
     std::array<double, 3> at{};
     for (std::size_t a = 0; a < 3; a++) {
-      at[a] = centre[a] + scale * (static_cast<double>(p[a]) - static_cast<double>(m.v2Cube) / 2);
+      at[a] = center[a] + scale * (static_cast<double>(p[a]) - static_cast<double>(m.v2Cube) / 2);
     }
     return at;
   };
@@ -523,7 +523,7 @@ void sameChecksAsV2(const V2Match& m, const V2Grid& v2) {
   const auto inside = [](const test::CellWorld::Placed& cell, const std::array<double, 3>& p) {
     double d2 = 0;
     for (std::size_t a = 0; a < 3; a++) {
-      d2 += (p[a] - cell.centre[a]) * (p[a] - cell.centre[a]);
+      d2 += (p[a] - cell.center[a]) * (p[a] - cell.center[a]);
     }
     if (d2 > cell.radius * cell.radius) {
       return false;
@@ -575,7 +575,7 @@ void sameChecksAsV2(const V2Match& m, const V2Grid& v2) {
       }
     }
     for (std::size_t a = 0; a < 3; a++) {
-      REQUIRE(std::abs(mean[a] - w.cell(c).centre[a]) < 1e-3);
+      REQUIRE(std::abs(mean[a] - w.cell(c).center[a]) < 1e-3);
     }
   }
 
@@ -682,7 +682,7 @@ void sameChecksAsV2(const V2Match& m, const V2Grid& v2) {
 }  // namespace
 
 // BurrTools V2 computes the same tables its own way (a shrunk cell's
-// Minkowski sum with the move against the neighbours, on its own grids
+// Minkowski sum with the move against the neighbors, on its own grids
 // read from Lua scripts): the one other answer there is for these grids.
 TEST_CASE("movement checks: the tetra-octa grid's are those BurrTools V2 computes",
           "[solve][disasm][movementchecks]") {

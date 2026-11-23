@@ -25,7 +25,7 @@ export interface Problem {
   name: string;
   result: string | null;
   parts: Part[];
-  colourRules: { piece: string; result: string }[];
+  colorRules: { piece: string; result: string }[];
   maxHoles: number | null;
 }
 
@@ -39,7 +39,7 @@ export function definition(p: Problem): unknown {
   return {
     result: p.result,
     parts: p.parts,
-    colourRules: [...p.colourRules].sort(
+    colorRules: [...p.colorRules].sort(
       (a, b) => a.piece.localeCompare(b.piece) || a.result.localeCompare(b.result),
     ),
     maxHoles: p.maxHoles,
@@ -193,7 +193,7 @@ export async function checkShown(page: Page): Promise<Problem> {
   }
   const shown = await page.locator('#pzSel').getAttribute('data-shape');
   const sel = shown === null || shown === '' ? null : shown;
-  // a sliding problem's result is a board when it is labelled B1, B2...
+  // a sliding problem's result is a board when it is labeled B1, B2...
   const board =
     p.result !== null &&
     (await page.locator('#stage.sld').count()) > 0 &&

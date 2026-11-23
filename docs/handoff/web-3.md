@@ -27,8 +27,8 @@ Each file names the mockup's functions it came from.
   stepper (`setPieceCount` with `counts.ts`'s `nextCount`), the range
   switch, set result, move a part (`movePart`; a drag of several places
   as one undo step: the moves inside `edit.begin`/`edit.end`), groups
-  (`setGroup`, `setGroupCount`, `deleteGroup`), colour rules
-  (`setColourRule`, `setColourRules`), add one of each, the bulk range,
+  (`setGroup`, `setGroupCount`, `deleteGroup`), color rules
+  (`setColorRule`, `setColorRules`), add one of each, the bulk range,
   remove all. The frozen state (decision 0011): the problems list while
   anything is solved (`Snapshot.solving`), a problem while it is solved or
   analysed (`ProblemSummary.solve` active, `analysing`; `#stage.pzfrozen`,
@@ -63,8 +63,8 @@ Each file names the mockup's functions it came from.
   between them; the exclusive group: None, G1…, + New, and for a piece of
   several copies the number in the group, `setGroupCount`); the groups
   with their members (each with its copies in the group) and delete;
-  the colour rules matrix over the puzzle's constraint colours with the
-  presets "Each colour on itself", "Allow all", "Clear".
+  the color rules matrix over the puzzle's constraint colors with the
+  presets "Each color on itself", "Allow all", "Clear".
 - `counts.ts` (the count as the chips write it, `nextCount`, the groups
   read off the parts, `solveActive` = the core's `isActive`),
   `layout.ts` (`puzLayout`, the scene's items and positions; `label`).
@@ -77,7 +77,7 @@ the shape last changed at, so a problem edit asks for no mesh), its
 geometry shared by every copy; the optional copies (above a part's
 minimum) faded, their nearest surface only (a depth pass first: blended
 on both sides through every bevel, 0.42 looked solid); each item turned
-about its own centre by the camera's orientation while the layout stays
+about its own center by the camera's orientation while the layout stays
 on the screen (`ViewRenderer.frameScene`: the mockup's scale, the eye
 2.5 layouts away); pan and zoom move the layout. The labels ("RESULT ·
 S1", "SELECTED · S3", "S3 · 1/2", "(optional)" on a line of its own) and
@@ -115,7 +115,7 @@ faded, from the three.js objects), `data-scene-meshes`,
   for is taken and given back by the engine; the groups as the UI reads
   them (a copy added later joins no group, so a group is set after the
   count; `setGroup` takes every copy; `setGroupCount`; `deleteGroup`); a
-  new problem allows each colour on itself; the kinds and `supported` of
+  new problem allows each color on itself; the kinds and `supported` of
   a sliding, a stacking and a brick fixture; every fixture's problems
   (more than 15) with a fit that agrees with their parts and a layout of
   their copies.
@@ -135,11 +135,11 @@ faded, from the three.js objects), `data-scene-meshes`,
   summary equals `problem.fit`, the status bar its `statusLine`, the
   scene one mesh per copy with exactly the optional ones faded. Each ends
   with `problem.get` equal to the fixture's (result, parts with min, max
-  and groups, colour rules, maxHoles) and a call log without a refusal
+  and groups, color rules, maxHoles) and a call log without a refusal
   (only the client's own `superseded` reads). The third test: the
-  problems list (empty message, new, rename, Esc cancelling, duplicate,
+  problems list (empty message, new, rename, Esc canceling, duplicate,
   new, a drag, delete; labels and names equal to `problem.list`), the
-  colour rules (a cell and the three presets, matrix and `problem.get`
+  color rules (a cell and the three presets, matrix and `problem.get`
   agreeing), a problem frozen by a solve started through the bridge
   (keys, buttons, menus, Change…, presets and + New refused with no edit
   sent, the controls disabled; another problem's pieces editable, the
@@ -168,7 +168,7 @@ viewport did not change; the scene's label layer is hidden outside the
 Puzzle workspace). The stage adds none: the Puzzle is checked against
 the engine, not pictures; this session's screenshots of CubeInCage,
 DemoPieceGenerator (the faded copies), Bermuda, the sliding fixture
-(the notice and a matrix of twelve colours) and the table were looked
+(the notice and a matrix of twelve colors) and the table were looked
 at.
 
 ## Where this stage departs from the plan, and why
@@ -195,9 +195,9 @@ at.
    `InstancedMesh` (the faces' shader has no instance matrix, and at most
    100 copies are drawn); the boxes come from each piece's bounding
    sphere (the same while it turns).
-6. **The colour rules have the constraint colours only** (the original's
-   constraints window; `problem.setColourRule` takes colours): the
-   mockup's "Default" row and column are gone, a cell without a colour
+6. **The color rules have the constraint colors only** (the original's
+   constraints window; `problem.setColorRule` takes colors): the
+   mockup's "Default" row and column are gone, a cell without a color
    fits any.
 7. **The fit summary's holes** are the engine's `holesMin`–`holesMax`
    (with the file's maximum when it sets one), where the mockup computed
@@ -244,7 +244,7 @@ at.
   result makes small pieces small; zoom helps.
 - The view still loads the Entities shape's mesh while the Puzzle is
   shown (as before; the e2e helpers wait on it after opening a file).
-- The colour matrix of a puzzle with many colours scrolls sideways (the
+- The color matrix of a puzzle with many colors scrolls sideways (the
   sliding fixture has twelve).
 - The hover box (dashed) is not covered by a test.
 - From stage 1b, still open: the one look beside the original GUI.

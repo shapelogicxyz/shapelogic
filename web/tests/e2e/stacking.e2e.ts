@@ -175,17 +175,17 @@ async function place(page: Page, label: string): Promise<void> {
   await expect(page.locator('#pzStacks')).toHaveAttribute('data-depth', String(depth + 1));
 }
 
-/** The board the Puzzle's view draws equals the engine's: each disc's centre at its cell. */
+/** The board the Puzzle's view draws equals the engine's: each disc's center at its cell. */
 async function expectBoardShown(page: Page, problem: string, goal: boolean): Promise<void> {
   const b = await engineCall<{
-    centre: [number, number, number];
+    center: [number, number, number];
     layout: { discs: { shape: string; size: number; at: [number, number, number] | null }[] };
   }>(page, 'stacking.board', { problem, goal });
   const want = b.layout.discs
     .filter((d) => d.at !== null)
     .map((d) => {
       const at = d.at ?? [0, 0, 0];
-      return [at[0] - d.size - b.centre[0], at[1] - d.size - b.centre[1], at[2] - b.centre[2]]
+      return [at[0] - d.size - b.center[0], at[1] - d.size - b.center[1], at[2] - b.center[2]]
         .map((v) => v.toFixed(4))
         .join(',');
     });
@@ -234,7 +234,7 @@ test('the Tower of Hanoi built from File ▸ New, saved as the fixture', async (
     await settled(page);
     await expect(page.locator('#shapeList .row').nth(1).locator('[data-dsize]')).toHaveValue('2');
 
-    // the rod set: R1, labelled, its rules the defaults (three rods that grow, size matters)
+    // the rod set: R1, labeled, its rules the defaults (three rods that grow, size matters)
     await page.click('#rodsPanel [data-rod]');
     await expect.poll(async () => Number(await attr(page, '#vp', 'data-board-boxes'))).toBe(1);
     await expect(page.locator('#vtag')).toContainText('R1');

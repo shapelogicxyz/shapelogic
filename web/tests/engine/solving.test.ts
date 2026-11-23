@@ -83,7 +83,7 @@ describe.skipIf(ENGINE === null)('solving', () => {
     const { p, d } = await dominoBox(s, 2, 4, 5);
     const one = { disassemble: true, keepAtMost: 5, threads: 1 };
     const other = (await c.call('problem.create')).problem;
-    const c1 = (await c.call('colour.add', { rgb: '#ff0000' })).colour;
+    const c1 = (await c.call('color.add', { rgb: '#ff0000' })).color;
     await fails(c.call('solve.abort', { problem: p }), 'invalid_state');
     let from = s.events.length;
     await c.call('solve.start', { problem: p, options: one });
@@ -100,7 +100,7 @@ describe.skipIf(ENGINE === null)('solving', () => {
     await fails(c.call('solve.start', { problem: p }), 'invalid_state');
     // and what goes on
     await c.call('document.setNotes', { text: 'while solving' });
-    await c.call('colour.edit', { colour: c1, rgb: '#00ff00' });
+    await c.call('color.edit', { color: c1, rgb: '#00ff00' });
     await c.call('problem.rename', { problem: other, name: 'not solving' });
     await c.call('shape.mesh', { shape: d });
     expect((await c.call('document.get')).solving).toBe(true);

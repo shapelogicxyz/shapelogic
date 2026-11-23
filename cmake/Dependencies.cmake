@@ -43,7 +43,7 @@ FetchContent_MakeAvailable(nlohmann_json)
 # rhombic and tetra-octa grids (core/shapelogic/mesh/mink_mesh.cpp, deferred part
 # 5). The original's release, built as the original builds it: a static
 # library without its 2D cross sections (which would pull in Clipper2), its
-# tests, bindings or parallel backend, and optimised in every preset (the
+# tests, bindings or parallel backend, and optimized in every preset (the
 # original builds it Release; it sets -ffp-contract=off on itself, so its
 # answers do not depend on the optimisation). Its headers are system
 # headers: our warnings stay off them.

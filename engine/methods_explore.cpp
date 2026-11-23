@@ -50,7 +50,7 @@ Reply exploreOpenAssembly(State& s, Params& p) {
   m.keepMirrors = p.optBoolean("keepMirrors", false);
   m.keepRotations = p.optBoolean("keepRotations", false);
   m.completeRotations = p.optBoolean("completeRotations", false);
-  m.strictColors = p.optBoolean("strictColours", false);
+  m.strictColors = p.optBoolean("strictColors", false);
   const bool reduce = p.optBoolean("reduce", true);
   BTE_CHECK(p.finish());
   BTE_TRY(app::AssemblyExplorer e, s.document().exploreAssembly(problem, solver, m, reduce));

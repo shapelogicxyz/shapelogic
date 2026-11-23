@@ -245,8 +245,8 @@ void toOrigin(Voxel& space, GridKind grid) {
   }
 }
 
-// "Centre" (task 25) of each grid.
-void centre(Voxel& space, GridKind grid) {
+// "Center" (task 25) of each grid.
+void center(Voxel& space, GridKind grid) {
   // an empty space stays
   if (space.boundX2() < space.boundX1()) {
     return;
@@ -421,7 +421,7 @@ constexpr ShapeTaskInfo kRotations[] = {
 
 constexpr ShapeTaskInfo kGrid[] = {
     {ShapeTask::Prune, "Grid", "Minimize size of grid", true},
-    {ShapeTask::Centre, "Grid", "Centre shape inside the grid", true},
+    {ShapeTask::Center, "Grid", "Center shape inside the grid", true},
     {ShapeTask::ToOrigin, "Grid", "Move shape to origin of grid", true},
 };
 
@@ -435,10 +435,10 @@ constexpr ShapeTaskInfo kScales[] = {
 constexpr ShapeTaskInfo kConstrain[] = {
     {ShapeTask::InsideFixed, "Constrain", "Make inside fixed", false},
     {ShapeTask::InsideVariable, "Constrain", "Make inside variable", false},
-    {ShapeTask::InsideDecolour, "Constrain", "Remove Colours from inside voxels", false},
+    {ShapeTask::InsideDecolor, "Constrain", "Remove Colors from inside voxels", false},
     {ShapeTask::OutsideFixed, "Constrain", "Make outside fixed", false},
     {ShapeTask::OutsideVariable, "Constrain", "Make outside variable", false},
-    {ShapeTask::OutsideDecolour, "Constrain", "Remove Colours from outside voxels", false},
+    {ShapeTask::OutsideDecolor, "Constrain", "Remove Colors from outside voxels", false},
 };
 
 constexpr ShapeTaskInfo kFillHoles = {
@@ -457,7 +457,7 @@ void append(std::vector<ShapeTaskInfo>& v, const C& c) {
   v.insert(v.end(), std::begin(c), std::end(c));
 }
 
-// The number of cells whose byte (state and colour) differs; the spaces
+// The number of cells whose byte (state and color) differs; the spaces
 // have the same size.
 unsigned int cellsDiffering(const Voxel& a, const Voxel& b) {
   unsigned int n = 0;
@@ -570,10 +570,10 @@ Result<TaskOutcome> applyTask(Voxel& v, ShapeTask task) {
       case ShapeTask::OutsideVariable:
         v.actionOnSpace(Voxel::Action::Variable, false);
         break;
-      case ShapeTask::InsideDecolour:
+      case ShapeTask::InsideDecolor:
         v.actionOnSpace(Voxel::Action::Decolor, true);
         break;
-      case ShapeTask::OutsideDecolour:
+      case ShapeTask::OutsideDecolor:
         v.actionOnSpace(Voxel::Action::Decolor, false);
         break;
       case ShapeTask::Double:
@@ -585,8 +585,8 @@ Result<TaskOutcome> applyTask(Voxel& v, ShapeTask task) {
       case ShapeTask::ToOrigin:
         toOrigin(v, grid);
         break;
-      case ShapeTask::Centre:
-        centre(v, grid);
+      case ShapeTask::Center:
+        center(v, grid);
         break;
       case ShapeTask::FillHoles:
         v.fillHoles(0);
@@ -634,7 +634,7 @@ void minimizeShapes(const std::vector<Voxel*>& shapes) {
   }
 }
 
-unsigned int applyCellTool(Voxel& v, CellTool tool, unsigned int colour, std::uint8_t symmetry,
+unsigned int applyCellTool(Voxel& v, CellTool tool, unsigned int color, std::uint8_t symmetry,
                            int x, int y, int z) {
   unsigned int changed = 0;
   if (symmetry == 0) {
@@ -656,56 +656,56 @@ unsigned int applyCellTool(Voxel& v, CellTool tool, unsigned int colour, std::ui
     if (tool != CellTool::Paint && v.getState(ux, uy, uz) != state) {
       cellChanged = true;
       v.setState(ux, uy, uz, state);
-      // an erased cell keeps no colour
+      // an erased cell keeps no color
       if (state == Voxel::kEmpty) {
         v.setColor(ux, uy, uz, 0);
       }
     }
-    if (v.getState(ux, uy, uz) != Voxel::kEmpty && v.getColor(ux, uy, uz) != colour) {
+    if (v.getState(ux, uy, uz) != Voxel::kEmpty && v.getColor(ux, uy, uz) != color) {
       cellChanged = true;
-      v.setColor(ux, uy, uz, colour);
+      v.setColor(ux, uy, uz, color);
     }
     return cellChanged ? 1 : 0;
   }
   // the mirror tools: both cells, the bit cleared
   if ((symmetry & kMirrorX) != 0) {
     const auto rest = static_cast<std::uint8_t>(symmetry & ~kMirrorX);
-    changed += applyCellTool(v, tool, colour, rest, x, y, z);
-    changed += applyCellTool(v, tool, colour, rest, asInt(v.getX()) - x - 1, y, z);
+    changed += applyCellTool(v, tool, color, rest, x, y, z);
+    changed += applyCellTool(v, tool, color, rest, asInt(v.getX()) - x - 1, y, z);
   } else if ((symmetry & kMirrorY) != 0) {
     const auto rest = static_cast<std::uint8_t>(symmetry & ~kMirrorY);
-    changed += applyCellTool(v, tool, colour, rest, x, y, z);
-    changed += applyCellTool(v, tool, colour, rest, x, asInt(v.getY()) - y - 1, z);
+    changed += applyCellTool(v, tool, color, rest, x, y, z);
+    changed += applyCellTool(v, tool, color, rest, x, asInt(v.getY()) - y - 1, z);
   } else if ((symmetry & kMirrorZ) != 0) {
     const auto rest = static_cast<std::uint8_t>(symmetry & ~kMirrorZ);
-    changed += applyCellTool(v, tool, colour, rest, x, y, z);
-    changed += applyCellTool(v, tool, colour, rest, x, y, asInt(v.getZ()) - z - 1);
+    changed += applyCellTool(v, tool, color, rest, x, y, z);
+    changed += applyCellTool(v, tool, color, rest, x, y, asInt(v.getZ()) - z - 1);
   } else {
     // the spans last: all three at once, each along its own row only
     if ((symmetry & kSpanX) != 0) {
       for (int xp = 0; xp < asInt(v.getX()); xp++) {
-        changed += applyCellTool(v, tool, colour, 0, xp, y, z);
+        changed += applyCellTool(v, tool, color, 0, xp, y, z);
       }
     }
     if ((symmetry & kSpanY) != 0) {
       for (int yp = 0; yp < asInt(v.getY()); yp++) {
-        changed += applyCellTool(v, tool, colour, 0, x, yp, z);
+        changed += applyCellTool(v, tool, color, 0, x, yp, z);
       }
     }
     if ((symmetry & kSpanZ) != 0) {
       for (int zp = 0; zp < asInt(v.getZ()); zp++) {
-        changed += applyCellTool(v, tool, colour, 0, x, y, zp);
+        changed += applyCellTool(v, tool, color, 0, x, y, zp);
       }
     }
   }
   return changed;
 }
 
-unsigned int editCells(Voxel& v, CellTool tool, unsigned int colour, std::uint8_t symmetry,
+unsigned int editCells(Voxel& v, CellTool tool, unsigned int color, std::uint8_t symmetry,
                        const std::vector<CellEdit>& cells) {
   unsigned int changed = 0;
   for (const CellEdit& c : cells) {
-    changed += applyCellTool(v, tool, colour, symmetry, c.x, c.y, c.z);
+    changed += applyCellTool(v, tool, color, symmetry, c.x, c.y, c.z);
   }
   if (changed > 0) {
     v.initHotspot();

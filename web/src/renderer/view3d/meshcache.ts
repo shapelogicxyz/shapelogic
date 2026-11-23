@@ -27,8 +27,8 @@ export class MeshCache {
   constructor(engine: EngineApi) {
     this.engine = engine;
     engine.on('document.changed', (p) => {
-      if (p.what.includes('shapes') || p.what.includes('colours')) {
-        this.drop(p.shapes.length === 0 || p.what.includes('colours') ? null : p.shapes);
+      if (p.what.includes('shapes') || p.what.includes('colors')) {
+        this.drop(p.shapes.length === 0 || p.what.includes('colors') ? null : p.shapes);
       }
     });
   }

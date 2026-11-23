@@ -3,7 +3,7 @@
 // The Apply image dialog (decision 0038): a picture from the computer for
 // a sliding puzzle's piece or board, laid over its bounding box, upright,
 // and drawn only on its filled cells. Crop cuts the picture to the box's
-// proportions, centred; Stretch squashes the whole picture into it. The
+// proportions, centerd; Stretch squashes the whole picture into it. The
 // preview draws the piece's cells with the picture as it will look. A
 // picture larger than MAX_SIDE pixels, or of a type the file cannot hold,
 // is shrunk or turned into a PNG or JPEG first, here, so the file stays
@@ -38,8 +38,8 @@ export interface ImageDialogOptions {
   board?: boolean;
   /** The piece's filled cells, [x, y, z]; only x and y count. */
   cells: readonly (readonly number[])[];
-  /** The colour of the piece's cells where the picture does not reach. */
-  colour: string;
+  /** The color of the piece's cells where the picture does not reach. */
+  color: string;
   /** The piece's picture now, decoded (null: none, or not loaded). */
   current: { image: ShapeImage; picture: PieceImage } | null;
   /** Apply: resolves true when the engine took it (the dialog then closes). */
@@ -94,7 +94,7 @@ export async function preparePicture(
 export function drawPreview(
   canvas: HTMLCanvasElement,
   cells: readonly (readonly number[])[],
-  colour: string,
+  color: string,
   picture: PieceImage | null,
   src: readonly number[],
 ): void {
@@ -126,7 +126,7 @@ export function drawPreview(
     g.rect(px, py, cs, cs);
   }
   g.clip();
-  g.fillStyle = colour;
+  g.fillStyle = color;
   g.fillRect(ox, oy, bw * cs, bh * cs);
   if (picture !== null) {
     const [sx = 0, sy = 0, sw = 1, sh = 1] = src;
@@ -235,7 +235,7 @@ export function openImageDialog(o: ImageDialogOptions): void {
   const canvas = q<HTMLCanvasElement>('preview');
   const redraw = (): void => {
     if (canvas !== null) {
-      drawPreview(canvas, o.cells, o.colour, picture(), src());
+      drawPreview(canvas, o.cells, o.color, picture(), src());
     }
   };
   const file = q<HTMLInputElement>('file');

@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // A stacking puzzle's board in the 3D view (docs/webui-spec.md, section
-// 9): the grey pegs, the base under them and, on Panex columns, the V
+// 9): the gray pegs, the base under them and, on Panex columns, the V
 // behind each column, from the engine's layout (stacking.board,
 // stacking.rodSetLayout); the discs placed on it where the layout says
-// their centres stand. From the original's voxelframe.cpp: `addPeg` (a
+// their centers stand. From the original's voxelframe.cpp: `addPeg` (a
 // column of cells at the rod's x, 0.55/0.55/0.58), `addRodBase` (a row of
 // cells one below the pegs, from the first rod to the last),
 // `addPanexV` (2·maxSize+1 wide, narrowing to the bottom, just behind the
 // largest disc, 0.42/0.42/0.46), `addStackBoard` and `showStacking` (a
-// disc's hotspot, its centre, on the layout's cell: `ensureHotspot`). The
-// board is drawn in cells (the stacking grid's mesh units) centred on the
+// disc's hotspot, its center, on the layout's cell: `ensureHotspot`). The
+// board is drawn in cells (the stacking grid's mesh units) centerd on the
 // board's middle, as the playback's poses are (the engine's
-// stackingCentre), and the view tilts it as the original's `tiltPlates`
+// stackingCenter), and the view tilts it as the original's `tiltPlates`
 // (renderer.ts: a disc lies flat, the rods stand up).
 
 import { BufferAttribute, BufferGeometry, Group, Mesh, Vector3 } from 'three';
@@ -20,7 +20,7 @@ import { BufferAttribute, BufferGeometry, Group, Mesh, Vector3 } from 'three';
 import type { BoardLayout, MeshStyle } from '../../engine/api.generated.ts';
 import { meshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import { faceMaterial, faceUniforms, setPiece } from './material.ts';
 import { buildMesh } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
@@ -30,17 +30,17 @@ import type { ScenePiece, ScenePose, SolutionLook } from './solution.ts';
 
 type V3 = [number, number, number];
 
-/** A box of the board, in cells: from `min` to `max`, in a colour. */
+/** A box of the board, in cells: from `min` to `max`, in a color. */
 export interface BoardBox {
   min: V3;
   max: V3;
-  colour: Rgb3;
+  color: Rgb3;
 }
 
-/** The pegs' and the base's grey (addPeg, addRodBase). */
-export const PEG_GREY: Rgb3 = [0.55, 0.55, 0.58];
+/** The pegs' and the base's gray (addPeg, addRodBase). */
+export const PEG_GRAY: Rgb3 = [0.55, 0.55, 0.58];
 /** The Panex columns' V (addPanexV). */
-export const PANEX_GREY: Rgb3 = [0.42, 0.42, 0.46];
+export const PANEX_GRAY: Rgb3 = [0.42, 0.42, 0.46];
 
 /**
  * The boxes of a board (addStackBoard): a peg per rod, the base under them
@@ -53,7 +53,7 @@ export function boardBoxes(lay: BoardLayout): BoardBox[] {
   for (let r = 0; r < n; r++) {
     const x = lay.rodX[r] ?? 0;
     const h = Math.max(1, lay.rodHeights[r] ?? lay.rodHeight);
-    boxes.push({ min: [x, 0, 0], max: [x + 1, 1, h], colour: PEG_GREY });
+    boxes.push({ min: [x, 0, 0], max: [x + 1, 1, h], color: PEG_GRAY });
     if (lay.panex && !(lay.pocket && r + 1 === lay.rodCount)) {
       // a disc of size s may sit s places below the top: about d wide at depth d
       const m = Math.max(1, lay.maxSize);
@@ -64,7 +64,7 @@ export function boardBoxes(lay: BoardLayout): BoardBox[] {
         boxes.push({
           min: [x - half, m + 1, z],
           max: [x + half + 1, m + 2, z + 1],
-          colour: PANEX_GREY,
+          color: PANEX_GRAY,
         });
       }
     }
@@ -72,16 +72,16 @@ export function boardBoxes(lay: BoardLayout): BoardBox[] {
   if (lay.rodX.length > 0) {
     const lo = Math.min(...lay.rodX);
     const hi = Math.max(...lay.rodX);
-    boxes.push({ min: [lo, 0, -1], max: [hi + 1, 1, 0], colour: PEG_GREY });
+    boxes.push({ min: [lo, 0, -1], max: [hi + 1, 1, 0], color: PEG_GRAY });
   }
   return boxes;
 }
 
 /**
  * The middle of a board, in cells: the playback's frame (the engine's
- * stackingCentre; stacking.board's centre), half the rods' height up.
+ * stackingCenter; stacking.board's center), half the rods' height up.
  */
-export function boardCentre(lay: BoardLayout): V3 {
+export function boardCenter(lay: BoardLayout): V3 {
   if (lay.rodX.length === 0) {
     return [0, 0, 0];
   }
@@ -98,12 +98,12 @@ export function boardExtent(lay: BoardLayout): V3 {
 }
 
 /**
- * Where a disc's mesh goes, in the board's frame: its centre (the disc's
+ * Where a disc's mesh goes, in the board's frame: its center (the disc's
  * hotspot, ensureHotspot: size, size, 0) on the layout's cell, minus the
  * board's middle.
  */
-export function discAt(at: readonly [number, number, number], size: number, centre: V3): V3 {
-  return [at[0] - size - centre[0], at[1] - size - centre[1], at[2] - centre[2]];
+export function discAt(at: readonly [number, number, number], size: number, center: V3): V3 {
+  return [at[0] - size - center[0], at[1] - size - center[1], at[2] - center[2]];
 }
 
 // the boxes as one geometry with the face material's attributes
@@ -132,7 +132,7 @@ function boxesGeometry(boxes: readonly BoardBox[]): BufferGeometry {
   g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
   g.setAttribute('normal', new BufferAttribute(new Float32Array(nrm), 3));
   g.setAttribute('aFlags', new BufferAttribute(new Float32Array(count), 1));
-  g.setAttribute('aColour', new BufferAttribute(new Float32Array(count), 1));
+  g.setAttribute('aColor', new BufferAttribute(new Float32Array(count), 1));
   g.setAttribute('aCell', new BufferAttribute(new Float32Array(count * 3), 3));
   return g;
 }
@@ -143,21 +143,21 @@ export class BoardScene {
   private meshes: Mesh[] = [];
   private lit = true;
 
-  /** Shows a board's boxes (null: none), centred on `centre`. */
-  set(lay: BoardLayout | null, centre: V3): void {
+  /** Shows a board's boxes (null: none), centerd on `center`. */
+  set(lay: BoardLayout | null, center: V3): void {
     this.clear();
     if (lay === null) {
       return;
     }
-    const byColour = new Map<string, BoardBox[]>();
+    const byColor = new Map<string, BoardBox[]>();
     for (const b of boardBoxes(lay)) {
-      const k = b.colour.join(',');
-      byColour.set(k, [...(byColour.get(k) ?? []), b]);
+      const k = b.color.join(',');
+      byColor.set(k, [...(byColor.get(k) ?? []), b]);
     }
-    for (const boxes of byColour.values()) {
+    for (const boxes of byColor.values()) {
       const u = faceUniforms();
-      // the material shows 0.9 of the piece colour on a face without the checker
-      const c = boxes[0]?.colour ?? PEG_GREY;
+      // the material shows 0.9 of the piece color on a face without the checker
+      const c = boxes[0]?.color ?? PEG_GRAY;
       setPiece(u, [c[0] / 0.9, c[1] / 0.9, c[2] / 0.9]);
       u.uChecker.value = 0;
       u.uLit.value = this.lit ? 1 : 0;
@@ -165,7 +165,7 @@ export class BoardScene {
       this.meshes.push(m);
       this.group.add(m);
     }
-    this.group.position.set(-centre[0], -centre[1], -centre[2]);
+    this.group.position.set(-center[0], -center[1], -center[2]);
   }
 
   /** Lit or not, as the view's pieces. */
@@ -179,7 +179,7 @@ export class BoardScene {
     }
   }
 
-  /** How many boxes' meshes are drawn (one per colour). */
+  /** How many boxes' meshes are drawn (one per color). */
   get meshCount(): number {
     return this.meshes.length;
   }
@@ -199,8 +199,8 @@ export interface BoardModel {
   /** Names what is shown (with the shapes' revisions it is drawn again when they change). */
   key: string;
   layout: BoardLayout;
-  /** The board's middle, in cells (stacking.board's centre, or boardCentre for a rod set alone). */
-  centre: V3;
+  /** The board's middle, in cells (stacking.board's center, or boardCenter for a rod set alone). */
+  center: V3;
   /** What the view's tag names (a rod set alone: "R1 - name"). */
   label?: string;
   /** The discs to place (a rod set alone and the player's board: none). */
@@ -208,7 +208,7 @@ export interface BoardModel {
     shape: string;
     size: number;
     at: readonly [number, number, number];
-    colour: Rgb3;
+    color: Rgb3;
   }[];
 }
 
@@ -335,7 +335,7 @@ export class BoardView {
       this.board.set(null, [0, 0, 0]);
       this.discs.set(null);
     } else {
-      this.board.set(model.layout, model.centre);
+      this.board.set(model.layout, model.center);
       const meshOf = new Map(meshes);
       const pieces: ScenePiece[] = [];
       const poses: ScenePose[] = [];
@@ -347,12 +347,12 @@ export class BoardView {
         pieces.push({
           piece: pieces.length,
           shape: d.shape,
-          colour: d.colour,
+          color: d.color,
           mode: 'solid',
           built: b,
         });
         poses.push({
-          t: discAt(d.at, d.size, model.centre),
+          t: discAt(d.at, d.size, model.center),
           q: [0, 0, 0, 1],
           visible: true,
           opacity: 1,
@@ -384,7 +384,7 @@ export class BoardView {
 
   /** A point of the board's frame (cells) in the view's root. */
   toRoot(p: V3): Vector3 {
-    const c = this.model?.centre ?? [0, 0, 0];
+    const c = this.model?.center ?? [0, 0, 0];
     return new Vector3(p[0] - c[0], p[1] - c[1], p[2] - c[2]);
   }
 }

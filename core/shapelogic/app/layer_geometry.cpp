@@ -3,7 +3,7 @@
 // getTriangle, getPolygon, the circles of grideditor_2, calcParameters)
 // and the shared edges of drawTileCursor / findCommonEdge. The corners are
 // worked out on an integer lattice per grid (half a cell where the
-// original took sx / 2), so that neighbouring cells share their corners
+// original took sx / 2), so that neighboring cells share their corners
 // exactly, and scaled to cell units at the end.
 #include "shapelogic/app/layer_geometry.h"
 
@@ -124,7 +124,7 @@ Corners tetraOctaCorners(int x, int y, int z) {
 }
 
 // The hexagonal grid: lattice x in half cells, y in sixths of a row's
-// height (sqrt(3)/6); the centre of cell (x, y) at (2x + 1 + y, 3y + 2),
+// height (sqrt(3)/6); the center of cell (x, y) at (2x + 1 + y, 3y + 2),
 // each row half a cell further right.
 Corners hexCorners(int x, int y) {
   const int cx = 2 * x + 1 + y;
@@ -231,10 +231,10 @@ LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
       Corners c;
       switch (grid) {
         case GridKind::Spheres:
-          // centred on its square (the original's circle sat 0.09 up and
+          // centerd on its square (the original's circle sat 0.09 up and
           // to the left of it, a rounding of the widget's pixels)
           cell.circle = true;
-          cell.centre = {x + 0.5, y + 0.5};
+          cell.center = {x + 0.5, y + 0.5};
           cell.radius = std::sqrt(0.5);
           break;
         case GridKind::TriangularPrism:
@@ -260,7 +260,7 @@ LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
       for (const Lattice& p : c) {
         cell.polygon.push_back({p.x * ux + p.xo * uo, p.y * uy + p.yo * uo});
       }
-      cell.neighbours.assign(c.size(), -1);
+      cell.neighbors.assign(c.size(), -1);
       corners.push_back(std::move(c));
       g.cells.push_back(std::move(cell));
     }
@@ -277,8 +277,8 @@ LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
       const auto [it, inserted] = edges.try_emplace(key, static_cast<int>(i), e);
       if (!inserted) {
         const auto [other, otherEdge] = it->second;
-        g.cells[i].neighbours[e] = other;
-        g.cells[asUnsigned(other)].neighbours[otherEdge] = static_cast<int>(i);
+        g.cells[i].neighbors[e] = other;
+        g.cells[asUnsigned(other)].neighbors[otherEdge] = static_cast<int>(i);
       }
     }
   }

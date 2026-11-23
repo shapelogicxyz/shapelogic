@@ -113,7 +113,7 @@ Engine::Engine(std::ostream& out, std::ostream& log)
   addEngineMethods(methods_);
   addDocumentMethods(methods_);
   addShapeMethods(methods_);
-  addColourMethods(methods_);
+  addColorMethods(methods_);
   addProblemMethods(methods_);
   addSolveMethods(methods_);
   addSolutionMethods(methods_);

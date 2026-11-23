@@ -493,7 +493,7 @@ in its place, copied back): each fails without its fix.
 
 ### Findings, by severity
 1. **The request filter was the only thing between a puzzle file and a
-   script from disk** (medium: defence in depth; no way to run script in
+   script from disk** (medium: defense in depth; no way to run script in
    the page was found). The page was loaded from `file://`, where the
    CSP's `'self'` matches every `file:` URL: an `<img
    src="file:///etc/hosts">` and a `<script src="file:///…/probe.js">`
@@ -688,7 +688,7 @@ CMakeLists.txt has it, from the audit's commit.
   defaults; `codesign --verify --deep --strict`, `spctl`, `stapler`, then
   the smoke test on the notarised app; on Windows with the certificate
   at hand, else unsigned with the SmartScreen note in the release notes.
-- **The artefacts**: `just web-dist` (arm64), `just build release-x64 &&
+- **The artifacts**: `just web-dist` (arm64), `just build release-x64 &&
   just web-dist --arch x64`, the Windows installer, the AppImage and
   `.deb`; their SHA-256 sums; a tag `v0.1.0` on the commit they were
   built from; release notes naming what this version does and does not

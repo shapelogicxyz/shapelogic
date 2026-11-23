@@ -73,7 +73,7 @@ function animationSource(solver: SolverWorkspace): AnimationSource | null {
   return {
     problem: p.problem,
     row: p.row,
-    colours: new Map(p.pieces.map((x) => [x.piece, x.colour])),
+    colors: new Map(p.pieces.map((x) => [x.piece, x.color])),
   };
 }
 

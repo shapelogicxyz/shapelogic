@@ -3,7 +3,7 @@
 // The Puzzle workspace put together (FRONTEND-PLAN.md, stage 3): the
 // problems list, the result, the pieces and the library, the fit summary
 // in the left card (problems.ts, pieces-card.ts); the selected piece, the
-// exclusive groups and the colour rules in the right (piece-card.ts); the
+// exclusive groups and the color rules in the right (piece-card.ts); the
 // pieces scene in the view (view3d/pieces.ts over layout.ts); the keys
 // (+, −, Del), the status bar (the original's line, FitStats.statusLine)
 // and the view's tag. The problem shown is read from the engine
@@ -42,10 +42,10 @@ import { byId, esc, forgetHtml } from '../shell/dom.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onLayout, tab } from '../shell/layout.ts';
 import { onTheme } from '../shell/theme.ts';
-import { chipColour, contrast, hex } from '../shell/piece-colours.ts';
+import { chipColor, contrast, hex } from '../shell/piece-colors.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
-import { copyColour, ROD_CHIP } from '../shell/piece-colours.ts';
-import { boardCentre } from '../view3d/board.ts';
+import { copyColor, ROD_CHIP } from '../shell/piece-colors.ts';
+import { boardCenter } from '../view3d/board.ts';
 import type { View3D } from '../view3d/view.ts';
 import { rodSetText } from '../state/stacking.ts';
 import { rodAt, stackValidity } from '../state/stacking.ts';
@@ -220,7 +220,7 @@ export class PuzzleWorkspace {
     return this.store.snapshot?.shapes.find((s) => s.id === shape)?.label ?? shape;
   }
 
-  /** A shape's chip colours. */
+  /** A shape's chip colors. */
   /** A problem's chip style, by its place in the list. */
   private probChip(p: ProblemSummary): string {
     return problemChipStyle(this.store.snapshot?.problems.findIndex((q) => q.id === p.id) ?? 0);
@@ -228,7 +228,7 @@ export class PuzzleWorkspace {
 
   chip(shape: string): { bg: string; fg: string } {
     const i = this.store.indexOf(shape);
-    const c = chipColour(this.store.snapshot?.shapes[i], i);
+    const c = chipColor(this.store.snapshot?.shapes[i], i);
     return { bg: hex(c), fg: contrast(c) };
   }
 
@@ -365,7 +365,7 @@ export class PuzzleWorkspace {
                 {
                   key: `rods:${other}:${String(this.shown)}`,
                   layout,
-                  centre: boardCentre(layout),
+                  center: boardCenter(layout),
                   discs: [],
                   ...(set === undefined ? {} : { label: rodSetText(set) }),
                 },
@@ -382,8 +382,8 @@ export class PuzzleWorkspace {
       return;
     }
     const layout = b?.layout ?? null;
-    const centre = b?.centre ?? null;
-    if (layout === null || centre === null) {
+    const center = b?.center ?? null;
+    if (layout === null || center === null) {
       this.view3d.setBoard(null, 'puzzle');
       return;
     }
@@ -397,16 +397,16 @@ export class PuzzleWorkspace {
           shape: x.shape,
           size: x.size,
           at: x.at,
-          colour: copyColour(snap.shapes[i], i, x.instance, snap.colours),
+          color: copyColor(snap.shapes[i], i, x.instance, snap.colors),
         },
       ];
     });
     this.view3d.setBoard(
       {
         // what is drawn, not when: a board read for Start or Goal may come at the same revision
-        key: `board:${d.id}:${String(layout.panex)}:${String(layout.pocket)}:${String(layout.maxSize)}:${layout.rodX.join(',')}:${layout.rodHeights.join(',')}:${discs.map((x) => `${x.shape}@${x.at.join(',')}:${hex(x.colour)}`).join(' ')}`,
+        key: `board:${d.id}:${String(layout.panex)}:${String(layout.pocket)}:${String(layout.maxSize)}:${layout.rodX.join(',')}:${layout.rodHeights.join(',')}:${discs.map((x) => `${x.shape}@${x.at.join(',')}:${hex(x.color)}`).join(' ')}`,
         layout,
-        centre,
+        center,
         discs,
       },
       'puzzle',
@@ -825,23 +825,23 @@ export class PuzzleWorkspace {
     );
   }
 
-  async setColourRule(pieceColour: string, resultColour: string, allowed: boolean): Promise<void> {
+  async setColorRule(pieceColor: string, resultColor: string, allowed: boolean): Promise<void> {
     const problem = this.current;
     if (problem === null || this.refuse()) {
       return;
     }
     await this.mutate('Color rule', () =>
-      this.engine.call('problem.setColourRule', { problem, pieceColour, resultColour, allowed }),
+      this.engine.call('problem.setColorRule', { problem, pieceColor, resultColor, allowed }),
     );
   }
 
-  async setColourRules(preset: 'eachOnItself' | 'allowAll' | 'clear'): Promise<void> {
+  async setColorRules(preset: 'eachOnItself' | 'allowAll' | 'clear'): Promise<void> {
     const problem = this.current;
     if (problem === null || this.refuse()) {
       return;
     }
     await this.mutate('Color rules', () =>
-      this.engine.call('problem.setColourRules', { problem, preset }),
+      this.engine.call('problem.setColorRules', { problem, preset }),
     );
   }
 

@@ -229,7 +229,7 @@ const btApp: BtApp = {
         'choose',
         useDefault,
       )) as CacheChoice | null) ?? {
-        status: 'cancelled',
+        status: 'canceled',
       }
     );
   },
@@ -281,8 +281,8 @@ const btApp: BtApp = {
   closeTaken() {
     ipcRenderer.send('bt:close', 'taken');
   },
-  closeCancelled() {
-    ipcRenderer.send('bt:close', 'cancelled');
+  closeCanceled() {
+    ipcRenderer.send('bt:close', 'canceled');
   },
 };
 

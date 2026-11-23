@@ -86,7 +86,7 @@ each direction's step from the cache.
 have `kCapDisassemble`. Everything that offers or refuses a take-apart
 asks the grid (`Disassembler::canDisassemble`): the CLI's `-d`, the solve
 session, the explorers, Analyse, `engine.info`, the Python module. So File
-▸ New's warning, the Solver's greyed "Assemble and Disassemble", Movements
+▸ New's warning, the Solver's grayed "Assemble and Disassemble", Movements
 and Analyse follow without code of their own.
 
 **What stays as it was.**

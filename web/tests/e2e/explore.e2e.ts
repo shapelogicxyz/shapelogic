@@ -64,7 +64,7 @@ async function attr(page: Page, sel: string, name: string): Promise<string> {
   return (await page.getAttribute(sel, name)) ?? '';
 }
 
-/** Where the engine says a piece goes: its turned mesh's hotspot on the cell, centred on the result. */
+/** Where the engine says a piece goes: its turned mesh's hotspot on the cell, centerd on the result. */
 async function expectedAt(
   page: Page,
   shape: string,
@@ -220,7 +220,7 @@ test('Bermuda: every placement listed and drawn, the assembler stepped, the debu
       keepMirrors: false,
       keepRotations: false,
       completeRotations: false,
-      strictColours: false,
+      strictColors: false,
     });
     // `finished` is the assembler's estimate: 0 at the start, it may dip
     // between steps, and it grows as the search goes on
@@ -422,8 +422,8 @@ test('Bermuda solved: the movement tree as the contract session grows it', async
             continue;
           }
           // where the piece is, if it is the one the mouse finds there
-          const centres = (await attr(page, '#vp', 'data-piece-screen')).split(' ');
-          const c = centres.find((x) => x.startsWith(`${String(q.piece)}:`));
+          const centers = (await attr(page, '#vp', 'data-piece-screen')).split(' ');
+          const c = centers.find((x) => x.startsWith(`${String(q.piece)}:`));
           const [x, y] = (c?.split(':')[1] ?? '').split(',').map(Number);
           if (x === undefined || y === undefined || Number.isNaN(x)) {
             continue;

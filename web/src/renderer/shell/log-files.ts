@@ -6,7 +6,7 @@
 // shows those alone; the search box keeps the lines with its text in them, any
 // case, as each letter is typed or deleted, the text marked where it is in
 // each line. Pretty (at the top right) shows the lines as a table: the
-// date, the time to the minute, the level in its colour, the source, the
+// date, the time to the minute, the level in its color, the source, the
 // event (`Solve continued`) and the rest; Raw shows them as the file has
 // them. Export… offers the last 100 lines or all of the log (the older,
 // compressed file's lines too), each with its size, and writes the one
@@ -305,7 +305,7 @@ class LogFilesView {
       const r = await this.app.exportLog(lines);
       if (r.ok) {
         flash(`Log exported to ${r.path}`, 5000);
-      } else if (!('cancelled' in r)) {
+      } else if (!('canceled' in r)) {
         this.error(`The log could not be exported: ${r.error}`);
       }
     } catch (e) {

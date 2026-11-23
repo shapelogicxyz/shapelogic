@@ -3,8 +3,8 @@
 // A sliding puzzle's start/goal shape (a board) in the Puzzle view
 // (docs/webui-spec.md, section 8.2): two trays side by side, START and
 // GOAL, each copy of a piece placed on one standing a layer above it in
-// its piece's colour. From the original's voxelframe.cpp `showSingleShape`
-// (the trays' grey, slidingColors::VIEW_GREY, a gap of 4 units between
+// its piece's color. From the original's voxelframe.cpp `showSingleShape`
+// (the trays' gray, slidingColors::VIEW_GRAY, a gap of 4 units between
 // them, the titles), which showed them in the Entities view. Both trays
 // and the pieces are drawn here, from the engine's meshes, moved to where
 // `sliding.tray` says the copies are.
@@ -15,7 +15,7 @@ import { meshArrays } from '../../engine/frames.ts';
 import type { MeshStyle } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { esc } from '../shell/dom.ts';
-import { boardColour, hex, viewColour } from '../shell/piece-colours.ts';
+import { boardColor, hex, viewColor } from '../shell/piece-colors.ts';
 import type { TrayCopy } from '../entities/tray.ts';
 import { buildMesh } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
@@ -111,8 +111,8 @@ export class TrayView {
     const gen = store.generation;
     const pieces = [...new Set([...model.starts, ...model.goals].map((c) => c.piece))];
     const shapes = [tray.id, ...pieces];
-    // (the board's colour with none of its own follows the theme)
-    const key = `${hex(boardColour())}:${String(gen)}:${style}:${shapes.map((s) => `${s}@${String(this.host.shapeRevision(s))}`).join(',')}:${JSON.stringify(model.starts)}:${JSON.stringify(model.goals)}`;
+    // (the board's color with none of its own follows the theme)
+    const key = `${hex(boardColor())}:${String(gen)}:${style}:${shapes.map((s) => `${s}@${String(this.host.shapeRevision(s))}`).join(',')}:${JSON.stringify(model.starts)}:${JSON.stringify(model.goals)}`;
     if (key === this.shownKey) {
       return;
     }
@@ -187,7 +187,7 @@ export class TrayView {
           pieces.push({
             piece,
             shape: trayId,
-            colour: viewColour(
+            color: viewColor(
               shapes.find((x) => x.id === trayId),
               0,
             ),
@@ -214,7 +214,7 @@ export class TrayView {
           pieces.push({
             piece: pieces.length,
             shape: id,
-            colour: viewColour(shapes[i], i),
+            color: viewColor(shapes[i], i),
             mode: 'solid',
             built: m.b,
           });

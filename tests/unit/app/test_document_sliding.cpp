@@ -2,7 +2,7 @@
 // Sliding puzzles through the document: start/goal shapes and stamps as
 // the original GUI made them (its New Start/Goal, the start/goal editor's
 // clicks), the problems the user makes on them, the shape commands that keep
-// the marks in step, the buttons it greyed out, the checks of its Solve, shapes
+// the marks in step, the buttons it grayed out, the checks of its Solve, shapes
 // of more than one layer, and a sliding solve played back. Every command is
 // checked to undo and redo byte for byte.
 #include "app_test_helpers.h"
@@ -93,7 +93,7 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
           "[app][sliding]") {
   // tests/data/puzzles/test_sliding_solver.xmpuzzle rebuilt as the GUI
   // would: a 4x5 start/goal shape, ten pieces stamped in the order the
-  // file's problem lists them, the 2x2 block's goal at the bottom centre
+  // file's problem lists them, the 2x2 block's goal at the bottom center
   Document d(GridKind::Sliding);
   const Id tray = roundTrip(d, [](Document& x) {
                     return x.addStartGoal({4, 5, 1});
@@ -151,11 +151,11 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
     CHECK(got.slideMarks().start(i) == want.slideMarks().start(i));
     CHECK(got.slideMarks().goal(i) == want.slideMarks().goal(i));
   }
-  // and the pieces carry no colours: the marks hold them to their starts
+  // and the pieces carry no colors: the marks hold them to their starts
   for (unsigned int s = 1; s < d.puzzle().getNumberOfShapes(); s++) {
     CHECK(sliding::pieceColor(d.puzzle(), s) == 0);
   }
-  CHECK(d.colourIds().empty());
+  CHECK(d.colorIds().empty());
 
   // solved through the document: one solution of 81 moves, which plays
   SolveOptions o;
@@ -438,7 +438,7 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
   }
 }
 
-TEST_CASE("sliding document: what the original greyed out is refused", "[app][sliding]") {
+TEST_CASE("sliding document: what the original grayed out is refused", "[app][sliding]") {
   Document d(GridKind::Sliding);
   const Id tray = board(d, {4, 3, 1});
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
@@ -472,16 +472,16 @@ TEST_CASE("sliding document: what the original greyed out is refused", "[app][sl
   // an unstamped piece's count can be set
   roundTrip(d, [=](Document& x) { return x.setPieceCount(p, free, 1, 2); });
 
-  // the colours are the user's, as on every grid (the original kept the
-  // start marks in them and hid the colour group): added, painted on a
+  // the colors are the user's, as on every grid (the original kept the
+  // start marks in them and hid the color group): added, painted on a
   // tray cell and deleted, the marks stay as they were
-  CHECK(d.colourIds().empty());
+  CHECK(d.colorIds().empty());
   const std::string before = marks(d, tray);
-  const Id red = roundTrip(d, [](Document& x) { return x.addColour(Rgb{255, 0, 0}); }).value();
+  const Id red = roundTrip(d, [](Document& x) { return x.addColor(Rgb{255, 0, 0}); }).value();
   roundTrip(d, [=](Document& x) { return x.editCells(tray, CellTool::Paint, red, 0, {{0, 0, 0}}); });
   CHECK(d.puzzle().getShape(index(d, tray)).getColor(0, 0, 0) == 1);
   CHECK(marks(d, tray) == before);
-  roundTrip(d, [=](Document& x) { return x.deleteColour(red); });
+  roundTrip(d, [=](Document& x) { return x.deleteColor(red); });
   CHECK(d.puzzle().getShape(index(d, tray)).getColor(0, 0, 0) == 0);
   CHECK(marks(d, tray) == before);
   CHECK(sliding::startGoalError(d.puzzle(), index(d, tray)).empty() ==
@@ -497,8 +497,8 @@ TEST_CASE("sliding document: the user makes the problems and chooses their board
   const Id c = piece(d, 1, 1, {{0, 0, 0}});
   REQUIRE(d.problemIds().empty());
 
-  // a new problem has no result, and the colour rules every grid starts
-  // with (none without colours); a piece is no result, a board is
+  // a new problem has no result, and the color rules every grid starts
+  // with (none without colors); a piece is no result, a board is
   const Id p = roundTrip(d, [](Document& x) { return x.createProblem(); }).value();
   CHECK_FALSE(d.puzzle().getProblem(0).resultValid());
   CHECK(d.puzzle().getProblem(0).getColorConstraints().empty());
@@ -808,7 +808,7 @@ TEST_CASE("sliding document: shapes may have layers, pieces keep plain names",
 
 TEST_CASE("sliding document: a piece moved past the 255th place loses its marks, not the puzzle",
           "[app][sliding]") {
-  // a mark is a byte (the original's was a cell's colour, six bits, and its
+  // a mark is a byte (the original's was a cell's color, six bits, and its
   // noteShapeSwap overran them when a stamped piece crossed into the 64th
   // place); here the marks come off at the 256th, with a notice, and the
   // puzzle stays whole
@@ -878,7 +878,7 @@ TEST_CASE("sliding document: Solve checks the start/goal shape and sets up the l
   REQUIRE(d.placeStamp(tray, a, 2, 0, 0, true).value());
 
   // the holes not set (an older file): set up by the solve, with the change
-  // told; the pieces need no colours
+  // told; the pieces need no colors
   Puzzle q = d.puzzle();
   q.getProblem(0).setMaxHoles(9);
   Result<Document> e = Document::openBytes(io::writePuzzle(q));

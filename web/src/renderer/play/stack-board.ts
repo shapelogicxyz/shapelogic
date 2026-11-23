@@ -420,12 +420,12 @@ export class StackBoard {
     }
   }
 
-  private up(e: PointerEvent, cancelled: boolean): void {
+  private up(e: PointerEvent, canceled: boolean): void {
     const d = this.drag;
     if (d?.pointer !== e.pointerId) {
       return;
     }
-    if (cancelled) {
+    if (canceled) {
       this.cancelDrag();
       return;
     }

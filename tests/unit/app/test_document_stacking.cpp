@@ -105,7 +105,7 @@ Document swapDocument(unsigned int n, const std::filesystem::path& folder) {
 
 TEST_CASE("stacking document: a stacking problem solves and plays", "[app][stacking]") {
   const Scratch work;
-  // a disc whose hotspot is elsewhere has it at its centre once solving
+  // a disc whose hotspot is elsewhere has it at its center once solving
   // starts, as the GUI's Solve put it (cb_BtnCont's ensureHotspot)
   Puzzle hanoi = test::loadFixture("test_stacking_hanoi.xmpuzzle");
   hanoi.getShape(0).setHotspot(0, 0, 0);
@@ -455,8 +455,8 @@ TEST_CASE("stacking document: discs are made and sized, not edited by cells",
   CHECK(d.history().undo.size() == steps);
   test::roundTrip(d, [s](Document& x) { return x.setDiscSize(s, 100); });
 
-  // the disc's colour is the shape's own colour
-  test::roundTrip(d, [s](Document& x) { return x.setShapeColour(s, 0x336699U); });
+  // the disc's color is the shape's own color
+  test::roundTrip(d, [s](Document& x) { return x.setShapeColor(s, 0x336699U); });
 
   // the cell editor and the tool tabs were hidden
   test::refused(d, Errc::InvalidArgument, [s](Document& x) {

@@ -173,7 +173,7 @@ class DisassemblerNode {
   [[nodiscard]] bool isRotationMove() const { return dir_ >= kRotationDirBase; }
 
   /// For a rotation move: the piece that turned (its index in this node) and
-  /// the pivot, in doubled cell units (a cell's centre is at 2x).
+  /// the pivot, in doubled cell units (a cell's center is at 2x).
   [[nodiscard]] unsigned int getRotPiece() const { return rotPiece_; }
   [[nodiscard]] int getRotPivotX() const { return rotPivotX_; }
   [[nodiscard]] int getRotPivotY() const { return rotPivotY_; }

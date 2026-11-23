@@ -37,7 +37,7 @@ starts and goals reports that problem alone as changed.
 
 **An edited board takes every problem's starts and goals along.** Before
 an edit of a board's cells (the cell tools, a resize, the shape tasks:
-nudge, rotate, mirror, minimise, scale), each marked cell is tagged
+nudge, rotate, mirror, minimize, scale), each marked cell is tagged
 through the voxel's mark bytes, which every voxel operation already
 carries; after it, the tags say where each cell went
 (`sliding::beginBoardEdit`, `readBoardTags`, `applyBoardEdit`). Per
@@ -72,7 +72,7 @@ kept (as decision 0021 chose).
 
 ## Consequences
 - The older model without start/goal shapes (a tray and a goal shape
-  painted in the pieces' colours) has no marks and is untouched.
+  painted in the pieces' colors) has no marks and is untouched.
 - A saved slide search's key names the problem's marks, so a search saved
   before this is not carried on.
 - `problem.duplicate` on a sliding puzzle gives a problem that can be

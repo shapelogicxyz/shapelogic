@@ -5,7 +5,7 @@
 /// Short names for the int <-> unsigned conversions the ported code is full
 /// of. The original relied on implicit conversions; the build warns on those
 /// (-Wsign-conversion), so ported code spells them out with these. They are
-/// plain static_casts: same bits, same behaviour as the implicit conversion.
+/// plain static_casts: same bits, same behavior as the implicit conversion.
 
 #include <cstddef>
 

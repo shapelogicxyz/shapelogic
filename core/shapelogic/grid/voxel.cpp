@@ -77,7 +77,7 @@ void Voxel::recalcBoundingBox() {
           bz2_ = std::max(bz2_, z);
           empty = false;
         } else {
-          space_[index] = 0;  // clear away colours that might be left
+          space_[index] = 0;  // clear away colors that might be left
           clearMarks(index);
         }
         index++;
@@ -317,7 +317,7 @@ void Voxel::translate(int dx, int dy, int dz, VoxelType filler) {
 }
 
 // Union find (https://en.wikipedia.org/wiki/Disjoint-set_data_structure):
-// one node per cell plus one for the outside; all neighbouring selected
+// one node per cell plus one for the outside; all neighboring selected
 // cells are merged. connected() then checks that all selected cells share a
 // tree; fillHoles() merges the non-filled cells and fills those not in the
 // outside's tree.
@@ -474,7 +474,7 @@ bool Voxel::hasGoalPieces() const {
   return std::any_of(goalPiece_.begin(), goalPiece_.end(), [](unsigned char c) { return c != 0; });
 }
 
-bool Voxel::neighbour(unsigned int p, VoxelType val) const {
+bool Voxel::neighbor(unsigned int p, VoxelType val) const {
   const unsigned int x = p % sx_;
   const unsigned int y = ((p - x) / sx_) % sy_;
   const unsigned int z = (((p - x) / sx_) - y) / sy_;

@@ -59,14 +59,14 @@ analysing.
    `solver/settings.ts`. That function maps the card's check boxes to the
    API's `SolveOptions`: `solver`, `disassemble`, `checkRotations`,
    `justCount`, `justLevels`, `keepMirrors`, `keepRotations`,
-   `completeRotations` (the card's Deep Symmetry Check), `strictColours`,
+   `completeRotations` (the card's Deep Symmetry Check), `strictColors`,
    `sortBy` (made `unsorted` when there is no disassembly to sort by),
    `keepAtMost` and `keepEach`. The thread count is left to the engine's
    settings.
 3. Sets `this.calling`, drops the selected solution and tells the player to
    show nothing (`player.show(null, null)`): a Solve throws the old
    solutions away, so nothing of them is read from now on. Re-renders the
-   card, which greys the buttons.
+   card, which grays the buttons.
 4. Calls the engine:
 
    ```ts
@@ -103,7 +103,7 @@ The `EngineHost` (`engine-host.ts`) owns this window's `EngineClient`
 and writes one line to the child process's stdin through `NodeTransport`:
 
 ```json
-{"jsonrpc":"2.0","id":12,"method":"solve.start","params":{"problem":"p1","options":{"solver":"classic","disassemble":false,"checkRotations":false,"justCount":false,"justLevels":false,"keepMirrors":false,"keepRotations":false,"completeRotations":false,"strictColours":true,"sortBy":"unsorted","keepAtMost":100,"keepEach":1}}}
+{"jsonrpc":"2.0","id":12,"method":"solve.start","params":{"problem":"p1","options":{"solver":"classic","disassemble":false,"checkRotations":false,"justCount":false,"justLevels":false,"keepMirrors":false,"keepRotations":false,"completeRotations":false,"strictColors":true,"sortBy":"unsorted","keepAtMost":100,"keepEach":1}}}
 ```
 
 ## 4. The engine runs the request
@@ -119,7 +119,7 @@ calls it: `solveStart` in `engine/methods_solve.cpp`.
 1. `p.id("problem", IdKind::Problem)` reads `p1`; `p.value("options")`
    takes the options; `p.finish()` refuses any unknown field.
 2. `solveOptionsFrom(s, given)` (`engine/convert.cpp`) turns the API's
-   names into the core's `bt::SolveOptions`: `strictColours` becomes
+   names into the core's `bt::SolveOptions`: `strictColors` becomes
    `matrix.strictColors`, `sortBy` becomes `order`, `keepAtMost` becomes
    `solutionLimit`, and `threads` starts from the engine's settings (the
    Settings dialog's worker threads).
@@ -238,8 +238,8 @@ Meanwhile, in the engine process, the run thread is in
      its symmetry group, `PlacementFinder` lists the positions where the
      piece fits inside the result; each becomes a row of the matrix, the
      columns being the pieces and the result's cells (variable cells may
-     stay empty, up to the problem's holes). With strict colours on, a
-     coloured cell only fits a result cell of the same colour. A piece that
+     stay empty, up to the problem's holes). With strict colors on, a
+     colored cell only fits a result cell of the same color. A piece that
      fits nowhere is an `AssemblerError`; the run then ends in `Error`
      with a `SolveFailure` carrying the original's message.
    - `a->reduce(runToken())`, unless `reduce` is off: placements that can
@@ -277,7 +277,7 @@ Meanwhile, in the engine process, the run thread is in
 4. Every assembly the search completes first goes through the
    `RotationFilter`: an assembly that is a rotation or mirror image of one
    already found is dropped unless Keep Rotated or Keep Mirror is on. The
-   rest are handed over **once and serialised** to the callback, so
+   rest are handed over **once and serialized** to the callback, so
    `onAssembly` is never running on two threads at the same time.
 
 ## 10. `onAssembly`: storing what was found

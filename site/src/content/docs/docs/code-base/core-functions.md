@@ -24,7 +24,7 @@ repository.
 | Concern | Where | Names |
 |---|---|---|
 | The kinds of grid | `grid/grid_type.h` | `GridKind`, `GridType` (capabilities, `getSymmetries()`, `makeVoxel()`) |
-| A shape's cells | `grid/voxel.h` | `Voxel`: cells with state and colour, bounding box, hotspot, `translate`, `resize`, `minimizePiece`, `fillHoles`, `scale`, connectivity; `warmCaches()` before threads read it |
+| A shape's cells | `grid/voxel.h` | `Voxel`: cells with state and color, bounding box, hotspot, `translate`, `resize`, `minimizePiece`, `fillHoles`, `scale`, connectivity; `warmCaches()` before threads read it |
 | One class per grid | `grid/voxel_bricks.h`, `voxel_prisms.h`, `voxel_spheres.h`, `voxel_rhombic.h`, `voxel_tetra_octa.h` | the original's `voxel_0` to `voxel_4` |
 | Rotations and symmetry groups | `grid/symmetries.h`, `symmetries_impl.h`, `symmetries_2.h` | `Symmetries` (`transAdd`, `minimizeTransformation`, `calculateSymmetry`); the tables in `tabs_0/`, `tabs_1/`, `tabs_2/` (`grid/TABLES.md` says where they come from) |
 | Finding a shape in any orientation | `grid/voxel_table.h` | `VoxelTable` |
@@ -33,8 +33,8 @@ repository.
 
 | Concern | Where | Names |
 |---|---|---|
-| A puzzle | `model/puzzle.h` | `Puzzle`: grid, shapes, colours, problems, comment, rod sets |
-| A problem | `model/problem.h` | `Problem`: parts (`Part`: shape, min, max, group), result, colour rules, holes, `ProblemState`, counts, the saved search position, pending assemblies, saved solutions, `solutionSortOrder()` |
+| A puzzle | `model/puzzle.h` | `Puzzle`: grid, shapes, colors, problems, comment, rod sets |
+| A problem | `model/problem.h` | `Problem`: parts (`Part`: shape, min, max, group), result, color rules, holes, `ProblemState`, counts, the saved search position, pending assemblies, saved solutions, `solutionSortOrder()` |
 | An assembly | `model/assembly.h` | `Assembly`, `Placement`, `transform`, `smallerRotationExists`, `createSpace` |
 | A take-apart's result | `model/disassembly.h` | `Disassembly` (levels and moves), `Separation` (the tree), `SeparationInfo`, `movesText()` |
 | A solution | `model/solution.h` | `Solution`: an assembly with an optional separation, its numbers and runtime id |
@@ -61,7 +61,7 @@ repository.
 | Cover with counts | `solve/assembler_1.h` | `Assembler1` (Wei-Hwa Huang's cover: piece ranges, holes), `SearchStacks` |
 | Piece placements | `solve/placement_finder.h` | `PlacementFinder`, the placements of a rotated piece in the result |
 | SIMD covers | `solve/simd_bitset.h`, `simd_exact_cover.h`, `simd_huang_cover.h` | AVX2, AVX-512 and NEON kernels behind runtime checks, `SimdKernels` |
-| One run | `solve/search_run.h`, `solve/resume_state.h` | `SearchRun` (own stop source, serialised hand-over), `TaskProgress`, `runTasks()`, `SplitSearchState` (the saved position of a split search) |
+| One run | `solve/search_run.h`, `solve/resume_state.h` | `SearchRun` (own stop source, serialized hand-over), `TaskProgress`, `runTasks()`, `SplitSearchState` (the saved position of a split search) |
 | Duplicate assemblies | `solve/rotation_filter.h` | `RotationFilter`: rotated and mirrored copies dropped |
 
 ## The take-apart (`solve/`)
@@ -99,7 +99,7 @@ session.
 
 | Concern | Where | Names |
 |---|---|---|
-| Drawing meshes | `mesh/voxel_mesh.h`, `mesh/draw_mesh.h`, `mesh/grid_geometry.h` and `grid_geometry_<n>.cpp` | the meshes the 3D view draws, per grid, with per-face flags, colours and cells |
+| Drawing meshes | `mesh/voxel_mesh.h`, `mesh/draw_mesh.h`, `mesh/grid_geometry.h` and `grid_geometry_<n>.cpp` | the meshes the 3D view draws, per grid, with per-face flags, colors and cells |
 | Polyhedra and modifiers | `mesh/polyhedron.h`, `mesh/modifiers.h`, `mesh/triangulate.h` | half-edge meshes, bevels, triangulation |
 | STL | `mesh/cube_mesh.h`, `mesh/mink_mesh.h`, `mesh/sphere_mesh.cpp`, `mesh/stl.h` | the cube grid's chamfer table, the Minkowski mesher on Manifold, the STL file as the original wrote it |
 

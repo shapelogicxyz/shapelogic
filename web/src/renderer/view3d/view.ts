@@ -29,7 +29,7 @@ import type { Store } from '../state/store.ts';
 import { byId, css, esc } from '../shell/dom.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { editorVisible, onLayout, tab, toggleFocus3d } from '../shell/layout.ts';
-import { chipColour, contrast, hex, ROD_CHIP, viewColour } from '../shell/piece-colours.ts';
+import { chipColor, contrast, hex, ROD_CHIP, viewColor } from '../shell/piece-colors.ts';
 import { onPieceImage, piecePicture } from '../shell/piece-images.ts';
 import type { PiecePicture } from '../shell/picture-math.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
@@ -152,7 +152,7 @@ export class View3D {
     layer: true,
     dim: false,
     persp: true,
-    colourView: false,
+    colorView: false,
     style: 'drawing',
     xray: false,
     pieceNames: true,
@@ -288,7 +288,7 @@ export class View3D {
     this.pieces = new PiecesScene(byId('pzScene'));
     this.pieces.group.visible = false;
     this.renderer.scene.add(this.pieces.group);
-    // centred on the result (the poses' frame), turned by the camera as the shape is
+    // centerd on the result (the poses' frame), turned by the camera as the shape is
     this.solution.group.visible = false;
     this.renderer.root.add(this.solution.group);
     this.renderer.onDraw(() => {
@@ -333,9 +333,9 @@ export class View3D {
           break;
         case 'changed': {
           const p = c.change;
-          if (p.what.includes('shapes') || p.what.includes('colours')) {
+          if (p.what.includes('shapes') || p.what.includes('colors')) {
             this.shapeRevision('');
-            if (p.shapes.length === 0 || p.what.includes('colours')) {
+            if (p.shapes.length === 0 || p.what.includes('colors')) {
               this.revBase = p.revision;
               this.shapeRev.clear();
             } else {
@@ -372,7 +372,9 @@ export class View3D {
         changed.includes('lights') ||
         changed.includes('pieceLabels') ||
         changed.includes('pieceNames') ||
-        changed.includes('labelChars')
+        changed.includes('labelCharsPerVoxel') ||
+        // the Solver's labels sit on the widest layer, counted up from the bottom
+        (changed.includes('zAxis') && tab === 'solver')
       ) {
         this.lookChanged();
       }
@@ -571,7 +573,7 @@ export class View3D {
     delta: readonly [number, number, number] = [0, 0, 0],
   ): { x: number; y: number; dx: number; dy: number } | null {
     this.renderer.frame(this.camera, this.solutionModel?.extent ?? [1, 1, 1]);
-    const c = this.solution.centreOf(piece);
+    const c = this.solution.centerOf(piece);
     if (c === null) {
       return null;
     }
@@ -711,7 +713,9 @@ export class View3D {
 
   private themeChanged(): void {
     this.renderer.setBackground(css('--canvas') || '#e4e8ef');
-    // a board with none of its own takes the theme's colour
+    // a sliding tray's walls stand out from the canvas
+    this.solution.setDark(isDarkTheme());
+    // a board with none of its own takes the theme's color
     this.trays.load();
     this.lookChanged();
   }
@@ -835,7 +839,7 @@ export class View3D {
           transformation: 0,
         });
         // the mesh's own box (the frame's lo and hi may be larger: a grid's
-        // cells need not fill it), so the piece is centred on what is drawn
+        // cells need not fill it), so the piece is centerd on what is drawn
         built.faces.computeBoundingBox();
         const bb = built.faces.boundingBox;
         const lo = bb === null || bb.isEmpty() ? reply.lo : bb.min.toArray();
@@ -854,7 +858,7 @@ export class View3D {
           number,
           number,
         ];
-        return [s, { built, centre: c, radius, half, key }];
+        return [s, { built, center: c, radius, half, key }];
       }),
     ).then(
       (list) => {
@@ -932,12 +936,12 @@ export class View3D {
     const snap = this.store.snapshot;
     return {
       style: this.display.style,
-      colourView: this.display.colourView,
+      colorView: this.display.colorView,
       lit: prefs.lights,
-      palette: snap?.colours.map((c) => c.rgb) ?? [],
-      colourOf: (shape) => {
+      palette: snap?.colors.map((c) => c.rgb) ?? [],
+      colorOf: (shape) => {
         const i = this.store.indexOf(shape);
-        return viewColour(snap?.shapes[i], i);
+        return viewColor(snap?.shapes[i], i);
       },
       pictureOf: (shape) => this.pictureOf(shape),
     };
@@ -965,7 +969,7 @@ export class View3D {
     this.showBoard();
     this.board.setLook({
       style: this.display.style,
-      colourView: false,
+      colorView: false,
       lit: prefs.lights,
       xray: false,
       palette: [],
@@ -974,15 +978,18 @@ export class View3D {
       const snap0 = this.store.snapshot;
       this.solution.setLook({
         style: this.display.style,
-        colourView: this.display.colourView,
+        colorView: this.display.colorView,
         lit: prefs.lights,
         xray: this.display.xray,
-        palette: snap0?.colours.map((c) => c.rgb) ?? [],
+        palette: snap0?.colors.map((c) => c.rgb) ?? [],
       });
       this.solution.setLabels({
         label: prefs.pieceLabels,
         name: prefs.pieceNames,
-        chars: prefs.labelChars,
+        chars: prefs.labelCharsPerVoxel,
+        // the scene's up in the home view: +Y with Z Toward; +Z with Z Up
+        // and on a stacking puzzle (upright)
+        up: this.stacking || prefs.zAxis === 'Z Up' ? 2 : 1,
       });
       this.renderTag();
     }
@@ -998,19 +1005,19 @@ export class View3D {
     this.renderer.perspective = this.display.persp;
     this.trays.setLook({
       style: this.display.style,
-      colourView: false,
+      colorView: false,
       lit: prefs.lights,
       xray: false,
       palette: [],
     });
     this.scene.setLook({
       style: this.display.style,
-      colourView: this.display.colourView,
+      colorView: this.display.colorView,
       lit: prefs.lights,
       xray: this.display.xray,
-      piece: viewColour(shape ?? undefined, index),
+      piece: viewColor(shape ?? undefined, index),
       picture: shape === null ? null : this.pictureOf(shape.id),
-      palette: snap?.colours.map((c) => c.rgb) ?? [],
+      palette: snap?.colors.map((c) => c.rgb) ?? [],
       dim: this.display.dim && ed ? { axis: layerAxis(this.plane), layer: this.layer } : null,
     });
     const showSlab = this.display.layer && ed && snap !== null && shape !== null && !solver;
@@ -1028,7 +1035,7 @@ export class View3D {
             this.scene.mesh?.arrays ?? null,
           )
         : null,
-      colours: {
+      colors: {
         ax: css('--ax') || '#e5484d',
         ay: css('--ay') || '#2fa85a',
         az: css('--az') || '#2f6df6',
@@ -1064,7 +1071,7 @@ export class View3D {
       tag.innerHTML = '';
       return;
     }
-    const c = chipColour(shape, this.store.indexOf(shape.id));
+    const c = chipColor(shape, this.store.indexOf(shape.id));
     tag.innerHTML = `<span class="chip" style="background:${hex(c)};color:${contrast(c)}">${esc(shape.label)}</span><span>${esc(shape.name)}</span>`;
   }
 
@@ -1165,7 +1172,7 @@ export class View3D {
       const w = r.width;
       const h = r.height;
       this.trays.setResolution(w, h);
-      // the trays move as the model would: centred on what they fill
+      // the trays move as the model would: centerd on what they fill
       const cam = this.camera;
       r.frame({ q: cam.q, zoom: cam.zoom, px: cam.px, py: cam.py + dy }, extent, sc);
       this.trays.group.position.copy(r.model.position);
@@ -1196,7 +1203,7 @@ export class View3D {
     });
     this.trays.group.visible = true;
     // the trays over the whole view: their size at the home view fills their
-    // space, their centre at its centre
+    // space, their center at its center
     const [fw, fh] = homeFootprint(extent, this.camera.fromAngles(HOME));
     const sc =
       Math.min((r.width * TRAY_FILL) / fw, ((top - y0) * TRAY_FILL) / fh) * this.camera.zoom;
@@ -1296,7 +1303,7 @@ export class View3D {
     );
   }
 
-  // a point of the canvas in normalised device coordinates, the shape framed
+  // a point of the canvas in normalized device coordinates, the shape framed
   private ndcAt(clientX: number, clientY: number): Vector2 {
     const r = this.canvas.getBoundingClientRect();
     this.renderer.frame(this.camera, this.extent);

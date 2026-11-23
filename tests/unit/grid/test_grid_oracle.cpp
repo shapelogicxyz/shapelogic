@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The grid tables rebuilt from geometry (docs/V2-IDEAS-PLAN.md, idea 2):
-// the hand-written neighbour tables of every grid against what the cells'
+// the hand-written neighbor tables of every grid against what the cells'
 // face polygons say, the transformations against the cells' geometry, and
 // the generated symmetry tables against the group they describe.
 // BurrTools V2 derives all of this at start-up from each grid's polyhedra
@@ -91,7 +91,7 @@ CellPolyhedron polyhedronOf(const Voxel& v, const CellAt& c) {
   return *p;
 }
 
-// The neighbours of a kind that getNeighbor lists.
+// The neighbors of a kind that getNeighbor lists.
 std::vector<CellAt> listed(const Voxel& v, const CellAt& c, unsigned int typ) {
   std::vector<CellAt> out;
   int xn = 0;
@@ -104,8 +104,8 @@ std::vector<CellAt> listed(const Voxel& v, const CellAt& c, unsigned int typ) {
 }
 
 // The grids whose cells are polyhedra with corners shared with their
-// neighbours. The sphere grid's "faces" are those of the rhombic
-// dodecahedron around each ball: they still tell the face neighbours.
+// neighbors. The sphere grid's "faces" are those of the rhombic
+// dodecahedron around each ball: they still tell the face neighbors.
 constexpr GridKind kPolyGrids[] = {GridKind::Bricks,    GridKind::TriangularPrism,
                                    GridKind::Rhombic,   GridKind::TetraOcta,
                                    GridKind::Hexagonal, GridKind::Cairo};
@@ -174,15 +174,15 @@ TEST_CASE("grid oracle: every cell is a closed convex polyhedron, its faces outw
       const CellPolyhedron g = polyhedronOf(*v, c);
       REQUIRE(g.faces.size() >= 4);
       cells++;
-      // as many faces as face neighbours, each across the face it says
+      // as many faces as face neighbors, each across the face it says
       const std::vector<CellAt> across = listed(*v, c, 0);
       REQUIRE(g.faces.size() == across.size());
       for (std::size_t n = 0; n < across.size(); n++) {
         CHECK(g.faces[n].across == across[n]);
       }
-      const Vec centre = toVec(g.centroid);
+      const Vec center = toVec(g.centroid);
       // every directed edge has exactly one reverse (a closed surface);
-      // each face looks away from the centre and has every corner of the
+      // each face looks away from the center and has every corner of the
       // cell behind it (convex); the stored normal is that of the corners
       std::map<std::pair<int, int>, int> edges;
       const auto cornerIndex = [&](const Vec3& p) {
@@ -203,7 +203,7 @@ TEST_CASE("grid oracle: every cell is a closed convex polyhedron, its faces outw
           x /= l;
         }
         CHECK(near(n, toVec(face.normal)));
-        CHECK(dot(n, sub(f0, centre)) > 1e-6);
+        CHECK(dot(n, sub(f0, center)) > 1e-6);
         for (const Vec3& p : g.corners) {
           CHECK(dot(n, sub(toVec(p), f0)) < kNear);
         }
@@ -225,10 +225,10 @@ TEST_CASE("grid oracle: every cell is a closed convex polyhedron, its faces outw
   }
 }
 
-TEST_CASE("grid oracle: the neighbour tables are what the cells' geometry says", "[grid]") {
-  // a cell's neighbours of every kind, rebuilt from the corners the
-  // cells share (CellGeometry::derivedNeighbours): a whole face, two or
-  // more corners, one corner. The box is big enough for every neighbour
+TEST_CASE("grid oracle: the neighbor tables are what the cells' geometry says", "[grid]") {
+  // a cell's neighbors of every kind, rebuilt from the corners the
+  // cells share (CellGeometry::derivedNeighbors): a whole face, two or
+  // more corners, one corner. The box is big enough for every neighbor
   // of its middle cells to lie inside.
   constexpr int kReach = 7;
   for (const GridKind kind : kGeometryGrids) {
@@ -250,7 +250,7 @@ TEST_CASE("grid oracle: the neighbour tables are what the cells' geometry says",
       INFO("cell " << str(c));
       checked++;
       const auto derived = [&](unsigned int kindOf, std::vector<int>* faces = nullptr) {
-        const Result<std::vector<CellAt>> r = geometry.derivedNeighbours(c, kindOf, kReach, faces);
+        const Result<std::vector<CellAt>> r = geometry.derivedNeighbors(c, kindOf, kReach, faces);
         REQUIRE(r);
         return std::set<CellAt>(r->begin(), r->end());
       };
@@ -261,9 +261,9 @@ TEST_CASE("grid oracle: the neighbour tables are what the cells' geometry says",
       INFO("faces by geometry: " << str(face));
       INFO("faces by table:    " << str(faceListed));
       CHECK(faceListed == face);
-      // face n of the table is the face shared with neighbour n
+      // face n of the table is the face shared with neighbor n
       {
-        const Result<std::vector<CellAt>> r = geometry.derivedNeighbours(c, 0, kReach, &sharedFaces);
+        const Result<std::vector<CellAt>> r = geometry.derivedNeighbors(c, 0, kReach, &sharedFaces);
         REQUIRE(r);
         for (std::size_t i = 0; i < r->size(); i++) {
           const auto it = std::ranges::find(faceList, (*r)[i]);
@@ -274,7 +274,7 @@ TEST_CASE("grid oracle: the neighbour tables are what the cells' geometry says",
       }
       if (kind == GridKind::Spheres) {
         // balls touch only at the faces: the table lists no edge or
-        // corner neighbours
+        // corner neighbors
         CHECK(listed(*v, c, 1).empty());
         CHECK(listed(*v, c, 2).empty());
         continue;
@@ -292,7 +292,7 @@ TEST_CASE("grid oracle: the neighbour tables are what the cells' geometry says",
       INFO("corners by table:    " << str(cornerListed));
       if (kind == GridKind::Rhombic || kind == GridKind::TetraOcta) {
         // A known gap, the original's too: the cut-cube grids have no
-        // corner-neighbour table (getNeighbor answers false for kind 2),
+        // corner-neighbor table (getNeighbor answers false for kind 2),
         // though their cells do touch at corners. A corner-connectivity
         // check on them sees only faces and edges. The geometry here is
         // what such a table would hold.
@@ -369,7 +369,7 @@ TEST_CASE("grid oracle: every transformation moves the cells as its matrix does"
   // rigid motion of the grid's geometry, and the matrix table is that
   // motion. On the cut-cube grids (rhombic, tetra-octa) transformPoint
   // turns the coordinates about their origin as cubes', and that origin
-  // is half a cell off the grids' symmetry centres (a cube's corner is at
+  // is half a cell off the grids' symmetry centers (a cube's corner is at
   // coordinate -0.5), so some turns land cells between cells or on cells
   // of another kind: one whole-cell offset per transformation puts them
   // right, and Assembly::transform supplies it (the hotspot's real move

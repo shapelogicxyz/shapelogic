@@ -7,7 +7,7 @@
 // engine's mesh (the mockup's `gc` of its non-cube grids), one side of a
 // cell (the face a cell would grow from on the other grids: an empty
 // cell's shape there is not the client's to know), and a refused target
-// (the danger colour on the face clicked). Drawn on top, without depth,
+// (the danger color on the face clicked). Drawn on top, without depth,
 // as the mockup painted its ghosts last.
 
 import {

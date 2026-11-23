@@ -101,7 +101,7 @@ export function demoApp(version: string): DemoApp {
     installCliTool: () => Promise.resolve(refused),
     uninstallCliTool: () => Promise.resolve(refused),
     cacheFolder: () => Promise.resolve(null),
-    chooseCacheFolder: () => Promise.resolve({ status: 'cancelled' }),
+    chooseCacheFolder: () => Promise.resolve({ status: 'canceled' }),
     finishCacheFolder: () => Promise.resolve({ ok: false, error: NOT_HERE }),
     cacheItems: () => Promise.resolve(null),
     cacheItemsAtStart: () => Promise.resolve(null),
@@ -114,6 +114,6 @@ export function demoApp(version: string): DemoApp {
     exportLog: () => Promise.resolve({ ok: false, error: NOT_HERE }),
     closeWindow: nothing,
     closeTaken: nothing,
-    closeCancelled: nothing,
+    closeCanceled: nothing,
   };
 }

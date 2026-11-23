@@ -22,7 +22,7 @@ import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { openPop, openPopAt } from '../shell/popover.ts';
-import { isTray, shownName } from '../shell/piece-colours.ts';
+import { isTray, shownName } from '../shell/piece-colors.ts';
 import { flash } from '../shell/status.ts';
 import { countText, groupOf, groupsOf, inShapeOrder, partOf, rng } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';

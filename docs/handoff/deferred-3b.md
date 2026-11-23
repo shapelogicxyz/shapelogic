@@ -33,7 +33,7 @@ cb_AddShapeToProblem with placeOneDisk, cb_AddAllShapesToProblem,
 cb_RemoveShapeFromProblem, cb_RemoveAllShapesFromProblem,
 cb_ProbShapeExchange):
 - **Rod sets** have ids beside the puzzle's (`rodSetIds()`,
-  `rodSetIndex`, `rodSetLabel`: R1, R2, as the GUI's list labelled them;
+  `rodSetIndex`, `rodSetLabel`: R1, R2, as the GUI's list labeled them;
   kept in the whole-puzzle undo parts, assigned on open): `addRodSet`,
   `duplicateRodSet`, `deleteRodSet` ("Keep at least one rod set"; the
   problems on it stand on none, their stacks kept), `renameRodSet`,
@@ -96,7 +96,7 @@ cb_ProbShapeExchange):
   `setDiscSize`, `setProblemRodSet`, `placeDisc`, `placeAll`, `removeDisc`,
   `clear`, `moveDisc`, `board` (rods with names, pocket, position and
   capacity; the stacks; the layout of rods and discs; `setupError`; the
-  centre the playback's poses are placed around) and `rodSetLayout`.
+  center the playback's poses are placed around) and `rodSetLayout`.
 - Ids `r<n>` (`IdKind::RodSet`); `Snapshot.rodSets` (`RodSet`: the fields
   as the Rods panel showed them, and `rods`, the stack map's count);
   `ProblemSummary.rodSet` / `ProblemDetail.rodSet`; `ProblemDetail.stacks`
@@ -170,7 +170,7 @@ All run on the final tree (2026-10-11, M-series Mac):
    cell edits, the tool tabs, the result, counts, ranges, part order,
    groups.
 3. A problem's stacks are not edited while it is solved, nor rod sets
-   while anything is (decision 0011; the GUI greyed the rod fields out
+   while anything is (decision 0011; the GUI grayed the rod fields out
    while any solve ran, and acted on the Problems tab's buttons without
    checking).
 4. `solve.abort` of a saved search with no session: the original's Abort
@@ -188,10 +188,10 @@ All run on the final tree (2026-10-11, M-series Mac):
 ## Found in the original
 
 - The stacking branch of `cb_ColSel` (painting a disc's cells in the
-  chosen constraint colour) cannot be reached: the colour list
+  chosen constraint color) cannot be reached: the color list
   (`colorsGroup`) is hidden on stacking puzzles (`syncStackingChrome`).
-  Not ported; a disc's colour is the shape's own (the Color button,
-  `shape.setColour`).
+  Not ported; a disc's color is the shape's own (the Color button,
+  `shape.setColor`).
 - `cb_ProbShapeExchange`'s `moveDisk` runs `syncMaps` before it checks the
   place, so a refused move could still add empty rods to the stacks
   (which the file then writes). The port checks first; nothing changes on
@@ -259,7 +259,7 @@ rod set methods, `Snapshot.rodSets`), the disc list
 (`ShapeSummary.disc`, `stacking.setDiscSize`, `shape.create`), the
 stacks editor (`stacking.board`, `placeDisc`, `placeAll`, `removeDisc`,
 `moveDisc`, `clear`, the validity bar from `board.error`), the 3D view of
-rods and discs (`board.layout`, `rodSetLayout`, `board.centre` for the
+rods and discs (`board.layout`, `rodSetLayout`, `board.center` for the
 player), the Solver's stacking options (`SolveOptions.stacking`,
 `engine.info.stackingSolvers`, the menu of one solver by the board), the
 saved-search question at Solve ("This problem has …", Continue / Start
@@ -420,7 +420,7 @@ All on the final tree (2026-10-11, M-series Mac), one after another:
 ### Notes for part 4
 - Solve, Continue and Abort on a problem whose copy is solving answer
   `invalid_state` ("an identical problem is being solved, and the two
-  share one saved search: pause it first"): show it, or grey the buttons
+  share one saved search: pause it first"): show it, or gray the buttons
   while the copy runs.
 - `solve.importPaused` answers `invalid_state` while a stacking puzzle is
   being solved: ask the user to pause it first.

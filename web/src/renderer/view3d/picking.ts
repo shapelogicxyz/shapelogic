@@ -52,7 +52,7 @@ export function pickOf(mesh: BuiltMesh, drawnTriangle: number): Pick | null {
 const raycaster = new Raycaster();
 
 /**
- * The face under a point of the view (normalised device coordinates, -1 to
+ * The face under a point of the view (normalized device coordinates, -1 to
  * 1, y up), nearest first; inside faces are skipped unless they are shown.
  */
 export function pickAt(

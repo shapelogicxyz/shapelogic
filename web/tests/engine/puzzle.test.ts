@@ -5,7 +5,7 @@
 // (puzzle/counts.ts's nextCount) is one problem.setPieceCount takes; the
 // groups read off problem.get (a copy added later joins no group, so the
 // UI sets a group after the count, and setGroup takes every copy); a new
-// problem allows each colour on itself; the kinds of the puzzles this
+// problem allows each color on itself; the kinds of the puzzles this
 // version opens but does not solve; and the fit summary's numbers for
 // every fixture's problems hold together as the cards show them.
 
@@ -80,13 +80,13 @@ describe.skipIf(ENGINE === null)('the Puzzle workspace and the engine', () => {
     expect(groupsOf(d)).toEqual([2]);
   });
 
-  it('starts a problem with each colour on itself; knows what it does not solve', async () => {
+  it('starts a problem with each color on itself; knows what it does not solve', async () => {
     const c = s.client;
     await c.call('document.new', { grid: 'bricks' });
-    const a = (await c.call('colour.add', { rgb: '#ff0000' })).colour;
-    const b = (await c.call('colour.add', { rgb: '#00ff00' })).colour;
+    const a = (await c.call('color.add', { rgb: '#ff0000' })).color;
+    const b = (await c.call('color.add', { rgb: '#00ff00' })).color;
     const problem = (await c.call('problem.create')).problem;
-    const rules = (await c.call('problem.get', { problem })).colourRules;
+    const rules = (await c.call('problem.get', { problem })).colorRules;
     expect(rules.map((r) => `${r.piece}>${r.result}`).sort()).toEqual([`${a}>${a}`, `${b}>${b}`]);
     for (const [f, kind] of [
       ['test_sliding_solver.xmpuzzle', 'sliding'],

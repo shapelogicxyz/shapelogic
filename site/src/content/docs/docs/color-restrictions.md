@@ -45,7 +45,7 @@ drawn in its constraint color instead of the shape's color:
 
 ![A shape in its normal color.](../../../assets/screens/guide/colors-piece-color.png)
 
-![The same shape with Constraint color on: its voxels in the two constraint colors, red and grey.](../../../assets/screens/guide/colors-voxel-color.png)
+![The same shape with Constraint color on: its voxels in the two constraint colors, red and gray.](../../../assets/screens/guide/colors-voxel-color.png)
 
 ## The color rules
 
@@ -54,15 +54,15 @@ rules** for each problem. Columns are **result** colors, rows are **piece**
 colors. A ticked cell lets a piece voxel of the row's color sit on a result
 voxel of the column's color.
 
-![The color rules: red pieces on red, grey on grey.](../../../assets/screens/guide/colors-rules.png)
+![The color rules: red pieces on red, gray on gray.](../../../assets/screens/guide/colors-rules.png)
 
 - **Each color on itself** ticks only the diagonal. This is the usual
-  choice: red goes on red, grey on grey.
+  choice: red goes on red, gray on gray.
 - **Allow all** ticks every cell.
 - **Clear** unticks every cell.
 
-Rules can be one-sided. For example, ticking red-on-red and red-on-grey but
-not grey-on-red lets red pieces go anywhere colored, while grey pieces stay
+Rules can be one-sided. For example, ticking red-on-red and red-on-gray but
+not gray-on-red lets red pieces go anywhere colored, while gray pieces stay
 off red.
 
 ## Strict Color Restrictions

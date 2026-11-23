@@ -69,7 +69,7 @@ Polyhedron cellMesh(const Voxel& v, double bevel, double offset, bool fast) {
           int ny = 0;
           int nz = 0;
 
-          // the fast mesh skips cells without an empty neighbour
+          // the fast mesh skips cells without an empty neighbor
           if (fast) {
             bool hasEmptyN = false;
             for (unsigned int n = 0; v.getNeighbor(n, 0, ix, iy, iz, &nx, &ny, &nz); n++) {
@@ -85,7 +85,7 @@ Polyhedron cellMesh(const Voxel& v, double bevel, double offset, bool fast) {
 
           const std::uint32_t type = ((x + y + z) & 1) == 0 ? kFaceColorLight : 0;
           const std::uint32_t idx = v.getIndex(x, y, z);
-          const auto colour = static_cast<std::uint8_t>(v.getColor(x, y, z));
+          const auto color = static_cast<std::uint8_t>(v.getColor(x, y, z));
 
           // the bevel faces along the cell's edges and corners
           if (bevel > 0) {
@@ -100,14 +100,14 @@ Polyhedron cellMesh(const Voxel& v, double bevel, double offset, bool fast) {
                 ff.flags = kFaceWireframe | type | kFaceBevel;
                 ff.voxel = idx;
                 ff.voxelFace = -1;
-                ff.colour = colour;
+                ff.color = color;
               }
             } while (!faceCorners.empty());
           }
 
           for (unsigned int n = 0; v.getNeighbor(n, 0, ix, iy, iz, &nx, &ny, &nz); n++) {
             if (v.isEmpty2(nx, ny, nz)) {
-              // a face towards an empty neighbour
+              // a face toward an empty neighbor
               faceCorners.clear();
               connectionFace(v, ix, iy, iz, asInt(n), bevel, offset, faceCorners);
               BT_ASSERT(!faceCorners.empty());
@@ -119,12 +119,12 @@ Polyhedron cellMesh(const Voxel& v, double bevel, double offset, bool fast) {
               }
               ff.voxel = idx;
               ff.voxelFace = asInt(n);
-              ff.colour = colour;
+              ff.color = color;
             } else if (!fast && offset > 0 &&
                        (nx > ix || (nx == ix && ny > iy) || (nx == ix && ny == iy && nz > iz))) {
-              // The gap to a filled neighbour (once per pair): a ring of
-              // faces from this cell's face to the neighbour's face back.
-              // Which neighbour this cell is of the neighbour:
+              // The gap to a filled neighbor (once per pair): a ring of
+              // faces from this cell's face to the neighbor's face back.
+              // Which neighbor this cell is of the neighbor:
               unsigned int n2 = 0;
               bool found = false;
               int mx = 0;
@@ -165,7 +165,7 @@ Polyhedron cellMesh(const Voxel& v, double bevel, double offset, bool fast) {
                 ff.flags = kFaceWireframe | type | kFaceOffset;
                 ff.voxel = idx;
                 ff.voxelFace = -1;
-                ff.colour = colour;
+                ff.color = color;
               }
             }
           }

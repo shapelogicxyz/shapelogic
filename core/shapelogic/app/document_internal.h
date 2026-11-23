@@ -22,7 +22,7 @@ struct Document::Snapshot {
   unsigned int index = 0;
   std::unique_ptr<Voxel> shape;    // Shape
   std::optional<Problem> problem;  // Problem
-  Rgb colour;                      // Colour
+  Rgb color;                      // Color
   std::string comment;             // Notes
   bool commentPopup = false;
   std::unique_ptr<Puzzle> whole;  // Whole, with the ids

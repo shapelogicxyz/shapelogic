@@ -199,7 +199,7 @@ void RotationMovesClassic::rebuildPivotCells(unsigned int axis) {
     amin = a < amin ? a : amin;
   }
 
-  // the half grid in the plane over the body's box: cell centres, faces,
+  // the half grid in the plane over the body's box: cell centers, faces,
   // edges and corners; along the axis, the moving body's lowest layer
   const int du0 = 2 * umin - 1;
   const int du1 = 2 * umax + 1;
@@ -209,7 +209,7 @@ void RotationMovesClassic::rebuildPivotCells(unsigned int axis) {
 
   for (int du = du0; du <= du1; du++) {
     for (int dv = dv0; dv <= dv1; dv++) {
-      // a quarter turn lands on the grid only about a cell centre or a
+      // a quarter turn lands on the grid only about a cell center or a
       // corner: in-plane coordinates both even or both odd
       if (options_.fast && ((du ^ dv) & 1) != 0) {
         continue;

@@ -91,7 +91,7 @@ test('CubeInCage’s problem built from an empty problem through the UI', async 
     await checkShown(page);
 
     const id = await newProblem(page);
-    // the result by Change…, cleared and set again (Clear Result is greyed with none)
+    // the result by Change…, cleared and set again (Clear Result is grayed with none)
     await page.click('#pzChange');
     await expect(page.locator('#pop [data-k="clear"]')).toBeDisabled();
     await page.click('#pop [data-k="s1"]');
@@ -349,14 +349,14 @@ test('DemoPieceGenerator’s piece range built through the UI', async () => {
   }
 });
 
-test('problems, colour rules, the frozen problem, sliding and stacking puzzles', async () => {
+test('problems, color rules, the frozen problem, sliding and stacking puzzles', async () => {
   test.setTimeout(180_000);
   const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
   const log = join(dir, 'calls.log');
   const a = await launch({ callLog: log });
   const page = a.page;
   try {
-    // a new puzzle: a box of 2x4x6 and a domino (a long solve on one thread), two colours
+    // a new puzzle: a box of 2x4x6 and a domino (a long solve on one thread), two colors
     await newDocument(page, 'bricks');
     const box = (await engineCall<{ shape: string }>(page, 'shape.create', { size: [2, 4, 6] }))
       .shape;
@@ -374,10 +374,8 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
       from: [0, 0, 0],
       to: [1, 0, 0],
     });
-    const c1 = (await engineCall<{ colour: string }>(page, 'colour.add', { rgb: '#ff0000' }))
-      .colour;
-    const c2 = (await engineCall<{ colour: string }>(page, 'colour.add', { rgb: '#0000ff' }))
-      .colour;
+    const c1 = (await engineCall<{ color: string }>(page, 'color.add', { rgb: '#ff0000' })).color;
+    const c2 = (await engineCall<{ color: string }>(page, 'color.add', { rgb: '#0000ff' })).color;
     await page.keyboard.press('Control+2');
     await expect(page.locator('#emptyMsg')).toHaveText('No problems — add one with + New');
     await expect(page.locator('#stText')).toContainText('No problems');
@@ -431,11 +429,11 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
     await pzSettled(page);
     expect(await list()).toEqual([`${p1}:P1:Box`, `${p2}:P2:`]);
 
-    // colour rules of P1: each colour on itself (a new problem's), a cell, all, none, the preset
+    // color rules of P1: each color on itself (a new problem's), a cell, all, none, the preset
     await page.click(`#pzProblems .row[data-id="${p1}"] .chip`);
     await pzSettled(page);
     const rules = async (): Promise<string[]> =>
-      (await problemGet(page, p1)).colourRules.map((r) => `${r.piece}>${r.result}`).sort();
+      (await problemGet(page, p1)).colorRules.map((r) => `${r.piece}>${r.result}`).sort();
     const matrix = async (): Promise<string[]> =>
       (
         await page.$$eval('#pzRules .mxc.on', (els) =>

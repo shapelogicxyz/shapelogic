@@ -12,7 +12,7 @@ namespace {
 
 // The original hashed into `unsigned long`, 32 bits on Windows; a fixed
 // 64-bit value changes only which shapes share a bucket, not any answer.
-std::uint64_t calcHashValue(const Voxel& v, bool withColour) {
+std::uint64_t calcHashValue(const Voxel& v, bool withColor) {
   std::uint64_t res = 101;
 
   res *= v.boundX2() - v.boundX1();
@@ -27,7 +27,7 @@ std::uint64_t calcHashValue(const Voxel& v, bool withColour) {
       for (unsigned int x = v.boundX1(); x <= v.boundX2(); x++) {
         res *= 101;
         res += static_cast<std::uint64_t>(v.getState(x, y, z));
-        if (withColour && v.getState(x, y, z) != Voxel::kEmpty) {
+        if (withColor && v.getState(x, y, z) != Voxel::kEmpty) {
           res *= 3;
           res += v.getColor(x, y, z);
         }
@@ -41,7 +41,7 @@ std::uint64_t calcHashValue(const Voxel& v, bool withColour) {
 
 bool VoxelTable::getSpace(const Voxel& v, unsigned int* index, unsigned char* trans,
                           unsigned int params) const {
-  const std::uint64_t hash = calcHashValue(v, (params & kParColour) != 0);
+  const std::uint64_t hash = calcHashValue(v, (params & kParColor) != 0);
   const unsigned int numPlain = v.getGridType().getSymmetries().getNumTransformations();
 
   const auto found = hashTable_.find(hash);
@@ -78,7 +78,7 @@ void VoxelTable::addSpace(unsigned int index, unsigned int params) {
     if (symm.isTransformationUnique(sym, trans)) {
       auto v2 = v.clone();
       if (v2->transform(trans)) {
-        hashTable_[calcHashValue(*v2, (params & kParColour) != 0)].push_back(
+        hashTable_[calcHashValue(*v2, (params & kParColor) != 0)].push_back(
             Entry{index, static_cast<unsigned char>(trans)});
       }
     }

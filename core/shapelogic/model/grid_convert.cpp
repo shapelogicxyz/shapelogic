@@ -91,7 +91,7 @@ Result<Puzzle> convertGrid(const Puzzle& p, GridKind target, std::uint64_t maxCe
     pNew.addShape(std::move(vn));
   }
 
-  // the colours
+  // the colors
   for (unsigned int i = 0; i < p.colorNumber(); i++) {
     const Rgb c = p.getColor(i);
     pNew.addColor(c.r, c.g, c.b);

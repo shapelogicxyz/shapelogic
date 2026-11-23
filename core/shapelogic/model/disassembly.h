@@ -114,7 +114,7 @@ class State {
   void setOrientations(std::vector<int> v) { dt_ = std::move(v); }
 
   /// Records that this state was reached by rotating `piece` about the pivot
-  /// (doubled cell coordinates: a cell's centre is at 2x) around `axis`.
+  /// (doubled cell coordinates: a cell's center is at 2x) around `axis`.
   void setRotationArrival(unsigned int piece, int px, int py, int pz, unsigned int axis,
                           unsigned int sense);
   void clearRotationArrival();

@@ -86,7 +86,7 @@ was 1.06 at the start of the stage; the profile showed its rotation check
 original's build, its assertions off, never made. Changed, without an
 answer changing:
 - `GridType::getSymmetries()` is inline: the three tables behind
-  constant-initialised pointers (`detail::kSymmetriesTable0/1/2`, in
+  constant-initialized pointers (`detail::kSymmetriesTable0/1/2`, in
   place of the functions `symmetriesTable0/1/2`).
 - `Voxel::getHotspot` / `getBoundingBox` / `selfSymmetries` /
   `normalizeTransformation` are inline; the transformation cache's bound

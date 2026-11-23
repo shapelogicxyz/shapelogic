@@ -46,12 +46,12 @@ struct MatrixOptions {
   bool keepMirrors = false;        ///< report mirrored assemblies too
   bool keepRotations = false;      ///< report rotated assemblies too
   bool completeRotations = false;  ///< check every transformation for duplicates
-  bool strictColors = false;       ///< a voxel fits only a result voxel of its own colour
+  bool strictColors = false;       ///< a voxel fits only a result voxel of its own color
   /// A sliding solve: the problem's start marks (Problem::slideMarks) hold
   /// the pieces to their starts. A placement lies wholly on its own piece's
   /// start cells, or, for a part freeStarts allows (one with starts for
   /// fewer than all its copies, or none), wholly on cells that are no
-  /// start (sliding::freeStartParts). The colour rules apply besides.
+  /// start (sliding::freeStartParts). The color rules apply besides.
   bool startLocks = false;
   std::vector<bool> freeStarts;
   /// Per part, the transformations it may be placed in: bit t for
@@ -190,7 +190,7 @@ class Assembler {
   /// the position was saved from a reduced matrix) and before assemble().
   virtual AssemblerError restorePosition(std::string_view text, std::string_view version) = 0;
 
-  /// True when the matrix was built with strict colour matching.
+  /// True when the matrix was built with strict color matching.
   [[nodiscard]] bool usesStrictColors() const { return strictColors_; }
 
   /// The start locks the matrix was built with (MatrixOptions::startLocks,

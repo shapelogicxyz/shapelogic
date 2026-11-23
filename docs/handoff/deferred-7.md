@@ -126,7 +126,7 @@ All on the final tree (2026-10-12, M-series Mac):
 4. **`fill` restores the bounding box's recalculation** when a cell is
    outside the shape (the cells before it are filled, as in the
    original); the original left it switched off, so that shape's empty
-   cells kept colours set later.
+   cells kept colors set later.
 5. **`next()` lets go of the GIL before taking the queue's lock**: the
    original took the lock with the GIL held and let the GIL go inside,
    so two Python threads on one iterator could deadlock.
@@ -172,7 +172,7 @@ All on the final tree (2026-10-12, M-series Mac):
 
 The deferred plan is done. Next is the first release, as web-8.md's
 "Brief for the first release" describes (the other platforms by hand,
-signing, the artefacts, a tag, `docs/handoff/release-0.1.0.md`), with
+signing, the artifacts, a tag, `docs/handoff/release-0.1.0.md`), with
 two additions from this plan: the release notes name what the deferred
 parts added (sliding and stacking/Panex puzzles, the STL meshes and
 exports, the imports, the Puzzlecad export and grid conversion, the

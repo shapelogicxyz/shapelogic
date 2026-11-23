@@ -85,7 +85,7 @@
       "errors": ["unsupported", "not_found", "invalid_state"]
     },
     "stacking.setDiscSize": {
-      "summary": "A disc's size (the disc list's size field, 1 to 100): the disc is made anew, a square of 2 size + 1 cells one cell thick with its centre empty, its colour kept. Solutions stay, as the original kept them. One undo step.",
+      "summary": "A disc's size (the disc list's size field, 1 to 100): the disc is made anew, a square of 2 size + 1 cells one cell thick with its center empty, its color kept. Solutions stay, as the original kept them. One undo step.",
       "params": {
         "type": "object",
         "properties": {
@@ -235,7 +235,7 @@
       "errors": ["unsupported", "not_found", "invalid_argument", "invalid_state"]
     },
     "stacking.board": {
-      "summary": "A problem's board as the Problems tab showed it: its rods (names, the pocket, capacities), the start's or the goal's stacks, where the rods and discs stand, the validity bar's sentence, and the centre a playback's poses are placed around (playback.json: a stacking solution is centred on its board).",
+      "summary": "A problem's board as the Problems tab showed it: its rods (names, the pocket, capacities), the start's or the goal's stacks, where the rods and discs stand, the validity bar's sentence, and the center a playback's poses are placed around (playback.json: a stacking solution is centerd on its board).",
       "params": {
         "type": "object",
         "properties": {
@@ -263,7 +263,7 @@
             "type": ["string", "null"],
             "description": "Why the problem cannot be solved as it stands (the original's setupError: a rule broken, a disc missing from the start or the goal, no rod set); null when it is ready."
           },
-          "centre": {
+          "center": {
             "oneOf": [
               {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
               {"type": "null"}
@@ -271,7 +271,7 @@
             "description": "The middle of the board, half the rods' height up, in cells; null without a rod set."
           }
         },
-        "required": ["rodSet", "rods", "stacks", "layout", "error", "centre"],
+        "required": ["rodSet", "rods", "stacks", "layout", "error", "center"],
         "additionalProperties": false
       },
       "errors": ["unsupported", "not_found"]

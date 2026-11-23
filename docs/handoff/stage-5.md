@@ -18,7 +18,7 @@ with a test that fails without the fix. All three are bugs of the original
    used up; only a disassembler's first take-apart could group).
 3. The turn generators give no turns from a position of more than
    `kMaxTurnPieces` (31) pieces: their piece masks are 32 bits, and the
-   original shifted past them (undefined behaviour; 2^32 groups at 32).
+   original shifted past them (undefined behavior; 2^32 groups at 32).
    The parts such a position comes apart into get turns again.
 
 Also from the report: `bt_solve_file` ended with "error in solver" when a
@@ -154,7 +154,7 @@ ASan (the 33-cube probe no longer stops it), and the fast tier of `oracle`
    while the search ran). Save a running solve at a save point.
 9. **`setSolutionsWithRotations`** at the start of every run that turns
    pieces (the original set it in the constructor, before its own
-   strict-colours rule could drop it again with the solutions).
+   strict-colors rule could drop it again with the solutions).
 10. **recordSearchStats** (searched steps, assemblies tried apart) is the
     session's, at every Paused and Finished; it was the GUI's.
 11. **Counted pending assemblies** wait when a run does not take apart (the
@@ -238,13 +238,13 @@ everything below it; nothing below uses it) and `core/shapelogic/mesh/`.
   `shapeHistory_c`, `src/gui/shapehistory.cpp`, generalised to every
   edit), a revision number bumped by every change, a dirty flag,
   begin/end grouping into one undo step (`edit.begin`/`edit.end`), stable
-  runtime ids for shapes, colours, problems and solutions (core-api.md,
+  runtime ids for shapes, colors, problems and solutions (core-api.md,
   "Conventions": labels follow the order, ids survive reordering; the file
   stores positions). Load and save go through `bt/io`.
 - **Commands** for every editing action of core-api.md sections 1 to 4
-  (shapes and cells, transforms per grid, resize, prune, centre, minimise,
-  scale, fill holes, surface actions, colours, problems: result, piece
-  counts and ranges, bulk ranges, groups, colour rules), each one undo
+  (shapes and cells, transforms per grid, resize, prune, center, minimize,
+  scale, fill holes, surface actions, colors, problems: result, piece
+  counts and ranges, bulk ranges, groups, color rules), each one undo
   step, each returning a `Result`. Port the logic from the original GUI
   where it lives there (`mainwindow.cpp` callbacks, `voxeleditgroup.cpp`,
   `grideditor*.cpp` for the cell tools, `bulkrangewindow.cpp`,

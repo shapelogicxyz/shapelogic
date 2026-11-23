@@ -7,7 +7,7 @@ The original (`../burr-tools`, or `BT_OLD_REPO`) is the reference throughout.
 
 **In scope (first complete version):** all five grids (cubes, triangular
 prisms, spheres, rhombic tetrahedra, tetrahedra-octahedra); shapes and
-colours; problems (result, piece counts and ranges, groups, colour rules);
+colors; problems (result, piece counts and ranges, groups, color rules);
 the Classic and Crowell solvers; disassembly including rotation
 moves; solutions; `.xmpuzzle` compatibility; the engine API; the `bt` CLI.
 
@@ -68,7 +68,7 @@ spheres with `voxel_2_mesh` left for stage 6, rhombic, tetra-octa),
 `symmetries_0/1/2` and the `tabs_*` tables, `gridtype.cpp`, `voxeltable.cpp`.
 Include the editing operations that live in `voxel_c`: `transform`,
 `translate`, `scale`, `scaleDown`, `resize`/`resizeInclude`, `minimizePiece`,
-`fillHoles`, `actionOnSpace` (surface inner/outer), hotspot, colours per
+`fillHoles`, `actionOnSpace` (surface inner/outer), hotspot, colors per
 cell, symmetry calculation. Port `test/test_voxel.cpp`,
 `test_voxel_connect.cpp`, `test_symmetries.cpp`, `test_grid_invariants.cpp`.
 Check symmetry tables against values dumped from the original.

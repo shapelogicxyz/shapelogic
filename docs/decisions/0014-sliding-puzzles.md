@@ -1,7 +1,7 @@
 # 0014: Sliding puzzles in the core, the engine and the CLI
 
 **Status:** accepted (deferred part 1); the start marks moved out of the
-cell colours later (decision 0021), and from the board to each problem
+cell colors later (decision 0021), and from the board to each problem
 (decision 0027); optimized paths hold a search to the grid a board of
 blocks fits (decision 0029), where the stops of a grid cell are searched as
 one (decision 0031); `core/shapelogic/model/sliding.h`,
@@ -14,10 +14,10 @@ The original's sliding puzzles (`src/lib/sliding.{h,cpp}`,
 `slidelevels.h`, the sliding branches of `solvethread.cpp` and of the GUI)
 were the newest part of ShapeLogic: a start/goal shape is a tray whose
 empty cells are walls and whose variable cells are corridors; each cell's
-colour is the start mark of a piece (its shape index + 1) and its goal
+color is the start mark of a piece (its shape index + 1) and its goal
 mark the goal of one; each start/goal shape has a problem of its own. The
 solve thread's assembler found the start layouts (the pieces painted in
-the colours of their starts), and inside its callback a breadth-first
+the colors of their starts), and inside its callback a breadth-first
 slide search took each layout to the goal. The original read
 `SHAPELOGIC_SLIDE_DIR` and `SHAPELOGIC_SLIDE_DISK_GB` from the environment,
 traced on stderr, ran the full search on threads of its own and changed
@@ -45,7 +45,7 @@ path. `SolveOptions.sliding` (`SlidingOptions`: nested and partially
 nested slides, high memory, the work folder and disk budget,
 the A/B switches) carries what the solve thread's flags did. The session
 forces what the solve thread forced (Classic; mirrors and rotations kept;
-no complete rotations; strict colours, which decision 0021 replaced by
+no complete rotations; strict colors, which decision 0021 replaced by
 the start locks), runs the slide search in the
 assembler's callback on a pool of its own, puts a stopped search's start
 back as pending (not counted), lets the search under way finish at a save
@@ -68,9 +68,9 @@ in step (a deleted or moved shape's marks renumbered, a stamped piece
 moved past the 63rd place losing them with a notice, since a mark is six
 bits (a byte, 255 places, since decision 0021), a duplicated or renamed start/goal shape keeping its number apart
 from the user's name, an edit that changes a stamped piece's shape taking
-its stamps off with a notice); what the GUI greyed out or hid is refused
+its stamps off with a notice); what the GUI grayed out or hid is refused
 (groups, the count of a piece a stamp requires, and, until decision
-0021 moved the start marks out of the cell colours, deleted colours); a
+0021 moved the start marks out of the cell colors, deleted colors); a
 sliding shape keeps its layers on open (see "Problems the user makes" below and
 "Shapes of more than one layer" below). Solve's setup
 (`prepareForSolving`) is part of the launch, not an undo step, as it was
@@ -162,7 +162,7 @@ says to try it; one layer deep, nothing changes.
 
 **A piece keeps its orientation** (added later). The original's
 assembler found the start layouts with every piece in every rotation, held
-to its start only by the colours of the cells, so a start or goal another
+to its start only by the colors of the cells, so a start or goal another
 orientation covers as well (two upright dominoes stamped as a square, which
 two lying ones fill too) gave a start with the pieces turned, and a path
 in which they slid turned. Now each part may be placed only in the
@@ -229,7 +229,7 @@ legacy search over text keys stays, for trays the position tables cannot
 pack and as the reference the tests compare the level search with.
 
 **Problems the user makes** (added later). The original gave each
-start/goal shape a problem of its own, named after it, and greyed out
+start/goal shape a problem of its own, named after it, and grayed out
 New, Copy and Delete problem and the choice of result. The document now
 makes sliding problems as it makes Brick ones: a new board brings no
 problem; New, Copy and Delete problem work; a problem's result is chosen

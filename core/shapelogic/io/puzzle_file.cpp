@@ -317,7 +317,7 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
   v->skipRecalcBoundingBox(true);
 
   // the cells: '_' empty, '#' filled, '+' variable, each optionally followed
-  // by its colour number
+  // by its color number
   if (e.text.empty()) {
     error(e, "voxel space requires content");
   }
@@ -353,7 +353,7 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
         color = color * 10 + static_cast<unsigned int>(ch - '0');
         break;
       default:
-        error(e, "unrecognised character in piece voxel space");
+        error(e, "unrecognized character in piece voxel space");
     }
 
     if (color > 63) {
@@ -370,7 +370,7 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
 
   // Start and goal marks of sliding puzzles as files had them before they
   // were the problems' (decision 0027; the original wrote only goal, the
-  // starts were the colours): the shape carries them until the puzzle is
+  // starts were the colors): the shape carries them until the puzzle is
   // read, then they go to its problems (sliding::adoptBoardMarks).
   readMarkList(e.attribute("start"), v->getXYZ(),
                [&v](unsigned int i, unsigned int mark) { v->setStartPiece(i, mark); });
@@ -1206,7 +1206,7 @@ Puzzle readPuzzleElement(const XmlElement& root) {
   // A sliding file says where its starts and goals are: slideMarks
   // "problem", each problem has its own (decision 0027). Without that they
   // are the start/goal shapes': a shape that says start has both as marks
-  // (decision 0021), and when none does the starts are the shapes' colours
+  // (decision 0021), and when none does the starts are the shapes' colors
   // (the original).
   const bool problemMarks = root.attribute("slideMarks") == "problem";
   bool startMarks = false;
@@ -1389,7 +1389,7 @@ void writeVoxel(XmlWriter& xml, const Voxel& v) {
         break;
     }
 
-    // the colour, for non-empty cells, unless it is 0
+    // the color, for non-empty cells, unless it is 0
     if (v.getState(i) == Voxel::kFilled || v.getState(i) == Voxel::kVariable) {
       if (v.getColor(i) != 0) {
         cells += std::to_string(v.getColor(i));

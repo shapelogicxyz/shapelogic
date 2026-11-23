@@ -431,7 +431,7 @@ export class ViewCube {
     const L = [-0.35, 0.75, 0.55] as const;
     const ln = Math.hypot(...L);
     const hover = this.hover;
-    // the direction pointed at (a face centre, an edge or a corner), painted on every face it touches
+    // the direction pointed at (a face center, an edge or a corner), painted on every face it touches
     const hd = hover?.type === 'face' ? hover.dir : null;
     if (hover?.type === 'home') {
       g.fillStyle = 'rgba(79,125,240,.18)';
@@ -475,7 +475,7 @@ export class ViewCube {
       g.lineWidth = 1.2;
       g.lineJoin = 'round';
       g.stroke();
-      // the label: the face's affine approximation at its centre
+      // the label: the face's affine approximation at its center
       const C = f.pt(0, 0);
       const U = f.pt(1, 0);
       const V = f.pt(0, 1);

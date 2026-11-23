@@ -3,14 +3,14 @@
 // The voxel editor's client-side pieces against the real engine: the
 // preview's cells of mirror and span (editor-state.ts's expand, leaving out
 // the cells the grid does not have) are the cells shape.setCells changes,
-// on every grid; the cube grid's face table (edit3d.ts) is grid.neighbour;
+// on every grid; the cube grid's face table (edit3d.ts) is grid.neighbor;
 // a stroke over several frames is one undo step whose every batch sends
 // its document.changed.
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Grid } from '../../src/engine/api.generated.ts';
-import { BRICK_FACES, brickNeighbour } from '../../src/renderer/entities/tools.ts';
+import { BRICK_FACES, brickNeighbor } from '../../src/renderer/entities/tools.ts';
 import { expand, key } from '../../src/renderer/entities/editor-state.ts';
 import type { Axis, Cell } from '../../src/renderer/entities/editor-state.ts';
 import { Stroke } from '../../src/renderer/entities/stroke.ts';
@@ -87,7 +87,7 @@ describe.skipIf(ENGINE === null)('the voxel editor and the engine', () => {
     }
   });
 
-  it('has the cube grid’s faces as grid.neighbour has them', async () => {
+  it('has the cube grid’s faces as grid.neighbor has them', async () => {
     const c = s.client;
     await c.call('document.new', { grid: 'bricks' });
     const size: Cell = [3, 3, 3];
@@ -95,8 +95,8 @@ describe.skipIf(ENGINE === null)('the voxel editor and the engine', () => {
       for (let y = 0; y < 3; y++) {
         for (let x = 0; x < 3; x++) {
           for (let face = 0; face < BRICK_FACES.length; face++) {
-            const r = await c.call('grid.neighbour', { size, cell: [x, y, z], face });
-            expect(brickNeighbour([x, y, z], face, size)).toEqual(r.cell);
+            const r = await c.call('grid.neighbor', { size, cell: [x, y, z], face });
+            expect(brickNeighbor([x, y, z], face, size)).toEqual(r.cell);
           }
         }
       }
@@ -112,7 +112,7 @@ describe.skipIf(ENGINE === null)('the voxel editor and the engine', () => {
     const errors: unknown[] = [];
     const stroke = new Stroke(
       c,
-      { shape, tool: 'variable', colour: null, mirror: [], span: [] },
+      { shape, tool: 'variable', color: null, mirror: [], span: [] },
       (e) => errors.push(e),
       (f) => {
         next.frame = f;

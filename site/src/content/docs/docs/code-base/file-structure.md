@@ -53,7 +53,7 @@ comment at the top.
 | `rpc.h`, `rpc.cpp` | error codes, `Params` (reads a method's fields, refusing unknown ones), the id formats (`s7`, `p1`, `sol42`, `pb1`), `BTE_TRY` and `BTE_CHECK` |
 | `output.h`, `output.cpp` | writing lines and binary frames, `FrameBuilder` |
 | `convert.h`, `convert.cpp` | the JSON of every item: snapshots, summaries, options, progress, failures, rows |
-| `methods_<area>.cpp` | one file per schema file: `document`, `shape`, `colour`, `problem`, `solve`, `solution`, `playback`, `explore`, `sliding`, `stacking`, `export`, `engine` |
+| `methods_<area>.cpp` | one file per schema file: `document`, `shape`, `color`, `problem`, `solve`, `solution`, `playback`, `explore`, `sliding`, `stacking`, `export`, `engine` |
 | `events.cpp` | `document.changed` and the poll of background work: `solve.state`, `solve.progress`, `solve.solutionsAdded`, `solve.error`, the analysis events |
 | `wasm_main.cpp` | the entry of the WebAssembly build for the website's demo |
 

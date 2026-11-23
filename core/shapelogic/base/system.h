@@ -69,7 +69,7 @@ struct DiskBudget {
 [[nodiscard]] bool readFileAt(int fd, std::uint64_t offset, void* buf, std::size_t len);
 
 /// Lets the process open at least `files` files at once where the system
-/// allows (the soft limit raised towards the hard one): a slide search
+/// allows (the soft limit raised toward the hard one): a slide search
 /// reads many sets at a time. For the programs that own a search; nothing
 /// in the core calls it. Returns the limit now in force, 0 when unknown.
 std::uint64_t raiseOpenFileLimit(std::uint64_t files);

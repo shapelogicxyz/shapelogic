@@ -95,7 +95,7 @@ void dumpMesh(std::ostream& out, const char* style, unsigned int shape, const Po
     h.add<std::uint32_t>(f.flags);
     h.add<std::uint32_t>(f.voxel);
     h.add<std::int32_t>(f.voxelFace);
-    h.add<std::uint8_t>(f.colour);
+    h.add<std::uint8_t>(f.color);
     Fnv c = h;
     for (const auto& p : pts) {
       h.bytes(p.data(), sizeof(float) * 3);

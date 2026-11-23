@@ -96,7 +96,7 @@ const AROUND = 4;
 
 /**
  * A point (mesh units) and the triangle a ray along -z hits first there: a
- * face towards the viewer, near the middle of the view, unambiguous (no
+ * face toward the viewer, near the middle of the view, unambiguous (no
  * other triangle within 1e-3 in z at the point) and well inside its cell's
  * side: at AROUND pixels in eight directions the front-most triangle is
  * again unambiguous and of the same cell and side. A cube's side is two
@@ -106,7 +106,7 @@ const AROUND = 4;
 function target(
   a: MeshArrays,
   ppu: number,
-  centre: [number, number],
+  center: [number, number],
   allowed: (x: number, y: number) => boolean,
 ): { t: number; x: number; y: number } | null {
   const tris = a.flags.length;
@@ -137,7 +137,7 @@ function target(
       x,
       y,
       z: (p[2] + q[2] + r[2]) / 3,
-      d: Math.hypot(x - centre[0], y - centre[1]),
+      d: Math.hypot(x - center[0], y - center[1]),
     });
   }
   cands.sort((u, v) => v.z - u.z || u.d - v.d);

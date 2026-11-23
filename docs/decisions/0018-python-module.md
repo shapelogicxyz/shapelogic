@@ -21,7 +21,7 @@ rotations), handing solutions over through a queue of four.
 scripts run unchanged: the same classes, properties, methods, argument
 names and defaults, reprs, docstrings, exception types (`IndexError` for
 a shape or problem that is not there, `RuntimeError` for a cell outside
-its shape, a colour past 63, a file that cannot be read and a failed
+its shape, a color past 63, a file that cannot be read and a failed
 solve, raised by `next()`), the queue of four, the GIL let go while
 waiting, Ctrl-C stopping the solve. The oracle is the original's module
 itself: `oracle.py python` runs one transcript script

@@ -193,7 +193,7 @@ export class Menus {
         (snap?.grid === 'bricks' || snap?.grid === 'sliding') &&
         snap.shapes.some((x) => x.fixed + x.variable > 0),
       animation: snap !== null && this.h.animation(),
-      colourView: this.view.display.colourView,
+      colorView: this.view.display.colorView,
       style: this.view.display.style,
       focus3d: layout.focus === '3d',
       theme: prefs.theme,
@@ -290,8 +290,8 @@ export class Menus {
       case 'checkUpdates':
         this.h.checkUpdates();
         break;
-      case 'colourView':
-        this.view.setDisplay({ colourView: c.on });
+      case 'colorView':
+        this.view.setDisplay({ colorView: c.on });
         break;
       case 'theme':
         setPrefs({ theme: c.theme });

@@ -6,7 +6,7 @@
   toolbar, the status bar, the settings dialog). The Entities cards are the
   mockup's (stage 2: the shapes list and inspector, the voxel editor) and
   so are the Puzzle cards (stage 3: problems, result, pieces, library, fit;
-  selected piece, groups, colour rules); their contents are rendered from
+  selected piece, groups, color rules); their contents are rendered from
   the engine's data; so are the Solver's (stage 4). The Play card and the
   board over the viewport (#leftPl, #playStage) are this program's own
   (decisions 0039 and 0042: a sliding or a stacking puzzle played by hand). The mockup's menu
@@ -122,7 +122,7 @@
               </div>
               <input
                 type="color"
-                id="shapeColourPick"
+                id="shapeColorPick"
                 tabindex="-1"
                 aria-hidden="true"
                 style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0"
@@ -485,7 +485,7 @@
             </div>
             <div class="rrail" id="rrail"></div>
             <!-- once a document: a grid too large for the card points at the focus -->
-            <div class="ftip" id="bigTip" role="alertdialog" aria-labelledby="bigTipMsg" hidden>
+            <div class="ftip" id="bigTip" role="alertdialog" aria-labeledby="bigTipMsg" hidden>
               <p id="bigTipMsg">
                 You are using a very large grid that may not fit well in the small grid editor.
                 Consider using the expanded grid editor view.

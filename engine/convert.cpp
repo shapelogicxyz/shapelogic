@@ -70,12 +70,12 @@ const Names<app::ShapeTask>& shapeTaskNames() {
       {"outsideFixed", T::OutsideFixed},
       {"insideVariable", T::InsideVariable},
       {"outsideVariable", T::OutsideVariable},
-      {"insideDecolour", T::InsideDecolour},
-      {"outsideDecolour", T::OutsideDecolour},
+      {"insideDecolor", T::InsideDecolor},
+      {"outsideDecolor", T::OutsideDecolor},
       {"double", T::Double},
       {"triple", T::Triple},
       {"toOrigin", T::ToOrigin},
-      {"centre", T::Centre},
+      {"center", T::Center},
       {"minimize", T::Minimize},
       {"nudge27", T::Nudge27},
       {"nudge28", T::Nudge28},
@@ -159,8 +159,8 @@ std::string shapeId(const State& s, unsigned int index) {
   return formatId(IdKind::Shape, s.document().shapeIds()[index]);
 }
 
-std::string colourId(const State& s, unsigned int index) {
-  return formatId(IdKind::Colour, s.document().colourIds()[index]);
+std::string colorId(const State& s, unsigned int index) {
+  return formatId(IdKind::Color, s.document().colorIds()[index]);
 }
 
 std::string problemId(const State& s, unsigned int index) {
@@ -173,7 +173,7 @@ std::string rodSetId(const State& s, unsigned int index) {
 
 namespace {
 
-Json shapeColour(const Voxel& v) {
+Json shapeColor(const Voxel& v) {
   const int c = v.getShapeColor();
   if (c < 0) {
     return nullptr;
@@ -183,14 +183,14 @@ Json shapeColour(const Voxel& v) {
                      static_cast<std::uint8_t>(u)});
 }
 
-// A disc's colour from the palette: its first coloured cell's, the colour
+// A disc's color from the palette: its first colored cell's, the color
 // the original's 3D view drew it in (diskTint in voxelframe.cpp). The
 // original looked no further than that cell.
-Json discColour(const State& s, const Voxel& v) {
+Json discColor(const State& s, const Voxel& v) {
   for (unsigned int i = 0; i < v.getXYZ(); i++) {
     if (v.getState(i) != Voxel::kEmpty && v.getColor(i) != 0) {
       const unsigned int c = v.getColor(i);
-      return c <= s.document().colourIds().size() ? Json(colourId(s, c - 1)) : Json(nullptr);
+      return c <= s.document().colorIds().size() ? Json(colorId(s, c - 1)) : Json(nullptr);
     }
   }
   return nullptr;
@@ -255,11 +255,11 @@ Json shapeSummary(const State& s, unsigned int index) {
   j["fixed"] = v.countState(Voxel::kFilled);
   j["variable"] = v.countState(Voxel::kVariable);
   j["weight"] = v.getWeight();
-  j["colour"] = shapeColour(v);
+  j["color"] = shapeColor(v);
   j["startGoal"] = startGoal ? Json(sliding::startGoalNumber(&v)) : Json(nullptr);
   const bool disc = stacking::isStacking(s.document().puzzle()) && v.getDiskSize() > 0;
   j["disc"] = disc ? Json(v.getDiskSize()) : Json(nullptr);
-  j["discColour"] = disc ? discColour(s, v) : Json(nullptr);
+  j["discColor"] = disc ? discColor(s, v) : Json(nullptr);
   j["image"] = shapeImage(s.document().puzzle(), v);
   return j;
 }
@@ -275,7 +275,7 @@ Json rodSetJson(const State& s, unsigned int index) {
   j["growHeight"] = r.growHeight;
   j["definedHeight"] = r.definedHeight;
   j["sizeMatters"] = r.sizeMatters;
-  // what the GUI's box showed (loadRodFields): older files cancelled the
+  // what the GUI's box showed (loadRodFields): older files canceled the
   // distance rule with "can move over", which an edit writes off
   j["distanceMatters"] = r.distanceMatters && !r.canMoveOver;
   j["panexColumns"] = r.panexColumns;
@@ -323,10 +323,10 @@ Json layoutJson(const State& s, const stacking::BoardLayout& lay,
   return j;
 }
 
-Json colourJson(const State& s, unsigned int index) {
+Json colorJson(const State& s, unsigned int index) {
   Json j = Json::object();
-  j["id"] = colourId(s, index);
-  j["label"] = app::Document::colourLabel(index);
+  j["id"] = colorId(s, index);
+  j["label"] = app::Document::colorLabel(index);
   j["rgb"] = rgbText(s.document().puzzle().getColor(index));
   return j;
 }
@@ -366,11 +366,11 @@ Json problemDetail(const State& s, unsigned int index) {
     for (const std::uint32_t c : pr.getColorConstraints()) {
       const unsigned int pc = c >> 16;
       const unsigned int rc = c & 0xFFFFU;
-      if (pc < s.document().colourIds().size() && rc < s.document().colourIds().size()) {
-        rules.push_back(Json{{"piece", colourId(s, pc)}, {"result", colourId(s, rc)}});
+      if (pc < s.document().colorIds().size() && rc < s.document().colorIds().size()) {
+        rules.push_back(Json{{"piece", colorId(s, pc)}, {"result", colorId(s, rc)}});
       }
     }
-    j["colourRules"] = std::move(rules);
+    j["colorRules"] = std::move(rules);
     j["maxHoles"] = pr.maxHolesDefined() ? Json(pr.getMaxHoles()) : Json(nullptr);
     j["savedPosition"] =
         pr.getSolveState() == ProblemState::Solving && !pr.getAssemblerState().empty();
@@ -402,11 +402,11 @@ Json snapshot(const State& s) {
     shapes.push_back(shapeSummary(s, i));
   }
   j["shapes"] = std::move(shapes);
-  Json colours = Json::array();
+  Json colors = Json::array();
   for (unsigned int i = 0; i < p.colorNumber(); i++) {
-    colours.push_back(colourJson(s, i));
+    colors.push_back(colorJson(s, i));
   }
-  j["colours"] = std::move(colours);
+  j["colors"] = std::move(colors);
   Json problems = Json::array();
   for (unsigned int i = 0; i < p.getNumberOfProblems(); i++) {
     problems.push_back(problemSummary(s, i));
@@ -483,7 +483,7 @@ Json meshReply(State& s, const mesh::DrawMesh& m) {
   f.add("voxel", m.voxel);
   f.add("voxelFace", m.voxelFace);
   f.add("flags", m.flags);
-  f.add("colour", m.colour);
+  f.add("color", m.color);
   f.add("polygon", m.polygon);
   f.add("edgeLines", m.edgeLines);
   f.add("imageUv", m.imageUv);
@@ -597,7 +597,7 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   o.matrix.keepMirrors = p.optBoolean("keepMirrors", o.matrix.keepMirrors);
   o.matrix.keepRotations = p.optBoolean("keepRotations", o.matrix.keepRotations);
   o.matrix.completeRotations = p.optBoolean("completeRotations", o.matrix.completeRotations);
-  o.matrix.strictColors = p.optBoolean("strictColours", o.matrix.strictColors);
+  o.matrix.strictColors = p.optBoolean("strictColors", o.matrix.strictColors);
   o.reduce = p.optBoolean("reduce", o.reduce);
   o.order = p.optChoice("sortBy", sortByNames()).value_or(o.order);
   o.solutionLimit = static_cast<unsigned int>(p.optInteger("keepAtMost", o.solutionLimit, 0, 0xFFFFFFFF));

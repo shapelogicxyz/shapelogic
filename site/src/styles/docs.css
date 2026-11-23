@@ -22,7 +22,7 @@
   }
 }
 
-/* The header: the logo centred on the bar, the search slid all the way to the
+/* The header: the logo centerd on the bar, the search slid all the way to the
    left (on a phone the bar keeps Starlight's own row). */
 @media (min-width: 50rem) {
   .header {

@@ -5,13 +5,13 @@
 // variable), with mirror and span, as one undo step; the point under the
 // mouse previews what a click would do, and the cursor shows the tool.
 // With fixed or variable, the right half of a face works on its own cell:
-// the top right quarter makes it of the tool's state (its colour kept),
+// the top right quarter makes it of the tool's state (its color kept),
 // the bottom right one erases it; and a click on no face, on a cube grid,
 // adds the cell of the editor's layer under the mouse (an empty shape is
 // begun so).
 // The cell across a face is the client's table on the cube grid (the
 // brick grid's getNeighbor, faces 0 to 5: -x, -y, -z, +x, +y, +z) and
-// `grid.neighbour` on the others; a face of a bevel, or a cell across that
+// `grid.neighbor` on the others; a face of a bevel, or a cell across that
 // is outside the space, refuses (the original grew the space there:
 // resizeInclude in mainwindow_solve.cpp; the mockup refused). From
 // docs/mockup/index.html: `actFor`, `updateHover`, the canvas's pointerup
@@ -24,7 +24,7 @@ import type { Store } from '../state/store.ts';
 import { cursorFor } from '../shell/cursors.ts';
 import type { Tool } from '../shell/cursors.ts';
 import { css } from '../shell/dom.ts';
-import { contrast, fromHex } from '../shell/piece-colours.ts';
+import { contrast, fromHex } from '../shell/piece-colors.ts';
 import { tab } from '../shell/layout.ts';
 import { FLAG } from '../view3d/mesh.ts';
 import type { Pick } from '../view3d/picking.ts';
@@ -33,9 +33,9 @@ import type { EditHost, View3D, ViewMods } from '../view3d/view.ts';
 import { expand, key, TOOLS } from './editor-state.ts';
 import type { Cell, EditorState } from './editor-state.ts';
 import type { ShapeCells } from './shape-cells.ts';
-import { actFor, brickNeighbour } from './tools.ts';
+import { actFor, brickNeighbor } from './tools.ts';
 
-/** The sphere grid's faces that are no cap of a neighbour (light, or a variable ball's black). */
+/** The sphere grid's faces that are no cap of a neighbor (light, or a variable ball's black). */
 const SPHERE_FILL = FLAG.light | FLAG.variableFace;
 
 const isCube = (g: Grid): boolean => g === 'bricks' || g === 'sliding' || g === 'stacking';
@@ -71,17 +71,17 @@ export interface Edit3DHost {
   refuse(): boolean;
   /** Whether a click edits now (no solve; the Entities workspace). */
   canEdit(): boolean;
-  /** The drawing colour, #rrggbb (Default: the shape's own). */
+  /** The drawing color, #rrggbb (Default: the shape's own). */
   drawingHex(): string;
-  /** A constraint colour's #rrggbb (null: the shape's own). */
-  colourHex(colour: string | null): string;
-  /** The drawing colour for a cursor's badge (null: Default). */
+  /** A constraint color's #rrggbb (null: the shape's own). */
+  colorHex(color: string | null): string;
+  /** The drawing color for a cursor's badge (null: Default). */
   badge(): string | null;
   /**
    * Applies a tool to a cell with mirror and span: one undo step; with the
-   * drawing colour, or `colour` when it is given (null: none).
+   * drawing color, or `color` when it is given (null: none).
    */
-  apply(tool: CellTool, cell: Cell, colour?: string | null): Promise<void>;
+  apply(tool: CellTool, cell: Cell, color?: string | null): Promise<void>;
   /** Counts work as an edit under way until it settles. */
   track<T>(p: Promise<T>): Promise<T>;
 }
@@ -94,13 +94,13 @@ interface Target {
   pick: Pick | null;
   /** What a quarter of a face does instead of the tool: its cell's state changed, or erased. */
   quarter?: 'state' | 'erase';
-  /** The colour put on (absent: the drawing colour; null: none). */
-  colour?: string | null;
+  /** The color put on (absent: the drawing color; null: none). */
+  color?: string | null;
 }
 
 export class Edit3D implements EditHost {
   private readonly host: Edit3DHost;
-  private readonly neighbours = new Map<string, Promise<Cell | null>>();
+  private readonly neighbors = new Map<string, Promise<Cell | null>>();
   private token = 0;
   private lastPick: Pick | null = null;
   /** Whether the mouse is over the shape's space (its grid box). */
@@ -115,9 +115,9 @@ export class Edit3D implements EditHost {
     this.host = host;
   }
 
-  /** Forgets what the grid's neighbours were (another document: another grid). */
+  /** Forgets what the grid's neighbors were (another document: another grid). */
   reset(): void {
-    this.neighbours.clear();
+    this.neighbors.clear();
     this.lastPick = null;
     this.lastOver = false;
     this.lastLayerCell = null;
@@ -160,7 +160,7 @@ export class Edit3D implements EditHost {
     void host.track(
       (pick === null ? Promise.resolve(empty) : this.target(act, pick)).then((t) => {
         if (t !== null && t.cell !== null) {
-          return host.apply(t.tool, t.cell, t.colour);
+          return host.apply(t.tool, t.cell, t.color);
         }
         return undefined;
       }),
@@ -182,7 +182,7 @@ export class Edit3D implements EditHost {
       tool: shown,
       name: info?.n ?? '',
       key: info?.k ?? '',
-      colour: host.badge(),
+      color: host.badge(),
       on: st.edit3d,
       tmp: tmp && act !== null,
       enabled: tab === 'entities' && host.store.shape !== null,
@@ -234,7 +234,7 @@ export class Edit3D implements EditHost {
       }
       return own.state === tool
         ? null
-        : { tool, cell: pick.cell, pick, quarter: 'state', colour: own.colour };
+        : { tool, cell: pick.cell, pick, quarter: 'state', color: own.color };
     }
     // a bevel or gap has no side; nor have the faces of a ball of the sphere
     // grid that are not its clickable caps (the original drew them lighter,
@@ -244,9 +244,9 @@ export class Edit3D implements EditHost {
       return { tool, cell: null, pick };
     }
     if (isCube(grid)) {
-      return { tool, cell: brickNeighbour(pick.cell, pick.face, shape.size), pick };
+      return { tool, cell: brickNeighbor(pick.cell, pick.face, shape.size), pick };
     }
-    return { tool, cell: await this.neighbour(shape.size, pick.cell, pick.face), pick };
+    return { tool, cell: await this.neighbor(shape.size, pick.cell, pick.face), pick };
   }
 
   // where fixed or variable goes for a click on no face: the layer's empty cell
@@ -257,19 +257,19 @@ export class Edit3D implements EditHost {
     return this.host.cells.at(cell) === undefined ? { tool: act, cell, pick: null } : null;
   }
 
-  private neighbour(size: Size, cell: Cell, face: number): Promise<Cell | null> {
+  private neighbor(size: Size, cell: Cell, face: number): Promise<Cell | null> {
     const k = `${size.join('x')}:${key(cell)}:${face}`;
-    let p = this.neighbours.get(k);
+    let p = this.neighbors.get(k);
     if (p === undefined) {
-      p = this.host.store.engine.call('grid.neighbour', { size, cell, face }).then(
+      p = this.host.store.engine.call('grid.neighbor', { size, cell, face }).then(
         (r) => (r.cell === null ? null : [r.cell[0], r.cell[1], r.cell[2]]),
         () => {
           // a pick of a mesh just replaced (another size): no target
-          this.neighbours.delete(k);
+          this.neighbors.delete(k);
           return null;
         },
       );
-      this.neighbours.set(k, p);
+      this.neighbors.set(k, p);
     }
     return p;
   }
@@ -285,11 +285,11 @@ export class Edit3D implements EditHost {
     }
     const acc = css('--accent') || '#2f6df6';
     const dng = css('--danger') || '#e5484d';
-    const cc = t.colour === undefined ? host.drawingHex() : host.colourHex(t.colour);
+    const cc = t.color === undefined ? host.drawingHex() : host.colorHex(t.color);
     const size = shape.size;
     const voxelOf = (c: Cell): number => c[0] + size[0] * (c[1] + size[1] * c[2]);
     if (t.cell === null) {
-      // refused: the face clicked in the muted colour (the danger colour
+      // refused: the face clicked in the muted color (the danger color
       // is an erase's)
       const off = css('--muted') || '#667085';
       return t.pick === null || t.pick.face < 0
@@ -305,7 +305,7 @@ export class Edit3D implements EditHost {
     for (const c of expand(t.cell, size, st.mirror, st.span)) {
       const occ = host.cells.at(c);
       if (t.quarter === 'erase') {
-        // the bottom right quarter: the cells to erase, faintly in the danger colour
+        // the bottom right quarter: the cells to erase, faintly in the danger color
         if (occ !== undefined) {
           out.push({ kind: 'cell', voxel: voxelOf(c), fill: dng, alpha: 0.25 });
         }
@@ -337,14 +337,14 @@ export class Edit3D implements EditHost {
               dashed: t.tool === 'variable',
             });
           }
-        } else if (occ.state !== want || occ.colour !== st.colour) {
+        } else if (occ.state !== want || occ.color !== st.color) {
           out.push(
             cube
               ? { kind: 'box', at: c, fill: cc, edge: acc, alpha: 0.22, dashed: true }
               : { kind: 'cell', voxel: voxelOf(c), fill: cc, alpha: 0.22 },
           );
         } else {
-          // already as the tool would make it: outlined in the accent colour,
+          // already as the tool would make it: outlined in the accent color,
           // so the cell under the mouse still shows
           out.push(
             cube
@@ -376,8 +376,8 @@ export class Edit3D implements EditHost {
       }
     }
     // the other grids: an empty cell's shape is not known here, so the
-    // face it grows from shows instead, in the drawing colour's contrast
-    // (the face is of a cell of that colour, often)
+    // face it grows from shows instead, in the drawing color's contrast
+    // (the face is of a cell of that color, often)
     if (
       !cube &&
       (t.tool === 'fixed' || t.tool === 'variable') &&

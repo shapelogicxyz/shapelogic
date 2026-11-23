@@ -21,7 +21,7 @@ namespace bt {
 /// every group of them. A position of more pieces gets no turns (slides
 /// and removals still); the parts it separates into get them again once
 /// they are small enough. (The original shifted past the mask: undefined
-/// behaviour, and 2^32 groups to try at 32 pieces; stage 4 audit.)
+/// behavior, and 2^32 groups to try at 32 pieces; stage 4 audit.)
 inline constexpr unsigned int kMaxTurnPieces = 31;
 
 /// A generator of 90 degree turns from one position.

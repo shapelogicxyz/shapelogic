@@ -89,7 +89,7 @@ describe('the vector image’s painting order', () => {
     ]);
   });
 
-  it('splits a face its neighbour’s plane crosses, so each part is painted in its place', () => {
+  it('splits a face its neighbor’s plane crosses, so each part is painted in its place', () => {
     // a wall at x = 0 across a floor at y = 0: the floor's two halves lie on either side
     const wall: Face<string> = {
       corners: [

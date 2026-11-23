@@ -3,7 +3,7 @@
 
 /// @file
 /// A problem: which shapes of the puzzle are the pieces (and how many of
-/// each), which one is the result, the colour rules, the piece groups, and
+/// each), which one is the result, the color rules, the piece groups, and
 /// what solving found.
 /// Ported from src/lib/problem.{h,cpp} (XML reading and writing lives in
 /// bt/io; the solver hooks such as setAssembler come with stages 3 and 5).
@@ -86,7 +86,7 @@ using SolutionLess = bool (*)(const Solution&, const Solution&);
 [[nodiscard]] std::uint64_t newProblemUid();
 
 /// One problem of a puzzle. A value inside its Puzzle; operations that look
-/// at shapes or colours take that puzzle as a parameter.
+/// at shapes or colors take that puzzle as a parameter.
 ///
 /// A problem has parts (shapes with a piece count range); the pieces are
 /// numbered part by part, each part taking `max` numbers. Assemblies and
@@ -205,7 +205,7 @@ class Problem {
   [[nodiscard]] unsigned int getPartIdForShape(unsigned int shapeId) const;
   /// The voxel space of a part.
   [[nodiscard]] const Voxel& partShape(const Puzzle& puzzle, unsigned int partId) const;
-  /// Swaps two neighbouring parts, renumbering the pieces of all solutions.
+  /// Swaps two neighboring parts, renumbering the pieces of all solutions.
   void exchangeParts(unsigned int partId1, unsigned int partId2);
 
   /// The number of pieces: the sum of the parts' maxima.
@@ -215,15 +215,15 @@ class Problem {
   /// Which piece of its part a piece is (0 for the first).
   [[nodiscard]] unsigned int getPartIndexToPieceId(unsigned int pieceId) const;
 
-  // ---- colour rules ---------------------------------------------------------
+  // ---- color rules ---------------------------------------------------------
 
-  /// Colour 0 is neutral. Unless `strict`, a neutral cell on either side
-  /// goes anywhere; otherwise a piece colour may go into a result colour
+  /// Color 0 is neutral. Unless `strict`, a neutral cell on either side
+  /// goes anywhere; otherwise a piece color may go into a result color
   /// only when allowed. With `strict` a cell may only go into a result cell
-  /// of the same colour, neutral included. Without colours everything fits.
+  /// of the same color, neutral included. Without colors everything fits.
   [[nodiscard]] bool placementAllowed(const Puzzle& puzzle, unsigned int pc, unsigned int res,
                                       bool strict = false) const;
-  /// Allows piece colour `pc` in result colour `res` (both 1-based).
+  /// Allows piece color `pc` in result color `res` (both 1-based).
   void allowPlacement(const Puzzle& puzzle, unsigned int pc, unsigned int res);
   void disallowPlacement(const Puzzle& puzzle, unsigned int pc, unsigned int res);
   /// The allowed pairs, (pc-1) << 16 | (res-1), as the file stores them.

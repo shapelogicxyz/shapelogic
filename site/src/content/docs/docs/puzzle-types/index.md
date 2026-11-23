@@ -35,7 +35,7 @@ how the cells of the other grids can move from their shapes.)
 
 For **Spheres** puzzles there is no disassembler. The solver finds every
 assembly but cannot check whether it can be taken apart. The Solver workspace
-offers **Assemble Only** (**Assemble and Disassemble** is greyed out); the
+offers **Assemble Only** (**Assemble and Disassemble** is grayed out); the
 Solutions count stays empty and the assemblies are what you get.
 
 **Sliding** and **Stacking** puzzles are solved a different way: the solver

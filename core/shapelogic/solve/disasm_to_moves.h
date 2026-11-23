@@ -39,7 +39,7 @@ class PiecePositions {
   }
 
   /// A piece in the middle of a 90 degree turn: the angle so far (0 to
-  /// +-90), the axis, and the pivot (the centre of the turn in grid units).
+  /// +-90), the axis, and the pivot (the center of the turn in grid units).
   /// False when the piece is not turning.
   virtual bool getRotationAnim(unsigned int /*piece*/, float* /*angleDeg*/, float* /*axisX*/,
                                float* /*axisY*/, float* /*axisZ*/, float* /*pivotX*/,

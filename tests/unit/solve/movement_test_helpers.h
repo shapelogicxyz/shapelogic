@@ -64,11 +64,11 @@ inline Cells cellsOf(const Voxel& sh, int ox, int oy, int oz) {
 /// a cell is the cell at its place in the period box, moved).
 class CellWorld {
  public:
-  /// A cell in place: its polyhedron, its centre and how far its farthest
+  /// A cell in place: its polyhedron, its center and how far its farthest
   /// corner is from that.
   struct Placed {
     mesh::CellPolyhedron poly;
-    std::array<double, 3> centre{};
+    std::array<double, 3> center{};
     double radius = 0;
   };
 
@@ -95,11 +95,11 @@ class CellWorld {
       }
     }
     REQUIRE(found);
-    const std::array<double, 3> from = centreOf(first);
+    const std::array<double, 3> from = centerOf(first);
     for (std::size_t a = 0; a < 3; a++) {
       mesh::CellAt next = first;
       (a == 0 ? next.x : a == 1 ? next.y : next.z) += period_[a];
-      const std::array<double, 3> to = centreOf(next);
+      const std::array<double, 3> to = centerOf(next);
       for (std::size_t k = 0; k < 3; k++) {
         axis_[a][k] = (to[k] - from[k]) / period_[a];
       }
@@ -153,7 +153,7 @@ class CellWorld {
       corner = moved(corner);
     }
     out.poly.centroid = moved(out.poly.centroid);
-    out.centre = {static_cast<double>(out.poly.centroid.x),
+    out.center = {static_cast<double>(out.poly.centroid.x),
                   static_cast<double>(out.poly.centroid.y),
                   static_cast<double>(out.poly.centroid.z)};
     for (const mesh::Vec3& corner : out.poly.corners) {
@@ -178,8 +178,8 @@ class CellWorld {
       for (const mesh::CellAt& b : staying) {
         const Placed& pb = cell(b);
         // nowhere near the way: no need to ask
-        const std::array<double, 3> to{pb.centre[0] - pa.centre[0], pb.centre[1] - pa.centre[1],
-                                       pb.centre[2] - pa.centre[2]};
+        const std::array<double, 3> to{pb.center[0] - pa.center[0], pb.center[1] - pa.center[1],
+                                       pb.center[2] - pa.center[2]};
         double t = length2 > 0 ? (to[0] * m[0] + to[1] * m[1] + to[2] * m[2]) / length2 : 0;
         t = std::clamp(t, 0.0, 1.0);
         const std::array<double, 3> off{to[0] - t * m[0], to[1] - t * m[1], to[2] - t * m[2]};
@@ -195,9 +195,9 @@ class CellWorld {
     return false;
   }
 
-  /// A ball around cells: its centre and radius.
+  /// A ball around cells: its center and radius.
   struct Ball {
-    std::array<double, 3> centre{};
+    std::array<double, 3> center{};
     double radius = 0;
   };
   Ball ballAround(const Cells& cells) {
@@ -205,21 +205,21 @@ class CellWorld {
     for (const mesh::CellAt& c : cells) {
       const Placed& p = cell(c);
       for (std::size_t k = 0; k < 3; k++) {
-        b.centre[k] += p.centre[k] / static_cast<double>(cells.size());
+        b.center[k] += p.center[k] / static_cast<double>(cells.size());
       }
     }
     for (const mesh::CellAt& c : cells) {
       const Placed& p = cell(c);
-      const double d = std::sqrt((p.centre[0] - b.centre[0]) * (p.centre[0] - b.centre[0]) +
-                                 (p.centre[1] - b.centre[1]) * (p.centre[1] - b.centre[1]) +
-                                 (p.centre[2] - b.centre[2]) * (p.centre[2] - b.centre[2]));
+      const double d = std::sqrt((p.center[0] - b.center[0]) * (p.center[0] - b.center[0]) +
+                                 (p.center[1] - b.center[1]) * (p.center[1] - b.center[1]) +
+                                 (p.center[2] - b.center[2]) * (p.center[2] - b.center[2]));
       b.radius = std::max(b.radius, d + p.radius);
     }
     return b;
   }
 
  private:
-  std::array<double, 3> centreOf(mesh::CellAt c) const {
+  std::array<double, 3> centerOf(mesh::CellAt c) const {
     const Result<mesh::CellPolyhedron> p = mesh::cellPolyhedron(*voxel_, c);
     REQUIRE(p.has_value());
     return {static_cast<double>(p->centroid.x), static_cast<double>(p->centroid.y),
@@ -256,9 +256,9 @@ inline unsigned int freeSteps(CellWorld& w, const Cells& moving, const Step& ste
       c.z += step[2];
     }
     // apart, and going further apart: nothing can be met any more
-    const std::array<double, 3> gap{start.centre[0] + (n + 1) * m[0] - still.centre[0],
-                                    start.centre[1] + (n + 1) * m[1] - still.centre[1],
-                                    start.centre[2] + (n + 1) * m[2] - still.centre[2]};
+    const std::array<double, 3> gap{start.center[0] + (n + 1) * m[0] - still.center[0],
+                                    start.center[1] + (n + 1) * m[1] - still.center[1],
+                                    start.center[2] + (n + 1) * m[2] - still.center[2]};
     const double far = start.radius + still.radius;
     if (gap[0] * gap[0] + gap[1] * gap[1] + gap[2] * gap[2] > far * far &&
         gap[0] * m[0] + gap[1] * m[1] + gap[2] * m[2] >= 0) {
@@ -415,9 +415,9 @@ inline std::optional<std::string> replayNode(CellWorld& w, const std::vector<Cel
       const std::array<double, 3> v = w.vectorOf(*step);
       const double stepLength = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
       const double between =
-          std::sqrt((going.centre[0] - still.centre[0]) * (going.centre[0] - still.centre[0]) +
-                    (going.centre[1] - still.centre[1]) * (going.centre[1] - still.centre[1]) +
-                    (going.centre[2] - still.centre[2]) * (going.centre[2] - still.centre[2]));
+          std::sqrt((going.center[0] - still.center[0]) * (going.center[0] - still.center[0]) +
+                    (going.center[1] - still.center[1]) * (going.center[1] - still.center[1]) +
+                    (going.center[2] - still.center[2]) * (going.center[2] - still.center[2]));
       steps = static_cast<int>((between + going.radius + still.radius) / stepLength) + 2;
       removed = moves;
     }

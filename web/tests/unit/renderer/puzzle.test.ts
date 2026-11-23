@@ -52,7 +52,7 @@ function detail(parts: Part[], result: string | null = 's1'): ProblemDetail {
     triedApart: 0,
     slideGrid: 0,
     parts,
-    colourRules: [],
+    colorRules: [],
     maxHoles: null,
     savedPosition: false,
     solverSettings: {},
@@ -160,10 +160,10 @@ describe('the pieces scene', () => {
       ['piece', 's3', 2, 3, true],
       ['piece', 's3', 3, 3, true],
     ]);
-    // the result and the selected piece side by side, centred
+    // the result and the selected piece side by side, centerd
     expect(items[0]?.pos).toEqual([-3.75, 0]);
     expect(items[1]?.pos).toEqual([3.75, 0]);
-    // four copies in one row, centred under them, 5.2 apart
+    // four copies in one row, centerd under them, 5.2 apart
     const xs = items.slice(2).map((i) => i.pos[0]);
     expect(xs.map((x) => Number(x.toFixed(2)))).toEqual([-7.8, -2.6, 2.6, 7.8]);
     expect(items.slice(2).every((i) => i.pos[1] === -7.7)).toBe(true);
@@ -174,7 +174,7 @@ describe('the pieces scene', () => {
     expect(items.filter((i) => i.role === 'selected')).toEqual([]);
     const ys = items.filter((i) => i.role === 'piece').map((i) => i.pos[1]);
     expect(ys.map((y) => Number(y.toFixed(2)))).toEqual([-7.7, -7.7, -7.7, -7.7, -7.7, -14.3]);
-    // the result alone in the middle; a short last row centred too
+    // the result alone in the middle; a short last row centerd too
     expect(items[0]?.pos).toEqual([0, 0]);
     expect(items.at(-1)?.pos[0]).toBe(0);
     expect(puzLayout(null, null, []).items).toEqual([]);

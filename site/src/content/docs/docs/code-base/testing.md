@@ -61,7 +61,7 @@ but the slow cases, and a test's name runs that test alone.
 
 | Name | Command | What it checks |
 |---|---|---|
-| **asan** | `just test-asan` | All seven core tests in a build with the address and undefined-behaviour sanitizers: memory errors and undefined behaviour. |
+| **asan** | `just test-asan` | All seven core tests in a build with the address and undefined-behavior sanitizers: memory errors and undefined behavior. |
 | **tsan** | `just test-tsan` | The `[parallel]` unit cases and the **contract** test in a ThreadSanitizer build: data races between threads. |
 
 Both build their own preset (`build/asan`, `build/tsan`) and are much

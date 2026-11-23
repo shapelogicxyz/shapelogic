@@ -9,7 +9,7 @@ catch. The original application is available and runs.
 
 ## Decision
 - **Faithful first, restructured second.** An algorithm is ported with its
-  behaviour intact, proved, and only then reshaped. No algorithmic changes
+  behavior intact, proved, and only then reshaped. No algorithmic changes
   during a port; performance work comes after the gate passes.
 - **The original is the oracle.** `tests/oracle/oracle.py` runs the original
   `burrTxt` and the new `bt` on the corpus (`tests/oracle/corpus.txt`: the

@@ -19,8 +19,8 @@ import type { Axis, Cell } from './editor-state.ts';
 export interface StrokeTool {
   shape: string;
   tool: CellTool;
-  /** The drawing colour (null: the shape's own). */
-  colour: string | null;
+  /** The drawing color (null: the shape's own). */
+  color: string | null;
   mirror: Axis[];
   span: Axis[];
 }
@@ -185,7 +185,7 @@ export class Stroke {
       shape: t.shape,
       tool: t.tool,
       cells,
-      ...(t.colour === null ? {} : { colour: t.colour }),
+      ...(t.color === null ? {} : { color: t.color }),
       ...(t.mirror.length === 0 ? {} : { mirror: t.mirror }),
       ...(t.span.length === 0 ? {} : { span: t.span }),
     });

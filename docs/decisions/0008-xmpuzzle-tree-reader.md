@@ -1,4 +1,4 @@
-# 0008: Read .xmpuzzle files into a tree, keep what is not modelled
+# 0008: Read .xmpuzzle files into a tree, keep what is not modeled
 
 **Status:** accepted (stage 2); `core/shapelogic/io/`, `core/shapelogic/model/xml_element.h`
 
@@ -7,7 +7,7 @@ Decision 0006 asks that content the new core does not model (stacking rod
 sets, elements added by later versions) is written back unchanged. The
 original read files with a pull parser and skipped every element it did not
 know (`skipSubTree`), so porting its loaders as they were would lose that
-content. Its parser also has behaviour files depend on: the five named
+content. Its parser also has behavior files depend on: the five named
 entities and numeric references, text merged across comments and CDATA,
 `\r\n` folded to `\n`, a newline in an attribute value read as a space,
 whatever follows the root element left unread.
@@ -32,10 +32,10 @@ whatever follows the root element left unread.
   place. Unknown content deeper inside other known elements (`<colors>`,
   a part's `<shape>`, `<bitmap>`, `<state>`...) is dropped, as the
   original drops it.
-- **Stacking is kept, not modelled**: `<puzzle>/<rodSets>` and
+- **Stacking is kept, not modeled**: `<puzzle>/<rodSets>` and
   `<problem>/<stacking>` are preserved elements. A stacking puzzle without
   rod sets is written with the default one, as the original does.
-  (Amended by decision 0015, deferred part 3a: they are modelled now, read
+  (Amended by decision 0015, deferred part 3a: they are modeled now, read
   and written as the original did.)
 - **The writer is a port of `xmlWriter_c`** and the save functions write in
   the original's order, so saves are byte-identical to the original's (365

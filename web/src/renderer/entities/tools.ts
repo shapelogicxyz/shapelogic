@@ -56,7 +56,7 @@ export const BRICK_FACES: readonly Cell[] = [
 ];
 
 /** The cell a cube grid's face points at, or null outside the space. */
-export function brickNeighbour(cell: Cell, face: number, size: Size): Cell | null {
+export function brickNeighbor(cell: Cell, face: number, size: Size): Cell | null {
   const d = BRICK_FACES[face];
   if (d === undefined) {
     return null;

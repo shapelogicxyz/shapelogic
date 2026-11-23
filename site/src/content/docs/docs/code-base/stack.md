@@ -20,7 +20,7 @@ an Astro website. This page lists what each part is built with and why.
 
 Decision record `docs/decisions/0001-language-and-build.md` explains the
 choice: the code is ported from BurrTools, which is C++, so porting stays
-mechanical and the algorithms keep their behaviour.
+mechanical and the algorithms keep their behavior.
 
 ### Third-party libraries
 

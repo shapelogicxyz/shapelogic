@@ -125,7 +125,7 @@ and takes every edit; nothing is kept. Its problem's Solve plays a run
 without a search (the bridge answers `solve.start` and `main.ts` sends a
 run's events for about three seconds), then opens the puzzle again with
 the file's pieces and problem (its saved solution) among the visitor's
-other shapes, problems and colours, spliced into the saved document. `manifest.json` records a hash of the
+other shapes, problems and colors, spliced into the saved document. `manifest.json` records a hash of the
 demo's inputs: `site/tests/demo.test.mjs` (run by `just site-build`)
 fails when the app changed since, so the demo is rebuilt and committed
 with the change. `just site-demo --check` drives the built demo in Google
@@ -169,7 +169,7 @@ Chrome (`--headed` shows it).
   keyboard table, `keyboard.ts`, `layout.ts`, `settings.ts`, `prefs.ts`,
   `theme.ts`, `status.ts`, `escape.ts`, `history.ts` (undo and redo),
   `popover.ts`, `confirm.ts`, `topbar.ts`, `icons.ts`, `cursors.ts`,
-  `piece-colours.ts`, `dom.ts`),
+  `piece-colors.ts`, `dom.ts`),
   `state/` (`store.ts` the mirror of the engine, `edits.ts` the edits
   under way, `solves.ts` the solve records), `view3d/` (the 3D view:
   `view.ts`, `renderer.ts`, `camera.ts`, `viewcube.ts`, `mesh.ts`,

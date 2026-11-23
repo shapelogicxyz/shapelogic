@@ -23,11 +23,11 @@ import { problemChipStyle, solveActive } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
 
 export class ProblemsList {
-  /** The place of the problem shown when last drawn (its neighbour takes over when it goes). */
+  /** The place of the problem shown when last drawn (its neighbor takes over when it goes). */
   lastIndex = 0;
   private readonly ws: PuzzleWorkspace;
   private readonly list = byId('pzProblems');
-  private renaming: { id: string; input: HTMLInputElement; cancelled: boolean } | null = null;
+  private renaming: { id: string; input: HTMLInputElement; canceled: boolean } | null = null;
   private dragFrom: string | null = null;
 
   constructor(ws: PuzzleWorkspace) {
@@ -155,7 +155,7 @@ export class ProblemsList {
     if (input === null) {
       return;
     }
-    this.renaming = { id, input, cancelled: false };
+    this.renaming = { id, input, canceled: false };
     input.focus();
     input.select();
     input.addEventListener('keydown', (e) => {
@@ -177,7 +177,7 @@ export class ProblemsList {
     this.renaming = null;
     const name = r.input.value;
     const q = this.problems.find((p) => p.id === r.id);
-    if (!cancel && !r.cancelled && q !== undefined && name !== q.name) {
+    if (!cancel && !r.canceled && q !== undefined && name !== q.name) {
       void this.ws.mutate('Rename', () =>
         this.ws.store.engine.call('problem.rename', { problem: r.id, name }),
       );
@@ -265,7 +265,7 @@ export class ProblemsList {
       if (this.renaming === null) {
         return false;
       }
-      this.renaming.cancelled = true;
+      this.renaming.canceled = true;
       this.renaming.input.blur();
       return true;
     });

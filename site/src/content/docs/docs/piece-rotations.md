@@ -5,7 +5,7 @@ description: "What Check Rotations does when taking puzzles apart, for twisting 
 
 Most interlocking puzzles come apart by **sliding** pieces in straight lines.
 Some need a piece to **turn**: a quarter twist that unhooks it from its
-neighbours before it can slide out. Puzzle makers call these **TICs**
+neighbors before it can slide out. Puzzle makers call these **TICs**
 (Turning Interlocking Cubes), or rotational puzzles.
 
 By default ShapeLogic only tries sliding moves. Such a puzzle would be
@@ -35,7 +35,7 @@ With it on, each step of the take-apart can be:
   through a pivot point, if nothing is in the way of the turn.
 
 The solver checks the whole path of a turn, not only where the piece ends up,
-so a piece can't turn through a neighbour.
+so a piece can't turn through a neighbor.
 
 ## Reading the results
 

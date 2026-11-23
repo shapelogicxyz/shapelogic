@@ -187,14 +187,14 @@ list; each also in its handoff):
 1. (stage 1b) The 3D view is navigated as the mockup's, not the
    original's: its home view (yaw −32°, pitch 26°), its framing and gentle
    perspective, its Drag orbit as the default; the original's arc-ball is
-   the "Arc-ball" rotation method. The faces are coloured and lit as the
+   the "Arc-ball" rotation method. The faces are colored and lit as the
    original's (its checker, variable marks, light), with its positional
    light taken as a fixed eye-space point.
 2. (stage 1b) "Dim other layers" lightens the other layers' faces as the
    original dimmed a piece (1 − (1 − c) · 0.2), opaque, where the mockup
    made them transparent.
 3. (stage 2) A 3D click that would add a cell outside the space is
-   refused (the face shows in the danger colour), as the mockup did; the
+   refused (the face shows in the danger color), as the mockup did; the
    original grew the space to take the cell (`resizeInclude` in
    `mainwindow_solve.cpp`). The size steppers grow it.
 4. (stage 2) The box selection is a mode of its own (the box button by the
@@ -231,7 +231,7 @@ list; each also in its handoff):
    with the voxel pen of every tab; the labels are those of the original's
    `ToolTab_Sliding`, which it never made. The tray's 2D tiles show their
    marks only while Start or Goal is chosen, as the original's tab did.
-9. (deferred part 2) The engine refuses what the original only greyed out
+9. (deferred part 2) The engine refuses what the original only grayed out
    for sliding shapes (the tasks that add layers, another Z), and a
    piece's rename to a name beginning "sg:" (the original's
    `cb_NameShape` let it, and the piece became a start/goal shape at the

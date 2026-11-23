@@ -2465,7 +2465,7 @@ void Assembler1::replay(Links& n, const SearchStacks& s, bool task) const {
 // A replay from a damaged file may name a column or a row twice: covered or
 // hidden a second time, the links would no longer be lists, and the search
 // would go round in them for ever. With only removals made, a node is still
-// in its list exactly when its neighbours point back at it.
+// in its list exactly when its neighbors point back at it.
 bool Assembler1::replayChecked(Links& n, const SearchStacks& s, bool task,
                                std::vector<ReplayStep>& done) const {
   auto linked = [&n](unsigned int x) { return n.down[n.up[x]] == x && n.up[n.down[x]] == x; };

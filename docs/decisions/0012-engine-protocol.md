@@ -76,7 +76,7 @@ names the same) or refuses one it does not know (`unsupported`). Clients
 are told apart by it when a change breaks them; a client that skips it
 gets protocol 1 for as long as it exists.
 
-**Ids.** Shapes `s<n>`, colours `c<n>`, problems `p<n>`, solutions
+**Ids.** Shapes `s<n>`, colors `c<n>`, problems `p<n>`, solutions
 `sol<n>`: the document's `Id` (and `Solution::getId()`) with a prefix, so
 an id of the wrong kind is caught (`invalid_params`). A solution id is
 unique within its problem; every call naming a solution names its problem.
@@ -116,7 +116,7 @@ or a save point is refused (`invalid_state`) when no run is under way;
 so is an abort unless a run is active or paused in memory: the hard stop
 of a solve, never the removal of a finished one's solutions (that is
 `solution.delete {which: all}`, undoable; the original's Abort button
-was greyed out once the solve thread had ended, and a click in the
+was grayed out once the solve thread had ended, and a click in the
 moment after a run finished must not destroy its results). A paused solve
 from a file is carried on (`solve.continue`) or started over
 (`solve.start`). Options come from the request over the engine's
@@ -160,7 +160,7 @@ its level summary kept) opens in `playback.open` as a single pose (steps
 `playback.mesh` takes the same `style` as `shape.mesh`.
 
 **Names that stay.** The API's `SolveOptions` names its fields
-(`completeRotations`, `strictColours`, `justLevels`) and the stored
+(`completeRotations`, `strictColors`, `justLevels`) and the stored
 `SolverSettings` keep the file's (`deepSymmetry`, `strictColors`,
 `justLevels`): the stored settings are the original's text, saved as it
 is and shown as the front end decides, so translating them would be
@@ -184,7 +184,7 @@ into `DocumentSettings`), threads and the default solver (the defaults of
 every `SolveOptions`).
 
 **Schema.** `api/types.json` holds the shared definitions; one file per
-area (`engine`, `document`, `shape`, `colour`, `problem`, `solve`,
+area (`engine`, `document`, `shape`, `color`, `problem`, `solve`,
 `solution`, `playback`, `explore`) lists its methods (`params`, `result`,
 `summary`) and events (`params`) as JSON Schema 2020-12, in a subset a
 small validator of our own checks (`api/apischema.py`: `type`,

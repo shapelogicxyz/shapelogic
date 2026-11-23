@@ -2,7 +2,7 @@
 #pragma once
 
 /// @file
-/// The puzzle: its grid, shapes, constraint colours, problems and comment.
+/// The puzzle: its grid, shapes, constraint colors, problems and comment.
 /// Ported from src/lib/puzzle.{h,cpp} (reading and writing files lives in
 /// bt/io), with the stacking rod sets.
 
@@ -22,7 +22,7 @@
 
 namespace bt {
 
-/// An RGB colour.
+/// An RGB color.
 struct Rgb {
   std::uint8_t r = 0;
   std::uint8_t g = 0;
@@ -37,7 +37,7 @@ struct Rgb {
 /// updates every problem.
 class Puzzle {
  public:
-  /// The most constraint colours (colour 0 is "none").
+  /// The most constraint colors (color 0 is "none").
   static constexpr unsigned int kMaxColors = 63;
 
   /// An empty puzzle on grid `gt`; a stacking puzzle gets the default rod
@@ -71,19 +71,19 @@ class Puzzle {
   /// one; the problems are not touched (an undo restores a shape this way).
   std::unique_ptr<Voxel> replaceShape(unsigned int idx, std::unique_ptr<Voxel> v);
 
-  // ---- constraint colours -----------------------------------------------------
+  // ---- constraint colors -----------------------------------------------------
 
-  /// Adds a colour; returns its 0-based index (colour number index+1).
+  /// Adds a color; returns its 0-based index (color number index+1).
   unsigned int addColor(std::uint8_t r, std::uint8_t g, std::uint8_t b);
-  /// Removes colour number `col` (1-based, as in cells and colour rules):
-  /// cells of that colour become neutral, higher colours move down, and the
-  /// problems' colour rules follow. Solutions that no longer hold stay.
+  /// Removes color number `col` (1-based, as in cells and color rules):
+  /// cells of that color become neutral, higher colors move down, and the
+  /// problems' color rules follow. Solutions that no longer hold stay.
   void removeColor(unsigned int col);
-  /// Changes the colour with 0-based index `idx`.
+  /// Changes the color with 0-based index `idx`.
   void changeColor(unsigned int idx, std::uint8_t r, std::uint8_t g, std::uint8_t b);
-  /// The colour with 0-based index `idx`.
+  /// The color with 0-based index `idx`.
   [[nodiscard]] Rgb getColor(unsigned int idx) const;
-  /// The number of colours.
+  /// The number of colors.
   [[nodiscard]] unsigned int colorNumber() const {
     return static_cast<unsigned int>(colors_.size());
   }

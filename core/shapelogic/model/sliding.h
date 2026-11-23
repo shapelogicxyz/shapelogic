@@ -14,7 +14,7 @@
 /// a goal mark, the goal of one. So several problems may share a board,
 /// each with a layout of its own, and a board that is edited takes its
 /// problems' starts and goals with its cells (BoardEdit). The cells'
-/// colours are the user's restriction colours, as on every grid (the
+/// colors are the user's restriction colors, as on every grid (the
 /// original kept the starts in them and the goals on the shape; a file of
 /// its is converted as it loads, convertLegacyStarts, and so is a file of
 /// ours from when the marks were the shape's, adoptBoardMarks). The
@@ -34,7 +34,7 @@
 /// freeStartParts), and the slide search (bt/solve/sliding_search.h) takes
 /// it to the goal.
 ///
-/// An older model, a tray and a goal map painted in piece colours
+/// An older model, a tray and a goal map painted in piece colors
 /// (ensureSetup, placeStart, placeGoal), is still read by the solver; the
 /// tests build such puzzles.
 ///
@@ -281,7 +281,7 @@ std::string setLayout(const Puzzle& puzzle, Problem& problem, bool goal,
 
 /// Whether the problem's result is a start/goal shape, whose start marks
 /// hold the pieces to their starts (MatrixOptions::startLocks). False for
-/// the older model, a tray and a goal map painted in piece colours, which
+/// the older model, a tray and a goal map painted in piece colors, which
 /// a solve matches strictly (MatrixOptions::strictColors) as the original
 /// did.
 [[nodiscard]] bool usesStartMarks(const Puzzle& puzzle, const Problem& problem);
@@ -312,17 +312,17 @@ std::vector<unsigned int> noteShapeSwap(Puzzle& puzzle, unsigned int a, unsigned
 /// shapes yet, a tray of width by height. Safe to call repeatedly.
 void ensureSetup(Puzzle& puzzle, unsigned int width = 6, unsigned int height = 6);
 
-/// The colour (from 1) a piece is painted in; 0 when it is neutral.
+/// The color (from 1) a piece is painted in; 0 when it is neutral.
 [[nodiscard]] unsigned int pieceColor(const Puzzle& puzzle, unsigned int shapeId);
 
-/// True when the piece has a coloured start on the problem's tray.
+/// True when the piece has a colored start on the problem's tray.
 [[nodiscard]] bool hasStart(const Puzzle& puzzle, const Problem& problem, unsigned int shapeId);
 
-/// True when the piece has a coloured goal on the problem's goal map.
+/// True when the piece has a colored goal on the problem's goal map.
 [[nodiscard]] bool hasGoal(const Puzzle& puzzle, const Problem& problem, unsigned int shapeId);
 
 /// The older model: puts a piece on the start tray as drawn, its hotspot at
-/// (ax, ay, 0), with a colour of its own on piece and tray. False when it
+/// (ax, ay, 0), with a color of its own on piece and tray. False when it
 /// would leave the floor or cover another start.
 bool placeStart(Puzzle& puzzle, Problem& problem, unsigned int shapeId, int ax, int ay);
 
@@ -330,7 +330,7 @@ bool placeStart(Puzzle& puzzle, Problem& problem, unsigned int shapeId, int ax, 
 void clearStart(Puzzle& puzzle, Problem& problem, unsigned int shapeId);
 
 /// The older model: puts the piece's goal at (ax, ay, 0) on the goal map;
-/// the piece keeps its colour (a free piece stays neutral).
+/// the piece keeps its color (a free piece stays neutral).
 bool placeGoal(Puzzle& puzzle, Problem& problem, unsigned int shapeId, int ax, int ay);
 
 /// Takes the piece's goal off the goal map.
@@ -359,9 +359,9 @@ bool prepareForSolving(Puzzle& puzzle, Problem& problem);
 
 /// A file the original wrote (or one of ours from before the start marks
 /// had a place of their own) keeps the starts as the start/goal shapes'
-/// cell colours and paints each piece in its mark: the starts become start
-/// marks, the colours go, and so does the palette the locks needed, unless
-/// a problem has colour rules of its own. Nothing happens to a puzzle
+/// cell colors and paints each piece in its mark: the starts become start
+/// marks, the colors go, and so does the palette the locks needed, unless
+/// a problem has color rules of its own. Nothing happens to a puzzle
 /// without start/goal shapes (the older model). The marks then go to the
 /// problems (adoptBoardMarks).
 void convertLegacyStarts(Puzzle& puzzle);

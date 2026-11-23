@@ -92,7 +92,7 @@ TEST_CASE("document solving: a solve, its progress, and abort", "[app][solving]"
   CHECK_FALSE(d.solveFailure(p).has_value());
 
   // a finished solve is not aborted (nothing is under way, as the
-  // original's greyed-out button): its solutions are removed as a step
+  // original's grayed-out button): its solutions are removed as a step
   CHECK(d.solveAbort(p).error().code == Errc::InvalidState);
   CHECK(d.solveState(p) == SolveState::Finished);
   REQUIRE(d.deleteSolutions(p, SolutionsToDelete::All).has_value());
@@ -109,7 +109,7 @@ TEST_CASE("document solving: while a run is active the puzzle is frozen but for 
   const Id other = d.createProblem().value();
   const Id p = d.problemIds().front();
   const Id s = d.shapeIds().front();
-  const Id c = d.addColour(Rgb{1, 2, 3}).value();
+  const Id c = d.addColor(Rgb{1, 2, 3}).value();
 
   REQUIRE(d.solveStart(p, takeApart(1)).has_value());
   // Checked while holding the problem's lock: the run cannot write the
@@ -126,7 +126,7 @@ TEST_CASE("document solving: while a run is active the puzzle is frozen but for 
     refusedWhileSolving(d, [s](Document& x) { return x.renameShape(s, "no"); });
     refusedWhileSolving(d, [other](Document& x) { return x.deleteProblem(other); });
     refusedWhileSolving(d, [other](Document& x) { return x.moveProblem(other, 0); });
-    refusedWhileSolving(d, [c](Document& x) { return x.deleteColour(c); });
+    refusedWhileSolving(d, [c](Document& x) { return x.deleteColor(c); });
     refusedWhileSolving(d, [p](Document& x) { return x.renameProblem(p, "no"); });
     refusedWhileSolving(d, [p](Document& x) { return x.addOneOfEach(p); });
     refusedWhileSolving(d,
@@ -136,9 +136,9 @@ TEST_CASE("document solving: while a run is active the puzzle is frozen but for 
     refusedWhileSolving(d, [p](Document& x) { return x.solveStart(p, {}); });
     // the original replaced the puzzle under its solver thread
     refusedWhileSolving(d, [](Document& x) { return x.convertGrid(GridKind::Rhombic); });
-    // these go on: the notes, how a colour looks, another problem
+    // these go on: the notes, how a color looks, another problem
     CHECK(d.setNotes("noted while solving").has_value());
-    CHECK(d.editColour(c, Rgb{9, 9, 9}).has_value());
+    CHECK(d.editColor(c, Rgb{9, 9, 9}).has_value());
     CHECK(d.renameProblem(other, "the other").has_value());
     // a problem added at the end moves none: the run goes on
     CHECK(d.createProblem().has_value());

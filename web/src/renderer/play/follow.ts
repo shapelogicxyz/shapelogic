@@ -4,7 +4,7 @@
 // page so the unit tests run it without a DOM. The engine gave every place
 // one move can take the piece to (sliding.playReach: shifts joined by
 // single steps to where it is); the drag walks them a step at a time
-// towards the pointer, so the piece slides along what is in its way and
+// toward the pointer, so the piece slides along what is in its way and
 // never jumps over it, however fast the pointer went; between stops it is
 // drawn part of the way to the next, so it moves with the pointer from the
 // first pixel and settles on the nearest stop when let go. And the points
@@ -14,7 +14,7 @@
 export type Has = (x: number, y: number) => boolean;
 
 /**
- * Where the piece gets to from the shift `from` towards `target`, both in
+ * Where the piece gets to from the shift `from` toward `target`, both in
  * cells from where the drag began: single steps along the axis with the
  * further to go, else the other, while there is a stop that way. It never
  * steps away from the target, so a piece is led round a corner by the
@@ -49,9 +49,9 @@ export function follow(
 }
 
 /**
- * How far past the stop `at` the pieces are drawn towards the pointer at
+ * How far past the stop `at` the pieces are drawn toward the pointer at
  * `pointer` (both in cells from where the drag began, the pointer not in
- * whole ones): along one axis, up to half a cell, and only towards a stop
+ * whole ones): along one axis, up to half a cell, and only toward a stop
  * next to it, so a piece moves with the pointer however little it goes
  * and never into what is in its way. Let go, the piece settles on `at`,
  * the stop nearest the pointer.
@@ -106,7 +106,7 @@ export function stopsIn(stops: readonly { by: readonly number[] }[]): Has {
 }
 
 /**
- * Which group a drag moves, by its first step towards `target`: the first
+ * Which group a drag moves, by its first step toward `target`: the first
  * in `order` that can take that step; -1 when none can.
  */
 export function groupFor(

@@ -54,7 +54,7 @@ TEST_CASE("shape tools: the task sets of the grids", "[app][tools]") {
   }
 }
 
-TEST_CASE("shape tools: nudges, turns, centre and origin keep the shape", "[app][tools]") {
+TEST_CASE("shape tools: nudges, turns, center and origin keep the shape", "[app][tools]") {
   std::unique_ptr<Voxel> v = cube(5);
   v->setState(0, 0, 0, Voxel::kFilled);
   v->setState(1, 0, 0, Voxel::kFilled);
@@ -67,8 +67,8 @@ TEST_CASE("shape tools: nudges, turns, centre and origin keep the shape", "[app]
   }
   CHECK(t->identicalInBB(*v));
 
-  // centre: an odd gap gets one more cell first (the original's rule)
-  REQUIRE(applyTask(*v, ShapeTask::Centre).has_value());
+  // center: an odd gap gets one more cell first (the original's rule)
+  REQUIRE(applyTask(*v, ShapeTask::Center).has_value());
   CHECK(v->countState(Voxel::kFilled) == 3);
   CHECK(v->getX() == 6);
   CHECK(v->boundX1() == 2);
@@ -107,7 +107,7 @@ TEST_CASE("shape tools: prune, scale, minimize, fill holes and the surface", "[a
   CHECK(holes->cellsChanged == 1);
   CHECK(v->isFilled(2, 2, 2));
 
-  // the surface made variable: all but the centre
+  // the surface made variable: all but the center
   const Result<TaskOutcome> outer = applyTask(*v, ShapeTask::OutsideVariable);
   REQUIRE(outer.has_value());
   CHECK(outer->cellsChanged == 26);

@@ -304,7 +304,7 @@ test('a fixture of each grid opened and saved as a copy: no change on open, the 
     await menu(page, 'saveAs');
     await expect(page.locator('#fname')).toHaveText('plain.xmpuzzle');
     expect(existsSync(join(dir, 'plain.xmpuzzle'))).toBe(true);
-    // a cancelled dialog changes nothing
+    // a canceled dialog changes nothing
     await answerDialogs(page, { save: null, open: null });
     await menu(page, 'saveAs');
     await menu(page, 'open');
@@ -560,7 +560,7 @@ test('settings and layouts survive a restart', async () => {
     await page.click('#setNav [data-p="view"]');
     // the defaults of a new data folder
     await expect(page.locator('#setPg [data-k="rot"][data-o="Free Spin"]')).toHaveClass(/\bon\b/);
-    await expect(page.locator('#setPg [data-k="zAxis"][data-o="Z Towards"]')).toHaveClass(/\bon\b/);
+    await expect(page.locator('#setPg [data-k="zAxis"][data-o="Z Toward"]')).toHaveClass(/\bon\b/);
     await page.click('#setPg [data-k="rot"][data-o="Top Up"]');
     await page.click('#setPg [data-k="zAxis"][data-o="Z Up"]');
     await page.click('#setPg .switch[data-k="cube"]');
@@ -910,7 +910,7 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
       await app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened),
     ).toEqual(['https://shapelogic.xyz/docs/', 'https://shapelogic.xyz/docs/getting-started/']);
 
-    // greyed: what this version does not have (the imports and grid
+    // grayed: what this version does not have (the imports and grid
     // conversion came with deferred part 6: imports.e2e.ts)
     for (const id of ['anaglyph', 'anaglyph.swapped']) {
       expect((await menuItem(page, id))?.enabled, id).toBe(false);

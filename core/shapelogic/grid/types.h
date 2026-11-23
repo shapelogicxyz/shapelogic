@@ -10,7 +10,7 @@
 namespace bt {
 
 /// One cell of a voxel space: the low 2 bits are the state (Voxel::kEmpty,
-/// kFilled, kVariable), the upper 6 bits a colour (0 = neutral, 1..63).
+/// kFilled, kVariable), the upper 6 bits a color (0 = neutral, 1..63).
 /// Assembly-result spaces use the whole byte as a piece number instead.
 using VoxelType = std::uint8_t;
 
@@ -37,7 +37,7 @@ inline constexpr unsigned char kTransformUndefined = 0xFF;
   return s == kSymmetryInvalid;
 }
 
-/// Integer division rounding towards minus infinity (as in Python).
+/// Integer division rounding toward minus infinity (as in Python).
 /// Ported from src/tools/intdiv.h.
 template <class T>
 [[nodiscard]] constexpr T intDivFloor(T x, T y) noexcept {

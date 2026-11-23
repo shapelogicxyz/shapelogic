@@ -39,7 +39,7 @@ using namespace bt::test;
 
    The assertions are properties rather than values, as the design doc asks:
    a transformation composed with its inverse is the identity, transforming
-   preserves the cell count, the neighbour relation is symmetric. A value
+   preserves the cell count, the neighbor relation is symmetric. A value
    that happened to match on all five grids would be a coincidence; these
    are obligations. */
 
@@ -169,14 +169,14 @@ TEST_CASE("grid: a transformation composed with its inverse is the identity on e
   }
 }
 
-TEST_CASE("grid: the neighbour relation is symmetric on every grid", "[voxel][grid][neighbour]") {
-  /* If b is a face neighbour of a then a must be one of b. An asymmetric
-     neighbour table makes connectivity depend on which cell the search
+TEST_CASE("grid: the neighbor relation is symmetric on every grid", "[voxel][grid][neighbor]") {
+  /* If b is a face neighbor of a then a must be one of b. An asymmetric
+     neighbor table makes connectivity depend on which cell the search
      happens to start from, which is the kind of defect that shows up as an
      intermittently unsolvable puzzle rather than as a crash.
 
-     Checked over the grid's own valid coordinates, and only for neighbours
-     that are themselves valid and inside the box -- a neighbour outside the
+     Checked over the grid's own valid coordinates, and only for neighbors
+     that are themselves valid and inside the box -- a neighbor outside the
      space has no cell to look back from.
 
      Scanned rather than asserted per pair: there are a few thousand pairs
@@ -232,17 +232,17 @@ TEST_CASE("grid: the neighbour relation is symmetric on every grid", "[voxel][gr
       }
     }
 
-    /* the grid must actually have produced some neighbour pairs, or the
+    /* the grid must actually have produced some neighbor pairs, or the
        scan proved nothing */
     REQUIRE(pairs > 0);
 
     INFO("(" << fx << "," << fy << "," << fz << ") lists ("
-         << gx << "," << gy << "," << gz << ") as a face neighbour but not the reverse");
+         << gx << "," << gy << "," << gz << ") as a face neighbor but not the reverse");
     REQUIRE_FALSE(asymmetric);
   }
 }
 
-TEST_CASE("grid: a cell is never its own neighbour on any grid", "[voxel][grid][neighbour]") {
+TEST_CASE("grid: a cell is never its own neighbor on any grid", "[voxel][grid][neighbor]") {
   /* Scanned, for the same reason as the case above. */
   for (GridKind t : kAllGrids) {
     INFO("grid " << toString(t));
@@ -251,12 +251,12 @@ TEST_CASE("grid: a cell is never its own neighbour on any grid", "[voxel][grid][
     std::unique_ptr<Voxel> v = makeVoxel(gt, BOX, BOX, BOX);
 
     unsigned int seen = 0;
-    bool selfNeighbour = false;
+    bool selfNeighbor = false;
     int fx = 0, fy = 0, fz = 0;
     unsigned int ftyp = 0, fidx = 0;
 
     for (auto [x, y, z] : validCoordinates(*v, BOX)) {
-      for (unsigned int typ = 0; typ < 3 && !selfNeighbour; typ++) {
+      for (unsigned int typ = 0; typ < 3 && !selfNeighbor; typ++) {
         for (unsigned int i = 0; ; i++) {
           int nx, ny, nz;
           if (!v->getNeighbor(i, typ, x, y, z, &nx, &ny, &nz)) {
@@ -264,13 +264,13 @@ TEST_CASE("grid: a cell is never its own neighbour on any grid", "[voxel][grid][
           }
           seen++;
           if (nx == x && ny == y && nz == z) {
-            selfNeighbour = true;
+            selfNeighbor = true;
             fx = x; fy = y; fz = z; ftyp = typ; fidx = i;
             break;
           }
         }
       }
-      if (selfNeighbour) {
+      if (selfNeighbor) {
         break;
       }
     }
@@ -279,7 +279,7 @@ TEST_CASE("grid: a cell is never its own neighbour on any grid", "[voxel][grid][
 
     INFO("cell (" << fx << "," << fy << "," << fz << ") lists itself at type "
          << ftyp << " index " << fidx);
-    REQUIRE_FALSE(selfNeighbour);
+    REQUIRE_FALSE(selfNeighbor);
   }
 }
 
@@ -310,7 +310,7 @@ TEST_CASE("grid: normalizeTransformation picks a transformation that produces th
       }
 
       std::unique_ptr<Voxel> byNorm = shape->clone();
-      INFO("transformation " << tr << " normalised to " << static_cast<int>(norm));
+      INFO("transformation " << tr << " normalized to " << static_cast<int>(norm));
       REQUIRE(byNorm->transform(norm));
 
       REQUIRE(byTr->identicalInBB(*byNorm, false));

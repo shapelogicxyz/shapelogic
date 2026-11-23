@@ -17,7 +17,7 @@ import { meshArrays, poseArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { openDialog } from '../shell/dialog.ts';
 import { byId } from '../shell/dom.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import { flash, reportError } from '../shell/status.ts';
 import type { View3D } from '../view3d/view.ts';
 import { positive } from './form.ts';
@@ -30,8 +30,8 @@ import type { StlContext } from './stl-dialogs.ts';
 export interface AnimationSource {
   problem: string;
   row: SolutionRow;
-  /** The pieces' colours as the player draws them, by piece number. */
-  colours: ReadonlyMap<number, Rgb3>;
+  /** The pieces' colors as the player draws them, by piece number. */
+  colors: ReadonlyMap<number, Rgb3>;
 }
 
 /** What the exports need besides the store, the bridge and the view. */
@@ -261,7 +261,7 @@ export class Exports {
       for (const [i, p] of pb.pieces.entries()) {
         pieces.push({
           name: p.name,
-          colour: source.colours.get(p.piece) ?? [0.7, 0.7, 0.7],
+          color: source.colors.get(p.piece) ?? [0.7, 0.7, 0.7],
           mesh: meshArrays(await engine.call('playback.mesh', { handle, piece: i, style })),
         });
       }

@@ -20,7 +20,7 @@
 // opened again from its file with the pieces and the problem as the file
 // has them, the rest of the document as the visitor left it (`restore`):
 // a changed piece dropped the solutions, as in the app, and comes back as
-// it was; new shapes, problems and colours stay. The demo problem is the
+// it was; new shapes, problems and colors stay. The demo problem is the
 // file's first; another problem's Solve is refused with the other
 // searches (engine-bridge.ts).
 
@@ -279,7 +279,7 @@ function fitType(
   type.style.maxWidth = `${String(Math.max(TYPE_MIN_PX, room()))}px`;
 }
 
-/** The colours in use (the System setting's are the operating system's). */
+/** The colors in use (the System setting's are the operating system's). */
 function shownTheme(): 'Light' | 'Dark' {
   if (prefs.theme === 'Light' || prefs.theme === 'Dark') {
     return prefs.theme;

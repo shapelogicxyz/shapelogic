@@ -5,7 +5,7 @@
 // placements (solution.get), each piece drawn as its shape's mesh in the
 // placement's transformation (shape.mesh {transformation}, the view's mesh
 // cache) at its cell minus that mesh's hotspot, in mesh units
-// (extent.ts's cellScale), centred on the result as the poses are. Once
+// (extent.ts's cellScale), centerd on the result as the poses are. Once
 // the choice rests a moment, its playback is opened (playback.open: a
 // solution without its moves is the single pose, steps 0, one path for
 // all): each piece's mesh in its assembly orientation and the chosen style
@@ -17,7 +17,7 @@
 // setting). From docs/mockup/index.html: `svSelect`, `svSeek`,
 // `svTogglePlay`, `svPlayLoop`, `svPlayerSync` and the player's handlers
 // in `svWire`. A stacking solution (docs/webui-spec.md, section 9.3) steps
-// in transfers (the engine's steps), its discs placed by their centres
+// in transfers (the engine's steps), its discs placed by their centers
 // (the original's ensureHotspot) around the board's middle, as the poses
 // are, with the board's pegs drawn around them (view3d/board.ts).
 
@@ -32,8 +32,8 @@ import { EngineError } from '../../engine/errors.ts';
 import { meshArrays, poseArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { byId } from '../shell/dom.ts';
-import { copyColour, shownName } from '../shell/piece-colours.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import { copyColor, shownName } from '../shell/piece-colors.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import { prefs } from '../shell/prefs.ts';
 import { flash, reportError } from '../shell/status.ts';
 import { boardExtent } from '../view3d/board.ts';
@@ -53,7 +53,7 @@ export interface PlayerPiece {
   label: string;
   /** The shape's name as it shows (empty for none). */
   name: string;
-  colour: Rgb3;
+  color: Rgb3;
   transformation: number;
   at: [number, number, number];
 }
@@ -71,7 +71,7 @@ export interface PlayerHost {
   /** Whether the solution is still the one chosen, in a row of the list's newest version. */
   current(solution: string): boolean;
   /** A stacking problem's board and the middle its poses are placed around (null: none). */
-  board(): { layout: BoardLayout; centre: [number, number, number] } | null;
+  board(): { layout: BoardLayout; center: [number, number, number] } | null;
 }
 
 /** How long a choice rests before its playback is opened (arrow keys run through quickly). */
@@ -259,7 +259,7 @@ export class Player {
       this.pieces = piecesOf(got.placements, this.host.detail(), store);
       this.host.changed();
       const { extent, centring } = this.frame();
-      // a disc is placed by its centre (ensureHotspot), as the engine's poses place it
+      // a disc is placed by its center (ensureHotspot), as the engine's poses place it
       const discs = snap.grid === 'stacking';
       const cache = this.host.view.meshCache;
       const replies = await Promise.all(
@@ -426,7 +426,7 @@ export class Player {
     }
   }
 
-  /** What the view frames and what the pieces are centred on (solutionFrame). */
+  /** What the view frames and what the pieces are centerd on (solutionFrame). */
   private frame(): { extent: [number, number, number]; centring: [number, number, number] } {
     return solutionFrame(this.host.store, this.host.detail(), this.host.board());
   }
@@ -450,7 +450,7 @@ export class Player {
         return {
           piece,
           shape: p?.shape ?? '',
-          colour: p?.colour ?? [1, 1, 1],
+          color: p?.color ?? [1, 1, 1],
           mode: this.mode(piece),
           built: built[i] ?? null,
           ...(p === undefined ? {} : { label: p.label, name: p.name }),
@@ -700,7 +700,7 @@ export type ProblemPiece = Omit<PlayerPiece, 'transformation' | 'at'>;
 
 /**
  * Every piece of a problem, by number: its shape (pieces are numbered part
- * by part), label and colour (the original's per copy).
+ * by part), label and color (the original's per copy).
  */
 export function problemPieces(detail: ProblemDetail | null, store: Store): ProblemPiece[] {
   const parts = detail?.parts ?? [];
@@ -715,7 +715,7 @@ export function problemPieces(detail: ProblemDetail | null, store: Store): Probl
         shape: part.shape,
         label: (s?.label ?? part.shape) + (part.max > 1 ? `.${String(q + 1)}` : ''),
         name: s === undefined ? '' : shownName(s),
-        colour: copyColour(s, i, q, snap?.colours ?? []),
+        color: copyColor(s, i, q, snap?.colors ?? []),
       });
     }
   }
@@ -724,17 +724,17 @@ export function problemPieces(detail: ProblemDetail | null, store: Store): Probl
 
 /**
  * What the Solver's view frames (the result's extent, a stacking board's)
- * and what the pieces are centred on, as an extent (placedAt takes its
+ * and what the pieces are centerd on, as an extent (placedAt takes its
  * half): the result's, or twice a stacking board's middle.
  */
 export function solutionFrame(
   store: Store,
   detail: ProblemDetail | null,
-  board: { layout: BoardLayout; centre: [number, number, number] } | null,
+  board: { layout: BoardLayout; center: [number, number, number] } | null,
 ): { extent: [number, number, number]; centring: [number, number, number] } {
   const snap = store.snapshot;
   if (snap?.grid === 'stacking' && board !== null) {
-    const c = board.centre;
+    const c = board.center;
     return { extent: boardExtent(board.layout), centring: [2 * c[0], 2 * c[1], 2 * c[2]] };
   }
   const resultId = detail?.result ?? null;

@@ -166,8 +166,8 @@ export interface MeshArrays {
   voxelFace: Int32Array;
   /** Per triangle: FaceFlag bits (1 light checker, 2 variable mark, 4 marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside). */
   flags: Uint32Array;
-  /** Per triangle: the colour number, 0 none. */
-  colour: Uint8Array;
+  /** Per triangle: the color number, 0 none. */
+  color: Uint8Array;
   /** Per triangle: the polygon it belongs to. */
   polygon: Uint32Array;
   /** Two xyz points per line (the flat style; empty otherwise). */
@@ -191,7 +191,7 @@ export function meshArrays(mesh: {
     voxel: typed(f, 'voxel', Uint32Array, t),
     voxelFace: typed(f, 'voxelFace', Int32Array, t),
     flags: typed(f, 'flags', Uint32Array, t),
-    colour: typed(f, 'colour', Uint8Array, t),
+    color: typed(f, 'color', Uint8Array, t),
     polygon: typed(f, 'polygon', Uint32Array, t),
     edgeLines: typed(f, 'edgeLines', Float32Array, (n) => n % 6 === 0),
     // a frame from before pictures (a recording) has none

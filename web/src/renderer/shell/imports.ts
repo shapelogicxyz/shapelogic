@@ -97,7 +97,7 @@ let scadChosen: { problems: boolean; tray: boolean | null; lip: boolean; height:
  * the chosen problem's pieces with every copy; the trays the pieces go in
  * (Export Tray; on to start with), and the wall around
  * them (Add Tray Lip) of a height in voxels, both for sliding puzzles only.
- * Null when cancelled.
+ * Null when canceled.
  */
 export async function scadOptionsDialog(
   problems: readonly { id: string; label: string }[],

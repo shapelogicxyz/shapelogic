@@ -68,10 +68,10 @@ bool insideSweep(const CellPolyhedron& cell, const P3& move, const P3& p, double
 
 // Points inside a cell: its centroid, and weighted means of its corners
 // (some of all of them, some of a few: near the faces, edges and corners),
-// each pulled a little towards the centroid so that none lies on the hull.
+// each pulled a little toward the centroid so that none lies on the hull.
 std::vector<P3> pointsInside(const CellPolyhedron& cell, std::mt19937& rng, unsigned int count) {
-  const P3 centre = toP3(cell.centroid);
-  std::vector<P3> out{centre};
+  const P3 center = toP3(cell.centroid);
+  std::vector<P3> out{center};
   out.reserve(count + 1);
   std::exponential_distribution<double> weight(1.0);
   std::uniform_int_distribution<std::size_t> pick(0, cell.corners.size() - 1);
@@ -98,7 +98,7 @@ std::vector<P3> pointsInside(const CellPolyhedron& cell, std::mt19937& rng, unsi
       }
     }
     for (std::size_t a = 0; a < 3; a++) {
-      p[a] = centre[a] + 0.995 * (p[a] / sum - centre[a]);
+      p[a] = center[a] + 0.995 * (p[a] / sum - center[a]);
     }
     out.push_back(p);
   }
@@ -161,13 +161,13 @@ Rotation randomRotation(std::mt19937& rng) {
            {2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)}}};
 }
 
-// The cell turned about its centroid, with the centroid put at `centre`.
-CellPolyhedron placed(const CellPolyhedron& p, const Rotation& r, const P3& centre) {
+// The cell turned about its centroid, with the centroid put at `center`.
+CellPolyhedron placed(const CellPolyhedron& p, const Rotation& r, const P3& center) {
   const P3 from = toP3(p.centroid);
   const auto point = [&](const Vec3& v) {
     const P3 q = turned(r, minus(toP3(v), from));
-    return Vec3{static_cast<float>(q[0] + centre[0]), static_cast<float>(q[1] + centre[1]),
-                static_cast<float>(q[2] + centre[2])};
+    return Vec3{static_cast<float>(q[0] + center[0]), static_cast<float>(q[1] + center[1]),
+                static_cast<float>(q[2] + center[2])};
   };
   CellPolyhedron out;
   for (const mesh::CellFace& f : p.faces) {
@@ -366,7 +366,7 @@ TEST_CASE("cell sweep: a cell that touches the swept cell is not entered", "[mes
   CHECK(mesh::sweepEnters(*cell, Vec3{0, 0, 0}, at(0, 0, 0)));
   CHECK_FALSE(mesh::sweepEnters(*cell, Vec3{0, 0, 0}, at(1, 0, 0)));
 
-  // a move of a hair into the neighbour is one into it; a move away is not
+  // a move of a hair into the neighbor is one into it; a move away is not
   CHECK(mesh::sweepEnters(*cell, Vec3{size * 0.01F, 0, 0}, at(1, 0, 0)));
   CHECK_FALSE(mesh::sweepEnters(*cell, Vec3{-size * 0.01F, 0, 0}, at(1, 0, 0)));
 }

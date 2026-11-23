@@ -14,7 +14,7 @@ export type Tool = CellTool;
 
 const isPtrTool = (t: Tool): boolean => t === 'fixed' || t === 'variable';
 
-/** A tool's badge in a 12 x 12 box: `col` the drawing colour (null: Default), `ink` the lines. */
+/** A tool's badge in a 12 x 12 box: `col` the drawing color (null: Default), `ink` the lines. */
 export function badgeSvg(tool: Tool, col: string | null, ink: string, opp?: string): string {
   if (tool === 'fixed' || tool === 'variable') {
     const fill = col ?? opp ?? 'none';
@@ -31,7 +31,7 @@ export function badgeSvg(tool: Tool, col: string | null, ink: string, opp?: stri
   return `<path d="M2 6.2L6 2.2l4.2 4.2-4 4z" fill="${opp ?? 'none'}" stroke="${ink}" stroke-width="1.2" stroke-linejoin="round"/><path d="M3.5 4.7C2 3.3 2.3 1.3 4.4 1" fill="none" stroke="${ink}" stroke-width="1" stroke-linecap="round"/><path d="M10.5 7.9c.8 1.2 1.4 1.9 1.4 2.6a1.4 1.4 0 0 1-2.8 0c0-.7.6-1.4 1.4-2.6z" fill="${col ?? ink}"/>`;
 }
 
-/** A tool as a toolbar icon (28 x 24, tinted by the current colour). */
+/** A tool as a toolbar icon (28 x 24, tinted by the current color). */
 export function toolIcon(tool: Tool, col: string | null, size = 26): string {
   const head = `<svg xmlns="http://www.w3.org/2000/svg" class="gx" width="${size}" height="${size}" viewBox="0 0 28 24" fill="none" aria-hidden="true">`;
   if (isPtrTool(tool)) {
@@ -49,7 +49,7 @@ export function toolIcon(tool: Tool, col: string | null, size = 26): string {
 const PTR_ARROW =
   '<path d="M.8 .8V16.4L4.4 13.2L7 19.3L9.4 18.2L6.8 12.1H11.9Z" fill="#000" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/>';
 
-/** A tool's mouse cursor picture (32 x 32): the colour is the drawing colour's (null: Default). */
+/** A tool's mouse cursor picture (32 x 32): the color is the drawing color's (null: Default). */
 export function cursorSvg(tool: Tool, col: string | null): string {
   const dark = isDarkTheme();
   const ink = dark ? '#f2f4f8' : '#1a1f29';

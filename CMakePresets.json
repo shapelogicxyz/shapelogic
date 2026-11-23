@@ -17,20 +17,20 @@
     },
     {
       "name": "release",
-      "displayName": "Optimised (assertions stay on)",
+      "displayName": "Optimized (assertions stay on)",
       "inherits": "base",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BT_WERROR": "ON" }
     },
     {
       "name": "release-x64",
-      "displayName": "Optimised, for Intel Macs (macOS only; the packaged app's engine, web/tools/dist.ts)",
+      "displayName": "Optimized, for Intel Macs (macOS only; the packaged app's engine, web/tools/dist.ts)",
       "inherits": "release",
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
       "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "x86_64" }
     },
     {
       "name": "release-arm64",
-      "displayName": "Optimised, for Apple silicon Macs (macOS only; the packaged app's engine, web/tools/dist.ts)",
+      "displayName": "Optimized, for Apple silicon Macs (macOS only; the packaged app's engine, web/tools/dist.ts)",
       "inherits": "release",
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
       "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "arm64" }

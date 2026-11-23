@@ -12,7 +12,7 @@
 // writes the rules as cb_RodField did and drops the solutions of the
 // problems on the set); the fields show the rod set as the snapshot has it
 // (Snapshot.rodSets). The rod history of the original is the document's
-// undo. Frozen while anything solves (the original greyed the fields).
+// undo. Frozen while anything solves (the original grayed the fields).
 
 import type { RodSet } from '../../engine/api.generated.ts';
 import { rodFieldsOff } from '../state/stacking.ts';
@@ -20,7 +20,7 @@ import type { RodRules } from '../state/stacking.ts';
 import type { Store } from '../state/store.ts';
 import { openDialog } from '../shell/dialog.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
-import { ROD_CHIP } from '../shell/piece-colours.ts';
+import { ROD_CHIP } from '../shell/piece-colors.ts';
 
 /** What the card asks of the workspace. */
 export interface RodsHost {
@@ -253,7 +253,7 @@ export class RodsCard {
     if (k !== 'ok' || name === r.name || this.host.refuseList()) {
       return;
     }
-    // the rod set was chosen to be labelled: the view shows it already
+    // the rod set was chosen to be labeled: the view shows it already
     await this.host.mutate('Label rod set', () =>
       this.host.store.engine.call('stacking.renameRodSet', { rodSet: r.id, name }),
     );

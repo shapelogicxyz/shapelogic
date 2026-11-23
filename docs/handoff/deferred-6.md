@@ -5,7 +5,7 @@ Puzzlecad loaders, its Puzzlecad writer and its grid converter ported to
 the core line for line; the document's imports, export and conversion;
 three engine methods; and the front end's File ▸ Import ▸ PuzzleSolver3D
 and Puzzlecad, File ▸ Export ▸ Puzzlecad and Edit ▸ Convert Brick Grid
-Type to Other, no longer greyed. Both programs give the same bytes for
+Type to Other, no longer grayed. Both programs give the same bytes for
 2,059 imports, exports and conversions over the whole corpus. No audit
 after this part, as the plan says. Next: part 7, the Python bindings.
 
@@ -56,8 +56,8 @@ Six commits, in order:
   cell.
 - `convertGrid(puzzle, target)`: bricks to rhombic (5x5x5 cells a cube,
   only the grid's valid cells) and to tetra-octa (3x3x3), the cell values
-  with their colours, the names (not the weights, as the original), the
-  colours, the notes and popup flag, each problem's definition with its
+  with their colors, the names (not the weights, as the original), the
+  colors, the notes and popup flag, each problem's definition with its
   name (`addProblem` = `copyDefinition`: no solutions, unsolved).
 - Budgets the original lacked: 2^27 cells for an import's shapes and a
   conversion's (decision 0017), a parameter so the tests reach them
@@ -129,11 +129,11 @@ Six commits, in order:
   `importPs3d`, `importScad`, `exportScad`, `convertGrid`; the menus
   (main/menu.ts) enable them (Export ▸ Puzzlecad with a shape with cells,
   Convert with a document and nothing running); `later()` is gone, the
-  anaglyph modes are the only greyed items left.
+  anaglyph modes are the only grayed items left.
 
 ### Removed "not yet" notes
-The four greyed menu items and main/menu.ts's header comment, the
-e2e checks that they were greyed (files.e2e.ts, exports.e2e.ts),
+The four grayed menu items and main/menu.ts's header comment, the
+e2e checks that they were grayed (files.e2e.ts, exports.e2e.ts),
 FRONTEND-PLAN.md's rows for the imports, conversion and the Puzzlecad
 export, README's and web/README's status lines, ARCHITECTURE's state.
 
@@ -179,7 +179,7 @@ All on the final core and engine (2026-10-12, M-series Mac):
 3. **An import replaces the document while a solve runs** (its solves
    pause), as `document.open` does; the original refused ("Stop solving
    process first!"). The front end asks about unsaved changes first.
-4. **Export ▸ Puzzlecad is greyed without a shape with cells**, as
+4. **Export ▸ Puzzlecad is grayed without a shape with cells**, as
    Export ▸ STL: the original enabled it with any shape and then said
    "Could not export puzzlecad file.".
 5. **The export's save dialog proposes "<puzzle>.scad"** beside the

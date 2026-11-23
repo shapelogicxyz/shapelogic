@@ -21,7 +21,7 @@ namespace bt::engine {
 
 namespace {
 
-// The shape a stamp names (its colour or goal mark, shape index + 1).
+// The shape a stamp names (its color or goal mark, shape index + 1).
 Json markJson(const State& s, unsigned int mark) {
   if (mark == 0 || mark > s.document().puzzle().getNumberOfShapes()) {
     return nullptr;

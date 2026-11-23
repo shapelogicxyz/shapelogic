@@ -4,7 +4,7 @@
 // added last), delete (Del; never the last), move by Alt+arrows, by the
 // right-click menu and by dragging a row (labels renumber), rename (F2,
 // Enter, a double-click; Esc cancels; a name the engine refuses shows its
-// message), weight, the shape's own colour, selection by the arrows; each
+// message), weight, the shape's own color, selection by the arrows; each
 // checked against the engine's shape.list.
 
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -24,7 +24,7 @@ interface Summary {
   label: string;
   name: string;
   weight: number;
-  colour: string | null;
+  color: string | null;
 }
 
 async function list(page: Page): Promise<Summary[]> {
@@ -153,27 +153,27 @@ test('the shapes list', async () => {
     await expect(page.locator('#pop [data-k="wm"]')).toBeDisabled();
     await page.keyboard.press('Escape');
 
-    // the shape's own colour (the picker's answer), and back to the default
+    // the shape's own color (the picker's answer), and back to the default
     await page.click(`#shapeList .row[data-id="${s2}"]`, { button: 'right' });
-    await expect(page.locator('#pop [data-k="nocolour"]')).toBeDisabled();
+    await expect(page.locator('#pop [data-k="nocolor"]')).toBeDisabled();
     await page.keyboard.press('Escape');
     await page.evaluate((id) => {
-      const p = document.getElementById('shapeColourPick');
+      const p = document.getElementById('shapeColorPick');
       if (p !== null) {
         p.dataset.shape = id;
       }
     }, s2 ?? '');
-    await page.locator('#shapeColourPick').fill('#336699');
+    await page.locator('#shapeColorPick').fill('#336699');
     await expect
-      .poll(async () => (await list(page)).find((s) => s.id === s2)?.colour)
+      .poll(async () => (await list(page)).find((s) => s.id === s2)?.color)
       .toBe('#336699');
     await expect(page.locator(`#shapeList .row[data-id="${s2}"] .chip`)).toHaveCSS(
       'background-color',
       'rgb(51, 102, 153)',
     );
     await page.click(`#shapeList .row[data-id="${s2}"]`, { button: 'right' });
-    await page.click('#pop [data-k="nocolour"]');
-    await expect.poll(async () => (await list(page)).find((s) => s.id === s2)?.colour).toBeNull();
+    await page.click('#pop [data-k="nocolor"]');
+    await expect.poll(async () => (await list(page)).find((s) => s.id === s2)?.color).toBeNull();
 
     // delete: Del, and the menu; the next shape takes the place
     await page.click(`#shapeList .row[data-id="${s2}"]`);

@@ -236,7 +236,7 @@ describe('choosing a cache folder', () => {
     expect(await m.choose(win, big)).toEqual({ status: 'same' });
   });
 
-  it('deletes the data and starts clean, or, cancelled, keeps everything as it was', async () => {
+  it('deletes the data and starts clean, or, canceled, keeps everything as it was', async () => {
     const h = host();
     const m = new CacheFolderManager<object>(h);
     const win = {};

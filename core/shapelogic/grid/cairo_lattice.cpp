@@ -11,7 +11,7 @@ namespace bt::cairo {
 namespace {
 
 // V2's four pentagons, one per kind, about the kind's base cell (its
-// first corner is the 4-fold centre at (0, 0)); V2 lists them clockwise.
+// first corner is the 4-fold center at (0, 0)); V2 lists them clockwise.
 constexpr Point kShapes[4][5] = {
     // kind 0, base (0, -1)
     {{{0, 0}, {0, 0}}, {{1, 0}, {0, -1}}, {{1, 0}, {-2, 1}}, {{0, 0}, {-2, 0}}, {{0, -1}, {-1, 0}}},

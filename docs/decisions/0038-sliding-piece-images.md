@@ -103,8 +103,8 @@ per vertex on a face looking up, its place in the picture (`imageUv`).
 Turned meshes are made from a turned copy of the shape whose picture
 turned with it, so the solution player, the trays and the pieces scene
 need no transform arithmetic of their own. The shader samples the picture
-there in place of the piece colour (over the checker, under the colour
-view's restriction colours), lit as the faces are.
+there in place of the piece color (over the checker, under the color
+view's restriction colors), lit as the faces are.
 
 ## Consequences
 - Old files and files without pictures read and write as before (the
@@ -113,7 +113,7 @@ view's restriction colours), lit as the faces are.
   shows the same `image` with the `imageSrc` its goal place covers. That
   action, and pictures in the SVG and GLB exports, are left for later.
 - A picture is drawn with the 3D view's light, so it looks darker on faces
-  turned away from it, as the piece colours do.
+  turned away from it, as the piece colors do.
 - A board's picture shows in the Shapes and Puzzle tabs' 2D grids (under
   the start and goal marks, which keep their chequer), the Puzzle tab's
   3D trays and the Play tab's floor (under the goals' 30% tint and the

@@ -54,7 +54,7 @@ std::optional<MovementDirections> movementDirections(GridKind kind) {
                                  {5, -5, -5}}};
 
     case GridKind::TetraOcta:
-      // A cube of 3x3x3 coordinates holds 5 cells; neighbouring cubes are
+      // A cube of 3x3x3 coordinates holds 5 cells; neighboring cubes are
       // mirror images, so the grid repeats along the face diagonals of
       // the cubes (the edges of the tetrahedra and octahedra) and every
       // two cubes along the axes (the edges of the octahedra's eighths):
@@ -71,9 +71,9 @@ std::optional<MovementDirections> movementDirections(GridKind kind) {
                                  {0, 3, -3}}};
 
     case GridKind::Hexagonal:
-      // Up, across the three sides of the hexagon to the neighbour, and
+      // Up, across the three sides of the hexagon to the neighbor, and
       // along the three sides to the next cell but one. The move to a
-      // neighbour is no edge direction, but it is the shortest there is,
+      // neighbor is no edge direction, but it is the shortest there is,
       // and a prism with nothing beside the way can make it.
       return MovementDirections{
           {1, 1, 1},

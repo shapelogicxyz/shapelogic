@@ -24,7 +24,7 @@ test.afterEach(async () => {
 
 const stage = (p: Page) => p.locator('#stage');
 
-/** Drags on the 3D view from its centre by (dx, dy), in steps. */
+/** Drags on the 3D view from its center by (dx, dy), in steps. */
 async function dragView(p: Page, dx: number, dy: number, mods: string[] = []): Promise<void> {
   const box = await p.locator('#cv').boundingBox();
   const x = (box?.x ?? 0) + (box?.width ?? 0) / 2;

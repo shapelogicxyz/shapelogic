@@ -28,7 +28,7 @@ namespace bt::app {
 
 namespace {
 
-// A copy of the shapes, the colours and one problem's definition, with
+// A copy of the shapes, the colors and one problem's definition, with
 // the hotspots where a solve puts them: what an explorer works on, so it
 // is independent of later edits.
 std::unique_ptr<Puzzle> explorerCopy(const Puzzle& puzzle, unsigned int problemIndex) {

@@ -1,0 +1,1410 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tilted Square Geometry</title>
+<meta name="description" content="What happens when the square grid of a tray puzzle is turned inside a square tray: the angles at which it repeats, which cells stay whole and where they are, how many fit, and why a tiny allowance at the edge changes the count.">
+<style>
+
+
+:root { color-scheme: light; --surface-1:#fcfcfb; --page:#ffffff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --wash:#eef4fc; --rule:#e1e0d9; --accent:#2a78d6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --surface-1:#1a1a19; --page:#111110; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --wash:#1f2a38; --rule:#2c2c2a; --accent:#3987e5; } }
+:root[data-theme="dark"] { color-scheme: dark; --surface-1:#1a1a19; --page:#111110; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --wash:#1f2a38; --rule:#2c2c2a; --accent:#3987e5; }
+* { box-sizing: border-box; }
+html { background: var(--page); }
+body { margin: 0 auto; max-width: 860px; padding: 32px 16px 64px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.5; color: var(--ink); background: var(--page); }
+h1 { font-size: 30px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--rule); break-after: avoid; }
+h3 { font-size: 16px; margin: 22px 0 6px; break-after: avoid; }
+p { margin: 0 0 10px; }
+.sub { color: var(--ink-2); font-size: 17px; margin-bottom: 4px; }
+.meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+.box { background: var(--wash); border-radius: 8px; padding: 14px 18px; margin: 14px 0 18px; break-inside: avoid; }
+.box h3 { margin-top: 0; }
+ul, ol { margin: 0 0 10px; padding-left: 22px; }
+li { margin-bottom: 4px; }
+figure { margin: 18px 0 20px; break-inside: avoid; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+.row { display: flex; gap: 12px; }
+.row figure { flex: 1; margin: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 10px 0 16px; break-inside: avoid; }
+th, td { padding: 4px 8px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+th { font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--axis); }
+table.num td { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+table.num td:first-child, table.num th:first-child { text-align: left; }
+table.num th { text-align: right; }
+table.small { font-size: 11px; } table.small th, table.small td { padding: 3px 5px; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+.formula { font-family: "Times New Roman", Times, serif; font-size: 17px; text-align: center; margin: 12px 0; }
+.tick, .legend, .note, .csub, .axlabel, .vlabel, .boxtext { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--ink-2); }
+.tick { font-size: 11px; fill: var(--muted); } .axlabel { font-size: 11.5px; fill: var(--muted); }
+.legend, .note, .boxtext { font-size: 11.5px; fill: var(--ink-2); } .vlabel { font-size: 11px; fill: var(--ink-2); }
+.ctitle { font-size: 13.5px; font-weight: 600; fill: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.csub { font-size: 11px; fill: var(--muted); }
+.onfill { font-size: 10px; fill: #ffffff; font-family: system-ui, sans-serif; }
+.grid { stroke: var(--grid); stroke-width: 1; } .axis { stroke: var(--axis); stroke-width: 1; }
+.refs li { font-size: 13px; margin-bottom: 4px; }
+a { color: var(--accent); }
+.toc { columns: 2; font-size: 13.5px; } .toc li { margin-bottom: 2px; }
+@media (max-width: 700px) { .row { display: block; } .row figure { margin: 18px 0; } }
+@page { size: A4; margin: 17mm 15mm 18mm 15mm; @bottom-right { content: counter(page) ' / ' counter(pages); font: 8.5pt system-ui, sans-serif; color: #898781; } }
+@media print {
+  .refs li { font-size: 8.6pt; margin-bottom: 2pt; }
+  html, body { background: #fff; } body { max-width: none; padding: 0; font-size: 10.5pt; line-height: 1.42; }
+  :root { color-scheme: light; --surface-1:#fcfcfb; --page:#ffffff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7; --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --wash:#eef4fc; --rule:#e1e0d9; --accent:#2a78d6; }
+  h1 { font-size: 24pt; } h2 { font-size: 15pt; margin-top: 22pt; } h3 { font-size: 11.5pt; }
+  table { font-size: 8.8pt; } table.small { font-size: 7.6pt; } figcaption { font-size: 9pt; } .meta { font-size: 9pt; } .sub { font-size: 12.5pt; }
+  .row { display: flex; } .pb { break-before: page; } a { color: inherit; text-decoration: none; }
+  .toc { columns: 2; }
+}
+
+
+@media screen {
+:root { --surface-1:#f3f6fb; --page:#ffffff; --ink:#0f1b2d; --ink-2:#55627a; --muted:#55627a; --grid:#dde4ef; --axis:#c5cfdf; --wash:#f3f6fb; --rule:#dde4ef; --accent:#1a73e8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --surface-1:#162033; --page:#0d1420; --ink:#e8eef8; --ink-2:#9aa8c0; --muted:#9aa8c0; --grid:#25324a; --axis:#34445f; --wash:#162033; --rule:#25324a; --accent:#5b9dff; } }
+:root[data-theme="dark"] { --surface-1:#162033; --page:#0d1420; --ink:#e8eef8; --ink-2:#9aa8c0; --muted:#9aa8c0; --grid:#25324a; --axis:#34445f; --wash:#162033; --rule:#25324a; --accent:#5b9dff; }
+html { background: var(--page); }
+body { max-width: none; margin: 0; padding: 0; font-size: 17px; line-height: 1.6; background: var(--page); color: var(--ink); }
+main { max-width: 1060px; margin: 0 auto; padding: 48px 16px 64px; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 0 0 16px; }
+.sub { font-size: 19px; }
+a { color: var(--accent); }
+.banner { background: #fff; border-bottom: 1px solid var(--rule); margin: 0; width: auto; }
+.crumb { margin: 0 0 12px; font-size: 14px; }
+}
+.banner a, .banner img { display: block; } .banner img { width: 100%; max-width: 1000px; height: auto; margin: 0 auto; }
+.crumb a { color: var(--accent); }
+@media print { .banner, .crumb { display: none; } }
+
+.tw { overflow-x: auto; margin: 10px 0 16px; } .tw table { margin: 0; min-width: 540px; }
+table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
+.steps li { margin-bottom: 7px; }
+.lead { font-size: 1.05em; }
+.blk { fill: var(--series-1); fill-opacity: 0.26; } .sml { fill: var(--series-2); fill-opacity: 0.78; }
+.floor { fill: var(--page); } .edge { stroke: var(--ink-2); stroke-width: 1.1; fill: none; }
+.cellline { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
+.unitline { stroke: var(--grid); stroke-width: 0.6; }
+.pl { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 12px; font-weight: 600; fill: var(--ink); }
+
+
+.cell { stroke: var(--ink-2); stroke-width: 0.9; stroke-linejoin: round; }
+.ca { fill: var(--series-1); fill-opacity: 0.78; } .cb { fill: var(--series-3); fill-opacity: 0.78; }
+.cut { fill: var(--grid); } .tolc { fill: var(--series-2); fill-opacity: 0.9; }
+.tray { fill: none; stroke: var(--ink); stroke-width: 2; }
+.inset { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-dasharray: 6 4; }
+.dot { fill: var(--ink); } .dotx { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.bbox { fill: none; stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.sq0 { fill: var(--series-1); fill-opacity: 0.16; } .sq1 { fill: var(--series-3); fill-opacity: 0.16; }
+.gl { stroke: var(--ink-2); stroke-width: 0.8; }
+.stair { fill: none; stroke: var(--series-2); stroke-width: 3; stroke-linejoin: round; }
+.sdot { fill: var(--series-2); }
+.lvl { stroke: var(--series-2); stroke-width: 1.4; stroke-dasharray: 5 3; }
+.rowl { stroke: var(--grid); stroke-width: 1; }
+.dim, .dim2 { stroke: var(--ink-2); stroke-width: 1.2; }
+.s-a, .s-b, .s-c { fill: none; stroke-width: 2.2; stroke-linejoin: round; }
+.s-a { stroke: var(--series-1); } .s-b { stroke: var(--series-2); } .s-c { stroke: var(--series-3); }
+.lo { color: var(--muted); }
+td.hi { font-weight: 700; color: var(--series-2); }
+</style></head><body>
+<header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
+<main>
+<nav class="crumb"><a href="/">ShapeLogic</a> › <a href="/research/">Research</a></nav>
+<h1>Tilted square geometry: turning the grid inside a square tray</h1>
+<p class="sub">When the cells of a tray puzzle are turned inside a square tray: the angles at which the grid repeats, which cells stay whole and where they are, how many fit, and why a tiny allowance at the edge changes the count</p>
+<p class="meta">22 November 2026</p>
+
+<div class="box">
+<h3>In short</h3>
+<ul>
+<li>"1 down, <i>n</i> over" is the angle &#952; = arctan(1/<i>n</i>): 45&#176;, 26.57&#176;, 18.43&#176;, 14.04&#176;, &#8230;, falling toward 0&#176; with no end.</li>
+<li>At these angles the turned grid repeats along the tray's own edges every &#8730;(<i>n</i>&#178;+1) cell widths, so the cells the edge cuts make a regular pattern.</li>
+<li>A cell is whole exactly when its center is at least <i>w</i>/2 from every edge, where <i>w</i> = cos&#160;&#952; + sin&#160;&#952;. The whole cells are the ones whose centers fall inside that smaller square.</li>
+<li>Averaged over every placement of the grid, an <i>L</i>&#160;&#215;&#160;<i>L</i> tray holds exactly (<i>L</i>&#160;&#8722;&#160;<i>w</i>)&#178; whole cells. The best placement holds a few more. The exact best is a small counting problem with no smooth formula.</li>
+<li>Many cells reach the edge together at these angles. A corner allowed to poke out by 1 to 5 hundredths of a cell can add a whole row of cells.</li>
+</ul>
+</div>
+
+<h2 id="s1">1. The question</h2>
+<p>A tray puzzle is a flat square tray filled with pieces made of unit squares. Normally the cells line up with the tray, and a 6&#160;&#215;&#160;6 tray holds 36 of them. Turn the cells a little, keep them the same size, and some cells along the edge no longer fit: the wall of the tray cuts through them. A set of drawings that started this page found turns at which the cells still sit "nicely" in the tray. The first is 45&#176;, a pattern of 1 down and 1 over. Then come 1 down and 2 over, 1 down and 3 over, and so on, each turned a little less than the last.</p>
+<p>This page answers three questions about those turns. Can the angles be predicted? Why do they look regular? And how many whole cells does a tray of a given size hold, and where are they?</p>
+
+<figure><svg viewBox="0 0 860 622" role="img" aria-label="The best layout of whole cells in an 8 by 8 tray for slopes 1:1 to 1:6" xmlns="http://www.w3.org/2000/svg">
+<clipPath id="clip1"><rect x="33.0" y="8" width="230" height="230"/></clipPath>
+<g clip-path="url(#clip1)">
+<polygon class="cell cut" points="53.33,258.33 73.66,238.00 53.33,217.67 33.00,238.00"/>
+<polygon class="cell cut" points="33.00,238.00 53.33,217.67 33.00,197.34 12.67,217.67"/>
+<polygon class="cell cut" points="93.99,258.33 114.32,238.00 93.99,217.67 73.66,238.00"/>
+<polygon class="cell cut" points="33.00,197.34 53.33,177.01 33.00,156.68 12.67,177.01"/>
+<polygon class="cell cut" points="134.65,258.33 154.98,238.00 134.65,217.67 114.32,238.00"/>
+<polygon class="cell cut" points="33.00,156.68 53.33,136.35 33.00,116.02 12.67,136.35"/>
+<polygon class="cell cut" points="175.31,258.33 195.63,238.00 175.31,217.67 154.98,238.00"/>
+<polygon class="cell cut" points="33.00,116.02 53.33,95.69 33.00,75.37 12.67,95.69"/>
+<polygon class="cell cut" points="215.96,258.33 236.29,238.00 215.96,217.67 195.63,238.00"/>
+<polygon class="cell cut" points="33.00,75.37 53.33,55.04 33.00,34.71 12.67,55.04"/>
+<polygon class="cell cut" points="256.62,258.33 276.95,238.00 256.62,217.67 236.29,238.00"/>
+<polygon class="cell cut" points="33.00,34.71 53.33,14.38 33.00,-5.95 12.67,14.38"/>
+<polygon class="cell cut" points="276.95,238.00 297.28,217.67 276.95,197.34 256.62,217.67"/>
+<polygon class="cell cut" points="256.62,217.67 276.95,197.34 256.62,177.01 236.29,197.34"/>
+<polygon class="cell cut" points="73.66,34.71 93.99,14.38 73.66,-5.95 53.33,14.38"/>
+<polygon class="cell cut" points="53.33,14.38 73.66,-5.95 53.33,-26.28 33.00,-5.95"/>
+<polygon class="cell cut" points="276.95,197.34 297.28,177.01 276.95,156.68 256.62,177.01"/>
+<polygon class="cell cut" points="256.62,177.01 276.95,156.68 256.62,136.35 236.29,156.68"/>
+<polygon class="cell cut" points="114.32,34.71 134.65,14.38 114.32,-5.95 93.99,14.38"/>
+<polygon class="cell cut" points="93.99,14.38 114.32,-5.95 93.99,-26.28 73.66,-5.95"/>
+<polygon class="cell cut" points="276.95,156.68 297.28,136.35 276.95,116.02 256.62,136.35"/>
+<polygon class="cell cut" points="256.62,136.35 276.95,116.02 256.62,95.69 236.29,116.02"/>
+<polygon class="cell cut" points="154.98,34.71 175.31,14.38 154.98,-5.95 134.65,14.38"/>
+<polygon class="cell cut" points="134.65,14.38 154.98,-5.95 134.65,-26.28 114.32,-5.95"/>
+<polygon class="cell cut" points="276.95,116.02 297.28,95.69 276.95,75.37 256.62,95.69"/>
+<polygon class="cell cut" points="256.62,95.69 276.95,75.37 256.62,55.04 236.29,75.37"/>
+<polygon class="cell cut" points="195.63,34.71 215.96,14.38 195.63,-5.95 175.31,14.38"/>
+<polygon class="cell cut" points="175.31,14.38 195.63,-5.95 175.31,-26.28 154.98,-5.95"/>
+<polygon class="cell cut" points="276.95,75.37 297.28,55.04 276.95,34.71 256.62,55.04"/>
+<polygon class="cell cut" points="256.62,55.04 276.95,34.71 256.62,14.38 236.29,34.71"/>
+<polygon class="cell cut" points="236.29,34.71 256.62,14.38 236.29,-5.95 215.96,14.38"/>
+<polygon class="cell cut" points="215.96,14.38 236.29,-5.95 215.96,-26.28 195.63,-5.95"/>
+<polygon class="cell cut" points="276.95,34.71 297.28,14.38 276.95,-5.95 256.62,14.38"/>
+<polygon class="cell cut" points="256.62,14.38 276.95,-5.95 256.62,-26.28 236.29,-5.95"/>
+<polygon class="cell cb" points="73.66,238.00 93.99,217.67 73.66,197.34 53.33,217.67"/>
+<polygon class="cell ca" points="53.33,217.67 73.66,197.34 53.33,177.01 33.00,197.34"/>
+<polygon class="cell cb" points="114.32,238.00 134.65,217.67 114.32,197.34 93.99,217.67"/>
+<polygon class="cell ca" points="93.99,217.67 114.32,197.34 93.99,177.01 73.66,197.34"/>
+<polygon class="cell cb" points="73.66,197.34 93.99,177.01 73.66,156.68 53.33,177.01"/>
+<polygon class="cell ca" points="53.33,177.01 73.66,156.68 53.33,136.35 33.00,156.68"/>
+<polygon class="cell cb" points="154.98,238.00 175.31,217.67 154.98,197.34 134.65,217.67"/>
+<polygon class="cell ca" points="134.65,217.67 154.98,197.34 134.65,177.01 114.32,197.34"/>
+<polygon class="cell cb" points="114.32,197.34 134.65,177.01 114.32,156.68 93.99,177.01"/>
+<polygon class="cell ca" points="93.99,177.01 114.32,156.68 93.99,136.35 73.66,156.68"/>
+<polygon class="cell cb" points="73.66,156.68 93.99,136.35 73.66,116.02 53.33,136.35"/>
+<polygon class="cell ca" points="53.33,136.35 73.66,116.02 53.33,95.69 33.00,116.02"/>
+<polygon class="cell cb" points="195.63,238.00 215.96,217.67 195.63,197.34 175.31,217.67"/>
+<polygon class="cell ca" points="175.31,217.67 195.63,197.34 175.31,177.01 154.98,197.34"/>
+<polygon class="cell cb" points="154.98,197.34 175.31,177.01 154.98,156.68 134.65,177.01"/>
+<polygon class="cell ca" points="134.65,177.01 154.98,156.68 134.65,136.35 114.32,156.68"/>
+<polygon class="cell cb" points="114.32,156.68 134.65,136.35 114.32,116.02 93.99,136.35"/>
+<polygon class="cell ca" points="93.99,136.35 114.32,116.02 93.99,95.69 73.66,116.02"/>
+<polygon class="cell cb" points="73.66,116.02 93.99,95.69 73.66,75.37 53.33,95.69"/>
+<polygon class="cell ca" points="53.33,95.69 73.66,75.37 53.33,55.04 33.00,75.37"/>
+<polygon class="cell cb" points="236.29,238.00 256.62,217.67 236.29,197.34 215.96,217.67"/>
+<polygon class="cell ca" points="215.96,217.67 236.29,197.34 215.96,177.01 195.63,197.34"/>
+<polygon class="cell cb" points="195.63,197.34 215.96,177.01 195.63,156.68 175.31,177.01"/>
+<polygon class="cell ca" points="175.31,177.01 195.63,156.68 175.31,136.35 154.98,156.68"/>
+<polygon class="cell cb" points="154.98,156.68 175.31,136.35 154.98,116.02 134.65,136.35"/>
+<polygon class="cell ca" points="134.65,136.35 154.98,116.02 134.65,95.69 114.32,116.02"/>
+<polygon class="cell cb" points="114.32,116.02 134.65,95.69 114.32,75.37 93.99,95.69"/>
+<polygon class="cell ca" points="93.99,95.69 114.32,75.37 93.99,55.04 73.66,75.37"/>
+<polygon class="cell cb" points="73.66,75.37 93.99,55.04 73.66,34.71 53.33,55.04"/>
+<polygon class="cell ca" points="53.33,55.04 73.66,34.71 53.33,14.38 33.00,34.71"/>
+<polygon class="cell cb" points="236.29,197.34 256.62,177.01 236.29,156.68 215.96,177.01"/>
+<polygon class="cell ca" points="215.96,177.01 236.29,156.68 215.96,136.35 195.63,156.68"/>
+<polygon class="cell cb" points="195.63,156.68 215.96,136.35 195.63,116.02 175.31,136.35"/>
+<polygon class="cell ca" points="175.31,136.35 195.63,116.02 175.31,95.69 154.98,116.02"/>
+<polygon class="cell cb" points="154.98,116.02 175.31,95.69 154.98,75.37 134.65,95.69"/>
+<polygon class="cell ca" points="134.65,95.69 154.98,75.37 134.65,55.04 114.32,75.37"/>
+<polygon class="cell cb" points="114.32,75.37 134.65,55.04 114.32,34.71 93.99,55.04"/>
+<polygon class="cell ca" points="93.99,55.04 114.32,34.71 93.99,14.38 73.66,34.71"/>
+<polygon class="cell cb" points="236.29,156.68 256.62,136.35 236.29,116.02 215.96,136.35"/>
+<polygon class="cell ca" points="215.96,136.35 236.29,116.02 215.96,95.69 195.63,116.02"/>
+<polygon class="cell cb" points="195.63,116.02 215.96,95.69 195.63,75.37 175.31,95.69"/>
+<polygon class="cell ca" points="175.31,95.69 195.63,75.37 175.31,55.04 154.98,75.37"/>
+<polygon class="cell cb" points="154.98,75.37 175.31,55.04 154.98,34.71 134.65,55.04"/>
+<polygon class="cell ca" points="134.65,55.04 154.98,34.71 134.65,14.38 114.32,34.71"/>
+<polygon class="cell cb" points="236.29,116.02 256.62,95.69 236.29,75.37 215.96,95.69"/>
+<polygon class="cell ca" points="215.96,95.69 236.29,75.37 215.96,55.04 195.63,75.37"/>
+<polygon class="cell cb" points="195.63,75.37 215.96,55.04 195.63,34.71 175.31,55.04"/>
+<polygon class="cell ca" points="175.31,55.04 195.63,34.71 175.31,14.38 154.98,34.71"/>
+<polygon class="cell cb" points="236.29,75.37 256.62,55.04 236.29,34.71 215.96,55.04"/>
+<polygon class="cell ca" points="215.96,55.04 236.29,34.71 215.96,14.38 195.63,34.71"/>
+</g>
+<rect class="tray" x="33.0" y="8" width="230" height="230"/>
+<text class="ctitle" x="148.0" y="262" text-anchor="middle">1 down, 1 over &#183; 45.00&#176;</text>
+<text class="csub" x="148.0" y="280" text-anchor="middle">50 whole cells at best, 40 at worst</text>
+<clipPath id="clip2"><rect x="315.0" y="8" width="230" height="230"/></clipPath>
+<g clip-path="url(#clip2)">
+<polygon class="cell cut" points="293.44,259.56 319.15,246.71 306.29,220.99 280.58,233.85"/>
+<polygon class="cell cut" points="332.01,272.42 357.72,259.56 344.87,233.85 319.15,246.71"/>
+<polygon class="cell cut" points="319.15,246.71 344.87,233.85 332.01,208.13 306.29,220.99"/>
+<polygon class="cell cut" points="306.29,220.99 332.01,208.13 319.15,182.42 293.44,195.28"/>
+<polygon class="cell cut" points="293.44,195.28 319.15,182.42 306.29,156.70 280.58,169.56"/>
+<polygon class="cell cut" points="357.72,259.56 383.44,246.71 370.58,220.99 344.87,233.85"/>
+<polygon class="cell cut" points="319.15,182.42 344.87,169.56 332.01,143.85 306.29,156.70"/>
+<polygon class="cell cut" points="306.29,156.70 332.01,143.85 319.15,118.13 293.44,130.99"/>
+<polygon class="cell cut" points="293.44,130.99 319.15,118.13 306.29,92.42 280.58,105.27"/>
+<polygon class="cell cut" points="396.30,272.42 422.01,259.56 409.15,233.85 383.44,246.71"/>
+<polygon class="cell cut" points="383.44,246.71 409.15,233.85 396.30,208.13 370.58,220.99"/>
+<polygon class="cell cut" points="319.15,118.13 344.87,105.27 332.01,79.56 306.29,92.42"/>
+<polygon class="cell cut" points="306.29,92.42 332.01,79.56 319.15,53.84 293.44,66.70"/>
+<polygon class="cell cut" points="293.44,66.70 319.15,53.84 306.29,28.13 280.58,40.99"/>
+<polygon class="cell cut" points="422.01,259.56 447.73,246.71 434.87,220.99 409.15,233.85"/>
+<polygon class="cell cut" points="319.15,53.84 344.87,40.99 332.01,15.27 306.29,28.13"/>
+<polygon class="cell cut" points="306.29,28.13 332.01,15.27 319.15,-10.44 293.44,2.41"/>
+<polygon class="cell cut" points="460.58,272.42 486.30,259.56 473.44,233.85 447.73,246.71"/>
+<polygon class="cell cut" points="447.73,246.71 473.44,233.85 460.58,208.13 434.87,220.99"/>
+<polygon class="cell cut" points="344.87,40.99 370.58,28.13 357.72,2.41 332.01,15.27"/>
+<polygon class="cell cut" points="332.01,15.27 357.72,2.41 344.87,-23.30 319.15,-10.44"/>
+<polygon class="cell cut" points="486.30,259.56 512.01,246.71 499.16,220.99 473.44,233.85"/>
+<polygon class="cell cut" points="370.58,28.13 396.30,15.27 383.44,-10.44 357.72,2.41"/>
+<polygon class="cell cut" points="524.87,272.42 550.59,259.56 537.73,233.85 512.01,246.71"/>
+<polygon class="cell cut" points="512.01,246.71 537.73,233.85 524.87,208.13 499.16,220.99"/>
+<polygon class="cell cut" points="409.15,40.99 434.87,28.13 422.01,2.41 396.30,15.27"/>
+<polygon class="cell cut" points="396.30,15.27 422.01,2.41 409.15,-23.30 383.44,-10.44"/>
+<polygon class="cell cut" points="550.59,259.56 576.30,246.71 563.44,220.99 537.73,233.85"/>
+<polygon class="cell cut" points="537.73,233.85 563.44,220.99 550.59,195.28 524.87,208.13"/>
+<polygon class="cell cut" points="524.87,208.13 550.59,195.28 537.73,169.56 512.01,182.42"/>
+<polygon class="cell cut" points="434.87,28.13 460.58,15.27 447.73,-10.44 422.01,2.41"/>
+<polygon class="cell cut" points="550.59,195.28 576.30,182.42 563.44,156.70 537.73,169.56"/>
+<polygon class="cell cut" points="537.73,169.56 563.44,156.70 550.59,130.99 524.87,143.85"/>
+<polygon class="cell cut" points="524.87,143.85 550.59,130.99 537.73,105.27 512.01,118.13"/>
+<polygon class="cell cut" points="473.44,40.99 499.16,28.13 486.30,2.41 460.58,15.27"/>
+<polygon class="cell cut" points="460.58,15.27 486.30,2.41 473.44,-23.30 447.73,-10.44"/>
+<polygon class="cell cut" points="550.59,130.99 576.30,118.13 563.44,92.42 537.73,105.27"/>
+<polygon class="cell cut" points="537.73,105.27 563.44,92.42 550.59,66.70 524.87,79.56"/>
+<polygon class="cell cut" points="524.87,79.56 550.59,66.70 537.73,40.99 512.01,53.84"/>
+<polygon class="cell cut" points="499.16,28.13 524.87,15.27 512.01,-10.44 486.30,2.41"/>
+<polygon class="cell cut" points="550.59,66.70 576.30,53.84 563.44,28.13 537.73,40.99"/>
+<polygon class="cell cut" points="537.73,40.99 563.44,28.13 550.59,2.41 524.87,15.27"/>
+<polygon class="cell cut" points="524.87,15.27 550.59,2.41 537.73,-23.30 512.01,-10.44"/>
+<polygon class="cell ca" points="344.87,233.85 370.58,220.99 357.72,195.28 332.01,208.13"/>
+<polygon class="cell cb" points="332.01,208.13 357.72,195.28 344.87,169.56 319.15,182.42"/>
+<polygon class="cell cb" points="370.58,220.99 396.30,208.13 383.44,182.42 357.72,195.28"/>
+<polygon class="cell ca" points="357.72,195.28 383.44,182.42 370.58,156.70 344.87,169.56"/>
+<polygon class="cell cb" points="344.87,169.56 370.58,156.70 357.72,130.99 332.01,143.85"/>
+<polygon class="cell ca" points="332.01,143.85 357.72,130.99 344.87,105.27 319.15,118.13"/>
+<polygon class="cell cb" points="409.15,233.85 434.87,220.99 422.01,195.28 396.30,208.13"/>
+<polygon class="cell ca" points="396.30,208.13 422.01,195.28 409.15,169.56 383.44,182.42"/>
+<polygon class="cell cb" points="383.44,182.42 409.15,169.56 396.30,143.85 370.58,156.70"/>
+<polygon class="cell ca" points="370.58,156.70 396.30,143.85 383.44,118.13 357.72,130.99"/>
+<polygon class="cell cb" points="357.72,130.99 383.44,118.13 370.58,92.42 344.87,105.27"/>
+<polygon class="cell ca" points="344.87,105.27 370.58,92.42 357.72,66.70 332.01,79.56"/>
+<polygon class="cell cb" points="332.01,79.56 357.72,66.70 344.87,40.99 319.15,53.84"/>
+<polygon class="cell ca" points="434.87,220.99 460.58,208.13 447.73,182.42 422.01,195.28"/>
+<polygon class="cell cb" points="422.01,195.28 447.73,182.42 434.87,156.70 409.15,169.56"/>
+<polygon class="cell ca" points="409.15,169.56 434.87,156.70 422.01,130.99 396.30,143.85"/>
+<polygon class="cell cb" points="396.30,143.85 422.01,130.99 409.15,105.27 383.44,118.13"/>
+<polygon class="cell ca" points="383.44,118.13 409.15,105.27 396.30,79.56 370.58,92.42"/>
+<polygon class="cell cb" points="370.58,92.42 396.30,79.56 383.44,53.84 357.72,66.70"/>
+<polygon class="cell ca" points="357.72,66.70 383.44,53.84 370.58,28.13 344.87,40.99"/>
+<polygon class="cell ca" points="473.44,233.85 499.16,220.99 486.30,195.28 460.58,208.13"/>
+<polygon class="cell cb" points="460.58,208.13 486.30,195.28 473.44,169.56 447.73,182.42"/>
+<polygon class="cell ca" points="447.73,182.42 473.44,169.56 460.58,143.85 434.87,156.70"/>
+<polygon class="cell cb" points="434.87,156.70 460.58,143.85 447.73,118.13 422.01,130.99"/>
+<polygon class="cell ca" points="422.01,130.99 447.73,118.13 434.87,92.42 409.15,105.27"/>
+<polygon class="cell cb" points="409.15,105.27 434.87,92.42 422.01,66.70 396.30,79.56"/>
+<polygon class="cell ca" points="396.30,79.56 422.01,66.70 409.15,40.99 383.44,53.84"/>
+<polygon class="cell cb" points="383.44,53.84 409.15,40.99 396.30,15.27 370.58,28.13"/>
+<polygon class="cell cb" points="499.16,220.99 524.87,208.13 512.01,182.42 486.30,195.28"/>
+<polygon class="cell ca" points="486.30,195.28 512.01,182.42 499.16,156.70 473.44,169.56"/>
+<polygon class="cell cb" points="473.44,169.56 499.16,156.70 486.30,130.99 460.58,143.85"/>
+<polygon class="cell ca" points="460.58,143.85 486.30,130.99 473.44,105.27 447.73,118.13"/>
+<polygon class="cell cb" points="447.73,118.13 473.44,105.27 460.58,79.56 434.87,92.42"/>
+<polygon class="cell ca" points="434.87,92.42 460.58,79.56 447.73,53.84 422.01,66.70"/>
+<polygon class="cell cb" points="422.01,66.70 447.73,53.84 434.87,28.13 409.15,40.99"/>
+<polygon class="cell cb" points="512.01,182.42 537.73,169.56 524.87,143.85 499.16,156.70"/>
+<polygon class="cell ca" points="499.16,156.70 524.87,143.85 512.01,118.13 486.30,130.99"/>
+<polygon class="cell cb" points="486.30,130.99 512.01,118.13 499.16,92.42 473.44,105.27"/>
+<polygon class="cell ca" points="473.44,105.27 499.16,92.42 486.30,66.70 460.58,79.56"/>
+<polygon class="cell cb" points="460.58,79.56 486.30,66.70 473.44,40.99 447.73,53.84"/>
+<polygon class="cell ca" points="447.73,53.84 473.44,40.99 460.58,15.27 434.87,28.13"/>
+<polygon class="cell ca" points="512.01,118.13 537.73,105.27 524.87,79.56 499.16,92.42"/>
+<polygon class="cell cb" points="499.16,92.42 524.87,79.56 512.01,53.84 486.30,66.70"/>
+<polygon class="cell ca" points="486.30,66.70 512.01,53.84 499.16,28.13 473.44,40.99"/>
+<polygon class="cell cb" points="512.01,53.84 537.73,40.99 524.87,15.27 499.16,28.13"/>
+</g>
+<rect class="tray" x="315.0" y="8" width="230" height="230"/>
+<text class="ctitle" x="430.0" y="262" text-anchor="middle">1 down, 2 over &#183; 26.57&#176;</text>
+<text class="csub" x="430.0" y="280" text-anchor="middle">45 whole cells at best, 39 at worst</text>
+<clipPath id="clip3"><rect x="597.0" y="8" width="230" height="230"/></clipPath>
+<g clip-path="url(#clip3)">
+<polygon class="cell cut" points="578.82,247.09 606.09,238.00 597.00,210.73 569.73,219.82"/>
+<polygon class="cell cut" points="615.18,265.27 642.46,256.18 633.37,228.91 606.09,238.00"/>
+<polygon class="cell cut" points="597.00,210.73 624.27,201.63 615.18,174.36 587.91,183.45"/>
+<polygon class="cell cut" points="587.91,183.45 615.18,174.36 606.09,147.08 578.82,156.18"/>
+<polygon class="cell cut" points="578.82,156.18 606.09,147.08 597.00,119.81 569.73,128.90"/>
+<polygon class="cell cut" points="642.46,256.18 669.73,247.09 660.64,219.82 633.37,228.91"/>
+<polygon class="cell cut" points="597.00,119.81 624.27,110.72 615.18,83.44 587.91,92.54"/>
+<polygon class="cell cut" points="587.91,92.54 615.18,83.44 606.09,56.17 578.82,65.26"/>
+<polygon class="cell cut" points="578.82,65.26 606.09,56.17 597.00,28.89 569.73,37.99"/>
+<polygon class="cell cut" points="669.73,247.09 697.01,238.00 687.92,210.73 660.64,219.82"/>
+<polygon class="cell cut" points="597.00,28.89 624.27,19.80 615.18,-7.47 587.91,1.62"/>
+<polygon class="cell cut" points="706.10,265.27 733.37,256.18 724.28,228.91 697.01,238.00"/>
+<polygon class="cell cut" points="624.27,19.80 651.55,10.71 642.46,-16.56 615.18,-7.47"/>
+<polygon class="cell cut" points="733.37,256.18 760.65,247.09 751.56,219.82 724.28,228.91"/>
+<polygon class="cell cut" points="660.64,37.99 687.92,28.89 678.82,1.62 651.55,10.71"/>
+<polygon class="cell cut" points="651.55,10.71 678.82,1.62 669.73,-25.65 642.46,-16.56"/>
+<polygon class="cell cut" points="760.65,247.09 787.92,238.00 778.83,210.73 751.56,219.82"/>
+<polygon class="cell cut" points="687.92,28.89 715.19,19.80 706.10,-7.47 678.82,1.62"/>
+<polygon class="cell cut" points="797.01,265.27 824.29,256.18 815.20,228.91 787.92,238.00"/>
+<polygon class="cell cut" points="715.19,19.80 742.46,10.71 733.37,-16.56 706.10,-7.47"/>
+<polygon class="cell cut" points="824.29,256.18 851.56,247.09 842.47,219.82 815.20,228.91"/>
+<polygon class="cell cut" points="815.20,228.91 842.47,219.82 833.38,192.54 806.11,201.63"/>
+<polygon class="cell cut" points="806.11,201.63 833.38,192.54 824.29,165.27 797.01,174.36"/>
+<polygon class="cell cut" points="751.56,37.99 778.83,28.89 769.74,1.62 742.46,10.71"/>
+<polygon class="cell cut" points="742.46,10.71 769.74,1.62 760.65,-25.65 733.37,-16.56"/>
+<polygon class="cell cut" points="833.38,192.54 860.65,183.45 851.56,156.18 824.29,165.27"/>
+<polygon class="cell cut" points="824.29,165.27 851.56,156.18 842.47,128.90 815.20,137.99"/>
+<polygon class="cell cut" points="815.20,137.99 842.47,128.90 833.38,101.63 806.11,110.72"/>
+<polygon class="cell cut" points="806.11,110.72 833.38,101.63 824.29,74.35 797.01,83.44"/>
+<polygon class="cell cut" points="778.83,28.89 806.11,19.80 797.01,-7.47 769.74,1.62"/>
+<polygon class="cell cut" points="833.38,101.63 860.65,92.54 851.56,65.26 824.29,74.35"/>
+<polygon class="cell cut" points="824.29,74.35 851.56,65.26 842.47,37.99 815.20,47.08"/>
+<polygon class="cell cut" points="815.20,47.08 842.47,37.99 833.38,10.71 806.11,19.80"/>
+<polygon class="cell cut" points="806.11,19.80 833.38,10.71 824.29,-16.56 797.01,-7.47"/>
+<polygon class="cell cut" points="833.38,10.71 860.65,1.62 851.56,-25.65 824.29,-16.56"/>
+<polygon class="cell cb" points="606.09,238.00 633.37,228.91 624.27,201.63 597.00,210.73"/>
+<polygon class="cell ca" points="633.37,228.91 660.64,219.82 651.55,192.54 624.27,201.63"/>
+<polygon class="cell cb" points="624.27,201.63 651.55,192.54 642.46,165.27 615.18,174.36"/>
+<polygon class="cell ca" points="615.18,174.36 642.46,165.27 633.37,137.99 606.09,147.08"/>
+<polygon class="cell cb" points="606.09,147.08 633.37,137.99 624.27,110.72 597.00,119.81"/>
+<polygon class="cell cb" points="660.64,219.82 687.92,210.73 678.82,183.45 651.55,192.54"/>
+<polygon class="cell ca" points="651.55,192.54 678.82,183.45 669.73,156.18 642.46,165.27"/>
+<polygon class="cell cb" points="642.46,165.27 669.73,156.18 660.64,128.90 633.37,137.99"/>
+<polygon class="cell ca" points="633.37,137.99 660.64,128.90 651.55,101.63 624.27,110.72"/>
+<polygon class="cell cb" points="624.27,110.72 651.55,101.63 642.46,74.35 615.18,83.44"/>
+<polygon class="cell ca" points="615.18,83.44 642.46,74.35 633.37,47.08 606.09,56.17"/>
+<polygon class="cell cb" points="606.09,56.17 633.37,47.08 624.27,19.80 597.00,28.89"/>
+<polygon class="cell cb" points="697.01,238.00 724.28,228.91 715.19,201.63 687.92,210.73"/>
+<polygon class="cell ca" points="687.92,210.73 715.19,201.63 706.10,174.36 678.82,183.45"/>
+<polygon class="cell cb" points="678.82,183.45 706.10,174.36 697.01,147.08 669.73,156.18"/>
+<polygon class="cell ca" points="669.73,156.18 697.01,147.08 687.92,119.81 660.64,128.90"/>
+<polygon class="cell cb" points="660.64,128.90 687.92,119.81 678.82,92.54 651.55,101.63"/>
+<polygon class="cell ca" points="651.55,101.63 678.82,92.54 669.73,65.26 642.46,74.35"/>
+<polygon class="cell cb" points="642.46,74.35 669.73,65.26 660.64,37.99 633.37,47.08"/>
+<polygon class="cell ca" points="633.37,47.08 660.64,37.99 651.55,10.71 624.27,19.80"/>
+<polygon class="cell ca" points="724.28,228.91 751.56,219.82 742.46,192.54 715.19,201.63"/>
+<polygon class="cell cb" points="715.19,201.63 742.46,192.54 733.37,165.27 706.10,174.36"/>
+<polygon class="cell ca" points="706.10,174.36 733.37,165.27 724.28,137.99 697.01,147.08"/>
+<polygon class="cell cb" points="697.01,147.08 724.28,137.99 715.19,110.72 687.92,119.81"/>
+<polygon class="cell ca" points="687.92,119.81 715.19,110.72 706.10,83.44 678.82,92.54"/>
+<polygon class="cell cb" points="678.82,92.54 706.10,83.44 697.01,56.17 669.73,65.26"/>
+<polygon class="cell ca" points="669.73,65.26 697.01,56.17 687.92,28.89 660.64,37.99"/>
+<polygon class="cell cb" points="751.56,219.82 778.83,210.73 769.74,183.45 742.46,192.54"/>
+<polygon class="cell ca" points="742.46,192.54 769.74,183.45 760.65,156.18 733.37,165.27"/>
+<polygon class="cell cb" points="733.37,165.27 760.65,156.18 751.56,128.90 724.28,137.99"/>
+<polygon class="cell ca" points="724.28,137.99 751.56,128.90 742.46,101.63 715.19,110.72"/>
+<polygon class="cell cb" points="715.19,110.72 742.46,101.63 733.37,74.35 706.10,83.44"/>
+<polygon class="cell ca" points="706.10,83.44 733.37,74.35 724.28,47.08 697.01,56.17"/>
+<polygon class="cell cb" points="697.01,56.17 724.28,47.08 715.19,19.80 687.92,28.89"/>
+<polygon class="cell cb" points="787.92,238.00 815.20,228.91 806.11,201.63 778.83,210.73"/>
+<polygon class="cell ca" points="778.83,210.73 806.11,201.63 797.01,174.36 769.74,183.45"/>
+<polygon class="cell cb" points="769.74,183.45 797.01,174.36 787.92,147.08 760.65,156.18"/>
+<polygon class="cell ca" points="760.65,156.18 787.92,147.08 778.83,119.81 751.56,128.90"/>
+<polygon class="cell cb" points="751.56,128.90 778.83,119.81 769.74,92.54 742.46,101.63"/>
+<polygon class="cell ca" points="742.46,101.63 769.74,92.54 760.65,65.26 733.37,74.35"/>
+<polygon class="cell cb" points="733.37,74.35 760.65,65.26 751.56,37.99 724.28,47.08"/>
+<polygon class="cell ca" points="724.28,47.08 751.56,37.99 742.46,10.71 715.19,19.80"/>
+<polygon class="cell ca" points="797.01,174.36 824.29,165.27 815.20,137.99 787.92,147.08"/>
+<polygon class="cell cb" points="787.92,147.08 815.20,137.99 806.11,110.72 778.83,119.81"/>
+<polygon class="cell ca" points="778.83,119.81 806.11,110.72 797.01,83.44 769.74,92.54"/>
+<polygon class="cell cb" points="769.74,92.54 797.01,83.44 787.92,56.17 760.65,65.26"/>
+<polygon class="cell ca" points="760.65,65.26 787.92,56.17 778.83,28.89 751.56,37.99"/>
+<polygon class="cell ca" points="797.01,83.44 824.29,74.35 815.20,47.08 787.92,56.17"/>
+<polygon class="cell cb" points="787.92,56.17 815.20,47.08 806.11,19.80 778.83,28.89"/>
+</g>
+<rect class="tray" x="597.0" y="8" width="230" height="230"/>
+<text class="ctitle" x="712.0" y="262" text-anchor="middle">1 down, 3 over &#183; 18.43&#176;</text>
+<text class="csub" x="712.0" y="280" text-anchor="middle">49 whole cells at best, 44 at worst</text>
+<clipPath id="clip4"><rect x="33.0" y="316" width="230" height="230"/></clipPath>
+<g clip-path="url(#clip4)">
+<polygon class="cell cut" points="26.03,552.97 53.92,546.00 46.95,518.11 19.05,525.08"/>
+<polygon class="cell cut" points="19.05,525.08 46.95,518.11 39.97,490.22 12.08,497.19"/>
+<polygon class="cell cut" points="12.08,497.19 39.97,490.22 33.00,462.33 5.11,469.30"/>
+<polygon class="cell cut" points="60.89,573.89 88.78,566.92 81.81,539.03 53.92,546.00"/>
+<polygon class="cell cut" points="33.00,462.33 60.89,455.35 53.92,427.46 26.03,434.43"/>
+<polygon class="cell cut" points="26.03,434.43 53.92,427.46 46.95,399.57 19.05,406.54"/>
+<polygon class="cell cut" points="19.05,406.54 46.95,399.57 39.97,371.68 12.08,378.65"/>
+<polygon class="cell cut" points="12.08,378.65 39.97,371.68 33.00,343.79 5.11,350.76"/>
+<polygon class="cell cut" points="88.78,566.92 116.67,559.95 109.70,532.05 81.81,539.03"/>
+<polygon class="cell cut" points="33.00,343.79 60.89,336.81 53.92,308.92 26.03,315.89"/>
+<polygon class="cell cut" points="116.67,559.95 144.57,552.97 137.59,525.08 109.70,532.05"/>
+<polygon class="cell cut" points="60.89,336.81 88.78,329.84 81.81,301.95 53.92,308.92"/>
+<polygon class="cell cut" points="144.57,552.97 172.46,546.00 165.49,518.11 137.59,525.08"/>
+<polygon class="cell cut" points="88.78,329.84 116.67,322.87 109.70,294.98 81.81,301.95"/>
+<polygon class="cell cut" points="179.43,573.89 207.32,566.92 200.35,539.03 172.46,546.00"/>
+<polygon class="cell cut" points="123.65,350.76 151.54,343.79 144.57,315.89 116.67,322.87"/>
+<polygon class="cell cut" points="116.67,322.87 144.57,315.89 137.59,288.00 109.70,294.98"/>
+<polygon class="cell cut" points="207.32,566.92 235.21,559.95 228.24,532.05 200.35,539.03"/>
+<polygon class="cell cut" points="151.54,343.79 179.43,336.81 172.46,308.92 144.57,315.89"/>
+<polygon class="cell cut" points="235.21,559.95 263.11,552.97 256.13,525.08 228.24,532.05"/>
+<polygon class="cell cut" points="179.43,336.81 207.32,329.84 200.35,301.95 172.46,308.92"/>
+<polygon class="cell cut" points="263.11,552.97 291.00,546.00 284.02,518.11 256.13,525.08"/>
+<polygon class="cell cut" points="256.13,525.08 284.02,518.11 277.05,490.22 249.16,497.19"/>
+<polygon class="cell cut" points="249.16,497.19 277.05,490.22 270.08,462.33 242.19,469.30"/>
+<polygon class="cell cut" points="242.19,469.30 270.08,462.33 263.11,434.43 235.21,441.41"/>
+<polygon class="cell cut" points="235.21,441.41 263.11,434.43 256.13,406.54 228.24,413.51"/>
+<polygon class="cell cut" points="207.32,329.84 235.21,322.87 228.24,294.98 200.35,301.95"/>
+<polygon class="cell cut" points="263.11,434.43 291.00,427.46 284.02,399.57 256.13,406.54"/>
+<polygon class="cell cut" points="256.13,406.54 284.02,399.57 277.05,371.68 249.16,378.65"/>
+<polygon class="cell cut" points="249.16,378.65 277.05,371.68 270.08,343.79 242.19,350.76"/>
+<polygon class="cell cut" points="242.19,350.76 270.08,343.79 263.11,315.89 235.21,322.87"/>
+<polygon class="cell cut" points="235.21,322.87 263.11,315.89 256.13,288.00 228.24,294.98"/>
+<polygon class="cell ca" points="53.92,546.00 81.81,539.03 74.84,511.14 46.95,518.11"/>
+<polygon class="cell cb" points="46.95,518.11 74.84,511.14 67.86,483.24 39.97,490.22"/>
+<polygon class="cell ca" points="39.97,490.22 67.86,483.24 60.89,455.35 33.00,462.33"/>
+<polygon class="cell cb" points="81.81,539.03 109.70,532.05 102.73,504.16 74.84,511.14"/>
+<polygon class="cell ca" points="74.84,511.14 102.73,504.16 95.76,476.27 67.86,483.24"/>
+<polygon class="cell cb" points="67.86,483.24 95.76,476.27 88.78,448.38 60.89,455.35"/>
+<polygon class="cell ca" points="60.89,455.35 88.78,448.38 81.81,420.49 53.92,427.46"/>
+<polygon class="cell cb" points="53.92,427.46 81.81,420.49 74.84,392.60 46.95,399.57"/>
+<polygon class="cell ca" points="46.95,399.57 74.84,392.60 67.86,364.70 39.97,371.68"/>
+<polygon class="cell cb" points="39.97,371.68 67.86,364.70 60.89,336.81 33.00,343.79"/>
+<polygon class="cell ca" points="109.70,532.05 137.59,525.08 130.62,497.19 102.73,504.16"/>
+<polygon class="cell cb" points="102.73,504.16 130.62,497.19 123.65,469.30 95.76,476.27"/>
+<polygon class="cell ca" points="95.76,476.27 123.65,469.30 116.67,441.41 88.78,448.38"/>
+<polygon class="cell cb" points="88.78,448.38 116.67,441.41 109.70,413.51 81.81,420.49"/>
+<polygon class="cell ca" points="81.81,420.49 109.70,413.51 102.73,385.62 74.84,392.60"/>
+<polygon class="cell cb" points="74.84,392.60 102.73,385.62 95.76,357.73 67.86,364.70"/>
+<polygon class="cell ca" points="67.86,364.70 95.76,357.73 88.78,329.84 60.89,336.81"/>
+<polygon class="cell cb" points="137.59,525.08 165.49,518.11 158.51,490.22 130.62,497.19"/>
+<polygon class="cell ca" points="130.62,497.19 158.51,490.22 151.54,462.33 123.65,469.30"/>
+<polygon class="cell cb" points="123.65,469.30 151.54,462.33 144.57,434.43 116.67,441.41"/>
+<polygon class="cell ca" points="116.67,441.41 144.57,434.43 137.59,406.54 109.70,413.51"/>
+<polygon class="cell cb" points="109.70,413.51 137.59,406.54 130.62,378.65 102.73,385.62"/>
+<polygon class="cell ca" points="102.73,385.62 130.62,378.65 123.65,350.76 95.76,357.73"/>
+<polygon class="cell cb" points="95.76,357.73 123.65,350.76 116.67,322.87 88.78,329.84"/>
+<polygon class="cell cb" points="172.46,546.00 200.35,539.03 193.38,511.14 165.49,518.11"/>
+<polygon class="cell ca" points="165.49,518.11 193.38,511.14 186.40,483.24 158.51,490.22"/>
+<polygon class="cell cb" points="158.51,490.22 186.40,483.24 179.43,455.35 151.54,462.33"/>
+<polygon class="cell ca" points="151.54,462.33 179.43,455.35 172.46,427.46 144.57,434.43"/>
+<polygon class="cell cb" points="144.57,434.43 172.46,427.46 165.49,399.57 137.59,406.54"/>
+<polygon class="cell ca" points="137.59,406.54 165.49,399.57 158.51,371.68 130.62,378.65"/>
+<polygon class="cell cb" points="130.62,378.65 158.51,371.68 151.54,343.79 123.65,350.76"/>
+<polygon class="cell ca" points="200.35,539.03 228.24,532.05 221.27,504.16 193.38,511.14"/>
+<polygon class="cell cb" points="193.38,511.14 221.27,504.16 214.30,476.27 186.40,483.24"/>
+<polygon class="cell ca" points="186.40,483.24 214.30,476.27 207.32,448.38 179.43,455.35"/>
+<polygon class="cell cb" points="179.43,455.35 207.32,448.38 200.35,420.49 172.46,427.46"/>
+<polygon class="cell ca" points="172.46,427.46 200.35,420.49 193.38,392.60 165.49,399.57"/>
+<polygon class="cell cb" points="165.49,399.57 193.38,392.60 186.40,364.70 158.51,371.68"/>
+<polygon class="cell ca" points="158.51,371.68 186.40,364.70 179.43,336.81 151.54,343.79"/>
+<polygon class="cell cb" points="228.24,532.05 256.13,525.08 249.16,497.19 221.27,504.16"/>
+<polygon class="cell ca" points="221.27,504.16 249.16,497.19 242.19,469.30 214.30,476.27"/>
+<polygon class="cell cb" points="214.30,476.27 242.19,469.30 235.21,441.41 207.32,448.38"/>
+<polygon class="cell ca" points="207.32,448.38 235.21,441.41 228.24,413.51 200.35,420.49"/>
+<polygon class="cell cb" points="200.35,420.49 228.24,413.51 221.27,385.62 193.38,392.60"/>
+<polygon class="cell ca" points="193.38,392.60 221.27,385.62 214.30,357.73 186.40,364.70"/>
+<polygon class="cell cb" points="186.40,364.70 214.30,357.73 207.32,329.84 179.43,336.81"/>
+<polygon class="cell ca" points="228.24,413.51 256.13,406.54 249.16,378.65 221.27,385.62"/>
+<polygon class="cell cb" points="221.27,385.62 249.16,378.65 242.19,350.76 214.30,357.73"/>
+<polygon class="cell ca" points="214.30,357.73 242.19,350.76 235.21,322.87 207.32,329.84"/>
+</g>
+<rect class="tray" x="33.0" y="316" width="230" height="230"/>
+<text class="ctitle" x="148.0" y="570" text-anchor="middle">1 down, 4 over &#183; 14.04&#176;</text>
+<text class="csub" x="148.0" y="588" text-anchor="middle">48 whole cells at best, 41 at worst</text>
+<clipPath id="clip5"><rect x="315.0" y="316" width="230" height="230"/></clipPath>
+<g clip-path="url(#clip5)">
+<polygon class="cell cut" points="298.08,551.64 326.28,546.00 320.64,517.81 292.45,523.45"/>
+<polygon class="cell cut" points="292.45,523.45 320.64,517.81 315.00,489.62 286.81,495.25"/>
+<polygon class="cell cut" points="331.92,574.19 360.11,568.55 354.47,540.36 326.28,546.00"/>
+<polygon class="cell cut" points="315.00,489.62 343.19,483.98 337.55,455.79 309.36,461.42"/>
+<polygon class="cell cut" points="309.36,461.42 337.55,455.79 331.92,427.59 303.72,433.23"/>
+<polygon class="cell cut" points="303.72,433.23 331.92,427.59 326.28,399.40 298.08,405.04"/>
+<polygon class="cell cut" points="298.08,405.04 326.28,399.40 320.64,371.21 292.45,376.85"/>
+<polygon class="cell cut" points="292.45,376.85 320.64,371.21 315.00,343.02 286.81,348.66"/>
+<polygon class="cell cut" points="360.11,568.55 388.30,562.92 382.66,534.72 354.47,540.36"/>
+<polygon class="cell cut" points="315.00,343.02 343.19,337.38 337.55,309.19 309.36,314.83"/>
+<polygon class="cell cut" points="388.30,562.92 416.49,557.28 410.85,529.08 382.66,534.72"/>
+<polygon class="cell cut" points="343.19,337.38 371.38,331.74 365.75,303.55 337.55,309.19"/>
+<polygon class="cell cut" points="416.49,557.28 444.68,551.64 439.04,523.45 410.85,529.08"/>
+<polygon class="cell cut" points="371.38,331.74 399.58,326.10 393.94,297.91 365.75,303.55"/>
+<polygon class="cell cut" points="444.68,551.64 472.87,546.00 467.24,517.81 439.04,523.45"/>
+<polygon class="cell cut" points="399.58,326.10 427.77,320.47 422.13,292.27 393.94,297.91"/>
+<polygon class="cell cut" points="478.51,574.19 506.70,568.55 501.07,540.36 472.87,546.00"/>
+<polygon class="cell cut" points="433.41,348.66 461.60,343.02 455.96,314.83 427.77,320.47"/>
+<polygon class="cell cut" points="427.77,320.47 455.96,314.83 450.32,286.64 422.13,292.27"/>
+<polygon class="cell cut" points="506.70,568.55 534.90,562.92 529.26,534.72 501.07,540.36"/>
+<polygon class="cell cut" points="461.60,343.02 489.79,337.38 484.15,309.19 455.96,314.83"/>
+<polygon class="cell cut" points="534.90,562.92 563.09,557.28 557.45,529.08 529.26,534.72"/>
+<polygon class="cell cut" points="529.26,534.72 557.45,529.08 551.81,500.89 523.62,506.53"/>
+<polygon class="cell cut" points="523.62,506.53 551.81,500.89 546.17,472.70 517.98,478.34"/>
+<polygon class="cell cut" points="517.98,478.34 546.17,472.70 540.53,444.51 512.34,450.15"/>
+<polygon class="cell cut" points="489.79,337.38 517.98,331.74 512.34,303.55 484.15,309.19"/>
+<polygon class="cell cut" points="546.17,472.70 574.36,467.06 568.73,438.87 540.53,444.51"/>
+<polygon class="cell cut" points="540.53,444.51 568.73,438.87 563.09,410.68 534.90,416.32"/>
+<polygon class="cell cut" points="534.90,416.32 563.09,410.68 557.45,382.49 529.26,388.13"/>
+<polygon class="cell cut" points="529.26,388.13 557.45,382.49 551.81,354.30 523.62,359.93"/>
+<polygon class="cell cut" points="523.62,359.93 551.81,354.30 546.17,326.10 517.98,331.74"/>
+<polygon class="cell cut" points="517.98,331.74 546.17,326.10 540.53,297.91 512.34,303.55"/>
+<polygon class="cell cut" points="546.17,326.10 574.36,320.47 568.73,292.27 540.53,297.91"/>
+<polygon class="cell cb" points="326.28,546.00 354.47,540.36 348.83,512.17 320.64,517.81"/>
+<polygon class="cell ca" points="320.64,517.81 348.83,512.17 343.19,483.98 315.00,489.62"/>
+<polygon class="cell ca" points="354.47,540.36 382.66,534.72 377.02,506.53 348.83,512.17"/>
+<polygon class="cell cb" points="348.83,512.17 377.02,506.53 371.38,478.34 343.19,483.98"/>
+<polygon class="cell ca" points="343.19,483.98 371.38,478.34 365.75,450.15 337.55,455.79"/>
+<polygon class="cell cb" points="337.55,455.79 365.75,450.15 360.11,421.96 331.92,427.59"/>
+<polygon class="cell ca" points="331.92,427.59 360.11,421.96 354.47,393.76 326.28,399.40"/>
+<polygon class="cell cb" points="326.28,399.40 354.47,393.76 348.83,365.57 320.64,371.21"/>
+<polygon class="cell ca" points="320.64,371.21 348.83,365.57 343.19,337.38 315.00,343.02"/>
+<polygon class="cell cb" points="382.66,534.72 410.85,529.08 405.21,500.89 377.02,506.53"/>
+<polygon class="cell ca" points="377.02,506.53 405.21,500.89 399.58,472.70 371.38,478.34"/>
+<polygon class="cell cb" points="371.38,478.34 399.58,472.70 393.94,444.51 365.75,450.15"/>
+<polygon class="cell ca" points="365.75,450.15 393.94,444.51 388.30,416.32 360.11,421.96"/>
+<polygon class="cell cb" points="360.11,421.96 388.30,416.32 382.66,388.13 354.47,393.76"/>
+<polygon class="cell ca" points="354.47,393.76 382.66,388.13 377.02,359.93 348.83,365.57"/>
+<polygon class="cell cb" points="348.83,365.57 377.02,359.93 371.38,331.74 343.19,337.38"/>
+<polygon class="cell ca" points="410.85,529.08 439.04,523.45 433.41,495.25 405.21,500.89"/>
+<polygon class="cell cb" points="405.21,500.89 433.41,495.25 427.77,467.06 399.58,472.70"/>
+<polygon class="cell ca" points="399.58,472.70 427.77,467.06 422.13,438.87 393.94,444.51"/>
+<polygon class="cell cb" points="393.94,444.51 422.13,438.87 416.49,410.68 388.30,416.32"/>
+<polygon class="cell ca" points="388.30,416.32 416.49,410.68 410.85,382.49 382.66,388.13"/>
+<polygon class="cell cb" points="382.66,388.13 410.85,382.49 405.21,354.30 377.02,359.93"/>
+<polygon class="cell ca" points="377.02,359.93 405.21,354.30 399.58,326.10 371.38,331.74"/>
+<polygon class="cell cb" points="439.04,523.45 467.24,517.81 461.60,489.62 433.41,495.25"/>
+<polygon class="cell ca" points="433.41,495.25 461.60,489.62 455.96,461.42 427.77,467.06"/>
+<polygon class="cell cb" points="427.77,467.06 455.96,461.42 450.32,433.23 422.13,438.87"/>
+<polygon class="cell ca" points="422.13,438.87 450.32,433.23 444.68,405.04 416.49,410.68"/>
+<polygon class="cell cb" points="416.49,410.68 444.68,405.04 439.04,376.85 410.85,382.49"/>
+<polygon class="cell ca" points="410.85,382.49 439.04,376.85 433.41,348.66 405.21,354.30"/>
+<polygon class="cell cb" points="405.21,354.30 433.41,348.66 427.77,320.47 399.58,326.10"/>
+<polygon class="cell cb" points="472.87,546.00 501.07,540.36 495.43,512.17 467.24,517.81"/>
+<polygon class="cell ca" points="467.24,517.81 495.43,512.17 489.79,483.98 461.60,489.62"/>
+<polygon class="cell cb" points="461.60,489.62 489.79,483.98 484.15,455.79 455.96,461.42"/>
+<polygon class="cell ca" points="455.96,461.42 484.15,455.79 478.51,427.59 450.32,433.23"/>
+<polygon class="cell cb" points="450.32,433.23 478.51,427.59 472.87,399.40 444.68,405.04"/>
+<polygon class="cell ca" points="444.68,405.04 472.87,399.40 467.24,371.21 439.04,376.85"/>
+<polygon class="cell cb" points="439.04,376.85 467.24,371.21 461.60,343.02 433.41,348.66"/>
+<polygon class="cell ca" points="501.07,540.36 529.26,534.72 523.62,506.53 495.43,512.17"/>
+<polygon class="cell cb" points="495.43,512.17 523.62,506.53 517.98,478.34 489.79,483.98"/>
+<polygon class="cell ca" points="489.79,483.98 517.98,478.34 512.34,450.15 484.15,455.79"/>
+<polygon class="cell cb" points="484.15,455.79 512.34,450.15 506.70,421.96 478.51,427.59"/>
+<polygon class="cell ca" points="478.51,427.59 506.70,421.96 501.07,393.76 472.87,399.40"/>
+<polygon class="cell cb" points="472.87,399.40 501.07,393.76 495.43,365.57 467.24,371.21"/>
+<polygon class="cell ca" points="467.24,371.21 495.43,365.57 489.79,337.38 461.60,343.02"/>
+<polygon class="cell ca" points="512.34,450.15 540.53,444.51 534.90,416.32 506.70,421.96"/>
+<polygon class="cell cb" points="506.70,421.96 534.90,416.32 529.26,388.13 501.07,393.76"/>
+<polygon class="cell ca" points="501.07,393.76 529.26,388.13 523.62,359.93 495.43,365.57"/>
+<polygon class="cell cb" points="495.43,365.57 523.62,359.93 517.98,331.74 489.79,337.38"/>
+</g>
+<rect class="tray" x="315.0" y="316" width="230" height="230"/>
+<text class="ctitle" x="430.0" y="570" text-anchor="middle">1 down, 5 over &#183; 11.31&#176;</text>
+<text class="csub" x="430.0" y="588" text-anchor="middle">48 whole cells at best, 43 at worst</text>
+<clipPath id="clip6"><rect x="597.0" y="316" width="230" height="230"/></clipPath>
+<g clip-path="url(#clip6)">
+<polygon class="cell cut" points="575.44,550.73 603.80,546.00 599.07,517.64 570.71,522.37"/>
+<polygon class="cell cut" points="570.71,522.37 599.07,517.64 594.34,489.28 565.98,494.01"/>
+<polygon class="cell cut" points="608.52,574.36 636.88,569.63 632.16,541.27 603.80,546.00"/>
+<polygon class="cell cut" points="599.07,517.64 627.43,512.91 622.70,484.56 594.34,489.28"/>
+<polygon class="cell cut" points="594.34,489.28 622.70,484.56 617.98,456.20 589.62,460.92"/>
+<polygon class="cell cut" points="589.62,460.92 617.98,456.20 613.25,427.84 584.89,432.56"/>
+<polygon class="cell cut" points="584.89,432.56 613.25,427.84 608.52,399.48 580.16,404.21"/>
+<polygon class="cell cut" points="580.16,404.21 608.52,399.48 603.80,371.12 575.44,375.85"/>
+<polygon class="cell cut" points="575.44,375.85 603.80,371.12 599.07,342.76 570.71,347.49"/>
+<polygon class="cell cut" points="570.71,347.49 599.07,342.76 594.34,314.40 565.98,319.13"/>
+<polygon class="cell cut" points="636.88,569.63 665.24,564.91 660.51,536.55 632.16,541.27"/>
+<polygon class="cell cut" points="599.07,342.76 627.43,338.04 622.70,309.68 594.34,314.40"/>
+<polygon class="cell cut" points="665.24,564.91 693.60,560.18 688.87,531.82 660.51,536.55"/>
+<polygon class="cell cut" points="627.43,338.04 655.79,333.31 651.06,304.95 622.70,309.68"/>
+<polygon class="cell cut" points="693.60,560.18 721.96,555.45 717.23,527.09 688.87,531.82"/>
+<polygon class="cell cut" points="655.79,333.31 684.15,328.58 679.42,300.22 651.06,304.95"/>
+<polygon class="cell cut" points="721.96,555.45 750.32,550.73 745.59,522.37 717.23,527.09"/>
+<polygon class="cell cut" points="684.15,328.58 712.51,323.86 707.78,295.50 679.42,300.22"/>
+<polygon class="cell cut" points="750.32,550.73 778.68,546.00 773.95,517.64 745.59,522.37"/>
+<polygon class="cell cut" points="712.51,323.86 740.86,319.13 736.14,290.77 707.78,295.50"/>
+<polygon class="cell cut" points="783.40,574.36 811.76,569.63 807.03,541.27 778.68,546.00"/>
+<polygon class="cell cut" points="745.59,347.49 773.95,342.76 769.22,314.40 740.86,319.13"/>
+<polygon class="cell cut" points="740.86,319.13 769.22,314.40 764.50,286.04 736.14,290.77"/>
+<polygon class="cell cut" points="811.76,569.63 840.12,564.91 835.39,536.55 807.03,541.27"/>
+<polygon class="cell cut" points="807.03,541.27 835.39,536.55 830.67,508.19 802.31,512.91"/>
+<polygon class="cell cut" points="802.31,512.91 830.67,508.19 825.94,479.83 797.58,484.56"/>
+<polygon class="cell cut" points="773.95,342.76 802.31,338.04 797.58,309.68 769.22,314.40"/>
+<polygon class="cell cut" points="830.67,508.19 859.03,503.46 854.30,475.10 825.94,479.83"/>
+<polygon class="cell cut" points="825.94,479.83 854.30,475.10 849.57,446.74 821.21,451.47"/>
+<polygon class="cell cut" points="821.21,451.47 849.57,446.74 844.85,418.39 816.49,423.11"/>
+<polygon class="cell cut" points="816.49,423.11 844.85,418.39 840.12,390.03 811.76,394.75"/>
+<polygon class="cell cut" points="811.76,394.75 840.12,390.03 835.39,361.67 807.03,366.39"/>
+<polygon class="cell cut" points="807.03,366.39 835.39,361.67 830.67,333.31 802.31,338.04"/>
+<polygon class="cell cut" points="802.31,338.04 830.67,333.31 825.94,304.95 797.58,309.68"/>
+<polygon class="cell cut" points="830.67,333.31 859.03,328.58 854.30,300.22 825.94,304.95"/>
+<polygon class="cell cb" points="603.80,546.00 632.16,541.27 627.43,512.91 599.07,517.64"/>
+<polygon class="cell ca" points="632.16,541.27 660.51,536.55 655.79,508.19 627.43,512.91"/>
+<polygon class="cell cb" points="627.43,512.91 655.79,508.19 651.06,479.83 622.70,484.56"/>
+<polygon class="cell ca" points="622.70,484.56 651.06,479.83 646.33,451.47 617.98,456.20"/>
+<polygon class="cell cb" points="617.98,456.20 646.33,451.47 641.61,423.11 613.25,427.84"/>
+<polygon class="cell ca" points="613.25,427.84 641.61,423.11 636.88,394.75 608.52,399.48"/>
+<polygon class="cell cb" points="608.52,399.48 636.88,394.75 632.16,366.39 603.80,371.12"/>
+<polygon class="cell ca" points="603.80,371.12 632.16,366.39 627.43,338.04 599.07,342.76"/>
+<polygon class="cell cb" points="660.51,536.55 688.87,531.82 684.15,503.46 655.79,508.19"/>
+<polygon class="cell ca" points="655.79,508.19 684.15,503.46 679.42,475.10 651.06,479.83"/>
+<polygon class="cell cb" points="651.06,479.83 679.42,475.10 674.69,446.74 646.33,451.47"/>
+<polygon class="cell ca" points="646.33,451.47 674.69,446.74 669.97,418.39 641.61,423.11"/>
+<polygon class="cell cb" points="641.61,423.11 669.97,418.39 665.24,390.03 636.88,394.75"/>
+<polygon class="cell ca" points="636.88,394.75 665.24,390.03 660.51,361.67 632.16,366.39"/>
+<polygon class="cell cb" points="632.16,366.39 660.51,361.67 655.79,333.31 627.43,338.04"/>
+<polygon class="cell ca" points="688.87,531.82 717.23,527.09 712.51,498.74 684.15,503.46"/>
+<polygon class="cell cb" points="684.15,503.46 712.51,498.74 707.78,470.38 679.42,475.10"/>
+<polygon class="cell ca" points="679.42,475.10 707.78,470.38 703.05,442.02 674.69,446.74"/>
+<polygon class="cell cb" points="674.69,446.74 703.05,442.02 698.33,413.66 669.97,418.39"/>
+<polygon class="cell ca" points="669.97,418.39 698.33,413.66 693.60,385.30 665.24,390.03"/>
+<polygon class="cell cb" points="665.24,390.03 693.60,385.30 688.87,356.94 660.51,361.67"/>
+<polygon class="cell ca" points="660.51,361.67 688.87,356.94 684.15,328.58 655.79,333.31"/>
+<polygon class="cell cb" points="717.23,527.09 745.59,522.37 740.86,494.01 712.51,498.74"/>
+<polygon class="cell ca" points="712.51,498.74 740.86,494.01 736.14,465.65 707.78,470.38"/>
+<polygon class="cell cb" points="707.78,470.38 736.14,465.65 731.41,437.29 703.05,442.02"/>
+<polygon class="cell ca" points="703.05,442.02 731.41,437.29 726.68,408.93 698.33,413.66"/>
+<polygon class="cell cb" points="698.33,413.66 726.68,408.93 721.96,380.57 693.60,385.30"/>
+<polygon class="cell ca" points="693.60,385.30 721.96,380.57 717.23,352.21 688.87,356.94"/>
+<polygon class="cell cb" points="688.87,356.94 717.23,352.21 712.51,323.86 684.15,328.58"/>
+<polygon class="cell ca" points="745.59,522.37 773.95,517.64 769.22,489.28 740.86,494.01"/>
+<polygon class="cell cb" points="740.86,494.01 769.22,489.28 764.50,460.92 736.14,465.65"/>
+<polygon class="cell ca" points="736.14,465.65 764.50,460.92 759.77,432.56 731.41,437.29"/>
+<polygon class="cell cb" points="731.41,437.29 759.77,432.56 755.04,404.21 726.68,408.93"/>
+<polygon class="cell ca" points="726.68,408.93 755.04,404.21 750.32,375.85 721.96,380.57"/>
+<polygon class="cell cb" points="721.96,380.57 750.32,375.85 745.59,347.49 717.23,352.21"/>
+<polygon class="cell ca" points="717.23,352.21 745.59,347.49 740.86,319.13 712.51,323.86"/>
+<polygon class="cell ca" points="778.68,546.00 807.03,541.27 802.31,512.91 773.95,517.64"/>
+<polygon class="cell cb" points="773.95,517.64 802.31,512.91 797.58,484.56 769.22,489.28"/>
+<polygon class="cell ca" points="769.22,489.28 797.58,484.56 792.86,456.20 764.50,460.92"/>
+<polygon class="cell cb" points="764.50,460.92 792.86,456.20 788.13,427.84 759.77,432.56"/>
+<polygon class="cell ca" points="759.77,432.56 788.13,427.84 783.40,399.48 755.04,404.21"/>
+<polygon class="cell cb" points="755.04,404.21 783.40,399.48 778.68,371.12 750.32,375.85"/>
+<polygon class="cell ca" points="750.32,375.85 778.68,371.12 773.95,342.76 745.59,347.49"/>
+<polygon class="cell cb" points="797.58,484.56 825.94,479.83 821.21,451.47 792.86,456.20"/>
+<polygon class="cell ca" points="792.86,456.20 821.21,451.47 816.49,423.11 788.13,427.84"/>
+<polygon class="cell cb" points="788.13,427.84 816.49,423.11 811.76,394.75 783.40,399.48"/>
+<polygon class="cell ca" points="783.40,399.48 811.76,394.75 807.03,366.39 778.68,371.12"/>
+<polygon class="cell cb" points="778.68,371.12 807.03,366.39 802.31,338.04 773.95,342.76"/>
+</g>
+<rect class="tray" x="597.0" y="316" width="230" height="230"/>
+<text class="ctitle" x="712.0" y="570" text-anchor="middle">1 down, 6 over &#183; 9.46&#176;</text>
+<text class="csub" x="712.0" y="588" text-anchor="middle">48 whole cells at best, 45 at worst</text>
+</svg><figcaption>Figure 1. An 8&#160;&#215;&#160;8 tray with the grid turned to each of the first six angles, each placed where it keeps the most whole cells. Blue and green cells are whole. Gray cells are cut by the edge and can hold no piece. The worst placement of the grid at the same angle keeps the smaller number below each tray.</figcaption></figure>
+
+<h2 id="s2">2. The angles</h2>
+<p>"1 down, <i>n</i> over" describes the grid lines: walk <i>n</i> cells along a row of the tray and the row has dropped by one cell. The lines have slope 1/<i>n</i>, so the grid is turned by</p>
+<p class="formula">&#952; = arctan(1/<i>n</i>)</p>
+<p>For large <i>n</i> this is close to 1/<i>n</i> radians, about 57.3&#176;/<i>n</i>. The angles shrink toward the straight grid without reaching it, so the series has no end.</p>
+<div class="tw"><table class="num"><tr><th>Slope</th><th>Angle &#952;</th><th>Repeat s = &#8730;(n&#178;+1)</th><th>Cells per repeat square</th><th>Box w</th><th>Inset w/2</th></tr><tr><td>1 down, 1 over</td><td>45.000&#176;</td><td>1.414</td><td>2</td><td>1.414</td><td>0.707</td></tr><tr><td>1 down, 2 over</td><td>26.565&#176;</td><td>2.236</td><td>5</td><td>1.342</td><td>0.671</td></tr><tr><td>1 down, 3 over</td><td>18.435&#176;</td><td>3.162</td><td>10</td><td>1.265</td><td>0.632</td></tr><tr><td>1 down, 4 over</td><td>14.036&#176;</td><td>4.123</td><td>17</td><td>1.213</td><td>0.606</td></tr><tr><td>1 down, 5 over</td><td>11.310&#176;</td><td>5.099</td><td>26</td><td>1.177</td><td>0.588</td></tr><tr><td>1 down, 6 over</td><td>9.462&#176;</td><td>6.083</td><td>37</td><td>1.151</td><td>0.575</td></tr><tr><td>1 down, 7 over</td><td>8.130&#176;</td><td>7.071</td><td>50</td><td>1.131</td><td>0.566</td></tr><tr><td>1 down, 8 over</td><td>7.125&#176;</td><td>8.062</td><td>65</td><td>1.116</td><td>0.558</td></tr><tr><td>straight</td><td>0&#176;</td><td>1</td><td>1</td><td>1</td><td>0.5</td></tr></table></div>
+
+<h2 id="s3">3. Why these angles look regular</h2>
+<p>Start at a corner of a cell, take <i>n</i> steps along its row and then one step across, down the column. The point reached is exactly level with the start, &#8730;(<i>n</i>&#178;+1) away. (The two legs, <i>n</i> and 1, are at right angles, so this is Pythagoras.) Do the same turned a quarter turn and you go straight up by the same distance. So the turned grid has a repeat square whose sides run along the tray's own edges. Its side is <i>s</i> = &#8730;(<i>n</i>&#178;+1) and its area is <i>n</i>&#178;+1 cells.</p>
+<figure><svg viewBox="0 0 860 400" role="img" aria-label="The turned grid repeats along the tray's axes every root of n squared plus one" xmlns="http://www.w3.org/2000/svg">
+<clipPath id="clip7"><rect x="40" y="22" width="330" height="330"/></clipPath>
+<g clip-path="url(#clip7)">
+<polygon class="sq0" points="-85.96,477.96 59.52,477.96 59.52,332.48 -85.96,332.48"/>
+<polygon class="sq1" points="-85.96,332.48 59.52,332.48 59.52,187.00 -85.96,187.00"/>
+<polygon class="sq0" points="-85.96,187.00 59.52,187.00 59.52,41.52 -85.96,41.52"/>
+<polygon class="sq1" points="-85.96,41.52 59.52,41.52 59.52,-103.96 -85.96,-103.96"/>
+<polygon class="sq1" points="59.52,477.96 205.00,477.96 205.00,332.48 59.52,332.48"/>
+<polygon class="sq0" points="59.52,332.48 205.00,332.48 205.00,187.00 59.52,187.00"/>
+<polygon class="sq1" points="59.52,187.00 205.00,187.00 205.00,41.52 59.52,41.52"/>
+<polygon class="sq0" points="59.52,41.52 205.00,41.52 205.00,-103.96 59.52,-103.96"/>
+<polygon class="sq0" points="205.00,477.96 350.48,477.96 350.48,332.48 205.00,332.48"/>
+<polygon class="sq1" points="205.00,332.48 350.48,332.48 350.48,187.00 205.00,187.00"/>
+<polygon class="sq0" points="205.00,187.00 350.48,187.00 350.48,41.52 205.00,41.52"/>
+<polygon class="sq1" points="205.00,41.52 350.48,41.52 350.48,-103.96 205.00,-103.96"/>
+<polygon class="sq1" points="350.48,477.96 495.96,477.96 495.96,332.48 350.48,332.48"/>
+<polygon class="sq0" points="350.48,332.48 495.96,332.48 495.96,187.00 350.48,187.00"/>
+<polygon class="sq1" points="350.48,187.00 495.96,187.00 495.96,41.52 350.48,41.52"/>
+<polygon class="sq0" points="350.48,41.52 495.96,41.52 495.96,-103.96 350.48,-103.96"/>
+<line class="gl" x1="-289.6" y1="1379.9" x2="-1104.3" y2="-249.4"/>
+<line class="gl" x1="-289.6" y1="1379.9" x2="1339.8" y2="565.3"/>
+<line class="gl" x1="-231.4" y1="1350.9" x2="-1046.1" y2="-278.5"/>
+<line class="gl" x1="-318.7" y1="1321.8" x2="1310.7" y2="507.1"/>
+<line class="gl" x1="-173.3" y1="1321.8" x2="-987.9" y2="-307.6"/>
+<line class="gl" x1="-347.8" y1="1263.6" x2="1281.6" y2="448.9"/>
+<line class="gl" x1="-115.1" y1="1292.7" x2="-929.8" y2="-336.7"/>
+<line class="gl" x1="-376.9" y1="1205.4" x2="1252.5" y2="390.7"/>
+<line class="gl" x1="-56.9" y1="1263.6" x2="-871.6" y2="-365.8"/>
+<line class="gl" x1="-406.0" y1="1147.2" x2="1223.4" y2="332.5"/>
+<line class="gl" x1="1.3" y1="1234.5" x2="-813.4" y2="-394.9"/>
+<line class="gl" x1="-435.1" y1="1089.0" x2="1194.3" y2="274.3"/>
+<line class="gl" x1="59.5" y1="1205.4" x2="-755.2" y2="-424.0"/>
+<line class="gl" x1="-464.2" y1="1030.8" x2="1165.2" y2="216.1"/>
+<line class="gl" x1="117.7" y1="1176.3" x2="-697.0" y2="-453.1"/>
+<line class="gl" x1="-493.3" y1="972.6" x2="1136.1" y2="157.9"/>
+<line class="gl" x1="175.9" y1="1147.2" x2="-638.8" y2="-482.2"/>
+<line class="gl" x1="-522.4" y1="914.4" x2="1107.0" y2="99.7"/>
+<line class="gl" x1="234.1" y1="1118.1" x2="-580.6" y2="-511.3"/>
+<line class="gl" x1="-551.5" y1="856.2" x2="1077.9" y2="41.5"/>
+<line class="gl" x1="292.3" y1="1089.0" x2="-522.4" y2="-540.4"/>
+<line class="gl" x1="-580.6" y1="798.0" x2="1048.8" y2="-16.7"/>
+<line class="gl" x1="350.5" y1="1059.9" x2="-464.2" y2="-569.5"/>
+<line class="gl" x1="-609.7" y1="739.8" x2="1019.7" y2="-74.9"/>
+<line class="gl" x1="408.7" y1="1030.8" x2="-406.0" y2="-598.6"/>
+<line class="gl" x1="-638.8" y1="681.6" x2="990.6" y2="-133.1"/>
+<line class="gl" x1="466.9" y1="1001.7" x2="-347.8" y2="-627.7"/>
+<line class="gl" x1="-667.9" y1="623.4" x2="961.5" y2="-191.3"/>
+<line class="gl" x1="525.1" y1="972.6" x2="-289.6" y2="-656.8"/>
+<line class="gl" x1="-697.0" y1="565.3" x2="932.4" y2="-249.4"/>
+<line class="gl" x1="583.3" y1="943.5" x2="-231.4" y2="-685.9"/>
+<line class="gl" x1="-726.1" y1="507.1" x2="903.3" y2="-307.6"/>
+<line class="gl" x1="641.4" y1="914.4" x2="-173.3" y2="-715.0"/>
+<line class="gl" x1="-755.2" y1="448.9" x2="874.2" y2="-365.8"/>
+<line class="gl" x1="699.6" y1="885.3" x2="-115.1" y2="-744.1"/>
+<line class="gl" x1="-784.3" y1="390.7" x2="845.1" y2="-424.0"/>
+<line class="gl" x1="757.8" y1="856.2" x2="-56.9" y2="-773.2"/>
+<line class="gl" x1="-813.4" y1="332.5" x2="816.0" y2="-482.2"/>
+<line class="gl" x1="816.0" y1="827.1" x2="1.3" y2="-802.3"/>
+<line class="gl" x1="-842.5" y1="274.3" x2="786.9" y2="-540.4"/>
+<line class="gl" x1="874.2" y1="798.0" x2="59.5" y2="-831.4"/>
+<line class="gl" x1="-871.6" y1="216.1" x2="757.8" y2="-598.6"/>
+<line class="gl" x1="932.4" y1="768.9" x2="117.7" y2="-860.5"/>
+<line class="gl" x1="-900.7" y1="157.9" x2="728.7" y2="-656.8"/>
+<line class="gl" x1="990.6" y1="739.8" x2="175.9" y2="-889.6"/>
+<line class="gl" x1="-929.8" y1="99.7" x2="699.6" y2="-715.0"/>
+<line class="gl" x1="1048.8" y1="710.7" x2="234.1" y2="-918.7"/>
+<line class="gl" x1="-958.9" y1="41.5" x2="670.5" y2="-773.2"/>
+<line class="gl" x1="1107.0" y1="681.6" x2="292.3" y2="-947.8"/>
+<line class="gl" x1="-987.9" y1="-16.7" x2="641.4" y2="-831.4"/>
+<line class="gl" x1="1165.2" y1="652.5" x2="350.5" y2="-976.9"/>
+<line class="gl" x1="-1017.0" y1="-74.9" x2="612.3" y2="-889.6"/>
+<line class="gl" x1="1223.4" y1="623.4" x2="408.7" y2="-1005.9"/>
+<line class="gl" x1="-1046.1" y1="-133.1" x2="583.3" y2="-947.8"/>
+<line class="gl" x1="1281.6" y1="594.3" x2="466.9" y2="-1035.0"/>
+<line class="gl" x1="-1075.2" y1="-191.3" x2="554.2" y2="-1005.9"/>
+<polyline class="stair" points="59.52,187.00 117.71,157.90 175.90,128.81 205.00,187.00"/>
+<circle class="sdot" cx="59.5" cy="187.0" r="3.2"/>
+<circle class="sdot" cx="117.7" cy="157.9" r="3.2"/>
+<circle class="sdot" cx="175.9" cy="128.8" r="3.2"/>
+<circle class="sdot" cx="205.0" cy="187.0" r="3.2"/>
+</g>
+<line class="lvl" x1="59.5" y1="187.0" x2="205.0" y2="187.0"/>
+<rect class="tray" x="40" y="22" width="330" height="330" style="stroke-width:1"/>
+<text class="ctitle" x="205.0" y="376" text-anchor="middle">1 down, 2 over: repeats every &#8730;5 = 2.236</text>
+<text class="csub" x="205.0" y="394" text-anchor="middle">each shaded square holds exactly 5 cells' worth of area</text>
+<clipPath id="clip8"><rect x="460" y="22" width="330" height="330"/></clipPath>
+<g clip-path="url(#clip8)">
+<polygon class="sq0" points="323.59,488.41 474.30,488.41 474.30,337.70 323.59,337.70"/>
+<polygon class="sq1" points="323.59,337.70 474.30,337.70 474.30,187.00 323.59,187.00"/>
+<polygon class="sq0" points="323.59,187.00 474.30,187.00 474.30,36.30 323.59,36.30"/>
+<polygon class="sq1" points="323.59,36.30 474.30,36.30 474.30,-114.41 323.59,-114.41"/>
+<polygon class="sq1" points="474.30,488.41 625.00,488.41 625.00,337.70 474.30,337.70"/>
+<polygon class="sq0" points="474.30,337.70 625.00,337.70 625.00,187.00 474.30,187.00"/>
+<polygon class="sq1" points="474.30,187.00 625.00,187.00 625.00,36.30 474.30,36.30"/>
+<polygon class="sq0" points="474.30,36.30 625.00,36.30 625.00,-114.41 474.30,-114.41"/>
+<polygon class="sq0" points="625.00,488.41 775.70,488.41 775.70,337.70 625.00,337.70"/>
+<polygon class="sq1" points="625.00,337.70 775.70,337.70 775.70,187.00 625.00,187.00"/>
+<polygon class="sq0" points="625.00,187.00 775.70,187.00 775.70,36.30 625.00,36.30"/>
+<polygon class="sq1" points="625.00,36.30 775.70,36.30 775.70,-114.41 625.00,-114.41"/>
+<polygon class="sq1" points="775.70,488.41 926.41,488.41 926.41,337.70 775.70,337.70"/>
+<polygon class="sq0" points="775.70,337.70 926.41,337.70 926.41,187.00 775.70,187.00"/>
+<polygon class="sq1" points="775.70,187.00 926.41,187.00 926.41,36.30 775.70,36.30"/>
+<polygon class="sq0" points="775.70,36.30 926.41,36.30 926.41,-114.41 775.70,-114.41"/>
+<line class="gl" x1="112.6" y1="1061.1" x2="-309.4" y2="-204.8"/>
+<line class="gl" x1="112.6" y1="1061.1" x2="1378.5" y2="639.1"/>
+<line class="gl" x1="157.8" y1="1046.0" x2="-264.1" y2="-219.9"/>
+<line class="gl" x1="97.5" y1="1015.9" x2="1363.4" y2="593.9"/>
+<line class="gl" x1="203.0" y1="1030.9" x2="-218.9" y2="-235.0"/>
+<line class="gl" x1="82.5" y1="970.7" x2="1348.4" y2="548.7"/>
+<line class="gl" x1="248.2" y1="1015.9" x2="-173.7" y2="-250.0"/>
+<line class="gl" x1="67.4" y1="925.4" x2="1333.3" y2="503.5"/>
+<line class="gl" x1="293.5" y1="1000.8" x2="-128.5" y2="-265.1"/>
+<line class="gl" x1="52.3" y1="880.2" x2="1318.2" y2="458.3"/>
+<line class="gl" x1="338.7" y1="985.7" x2="-83.3" y2="-280.2"/>
+<line class="gl" x1="37.3" y1="835.0" x2="1303.2" y2="413.1"/>
+<line class="gl" x1="383.9" y1="970.7" x2="-38.1" y2="-295.2"/>
+<line class="gl" x1="22.2" y1="789.8" x2="1288.1" y2="367.8"/>
+<line class="gl" x1="429.1" y1="955.6" x2="7.1" y2="-310.3"/>
+<line class="gl" x1="7.1" y1="744.6" x2="1273.0" y2="322.6"/>
+<line class="gl" x1="474.3" y1="940.5" x2="52.3" y2="-325.4"/>
+<line class="gl" x1="-8.0" y1="699.4" x2="1258.0" y2="277.4"/>
+<line class="gl" x1="519.5" y1="925.4" x2="97.5" y2="-340.5"/>
+<line class="gl" x1="-23.0" y1="654.2" x2="1242.9" y2="232.2"/>
+<line class="gl" x1="564.7" y1="910.4" x2="142.8" y2="-355.5"/>
+<line class="gl" x1="-38.1" y1="609.0" x2="1227.8" y2="187.0"/>
+<line class="gl" x1="609.9" y1="895.3" x2="188.0" y2="-370.6"/>
+<line class="gl" x1="-53.2" y1="563.8" x2="1212.7" y2="141.8"/>
+<line class="gl" x1="655.1" y1="880.2" x2="233.2" y2="-385.7"/>
+<line class="gl" x1="-68.2" y1="518.5" x2="1197.7" y2="96.6"/>
+<line class="gl" x1="700.4" y1="865.2" x2="278.4" y2="-400.7"/>
+<line class="gl" x1="-83.3" y1="473.3" x2="1182.6" y2="51.4"/>
+<line class="gl" x1="745.6" y1="850.1" x2="323.6" y2="-415.8"/>
+<line class="gl" x1="-98.4" y1="428.1" x2="1167.5" y2="6.2"/>
+<line class="gl" x1="790.8" y1="835.0" x2="368.8" y2="-430.9"/>
+<line class="gl" x1="-113.4" y1="382.9" x2="1152.5" y2="-39.1"/>
+<line class="gl" x1="836.0" y1="820.0" x2="414.0" y2="-446.0"/>
+<line class="gl" x1="-128.5" y1="337.7" x2="1137.4" y2="-84.3"/>
+<line class="gl" x1="881.2" y1="804.9" x2="459.2" y2="-461.0"/>
+<line class="gl" x1="-143.6" y1="292.5" x2="1122.3" y2="-129.5"/>
+<line class="gl" x1="926.4" y1="789.8" x2="504.4" y2="-476.1"/>
+<line class="gl" x1="-158.7" y1="247.3" x2="1107.2" y2="-174.7"/>
+<line class="gl" x1="971.6" y1="774.7" x2="549.6" y2="-491.2"/>
+<line class="gl" x1="-173.7" y1="202.1" x2="1092.2" y2="-219.9"/>
+<line class="gl" x1="1016.8" y1="759.7" x2="594.9" y2="-506.2"/>
+<line class="gl" x1="-188.8" y1="156.9" x2="1077.1" y2="-265.1"/>
+<line class="gl" x1="1062.0" y1="744.6" x2="640.1" y2="-521.3"/>
+<line class="gl" x1="-203.9" y1="111.6" x2="1062.0" y2="-310.3"/>
+<line class="gl" x1="1107.2" y1="729.5" x2="685.3" y2="-536.4"/>
+<line class="gl" x1="-218.9" y1="66.4" x2="1047.0" y2="-355.5"/>
+<line class="gl" x1="1152.5" y1="714.5" x2="730.5" y2="-551.4"/>
+<line class="gl" x1="-234.0" y1="21.2" x2="1031.9" y2="-400.7"/>
+<line class="gl" x1="1197.7" y1="699.4" x2="775.7" y2="-566.5"/>
+<line class="gl" x1="-249.1" y1="-24.0" x2="1016.8" y2="-446.0"/>
+<line class="gl" x1="1242.9" y1="684.3" x2="820.9" y2="-581.6"/>
+<line class="gl" x1="-264.1" y1="-69.2" x2="1001.8" y2="-491.2"/>
+<line class="gl" x1="1288.1" y1="669.2" x2="866.1" y2="-596.7"/>
+<line class="gl" x1="-279.2" y1="-114.4" x2="986.7" y2="-536.4"/>
+<line class="gl" x1="1333.3" y1="654.2" x2="911.3" y2="-611.7"/>
+<line class="gl" x1="-294.3" y1="-159.6" x2="971.6" y2="-581.6"/>
+<polyline class="stair" points="474.30,187.00 519.51,171.93 564.72,156.86 609.93,141.79 625.00,187.00"/>
+<circle class="sdot" cx="474.3" cy="187.0" r="3.2"/>
+<circle class="sdot" cx="519.5" cy="171.9" r="3.2"/>
+<circle class="sdot" cx="564.7" cy="156.9" r="3.2"/>
+<circle class="sdot" cx="609.9" cy="141.8" r="3.2"/>
+<circle class="sdot" cx="625.0" cy="187.0" r="3.2"/>
+</g>
+<line class="lvl" x1="474.3" y1="187.0" x2="625.0" y2="187.0"/>
+<rect class="tray" x="460" y="22" width="330" height="330" style="stroke-width:1"/>
+<text class="ctitle" x="625.0" y="376" text-anchor="middle">1 down, 3 over: repeats every &#8730;10 = 3.162</text>
+<text class="csub" x="625.0" y="394" text-anchor="middle">each shaded square holds exactly 10 cells' worth of area</text>
+</svg><figcaption>Figure 2. The orange staircase: <i>n</i> steps along a row and one step down end level with the start (dashed). Every shaded square is a copy of the same piece of the grid. A tray edge running along the shaded squares cuts the cells in a pattern that repeats every <i>s</i>.</figcaption></figure>
+<p>This is the familiar "tilted square" of a pegboard. A square drawn with side 1 down and <i>n</i> over has area <i>n</i>&#178;+1, the picture often used to prove Pythagoras's theorem. In the language of Gaussian integers, the repeat square is the grid multiplied by <i>n</i>&#160;&#8722;&#160;<i>i</i>.</p>
+<p>So along each edge of the tray, the cells are cut in the same way every <i>s</i> cell widths. Within one repeat the edge crosses <i>n</i>&#160;+&#160;1 cells. That repetition is the regular look of the drawings. At an angle whose slope is not a fraction, the edge never cuts two cells in the same way.</p>
+
+<h3>Other angles with the same property</h3>
+<p>Any slope that is a fraction <i>q</i>/<i>p</i> (in lowest terms) works the same way. The repeat is &#8730;(<i>p</i>&#178;+<i>q</i>&#178;) and holds <i>p</i>&#178;+<i>q</i>&#178; cells. The "1 down, <i>n</i> over" series is the case <i>q</i>&#160;=&#160;1. When <i>p</i>&#178;+<i>q</i>&#178; is a perfect square, as for the Pythagorean slopes 3/4, 5/12 and 8/15, the repeat is a whole number of cells. Then, with one corner placed on a corner of the straight grid, other corners of the turned cells also land exactly on corners of the straight grid: one in every five at slope 3/4, &#8730;5 apart. That never happens in the 1/<i>n</i> series, because <i>n</i>&#178;+1 falls strictly between <i>n</i>&#178; and (<i>n</i>+1)&#178; and so is never a square.</p>
+<div class="tw"><table class="num"><tr><th>Slope q/p</th><th>Angle</th><th>Repeat &#8730;(p&#178;+q&#178;)</th><th>Cells per repeat square</th><th>Repeat a whole number?</th><th>8 &#215; 8 best</th></tr><tr><td>1/1</td><td>45.000&#176;</td><td>1.414</td><td>2</td><td>no</td><td>50</td></tr><tr><td>1/2</td><td>26.565&#176;</td><td>2.236</td><td>5</td><td>no</td><td>45</td></tr><tr><td>2/3</td><td>33.690&#176;</td><td>3.606</td><td>13</td><td>no</td><td>45</td></tr><tr><td>3/4</td><td>36.870&#176;</td><td>5.000</td><td>25</td><td>yes, 5</td><td>48</td></tr><tr><td>1/3</td><td>18.435&#176;</td><td>3.162</td><td>10</td><td>no</td><td>49</td></tr><tr><td>2/5</td><td>21.801&#176;</td><td>5.385</td><td>29</td><td>no</td><td>49</td></tr><tr><td>5/12</td><td>22.620&#176;</td><td>13.000</td><td>169</td><td>yes, 13</td><td>47</td></tr><tr><td>8/15</td><td>28.072&#176;</td><td>17.000</td><td>289</td><td>yes, 17</td><td>45</td></tr></table></div>
+
+<h2 id="s4">4. Which cells are whole, and where they are</h2>
+<p>A unit cell turned by &#952; needs an upright box of side</p>
+<p class="formula"><i>w</i> = cos&#160;&#952; + sin&#160;&#952; = (<i>n</i>+1) / &#8730;(<i>n</i>&#178;+1)</p>
+<p>It lies inside the tray exactly when that box does, which means exactly when its center is at least <i>w</i>/2 from every edge. So the whole cells of any layout are the cells whose centers fall inside an inner square of side <i>a</i> = <i>L</i>&#160;&#8722;&#160;<i>w</i>, set in by <i>w</i>/2 from each side. The inset is 0.707 at 45&#176;, 0.671 at 1:2, 0.632 at 1:3, and it approaches 0.5 as the grid straightens. Everything outside the inner square is a ring of cut cells.</p>
+<figure><svg viewBox="0 0 860 430" role="img" aria-label="A cell fits when its center is inside the inset square; the centers lie in evenly spaced rows" xmlns="http://www.w3.org/2000/svg">
+<clipPath id="clip9"><rect x="40" y="20" width="340" height="340"/></clipPath>
+<g clip-path="url(#clip9)">
+<polygon class="cell cut" points="8.12,391.88 46.14,372.87 27.13,334.86 -10.88,353.86"/>
+<polygon class="cell cut" points="65.14,410.88 103.16,391.88 84.15,353.86 46.14,372.87"/>
+<polygon class="cell cut" points="46.14,372.87 84.15,353.86 65.14,315.85 27.13,334.86"/>
+<polygon class="cell cut" points="27.13,334.86 65.14,315.85 46.14,277.84 8.12,296.84"/>
+<polygon class="cell cut" points="8.12,296.84 46.14,277.84 27.13,239.82 -10.88,258.83"/>
+<polygon class="cell cut" points="103.16,391.88 141.17,372.87 122.16,334.86 84.15,353.86"/>
+<polygon class="cell cut" points="46.14,277.84 84.15,258.83 65.14,220.82 27.13,239.82"/>
+<polygon class="cell cut" points="27.13,239.82 65.14,220.82 46.14,182.80 8.12,201.81"/>
+<polygon class="cell cut" points="8.12,201.81 46.14,182.80 27.13,144.79 -10.88,163.80"/>
+<polygon class="cell cut" points="160.18,410.88 198.19,391.88 179.18,353.86 141.17,372.87"/>
+<polygon class="cell cut" points="141.17,372.87 179.18,353.86 160.18,315.85 122.16,334.86"/>
+<polygon class="cell cut" points="46.14,182.80 84.15,163.80 65.14,125.78 27.13,144.79"/>
+<polygon class="cell cut" points="27.13,144.79 65.14,125.78 46.14,87.77 8.12,106.78"/>
+<polygon class="cell cut" points="8.12,106.78 46.14,87.77 27.13,49.76 -10.88,68.76"/>
+<polygon class="cell cut" points="198.19,391.88 236.20,372.87 217.20,334.86 179.18,353.86"/>
+<polygon class="cell cut" points="46.14,87.77 84.15,68.76 65.14,30.75 27.13,49.76"/>
+<polygon class="cell cut" points="27.13,49.76 65.14,30.75 46.14,-7.26 8.12,11.74"/>
+<polygon class="cell cut" points="255.21,410.88 293.22,391.88 274.22,353.86 236.20,372.87"/>
+<polygon class="cell cut" points="236.20,372.87 274.22,353.86 255.21,315.85 217.20,334.86"/>
+<polygon class="cell cut" points="84.15,68.76 122.16,49.76 103.16,11.74 65.14,30.75"/>
+<polygon class="cell cut" points="65.14,30.75 103.16,11.74 84.15,-26.27 46.14,-7.26"/>
+<polygon class="cell cut" points="293.22,391.88 331.24,372.87 312.23,334.86 274.22,353.86"/>
+<polygon class="cell cut" points="122.16,49.76 160.18,30.75 141.17,-7.26 103.16,11.74"/>
+<polygon class="cell cut" points="350.24,410.88 388.26,391.88 369.25,353.86 331.24,372.87"/>
+<polygon class="cell cut" points="331.24,372.87 369.25,353.86 350.24,315.85 312.23,334.86"/>
+<polygon class="cell cut" points="179.18,68.76 217.20,49.76 198.19,11.74 160.18,30.75"/>
+<polygon class="cell cut" points="160.18,30.75 198.19,11.74 179.18,-26.27 141.17,-7.26"/>
+<polygon class="cell cut" points="388.26,391.88 426.27,372.87 407.26,334.86 369.25,353.86"/>
+<polygon class="cell cut" points="369.25,353.86 407.26,334.86 388.26,296.84 350.24,315.85"/>
+<polygon class="cell cut" points="350.24,315.85 388.26,296.84 369.25,258.83 331.24,277.84"/>
+<polygon class="cell cut" points="217.20,49.76 255.21,30.75 236.20,-7.26 198.19,11.74"/>
+<polygon class="cell cut" points="388.26,296.84 426.27,277.84 407.26,239.82 369.25,258.83"/>
+<polygon class="cell cut" points="369.25,258.83 407.26,239.82 388.26,201.81 350.24,220.82"/>
+<polygon class="cell cut" points="350.24,220.82 388.26,201.81 369.25,163.80 331.24,182.80"/>
+<polygon class="cell cut" points="274.22,68.76 312.23,49.76 293.22,11.74 255.21,30.75"/>
+<polygon class="cell cut" points="255.21,30.75 293.22,11.74 274.22,-26.27 236.20,-7.26"/>
+<polygon class="cell cut" points="388.26,201.81 426.27,182.80 407.26,144.79 369.25,163.80"/>
+<polygon class="cell cut" points="369.25,163.80 407.26,144.79 388.26,106.78 350.24,125.78"/>
+<polygon class="cell cut" points="350.24,125.78 388.26,106.78 369.25,68.76 331.24,87.77"/>
+<polygon class="cell cut" points="312.23,49.76 350.24,30.75 331.24,-7.26 293.22,11.74"/>
+<polygon class="cell cut" points="388.26,106.78 426.27,87.77 407.26,49.76 369.25,68.76"/>
+<polygon class="cell cut" points="369.25,68.76 407.26,49.76 388.26,11.74 350.24,30.75"/>
+<polygon class="cell cut" points="350.24,30.75 388.26,11.74 369.25,-26.27 331.24,-7.26"/>
+<polygon class="cell ca" points="84.15,353.86 122.16,334.86 103.16,296.84 65.14,315.85"/>
+<polygon class="cell cb" points="65.14,315.85 103.16,296.84 84.15,258.83 46.14,277.84"/>
+<polygon class="cell cb" points="122.16,334.86 160.18,315.85 141.17,277.84 103.16,296.84"/>
+<polygon class="cell ca" points="103.16,296.84 141.17,277.84 122.16,239.82 84.15,258.83"/>
+<polygon class="cell cb" points="84.15,258.83 122.16,239.82 103.16,201.81 65.14,220.82"/>
+<polygon class="cell ca" points="65.14,220.82 103.16,201.81 84.15,163.80 46.14,182.80"/>
+<polygon class="cell cb" points="179.18,353.86 217.20,334.86 198.19,296.84 160.18,315.85"/>
+<polygon class="cell ca" points="160.18,315.85 198.19,296.84 179.18,258.83 141.17,277.84"/>
+<polygon class="cell cb" points="141.17,277.84 179.18,258.83 160.18,220.82 122.16,239.82"/>
+<polygon class="cell ca" points="122.16,239.82 160.18,220.82 141.17,182.80 103.16,201.81"/>
+<polygon class="cell cb" points="103.16,201.81 141.17,182.80 122.16,144.79 84.15,163.80"/>
+<polygon class="cell ca" points="84.15,163.80 122.16,144.79 103.16,106.78 65.14,125.78"/>
+<polygon class="cell cb" points="65.14,125.78 103.16,106.78 84.15,68.76 46.14,87.77"/>
+<polygon class="cell ca" points="217.20,334.86 255.21,315.85 236.20,277.84 198.19,296.84"/>
+<polygon class="cell cb" points="198.19,296.84 236.20,277.84 217.20,239.82 179.18,258.83"/>
+<polygon class="cell ca" points="179.18,258.83 217.20,239.82 198.19,201.81 160.18,220.82"/>
+<polygon class="cell cb" points="160.18,220.82 198.19,201.81 179.18,163.80 141.17,182.80"/>
+<polygon class="cell ca" points="141.17,182.80 179.18,163.80 160.18,125.78 122.16,144.79"/>
+<polygon class="cell cb" points="122.16,144.79 160.18,125.78 141.17,87.77 103.16,106.78"/>
+<polygon class="cell ca" points="103.16,106.78 141.17,87.77 122.16,49.76 84.15,68.76"/>
+<polygon class="cell ca" points="274.22,353.86 312.23,334.86 293.22,296.84 255.21,315.85"/>
+<polygon class="cell cb" points="255.21,315.85 293.22,296.84 274.22,258.83 236.20,277.84"/>
+<polygon class="cell ca" points="236.20,277.84 274.22,258.83 255.21,220.82 217.20,239.82"/>
+<polygon class="cell cb" points="217.20,239.82 255.21,220.82 236.20,182.80 198.19,201.81"/>
+<polygon class="cell ca" points="198.19,201.81 236.20,182.80 217.20,144.79 179.18,163.80"/>
+<polygon class="cell cb" points="179.18,163.80 217.20,144.79 198.19,106.78 160.18,125.78"/>
+<polygon class="cell ca" points="160.18,125.78 198.19,106.78 179.18,68.76 141.17,87.77"/>
+<polygon class="cell cb" points="141.17,87.77 179.18,68.76 160.18,30.75 122.16,49.76"/>
+<polygon class="cell cb" points="312.23,334.86 350.24,315.85 331.24,277.84 293.22,296.84"/>
+<polygon class="cell ca" points="293.22,296.84 331.24,277.84 312.23,239.82 274.22,258.83"/>
+<polygon class="cell cb" points="274.22,258.83 312.23,239.82 293.22,201.81 255.21,220.82"/>
+<polygon class="cell ca" points="255.21,220.82 293.22,201.81 274.22,163.80 236.20,182.80"/>
+<polygon class="cell cb" points="236.20,182.80 274.22,163.80 255.21,125.78 217.20,144.79"/>
+<polygon class="cell ca" points="217.20,144.79 255.21,125.78 236.20,87.77 198.19,106.78"/>
+<polygon class="cell cb" points="198.19,106.78 236.20,87.77 217.20,49.76 179.18,68.76"/>
+<polygon class="cell cb" points="331.24,277.84 369.25,258.83 350.24,220.82 312.23,239.82"/>
+<polygon class="cell ca" points="312.23,239.82 350.24,220.82 331.24,182.80 293.22,201.81"/>
+<polygon class="cell cb" points="293.22,201.81 331.24,182.80 312.23,144.79 274.22,163.80"/>
+<polygon class="cell ca" points="274.22,163.80 312.23,144.79 293.22,106.78 255.21,125.78"/>
+<polygon class="cell cb" points="255.21,125.78 293.22,106.78 274.22,68.76 236.20,87.77"/>
+<polygon class="cell ca" points="236.20,87.77 274.22,68.76 255.21,30.75 217.20,49.76"/>
+<polygon class="cell ca" points="331.24,182.80 369.25,163.80 350.24,125.78 312.23,144.79"/>
+<polygon class="cell cb" points="312.23,144.79 350.24,125.78 331.24,87.77 293.22,106.78"/>
+<polygon class="cell ca" points="293.22,106.78 331.24,87.77 312.23,49.76 274.22,68.76"/>
+<polygon class="cell cb" points="331.24,87.77 369.25,68.76 350.24,30.75 312.23,49.76"/>
+</g>
+<rect class="inset" x="68.51" y="48.51" width="282.98" height="282.98"/>
+<circle class="dot" cx="93.65" cy="325.35" r="2.6"/>
+<circle class="dot" cx="74.65" cy="287.34" r="2.6"/>
+<circle class="dot" cx="131.67" cy="306.35" r="2.6"/>
+<circle class="dot" cx="112.66" cy="268.33" r="2.6"/>
+<circle class="dot" cx="93.65" cy="230.32" r="2.6"/>
+<circle class="dot" cx="74.65" cy="192.31" r="2.6"/>
+<circle class="dot" cx="188.69" cy="325.35" r="2.6"/>
+<circle class="dot" cx="169.68" cy="287.34" r="2.6"/>
+<circle class="dot" cx="150.67" cy="249.33" r="2.6"/>
+<circle class="dot" cx="131.67" cy="211.31" r="2.6"/>
+<circle class="dot" cx="112.66" cy="173.30" r="2.6"/>
+<circle class="dot" cx="93.65" cy="135.29" r="2.6"/>
+<circle class="dot" cx="74.65" cy="97.27" r="2.6"/>
+<circle class="dot" cx="226.70" cy="306.35" r="2.6"/>
+<circle class="dot" cx="207.69" cy="268.33" r="2.6"/>
+<circle class="dot" cx="188.69" cy="230.32" r="2.6"/>
+<circle class="dot" cx="169.68" cy="192.31" r="2.6"/>
+<circle class="dot" cx="150.67" cy="154.29" r="2.6"/>
+<circle class="dot" cx="131.67" cy="116.28" r="2.6"/>
+<circle class="dot" cx="112.66" cy="78.27" r="2.6"/>
+<circle class="dot" cx="283.72" cy="325.35" r="2.6"/>
+<circle class="dot" cx="264.71" cy="287.34" r="2.6"/>
+<circle class="dot" cx="245.71" cy="249.33" r="2.6"/>
+<circle class="dot" cx="226.70" cy="211.31" r="2.6"/>
+<circle class="dot" cx="207.69" cy="173.30" r="2.6"/>
+<circle class="dot" cx="188.69" cy="135.29" r="2.6"/>
+<circle class="dot" cx="169.68" cy="97.27" r="2.6"/>
+<circle class="dot" cx="150.67" cy="59.26" r="2.6"/>
+<circle class="dot" cx="321.73" cy="306.35" r="2.6"/>
+<circle class="dot" cx="302.73" cy="268.33" r="2.6"/>
+<circle class="dot" cx="283.72" cy="230.32" r="2.6"/>
+<circle class="dot" cx="264.71" cy="192.31" r="2.6"/>
+<circle class="dot" cx="245.71" cy="154.29" r="2.6"/>
+<circle class="dot" cx="226.70" cy="116.28" r="2.6"/>
+<circle class="dot" cx="207.69" cy="78.27" r="2.6"/>
+<circle class="dot" cx="340.74" cy="249.33" r="2.6"/>
+<circle class="dot" cx="321.73" cy="211.31" r="2.6"/>
+<circle class="dot" cx="302.73" cy="173.30" r="2.6"/>
+<circle class="dot" cx="283.72" cy="135.29" r="2.6"/>
+<circle class="dot" cx="264.71" cy="97.27" r="2.6"/>
+<circle class="dot" cx="245.71" cy="59.26" r="2.6"/>
+<circle class="dot" cx="340.74" cy="154.29" r="2.6"/>
+<circle class="dot" cx="321.73" cy="116.28" r="2.6"/>
+<circle class="dot" cx="302.73" cy="78.27" r="2.6"/>
+<circle class="dot" cx="340.74" cy="59.26" r="2.6"/>
+<circle class="dotx" cx="55.64" cy="344.36" r="2.2"/>
+<circle class="dotx" cx="55.64" cy="249.33" r="2.2"/>
+<circle class="dotx" cx="150.67" cy="344.36" r="2.2"/>
+<circle class="dotx" cx="55.64" cy="154.29" r="2.2"/>
+<circle class="dotx" cx="55.64" cy="59.26" r="2.2"/>
+<circle class="dotx" cx="245.71" cy="344.36" r="2.2"/>
+<circle class="dotx" cx="93.65" cy="40.25" r="2.2"/>
+<circle class="dotx" cx="340.74" cy="344.36" r="2.2"/>
+<circle class="dotx" cx="188.69" cy="40.25" r="2.2"/>
+<circle class="dotx" cx="359.75" cy="287.34" r="2.2"/>
+<circle class="dotx" cx="359.75" cy="192.31" r="2.2"/>
+<circle class="dotx" cx="283.72" cy="40.25" r="2.2"/>
+<circle class="dotx" cx="359.75" cy="97.27" r="2.2"/>
+<rect class="tray" x="40" y="20" width="340" height="340"/>
+<text class="ctitle" x="210.0" y="386" text-anchor="middle">8 &#215; 8, 1 down, 2 over: 45 centers inside the dashed square</text>
+<text class="csub" x="210.0" y="404" text-anchor="middle">inset w/2 = 0.671 from every edge</text>
+<rect class="bbox" x="510.0" y="86.1" width="93.9" height="93.9"/>
+<polygon class="cell ca" points="541.30,180.00 603.91,148.70 572.61,86.09 510.00,117.39"/>
+<circle class="dot" cx="557.0" cy="133.0" r="3"/>
+<text class="note" x="557.0" y="198.0" text-anchor="middle">w = cos &#952; + sin &#952; = 1.342</text>
+<text class="boxtext" x="621.9" y="104.1">The turned cell needs an</text>
+<text class="boxtext" x="621.9" y="120.1">upright box of side w.</text>
+<text class="boxtext" x="621.9" y="136.1">It is inside the tray exactly</text>
+<text class="boxtext" x="621.9" y="152.1">when its center is at least</text>
+<text class="boxtext" x="621.9" y="168.1">w/2 from every edge.</text>
+<circle class="dot" cx="480.0" cy="400.0" r="3"/>
+<circle class="dot" cx="596.3" cy="400.0" r="3"/>
+<circle class="dot" cx="712.6" cy="400.0" r="3"/>
+<circle class="dot" cx="828.8" cy="400.0" r="3"/>
+<line class="rowl" x1="480.0" y1="400.0" x2="844.0" y2="400.0"/>
+<circle class="dot" cx="526.5" cy="376.7" r="3"/>
+<circle class="dot" cx="642.8" cy="376.7" r="3"/>
+<circle class="dot" cx="759.1" cy="376.7" r="3"/>
+<line class="rowl" x1="480.0" y1="376.7" x2="844.0" y2="376.7"/>
+<circle class="dot" cx="573.0" cy="353.5" r="3"/>
+<circle class="dot" cx="689.3" cy="353.5" r="3"/>
+<circle class="dot" cx="805.6" cy="353.5" r="3"/>
+<line class="rowl" x1="480.0" y1="353.5" x2="844.0" y2="353.5"/>
+<circle class="dot" cx="503.3" cy="330.2" r="3"/>
+<circle class="dot" cx="619.5" cy="330.2" r="3"/>
+<circle class="dot" cx="735.8" cy="330.2" r="3"/>
+<line class="rowl" x1="480.0" y1="330.2" x2="844.0" y2="330.2"/>
+<circle class="dot" cx="549.8" cy="307.0" r="3"/>
+<circle class="dot" cx="666.0" cy="307.0" r="3"/>
+<circle class="dot" cx="782.3" cy="307.0" r="3"/>
+<line class="rowl" x1="480.0" y1="307.0" x2="844.0" y2="307.0"/>
+<circle class="dot" cx="480.0" cy="283.7" r="3"/>
+<circle class="dot" cx="596.3" cy="283.7" r="3"/>
+<circle class="dot" cx="712.6" cy="283.7" r="3"/>
+<circle class="dot" cx="828.8" cy="283.7" r="3"/>
+<line class="rowl" x1="480.0" y1="283.7" x2="844.0" y2="283.7"/>
+<line class="dim" x1="480.0" y1="412.0" x2="596.3" y2="412.0"/>
+<text class="note" x="538.1" y="426.0" text-anchor="middle">s = &#8730;5 = 2.236</text>
+<line class="dim" x1="823.2" y1="400.0" x2="823.2" y2="376.7"/>
+<text class="note" x="831.2" y="392.4">1/s</text>
+<line class="dim2" x1="480.0" y1="366.7" x2="526.5" y2="366.7"/>
+<text class="note" x="503.3" y="361.7" text-anchor="middle">shift n/s</text>
+<text class="ctitle" x="660" y="254" text-anchor="middle">Centers lie in rows</text>
+</svg><figcaption>Figure 3. Left: the 8&#160;&#215;&#160;8 tray at 1:2 in its best placement. Filled dots are centers inside the dashed square: those cells are whole. Open dots belong to cut cells. Right: the turned cell's upright box, and the rows the centers lie in.</figcaption></figure>
+
+<h2 id="s5">5. How many fit</h2>
+<p>The centers of the turned grid lie in level rows. For slope 1/<i>n</i>:</p>
+<ul>
+<li>the rows are 1/<i>s</i> apart;</li>
+<li>in each row the centers are <i>s</i> apart;</li>
+<li>each row is shifted sideways by <i>n</i>/<i>s</i> from the one below. After <i>n</i>&#178;+1 rows the shifts have visited every multiple of 1/<i>s</i> once and the pattern starts again.</li>
+</ul>
+<p>Counting the centers inside the inner square therefore gives the exact count. Row <i>m</i>'s first center past the inner square's left edge is &#966;<sub><i>m</i></sub> in from it, so</p>
+<p class="formula"><i>N</i> = &#931;<sub>rows inside</sub> ( &#8970;(<i>a</i> &#8722; &#966;<sub><i>m</i></sub>) / <i>s</i>&#8971; + 1 ),&#160;&#160; &#966;<sub><i>m</i></sub> = (&#966;<sub>0</sub> + <i>m n</i>/<i>s</i>) mod <i>s</i></p>
+<p>Every row holds either &#8970;<i>a</i>/<i>s</i>&#8971; or one more center, depending on its shift. The tray holds &#8970;<i>a s</i>&#8971; or &#8970;<i>a s</i>&#8971;+1 rows, depending on where the grid sits. Averaged over every placement the count is exactly</p>
+<p class="formula"><i>N</i><sub>average</sub> = (<i>L</i> &#8722; <i>w</i>)&#178;</p>
+<p>because every cell has an equal chance of having its center in any spot, and the centers are one per unit of area. Turning costs about 2<i>wL</i> cells against the straight tray: roughly one row and one column on each side, a little more at 45&#176;, where <i>w</i> is largest.</p>
+<p>The best placement does better than the average, and how much better depends on the fractions <i>a s</i> and <i>a</i>/<i>s</i>. When both are just above a whole number, the tray can take its largest number of rows with the largest number of centers in each, and the simple bound "most rows times most per row" is reached. For 8&#160;&#215;&#160;8 that happens at 45&#176; and at 1:2. For the later members of the series the rows hold 2 or 3 centers in turn, the bound is loose, and only the sum above gives the answer.</p>
+<div class="tw"><table class="num"><tr><th>8 &#215; 8</th><th>Average (L &#8722; w)&#178;</th><th>Best</th><th>Worst</th><th>Most rows &#215; most per row</th></tr><tr><td>1:1</td><td>43.4</td><td>50</td><td>40</td><td>10 &#215; 5 = 50</td></tr><tr><td>1:2</td><td>44.3</td><td>45</td><td>39</td><td>15 &#215; 3 = 45</td></tr><tr><td>1:3</td><td>45.4</td><td>49</td><td>44</td><td>22 &#215; 3 = 66</td></tr><tr><td>1:4</td><td>46.1</td><td>48</td><td>41</td><td>28 &#215; 2 = 56</td></tr><tr><td>1:5</td><td>46.6</td><td>48</td><td>43</td><td>35 &#215; 2 = 70</td></tr><tr><td>1:6</td><td>46.9</td><td>48</td><td>45</td><td>42 &#215; 2 = 84</td></tr></table></div>
+<p>The best and worst counts below are exact. They were found by treating every cell as the rectangle of grid placements that keep it whole and sweeping over all those rectangles at once. The worst count is in brackets.</p>
+<div class="tw"><table class="num"><tr><th>Tray</th><th>straight</th><th>1:1</th><th>1:2</th><th>1:3</th><th>1:4</th><th>1:5</th><th>1:6</th></tr><tr><td>4 &#215; 4</td><td>16</td><td>8 <span class='lo'>(4)</span></td><td>8 <span class='lo'>(5)</span></td><td>9 <span class='lo'>(6)</span></td><td>9 <span class='lo'>(6)</span></td><td>9 <span class='lo'>(6)</span></td><td>9 <span class='lo'>(6)</span></td></tr><tr><td>5 &#215; 5</td><td>25</td><td>18 <span class='lo'>(12)</span></td><td>17 <span class='lo'>(12)</span></td><td>15 <span class='lo'>(12)</span></td><td>16 <span class='lo'>(13)</span></td><td>16 <span class='lo'>(13)</span></td><td>16 <span class='lo'>(13)</span></td></tr><tr><td>6 &#215; 6</td><td>36</td><td>25 <span class='lo'>(18)</span></td><td>25 <span class='lo'>(20)</span></td><td>24 <span class='lo'>(19)</span></td><td>24 <span class='lo'>(21)</span></td><td>25 <span class='lo'>(22)</span></td><td>25 <span class='lo'>(22)</span></td></tr><tr><td>7 &#215; 7</td><td>49</td><td>32 <span class='lo'>(24)</span></td><td>34 <span class='lo'>(28)</span></td><td>37 <span class='lo'>(32)</span></td><td>35 <span class='lo'>(30)</span></td><td>35 <span class='lo'>(32)</span></td><td>36 <span class='lo'>(33)</span></td></tr><tr><td>8 &#215; 8</td><td>64</td><td>50 <span class='lo'>(40)</span></td><td>45 <span class='lo'>(39)</span></td><td>49 <span class='lo'>(44)</span></td><td>48 <span class='lo'>(41)</span></td><td>48 <span class='lo'>(43)</span></td><td>48 <span class='lo'>(45)</span></td></tr><tr><td>9 &#215; 9</td><td>81</td><td>61 <span class='lo'>(50)</span></td><td>65 <span class='lo'>(57)</span></td><td>64 <span class='lo'>(57)</span></td><td>65 <span class='lo'>(60)</span></td><td>63 <span class='lo'>(56)</span></td><td>63 <span class='lo'>(58)</span></td></tr><tr><td>10 &#215; 10</td><td>100</td><td>85 <span class='lo'>(72)</span></td><td>80 <span class='lo'>(72)</span></td><td>79 <span class='lo'>(72)</span></td><td>81 <span class='lo'>(76)</span></td><td>80 <span class='lo'>(73)</span></td><td>80 <span class='lo'>(73)</span></td></tr><tr><td>11 &#215; 11</td><td>121</td><td>98 <span class='lo'>(84)</span></td><td>97 <span class='lo'>(88)</span></td><td>97 <span class='lo'>(90)</span></td><td>100 <span class='lo'>(93)</span></td><td>101 <span class='lo'>(96)</span></td><td>99 <span class='lo'>(92)</span></td></tr><tr><td>12 &#215; 12</td><td>144</td><td>113 <span class='lo'>(98)</span></td><td>116 <span class='lo'>(105)</span></td><td>116 <span class='lo'>(108)</span></td><td>121 <span class='lo'>(112)</span></td><td>121 <span class='lo'>(116)</span></td><td>120 <span class='lo'>(113)</span></td></tr></table></div>
+<p>No angle beats the straight tray. A turned tray keeps roughly (<i>L</i>&#160;&#8722;&#160;1)&#178; cells, sometimes a few more and sometimes fewer. In small trays the loss is large: a 4&#160;&#215;&#160;4 tray at 45&#176; keeps only 8 of its 16 cells. Among the turned trays the counts do not fall in a steady order. The best angle for a given tray depends on how <i>L</i>&#160;&#8722;&#160;<i>w</i> lines up with the row spacing, as section 6 shows.</p>
+
+<h2 id="s6">6. A tiny allowance at the edge</h2>
+<p>At these angles many cells reach the edge at the same moment, because of the repeat in section 3. In an 8&#160;&#215;&#160;8 tray at 1:2:</p>
+<ul>
+<li>the inner square is <i>a</i> = 8&#160;&#8722;&#160;3/&#8730;5 = 6.658 wide;</li>
+<li>centers in a row are &#8730;5 = 2.236 apart, so four of them need 3&#160;&#215;&#160;2.236 = 6.708;</li>
+<li>the shortfall is 0.050 cell widths, just under 0.025 on each side.</li>
+</ul>
+<p>With every corner strictly inside, each row keeps 3 cells and the tray keeps 45. Let a corner poke past the wall by 0.025 of a cell and every row can take a fourth. The best count jumps to 52, more than the 50 at 45&#176;.</p>
+<figure><svg viewBox="0 0 860 410" role="img" aria-label="The same tray strict and with a small overhang allowed" xmlns="http://www.w3.org/2000/svg">
+<clipPath id="clip10"><rect x="70" y="16" width="320" height="320"/></clipPath>
+<g clip-path="url(#clip10)">
+<polygon class="cell cut" points="40.00,366.00 75.78,348.11 57.89,312.33 22.11,330.22"/>
+<polygon class="cell cut" points="93.67,383.89 129.44,366.00 111.55,330.22 75.78,348.11"/>
+<polygon class="cell cut" points="75.78,348.11 111.55,330.22 93.67,294.45 57.89,312.33"/>
+<polygon class="cell cut" points="57.89,312.33 93.67,294.45 75.78,258.67 40.00,276.56"/>
+<polygon class="cell cut" points="40.00,276.56 75.78,258.67 57.89,222.89 22.11,240.78"/>
+<polygon class="cell cut" points="129.44,366.00 165.22,348.11 147.33,312.33 111.55,330.22"/>
+<polygon class="cell cut" points="75.78,258.67 111.55,240.78 93.67,205.00 57.89,222.89"/>
+<polygon class="cell cut" points="57.89,222.89 93.67,205.00 75.78,169.23 40.00,187.11"/>
+<polygon class="cell cut" points="40.00,187.11 75.78,169.23 57.89,133.45 22.11,151.34"/>
+<polygon class="cell cut" points="183.11,383.89 218.89,366.00 201.00,330.22 165.22,348.11"/>
+<polygon class="cell cut" points="165.22,348.11 201.00,330.22 183.11,294.45 147.33,312.33"/>
+<polygon class="cell cut" points="75.78,169.23 111.55,151.34 93.67,115.56 57.89,133.45"/>
+<polygon class="cell cut" points="57.89,133.45 93.67,115.56 75.78,79.78 40.00,97.67"/>
+<polygon class="cell cut" points="40.00,97.67 75.78,79.78 57.89,44.01 22.11,61.89"/>
+<polygon class="cell cut" points="218.89,366.00 254.66,348.11 236.77,312.33 201.00,330.22"/>
+<polygon class="cell cut" points="75.78,79.78 111.55,61.89 93.67,26.12 57.89,44.01"/>
+<polygon class="cell cut" points="57.89,44.01 93.67,26.12 75.78,-9.66 40.00,8.23"/>
+<polygon class="cell cut" points="272.55,383.89 308.33,366.00 290.44,330.22 254.66,348.11"/>
+<polygon class="cell cut" points="254.66,348.11 290.44,330.22 272.55,294.45 236.77,312.33"/>
+<polygon class="cell cut" points="111.55,61.89 147.33,44.01 129.44,8.23 93.67,26.12"/>
+<polygon class="cell cut" points="93.67,26.12 129.44,8.23 111.55,-27.55 75.78,-9.66"/>
+<polygon class="cell cut" points="308.33,366.00 344.11,348.11 326.22,312.33 290.44,330.22"/>
+<polygon class="cell cut" points="147.33,44.01 183.11,26.12 165.22,-9.66 129.44,8.23"/>
+<polygon class="cell cut" points="361.99,383.89 397.77,366.00 379.88,330.22 344.11,348.11"/>
+<polygon class="cell cut" points="344.11,348.11 379.88,330.22 361.99,294.45 326.22,312.33"/>
+<polygon class="cell cut" points="201.00,61.89 236.77,44.01 218.89,8.23 183.11,26.12"/>
+<polygon class="cell cut" points="183.11,26.12 218.89,8.23 201.00,-27.55 165.22,-9.66"/>
+<polygon class="cell cut" points="397.77,366.00 433.55,348.11 415.66,312.33 379.88,330.22"/>
+<polygon class="cell cut" points="379.88,330.22 415.66,312.33 397.77,276.56 361.99,294.45"/>
+<polygon class="cell cut" points="361.99,294.45 397.77,276.56 379.88,240.78 344.11,258.67"/>
+<polygon class="cell cut" points="236.77,44.01 272.55,26.12 254.66,-9.66 218.89,8.23"/>
+<polygon class="cell cut" points="397.77,276.56 433.55,258.67 415.66,222.89 379.88,240.78"/>
+<polygon class="cell cut" points="379.88,240.78 415.66,222.89 397.77,187.11 361.99,205.00"/>
+<polygon class="cell cut" points="361.99,205.00 397.77,187.11 379.88,151.34 344.11,169.23"/>
+<polygon class="cell cut" points="290.44,61.89 326.22,44.01 308.33,8.23 272.55,26.12"/>
+<polygon class="cell cut" points="272.55,26.12 308.33,8.23 290.44,-27.55 254.66,-9.66"/>
+<polygon class="cell cut" points="397.77,187.11 433.55,169.23 415.66,133.45 379.88,151.34"/>
+<polygon class="cell cut" points="379.88,151.34 415.66,133.45 397.77,97.67 361.99,115.56"/>
+<polygon class="cell cut" points="361.99,115.56 397.77,97.67 379.88,61.89 344.11,79.78"/>
+<polygon class="cell cut" points="326.22,44.01 361.99,26.12 344.11,-9.66 308.33,8.23"/>
+<polygon class="cell cut" points="397.77,97.67 433.55,79.78 415.66,44.01 379.88,61.89"/>
+<polygon class="cell cut" points="379.88,61.89 415.66,44.01 397.77,8.23 361.99,26.12"/>
+<polygon class="cell cut" points="361.99,26.12 397.77,8.23 379.88,-27.55 344.11,-9.66"/>
+<polygon class="cell ca" points="111.55,330.22 147.33,312.33 129.44,276.56 93.67,294.45"/>
+<polygon class="cell cb" points="93.67,294.45 129.44,276.56 111.55,240.78 75.78,258.67"/>
+<polygon class="cell cb" points="147.33,312.33 183.11,294.45 165.22,258.67 129.44,276.56"/>
+<polygon class="cell ca" points="129.44,276.56 165.22,258.67 147.33,222.89 111.55,240.78"/>
+<polygon class="cell cb" points="111.55,240.78 147.33,222.89 129.44,187.11 93.67,205.00"/>
+<polygon class="cell ca" points="93.67,205.00 129.44,187.11 111.55,151.34 75.78,169.23"/>
+<polygon class="cell cb" points="201.00,330.22 236.77,312.33 218.89,276.56 183.11,294.45"/>
+<polygon class="cell ca" points="183.11,294.45 218.89,276.56 201.00,240.78 165.22,258.67"/>
+<polygon class="cell cb" points="165.22,258.67 201.00,240.78 183.11,205.00 147.33,222.89"/>
+<polygon class="cell ca" points="147.33,222.89 183.11,205.00 165.22,169.23 129.44,187.11"/>
+<polygon class="cell cb" points="129.44,187.11 165.22,169.23 147.33,133.45 111.55,151.34"/>
+<polygon class="cell ca" points="111.55,151.34 147.33,133.45 129.44,97.67 93.67,115.56"/>
+<polygon class="cell cb" points="93.67,115.56 129.44,97.67 111.55,61.89 75.78,79.78"/>
+<polygon class="cell ca" points="236.77,312.33 272.55,294.45 254.66,258.67 218.89,276.56"/>
+<polygon class="cell cb" points="218.89,276.56 254.66,258.67 236.77,222.89 201.00,240.78"/>
+<polygon class="cell ca" points="201.00,240.78 236.77,222.89 218.89,187.11 183.11,205.00"/>
+<polygon class="cell cb" points="183.11,205.00 218.89,187.11 201.00,151.34 165.22,169.23"/>
+<polygon class="cell ca" points="165.22,169.23 201.00,151.34 183.11,115.56 147.33,133.45"/>
+<polygon class="cell cb" points="147.33,133.45 183.11,115.56 165.22,79.78 129.44,97.67"/>
+<polygon class="cell ca" points="129.44,97.67 165.22,79.78 147.33,44.01 111.55,61.89"/>
+<polygon class="cell ca" points="290.44,330.22 326.22,312.33 308.33,276.56 272.55,294.45"/>
+<polygon class="cell cb" points="272.55,294.45 308.33,276.56 290.44,240.78 254.66,258.67"/>
+<polygon class="cell ca" points="254.66,258.67 290.44,240.78 272.55,205.00 236.77,222.89"/>
+<polygon class="cell cb" points="236.77,222.89 272.55,205.00 254.66,169.23 218.89,187.11"/>
+<polygon class="cell ca" points="218.89,187.11 254.66,169.23 236.77,133.45 201.00,151.34"/>
+<polygon class="cell cb" points="201.00,151.34 236.77,133.45 218.89,97.67 183.11,115.56"/>
+<polygon class="cell ca" points="183.11,115.56 218.89,97.67 201.00,61.89 165.22,79.78"/>
+<polygon class="cell cb" points="165.22,79.78 201.00,61.89 183.11,26.12 147.33,44.01"/>
+<polygon class="cell cb" points="326.22,312.33 361.99,294.45 344.11,258.67 308.33,276.56"/>
+<polygon class="cell ca" points="308.33,276.56 344.11,258.67 326.22,222.89 290.44,240.78"/>
+<polygon class="cell cb" points="290.44,240.78 326.22,222.89 308.33,187.11 272.55,205.00"/>
+<polygon class="cell ca" points="272.55,205.00 308.33,187.11 290.44,151.34 254.66,169.23"/>
+<polygon class="cell cb" points="254.66,169.23 290.44,151.34 272.55,115.56 236.77,133.45"/>
+<polygon class="cell ca" points="236.77,133.45 272.55,115.56 254.66,79.78 218.89,97.67"/>
+<polygon class="cell cb" points="218.89,97.67 254.66,79.78 236.77,44.01 201.00,61.89"/>
+<polygon class="cell cb" points="344.11,258.67 379.88,240.78 361.99,205.00 326.22,222.89"/>
+<polygon class="cell ca" points="326.22,222.89 361.99,205.00 344.11,169.23 308.33,187.11"/>
+<polygon class="cell cb" points="308.33,187.11 344.11,169.23 326.22,133.45 290.44,151.34"/>
+<polygon class="cell ca" points="290.44,151.34 326.22,133.45 308.33,97.67 272.55,115.56"/>
+<polygon class="cell cb" points="272.55,115.56 308.33,97.67 290.44,61.89 254.66,79.78"/>
+<polygon class="cell ca" points="254.66,79.78 290.44,61.89 272.55,26.12 236.77,44.01"/>
+<polygon class="cell ca" points="344.11,169.23 379.88,151.34 361.99,115.56 326.22,133.45"/>
+<polygon class="cell cb" points="326.22,133.45 361.99,115.56 344.11,79.78 308.33,97.67"/>
+<polygon class="cell ca" points="308.33,97.67 344.11,79.78 326.22,44.01 290.44,61.89"/>
+<polygon class="cell cb" points="344.11,79.78 379.88,61.89 361.99,26.12 326.22,44.01"/>
+</g>
+<rect class="tray" x="70" y="16" width="320" height="320"/>
+<text class="ctitle" x="230.0" y="362" text-anchor="middle">Strict: 45 whole cells</text>
+<text class="csub" x="230.0" y="380" text-anchor="middle">best placement, every corner inside</text>
+<clipPath id="clip11"><rect x="470" y="16" width="320" height="320"/></clipPath>
+<g clip-path="url(#clip11)">
+<polygon class="cell cut" points="450.11,355.89 485.89,338.00 468.00,302.22 432.22,320.11"/>
+<polygon class="cell cut" points="503.78,373.78 539.55,355.89 521.67,320.11 485.89,338.00"/>
+<polygon class="cell cut" points="468.00,302.22 503.78,284.33 485.89,248.56 450.11,266.45"/>
+<polygon class="cell cut" points="450.11,266.45 485.89,248.56 468.00,212.78 432.22,230.67"/>
+<polygon class="cell cut" points="539.55,355.89 575.33,338.00 557.44,302.22 521.67,320.11"/>
+<polygon class="cell cut" points="468.00,212.78 503.78,194.89 485.89,159.11 450.11,177.00"/>
+<polygon class="cell cut" points="450.11,177.00 485.89,159.11 468.00,123.34 432.22,141.23"/>
+<polygon class="cell cut" points="593.22,373.78 629.00,355.89 611.11,320.11 575.33,338.00"/>
+<polygon class="cell cut" points="468.00,123.34 503.78,105.45 485.89,69.67 450.11,87.56"/>
+<polygon class="cell cut" points="450.11,87.56 485.89,69.67 468.00,33.89 432.22,51.78"/>
+<polygon class="cell cut" points="629.00,355.89 664.77,338.00 646.89,302.22 611.11,320.11"/>
+<polygon class="cell cut" points="468.00,33.89 503.78,16.01 485.89,-19.77 450.11,-1.88"/>
+<polygon class="cell cut" points="682.66,373.78 718.44,355.89 700.55,320.11 664.77,338.00"/>
+<polygon class="cell cut" points="521.67,51.78 557.44,33.89 539.55,-1.88 503.78,16.01"/>
+<polygon class="cell cut" points="503.78,16.01 539.55,-1.88 521.67,-37.66 485.89,-19.77"/>
+<polygon class="cell cut" points="718.44,355.89 754.22,338.00 736.33,302.22 700.55,320.11"/>
+<polygon class="cell cut" points="557.44,33.89 593.22,16.01 575.33,-19.77 539.55,-1.88"/>
+<polygon class="cell cut" points="772.11,373.78 807.88,355.89 789.99,320.11 754.22,338.00"/>
+<polygon class="cell cut" points="611.11,51.78 646.89,33.89 629.00,-1.88 593.22,16.01"/>
+<polygon class="cell cut" points="593.22,16.01 629.00,-1.88 611.11,-37.66 575.33,-19.77"/>
+<polygon class="cell cut" points="807.88,355.89 843.66,338.00 825.77,302.22 789.99,320.11"/>
+<polygon class="cell cut" points="789.99,320.11 825.77,302.22 807.88,266.45 772.11,284.33"/>
+<polygon class="cell cut" points="772.11,284.33 807.88,266.45 789.99,230.67 754.22,248.56"/>
+<polygon class="cell cut" points="646.89,33.89 682.66,16.01 664.77,-19.77 629.00,-1.88"/>
+<polygon class="cell cut" points="807.88,266.45 843.66,248.56 825.77,212.78 789.99,230.67"/>
+<polygon class="cell cut" points="789.99,230.67 825.77,212.78 807.88,177.00 772.11,194.89"/>
+<polygon class="cell cut" points="772.11,194.89 807.88,177.00 789.99,141.23 754.22,159.11"/>
+<polygon class="cell cut" points="700.55,51.78 736.33,33.89 718.44,-1.88 682.66,16.01"/>
+<polygon class="cell cut" points="682.66,16.01 718.44,-1.88 700.55,-37.66 664.77,-19.77"/>
+<polygon class="cell cut" points="807.88,177.00 843.66,159.11 825.77,123.34 789.99,141.23"/>
+<polygon class="cell cut" points="789.99,141.23 825.77,123.34 807.88,87.56 772.11,105.45"/>
+<polygon class="cell cut" points="772.11,105.45 807.88,87.56 789.99,51.78 754.22,69.67"/>
+<polygon class="cell cut" points="736.33,33.89 772.11,16.01 754.22,-19.77 718.44,-1.88"/>
+<polygon class="cell cut" points="807.88,87.56 843.66,69.67 825.77,33.89 789.99,51.78"/>
+<polygon class="cell cut" points="789.99,51.78 825.77,33.89 807.88,-1.88 772.11,16.01"/>
+<polygon class="cell cut" points="772.11,16.01 807.88,-1.88 789.99,-37.66 754.22,-19.77"/>
+<polygon class="cell tolc" points="485.89,338.00 521.67,320.11 503.78,284.33 468.00,302.22"/>
+<polygon class="cell ca" points="521.67,320.11 557.44,302.22 539.55,266.45 503.78,284.33"/>
+<polygon class="cell cb" points="503.78,284.33 539.55,266.45 521.67,230.67 485.89,248.56"/>
+<polygon class="cell tolc" points="485.89,248.56 521.67,230.67 503.78,194.89 468.00,212.78"/>
+<polygon class="cell tolc" points="575.33,338.00 611.11,320.11 593.22,284.33 557.44,302.22"/>
+<polygon class="cell cb" points="557.44,302.22 593.22,284.33 575.33,248.56 539.55,266.45"/>
+<polygon class="cell ca" points="539.55,266.45 575.33,248.56 557.44,212.78 521.67,230.67"/>
+<polygon class="cell cb" points="521.67,230.67 557.44,212.78 539.55,177.00 503.78,194.89"/>
+<polygon class="cell ca" points="503.78,194.89 539.55,177.00 521.67,141.23 485.89,159.11"/>
+<polygon class="cell tolc" points="485.89,159.11 521.67,141.23 503.78,105.45 468.00,123.34"/>
+<polygon class="cell cb" points="611.11,320.11 646.89,302.22 629.00,266.45 593.22,284.33"/>
+<polygon class="cell ca" points="593.22,284.33 629.00,266.45 611.11,230.67 575.33,248.56"/>
+<polygon class="cell cb" points="575.33,248.56 611.11,230.67 593.22,194.89 557.44,212.78"/>
+<polygon class="cell ca" points="557.44,212.78 593.22,194.89 575.33,159.11 539.55,177.00"/>
+<polygon class="cell cb" points="539.55,177.00 575.33,159.11 557.44,123.34 521.67,141.23"/>
+<polygon class="cell ca" points="521.67,141.23 557.44,123.34 539.55,87.56 503.78,105.45"/>
+<polygon class="cell cb" points="503.78,105.45 539.55,87.56 521.67,51.78 485.89,69.67"/>
+<polygon class="cell tolc" points="485.89,69.67 521.67,51.78 503.78,16.01 468.00,33.89"/>
+<polygon class="cell tolc" points="664.77,338.00 700.55,320.11 682.66,284.33 646.89,302.22"/>
+<polygon class="cell ca" points="646.89,302.22 682.66,284.33 664.77,248.56 629.00,266.45"/>
+<polygon class="cell cb" points="629.00,266.45 664.77,248.56 646.89,212.78 611.11,230.67"/>
+<polygon class="cell ca" points="611.11,230.67 646.89,212.78 629.00,177.00 593.22,194.89"/>
+<polygon class="cell cb" points="593.22,194.89 629.00,177.00 611.11,141.23 575.33,159.11"/>
+<polygon class="cell ca" points="575.33,159.11 611.11,141.23 593.22,105.45 557.44,123.34"/>
+<polygon class="cell cb" points="557.44,123.34 593.22,105.45 575.33,69.67 539.55,87.56"/>
+<polygon class="cell ca" points="539.55,87.56 575.33,69.67 557.44,33.89 521.67,51.78"/>
+<polygon class="cell ca" points="700.55,320.11 736.33,302.22 718.44,266.45 682.66,284.33"/>
+<polygon class="cell cb" points="682.66,284.33 718.44,266.45 700.55,230.67 664.77,248.56"/>
+<polygon class="cell ca" points="664.77,248.56 700.55,230.67 682.66,194.89 646.89,212.78"/>
+<polygon class="cell cb" points="646.89,212.78 682.66,194.89 664.77,159.11 629.00,177.00"/>
+<polygon class="cell ca" points="629.00,177.00 664.77,159.11 646.89,123.34 611.11,141.23"/>
+<polygon class="cell cb" points="611.11,141.23 646.89,123.34 629.00,87.56 593.22,105.45"/>
+<polygon class="cell ca" points="593.22,105.45 629.00,87.56 611.11,51.78 575.33,69.67"/>
+<polygon class="cell cb" points="575.33,69.67 611.11,51.78 593.22,16.01 557.44,33.89"/>
+<polygon class="cell tolc" points="754.22,338.00 789.99,320.11 772.11,284.33 736.33,302.22"/>
+<polygon class="cell cb" points="736.33,302.22 772.11,284.33 754.22,248.56 718.44,266.45"/>
+<polygon class="cell ca" points="718.44,266.45 754.22,248.56 736.33,212.78 700.55,230.67"/>
+<polygon class="cell cb" points="700.55,230.67 736.33,212.78 718.44,177.00 682.66,194.89"/>
+<polygon class="cell ca" points="682.66,194.89 718.44,177.00 700.55,141.23 664.77,159.11"/>
+<polygon class="cell cb" points="664.77,159.11 700.55,141.23 682.66,105.45 646.89,123.34"/>
+<polygon class="cell ca" points="646.89,123.34 682.66,105.45 664.77,69.67 629.00,87.56"/>
+<polygon class="cell cb" points="629.00,87.56 664.77,69.67 646.89,33.89 611.11,51.78"/>
+<polygon class="cell cb" points="754.22,248.56 789.99,230.67 772.11,194.89 736.33,212.78"/>
+<polygon class="cell ca" points="736.33,212.78 772.11,194.89 754.22,159.11 718.44,177.00"/>
+<polygon class="cell cb" points="718.44,177.00 754.22,159.11 736.33,123.34 700.55,141.23"/>
+<polygon class="cell ca" points="700.55,141.23 736.33,123.34 718.44,87.56 682.66,105.45"/>
+<polygon class="cell cb" points="682.66,105.45 718.44,87.56 700.55,51.78 664.77,69.67"/>
+<polygon class="cell ca" points="664.77,69.67 700.55,51.78 682.66,16.01 646.89,33.89"/>
+<polygon class="cell ca" points="754.22,159.11 789.99,141.23 772.11,105.45 736.33,123.34"/>
+<polygon class="cell cb" points="736.33,123.34 772.11,105.45 754.22,69.67 718.44,87.56"/>
+<polygon class="cell ca" points="718.44,87.56 754.22,69.67 736.33,33.89 700.55,51.78"/>
+<polygon class="cell cb" points="754.22,69.67 789.99,51.78 772.11,16.01 736.33,33.89"/>
+</g>
+<rect class="tray" x="470" y="16" width="320" height="320"/>
+<text class="ctitle" x="630.0" y="362" text-anchor="middle">Corners may poke out 0.05 of a cell: 52</text>
+<text class="csub" x="630.0" y="380" text-anchor="middle">orange cells are cut by the edge, by at most 0.05 of a cell width</text>
+</svg><figcaption>Figure 4. The 8&#160;&#215;&#160;8 tray at 1:2. Left: strict, 45 whole cells. Right: with corners allowed to poke out by up to 0.05 of a cell, 52. The orange cells are the ones the allowance lets in. The grid sits in a slightly different place in each, the best for each rule.</figcaption></figure>
+<p>An overhang of <i>d</i> at a corner cuts off only a tiny triangle, of area <i>d</i>&#178;&#160;/&#160;sin&#160;2&#952;. At 45&#176; and <i>d</i>&#160;=&#160;0.05 that is a quarter of one percent of the cell. It is less than a drawing's line width, and less than the slack a real tray needs so the pieces can go in. So whether a design counts "strict" or "allowing a little" changes its count by whole rows. The allowance should be chosen on purpose and stated.</p>
+<figure><svg viewBox="0 0 860 330" role="img" aria-label="Step chart: whole cells in an 8 by 8 tray against the overhang allowed" xmlns="http://www.w3.org/2000/svg">
+<line class="grid" x1="58" y1="280.0" x2="720" y2="280.0"/>
+<text class="tick" x="50" y="284.0" text-anchor="end">44</text>
+<line class="grid" x1="58" y1="237.5" x2="720" y2="237.5"/>
+<text class="tick" x="50" y="241.5" text-anchor="end">46</text>
+<line class="grid" x1="58" y1="194.9" x2="720" y2="194.9"/>
+<text class="tick" x="50" y="198.9" text-anchor="end">48</text>
+<line class="grid" x1="58" y1="152.4" x2="720" y2="152.4"/>
+<text class="tick" x="50" y="156.4" text-anchor="end">50</text>
+<line class="grid" x1="58" y1="109.8" x2="720" y2="109.8"/>
+<text class="tick" x="50" y="113.8" text-anchor="end">52</text>
+<line class="grid" x1="58" y1="67.3" x2="720" y2="67.3"/>
+<text class="tick" x="50" y="71.3" text-anchor="end">54</text>
+<text class="axlabel" x="58" y="32">Whole cells, best placement</text>
+<line class="axis" x1="58" y1="280" x2="720" y2="280"/>
+<text class="tick" x="58.0" y="295" text-anchor="middle">0</text>
+<text class="tick" x="223.5" y="295" text-anchor="middle">0.05</text>
+<text class="tick" x="389.0" y="295" text-anchor="middle">0.1</text>
+<text class="tick" x="554.5" y="295" text-anchor="middle">0.15</text>
+<text class="tick" x="720.0" y="295" text-anchor="middle">0.2</text>
+<text class="axlabel" x="389.0" y="314" text-anchor="middle">Overhang allowed, in cell widths</text>
+<polyline class="s-a" points="58.00,150.76 66.28,150.76 66.28,150.76 74.55,150.76 74.55,150.76 82.83,150.76 82.83,150.76 91.10,150.76 91.10,150.76 99.38,150.76 99.38,150.76 107.65,150.76 107.65,150.76 115.93,150.76 115.93,150.76 124.20,150.76 124.20,150.76 132.47,150.76 132.47,150.76 140.75,150.76 140.75,150.76 149.03,150.76 149.03,150.76 157.30,150.76 157.30,150.76 165.57,150.76 165.57,150.76 173.85,150.76 173.85,150.76 182.12,150.76 182.12,150.76 190.40,150.76 190.40,150.76 198.68,150.76 198.68,150.76 206.95,150.76 206.95,150.76 215.22,150.76 215.22,150.76 223.50,150.76 223.50,150.76 231.77,150.76 231.77,150.76 240.05,150.76 240.05,150.76 248.33,150.76 248.33,150.76 256.60,150.76 256.60,150.76 264.88,150.76 264.88,150.76 273.15,150.76 273.15,150.76 281.43,150.76 281.43,150.76 289.70,150.76 289.70,150.76 297.97,150.76 297.97,150.76 306.25,150.76 306.25,150.76 314.52,150.76 314.52,150.76 322.80,150.76 322.80,150.76 331.07,150.76 331.07,150.76 339.35,150.76 339.35,150.76 347.62,150.76 347.62,150.76 355.90,150.76 355.90,150.76 364.17,150.76 364.17,150.76 372.45,150.76 372.45,150.76 380.72,150.76 380.72,150.76 389.00,150.76 389.00,150.76 397.27,150.76 397.27,150.76 405.55,150.76 405.55,150.76 413.82,150.76 413.82,150.76 422.10,150.76 422.10,150.76 430.38,150.76 430.38,150.76 438.65,150.76 438.65,150.76 446.92,150.76 446.92,150.76 455.20,150.76 455.20,150.76 463.47,150.76 463.47,150.76 471.75,150.76 471.75,150.76 480.02,150.76 480.02,150.76 488.30,150.76 488.30,150.76 496.57,150.76 496.57,150.76 504.85,150.76 504.85,150.76 513.12,150.76 513.12,150.76 521.40,150.76 521.40,150.76 529.67,150.76 529.67,150.76 537.95,150.76 537.95,150.76 546.22,150.76 546.22,150.76 554.50,150.76 554.50,150.76 562.77,150.76 562.77,150.76 571.05,150.76 571.05,150.76 579.32,150.76 579.32,150.76 587.60,150.76 587.60,150.76 595.88,150.76 595.88,150.76 604.15,150.76 604.15,150.76 612.42,150.76 612.42,150.76 620.70,150.76 620.70,150.76 628.97,150.76 628.97,150.76 637.25,150.76 637.25,150.76 645.52,150.76 645.52,150.76 653.80,150.76 653.80,150.76 662.07,150.76 662.07,150.76 670.35,150.76 670.35,150.76 678.62,150.76 678.62,150.76 686.90,150.76 686.90,150.76 695.17,150.76 695.17,150.76 703.45,150.76 703.45,150.76 711.73,150.76 711.73,150.76 720.00,150.76 720.00,150.76"/>
+<polyline class="s-b" points="58.00,258.73 66.28,258.73 66.28,258.73 74.55,258.73 74.55,258.73 82.83,258.73 82.83,258.73 91.10,258.73 91.10,258.73 99.38,258.73 99.38,258.73 107.65,258.73 107.65,258.73 115.93,258.73 115.93,258.73 124.20,258.73 124.20,258.73 132.47,258.73 132.47,258.73 140.75,258.73 140.75,109.82 149.03,109.82 149.03,109.82 157.30,109.82 157.30,109.82 165.57,109.82 165.57,109.82 173.85,109.82 173.85,109.82 182.12,109.82 182.12,109.82 190.40,109.82 190.40,109.82 198.68,109.82 198.68,109.82 206.95,109.82 206.95,109.82 215.22,109.82 215.22,109.82 223.50,109.82 223.50,109.82 231.77,109.82 231.77,109.82 240.05,109.82 240.05,109.82 248.33,109.82 248.33,109.82 256.60,109.82 256.60,109.82 264.88,109.82 264.88,109.82 273.15,109.82 273.15,109.82 281.43,109.82 281.43,109.82 289.70,109.82 289.70,109.82 297.97,109.82 297.97,109.82 306.25,109.82 306.25,109.82 314.52,109.82 314.52,109.82 322.80,109.82 322.80,109.82 331.07,109.82 331.07,109.82 339.35,109.82 339.35,109.82 347.62,109.82 347.62,109.82 355.90,109.82 355.90,109.82 364.17,109.82 364.17,109.82 372.45,109.82 372.45,109.82 380.72,109.82 380.72,109.82 389.00,109.82 389.00,109.82 397.27,109.82 397.27,109.82 405.55,109.82 405.55,109.82 413.82,109.82 413.82,109.82 422.10,109.82 422.10,109.82 430.38,109.82 430.38,109.82 438.65,109.82 438.65,109.82 446.92,109.82 446.92,109.82 455.20,109.82 455.20,109.82 463.47,109.82 463.47,109.82 471.75,109.82 471.75,109.82 480.02,109.82 480.02,109.82 488.30,109.82 488.30,109.82 496.57,109.82 496.57,109.82 504.85,109.82 504.85,109.82 513.12,109.82 513.12,109.82 521.40,109.82 521.40,109.82 529.67,109.82 529.67,109.82 537.95,109.82 537.95,109.82 546.22,109.82 546.22,109.82 554.50,109.82 554.50,109.82 562.77,109.82 562.77,109.82 571.05,109.82 571.05,109.82 579.32,109.82 579.32,109.82 587.60,109.82 587.60,109.82 595.88,109.82 595.88,109.82 604.15,109.82 604.15,109.82 612.42,109.82 612.42,109.82 620.70,109.82 620.70,109.82 628.97,109.82 628.97,109.82 637.25,109.82 637.25,109.82 645.52,109.82 645.52,109.82 653.80,109.82 653.80,109.82 662.07,109.82 662.07,109.82 670.35,109.82 670.35,109.82 678.62,109.82 678.62,109.82 686.90,109.82 686.90,109.82 695.17,109.82 695.17,109.82 703.45,109.82 703.45,109.82 711.73,109.82 711.73,109.82 720.00,109.82 720.00,109.82"/>
+<polyline class="s-c" points="58.00,198.11 66.28,198.11 66.28,155.56 74.55,155.56 74.55,155.56 82.83,155.56 82.83,155.56 91.10,155.56 91.10,155.56 99.38,155.56 99.38,155.56 107.65,155.56 107.65,155.56 115.93,155.56 115.93,155.56 124.20,155.56 124.20,155.56 132.47,155.56 132.47,155.56 140.75,155.56 140.75,155.56 149.03,155.56 149.03,155.56 157.30,155.56 157.30,155.56 165.57,155.56 165.57,155.56 173.85,155.56 173.85,155.56 182.12,155.56 182.12,155.56 190.40,155.56 190.40,155.56 198.68,155.56 198.68,155.56 206.95,155.56 206.95,155.56 215.22,155.56 215.22,155.56 223.50,155.56 223.50,155.56 231.77,155.56 231.77,155.56 240.05,155.56 240.05,155.56 248.33,155.56 248.33,155.56 256.60,155.56 256.60,155.56 264.88,155.56 264.88,155.56 273.15,155.56 273.15,155.56 281.43,155.56 281.43,155.56 289.70,155.56 289.70,155.56 297.97,155.56 297.97,155.56 306.25,155.56 306.25,155.56 314.52,155.56 314.52,155.56 322.80,155.56 322.80,155.56 331.07,155.56 331.07,155.56 339.35,155.56 339.35,155.56 347.62,155.56 347.62,155.56 355.90,155.56 355.90,155.56 364.17,155.56 364.17,155.56 372.45,155.56 372.45,155.56 380.72,155.56 380.72,155.56 389.00,155.56 389.00,155.56 397.27,155.56 397.27,155.56 405.55,155.56 405.55,155.56 413.82,155.56 413.82,155.56 422.10,155.56 422.10,155.56 430.38,155.56 430.38,155.56 438.65,155.56 438.65,155.56 446.92,155.56 446.92,155.56 455.20,155.56 455.20,155.56 463.47,155.56 463.47,155.56 471.75,155.56 471.75,91.75 480.02,91.75 480.02,91.75 488.30,91.75 488.30,91.75 496.57,91.75 496.57,91.75 504.85,91.75 504.85,91.75 513.12,91.75 513.12,91.75 521.40,91.75 521.40,91.75 529.67,91.75 529.67,91.75 537.95,91.75 537.95,91.75 546.22,91.75 546.22,91.75 554.50,91.75 554.50,91.75 562.77,91.75 562.77,91.75 571.05,91.75 571.05,91.75 579.32,91.75 579.32,91.75 587.60,91.75 587.60,91.75 595.88,91.75 595.88,91.75 604.15,91.75 604.15,91.75 612.42,91.75 612.42,91.75 620.70,91.75 620.70,91.75 628.97,91.75 628.97,91.75 637.25,91.75 637.25,91.75 645.52,91.75 645.52,91.75 653.80,91.75 653.80,91.75 662.07,91.75 662.07,91.75 670.35,91.75 670.35,91.75 678.62,91.75 678.62,91.75 686.90,91.75 686.90,91.75 695.17,91.75 695.17,91.75 703.45,91.75 703.45,91.75 711.73,91.75 711.73,91.75 720.00,91.75 720.00,91.75"/>
+<text class="vlabel" x="728" y="95.7">1:4 (14.0&#176;)</text>
+<text class="vlabel" x="728" y="113.8">1:2 (26.6&#176;)</text>
+<text class="vlabel" x="728" y="154.8">1:1 (45.0&#176;)</text>
+<rect x="54.5" y="46" width="7" height="234" fill="transparent"><title>Overhang 0: 1:1 50, 1:2 45, 1:4 48</title></rect>
+<rect x="62.8" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0025: 1:1 50, 1:2 45, 1:4 50</title></rect>
+<rect x="71.0" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.005: 1:1 50, 1:2 45, 1:4 50</title></rect>
+<rect x="79.3" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0075: 1:1 50, 1:2 45, 1:4 50</title></rect>
+<rect x="87.6" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.01: 1:1 50, 1:2 45, 1:4 50</title></rect>
+<rect x="95.9" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0125: 1:1 50, 1:2 45, 1:4 50</title></rect>
+<rect x="104.2" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.015: 1:1 50, 1:2 45, 1:4 50</title></rect>
+<rect x="112.4" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0175: 1:1 50, 1:2 45, 1:4 50</title></rect>
+<rect x="120.7" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.02: 1:1 50, 1:2 45, 1:4 50</title></rect>
+<rect x="129.0" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0225: 1:1 50, 1:2 45, 1:4 50</title></rect>
+<rect x="137.2" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.025: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="145.5" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0275: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="153.8" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.03: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="162.1" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0325: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="170.4" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.035: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="178.6" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0375: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="186.9" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.04: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="195.2" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0425: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="203.4" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.045: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="211.7" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0475: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="220.0" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.05: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="228.3" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0525: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="236.6" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.055: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="244.8" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0575: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="253.1" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.06: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="261.4" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0625: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="269.6" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.065: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="277.9" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0675: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="286.2" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.07: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="294.5" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0725: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="302.8" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.075: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="311.0" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0775: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="319.3" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.08: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="327.6" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0825: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="335.9" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.085: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="344.1" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0875: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="352.4" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.09: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="360.7" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0925: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="368.9" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.095: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="377.2" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.0975: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="385.5" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="393.8" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1025: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="402.0" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.105: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="410.3" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1075: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="418.6" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.11: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="426.9" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1125: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="435.2" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.115: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="443.4" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1175: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="451.7" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.12: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="460.0" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1225: 1:1 50, 1:2 52, 1:4 50</title></rect>
+<rect x="468.2" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.125: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="476.5" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1275: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="484.8" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.13: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="493.1" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1325: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="501.4" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.135: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="509.6" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1375: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="517.9" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.14: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="526.2" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1425: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="534.4" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.145: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="542.7" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1475: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="551.0" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.15: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="559.3" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1525: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="567.5" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.155: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="575.8" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1575: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="584.1" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.16: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="592.4" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1625: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="600.6" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.165: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="608.9" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1675: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="617.2" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.17: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="625.5" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1725: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="633.7" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.175: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="642.0" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1775: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="650.3" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.18: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="658.6" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1825: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="666.8" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.185: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="675.1" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1875: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="683.4" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.19: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="691.7" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1925: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="699.9" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.195: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="708.2" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.1975: 1:1 50, 1:2 52, 1:4 53</title></rect>
+<rect x="716.5" y="46" width="7" height="234" fill="transparent"><title>Overhang 0.2: 1:1 50, 1:2 52, 1:4 53</title></rect>
+</svg><figcaption>Figure 5. The best count in an 8&#160;&#215;&#160;8 tray as the allowed overhang grows from 0 to 0.2 of a cell, at three angles. The count rises in steps, at the overhangs where a new row or a new cell in each row comes in. Hover for the numbers.</figcaption></figure>
+<div class="tw"><table class="num"><tr><th>6 &#215; 6</th><th>0</th><th>0.01</th><th>0.02</th><th>0.05</th><th>0.1</th></tr><tr><td>1:1</td><td>25</td><td>25</td><td>25</td><td>25</td><td>25</td></tr><tr><td>1:2</td><td>25</td><td>25</td><td>25</td><td>25</td><td>25</td></tr><tr><td>1:3</td><td>24</td><td>26</td><td>26</td><td>26</td><td>26</td></tr><tr><td>1:4</td><td>24</td><td>24</td><td>24</td><td>26</td><td>26</td></tr></table></div>
+<div class="tw"><table class="num"><tr><th>8 &#215; 8</th><th>0</th><th>0.01</th><th>0.02</th><th>0.05</th><th>0.1</th></tr><tr><td>1:1</td><td>50</td><td>50</td><td>50</td><td>50</td><td>50</td></tr><tr><td>1:2</td><td>45</td><td>45</td><td>45</td><td>52</td><td>52</td></tr><tr><td>1:3</td><td>49</td><td>49</td><td>49</td><td>49</td><td>49</td></tr><tr><td>1:4</td><td>48</td><td>50</td><td>50</td><td>50</td><td>50</td></tr><tr><td>1:5</td><td>48</td><td>48</td><td>48</td><td>50</td><td>50</td></tr><tr><td>1:6</td><td>48</td><td>48</td><td>48</td><td>50</td><td>50</td></tr></table></div>
+
+<h3>The drawings that started this page</h3>
+<p>The hand drawings behind this page were measured: their 8&#160;&#215;&#160;8 trays are about 8.06 cells wide, and a few cells there touch or cross the line. Six of their ten counts are more than a strict fit allows, and all ten are within what a 0.05 overhang allows. The angles in the drawings match arctan(1/<i>n</i>) to within about half a degree.</p>
+<div class="tw"><table class="num"><tr><th>Tray</th><th>Slope</th><th>Drawn</th><th>Strict best</th><th>Best with 0.05 overhang</th></tr><tr><td>6 &#215; 6</td><td>1:1</td><td>25</td><td>25</td><td>25</td></tr><tr><td>6 &#215; 6</td><td>1:2</td><td>25</td><td>25</td><td>25</td></tr><tr><td>6 &#215; 6</td><td>1:3</td><td class='hi'>26</td><td>24</td><td>26</td></tr><tr><td>6 &#215; 6</td><td>1:4</td><td class='hi'>25</td><td>24</td><td>26</td></tr><tr><td>8 &#215; 8</td><td>1:1</td><td>50</td><td>50</td><td>50</td></tr><tr><td>8 &#215; 8</td><td>1:2</td><td class='hi'>50</td><td>45</td><td>52</td></tr><tr><td>8 &#215; 8</td><td>1:3</td><td>49</td><td>49</td><td>49</td></tr><tr><td>8 &#215; 8</td><td>1:4</td><td class='hi'>49</td><td>48</td><td>50</td></tr><tr><td>8 &#215; 8</td><td>1:5</td><td class='hi'>49</td><td>48</td><td>50</td></tr><tr><td>8 &#215; 8</td><td>1:6</td><td class='hi'>50</td><td>48</td><td>50</td></tr></table></div>
+
+<h2 id="s7">7. Recipe</h2>
+<ol class="steps">
+<li>Pick the slope: 1 down and <i>n</i> over, &#952; = arctan(1/<i>n</i>). Or any fraction <i>q</i>/<i>p</i>.</li>
+<li>Work out <i>w</i> = cos&#160;&#952; + sin&#160;&#952;, and decide the allowance <i>t</i> (0 for strict).</li>
+<li>The whole cells are those with their center in the square set in by <i>w</i>/2&#160;&#8722;&#160;<i>t</i> from every edge.</li>
+<li>Expect about (<i>L</i>&#160;&#8722;&#160;<i>w</i>&#160;+&#160;2<i>t</i>)&#178; of them. Slide the grid to find the best placement. Shifts within one cell are enough, because the grid repeats under its own steps.</li>
+</ol>
+
+<h2 id="refs">Sources</h2>
+<ul class="refs">
+<li>The counts, figures and tables were computed for this page by a short program in exact geometry (no sampling). It was checked against thousands of random grid placements, which also confirm the average (<i>L</i>&#160;&#8722;&#160;<i>w</i>)&#178;.</li>
+<li>Tilted squares on a pegboard and their area: the classic dissection proof of Pythagoras's theorem, and the "Tilted Squares" problem on NRICH (University of Cambridge).</li>
+<li>Gaussian integers, whose multiplication turns and scales a square grid: C. F. Gauss, <i>Theoria residuorum biquadraticorum</i> (1832).</li>
+<li>The angles at which a turned square grid shares points with the straight one, the Pythagorean slopes of section 3, are the coincidence site lattices of crystallography: M. L. Kronberg and F. H. Wilson, "Secondary recrystallization in copper", <i>Trans. AIME</i> 185 (1949).</li>
+</ul>
+<p><a href="/research/">&larr; Back to Research</a></p>
+</main>
+</body></html>

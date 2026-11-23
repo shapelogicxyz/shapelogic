@@ -13,7 +13,7 @@ import { EngineError } from '../../../src/engine/errors.ts';
 import {
   actFor,
   BRICK_FACES,
-  brickNeighbour,
+  brickNeighbor,
   effectiveTool,
 } from '../../../src/renderer/entities/tools.ts';
 import { expand, planeMap } from '../../../src/renderer/entities/editor-state.ts';
@@ -81,7 +81,7 @@ function frames(): { wait: (f: () => void) => void; run(): void; pending(): numb
   };
 }
 
-const tool = { shape: 's1', tool: 'fixed' as const, colour: null, mirror: [], span: [] };
+const tool = { shape: 's1', tool: 'fixed' as const, color: null, mirror: [], span: [] };
 
 describe('a stroke', () => {
   it('opens a group, sends one batch a frame with one at the engine, and closes after the last', async () => {
@@ -222,16 +222,16 @@ describe('the editor', () => {
     expect(planeMap('YZ', [2, 3, 4]).ca).toBe('Z');
   });
 
-  it('draws the cube planes as squares whose neighbours agree', () => {
+  it('draws the cube planes as squares whose neighbors agree', () => {
     const g = squareLayer('XZ', [3, 4, 2], 1);
     expect(g.width).toBe(3);
     expect(g.height).toBe(2);
     expect(g.cells).toHaveLength(6);
     expect(g.cells.every((c) => c.at[1] === 1)).toBe(true);
     g.cells.forEach((c, i) => {
-      for (const n of c.neighbours ?? []) {
+      for (const n of c.neighbors ?? []) {
         if (n >= 0) {
-          expect(g.cells[n]?.neighbours).toContain(i);
+          expect(g.cells[n]?.neighbors).toContain(i);
         }
       }
     });
@@ -287,10 +287,10 @@ describe('the editor', () => {
 
   it('knows the cube grid’s faces: -x, -y, -z, +x, +y, +z', () => {
     expect(BRICK_FACES).toHaveLength(6);
-    expect(brickNeighbour([1, 1, 1], 0, [3, 3, 3])).toEqual([0, 1, 1]);
-    expect(brickNeighbour([1, 1, 1], 5, [3, 3, 3])).toEqual([1, 1, 2]);
-    expect(brickNeighbour([0, 1, 1], 0, [3, 3, 3])).toBeNull();
-    expect(brickNeighbour([1, 1, 1], 6, [3, 3, 3])).toBeNull();
+    expect(brickNeighbor([1, 1, 1], 0, [3, 3, 3])).toEqual([0, 1, 1]);
+    expect(brickNeighbor([1, 1, 1], 5, [3, 3, 3])).toEqual([1, 1, 2]);
+    expect(brickNeighbor([0, 1, 1], 0, [3, 3, 3])).toBeNull();
+    expect(brickNeighbor([1, 1, 1], 6, [3, 3, 3])).toBeNull();
   });
 });
 
@@ -309,7 +309,7 @@ describe('the store and revisions', () => {
       canRedo: false,
       solving: false,
       shapes: [],
-      colours: [],
+      colors: [],
       problems: [],
     });
     // as if running: the first load

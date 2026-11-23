@@ -170,24 +170,24 @@ Reply problemDeleteGroup(State& s, Params& p) {
   return s.changed();
 }
 
-Reply problemSetColourRule(State& s, Params& p) {
+Reply problemSetColorRule(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  const app::Id piece = p.id("pieceColour", IdKind::Colour);
-  const app::Id result = p.id("resultColour", IdKind::Colour);
+  const app::Id piece = p.id("pieceColor", IdKind::Color);
+  const app::Id result = p.id("resultColor", IdKind::Color);
   const bool allowed = p.boolean("allowed");
   BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setColourRule(problem, piece, result, allowed));
+  BTE_CHECK(s.document().setColorRule(problem, piece, result, allowed));
   return s.changed();
 }
 
-Reply problemSetColourRules(State& s, Params& p) {
+Reply problemSetColorRules(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  const app::ColourPreset preset =
-      p.choice("preset", Names<app::ColourPreset>{{"eachOnItself", app::ColourPreset::EachOnItself},
-                                                  {"allowAll", app::ColourPreset::AllowAll},
-                                                  {"clear", app::ColourPreset::Clear}});
+  const app::ColorPreset preset =
+      p.choice("preset", Names<app::ColorPreset>{{"eachOnItself", app::ColorPreset::EachOnItself},
+                                                  {"allowAll", app::ColorPreset::AllowAll},
+                                                  {"clear", app::ColorPreset::Clear}});
   BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setColourRules(problem, preset));
+  BTE_CHECK(s.document().setColorRules(problem, preset));
   return s.changed();
 }
 
@@ -248,8 +248,8 @@ void addProblemMethods(MethodTable& t) {
   t["problem.setGroup"] = problemSetGroup;
   t["problem.setGroupCount"] = problemSetGroupCount;
   t["problem.deleteGroup"] = problemDeleteGroup;
-  t["problem.setColourRule"] = problemSetColourRule;
-  t["problem.setColourRules"] = problemSetColourRules;
+  t["problem.setColorRule"] = problemSetColorRule;
+  t["problem.setColorRules"] = problemSetColorRules;
   t["problem.fit"] = problemFit;
   t["problem.kind"] = problemKind;
   t["problem.setSolverSettings"] = problemSetSolverSettings;

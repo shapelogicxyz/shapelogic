@@ -4,7 +4,7 @@
 // stlExport_c had a 3D view of its own (LView3dGroup) showing the mesh the
 // export would write, normally or with its insides visible. A small
 // three.js view on the dialog's canvas: the mesh of export.stlMesh in the
-// piece's colour, lit as the main view lights (material.ts), no checker;
+// piece's color, lit as the main view lights (material.ts), no checker;
 // a drag turns it on the original's arc-ball, the wheel zooms; Insides is
 // the main view's x-ray (the inner faces drawn, the outer ones faint).
 
@@ -20,7 +20,7 @@ import {
 } from 'three';
 
 import type { MeshArrays } from '../../engine/frames.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import { arcballStep } from '../view3d/camera.ts';
 import { faceMaterial, faceUniforms, setPiece } from '../view3d/material.ts';
 import { buildMesh } from '../view3d/mesh.ts';
@@ -70,10 +70,10 @@ export class StlPreview {
     this.observer.observe(canvas);
   }
 
-  /** Shows a mesh in a colour (null: nothing, as the original after a refusal). */
-  setMesh(arrays: MeshArrays | null, colour: Rgb3): void {
+  /** Shows a mesh in a color (null: nothing, as the original after a refusal). */
+  setMesh(arrays: MeshArrays | null, color: Rgb3): void {
     this.clear();
-    setPiece(this.uniforms, colour);
+    setPiece(this.uniforms, color);
     if (arrays !== null) {
       const built = buildMesh(arrays, [1, 1, 1], 'stl');
       this.built = built;

@@ -30,7 +30,7 @@ its stdout is one reply or one notification. Logs go to stderr.
 - Parameters are always by name, in an object. A missing, mistyped or
   unknown field is refused, as the schema says (`additionalProperties:
   false` everywhere).
-- Items are named by ids that survive reordering: shapes `s7`, colours
+- Items are named by ids that survive reordering: shapes `s7`, colors
   `c2`, problems `p1`, solutions `sol42`, rod sets `r1`, playback handles
   `pb1`, explorers `ax1` and `mx1`.
 - A request without an `id` is a notification: it runs and gets no reply.
@@ -68,7 +68,7 @@ Events are notifications the engine sends on its own.
 
 | Event | When |
 |---|---|
-| `document.changed` | after a call that changed the document, and when background work ended; carries the new revision, what changed (`shapes`, `colours`, `problems`, `solutions`, `notes`, `rodSets`) and which ids |
+| `document.changed` | after a call that changed the document, and when background work ended; carries the new revision, what changed (`shapes`, `colors`, `problems`, `solutions`, `notes`, `rodSets`) and which ids |
 | `solve.state` | a problem's solve moved to another state |
 | `solve.progress` | at most four times a second while a solve runs, and once when a run ends |
 | `solve.solutionsAdded` | the problem's saved list changed; carries `solutionsVersion` so a client knows whether to page again |
@@ -98,7 +98,7 @@ which asks each watched problem's session for its state and progress.
    `document.changed` that takes the run's results in. The app treats the
    run as over only at that `document.changed`.
 5. **`invalid_state` means "pause first".** While a solve is active, the
-   shapes it reads and the lists of shapes, colours and problems are frozen.
+   shapes it reads and the lists of shapes, colors and problems are frozen.
    The app shows the refusal as "Pause the solve first" and never retries.
 6. **The engine is the truth.** The app never computes what the engine can
    answer: cells, fits, counts, meshes and sort orders are all read from

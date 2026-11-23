@@ -35,7 +35,7 @@ export class ViewRenderer {
   readonly scene = new Scene();
   /** Turned by the camera's orientation. */
   readonly root = new Group();
-  /** In mesh units, its space's centre at the root's origin. */
+  /** In mesh units, its space's center at the root's origin. */
   readonly model = new Group();
   private readonly persp = new PerspectiveCamera();
   private readonly ortho = new OrthographicCamera();
@@ -67,9 +67,9 @@ export class ViewRenderer {
     return this.perspective ? this.persp : this.ortho;
   }
 
-  /** The background, a CSS colour. */
-  setBackground(colour: string): void {
-    this.gl.setClearColor(colour, 1);
+  /** The background, a CSS color. */
+  setBackground(color: string): void {
+    this.gl.setClearColor(color, 1);
   }
 
   /** Follows the canvas's size in CSS pixels. */
@@ -123,7 +123,7 @@ export class ViewRenderer {
    * Places the cameras for a scene that is not turned as a whole (the
    * pieces scene: each piece turns itself): `sc` pixels per unit at the
    * scene's plane, the eye `eye` units away, nothing further than `reach`
-   * from the centre; `cam` gives the pan.
+   * from the center; `cam` gives the pan.
    */
   frameScene(cam: Pick<Camera, 'px' | 'py'>, sc: number, eye: number, reach: number): void {
     this.place(cam, sc, eye, reach);

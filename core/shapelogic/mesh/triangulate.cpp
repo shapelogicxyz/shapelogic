@@ -275,7 +275,7 @@ bool triangulateLoops(const std::vector<Point2>& pts, const std::vector<std::vec
       }
       // The target coordinates may occur at several polygon positions
       // (bridge twins, touching loops): the copy whose interior wedge
-      // contains the direction towards M is taken.
+      // contains the direction toward M is taken.
       int Pp = -1;
       for (int q = 0; q < n; q++) {
         if (!Geo::same(G.X(at(poly, q)), G.Y(at(poly, q)), Rx, Ry)) {
@@ -332,7 +332,7 @@ bool triangulateLoops(const std::vector<Point2>& pts, const std::vector<std::vec
       // Coincident points: a zero-length edge, or the two twins of a
       // bridge meeting again (a == c): b is dropped, no triangle. A
       // collinear vertex is never dropped: it is a real vertex that
-      // neighbouring constructs attach to, so the edges on both sides of
+      // neighboring constructs attach to, so the edges on both sides of
       // it must stay (ears elsewhere consume it).
       if (drop < 0 && (Geo::same(ax, ay, bx, by) || Geo::same(bx, by, cx, cy) ||
                        Geo::same(ax, ay, cx, cy))) {

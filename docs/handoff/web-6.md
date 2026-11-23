@@ -48,11 +48,11 @@ and close paths is done ("Audit" below).
   Paste, Select All (the text fields need them), Notes…, Convert Brick
   Grid Type to Other…, Convert Assemblies to Pieces…; Settings… off
   macOS), **View** (Status Window…, Toggle 3D, the display modes:
-  normally with shape colour, with colour constraint colours, the two
+  normally with shape color, with color constraint colors, the two
   anaglyph modes; the styles: each voxel separately, flat faces with
   edges, wire frames, like STL export), **Help** (Keyboard Shortcuts,
   Tutorial, ShapeLogic User Guide; About off macOS), and on macOS the
-  application menu (About, Settings…, Services, Hide, Quit). Greyed until
+  application menu (About, Settings…, Services, Hide, Quit). Grayed until
   the core or a later stage has them: the two imports, the exports but
   the paused solver state (stage 7), grid conversion, the anaglyph modes,
   the STL-like style. The keys shown are the one table's (sent in the
@@ -80,7 +80,7 @@ and close paths is done ("Audit" below).
   document's file.
 - `index.ts`: the window's close is held and asked of the renderer
   (`close`); the renderer takes it at once (`closeTaken`) and answers
-  `closeWindow` after its question, or `closeCancelled`; a renderer that
+  `closeWindow` after its question, or `closeCanceled`; a renderer that
   has not taken it within 4 s (hung, crashed) gets the question natively
   ("The window does not answer. Close it anyway?"). A quit held by a
   window's question goes on once that window closes (Cmd+Q, then Don't
@@ -177,7 +177,7 @@ and close paths is done ("Audit" below).
 - Unit (`tests/unit/app.test.ts`, 14): the store (written whole by
   rename, read back, the recent files' order and limit, a file not JSON),
   the rescue copy (record, removal, a record not matching the copy, no
-  record), the menus (each platform's layout, what is greyed, the undo
+  record), the menus (each platform's layout, what is grayed, the undo
   label, every key shown and none registered, every item's command one
   the renderer takes, the recent files' labels), the bridge's checks,
   the stored settings read back, the convert dialog's fields;
@@ -187,7 +187,7 @@ and close paths is done ("Audit" below).
   no `document.changed` after it and saved as a copy by Save As whose
   bytes equal a separate engine's own save of the fixture, clean
   afterwards, its path the copy's, no `.tmp` left, the last in Open
-  Recent, an extension added, a cancelled dialog changing nothing, no
+  Recent, an extension added, a canceled dialog changing nothing, no
   refusal in the call log; an engine killed after edits (Ctrl+D, the
   Notes dialog) and the rescue copy offered, Esc not taking the question
   away, reopened with the edits, its file and its unsaved changes, then
@@ -203,12 +203,12 @@ and close paths is done ("Audit" below).
   restart, the engine's settings given to the new engine, a store that
   is not JSON read as the defaults; a save while solving offered at a
   save point (the file holds the paused position, the solve carries on),
-  Export ▸ Paused Solver State greyed while it runs and enabled once
+  Export ▸ Paused Solver State grayed while it runs and enabled once
   paused, the `.btsolve` imported as an untitled document and continued
   and aborted; the notes (a refused text keeps the dialog), the Undo
-  item labelled by `edit.history`, Convert Assemblies to Pieces into a
+  item labeled by `edit.history`, Convert Assemblies to Pieces into a
   new problem with the range asked, About with the engine's version, the
-  help links, the greyed items, a dropped file without a path.
+  help links, the grayed items, a dropped file without a path.
 - e2e (`tests/e2e/keymap.e2e.ts`, 1): **every row of the keyboard map**:
   the test walks `KEY_MAP`; each of the 43 rows with keys has a scenario
   that sets up what it needs (Bermuda, SolidSixPieceBurrs, Bermuda solved
@@ -261,7 +261,7 @@ question, the save point's offer, Notes, Convert, About, F1).
    reaches the page once and the one table stays the one source; on
    macOS the system's own items (Quit, Hide, Cut, Copy, Paste) keep
    theirs.
-5. **The anaglyph modes are greyed** (the plan left it to this stage):
+5. **The anaglyph modes are grayed** (the plan left it to this stage):
    three.js's anaglyph effect renders a scene twice through one camera,
    and the view draws in passes (the faded copies' depth pass, two layers
    of solution models, overlays and edge lines on top): fitting it means
@@ -357,7 +357,7 @@ Windows 10 or 11 x64 machine:
   (`app.addRecentDocument`) are not fed.
 - On macOS the Help menu (role `help`) gets the system's search field.
 - A key pressed in the explorer's drawer while it reads (`data-busy`) is
-  dropped, not kept for when it is ready (stage 5's behaviour; the
+  dropped, not kept for when it is ready (stage 5's behavior; the
   keyboard e2e waits).
 - One stall of the e2e suite was not explained (above, gate results);
   the limits added make the next one say where it waits.
@@ -468,7 +468,7 @@ each at its check of the copy, of the second start's quitting).
    the next start.
 2. **The rescue copy was removed when the engine died again during its
    offer** (high). The newer offer opens a question of the same id, which
-   closes the older one as if cancelled (`null`), and the older offer
+   closes the older one as if canceled (`null`), and the older offer
    took `null` for Discard: `clearRescue` while the newer question asked,
    and its `finally` let writes and removals go again while the newer one
    waited. Probed: the copy gone a moment after the second offer showed
@@ -560,7 +560,7 @@ each at its check of the copy, of the second start's quitting).
    Cancel still clears it.
 
 The original's fork (`writePuzzleFile` in `../burrtools_rotations`)
-renames the same way, so findings 5, 6 and 9 are its behaviour too; the
+renames the same way, so findings 5, 6 and 9 are its behavior too; the
 port's bytes are unchanged (`oracle-roundtrip` below).
 
 ### Tests added (each fails without its fix)
@@ -666,7 +666,7 @@ piece through three.js's `GLTFExporter`, the original's `gltfexport.cpp`
 for the holds and the reassembly), **STL** from the flat mesh as an
 interim (the dialog says the bevelled STL meshes come later). Where
 things are:
-- The menu items exist greyed: `main/menu.ts` (`export.image`,
+- The menu items exist grayed: `main/menu.ts` (`export.image`,
   `export.vector`, `export.glb`, `export.stl`: make them `item(…)` with a
   new command in `engine/app-bridge.ts`'s `AppCommand`, `COMMANDS`, and
   `shell/menus.ts`'s `run`); the menu state may need a field (a solution

@@ -18,7 +18,7 @@ Hanoi with three discs, to follow along. The solver finds its 7 moves at once.
 ## How a stacking puzzle is made
 
 - A **disc** is a shape one cell thick. A disc of *size n* is a square of
-  2n+1 by 2n+1 cells with its centre empty, so the rod can pass through it.
+  2n+1 by 2n+1 cells with its center empty, so the rod can pass through it.
 - A **rod set** is the board: how many rods, how tall they are and the rules
   of a move.
 - A **problem** stands on one rod set and holds the discs of each rod at its

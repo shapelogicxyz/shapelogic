@@ -5,7 +5,7 @@
 // 0012, "Names that stay": the stored names are the file's, SolveOptions
 // uses the API's, types.json has the mapping). DOM-free, for the unit
 // tests. Ported from the original's mainwindow_solve.cpp:
-// `updateSolverOptionCheckboxes` (which boxes force or grey out which),
+// `updateSolverOptionCheckboxes` (which boxes force or gray out which),
 // `cb_SolverOptions` (Just Levels newly checked turns Check Rotations
 // off), `storeSolverOptions` / `applySolverOptions` (the names, the
 // solver type and sort-by values, other keys kept) and the layout's
@@ -18,7 +18,7 @@
 // Solver, the original's full search; its Fast and Deep solvers are not
 // offered, and the solver is not stored), Find Solutions checked at first,
 // and none of Just
-// Levels, Check Rotations, Strict Colours and the symmetry options; and
+// Levels, Check Rotations, Strict Colors and the symmetry options; and
 // Allow Vertical Moves, which the original (trays one layer deep) did not
 // have, off by default so that a piece stays in its layer; and after Just
 // Count, Allow any orientation for unplaced pieces with its Include
@@ -28,7 +28,7 @@
 // first when the board fits a grid (workspace.ts). On a
 // stacking puzzle (section 9.3): Find Solutions checked at first
 // (stackingDisasmDefaulted), Just Levels kept (the search ignores it), no
-// Check Rotations, Strict Colours or symmetry options, and one solver by
+// Check Rotations, Strict Colors or symmetry options, and one solver by
 // the problem's board (syncSolverTypeMenu: the Panex Solver for Panex
 // columns, else the Stacking Solver), which the original did not store.
 // The original's Enable High Memory of both is the Search memory setting
@@ -329,7 +329,7 @@ export function writeOptions(
   return out;
 }
 
-/** Options with the original's rules applied, and the boxes it greys out. */
+/** Options with the original's rules applied, and the boxes it grays out. */
 export interface Normalized {
   options: SearchOptions;
   disabled: ReadonlySet<BoxName>;
@@ -345,7 +345,7 @@ export interface Normalized {
  * rotations needs the take-apart (the mockup's rule): without it the solve
  * keeps them unsorted. A grid without a take-apart (canDisassemble false:
  * spheres) only assembles, so the take-apart, Just
- * Levels and Check Rotations are off and greyed.
+ * Levels and Check Rotations are off and grayed.
  */
 export function normalize(
   input: SearchOptions,
@@ -356,7 +356,7 @@ export function normalize(
   const o = { ...input };
   const disabled = new Set<BoxName>();
   if (family === 'stacking') {
-    // updateSolverOptionCheckboxes: no Strict Colours, symmetry options or
+    // updateSolverOptionCheckboxes: no Strict Colors, symmetry options or
     // rotation take-apart; Just Count and Just Levels rule each other out,
     // Just Levels keeps Find Solutions on (the search ignores it)
     o.strictColors = false;
@@ -387,9 +387,9 @@ export function normalize(
     return { options: o, disabled };
   }
   if (family === 'sliding') {
-    // updateSolverOptionCheckboxes: no Just Levels, Strict Colours,
+    // updateSolverOptionCheckboxes: no Just Levels, Strict Colors,
     // symmetry options or rotation take-apart; partially nested needs
-    // nested slides and mirrored orientations any orientation (greyed,
+    // nested slides and mirrored orientations any orientation (grayed,
     // their ticks kept)
     o.justLevels = false;
     o.strictColors = false;
@@ -435,7 +435,7 @@ export function normalize(
     o.checkRotations = false;
     disabled.add('checkRotations');
   }
-  // Always show Assemblies needs the take-apart (greyed, its tick kept)
+  // Always show Assemblies needs the take-apart (grayed, its tick kept)
   if (!o.disassemble) {
     disabled.add('keepAssemblies');
   }
@@ -471,7 +471,7 @@ export const DEFAULT_LIMITS: Readonly<Limits> = { keepAtMost: 100, keepEach: 1 }
 /**
  * The SolveOptions of a solve (solve.start, prepare, continue): the
  * stored names mapped to the API's (deepSymmetry is completeRotations,
- * strictColors strictColours); the threads are left to the engine's
+ * strictColors strictColors); the threads are left to the engine's
  * setting (the settings dialog's worker threads).
  */
 export function solveOptions(
@@ -520,7 +520,7 @@ export function solveOptions(
     keepMirrors: o.keepMirrors,
     keepRotations: o.keepRotations,
     completeRotations: o.deepSymmetry,
-    strictColours: o.strictColors,
+    strictColors: o.strictColors,
     sortBy: effectiveSort(o),
     keepAtMost: Math.max(0, Math.round(limits.keepAtMost)),
     keepEach: Math.max(1, Math.round(limits.keepEach)),

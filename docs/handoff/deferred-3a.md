@@ -1,7 +1,7 @@
 # Handoff: deferred part 3a (stacking and Panex: the core and `bt`)
 
 Part 3 of docs/DEFERRED-PLAN.md, its first half: the original's stacking
-puzzles ported into the core (rod sets and stacks modelled, the Stacking
+puzzles ported into the core (rod sets and stacks modeled, the Stacking
 Solver's search, the Panex search with its saved searches, blockpack),
 solved through the solve session and played in transfers, carried in the
 paused-solve file, solved by `bt` as burrTxt solved them, and compared
@@ -77,8 +77,8 @@ recordings, the documents).
   explorers' "not yet" refusals of stacking dropped (their capability
   checks refuse in the grid's words).
 - `app/playback`: stacking solutions play in transfers (`stepFrames_`,
-  three frames a step), from places, centred on the board
-  (`stackingCentre`).
+  three frames a step), from places, centerd on the board
+  (`stackingCenter`).
 
 ### `bt` (this part's commit)
 burrTxt's stacking branch: `--solver` Stacking Solver or Panex Solver,
@@ -131,7 +131,7 @@ All run on the final tree (2026-10-10, M-series Mac):
   stacking ones, the api schema and docs, the contract suite with 100
   methods called, the CLI), 424 s.
 - `just test-asan`: 6/6, no sanitizer report, 1,463 s. (Its first run
-  stopped on undefined behaviour in the Panex search's `subtract`,
+  stopped on undefined behavior in the Panex search's `subtract`,
   inherited from the original: see "Found in the original"; fixed, and
   the whole chain run again. After the last change, the writer's core in
   the search's pool, the ASan build ran the 41 stacking cases and the CLI
@@ -213,7 +213,7 @@ document's stacking commands and the engine.
   clamps and the Panex dependencies, which sync the maps and drop the
   solutions of the problems on that rod set), discs (a new disc,
   cb_NewShape's `addDisk`; a disc's size, `generateDisk`; a disc's
-  colour, cb_ColSel), the problem's rod set (Set Start/Goal Rods:
+  color, cb_ColSel), the problem's rod set (Set Start/Goal Rods:
   `setRodSetId` + `syncMaps`), placing a disc (placeOneDisk: a copy added
   when every copy is placed, unenforced), adding all discs (largest
   first), removing a disc (`dropInstance` and the count one lower),
@@ -231,7 +231,7 @@ document's stacking commands and the engine.
   `solve.savePoint` on a stacking solve (refuse, or answer at once: decide
   and record), a `stacking.*` namespace for the commands above and the
   reads the editor needs (`layoutBoard`, `setupError`, the board's
-  geometry and `stackingCentre` for the player), `solve.exportPaused`
+  geometry and `stackingCenter` for the player), `solve.exportPaused`
   with the levels choice and their size, `solve.importPaused` with the
   folder; the contract suite runs a Panex solve with a pause, a saved
   search and a continue; `python3 api/gen_api_md.py`, `just web-gen`.

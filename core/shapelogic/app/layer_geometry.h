@@ -10,7 +10,7 @@
 /// grideditor_4.cpp: drawTileFrame (the squares and triangles),
 /// getTriangle (rhombic), getPolygon (tetrahedra-octahedra), the circles
 /// of grideditor_2's drawNormalTile, the extent of calcParameters, and the
-/// edges drawTileCursor finds between neighbouring cells (findCommonEdge).
+/// edges drawTileCursor finds between neighboring cells (findCommonEdge).
 /// The original drew in pixels with the cell size of the widget; this
 /// gives the same figures in units of the grid's own cell (see
 /// layerGeometry).
@@ -40,10 +40,10 @@ struct LayerCell {
   std::vector<LayerPoint> polygon;
   /// Per edge (corner i to corner i + 1): the index in LayerGeometry::cells
   /// of the cell across it, or -1 when no cell of the layer is.
-  std::vector<int> neighbours;
+  std::vector<int> neighbors;
   /// The sphere grid: a circle instead of a polygon.
   bool circle = false;
-  LayerPoint centre;
+  LayerPoint center;
   double radius = 0;
 };
 

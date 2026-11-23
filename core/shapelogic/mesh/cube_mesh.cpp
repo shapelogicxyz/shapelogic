@@ -30,7 +30,7 @@ namespace {
 #include "shapelogic/mesh/tabs_cube/cubetable_nofill.inc"
 
 // The regime of a case for this ratio: the interval containing it, or at
-// a tie ratio (skipped by the table generator) the neighbour whose
+// a tie ratio (skipped by the table generator) the neighbor whose
 // boundary is nearest. The last regime runs to infinity: every regime
 // boundary is a finite ratio, so beyond the last one the structure is the
 // g = 0 structure, whatever ratio the table generation stopped at.

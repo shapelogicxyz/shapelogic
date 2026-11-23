@@ -60,7 +60,7 @@ the start stacking as its assembly, the original's notes word for word as
 depth both ends have searched and the moves traced back (`searchTraced`,
 `panexSearch`). Launch checks what the GUI's Continue checked (a rod set,
 Find Solutions or Just Count, `setupError`, the Panex Solver's
-`unsupported`), puts the discs' hotspots at their centres (only where
+`unsupported`), puts the discs' hotspots at their centers (only where
 they are not: the document does it before the first run), and runs with
 `resume` always, as both stacking solvers did: `start()` (Solve) throws
 a saved search away first, `resume()` (Continue) carries it on. `abort()`
@@ -102,8 +102,8 @@ folder); `importPaused` is given the work folder.
 
 **The playback plays transfers**: a stacking solution's steps are its
 transfers (three frames each, as the original's slider counted them),
-its frames are places, not shifts, and the poses are centred on the board
-(`stackingCentre`), there being no result shape.
+its frames are places, not shifts, and the poses are centerd on the board
+(`stackingCenter`), there being no result shape.
 
 **`bt` solves stacking puzzles as burrTxt did**: `--solver` stacking or
 panex, `--high-memory`, `--restart`, the Panex folder and disk, Ctrl-C
@@ -135,7 +135,7 @@ original:
 (`document_stacking.cpp`: mainwindow_rods.cpp's rod sets, the disc list,
 the stacking branches of the Problems tab), each one undo step: the GUI's
 own rod history (rodPast, rodFuture, forty deep) is the document's undo.
-Rod sets have ids beside the puzzle's, as shapes, colours and problems do
+Rod sets have ids beside the puzzle's, as shapes, colors and problems do
 (decision 0011; `r<n>` in the engine, labels R1, R2), and the list
 commands save the whole puzzle for undo. The rules of a rod set are
 written as cb_RodField wrote them (the counts clamped, the pocket only
@@ -145,19 +145,19 @@ edits drop a problem's solutions follows each callback: new rules
 (cb_RodField) and an emptied stacking (changeProblem) do; a disc's size,
 a disc moved, placed or taken off (through the counts' own rules), a
 board chosen do not. The rod sets are not changed while anything is
-solved (the GUI greyed them out while a solve ran), a problem's stacks
+solved (the GUI grayed them out while a solve ran), a problem's stacks
 not while it is (decision 0011).
 
 **What the GUI hid on a stacking puzzle is refused** (`invalid_argument`),
-as part 1 refused what it greyed out on sliding puzzles (decision 0014):
+as part 1 refused what it grayed out on sliding puzzles (decision 0014):
 the cell editor and the tool tabs (the disc list replaced them), a new
 shape of a given size (New made a disc of size 1), and the Problems
 tab's brick commands, whose buttons did the stacking ones there (the
 result, the counts and ranges, the parts' order, the groups). The
 stacking branch of cb_ColSel (painting a disc's cells in a constraint
-colour) could not be reached (the colour list is hidden on stacking
-puzzles) and is not ported: a disc's colour is the shape's own colour
-(`shape.setColour`, the Color button the GUI kept).
+color) could not be reached (the color list is hidden on stacking
+puzzles) and is not ported: a disc's color is the shape's own color
+(`shape.setColor`, the Color button the GUI kept).
 
 **A paused stacking solve is its saved search.** The engine's settings
 hold its folder and disk budget (`panexFolder`, default the user's cache
@@ -186,7 +186,7 @@ as the playback steps, not the three frames of each.
 
 **The reads the editor and the player need** are the engine's
 (`stacking.board`: the rods' names and capacities, the stacks, where
-rods and discs stand, the validity bar's sentence, the centre the
+rods and discs stand, the validity bar's sentence, the center the
 playback's poses are placed around; `stacking.rodSetLayout`, the rod set
 drawn alone as showRodSet drew it), so a front end computes none of them.
 

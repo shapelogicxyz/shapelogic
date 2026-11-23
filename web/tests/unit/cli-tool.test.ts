@@ -178,15 +178,15 @@ describe('Install', () => {
     expect(existsSync(link)).toBe(false);
   });
 
-  it('reports a closed password dialog as cancelled, and any other failure as it is', async () => {
+  it('reports a closed password dialog as canceled, and any other failure as it is', async () => {
     if (process.getuid?.() === 0) {
       return;
     }
     mkdirSync(join(dir, 'locked'));
     chmodSync(join(dir, 'locked'), 0o555);
     const link = join(dir, 'locked', 'shapelogic_cli');
-    const cancelled = await installCli(tool, link, asked('cancel').run);
-    expect(cancelled).toMatchObject({ ok: false, cancelled: true });
+    const canceled = await installCli(tool, link, asked('cancel').run);
+    expect(canceled).toMatchObject({ ok: false, canceled: true });
     const failed = await installCli(tool, link, asked('fail').run);
     expect(failed).toEqual({ ok: false, error: 'boom' });
   });

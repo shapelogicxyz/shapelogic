@@ -46,7 +46,7 @@ export interface StackMovesFile extends StackSetup {
 }
 
 /** The text of a stacking moves file. */
-export function serialiseStack(file: Omit<StackMovesFile, 'format' | 'version' | 'kind'>): string {
+export function serializeStack(file: Omit<StackMovesFile, 'format' | 'version' | 'kind'>): string {
   const whole: StackMovesFile = {
     format: MOVES_FORMAT,
     version: STACK_MOVES_VERSION,

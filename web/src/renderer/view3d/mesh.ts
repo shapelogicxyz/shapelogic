@@ -2,8 +2,8 @@
 //
 // A MeshFrame (shape.mesh, playback.mesh) as three.js geometry. The frame's
 // arrays come through meshArrays() (frames.ts), never parsed by hand; the
-// per-triangle colour, flags, cell and side are expanded per vertex, so the
-// view's options (colour view, lighting, x-ray, the dimmed layers) are
+// per-triangle color, flags, cell and side are expanded per vertex, so the
+// view's options (color view, lighting, x-ray, the dimmed layers) are
 // uniforms of material.ts and need no rebuild.
 //
 // What is drawn follows the face loop of voxelFrame_c::drawShape in the
@@ -21,7 +21,7 @@ import type { MeshArrays } from '../../engine/frames.ts';
 
 /** The FaceFlag bits of a frame (decision 0012, MeshFrame). */
 export const FLAG = {
-  /** The lighter colour of the checker pattern. */
+  /** The lighter color of the checker pattern. */
   light: 1,
   /** A variable cell's face: the variable mark is drawn on it. */
   variableMark: 2,
@@ -31,7 +31,7 @@ export const FLAG = {
   wireframe: 8,
   /** The bevel of a cell's edge. */
   bevel: 16,
-  /** The gap between neighbouring cells. */
+  /** The gap between neighboring cells. */
   gap: 32,
   /** The inner side of a hollow shape: hidden unless x-ray. */
   inside: 128,
@@ -54,7 +54,7 @@ export type MeshSource =
 export interface BuiltMesh {
   /**
    * The faces, one vertex per triangle corner: `position`, `normal`, and
-   * per vertex the triangle's `aFlags`, `aColour` (the constraint colour's
+   * per vertex the triangle's `aFlags`, `aColor` (the constraint color's
    * number, 0 none) and `aCell` (x, y, z of its cell).
    */
   faces: BufferGeometry;
@@ -76,7 +76,7 @@ export interface BuiltMesh {
 /**
  * Whether a style shows the checker (drawShape's `checker`): the bevelled
  * voxels, the uniform bevels and the wire frame; the flat style and the
- * STL-like one paint a piece in one colour.
+ * STL-like one paint a piece in one color.
  */
 export function hasChecker(style: MeshStyle): boolean {
   return style === 'drawing' || style === 'wireframe' || style === 'uniform';
@@ -97,7 +97,7 @@ export function buildMesh(
   style: MeshStyle,
   source: MeshSource | null = null,
 ): BuiltMesh {
-  const { positions, normals, indices, voxel, flags, colour, imageUv } = arrays;
+  const { positions, normals, indices, voxel, flags, color, imageUv } = arrays;
   const total = flags.length;
 
   // the triangles drawn: the wire-frame style keeps only its faces
@@ -113,7 +113,7 @@ export function buildMesh(
   const pos = new Float32Array(count * 9);
   const nor = new Float32Array(count * 9);
   const aFlags = new Float32Array(count * 3);
-  const aColour = new Float32Array(count * 3);
+  const aColor = new Float32Array(count * 3);
   const aCell = new Float32Array(count * 9);
   // the picture's place per vertex (decision 0038); -1: none
   const aUv = new Float32Array(count * 6).fill(-1);
@@ -123,7 +123,7 @@ export function buildMesh(
   for (let k = 0; k < count; k++) {
     const t = triangle[k] ?? 0;
     const f = flags[t] ?? 0;
-    const c = colour[t] ?? 0;
+    const c = color[t] ?? 0;
     const cell = voxel[t] ?? 0;
     const cx = cell % sx;
     const rest = Math.floor(cell / sx);
@@ -139,7 +139,7 @@ export function buildMesh(
       nor[o + 1] = normals[3 * v + 1] ?? 0;
       nor[o + 2] = normals[3 * v + 2] ?? 0;
       aFlags[3 * k + j] = f;
-      aColour[3 * k + j] = c;
+      aColor[3 * k + j] = c;
       aCell[o] = cx;
       aCell[o + 1] = cy;
       aCell[o + 2] = cz;
@@ -153,7 +153,7 @@ export function buildMesh(
   faces.setAttribute('position', new BufferAttribute(pos, 3));
   faces.setAttribute('normal', new BufferAttribute(nor, 3));
   faces.setAttribute('aFlags', new BufferAttribute(aFlags, 1));
-  faces.setAttribute('aColour', new BufferAttribute(aColour, 1));
+  faces.setAttribute('aColor', new BufferAttribute(aColor, 1));
   faces.setAttribute('aCell', new BufferAttribute(aCell, 3));
   faces.setAttribute('aUv', new BufferAttribute(aUv, 2));
   faces.computeBoundingBox();
@@ -229,14 +229,14 @@ function unitNormal(p1: V3, p2: V3, p3: V3): V3 {
   return l === 0 ? [0, 0, 0] : [n[0] / l, n[1] / l, n[2] / l];
 }
 
-// corner p2 of the triangle (p1, p2, p3) moved towards the incircle's centre
+// corner p2 of the triangle (p1, p2, p3) moved toward the incircle's center
 // so that the triangle's sides move SHRINK inwards, and MY along n
 function shrinkCorner(p1: V3, p2: V3, p3: V3, n: V3, which: 0 | 1 | 2): V3 {
   const c = dist(p2, p1);
   const b = dist(p3, p1);
   const a = dist(p2, p3);
   const per = a + b + c;
-  const centre: V3 = [0, 1, 2].map(
+  const center: V3 = [0, 1, 2].map(
     (i) => ((p1[i] ?? 0) * a + (p2[i] ?? 0) * b + (p3[i] ?? 0) * c) / per,
   ) as V3;
   const s = per / 2;
@@ -244,7 +244,7 @@ function shrinkCorner(p1: V3, p2: V3, p3: V3, n: V3, which: 0 | 1 | 2): V3 {
   const q = (r - SHRINK) / r;
   const p = which === 0 ? p1 : which === 1 ? p2 : p3;
   return [0, 1, 2].map(
-    (i) => (centre[i] ?? 0) + q * ((p[i] ?? 0) - (centre[i] ?? 0)) + MY * (n[i] ?? 0),
+    (i) => (center[i] ?? 0) + q * ((p[i] ?? 0) - (center[i] ?? 0)) + MY * (n[i] ?? 0),
   ) as V3;
 }
 
@@ -260,7 +260,7 @@ export function shrinkTriangle(p1: V3, p2: V3, p3: V3): V3[] {
 
 /**
  * The mark of a quadrilateral (drawShrinkQuadrilateral): each corner moved
- * as in the triangle of it and its two neighbours; two triangles.
+ * as in the triangle of it and its two neighbors; two triangles.
  */
 export function shrinkQuadrilateral(p1: V3, p2: V3, p3: V3, p4: V3): V3[] {
   const n = unitNormal(p1, p2, p3);

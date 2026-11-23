@@ -34,7 +34,7 @@ export class Edits {
   }
 
   /**
-   * Refuses a change of the lists of shapes, colours or problems, and undo
+   * Refuses a change of the lists of shapes, colors or problems, and undo
    * and redo, while anything solves ("pause first").
    */
   refuseList(): boolean {

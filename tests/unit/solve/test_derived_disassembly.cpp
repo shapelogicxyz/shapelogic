@@ -259,8 +259,8 @@ Puzzle puzzleOf(GridKind kind, const std::array<int, 3>& box,
 }
 
 double distance2(test::CellWorld& w, mesh::CellAt a, mesh::CellAt b) {
-  const std::array<double, 3> p = w.cell(a).centre;
-  const std::array<double, 3> q = w.cell(b).centre;
+  const std::array<double, 3> p = w.cell(a).center;
+  const std::array<double, 3> q = w.cell(b).center;
   return (p[0] - q[0]) * (p[0] - q[0]) + (p[1] - q[1]) * (p[1] - q[1]) +
          (p[2] - q[2]) * (p[2] - q[2]);
 }
@@ -309,11 +309,11 @@ Puzzle cagePuzzle(test::CellWorld& w, GridKind kind, bool burrow, std::mt19937& 
   std::array<double, 3> middle{};
   for (const mesh::CellAt& c : all) {
     for (std::size_t k = 0; k < 3; k++) {
-      middle[k] += w.cell(c).centre[k] / static_cast<double>(all.size());
+      middle[k] += w.cell(c).center[k] / static_cast<double>(all.size());
     }
   }
   const auto fromMiddle = [&](const mesh::CellAt& c) {
-    const std::array<double, 3> p = w.cell(c).centre;
+    const std::array<double, 3> p = w.cell(c).center;
     return (p[0] - middle[0]) * (p[0] - middle[0]) + (p[1] - middle[1]) * (p[1] - middle[1]) +
            (p[2] - middle[2]) * (p[2] - middle[2]);
   };

@@ -948,7 +948,7 @@ TEST_CASE("solver types: names and the assembler each gets", "[solve]") {
 // (same rows, same weights), and reduce() merges the two. The cell is a
 // hole exactly when the piece is left out, so the survivor has to count
 // it: a 1x3 result of 3 piece cells with no holes allowed, the 1x2 piece
-// optional and held to the first two cells by its colour. Left out, it
+// optional and held to the first two cells by its color. Left out, it
 // would leave two holes; only the layout with both pieces is valid.
 TEST_CASE("assembler 1: a hole column merged by reduce still counts its cell",
           "[solve][assembler]") {

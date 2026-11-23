@@ -6,7 +6,7 @@
 // sets to choose from and Set Start/Goal Rods. In the right card, in the
 // selected piece's place: Start or Goal, the rod slider ("Rod: 1", the
 // pocket "Rod: P" first), Stack Order (the discs on the rod, the top
-// first, in the pieces' colours), the original's ↑ ↓ +1 −1 All +1 and
+// first, in the pieces' colors), the original's ↑ ↓ +1 −1 All +1 and
 // Clear All, and the validity bar ("Valid" or "Invalid - reason"). From
 // the original's mainwindow_layout.cpp (the widgets, their labels and
 // tooltips), resultviewer.cpp (the board's text), rodbars.h
@@ -22,7 +22,7 @@
 import type { DiscRef } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
-import { chipColour, contrast, hex, ROD_CHIP } from '../shell/piece-colours.ts';
+import { chipColor, contrast, hex, ROD_CHIP } from '../shell/piece-colors.ts';
 import { flash, reportError } from '../shell/status.ts';
 import { rodCaption, rodPlaces, rodSetText, stackIndex, stackValidity } from '../state/stacking.ts';
 import type { RodPlaces } from '../state/stacking.ts';
@@ -116,7 +116,7 @@ export class StacksCard {
             .map((disc, i) => {
               const at = shapes.findIndex((s) => s.id === disc.shape);
               const s = shapes[at];
-              const c = chipColour(s, Math.max(0, at));
+              const c = chipColor(s, Math.max(0, at));
               const text =
                 s === undefined ? '?' : s.name === '' ? s.label : `${s.label} - ${s.name}`;
               return `<div class="stackrow ${i === row ? 'sel' : ''}" data-row="${String(i)}" role="option" aria-selected="${String(i === row)}"><span class="chip" style="background:${hex(c)};color:${contrast(c)}">${esc(s?.label ?? '?')}</span><span class="lbl">${esc(text)}</span>${disc.instance > 0 ? `<span class="mute">#${String(disc.instance + 1)}</span>` : ''}</div>`;

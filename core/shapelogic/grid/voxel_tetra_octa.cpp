@@ -31,7 +31,7 @@ bool VoxelTetraOcta::transform(unsigned int nr) {
 bool VoxelTetraOcta::getNeighbor(unsigned int idx, unsigned int typ, int x, int y, int z, int* xn,
                                  int* yn, int* zn) const {
   // index 0: position of the cell, index 1: block type (even or odd block),
-  // index 2: first entry the cell, then its neighbours, index 3: x, y, z
+  // index 2: first entry the cell, then its neighbors, index 3: x, y, z
   // clang-format off
   static constexpr int kFaceNeighbors[5][2][5][3] = {
     {

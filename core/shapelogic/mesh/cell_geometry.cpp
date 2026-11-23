@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // After the grid registration of BurrTools V2 (src/lib/grid.cpp:
-// checkPhysicalShapes, calculateFaceNeighbourhood, the edge loops), on
+// checkPhysicalShapes, calculateFaceNeighborhood, the edge loops), on
 // this core's cell geometry (connectionFace, getNeighbor).
 #include "shapelogic/mesh/cell_geometry.h"
 
@@ -200,7 +200,7 @@ std::optional<EdgeRun> CellGeometry::run(const EdgeAt& start) {
     }
     const std::optional<int> fn = gn->matchingFace(fOut);
     if (!fn) {
-      error_ = Error{Errc::Internal, "neighbouring cells whose shared faces differ"};
+      error_ = Error{Errc::Internal, "neighboring cells whose shared faces differ"};
       return std::nullopt;
     }
     cur = fOut.across;
@@ -211,7 +211,7 @@ std::optional<EdgeRun> CellGeometry::run(const EdgeAt& start) {
   return std::nullopt;
 }
 
-Result<std::vector<CellAt>> CellGeometry::derivedNeighbours(CellAt c, unsigned int kind, int reach,
+Result<std::vector<CellAt>> CellGeometry::derivedNeighbors(CellAt c, unsigned int kind, int reach,
                                                             std::vector<int>* faces) {
   const CellPolyhedron* g = cell(c);
   if (g == nullptr) {

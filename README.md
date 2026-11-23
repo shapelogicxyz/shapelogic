@@ -123,8 +123,8 @@ Deisenroth.
 
 - [RELEASE_NOTES.md](RELEASE_NOTES.md): what changed in each release
 - [docs/PLAN.md](docs/PLAN.md): stages and status
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the code is organised
-- [docs/decisions/](docs/decisions/): why it is organised that way
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the code is organized
+- [docs/decisions/](docs/decisions/): why it is organized that way
 - [docs/webui-spec.md](docs/webui-spec.md): what the web front end does
 - [docs/FRONTEND-PLAN.md](docs/FRONTEND-PLAN.md): the plan for building it (stages, gates, what the API lacks)
 - [docs/API.md](docs/API.md): the engine's methods and events (generated from [api/](api/))

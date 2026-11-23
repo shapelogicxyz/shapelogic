@@ -3,7 +3,7 @@
 // The Puzzle workspace's pieces scene (FRONTEND-PLAN.md, stage 3): the
 // result, the selected piece and every copy of every piece, laid out on
 // the screen as the mockup's (puzzle/layout.ts), each turning about its
-// own centre with the camera's orientation while the layout stays put;
+// own center with the camera's orientation while the layout stays put;
 // pan and zoom move the whole layout. One shape.mesh per shape: its
 // geometry is shared by all its copies (one object each); the optional
 // copies are drawn faded: their nearest surface only (a depth pass
@@ -11,7 +11,7 @@
 // on both sides through every bevel they would look solid. The labels and the selection boxes are HTML
 // over the canvas, and a click picks the smallest box under it (the
 // result is not picked). From docs/mockup/index.html: `renderPuzzleScene`
-// (the scale, the anchors fixed on the screen, the boxes centred on them
+// (the scale, the anchors fixed on the screen, the boxes centerd on them
 // so they do not jitter while turning, the labels, the faded and dashed
 // optional copies) and `puzPick`; the drawing is three.js over the
 // engine's meshes, as the 3D view's (mesh.ts, material.ts), not the
@@ -36,7 +36,7 @@ import type { MeshStyle } from '../../engine/api.generated.ts';
 import { arrange, label, PITCH_X, RESULT_SIZE } from '../puzzle/layout.ts';
 import type { SceneItem } from '../puzzle/layout.ts';
 import { esc } from '../shell/dom.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import { faceMaterial, faceUniforms, setPalette, setPicture, setPiece } from './material.ts';
 import type { PiecePicture } from '../shell/picture-math.ts';
 import type { FaceUniforms } from './material.ts';
@@ -60,20 +60,20 @@ export interface PiecesModel {
 /** How the pieces are drawn. */
 export interface PiecesLook {
   style: MeshStyle;
-  colourView: boolean;
+  colorView: boolean;
   lit: boolean;
   palette: readonly string[];
-  /** A shape's piece colour. */
-  colourOf(shape: string): Rgb3;
+  /** A shape's piece color. */
+  colorOf(shape: string): Rgb3;
   /** A sliding piece's picture (null: none, or not decoded yet). */
   pictureOf?(shape: string): PiecePicture | null;
 }
 
-/** A shape's mesh with its centre and size (from the frame's lo and hi). */
+/** A shape's mesh with its center and size (from the frame's lo and hi). */
 export interface PieceMesh {
   built: BuiltMesh;
-  centre: [number, number, number];
-  /** Half the diagonal of its box: no turn takes it further from its centre. */
+  center: [number, number, number];
+  /** Half the diagonal of its box: no turn takes it further from its center. */
   radius: number;
   /** Half its box's size in X, Y and Z. */
   half: [number, number, number];
@@ -239,7 +239,7 @@ export class PiecesScene {
       const d = this.shapeDraw(item.shape, m);
       const group = new Group();
       const inner = new Group();
-      inner.position.set(-m.centre[0], -m.centre[1], -m.centre[2]);
+      inner.position.set(-m.center[0], -m.center[1], -m.center[2]);
       group.add(inner);
       if (item.optional) {
         inner.add(new Mesh(m.built.faces, this.depthOnly));
@@ -288,11 +288,11 @@ export class PiecesScene {
   setLook(look: PiecesLook): void {
     const u = this.shared;
     setPalette(u, look.palette);
-    u.uColourView.value = look.colourView ? 1 : 0;
+    u.uColorView.value = look.colorView ? 1 : 0;
     u.uLit.value = look.lit ? 1 : 0;
     u.uChecker.value = hasChecker(look.style) ? 1 : 0;
     for (const [shape, d] of this.shapes) {
-      setPiece(d.uniforms, look.colourOf(shape));
+      setPiece(d.uniforms, look.colorOf(shape));
       setPicture(d.uniforms, look.pictureOf?.(shape) ?? null);
     }
   }
@@ -438,7 +438,7 @@ export class PiecesScene {
     this.position();
   }
 
-  // the layout's size and centre in the mockup's units, each item's place
+  // the layout's size and center in the mockup's units, each item's place
   // grown as it is drawn
   private boundsOf(items: readonly SceneItem[]): { w: number; h: number; cx: number; cy: number } {
     let x0 = Infinity;
@@ -457,7 +457,7 @@ export class PiecesScene {
       : { w: x1 - x0, h: y1 - y0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
   }
 
-  // each item's group where the layout puts it, the layout centred
+  // each item's group where the layout puts it, the layout centerd
   private position(): void {
     const { cx, cy } = this.boundsOf(this.laid);
     const k = this.bounds.k;
@@ -471,7 +471,7 @@ export class PiecesScene {
     }
   }
 
-  /** Turns every item about its own centre to the camera's orientation. */
+  /** Turns every item about its own center to the camera's orientation. */
   turn(q: Quaternion): void {
     for (const d of this.items) {
       d.group.quaternion.copy(q);
@@ -549,7 +549,7 @@ export class PiecesScene {
       have.edges = edgeGeometry(m.built);
       return have;
     }
-    // the shared uniforms (palette, light, view) with a colour of its own
+    // the shared uniforms (palette, light, view) with a color of its own
     const uniforms: FaceUniforms = {
       ...this.shared,
       uPiece: { value: new Vector3(1, 1, 1) },
@@ -600,7 +600,7 @@ export class PiecesScene {
 }
 
 // the larger side, in world units, of a piece's outline turned by `q`
-// (seen along Z): its mesh's corners about its centre, or with no mesh,
+// (seen along Z): its mesh's corners about its center, or with no mesh,
 // its box's
 function outlineOf(m: PieceMesh, q: Quaternion): number {
   let x0 = Infinity;
@@ -616,7 +616,7 @@ function outlineOf(m: PieceMesh, q: Quaternion): number {
     y1 = Math.max(y1, v.y);
   };
   const p = m.built.faces.getAttribute('position');
-  const [cx, cy, cz] = m.centre;
+  const [cx, cy, cz] = m.center;
   if (p.count > 0) {
     for (let i = 0; i < p.count; i++) {
       v.set(p.getX(i) - cx, p.getY(i) - cy, p.getZ(i) - cz);

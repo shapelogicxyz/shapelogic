@@ -76,7 +76,7 @@ export function pieceImage(engine: EngineLink, image: ShapeImage | null): PieceI
         }
       },
       () => {
-        // a picture the browser cannot decode is drawn as the shape's colour
+        // a picture the browser cannot decode is drawn as the shape's color
         loading.delete(image.hash);
         failed.add(image.hash);
       },

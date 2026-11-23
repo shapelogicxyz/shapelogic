@@ -105,7 +105,7 @@ bool Assembly::transform(unsigned char trans, const Puzzle& puzzle, const Proble
   }
 
   {
-    /* a result that is not minimised, or one on a grid other than cubes,
+    /* a result that is not minimized, or one on a grid other than cubes,
      * jumps around when rotated; this keeps the rotation in place (this is
      * only called when the result looks the same in the new orientation) */
     int cx = 0;
@@ -155,8 +155,8 @@ bool Assembly::transform(unsigned char trans, const Puzzle& puzzle, const Proble
       const unsigned char tr = shape.normalizeTransformation(pl.transformation);
 
       if (tr != pl.transformation) {
-        /* the normalised orientation differs from the calculated one: move the
-         * piece so that it stays where it is in the normalised orientation */
+        /* the normalized orientation differs from the calculated one: move the
+         * piece so that it stays where it is in the normalized orientation */
         int ax = 0;
         int ay = 0;
         int az = 0;
@@ -480,7 +480,7 @@ bool Assembly::smallerRotationExists(const Puzzle& puzzle, const Problem& proble
                       (assm->getState(upx, upy, upz) == Voxel::kEmpty &&
                        res.getState2(x + px, y + py, z + pz) == Voxel::kFilled) ||
 
-                      // colour constraints; an empty neutral cell has none
+                      // color constraints; an empty neutral cell has none
                       ((assm->getState(upx, upy, upz) == Voxel::kFilled ||
                         assm->getColor(upx, upy, upz) != 0) &&
                        !problem.placementAllowed(puzzle, assm->getColor(upx, upy, upz),

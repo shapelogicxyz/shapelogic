@@ -171,7 +171,7 @@ std::set<SlideShift> solvedStops(const PlayGroup& g) {
   return out;
 }
 
-// Klotski, as test_sliding.cpp has it: the 2x2 block to the bottom centre.
+// Klotski, as test_sliding.cpp has it: the 2x2 block to the bottom center.
 const std::vector<Block> kKlotski = {
     {2, 2, 1, 0, 1, 3},   {1, 2, 0, 0, -1, -1}, {1, 2, 3, 0, -1, -1}, {1, 2, 0, 2, -1, -1},
     {1, 2, 3, 2, -1, -1}, {2, 1, 1, 2, -1, -1}, {1, 1, 1, 3, -1, -1}, {1, 1, 2, 3, -1, -1},
@@ -510,13 +510,13 @@ TEST_CASE("sliding play: a piece stays in its layer unless vertical moves are al
 
 TEST_CASE("sliding play: a problem whose starts place no layout is not played",
           "[sliding][play]") {
-  // the older model, a tray painted in piece colours: no board
+  // the older model, a tray painted in piece colors: no board
   const Puzzle old = test::loadFixture("sliding/slide_turn.xmpuzzle");
   const PlayStart painted = playStart(old, old.getProblem(0));
   CHECK(painted.error.find("no board") != std::string::npos);
   CHECK(painted.pieces.empty());
   CHECK_FALSE(painted.solved);
-  // a file of the original's, its starts kept in the board's colours, is
+  // a file of the original's, its starts kept in the board's colors, is
   // converted as it loads and is played
   const Puzzle converted = test::loadFixture("sliding/slide_klotski.xmpuzzle");
   const PlayStart klotski = playStart(converted, converted.getProblem(0));

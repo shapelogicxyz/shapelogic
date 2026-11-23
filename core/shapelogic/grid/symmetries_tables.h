@@ -3,7 +3,7 @@
 
 /// @file
 /// The three symmetry table sets (internal to the grid module; use
-/// GridType::getSymmetries()). Constant-initialised pointers, so that
+/// GridType::getSymmetries()). Constant-initialized pointers, so that
 /// getSymmetries() is an inline load (the rotation checks call it per
 /// assembly and piece).
 

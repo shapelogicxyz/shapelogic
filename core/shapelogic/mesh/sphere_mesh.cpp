@@ -68,7 +68,7 @@ const int connectionPoints[12][3] = {
  * As the touch point surrounding circles do have their maximal radius the circles touch, that
  * is where those point given below are.
  *
- * We do not really give the real point but only a vector that is a direction seen from the centre
+ * We do not really give the real point but only a vector that is a direction seen from the center
  * of the sphere, when you scale that vector to the radius of the sphere you will end up at the points
  *
  * As those points are exactly at the middle between 2 touching points all we need to do is take the average
@@ -78,7 +78,7 @@ const int connectionPoints[12][3] = {
  * is not really on the circle but only in the direction where we want the point to be. It works anyway because
  * before using a point we shift coordinates until they are on the circle
  *
- * if you cut the sphere in half so that a touching point is on the cutting plane and then connect centre of
+ * if you cut the sphere in half so that a touching point is on the cutting plane and then connect center of
  * the sphere with the 2 points on the circle of the cut sphere where the touching circle lies you will get
  * an equilateral triangle, to the angle of the circle is 60 degree
  */
@@ -174,7 +174,7 @@ const int holeTouchPoints[12][6][3] = {
  * vertices of a rhombic dodecahedron (3 faces meet).
  *
  * we have the point defined as above for the circles and one additional value
- * that defines, what is the touching point that lies on the edge towards the next point in the list
+ * that defines, what is the touching point that lies on the edge toward the next point in the list
  * (or the first point for the last entry)
  *
  * important to note is that the point must be in counter clockwise order, because we need
@@ -294,7 +294,7 @@ struct GenPar
   bool outside;        // is currently drawn sphere the outer or inner sphere
   float hole_diam;     // diameter of the hole between inside and outside > 0 round hole, <0 square hole
   float connection_rad;// radius of the connection between spheres (1 = maximal possible radius)
-  float xc, yc, zc;    // centre of the current sphere
+  float xc, yc, zc;    // center of the current sphere
 
   // some internal values used to calculate the curve that makes up the transition between
   // the sphere surface and the connection cylinder
@@ -362,10 +362,10 @@ void outTriangle(
   ff.flags = par.flags;
   ff.voxel = par.fb_index;
   ff.voxelFace = par.fb_face;
-  ff.colour = par.color;
+  ff.color = par.color;
 }
 
-// normalise a vector
+// normalize a vector
 void normalize(float *x, float *y, float *z)
 {
   float l = sqrt(*x * *x + *y * *y + *z * *z);
@@ -513,7 +513,7 @@ void drawTriangle(
 
 
 /* when drawing a connection this function calculates
- * the radius (meaning how far is the surface away from the centre of the sphere
+ * the radius (meaning how far is the surface away from the center of the sphere
  * for a certain angle from the touching point
  *
  * this value is the sphere radius for the outer rim and will increase as the
@@ -702,7 +702,7 @@ void drawHole(
   }
   else
   {
-    // Outermost section of the connection (farthest from centre)
+    // Outermost section of the connection (farthest from center)
     if (par.holeStart < par.lineEnd) {
       drawHolePiece(i, par.holeStart, par.lineEnd, x1, y1, z1, x2, y2, z2, 0, par);
     }
@@ -860,9 +860,9 @@ void drawConnectingHole(
 }
 
 /* create one sphere.
- * neighbours shows, where we need connections to the neighbours (each bit set means that
+ * neighbors shows, where we need connections to the neighbors (each bit set means that
  * there must be a connection cylinder, no bit set close the sphere) the bits are in
- * the same order as the neighbours or connection points
+ * the same order as the neighbors or connection points
  *
  * hollow specifies, whether the sphere is supposed to be hollow
  * variable, shows, whether the sphere is supposed to be a variable sphere (use the bevel face as variable marker)
@@ -977,7 +977,7 @@ void makeSphere(uint16_t neighbors, int recursion, bool hollow, bool variable, g
           recursion, par);
     }
 
-    /* Then the centre square */
+    /* Then the center square */
     if (!hollow || fabs(par.hole_diam) < Epsilon)
     { // not hollow or no holes
       for (int k = 0; k < 2; k++)
@@ -1005,7 +1005,7 @@ void makeSphere(uint16_t neighbors, int recursion, bool hollow, bool variable, g
     else
     { //hollow with holes
 
-      // hx,hy,hz, location of the centre of the hole into the interior
+      // hx,hy,hz, location of the center of the hole into the interior
       float hx = 0.125*(squarePoints[i][0][0] + squarePoints[i][2][0] +
                       squarePoints[i][4][0] + squarePoints[i][6][0]);
       float hy = 0.125*(squarePoints[i][0][1] + squarePoints[i][2][1] +
@@ -1120,7 +1120,7 @@ Polyhedron sphereMesh(const Voxel& v, float sphere_rad, float connection_rad, fl
       for (unsigned int y = 0; y < v.getY(); y++) {
         for (unsigned int z = 0; z < v.getZ(); z++) {
           if (v.validCoordinate(x, y, z) && !v.isEmpty(x, y, z)) {
-            // the neighbours, a bit each
+            // the neighbors, a bit each
             uint16_t neighbors = 0;
 
             int nx = 0;
@@ -1171,26 +1171,26 @@ Polyhedron sphereMesh(const Voxel& v, float sphere_rad, float connection_rad, fl
 namespace detail {
 
 void connectionFaceSpheres(int x, int y, int z, int n, std::vector<float>& faceCorners) {
-  // The rhombus towards each of the 12 neighbours, a face of the rhombic
+  // The rhombus toward each of the 12 neighbors, a face of the rhombic
   // dodecahedron around the ball. Corners in units of B = sqrt(1/8), as
-  // integers: the ball's centre is at 2x, 2y, 2z (plus 1/2), a corner 2
-  // or 1 units off it, so a corner shared with the neighbour is the same
+  // integers: the ball's center is at 2x, 2y, 2z (plus 1/2), a corner 2
+  // or 1 units off it, so a corner shared with the neighbor is the same
   // integer from both sides and the same float.
   static constexpr int faces[12][4][3] = {
-      /* neighbour at -1, -1,  0 */ {{0, -2, 0}, {-1, -1, 1}, {-2, 0, 0}, {-1, -1, -1}},
-      /* neighbour at -1,  1,  0 */ {{0, 2, 0}, {-1, 1, -1}, {-2, 0, 0}, {-1, 1, 1}},
-      /* neighbour at  1, -1,  0 */ {{0, -2, 0}, {1, -1, -1}, {2, 0, 0}, {1, -1, 1}},
-      /* neighbour at  1,  1,  0 */ {{0, 2, 0}, {1, 1, 1}, {2, 0, 0}, {1, 1, -1}},
+      /* neighbor at -1, -1,  0 */ {{0, -2, 0}, {-1, -1, 1}, {-2, 0, 0}, {-1, -1, -1}},
+      /* neighbor at -1,  1,  0 */ {{0, 2, 0}, {-1, 1, -1}, {-2, 0, 0}, {-1, 1, 1}},
+      /* neighbor at  1, -1,  0 */ {{0, -2, 0}, {1, -1, -1}, {2, 0, 0}, {1, -1, 1}},
+      /* neighbor at  1,  1,  0 */ {{0, 2, 0}, {1, 1, 1}, {2, 0, 0}, {1, 1, -1}},
 
-      /* neighbour at -1,  0, -1 */ {{-2, 0, 0}, {-1, 1, -1}, {0, 0, -2}, {-1, -1, -1}},
-      /* neighbour at -1,  0,  1 */ {{-2, 0, 0}, {-1, -1, 1}, {0, 0, 2}, {-1, 1, 1}},
-      /* neighbour at  1,  0, -1 */ {{2, 0, 0}, {1, -1, -1}, {0, 0, -2}, {1, 1, -1}},
-      /* neighbour at  1,  0,  1 */ {{2, 0, 0}, {1, 1, 1}, {0, 0, 2}, {1, -1, 1}},
+      /* neighbor at -1,  0, -1 */ {{-2, 0, 0}, {-1, 1, -1}, {0, 0, -2}, {-1, -1, -1}},
+      /* neighbor at -1,  0,  1 */ {{-2, 0, 0}, {-1, -1, 1}, {0, 0, 2}, {-1, 1, 1}},
+      /* neighbor at  1,  0, -1 */ {{2, 0, 0}, {1, -1, -1}, {0, 0, -2}, {1, 1, -1}},
+      /* neighbor at  1,  0,  1 */ {{2, 0, 0}, {1, 1, 1}, {0, 0, 2}, {1, -1, 1}},
 
-      /* neighbour at  0, -1, -1 */ {{0, 0, -2}, {1, -1, -1}, {0, -2, 0}, {-1, -1, -1}},
-      /* neighbour at  0, -1,  1 */ {{0, 0, 2}, {-1, -1, 1}, {0, -2, 0}, {1, -1, 1}},
-      /* neighbour at  0,  1, -1 */ {{0, 0, -2}, {-1, 1, -1}, {0, 2, 0}, {1, 1, -1}},
-      /* neighbour at  0,  1,  1 */ {{0, 0, 2}, {1, 1, 1}, {0, 2, 0}, {-1, 1, 1}},
+      /* neighbor at  0, -1, -1 */ {{0, 0, -2}, {1, -1, -1}, {0, -2, 0}, {-1, -1, -1}},
+      /* neighbor at  0, -1,  1 */ {{0, 0, 2}, {-1, -1, 1}, {0, -2, 0}, {1, -1, 1}},
+      /* neighbor at  0,  1, -1 */ {{0, 0, -2}, {-1, 1, -1}, {0, 2, 0}, {1, 1, -1}},
+      /* neighbor at  0,  1,  1 */ {{0, 0, 2}, {1, 1, 1}, {0, 2, 0}, {-1, 1, 1}},
   };
 
   if (n >= 12) {

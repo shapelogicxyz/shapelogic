@@ -39,7 +39,7 @@ bool isFloor(const Voxel& tray, int x, int y) {
 // The highest start or goal mark a cell holds (a byte; 0 is none).
 constexpr unsigned int kMaxMark = 255;
 
-// Colour indices (from 1) that follow the piece's part order are preferred.
+// Color indices (from 1) that follow the piece's part order are preferred.
 unsigned int findOrAddColor(Puzzle& puzzle, unsigned int preferredIndex) {
   while (puzzle.colorNumber() < preferredIndex) {
     const unsigned int n = puzzle.colorNumber();
@@ -135,7 +135,7 @@ void eraseColor(Voxel& tray, unsigned int color) {
   }
 }
 
-// Finds any cell of the colour and works the hotspot position back from the
+// Finds any cell of the color and works the hotspot position back from the
 // first filled cell of the piece.
 bool findColorAnchor(const Voxel& tray, const Voxel& piece, unsigned int color, int* ax,
                      int* ay) {
@@ -1271,7 +1271,7 @@ unsigned int pieceColor(const Puzzle& puzzle, unsigned int shapeId) {
   return 0;
 }
 
-// The goal-map model below (a separate goal shape painted in piece colours)
+// The goal-map model below (a separate goal shape painted in piece colors)
 // came before start/goal shapes. The editor no longer uses it, but older
 // files can hold such goals and the solver still reads them; the tests use
 // these to build such puzzles.
@@ -1354,7 +1354,7 @@ bool hasGoal(const Puzzle& puzzle, const Problem& problem, unsigned int shapeId)
     return false;
   }
   const unsigned int col = piecePartIndex(problem, shapeId);
-  // the goal takes the part's colour even when the piece is neutral
+  // the goal takes the part's color even when the piece is neutral
   if (puzzle.colorNumber() < col) {
     return false;
   }
@@ -1364,7 +1364,7 @@ bool hasGoal(const Puzzle& puzzle, const Problem& problem, unsigned int shapeId)
       return true;
     }
   }
-  // or the piece's painted colour, when it has one
+  // or the piece's painted color, when it has one
   const unsigned int pcol = pieceColor(puzzle, shapeId);
   if (pcol == 0) {
     return false;
@@ -1409,7 +1409,7 @@ void clearStart(Puzzle& puzzle, Problem& problem, unsigned int shapeId) {
   }
   eraseColor(puzzle.getShape(problem.getResultId()), col);
   paintPieceNeutral(puzzle.getShape(shapeId));
-  // the goals stay: they may refer to the part's colour
+  // the goals stay: they may refer to the part's color
   syncMaxHoles(puzzle, problem);
 }
 
@@ -1617,10 +1617,10 @@ void convertLegacyStarts(Puzzle& puzzle) {
     }
   }
   if (!trays) {
-    // the older model, a tray and a goal map painted in piece colours
+    // the older model, a tray and a goal map painted in piece colors
     return;
   }
-  // the pieces' lock colours, and the palette the locks needed, unless a
+  // the pieces' lock colors, and the palette the locks needed, unless a
   // problem has rules of its own for it (none the original made had)
   for (unsigned int s = 0; s < puzzle.getNumberOfShapes(); s++) {
     Voxel& v = puzzle.getShape(s);
@@ -1871,7 +1871,7 @@ namespace {
 bool hasStamp(const Puzzle& puzzle, const Problem& problem, unsigned int shapeId) {
   const Voxel& tray = problem.resultShape(puzzle);
   if (!isStartGoalShape(&tray)) {
-    // the older model: a coloured start on the tray, a goal on the goal map
+    // the older model: a colored start on the tray, a goal on the goal map
     return hasStart(puzzle, problem, shapeId) || hasGoal(puzzle, problem, shapeId);
   }
   return shapeId < kMaxMark && hasMark(problem.slideMarks(), shapeId + 1);

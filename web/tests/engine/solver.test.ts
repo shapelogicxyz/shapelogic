@@ -9,7 +9,7 @@
 // piece; the poses of a solution read in chunks are the engine's samples at
 // every whole step. A stacking solution's discs (deferred part 4) stand,
 // assembled and at the end, where the boards the Puzzle draws put them
-// (stacking.board's layout, by their centres), in the frame the client
+// (stacking.board's layout, by their centers), in the frame the client
 // works the board's middle out in.
 
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
@@ -22,7 +22,7 @@ import { poseArrays } from '../../src/engine/frames.ts';
 import type { SortKey } from '../../src/renderer/solver/pager.ts';
 import { SolutionPager } from '../../src/renderer/solver/pager.ts';
 import { PoseTrack, SAMPLES } from '../../src/renderer/solver/poses.ts';
-import { boardCentre, discAt } from '../../src/renderer/view3d/board.ts';
+import { boardCenter, discAt } from '../../src/renderer/view3d/board.ts';
 import { gridExtent, placedAt } from '../../src/renderer/view3d/extent.ts';
 import { ENGINE, FIXTURES, ROOT, Session } from '../helpers/engine.ts';
 
@@ -112,12 +112,12 @@ describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
         for (const prob of snap.problems) {
           const start = await c.call('stacking.board', { problem: prob.id, goal: false });
           const goal = await c.call('stacking.board', { problem: prob.id, goal: true });
-          if (start.layout === null || start.centre === null || start.error !== null) {
+          if (start.layout === null || start.center === null || start.error !== null) {
             continue;
           }
           // the client's middle of the board is the engine's
-          expect(boardCentre(start.layout), f).toEqual(start.centre);
-          const centre = start.centre;
+          expect(boardCenter(start.layout), f).toEqual(start.center);
+          const center = start.center;
           await c.call('solve.start', { problem: prob.id, options: { disassemble: true } });
           for (let i = 0; i < 400; i++) {
             const st = await c.call('solve.status', { problem: prob.id });
@@ -142,11 +142,11 @@ describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
           for (const [i, piece] of pb.pieces.entries()) {
             const pl = got.placements.find((q) => q.piece === piece.piece);
             const r = size.get(piece.shape) ?? 1;
-            // assembled: the player's placedAt with the disc's centre, centred on the board
+            // assembled: the player's placedAt with the disc's center, centerd on the board
             const at = placedAt(pl?.at ?? [0, 0, 0], [r, r, 0], 'stacking', [
-              2 * centre[0],
-              2 * centre[1],
-              2 * centre[2],
+              2 * center[0],
+              2 * center[1],
+              2 * center[2],
             ]);
             // the start's and the goal's board put the disc where the first and the last pose do
             const copy = piece.piece - pb.pieces.findIndex((q) => q.shape === piece.shape);
@@ -156,8 +156,8 @@ describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
             const onGoal = goal.layout?.discs.find(
               (d) => d.shape === piece.shape && d.instance === copy,
             );
-            const first = discAt(onStart?.at ?? [0, 0, 0], r, centre);
-            const end = discAt(onGoal?.at ?? [0, 0, 0], r, centre);
+            const first = discAt(onStart?.at ?? [0, 0, 0], r, center);
+            const end = discAt(onGoal?.at ?? [0, 0, 0], r, center);
             for (let k = 0; k < 3; k++) {
               const pose0 = poses.translation[3 * i + k] ?? NaN;
               const poseN = poses.translation[3 * (last * n + i) + k] ?? NaN;

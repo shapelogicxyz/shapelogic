@@ -318,7 +318,7 @@ Result<void> SolveSession::launch(Mode mode) {
 
   // A sliding start is judged against a fixed goal, so a rotated or
   // mirrored start is a different start, not a duplicate: every one is
-  // kept; and the start locks are colours the matrix matches strictly (the
+  // kept; and the start locks are colors the matrix matches strictly (the
   // solve thread's constructor and run).
   SolveOptions o = options_;
   if (sliding_) {
@@ -328,7 +328,7 @@ Result<void> SolveSession::launch(Mode mode) {
     o.matrix.keepRotations = true;
     o.matrix.completeRotations = false;
     // the start marks hold the pieces to their starts; the older model (a
-    // tray and a goal map in piece colours) is matched strictly instead
+    // tray and a goal map in piece colors) is matched strictly instead
     const bool marks = sliding::usesStartMarks(puzzle_, problem_);
     o.matrix.strictColors = !marks;
     o.matrix.startLocks = marks;
@@ -365,7 +365,7 @@ Result<void> SolveSession::launch(Mode mode) {
 
 
   // The search to carry on with (the problem's assembler in the original).
-  // A matrix bakes the colour rule in: made with the other one, or unknown
+  // A matrix bakes the color rule in: made with the other one, or unknown
   // (a saved position does not say), the solve starts over.
   bool reuse = false;
   if (assembler_ && problem_.getSolveState() == ProblemState::Solving) {
@@ -527,7 +527,7 @@ Result<void> SolveSession::launchStacking(Mode mode) {
   if (mode == Mode::Start) {
     panex::discardSaved(puzzle_, problem_, options_.stacking.workDir);
   }
-  // The hotspots where a stacking solve has them: a disc's at its centre
+  // The hotspots where a stacking solve has them: a disc's at its center
   // (cb_BtnCont's ensureHotspot); no change when the owner set them so
   // before the first run (the document does).
   for (unsigned int i = 0; i < puzzle_.getNumberOfShapes(); i++) {

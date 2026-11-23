@@ -14,7 +14,7 @@
 // a stored option for its revision. What the engine would refuse as
 // invalid_state is refused first: the options of a problem being solved,
 // a pause with no run under way, an abort once the run has ended (the
-// button greys out, as the original's); the frozen document says "pause
+// button grays out, as the original's); the frozen document says "pause
 // the solve first". A stacking puzzle (docs/webui-spec.md, section 9.3):
 // its options and its one solver by the board, Solve and Continue off
 // without a board or with invalid stacks, Continue in Solve's place and
@@ -46,7 +46,7 @@ import { byId, esc } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onLayout, tab } from '../shell/layout.ts';
-import { isTray } from '../shell/piece-colours.ts';
+import { isTray } from '../shell/piece-colors.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { chooseCacheFolder } from '../shell/settings.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
@@ -194,8 +194,8 @@ export class SolverWorkspace {
       current: (id) => id === this.selId && this.pager?.current(this.sel, this.sel + 1) === true,
       board: () => {
         const layout = this.board?.layout ?? null;
-        const centre = this.board?.centre ?? null;
-        return layout === null || centre === null ? null : { layout, centre };
+        const center = this.board?.center ?? null;
+        return layout === null || center === null ? null : { layout, center };
       },
     });
     this.preview = new LivePreview({
@@ -204,8 +204,8 @@ export class SolverWorkspace {
       detail: () => this.detail,
       board: () => {
         const layout = this.board?.layout ?? null;
-        const centre = this.board?.centre ?? null;
-        return layout === null || centre === null ? null : { layout, centre };
+        const center = this.board?.center ?? null;
+        return layout === null || center === null ? null : { layout, center };
       },
       changed: () => {
         this.renderTag();
@@ -795,7 +795,7 @@ export class SolverWorkspace {
       case 'solving':
         return this.continueStartsOver ? 'Search paused, its saved search gone' : 'Search paused';
       default: {
-        // what Solve's tooltip says when it is greyed (run-card.ts)
+        // what Solve's tooltip says when it is grayed (run-card.ts)
         const board = this.stacking ? p.rodSet !== null : p.result !== null;
         if (!board || (this.slideError ?? this.stackError) !== null) {
           return 'Not ready to solve';
@@ -965,7 +965,7 @@ export class SolverWorkspace {
       snap.grid === 'sliding' && result !== null && isTray(snap.shapes.find((x) => x.id === result))
         ? result
         : null;
-    // a stacking problem's board (its validity, its centre for the player)
+    // a stacking problem's board (its validity, its center for the player)
     // and its saved search; whether a sliding problem's Continue would
     // start over
     const stacking = snap.grid === 'stacking';
@@ -1210,7 +1210,7 @@ export class SolverWorkspace {
     );
   }
 
-  /** A check box changed (normalised by the original's rules), or the solver or the sort. */
+  /** A check box changed (normalized by the original's rules), or the solver or the sort. */
   async setOption(change: Partial<SearchOptions>, box: BoxName | null = null): Promise<void> {
     const problem = this.current;
     const d = this.detail;
@@ -1398,7 +1398,7 @@ export class SolverWorkspace {
    * (decision 0033, sliding.resumeAdvice): whether to carry the saved one
    * on, the question saying that Abort, then Solve, uses the far faster
    * search. True without a question for every other paused search; false
-   * when the question was cancelled or dismissed (the solve stays paused).
+   * when the question was canceled or dismissed (the solve stays paused).
    */
   private async askFromStartAlone(
     problem: string,
@@ -1441,7 +1441,7 @@ export class SolverWorkspace {
    * off (decision 0029): when the board fits a grid (sliding.gridAdvice),
    * whether this solve should hold the stops to it. True to use it, false
    * for the full search (and when the board fits none), null when the
-   * question was cancelled.
+   * question was canceled.
    */
   private async askOptimizedPaths(problem: string): Promise<boolean | null> {
     let advice;
@@ -1580,7 +1580,7 @@ export class SolverWorkspace {
           return;
         }
         if (k === 'choose' && !(await chooseCacheFolder())) {
-          // not changed (cancelled, or refused): asked again
+          // not changed (canceled, or refused): asked again
           continue;
         }
         if (k === 'choose' || k === 'retry') {

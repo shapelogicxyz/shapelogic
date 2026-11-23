@@ -11,7 +11,7 @@ recovery (then the short audit of its file paths).
   its step in grid coordinates (`vectors`, a `Cell` per direction,
   reversed is the negation) beside its labels. A label does not say how
   far a step goes: Bermuda is a prism puzzle, whose directions are
-  (0, 0, 1), (2, 0, 0), (1, 1, 0), (−1, 1, 0), labelled "z", "x", "xy",
+  (0, 0, 1), (2, 0, 0), (1, 1, 0), (−1, 1, 0), labeled "z", "x", "xy",
   "-xy", and `explore.findMatching` takes the step itself, so a dragged
   piece cannot be matched from the labels (the contract session's unit
   deltas found only the z moves on prisms). `MovementExplorer::
@@ -54,7 +54,7 @@ recovery (then the short audit of its file paths).
     tree.
   - Pieces are drawn as the assembled view draws them
     (`extent.ts`'s new `placedAt`: the mesh of the transformation at the
-    cell minus its hotspot, scaled, centred on the result; the player
+    cell minus its hotspot, scaled, centerd on the result; the player
     uses it too), from the view's mesh cache, in the view's **explorer
     layer** over the player's solution. The handles are closed when the
     drawer closes (its ×, Esc, the Advanced button again), the problem
@@ -84,14 +84,14 @@ recovery (then the short audit of its file paths).
 - `entities/status-window.ts` (`StatusWindow`): the original's status
   window over `shape.table`: the shape (chip), Units (normal, variable,
   total), Identical (mirror, shape, complete: the earlier shape's chip),
-  Connectivity (face, edge, corner: X, or the shape's colour where the
-  original coloured the box), Holes (2D, 3D), Tools (notch, mill; cube
+  Connectivity (face, edge, corner: X, or the shape's color where the
+  original colored the box), Holes (2D, 3D), Tools (notch, mill; cube
   grid only), Sym ("---" when the grid's tables do not know it); the
   shape's status line as the row's tooltip. Refresh, Close, Remove
   selected (one undo step, `edit.begin`/`edit.end`; refused while solving
   before any call; never every shape), Select holes, Select Identical
   Shapes / Complete / Mirror (added to what is selected, as the
-  original's). Read again when a change names the shapes or colours, and
+  original's). Read again when a change names the shapes or colors, and
   for another document. Opened by a temporary **Status…** button in the
   top bar until stage 6's menus.
 - `shell/panel.ts`: a window of its own over the workspace (title, ×,
@@ -107,7 +107,7 @@ recovery (then the short audit of its file paths).
   orbiting, while the movement explorer is open; `#vp[data-hover-piece]`
   and `[data-piece-screen]` while it is. `view3d/solution.ts`: `pick` (the
   piece a ray meets, never the result an explorer draws around them),
-  `centreOf`.
+  `centerOf`.
 - `shell/keys.ts`: an **Explorers** group of rows (no new chords: 38 as
   before): while the drawer has the focus, ↑ ↓ ← → Home End Space Enter
   mean the explorer's things (`onKey(…, first)`), the Alt-drag, Esc

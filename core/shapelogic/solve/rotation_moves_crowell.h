@@ -22,7 +22,7 @@ class Puzzle;
 class Symmetries;
 
 /// The Fortran-style generator. The groups turned are those without the
-/// largest piece; pivots are cell centres, south-west corners and the far
+/// largest piece; pivots are cell centers, south-west corners and the far
 /// edges of the moving body's box; a turn back the way the last one came is
 /// skipped.
 class RotationMovesCrowell final : public RotationMoves {

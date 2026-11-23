@@ -10,7 +10,7 @@ expected to follow.
 ## The original is the reference
 
 ShapeLogic is a port of BurrTools. The port is **faithful first,
-restructured second**: an algorithm is ported with its behaviour intact,
+restructured second**: an algorithm is ported with its behavior intact,
 proved with tests and the comparison harness, and only then reshaped.
 Nothing is "improved" while it is being ported.
 
@@ -84,7 +84,7 @@ Nothing is "improved" while it is being ported.
   `web/tests/engine/` (the release engine as a child process); Playwright
   drives the built app in `web/tests/e2e/`. A flaky test is a bug.
 
-## How work is organised
+## How work is organized
 
 The core was built in numbered stages (`docs/PLAN.md`), the app in its own
 (`docs/FRONTEND-PLAN.md`), and the deferred features in parts

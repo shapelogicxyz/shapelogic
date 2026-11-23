@@ -59,7 +59,7 @@ bool samePentagon(std::vector<cairo::Point> a, const std::array<cairo::Point, 5>
 
 // The offset (dx, dy) that, added to a cell moved by the transformation's
 // plane part, lands it on the cell of the moved pentagon: 0 for the turns
-// about the 4-fold centre, the glide's shift for the mirrors and the
+// about the 4-fold center, the glide's shift for the mirrors and the
 // turns over. Found once for each transformation from the four kinds.
 const std::array<std::array<int, 2>, 16>& offsets() {
   static const std::array<std::array<int, 2>, 16> all = [] {

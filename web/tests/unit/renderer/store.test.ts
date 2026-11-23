@@ -97,9 +97,9 @@ const snapshot = (revision: number, shapes: string[]) => ({
     fixed: 1,
     variable: 0,
     weight: 1,
-    colour: null,
+    color: null,
   })),
-  colours: [],
+  colors: [],
   problems: [],
 });
 
@@ -229,7 +229,7 @@ describe('the mesh cache', () => {
     expect(cache.get('s2', 'drawing', 1)).toBe(b);
     f.emit('document.changed', { revision: 3, what: ['problems'], shapes: [], problems: ['p1'] });
     expect(cache.get('s2', 'drawing', 1)).toBe(b);
-    f.emit('document.changed', { revision: 4, what: ['colours'], shapes: [], problems: [] });
+    f.emit('document.changed', { revision: 4, what: ['colors'], shapes: [], problems: [] });
     expect(cache.get('s2', 'drawing', 1)).not.toBe(b);
   });
 

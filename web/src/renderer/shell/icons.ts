@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The interface's line icons. From docs/mockup/index.html: the icon table
-// `I` and `ic` (24 x 24, stroked with the current colour).
+// `I` and `ic` (24 x 24, stroked with the current color).
 
 /** The icons' SVG bodies by name. */
 export const ICONS = {

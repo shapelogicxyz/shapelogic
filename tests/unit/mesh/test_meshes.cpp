@@ -90,7 +90,7 @@ TEST_CASE("meshes: one cell of every grid is a closed solid with its faces tagge
       CHECK(f.voxelFace >= 0);
       sides.insert(f.voxelFace);
     }
-    // one face per neighbour
+    // one face per neighbor
     CHECK(static_cast<int>(sides.size()) == flat.numFaces());
 
     if (kind != GridKind::Spheres) {
@@ -177,12 +177,12 @@ TEST_CASE("meshes: the plain triangle list", "[mesh]") {
   CHECK(flat.lo[0] == 0.0F);
   CHECK(flat.hi[0] == 2.0F);
 
-  // the variable cell's faces are marked, and carry its colour
+  // the variable cell's faces are marked, and carry its color
   bool marked = false;
   for (std::size_t t = 0; t < flat.triangleCount(); t++) {
     if (flat.voxel[t] == v->getIndex(1, 0, 0)) {
       CHECK((flat.flags[t] & kFaceVariableMark) != 0);
-      CHECK(flat.colour[t] == 3);
+      CHECK(flat.color[t] == 3);
       marked = true;
     } else {
       CHECK((flat.flags[t] & kFaceVariableMark) == 0);

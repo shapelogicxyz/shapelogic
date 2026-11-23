@@ -78,7 +78,7 @@ int Polyhedron::addFace(const std::vector<int>& corners) {
   faceStore_.back().index = numFaces();
   faces_.push_back(f);
 
-  // one half-edge per pair of neighbouring corners
+  // one half-edge per pair of neighboring corners
   const std::size_t nc = corners.size();
   std::vector<int> edges;
   edges.reserve(nc);
@@ -212,7 +212,7 @@ void Polyhedron::finalize() {
       // an odd number of faces at one edge cannot be paired
       BT_ASSERT(n % 2 == 0);
 
-      // Sorted by the angle of their faces around the edge: neighbouring
+      // Sorted by the angle of their faces around the edge: neighboring
       // faces (by angle) that enclose the same filled region are paired.
       // Seen along the edge, the angle of each face is that of another of
       // its corners, projected onto a coordinate plane the edge is not

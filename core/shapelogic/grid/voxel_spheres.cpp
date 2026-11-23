@@ -24,7 +24,7 @@ struct Point {
   double z;
 };
 
-/// Rotates the centre of sphere (x, y, z), in sphere coordinates. The
+/// Rotates the center of sphere (x, y, z), in sphere coordinates. The
 /// expressions are the original's, term for term.
 Point rotateSphere(const double* r, int x, int y, int z) {
   const double xp = x * std::sqrt(0.5);
@@ -124,7 +124,7 @@ bool VoxelSpheres::transform(unsigned int nr) {
   unsigned int nsy = asUnsigned(maxy - miny + 1);
   unsigned int nsz = asUnsigned(maxz - minz + 1);
 
-  // never make the space smaller than before; centre the shape in the old
+  // never make the space smaller than before; center the shape in the old
   // size instead
   if (nsx < sx_ || nsy < sy_ || nsz < sz_) {
     // shift so that spheres stay on valid positions: (dx+dy+dz) must be even
@@ -224,7 +224,7 @@ void VoxelSpheres::getTransformMatrix(unsigned int trans, double m[9]) const {
 
 bool VoxelSpheres::getNeighbor(unsigned int idx, unsigned int typ, int x, int y, int z, int* xn,
                                int* yn, int* zn) const {
-  // spheres only have one kind of neighbour
+  // spheres only have one kind of neighbor
   if (typ != 0) {
     return false;
   }

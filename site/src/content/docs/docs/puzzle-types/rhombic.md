@@ -22,9 +22,9 @@ corners until only a diamond-shaped square rod is left, then repeating for the
 other axes.
 
 Stewart Coffin's puzzle books describe pieces with a small set of building
-blocks derived from the rhombic dodecahedron: a six-sided centre block, two
+blocks derived from the rhombic dodecahedron: a six-sided center block, two
 prism blocks, a square octahedron, a square pyramid and a tetrahedral block.
-Six copies of the centre block are nearly always the centre of a puzzle, and
+Six copies of the center block are nearly always the center of a puzzle, and
 other blocks are attached to its faces.
 
 ## Taking apart

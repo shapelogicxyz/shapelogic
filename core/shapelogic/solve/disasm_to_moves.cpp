@@ -146,7 +146,7 @@ bool DisasmToMoves::routeAt(int step, unsigned int piece, float frac, float* xyz
     return std::fabs(o[k][0] - o[k - 1][0]) + std::fabs(o[k][1] - o[k - 1][1]) +
            std::fabs(o[k][2] - o[k - 1][2]);
   };
-  // at the same speed along the bends: frac by length travelled
+  // at the same speed along the bends: frac by length traveled
   float total = 0;
   for (std::size_t k = 1; k < o.size(); k++) {
     total += length(k);
@@ -269,7 +269,7 @@ bool DisasmToMoves::findRotationArrivalRec(const Separation* t, int step, unsign
 }
 
 // Walks the tree and adds the pieces' positions for `step` into `array`
-// (x, y, z, alpha per piece; null only counts the steps), centred on (cx,
+// (x, y, z, alpha per piece; null only counts the steps), centerd on (cx,
 // cy, cz). A step below 0 or past the tree's moves is outside it. Returns
 // the steps the tree takes.
 int DisasmToMoves::doRecursive(const Separation* tree, int step, float* array,
@@ -338,9 +338,9 @@ int DisasmToMoves::doRecursive(const Separation* tree, int step, float* array,
     int steps = 0;
     int steps2 = 0;
 
-    // the removed group around its new centre
+    // the removed group around its new center
     if (tree->getRemoved() != nullptr) {
-      // centred: the removed group stays where it was; else it is placed
+      // centerd: the removed group stays where it was; else it is placed
       // out of the way
       if (centerActive) {
         const State& before = tree->getState(tree->getMoves() - 1);
@@ -374,9 +374,9 @@ int DisasmToMoves::doRecursive(const Separation* tree, int step, float* array,
       }
     }
 
-    // the group that stays, at the old centre
+    // the group that stays, at the old center
     if (tree->getLeft() != nullptr) {
-      // centred, while the removed group is taken apart the staying one is
+      // centerd, while the removed group is taken apart the staying one is
       // moved out of the way, against the direction of the removal
       const bool removedActive = centerActive &&
                                  (step - static_cast<int>(tree->getMoves()) < steps) &&

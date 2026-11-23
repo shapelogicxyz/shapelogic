@@ -93,7 +93,7 @@ void Puzzle::exchangeShapes(unsigned int s1, unsigned int s2) {
 }
 
 unsigned int Puzzle::addColor(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
-  BT_ASSERT(colors_.size() < kMaxColors);  // colour 0 is "none"
+  BT_ASSERT(colors_.size() < kMaxColors);  // color 0 is "none"
   colors_.push_back(static_cast<std::uint32_t>(r) | static_cast<std::uint32_t>(g) << 8 |
                     static_cast<std::uint32_t>(b) << 16);
   return static_cast<unsigned int>(colors_.size() - 1);
@@ -102,7 +102,7 @@ unsigned int Puzzle::addColor(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
 void Puzzle::removeColor(unsigned int col) {
   BT_ASSERT(col >= 1 && col <= colors_.size());
 
-  // the shapes stop using the colour, higher colours move down
+  // the shapes stop using the color, higher colors move down
   for (ClonePtr<Voxel>& shape : shapes_) {
     for (unsigned int p = 0; p < shape->getXYZ(); p++) {
       if (shape->getState(p) != Voxel::kEmpty) {
@@ -115,7 +115,7 @@ void Puzzle::removeColor(unsigned int col) {
     }
   }
 
-  // the colour rules: drop those with the colour, renumber the higher ones
+  // the color rules: drop those with the color, renumber the higher ones
   const auto n = static_cast<unsigned int>(colors_.size());
   for (ClonePtr<Problem>& pp : problems_) {
     Problem& prob = *pp;

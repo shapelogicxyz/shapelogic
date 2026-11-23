@@ -167,7 +167,7 @@ void RotationMovesCrowell::rebuildPivotCells(unsigned int axis) {
     return RotationRules::Pivot(u, v, da);
   };
 
-  // the Fortran solver's SimpleRot with Rmult 1: cell centres, south-west
+  // the Fortran solver's SimpleRot with Rmult 1: cell centers, south-west
   // corners, and the far edges in u and v (not Classic's dense half grid)
   for (int u = umin; u <= umax; u++) {
     for (int v = vmin; v <= vmax; v++) {

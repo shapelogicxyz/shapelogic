@@ -71,7 +71,7 @@ struct ShapeInfo {
   unsigned int fixed = 0;
   unsigned int variable = 0;
   /// An earlier shape it is identical to: with mirrors allowed, as a shape
-  /// (any orientation), and completely (with its colours, not mirrored).
+  /// (any orientation), and completely (with its colors, not mirrored).
   std::optional<unsigned int> identicalMirror;
   std::optional<unsigned int> identicalShape;
   std::optional<unsigned int> identicalComplete;

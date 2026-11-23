@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The Solver workspace's scene (FRONTEND-PLAN.md, stage 4): the pieces of
-// a solution, each its own mesh in its own colour (the original's
+// a solution, each its own mesh in its own color (the original's
 // pieceColor of the shape, jittered per copy), placed by a pose: the
 // assembled view (the mesh of the placement's transformation at the cell
 // minus its hotspot) or the player's poses (playback.poses, interpolated).
-// The coordinates are mesh units centred on the result, as the poses are,
+// The coordinates are mesh units centerd on the result, as the poses are,
 // so the scene sits at the turned root's origin. A piece is shown solid
 // (the view's style), as a wire frame (the wire-frame mesh) or not at all,
 // as the mockup's piece chips cycle; with x-ray ("show through solid
@@ -16,10 +16,13 @@
 // three.js over the engine's meshes (mesh.ts, material.ts), as the other
 // scenes'. A sliding puzzle's tray has its walls drawn around its floor
 // (walls.ts). A piece's label (S1, S1.2), its name from the Shapes tab
-// (cut to the setting's characters, or all of it in lines), or both ("S1 - name") can be drawn on it: a sprite,
-// facing the eye however the view turns, a white box with black text of a
-// fixed size on the screen, over everything, at the middle of the cell
-// nearest the piece's middle (on the piece even when it is hollow).
+// (cut to the setting's characters for each voxel of the piece's width
+// there, or all of it in lines that wide), or both ("S1 - name") can be
+// drawn on it: a sprite, facing the eye however the view turns, a white
+// box with black text of a fixed size on the screen, over everything, in
+// the middle of the piece's widest layer, counted up from the bottom of
+// the home view (the lowest of the widest; on the piece even when it is
+// hollow).
 
 import { Box3, Group, Mesh, MeshBasicMaterial, Quaternion, Vector2, Vector3, Vector4 } from 'three';
 import type { BufferGeometry, Raycaster, Sprite } from 'three';
@@ -28,8 +31,8 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
 import type { BoardLayout, MeshStyle } from '../../engine/api.generated.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
-import { LABEL_CHARS_MAX } from '../shell/prefs.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
+import { LABEL_LINE_PER_VOXEL } from '../shell/prefs.ts';
 import { faceMaterial, faceUniforms, setPalette, setPicture, setPiece } from './material.ts';
 import type { PiecePicture } from '../shell/picture-math.ts';
 import type { FaceUniforms } from './material.ts';
@@ -44,7 +47,7 @@ export interface ScenePiece {
   /** The problem's piece number. */
   piece: number;
   shape: string;
-  colour: Rgb3;
+  color: Rgb3;
   mode: PieceMode;
   /** Its mesh in the view's style (solid) or the wire-frame style (wire); null when hidden. */
   built: BuiltMesh | null;
@@ -58,27 +61,43 @@ export interface ScenePiece {
 export interface LabelShow {
   label: boolean;
   name: boolean;
-  /** The characters of the name drawn, the rest cut off; 0 all of it, a line every LABEL_CHARS_MAX. */
+  /**
+   * The characters of the name drawn for each voxel of the piece's width
+   * where its label sits, the rest cut off; 0 all of it, a line every
+   * LABEL_LINE_PER_VOXEL per voxel.
+   */
   chars: number;
+  /** The scene's axis that is up in the home view: 1 (+Y) or 2 (+Z); X is across. */
+  up: 1 | 2;
 }
 
 /**
- * The text drawn on a piece: "S2", "name" (its first `show.chars`
- * characters), "S2 - name", or '' for none; with `chars` 0 the whole name,
- * a line ("\n") every LABEL_CHARS_MAX characters.
+ * The text drawn on a piece `width` voxels wide where its label sits:
+ * "S2", "name" (its first `show.chars` characters per voxel), "S2 - name",
+ * or '' for none; with `chars` 0 the whole name, a line ("\n") every
+ * LABEL_LINE_PER_VOXEL characters per voxel.
  */
-export function pieceText(p: { label?: string; name?: string }, show: LabelShow): string {
+export function pieceText(
+  p: { label?: string; name?: string },
+  show: Pick<LabelShow, 'label' | 'name' | 'chars'>,
+  width = 1,
+): string {
   const label = show.label ? (p.label ?? '') : '';
+  const voxels = Math.max(1, Math.round(width));
   // by code point, so that an emoji is not split
   const chars = Array.from(p.name ?? '');
   let name = '';
   if (show.name && show.chars > 0) {
-    name = chars.slice(0, show.chars).join('').trim();
+    name = chars
+      .slice(0, show.chars * voxels)
+      .join('')
+      .trim();
   } else if (show.name) {
     const lines: string[] = [];
-    for (let i = 0; i < chars.length; i += LABEL_CHARS_MAX) {
+    const each = LABEL_LINE_PER_VOXEL * voxels;
+    for (let i = 0; i < chars.length; i += each) {
       const line = chars
-        .slice(i, i + LABEL_CHARS_MAX)
+        .slice(i, i + each)
         .join('')
         .trim();
       if (line !== '') {
@@ -98,8 +117,8 @@ export interface SolutionModel {
   pieces: ScenePiece[];
   /** The result shape's id (a sliding puzzle's tray: its walls are drawn); absent for none. */
   result?: string | null;
-  /** A stacking puzzle's board: its pegs are drawn around the discs, centred as the poses. */
-  board?: { layout: BoardLayout; centre: [number, number, number] } | null;
+  /** A stacking puzzle's board: its pegs are drawn around the discs, centerd as the poses. */
+  board?: { layout: BoardLayout; center: [number, number, number] } | null;
 }
 
 /** Where a piece is: translation, rotation (xyzw), shown, opacity. */
@@ -113,7 +132,7 @@ export interface ScenePose {
 /** How the pieces are drawn. */
 export interface SolutionLook {
   style: MeshStyle;
-  colourView: boolean;
+  colorView: boolean;
   lit: boolean;
   /** Wire frames over the solid pieces (the Display menu's x-ray). */
   xray: boolean;
@@ -132,6 +151,8 @@ interface PieceDraw {
   label: Sprite | null;
   /** The text its sprite says ('' for none). */
   text: string;
+  /** Where its label goes and how wide the piece is there, found when first needed; null: not yet. */
+  spot: LabelSpot | null;
 }
 
 /** Makes a label's sprite (labels.ts); null: none can be drawn. */
@@ -142,19 +163,19 @@ export class SolutionScene {
   private readonly shared: FaceUniforms = faceUniforms();
   private readonly markMaterial = new MeshBasicMaterial({ color: 0x000000 });
   private readonly edgeMaterial = new LineMaterial({ color: 0x000000, linewidth: 2 });
-  /** The walls' lines (drawSlidingWalls: black, 5 pixels). */
+  /** The walls' lines (drawSlidingWalls: black, 5 pixels; white on the dark theme, setDark). */
   private readonly wallMaterial = new LineMaterial({ color: 0x000000, linewidth: 5 });
   private walls: LineSegments2 | null = null;
   private draws: PieceDraw[] = [];
   private look: SolutionLook = {
     style: 'drawing',
-    colourView: false,
+    colorView: false,
     lit: true,
     xray: false,
     palette: [],
   };
   private poses: ScenePose[] = [];
-  private labels: LabelShow = { label: false, name: false, chars: 8 };
+  private labels: LabelShow = { label: false, name: false, chars: LABEL_LINE_PER_VOXEL, up: 1 };
   /** Pixels per mesh unit at the scene's plane (the labels' size). */
   private pixelsPerUnit = 1;
   /** Null: this scene draws no labels (the board's and the trays'). */
@@ -164,6 +185,16 @@ export class SolutionScene {
     this.makeLabel = makeLabel;
     this.edgeMaterial.resolution = new Vector2(1, 1);
     this.wallMaterial.resolution = new Vector2(1, 1);
+  }
+
+  /** The walls' color for the theme: black on the light canvas, white on the dark one. */
+  setDark(dark: boolean): void {
+    this.wallMaterial.color.setHex(dark ? 0xffffff : 0x000000);
+  }
+
+  /** The walls' color now, as #rrggbb (the tests read it). */
+  get wallColor(): string {
+    return `#${this.wallMaterial.color.getHexString()}`;
   }
 
   /** A sliding tray's walls: line segments (x,y,z pairs) in the scene's frame; null: none. */
@@ -215,7 +246,7 @@ export class SolutionScene {
         uImageOn: { value: 0 },
         uImageSrc: { value: new Vector4(0, 0, 1, 1) },
       };
-      setPiece(uniforms, piece.colour);
+      setPiece(uniforms, piece.color);
       setPicture(uniforms, piece.mode === 'wire' ? null : this.pictureOf(piece.shape));
       const group = new Group();
       const d: PieceDraw = {
@@ -228,6 +259,7 @@ export class SolutionScene {
         marks: null,
         label: null,
         text: '',
+        spot: null,
       };
       const b = piece.built;
       if (b !== null && piece.mode !== 'hidden') {
@@ -256,6 +288,13 @@ export class SolutionScene {
 
   /** Shows or hides the pieces' labels and names. */
   setLabels(show: LabelShow): void {
+    if (show.up !== this.labels.up) {
+      // the widest layer is counted from another bottom
+      for (const d of this.draws) {
+        this.dropLabel(d);
+        d.spot = null;
+      }
+    }
     this.labels = { ...show };
     this.applyLabels();
   }
@@ -318,8 +357,8 @@ export class SolutionScene {
     return shown.find((d) => d.faces === hit?.object)?.piece.piece ?? null;
   }
 
-  /** The centre of a piece's mesh as drawn, in world space (null: not drawn). */
-  centreOf(piece: number): Vector3 | null {
+  /** The center of a piece's mesh as drawn, in world space (null: not drawn). */
+  centerOf(piece: number): Vector3 | null {
     const d = this.draws.find((x) => x.piece.piece === piece);
     if (d?.faces == null || !d.group.visible) {
       return null;
@@ -354,7 +393,7 @@ export class SolutionScene {
     const u = this.shared;
     const look = this.look;
     setPalette(u, look.palette);
-    u.uColourView.value = look.colourView ? 1 : 0;
+    u.uColorView.value = look.colorView ? 1 : 0;
     u.uLit.value = look.lit ? 1 : 0;
     for (const d of this.draws) {
       const wire = d.piece.mode === 'wire';
@@ -372,16 +411,20 @@ export class SolutionScene {
   // the labels made when first shown, for the pieces drawn that have one;
   // a label whose text changed (the other part turned on or off) made again
   private applyLabels(): void {
+    const shown = this.labels.label || this.labels.name;
     for (const d of this.draws) {
-      const text = pieceText(d.piece, this.labels);
+      if (shown && d.spot === null && d.faces !== null && this.makeLabel !== null) {
+        d.spot = labelSpot(d.faces.geometry, this.labels.up);
+      }
+      const text = pieceText(d.piece, this.labels, d.spot?.width ?? 1);
       if (d.label !== null && text !== '' && text !== d.text) {
         this.dropLabel(d);
       }
-      if (d.label === null && d.faces !== null && text !== '') {
+      if (d.label === null && d.faces !== null && d.spot !== null && text !== '') {
         d.label = this.makeLabel?.(text) ?? null;
         if (d.label !== null) {
           d.text = text;
-          d.label.position.copy(labelSpot(d.faces.geometry));
+          d.label.position.copy(d.spot.at);
           this.scaleLabel(d);
           this.setOpacity(d, d.uniforms.uAlpha.value);
           d.group.add(d.label);
@@ -452,45 +495,155 @@ export class SolutionScene {
   }
 }
 
+/** Where a piece's label goes, in its mesh's frame, and how many voxels wide the piece is there. */
+export interface LabelSpot {
+  at: Vector3;
+  width: number;
+}
+
+/** A cell's box in a mesh's frame. */
+interface CellBox {
+  min: [number, number, number];
+  max: [number, number, number];
+  /** Its box's middle. */
+  mid: [number, number, number];
+}
+
+/** The middle value of some numbers (0 for none). */
+function median(values: number[]): number {
+  if (values.length === 0) {
+    return 0;
+  }
+  const v = [...values].sort((a, b) => a - b);
+  return v[Math.floor(v.length / 2)] ?? 0;
+}
+
+/** An unbroken run of cells across a layer: its cells, its extent across, its width in cells. */
+interface Run {
+  cells: CellBox[];
+  lo: number;
+  hi: number;
+  width: number;
+}
+
 /**
- * Where a piece's label goes, in its mesh's frame: the middle of the cell
- * (its faces' corners, by aCell) nearest the middle of all its faces, so
- * that it sits on the piece even when the piece is bent round an empty middle.
+ * A layer's runs across, left to right: boxes that touch or overlap (within
+ * half a cell: a bevel or a gap between a piece's cells is less, a missing
+ * cell more), each run's width the cells side by side in it (their
+ * middles across, one for each column, whatever their depth).
  */
-function labelSpot(faces: BufferGeometry): Vector3 {
+function runsAcross(layer: CellBox[], sizeX: number): Run[] {
+  const sorted = [...layer].sort((a, b) => a.min[0] - b.min[0]);
+  const runs: Run[] = [];
+  for (const b of sorted) {
+    const run = runs[runs.length - 1];
+    if (run !== undefined && b.min[0] <= run.hi + 0.5 * sizeX) {
+      run.cells.push(b);
+      run.hi = Math.max(run.hi, b.max[0]);
+    } else {
+      runs.push({ cells: [b], lo: b.min[0], hi: b.max[0], width: 1 });
+    }
+  }
+  for (const run of runs) {
+    const xs = run.cells.map((b) => b.mid[0]).sort((a, b) => a - b);
+    for (let i = 1; i < xs.length; i++) {
+      if ((xs[i] ?? 0) - (xs[i - 1] ?? 0) > 0.25 * sizeX) {
+        run.width++;
+      }
+    }
+  }
+  return runs;
+}
+
+/**
+ * Where a piece's label goes, in its mesh's frame: in the middle of the
+ * piece's widest layer, scanning up (`up`: the axis that is up in the home
+ * view, 1 or 2; X is across) from the bottom, the lowest layer when several
+ * are as wide. A layer is the cells whose boxes' middles lie at one height;
+ * its width is its longest unbroken run of cells across (a gap of a cell
+ * breaks it, so the label sits on the piece even when the layer has a
+ * hole), counted in cells side by side, whatever their depth. The label
+ * goes on the cell of that run nearest its middle, at the middle across,
+ * the front one where two are as near. Grids whose cells do not line up in
+ * rows (the spheres, the rhombic ones) are measured as well as their boxes
+ * allow.
+ */
+export function labelSpot(faces: BufferGeometry, up: 1 | 2): LabelSpot {
   const pos = faces.getAttribute('position');
   const cell = faces.getAttribute('aCell') as typeof pos | undefined;
-  const all = new Vector3();
-  const cells = new Map<string, { sum: Vector3; n: number }>();
-  const p = new Vector3();
+  const cells = new Map<string, CellBox>();
+  const p: [number, number, number] = [0, 0, 0];
   for (let i = 0; i < pos.count; i++) {
-    p.fromBufferAttribute(pos, i);
-    all.add(p);
+    p[0] = pos.getX(i);
+    p[1] = pos.getY(i);
+    p[2] = pos.getZ(i);
     const k =
       cell === undefined
         ? ''
         : `${String(cell.getX(i))},${String(cell.getY(i))},${String(cell.getZ(i))}`;
     const c = cells.get(k);
     if (c === undefined) {
-      cells.set(k, { sum: p.clone(), n: 1 });
+      cells.set(k, { min: [p[0], p[1], p[2]], max: [p[0], p[1], p[2]], mid: [0, 0, 0] });
     } else {
-      c.sum.add(p);
-      c.n++;
+      for (let a = 0; a < 3; a++) {
+        c.min[a] = Math.min(c.min[a] ?? 0, p[a] ?? 0);
+        c.max[a] = Math.max(c.max[a] ?? 0, p[a] ?? 0);
+      }
     }
   }
-  if (pos.count === 0) {
-    return all;
+  const boxes = [...cells.values()];
+  if (boxes.length === 0) {
+    return { at: new Vector3(), width: 1 };
   }
-  all.divideScalar(pos.count);
-  let best = all;
+  for (const b of boxes) {
+    b.mid = [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2];
+  }
+  const depth = up === 1 ? 2 : 1;
+  // toward the eye in the home view: +Z with Z Toward, -Y with Z Up
+  const toward = up === 1 ? 1 : -1;
+  // a cell's size across and up, for the tolerances
+  const sizeX = Math.max(1e-6, median(boxes.map((b) => b.max[0] - b.min[0])));
+  const sizeUp = Math.max(1e-6, median(boxes.map((b) => b.max[up] - b.min[up])));
+
+  // the layers, from the bottom up
+  boxes.sort((a, b) => a.mid[up] - b.mid[up]);
+  const layers: CellBox[][] = [];
+  for (const b of boxes) {
+    const layer = layers[layers.length - 1];
+    const first = layer?.[0];
+    if (layer !== undefined && first !== undefined && b.mid[up] - first.mid[up] < 0.25 * sizeUp) {
+      layer.push(b);
+    } else {
+      layers.push([b]);
+    }
+  }
+
+  let best: Run | null = null;
+  for (const layer of layers) {
+    for (const run of runsAcross(layer, sizeX)) {
+      // only a wider one replaces it: the lowest layer, then the leftmost run
+      if (best === null || run.width > best.width) {
+        best = run;
+      }
+    }
+  }
+  if (best === null) {
+    return { at: new Vector3(), width: 1 };
+  }
+  const middle = (best.lo + best.hi) / 2;
+  // the cell nearest the middle across, the front one of two as near
+  let on = best.cells[0] ?? boxes[0];
   let near = Infinity;
-  for (const c of cells.values()) {
-    const m = c.sum.divideScalar(c.n);
-    const d = m.distanceToSquared(all);
-    if (d < near) {
-      near = d;
-      best = m;
+  for (const b of best.cells) {
+    const d = Math.abs(b.mid[0] - middle);
+    const front = on !== undefined && toward * (b.mid[depth] - on.mid[depth]) > 0;
+    if (d < near - 1e-6 || (d <= near + 1e-6 && front)) {
+      near = Math.min(near, d);
+      on = b;
     }
   }
-  return best.clone();
+  const at = new Vector3(middle, 0, 0);
+  at.setComponent(up, on?.mid[up] ?? 0);
+  at.setComponent(depth, on?.mid[depth] ?? 0);
+  return { at, width: best.width };
 }

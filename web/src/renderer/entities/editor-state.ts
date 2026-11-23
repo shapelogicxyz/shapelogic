@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // What the voxel editor holds of its own (the engine holds the shapes):
-// the tool, the box mode, the plane and layer, the drawing colour, mirror
+// the tool, the box mode, the plane and layer, the drawing color, mirror
 // and span, "Apply to all shapes", the box selection and the 3D edit mode.
 // From docs/mockup/index.html: `st` (tool, plane, layer, color, mirror,
 // span, selCells, applyAll, edit3d) and `TOOLS`, `P()` (a plane's columns,
@@ -49,7 +49,7 @@ export type VoxelTool = 'fixed' | 'variable' | 'erase';
 
 /** The editor's state; the views render it and say when they change it. */
 export class EditorState {
-  /** The tool a press uses: the voxel tool, or the restriction colour's brush ('paint'). */
+  /** The tool a press uses: the voxel tool, or the restriction color's brush ('paint'). */
   tool: Tool = 'fixed';
   /** The voxel tool chosen: lit while the brush or the box selection is on, and what Fill puts in a box. */
   voxel: VoxelTool = 'fixed';
@@ -60,8 +60,8 @@ export class EditorState {
   boxMode = false;
   plane: Plane = 'XY';
   layer = 0;
-  /** The drawing colour: a constraint colour's id, or null for Default (the shape's own). */
-  colour: string | null = null;
+  /** The drawing color: a constraint color's id, or null for Default (the shape's own). */
+  color: string | null = null;
   readonly mirror = new Set<Axis>();
   readonly span = new Set<Axis>();
   /** "Apply to all shapes": resizes and the tasks that allow it go to every shape. */
@@ -98,9 +98,9 @@ export class EditorState {
     this.tool = v;
   }
 
-  /** Paint goes with a restriction colour (its brush shows by one): back to the voxel tool under Default. */
+  /** Paint goes with a restriction color (its brush shows by one): back to the voxel tool under Default. */
   dropPaint(): void {
-    if (this.tool === 'paint' && this.colour === null) {
+    if (this.tool === 'paint' && this.color === null) {
       this.tool = this.voxel;
     }
   }

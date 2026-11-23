@@ -3,7 +3,7 @@
 // The Play workspace (decisions 0039 and 0042): a sliding or a stacking
 // problem played by hand. The left card has the problems, the count of
 // moves, Restart, Save position as Start and as Goal, and the moves file's
-// Export and Import; the centre has the board with Reset, Undo and Redo
+// Export and Import; the center has the board with Reset, Undo and Redo
 // beside it, the "Solved!" banner and the playback bar. The tab is shown
 // only while a puzzle of a kind that is played is open.
 //

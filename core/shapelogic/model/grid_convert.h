@@ -30,7 +30,7 @@ namespace bt {
 inline constexpr std::uint64_t kMaxConvertedCells = std::uint64_t{1} << 27;
 
 /// A new puzzle on grid `target` with the shapes converted (doConvert):
-/// their names, the colours, the notes and a copy of each problem's
+/// their names, the colors, the notes and a copy of each problem's
 /// definition with its name (no solutions: unsolved). Unsupported when
 /// canConvertGrid() says no; InvalidArgument when the shapes would pass
 /// `maxCells` together.

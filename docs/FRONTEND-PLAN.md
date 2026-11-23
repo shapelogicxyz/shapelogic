@@ -111,7 +111,7 @@ model column is the recommendation of "Models, effort and audits".
 | 1 | 1a | Toolchain; TypeScript types generated from `api/`; the engine client: framing, frames, typed calls, events, `engine.hello`, restart | Opus 5.5 | extra high | framing replays byte-identical at every chunk size; the generated types are current and name every `engine.info` method; the client passes the scripted session against the real engine; events in decision 0012's order |
 | 2 | 1b | The shell from the mockup; the 3D view in three.js drawing `shape.mesh` frames; picking; the view cube | Opus 5.5 | high | every shape of every fixture drawn in all styles on all five grids (reference screenshots); a click names the cell and side the frame says; the keyboard map's shell rows work; `app-e2e` runs |
 | 3 | 2 | Entities workspace: shapes list, 2D editor on `grid.geometry`, tools, drags as one undo step, planes and layers, size, palette, transforms, 3D edit, undo/redo | Opus 5.5 | high | a fixture's shapes rebuilt through the editor equal its cells; a drag is one undo step; every `shape.taskSet` button works on every grid; nothing refused by the engine during the scenario |
-| 4 | 3 | Puzzle workspace: problems, result, pieces, counts and ranges, groups, colour rules, fit, the pieces scene | Opus 5.5 | medium | a fixture's problem rebuilt through the UI equals `problem.get`; the fit line equals `problem.fit` |
+| 4 | 3 | Puzzle workspace: problems, result, pieces, counts and ranges, groups, color rules, fit, the pieces scene | Opus 5.5 | medium | a fixture's problem rebuilt through the UI equals `problem.get`; the fit line equals `problem.fit` |
 | 5 | 4 | Solver workspace: options, Solve / Prepare / Continue / Pause / Abort, progress, solutions list and slider, remove, analyse, the player on `playback.*`, autosave; the dt-less orientation fix in the core | Opus 5.5 | extra high | counts equal `bt --json`'s on the fixtures; the list in every sort equals `solution.page`; the player's poses equal `playback.poses`; pause, continue, abort, save point, error run; fake-engine replays of every event-order rule |
 | 6 | 5 | Explorers (placements, movements, step), the debug statistics panel, the status window | Opus 5.5 | medium | placements and positions drawn where the engine says (hotspot); the movement tree's analyse / add / find / prune round-trip the contract session |
 | 7 | 6 | Menus and files: new (grid choice), open, save, save as, recent, close with changes, notes, paused solves, F1 map, about; settings and layout persistence; engine crash recovery | Opus 5.5 | high | open and save of every fixture leaves the document clean and the bytes the engine's; every keyboard map entry fires; an engine killed mid-edit is restarted and the rescue copy reloaded; Windows run by hand |
@@ -223,7 +223,7 @@ dialog (every setting of webui-spec.md section 1; undo depth and threads
 go to `settings.set`, the rest are the client's; stored by stage 6), theme
 and density, Esc's step-back order, Tab order, tooltips. The keyboard map
 is **one table** (`shell/keys.ts`) with the rows of webui-spec.md section
-6; the F1 dialog (stage 6) prints it. The default piece colours are the
+6; the F1 dialog (stage 6) prints it. The default piece colors are the
 original's `pieceColor` table (src/gui/piececolor.cpp), ported and cited.
 
 **The 3D view** (`renderer/view3d/`): `renderer.ts` (three.js, DPR,
@@ -234,12 +234,12 @@ controls if they can be made to follow the mockup's map, else the
 mockup's logic ported), `viewcube.ts` (the mockup's canvas cube driven by
 the camera's quaternion; click and double-click to views), `mesh.ts`
 (`MeshFrame` to `BufferGeometry`: positions, normals, index; the
-per-triangle `colour`, `flags`, `voxel`, `voxelFace` expanded per vertex;
+per-triangle `color`, `flags`, `voxel`, `voxelFace` expanded per vertex;
 drawing, wireframe (flag 8 faces as lines, "show through solid pieces")
-and flat (edge lines as `LineSegments`) styles; the colour view: the
-shape's colour or the constraint colours; variable marks (flags 2, 4),
+and flat (edge lines as `LineSegments`) styles; the color view: the
+shape's color or the constraint colors; variable marks (flags 2, 4),
 bevel and gap shades (16, 32), inside faces (128) hidden unless x-ray;
-the light checker colour (1)), `picking.ts` (a `Raycaster` hit's
+the light checker color (1)), `picking.ts` (a `Raycaster` hit's
 `faceIndex` gives `voxel` and `voxelFace`: the cell and side), `overlays.ts`
 (axes, bounds, the current layer's slab and dimming of the others, from
 the voxel index and the shape's size), `scene.ts` (one shape now; the
@@ -250,7 +250,7 @@ non-cube grids draw from the engine's meshes only.
 
 **Gate.** The app starts, spawns the engine, shows every fixture's shapes
 (a temporary shape picker until stage 2) in drawing, wireframe and flat
-styles, lit and unlit, both projections, both colour views, on all five
+styles, lit and unlit, both projections, both color views, on all five
 grids; reference screenshots recorded in `web/tests/e2e/__screenshots__`
 after one look beside the original GUI, compared with a tolerance from
 then on. Picking: clicking a known face of a known shape yields the cell
@@ -269,9 +269,9 @@ keydown handler.
 - **Shapes list** (`shape.list`, `create`, `duplicate`, `delete` (not the
   last), `move` by drag or Alt+arrows, `rename` (F2, Enter, double-click;
   line breaks refused by the engine: show its message), `setWeight`,
-  `setColour`), the right-click menu, selection.
+  `setColor`), the right-click menu, selection.
 - **The 2D editor:** one SVG renderer for every grid from `grid.geometry`
-  (polygons, circles on the sphere grid, neighbours for the cursor's
+  (polygons, circles on the sphere grid, neighbors for the cursor's
   edges); cells from `shape.get {layer}`; the cube grid's XZ and YZ planes
   are the client's (squares, cells filtered by y or x, as `shape.get`
   says); the layer strip with marks for layers holding cells, PgUp/PgDn;
@@ -284,22 +284,22 @@ keydown handler.
   the engine; box selection with fill and clear (`shape.setBox`), Esc;
   the grid size steppers in `sizeUnit` blocks with Apply to all
   (`shape.resize toAll` grows the others, never shrinks: say so in the
-  tooltip); the palette (`colour.add`, `edit`, `delete`; Default is the
-  shape's own colour); the status bar's cursor cell and the counts.
+  tooltip); the palette (`color.add`, `edit`, `delete`; Default is the
+  shape's own color); the status bar's cursor cell and the counts.
 - **Transform, fit and repair:** the buttons come from `shape.taskSet`
   (group, label, toAll) so each grid shows its own set in the original's
   order, run through `shape.task`; the blocked nudge and the counts
   ("Filled 3 interior voxels" from `cellsChanged`) as flash messages.
 - **3D edit mode** (E): a click on a face applies the tool to the cell
   (erase, paint) or to the cell across the face (fixed, variable): the
-  client's table for cubes, `grid.neighbour` for the other grids (the
+  client's table for cubes, `grid.neighbor` for the other grids (the
   engine addition below); the live preview with mirror and span ghosts.
 - **Undo and redo** (Ctrl+Z, Shift+Ctrl+Z; the labels from
   `edit.history`), and the frozen state while a solve or analysis runs
   (`Snapshot.solving`): the cards disable and the status bar says "pause
   the solve first", so the engine's `invalid_state` is never provoked.
 
-**Engine addition:** `grid.neighbour {size, cell, face} -> {cell | null}`
+**Engine addition:** `grid.neighbor {size, cell, face} -> {cell | null}`
 over `Voxel::getNeighbor` (face kind), the side numbering of the mesh's
 `voxelFace`.
 
@@ -307,7 +307,7 @@ over `Voxel::getNeighbor` (face kind), the side numbering of the mesh's
 tool, modifiers and right-click, mirror and span, box fill and clear,
 layers, resize with and without Apply to all, every task of
 `shape.taskSet` (the blocked nudge's message among them), palette and
-paint, 3D edit on cubes (and on the other grids through `grid.neighbour`);
+paint, 3D edit on cubes (and on the other grids through `grid.neighbor`);
 a drag over N cells leaves one entry in `edit.history`; undo and redo
 give the cells back (`shape.get` before and after); every shape of
 Bermuda and of Prisgon rebuilt from their cell lists through the
@@ -328,20 +328,20 @@ From the mockup's `renderPuzzle`, `renderPzSel`, `renderPzGroups`,
   `setRangeAll`, `removeAllPieces`), the **fit summary** and the status
   bar (`FitStats.statusLine`), the **selected piece** card (copies or a
   range, the exclusive group: `setGroup`, `setGroupCount`,
-  `deleteGroup`), the **colour rules** matrix (`setColourRule`,
-  `setColourRules` presets), the right-click menus (one more, one fewer,
+  `deleteGroup`), the **color rules** matrix (`setColorRule`,
+  `setColorRules` presets), the right-click menus (one more, one fewer,
   remove, set as result), the keys (+, −, Del).
 - **The pieces scene:** the result, the selected piece and every copy of
   every piece in a grid (`shape.mesh` per shape, instanced per copy),
   optional copies faded, click to select, each piece turning about its
-  own centre.
+  own center.
 - Sliding and stacking puzzles open and show (`engine.info.grids[].supported`,
   `problem.kind`), with a notice that this version does not solve them.
 
 **Gate.** e2e: the problem of CubeInCage (and of a piece-range fixture,
 DemoPieceGenerator) built from an empty problem through the UI's actions;
 `problem.get` equals the fixture's (result, parts, min, max, groups,
-colour rules, maxHoles); the fit summary and the status bar equal
+color rules, maxHoles); the fit summary and the status bar equal
 `problem.fit`; chips and table agree after every action; the scene shows
 one mesh per copy with the optional ones faded.
 
@@ -354,12 +354,12 @@ From the mockup's `renderSolver`, `renderSolverDrawer`, `renderSvSel`,
   with the problem's stored `SolverSettings` (both spellings are
   permanent: `types.json` has the mapping; `problem.setSolverSettings`
   on change), the solver type, Check Rotations, Just Levels, Strict
-  Colours, Thorough rotation check (`completeRotations`), Keep at most,
+  Colors, Thorough rotation check (`completeRotations`), Keep at most,
   Sort by; the mockup's "Drop below level" becomes "Keep every n-th"
   (`keepEach`), as the original has it; "Enable High Memory" waits for
   the sliding solvers. Threads from the settings.
 - **Run:** Solve (`solve.start`), Prepare, Continue, Pause, **Abort**
-  (refused once a run has ended: the button greys out as the original's;
+  (refused once a run has ended: the button grays out as the original's;
   "remove all" is `solution.delete {which: all}`, undoable); the progress
   bar and counters from `solve.progress`, the activity text, time used;
   the problem's state from `solve.state`; a run's end waited for by its
@@ -443,7 +443,7 @@ the contract session's replies; the status window's rows equal
   styles, Toggle 3D), Help (Tutorial and User Guide links, the keyboard
   map on F1, About with the engine's version from `engine.info`).
   Import PuzzleSolver3D and Puzzlecad, Convert grid type and the STL
-  meshes stay greyed until the core has them (the STL meshes came with
+  meshes stay grayed until the core has them (the STL meshes came with
   deferred part 5, the imports and the conversion with part 6).
 - **Files:** `document.new`, `open`, `save`, the title and dirty mark
   from `Snapshot`, close and quit asking about unsaved changes, recent
@@ -511,7 +511,7 @@ PLAN.md's "Later" list.
 |---|---|---|
 | Draw an assembled solution, an explorer's placement or a movement position (§5, §7) | `shape.mesh {transformation}` gives the turned mesh; **no reply gives the turned shape's hotspot**, so the client cannot place it | **Added** in stage 4: `hotspot` (a `Cell`) in `MeshFrame`; the client places the mesh at the cell minus it, scaled by the grid's cell spacing (`extent.ts`'s `cellScale`, checked against the player's poses) |
 | The movement explorer's matching move by dragging a piece (§5, stage 5) | `explore.openMovements` named the directions by label only, which does not say how far a step goes (a prism's x step is 2) | **Added** in stage 5: `vectors` (each direction's step) in its reply; the drag is matched against them as they look on the screen |
-| 3D edit mode on non-cube grids (§3) | the mesh names the cell and side of each triangle; nothing gives the cell across a side | **Added** in stage 2: `grid.neighbour {size, cell, face}` over `Voxel::getNeighbor`; cubes use a client table (checked against it) |
+| 3D edit mode on non-cube grids (§3) | the mesh names the cell and side of each triangle; nothing gives the cell across a side | **Added** in stage 2: `grid.neighbor {size, cell, face}` over `Voxel::getNeighbor`; cubes use a client table (checked against it) |
 | "Cannot be disassembled" against "Disassembly not checked" (§5) | `SolutionRow.disassembly` is `none` for both | Decided in stage 4: the core records no failed take-apart (a solve with take-apart keeps only what comes apart), so the client remembers what an analysis of this session took and could not take apart (web-4.md) |
 | Mirror and span on non-cube grids (§3, "to be decided") | `shape.setCells` takes the axes on any grid | Verified in stage 2: the core applies them on every grid (cells the grid lacks left out); shown everywhere (web-2.md) |
 | "Drop below level" (§5) | does not exist in the original; `keepEach` keeps every n-th | The option becomes "Keep every n-th" |
@@ -523,13 +523,13 @@ PLAN.md's "Later" list.
 | Export: Puzzlecad (§7.1) | `document.exportPuzzlecad` (deferred part 6) | **Done** in deferred part 6 (webui-spec.md §11.2) |
 | Paused solver state import and export (§7.2) | `solve.importPaused`, `exportPaused` | Client (stage 6) |
 | This fork's solver options (§7.2) | `SolveOptions` has them all; High Memory is `SolveOptions.sliding.highMemory` (deferred part 1) | **Done** in deferred part 2: "Enable High Memory" with the sliding options (webui-spec.md §8.3) |
-| Abort separate from Pause (§7.2) | `solve.abort`, refused once a run has ended | Grey the button out as the original did |
+| Abort separate from Pause (§7.2) | `solve.abort`, refused once a run has ended | Gray the button out as the original did |
 | Autosave every 20 minutes (§7.2) | `solve.savePoint` then `document.save` then `solve.continue` | Client policy (stage 4) |
 | Debug statistics panel (§7.2) | `solve.status.stats` | Client (stage 5) |
 | Sliding and stacking puzzles (§7.3) | sliding: solved and played (`SolveOptions.sliding`, routes), start/goal shapes and stamps (`sliding.*`, deferred part 1); stacking: solved, paused, carried on and played (`SolveOptions.stacking`, saved searches in `panexFolder`), rod sets, discs and stacks (`stacking.*`, deferred part 3b) | Sliding: **done** (deferred part 2, webui-spec.md §8). Stacking: **done** (deferred part 4, webui-spec.md §9) |
 | Anaglyph display (§7.4) | none | Client, three.js's anaglyph effect (cheap; decide in stage 6) |
 | Render styles (§7.4) | drawing, wireframe, flat, stl (deferred part 5) | **Done**: the STL-like style in deferred part 5 (webui-spec.md §10.3) |
-| Colour-constraint colour view (§7.4) | per-triangle `colour` in every mesh | Client (stage 1b) |
+| Color-constraint color view (§7.4) | per-triangle `color` in every mesh | Client (stage 1b) |
 | Transform sets of rhombic and tetra-octa grids (§7.5) | `shape.taskSet` gives each grid's buttons with labels | Client renders what the engine lists |
 | XZ and YZ planes on non-cube grids (§7.5) | `grid.geometry` draws XY layers | Cube grid only, as the mockup; the original had no more |
 | Many pieces in the Puzzle scene (§4) | one `shape.mesh` call per shape | Fine; a batched `shape.meshes` only if profiling asks |
@@ -584,7 +584,7 @@ their own, as the core's audits were.
 | Menus, files, recovery | 6 | Where data is lost: close and quit paths, save refused while solving, the rescue copy, a dead engine | Opus 5.5, high | **Yes, short**: the save, recover and close paths only |
 | Exports | 7 | Library work (glTF, SVG, STL) with clear checks | Opus 5.5, medium | No |
 | Packaging | 8 | Configuration; the security surface matters more than the code | Opus 5.5, medium | **Yes, short**: the Electron security surface before the first release |
-| Engine additions (`hotspot`, `grid.neighbour`, maybe `inseparable`) | 2, 4 | Small, additive, covered by the contract tests | Opus 5.5, high | No |
+| Engine additions (`hotspot`, `grid.neighbor`, maybe `inseparable`) | 2, 4 | Small, additive, covered by the contract tests | Opus 5.5, high | No |
 
 Fable 5.1 is reserved for the audits: three full ones (stages 1a, 4 and
 the release's security surface) and one short one (stage 6's file

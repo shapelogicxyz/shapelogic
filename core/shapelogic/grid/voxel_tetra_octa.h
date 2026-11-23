@@ -11,7 +11,7 @@ namespace bt {
 /// Voxel space of the tetrahedra-octahedra grid, emulated on cubes. A
 /// regular tetrahedron inscribed in a cube leaves four small irregular
 /// tetrahedra at the corners; four of those make an octahedron. Each such
-/// cube is a 3x3x3 block of the cube grid: the centre cell is the regular
+/// cube is a 3x3x3 block of the cube grid: the center cell is the regular
 /// tetrahedron, four corners the small ones. Blocks come in two mirror
 /// orientations in a checkerboard pattern, so shapes stay aligned to steps
 /// of 6.

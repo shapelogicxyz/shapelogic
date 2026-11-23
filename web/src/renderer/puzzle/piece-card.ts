@@ -4,17 +4,17 @@
 // copies in the puzzle, or a count range with the switch between the two;
 // its exclusive group: None, G1…, + New, and for a piece of several
 // copies how many are in the group, the original's groups editor), the
-// exclusive groups with their members (delete a group), and the colour
-// rules: rows the piece colour, columns the result colour, a ticked cell
+// exclusive groups with their members (delete a group), and the color
+// rules: rows the piece color, columns the result color, a ticked cell
 // allowing a piece cell of the one on a result cell of the other, with the
-// presets "each colour on itself", "allow all" and "clear". The matrix has
-// the puzzle's constraint colours (the original's constraints window); the
-// mockup's had a "Default" row and column, but a cell without a colour
-// fits any (problem.setColourRule takes colours only). From
+// presets "each color on itself", "allow all" and "clear". The matrix has
+// the puzzle's constraint colors (the original's constraints window); the
+// mockup's had a "Default" row and column, but a cell without a color
+// fits any (problem.setColorRule takes colors only). From
 // docs/mockup/index.html: `renderPzSel`, `renderPzGroups`,
 // `renderPzRules`, and the #pzSel, #pzGroups and #pzRules handlers.
 
-import type { Colour } from '../../engine/api.generated.ts';
+import type { Color } from '../../engine/api.generated.ts';
 import { byId, esc } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { countText, groupOf, groupsOf, inGroup, membersOf, partOf } from './counts.ts';
@@ -64,7 +64,7 @@ export class PieceCard {
       ? `<div class="lab">Count range</div><div class="rng"><div class="f">${stp('min', min, 'Min')}</div><div class="f">${stp('max', max, 'Max')}</div></div>`
       : `<div class="lab">Copies in the puzzle</div><div class="cnt1"><span class="mute" style="font-size:calc(12px + var(--fs))">${max > 0 ? 'Fixed count' : 'Not in this puzzle'}</span>${stp('max', max)}</div>`;
     let group = '';
-    // a sliding puzzle has no groups (the original greyed Groups out)
+    // a sliding puzzle has no groups (the original grayed Groups out)
     if (part !== undefined && !sliding) {
       const g = groupOf(part);
       const gs = groupsOf(d)
@@ -108,30 +108,30 @@ export class PieceCard {
       .join('');
   }
 
-  // the mockup's renderPzRules over the puzzle's constraint colours
+  // the mockup's renderPzRules over the puzzle's constraint colors
   private renderRules(): void {
     const ws = this.ws;
-    const colours: Colour[] = ws.store.snapshot?.colours ?? [];
-    const rules = ws.detail?.colourRules ?? [];
+    const colors: Color[] = ws.store.snapshot?.colors ?? [];
+    const rules = ws.detail?.colorRules ?? [];
     const on = (p: string, r: string): boolean =>
       rules.some((x) => x.piece === p && x.result === r);
-    const sw = (c: Colour, t: string): string =>
+    const sw = (c: Color, t: string): string =>
       `<span class="sw2" title="${t} ${esc(c.label)}" style="background:${c.rgb}"></span>`;
     const el = byId('pzRules');
     if (ws.detail === null) {
       el.innerHTML = '';
       return;
     }
-    if (colours.length === 0) {
+    if (colors.length === 0) {
       el.innerHTML =
         '<div class="cap">No constraint colors in this puzzle: a piece cell may sit on any result cell. Colors are added in the Shapes palette.</div>';
       return;
     }
-    const cols = `grid-template-columns:30px repeat(${String(colours.length)},34px)`;
-    el.innerHTML = `<div class="cap">Columns = <b>result</b> color, rows = <b>piece</b> color. A ticked cell lets a piece voxel of the row color sit on a result voxel of the column color.</div><div class="mx"><div class="mxr" style="${cols}"><span></span>${colours.map((c) => sw(c, 'Result color')).join('')}</div>${colours
+    const cols = `grid-template-columns:30px repeat(${String(colors.length)},34px)`;
+    el.innerHTML = `<div class="cap">Columns = <b>result</b> color, rows = <b>piece</b> color. A ticked cell lets a piece voxel of the row color sit on a result voxel of the column color.</div><div class="mx"><div class="mxr" style="${cols}"><span></span>${colors.map((c) => sw(c, 'Result color')).join('')}</div>${colors
       .map(
         (c) =>
-          `<div class="mxr" style="${cols}">${sw(c, 'Piece color')}${colours
+          `<div class="mxr" style="${cols}">${sw(c, 'Piece color')}${colors
             .map((r) => {
               const a = on(c.id, r.id);
               return `<button class="mxc ${a ? 'on' : ''}" data-p="${c.id}" data-r="${r.id}" aria-pressed="${a}" title="Piece ${esc(c.label)} on result ${esc(r.label)}: ${a ? 'allowed' : 'not allowed'}"></button>`;
@@ -211,12 +211,12 @@ export class PieceCard {
       const t = e.target as Element;
       const c = t.closest<HTMLElement>('.mxc');
       if (c?.dataset.p !== undefined && c.dataset.r !== undefined) {
-        void ws.setColourRule(c.dataset.p, c.dataset.r, !c.classList.contains('on'));
+        void ws.setColorRule(c.dataset.p, c.dataset.r, !c.classList.contains('on'));
         return;
       }
       const r = t.closest<HTMLElement>('[data-rule]')?.dataset.rule;
       if (r === 'eachOnItself' || r === 'allowAll' || r === 'clear') {
-        void ws.setColourRules(r);
+        void ws.setColorRules(r);
       }
     });
   }

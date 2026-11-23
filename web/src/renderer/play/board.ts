@@ -4,7 +4,7 @@
 // board seen from above as an SVG drawing, one layer at a time, y up as
 // the 2D grids draw it. The floor's tiles in the board's chequer
 // (entities/grid2d.ts's tray), corridors dashed, walls left out; each goal
-// as an outline in its piece's colour; each piece one group that moves
+// as an outline in its piece's color; each piece one group that moves
 // whole, with its name and its picture (decision 0038) as the 2D grid
 // draws them. A piece is dragged with the pointer: when the drag begins
 // the host asks the engine where one move can take it, and the piece then
@@ -16,8 +16,8 @@ import type { ShapeImage } from '../../engine/api.generated.ts';
 import { esc } from '../shell/dom.ts';
 import { compose, pictureToCells } from '../shell/picture-math.ts';
 import type { Affine } from '../shell/picture-math.ts';
-import { boardColour, contrast, dark, hex, light } from '../shell/piece-colours.ts';
-import type { Rgb3 } from '../shell/piece-colours.ts';
+import { boardColor, contrast, dark, hex, light } from '../shell/piece-colors.ts';
+import type { Rgb3 } from '../shell/piece-colors.ts';
 import { isDarkTheme } from '../shell/theme.ts';
 import { aim, alongRoute, follow, groupFor, routeLength, slide, stopsIn } from './follow.ts';
 import type { Has } from './follow.ts';
@@ -33,7 +33,7 @@ export interface BoardPiece {
   cells: Cell[];
   /** That corner in the shape's own grid (its picture's box is in those cells). */
   origin: Cell;
-  colour: Rgb3;
+  color: Rgb3;
   /** The piece's name, written on it; '' for none. */
   name: string;
   /** Its picture, once decoded. */
@@ -43,12 +43,12 @@ export interface BoardPiece {
 /** What the board draws. */
 export interface BoardModel {
   size: Cell;
-  /** The board's own colour, or null for the theme's. */
-  colour: Rgb3 | null;
+  /** The board's own color, or null for the theme's. */
+  color: Rgb3 | null;
   floor: { at: Cell; variable: boolean }[];
   /** The board's picture on its floor, under the goals and the pieces, once decoded. */
   picture?: BoardPiece['picture'];
-  goals: { colour: Rgb3; cells: Cell[] }[];
+  goals: { color: Rgb3; cells: Cell[] }[];
   pieces: BoardPiece[];
 }
 
@@ -109,7 +109,7 @@ function tileLook(sc: number, flat: boolean): TileLook {
   };
 }
 
-/** A colour darkened, for the sides. */
+/** A color darkened, for the sides. */
 function shade(c: Rgb3, f: number): Rgb3 {
   return [c[0] * f, c[1] * f, c[2] * f];
 }
@@ -131,7 +131,7 @@ interface Drag {
   chosen: number;
   /** The stop the pieces are at or nearest to. */
   shift: [number, number];
-  /** How far past it they are drawn, towards the pointer (under half a cell). */
+  /** How far past it they are drawn, toward the pointer (under half a cell). */
   slide: [number, number];
   ended: boolean;
 }
@@ -360,12 +360,12 @@ export class PlayBoard {
     const at = look.at;
     this.at = at;
     const z = this.layer;
-    // the tray in one colour: the chequer's lighter one in the Dark theme
-    // (a light grey board there), its darker one in the Light theme
-    const base = m.colour ?? boardColour();
-    const trayColour = isDarkTheme() ? light(base) : dark(base);
-    const lightTray = 3 * trayColour[0] + 6 * trayColour[1] + trayColour[2] > 5;
-    const tray = this.traySvg(X * sc, Y * sc, look, trayColour);
+    // the tray in one color: the chequer's lighter one in the Dark theme
+    // (a light gray board there), its darker one in the Light theme
+    const base = m.color ?? boardColor();
+    const trayColor = isDarkTheme() ? light(base) : dark(base);
+    const lightTray = 3 * trayColor[0] + 6 * trayColor[1] + trayColor[2] > 5;
+    const tray = this.traySvg(X * sc, Y * sc, look, trayColor);
     let floor = '';
     let grid = '';
     const floorAt = new Set(
@@ -387,7 +387,7 @@ export class PlayBoard {
       if (onFloor(c.at[0], c.at[1] - 1)) {
         grid += `M${String(x)} ${String(y + sc)}h${String(sc)}`;
       }
-      floor += `<rect class="pl-cell${c.variable ? ' var' : ''}" data-at="${c.at.join(',')}" x="${String(x)}" y="${String(y)}" width="${String(sc)}" height="${String(sc)}" fill="${hex(trayColour)}"/>`;
+      floor += `<rect class="pl-cell${c.variable ? ' var' : ''}" data-at="${c.at.join(',')}" x="${String(x)}" y="${String(y)}" width="${String(sc)}" height="${String(sc)}" fill="${hex(trayColor)}"/>`;
     }
     // the floor sunk into the rim, its corners those of a tile with the
     // gap round it; its inner walls show on its upper and left edges,
@@ -399,7 +399,7 @@ export class PlayBoard {
     const hollow = outlineOf(squares, 0, floorRadius);
     const wall = tile.lift;
     const fall = Math.max(1.5, sc * 0.03);
-    // each goal: its cells tinted in the piece's colour on the bottom,
+    // each goal: its cells tinted in the piece's color on the bottom,
     // under the pieces, and its outline over them, so a goal shows
     // whatever stands on it; its corners round as a tile's
     let goals = '';
@@ -427,12 +427,12 @@ export class PlayBoard {
       for (const c of cells) {
         const x = at + c[0] * sc;
         const y = at + (Y - 1 - c[1]) * sc;
-        rects += `<rect class="pl-goal" data-at="${c.join(',')}" x="${String(x)}" y="${String(y)}" width="${String(sc)}" height="${String(sc)}" fill="${hex(g.colour)}"/>`;
+        rects += `<rect class="pl-goal" data-at="${c.join(',')}" x="${String(x)}" y="${String(y)}" width="${String(sc)}" height="${String(sc)}" fill="${hex(g.color)}"/>`;
       }
       goals += `<g clip-path="url(#${id})">${rects}</g>`;
-      // a solid line in the piece's colour, edged dark so it shows over other pieces
+      // a solid line in the piece's color, edged dark so it shows over other pieces
       const outline = roundedOutline(own, markStyle);
-      marks += `<path class="pl-mark under" d="${outline}"/><path class="pl-mark" d="${outline}" stroke="${hex(g.colour)}"/>`;
+      marks += `<path class="pl-mark under" d="${outline}"/><path class="pl-mark" d="${outline}" stroke="${hex(g.color)}"/>`;
     });
     const drawn = m.pieces.map((p, i) => this.pieceSvg(p, i));
     const pieces = drawn.map((d) => d.body).join('');
@@ -452,9 +452,9 @@ export class PlayBoard {
       // the walls: the floor less its bottom
       `<mask id="pl-walls" maskUnits="userSpaceOnUse" x="0" y="0" width="${String(w)}" height="${String(h)}"><path d="${hollow}" fill="#fff"/><path d="${hollow}" transform="translate(${String(wall)} ${String(wall)})" fill="#000"/></mask>` +
       goalClips;
-    const gridColour = lightTray ? 'rgba(0,0,0,.16)' : 'rgba(255,255,255,.1)';
+    const gridColor = lightTray ? 'rgba(0,0,0,.16)' : 'rgba(255,255,255,.1)';
     root.innerHTML =
-      `<svg class="pl-svg" width="${String(w)}" height="${String(h)}" viewBox="0 0 ${String(w)} ${String(h)}" data-cell="${String(sc)}" style="--pl-grid:${gridColour}"><defs>${defs}</defs>` +
+      `<svg class="pl-svg" width="${String(w)}" height="${String(h)}" viewBox="0 0 ${String(w)} ${String(h)}" data-cell="${String(sc)}" style="--pl-grid:${gridColor}"><defs>${defs}</defs>` +
       tray.under +
       // the floor's bottom with its grid, and the bottom's edge: the foot of
       // the walls, its corners rounded as the floor's are
@@ -481,7 +481,7 @@ export class PlayBoard {
     w: number,
     h: number,
     look: TrayLook,
-    colour: Rgb3,
+    color: Rgb3,
   ): { under: string; over: string } {
     const { rim, depth, at } = look;
     const x = at - rim;
@@ -498,7 +498,7 @@ export class PlayBoard {
     for (let k = depth - 1; k >= 1; k--) {
       sides += rect(k, 0, '');
     }
-    const under = `<g class="pl-tray"><g fill="${hex(shade(colour, 0.6))}">${sides}</g>${rect(0, 0, ` fill="${hex(colour)}"`)}</g>`;
+    const under = `<g class="pl-tray"><g fill="${hex(shade(color, 0.6))}">${sides}</g>${rect(0, 0, ` fill="${hex(color)}"`)}</g>`;
     const over =
       `<g class="pl-grain" clip-path="url(#pl-trayclip)"><clipPath id="pl-trayclip">${rect(0, 0, '')}</clipPath>${rect(0, 0, ' filter="url(#pl-grain)"')}</g>` +
       rect(0, -1, ' class="pl-trayedge"') +
@@ -563,7 +563,7 @@ export class PlayBoard {
     }
     let name = '';
     if (p.name !== '' && cells.length > 0) {
-      // at the bottom centre of its lowest cells' top face, as the 2D grids write it
+      // at the bottom center of its lowest cells' top face, as the 2D grids write it
       const low = Math.min(...cells.map((c) => c[1]));
       const row = cells.filter((c) => c[1] === low).map((c) => c[0]);
       const x = ((Math.min(...row) + Math.max(...row) + 1) / 2) * sc - lift / 2;
@@ -578,13 +578,13 @@ export class PlayBoard {
       // clear of the goal's outline along the top face's lower edge, the
       // descenders (a quarter of the size) too
       const above = Math.round(sc * 0.13 + size * 0.25);
-      name = `<text class="pl-name" x="${x.toFixed(1)}" y="${String(-low * sc - lift - gap - above)}" font-size="${String(size)}" fill="${contrast(p.colour)}">${esc(p.name)}</text>`;
+      name = `<text class="pl-name" x="${x.toFixed(1)}" y="${String(-low * sc - lift - gap - above)}" font-size="${String(size)}" fill="${contrast(p.color)}">${esc(p.name)}</text>`;
     }
     return {
       body:
         `<g class="pl-piece" data-i="${String(i)}"><defs><path id="${id}t" d="${top}"/><clipPath id="${id}"><path d="${top}"/></clipPath></defs>` +
-        `<g class="pl-hit">${hit}</g><g class="pl-body"><g fill="${hex(shade(p.colour, 0.62))}">${sides}</g>` +
-        `<path d="${top}" fill="${hex(p.colour)}"/>${picture}<path class="pl-face" d="${top}"/></g></g>`,
+        `<g class="pl-hit">${hit}</g><g class="pl-body"><g fill="${hex(shade(p.color, 0.62))}">${sides}</g>` +
+        `<path d="${top}" fill="${hex(p.color)}"/>${picture}<path class="pl-face" d="${top}"/></g></g>`,
       // its name in a layer of its own over the goals' outlines, moved with it
       label: `<g class="pl-label" data-i="${String(i)}">${name}</g>`,
     };
@@ -670,12 +670,12 @@ export class PlayBoard {
     }
   }
 
-  private up(e: PointerEvent, cancelled: boolean): void {
+  private up(e: PointerEvent, canceled: boolean): void {
     const d = this.drag;
     if (d?.pointer !== e.pointerId) {
       return;
     }
-    if (cancelled) {
+    if (canceled) {
       this.cancelDrag();
       return;
     }
@@ -690,7 +690,7 @@ export class PlayBoard {
   }
 
   // the pieces follow the pointer, as far as they can go: to the stop
-  // nearest it, and from there part of the way to the next towards it
+  // nearest it, and from there part of the way to the next toward it
   private step(d: Drag, pointer: [number, number]): void {
     const groups = d.groups ?? [];
     // twice at most: a group back where it began lets the pointer choose again

@@ -26,7 +26,7 @@ export const SWEEP: readonly Fixture[] = [
   // the grids the original does not have (decision 0023)
   { file: 'new-grids/HexSlab.xmpuzzle', grid: 'hexagonal' },
   { file: 'new-grids/CairoSlab.xmpuzzle', grid: 'cairo' },
-  // constraint colours, and the largest mesh
+  // constraint colors, and the largest mesh
   { file: 'DraculasDentalDesaster.xmpuzzle', grid: 'bricks' },
   // a piece range of 150 pieces, 26 shapes and 314 saved solutions
   { file: 'SolidSixPieceBurrs.xmpuzzle', grid: 'bricks' },
