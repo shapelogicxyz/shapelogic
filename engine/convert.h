@@ -38,6 +38,14 @@ using Names = std::vector<std::pair<std::string_view, E>>;
 [[nodiscard]] const Names<app::ShapeTask>& shapeTaskNames();
 [[nodiscard]] const Names<mesh::MeshStyle>& meshStyleNames();
 [[nodiscard]] const Names<SolutionOrder>& sortByNames();
+[[nodiscard]] const Names<tilted::Tray::Placement>& trayPlacementNames();
+/// A Tilted Square puzzle's tray (types.json Tray), or null.
+[[nodiscard]] Json trayJson(const app::Document& d);
+/// A tray's settings read from `given` (types.json TraySettings) over
+/// `base`: the slope in lowest terms, a new size keeping the walls inside
+/// it. An error when `given` is no object, holds a field it should not, or
+/// has down above over.
+[[nodiscard]] RpcResult<tilted::Tray> readTraySettings(const Json& given, const tilted::Tray& base);
 
 /// The name of a value in a table.
 template <class E>

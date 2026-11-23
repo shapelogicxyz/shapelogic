@@ -339,6 +339,20 @@ Result<void> SolveSession::launch(Mode mode) {
     // as the options allow)
     o.matrix.partTransforms = sliding::partTransforms(
         puzzle_, problem_, o.sliding.anyOrientation, o.sliding.mirroredOrientations);
+  } else if (!o.flipPieces && puzzle_.tray()) {
+    // a tilted tray's pieces are not turned over: each keeps to the
+    // quarter turns about the layers' axis
+    const Voxel& tray = problem_.resultShape(puzzle_);
+    const Symmetries& sym = puzzle_.getGridType().getSymmetries();
+    std::uint64_t turns = 0;
+    for (unsigned int t = 0; t < std::min(64U, sym.getNumTransformations()); t++) {
+      double m[9] = {};
+      tray.getTransformMatrix(t, m);
+      if (m[8] == 1.0) {
+        turns |= std::uint64_t{1} << t;
+      }
+    }
+    o.matrix.partTransforms.assign(problem_.getNumberOfParts(), turns);
   }
 
   SolveState st = state_.load();

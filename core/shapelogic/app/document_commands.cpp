@@ -108,7 +108,14 @@ Result<Id> Document::createShape(std::optional<std::array<unsigned int, 3>> size
   }
   const GridKind grid = puzzle_->getGridType().getType();
   std::array<unsigned int, 3> s{};
-  if (size) {
+  if (tilted()) {
+    // a tilted puzzle's shapes have the board's size
+    const tilted::Layout& lay = trayLayout();
+    s = {lay.sizeX, lay.sizeY, 1};
+    if (size && *size != s) {
+      return fail(Errc::InvalidArgument, "a tilted puzzle's shapes have the board's size");
+    }
+  } else if (size) {
     s = *size;
   } else {
     // sliding puzzles are mostly flat: a new shape is one layer, and may
@@ -136,6 +143,10 @@ Result<Id> Document::duplicateShape(Id shape) {
   const Result<unsigned int> s = shapeIndex(shape);
   if (!s) {
     return std::unexpected(s.error());
+  }
+  if (Result<void> r = refuseTiltedBoard(*s, "the board is made from the tray: it is not copied");
+      !r) {
+    return std::unexpected(r.error());
   }
   // a copy of a sliding start/goal shape is a start/goal shape of its own
   // with the next number (cb_CopyShape, which also gave it a problem)
@@ -174,6 +185,11 @@ Result<void> Document::deleteShape(Id shape) {
   if (!s) {
     return std::unexpected(s.error());
   }
+  if (Result<void> r =
+          refuseTiltedBoard(*s, "the board is made from the tray: it is not deleted");
+      !r) {
+    return r;
+  }
   StepGuard g(*this, "Delete shape");
   touchWhole();
   endSessions();
@@ -204,6 +220,9 @@ Result<void> Document::moveShape(Id shape, unsigned int toIndex) {
   }
   if (toIndex == *s) {
     return {};
+  }
+  if (tilted() && (*s == 0 || toIndex == 0)) {
+    return fail(Errc::InvalidArgument, "the board stays above the pieces");
   }
   // a sliding puzzle's boards stay above its pieces
   if (sliding::isSliding(*puzzle_)) {
@@ -427,6 +446,11 @@ Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id color,
   if (Result<void> r = refuseOnStacking("a stacking puzzle's shapes are discs: they are not edited by cells"); !r) {
     return std::unexpected(r.error());
   }
+  if (Result<void> r = refuseTiltedBoard(
+          *s, "the board's cells come from the tray's settings: they are not edited");
+      !r) {
+    return std::unexpected(r.error());
+  }
   unsigned int colorNumber = 0;
   if (color != 0) {
     const Result<unsigned int> c = colorIndex(color);
@@ -439,9 +463,13 @@ Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id color,
   std::unique_ptr<Voxel> v = puzzle_->getShape(*s).clone();
   // a sliding board's cells take its problems' starts and goals along
   std::vector<sliding::BoardEdit> board = beginBoardEdit(*s, *v);
-  const unsigned int n = app::editCells(*v, tool, colorNumber, symmetry, cells);
+  unsigned int n = app::editCells(*v, tool, colorNumber, symmetry, cells);
   for (sliding::BoardEdit& b : board) {
     sliding::readBoardTags(b, *v);
+  }
+  if (tilted()) {
+    // a piece's cells lie on the board's whole cells
+    n = keepOnTray(*v, puzzle_->getShape(*s), trayLayout());
   }
   if (n == 0) {
     return 0U;
@@ -497,6 +525,10 @@ Result<void> Document::resizeShape(Id shape, unsigned int x, unsigned int y, uns
           "a stacking puzzle's shapes are discs: their size follows the disc's");
       !r) {
     return r;
+  }
+  if (tilted()) {
+    return fail(Errc::InvalidArgument,
+                "a tilted puzzle's shapes have the board's size: change the tray's size");
   }
   const unsigned int factor = sizeUnit(puzzle_->getGridType().getType());
   if (Result<void> r = checkSize(factor * x, factor * y, factor * z); !r) {
@@ -565,6 +597,15 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
       !r) {
     return std::unexpected(r.error());
   }
+  if (Result<void> r = refuseTiltedBoard(
+          *s, "the board is made from the tray's settings: the tools do not change it");
+      !r) {
+    return std::unexpected(r.error());
+  }
+  const bool onTilted = tilted();
+  if (onTilted && task == ShapeTask::Minimize) {
+    return fail(Errc::InvalidArgument, "a tilted puzzle's shapes have the board's size");
+  }
   const GridKind grid = puzzle_->getGridType().getType();
   const std::vector<ShapeTaskInfo> set = taskSet(grid);
   const auto info = std::find_if(set.begin(), set.end(),
@@ -574,7 +615,7 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
   }
   // the shapes it applies to
   std::vector<unsigned int> which;
-  if (toAll && info->toAll) {
+  if (toAll && info->toAll && !onTilted) {
     for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
       which.push_back(i);
     }
@@ -621,10 +662,24 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
     }
   } else {
     for (std::size_t k = 0; k < which.size(); k++) {
-      const Result<TaskOutcome> o = applyTask(*copies[k], task);
+      Result<TaskOutcome> o = applyTask(*copies[k], task);
       readTags(k);
       if (!o) {
         return std::unexpected(o.error());
+      }
+      if (onTilted) {
+        // back on the board's grid, on whole cells: where a nudge took it,
+        // or for the other tools as near as it can be to where it lay
+        const Voxel& before = puzzle_->getShape(which[k]);
+        const int code = static_cast<int>(task);
+        const bool nudge = code <= 5 || (code >= 27 && code <= 32);
+        std::optional<TrayFit> fit =
+            fitToTray(*copies[k], cellsMiddle(nudge ? *copies[k] : before), trayLayout());
+        if (!fit || !fit->fits) {
+          return fail(Errc::InvalidArgument, "the piece does not fit the board that way");
+        }
+        o->changed = !(*fit->shape == before);
+        copies[k] = std::move(fit->shape);
       }
       changedShape[k] = o->changed;
       if (which[k] == *s) {
@@ -756,6 +811,10 @@ Result<Id> Document::createProblem() {
   for (unsigned int c = 0; c < puzzle_->colorNumber(); c++) {
     puzzle_->getProblem(p).allowPlacement(*puzzle_, c + 1, c + 1);
   }
+  // a tilted puzzle's result is its board
+  if (tilted() && puzzle_->getNumberOfShapes() > 0) {
+    puzzle_->getProblem(p).setResultId(*puzzle_, 0);
+  }
   const Id id = newId();
   ids_.problems.push_back(id);
   lastChange_.problems = {id};
@@ -871,6 +930,9 @@ Result<void> Document::setResult(Id problem, Id shape) {
       !r) {
     return r;
   }
+  if (tilted() && *s != 0) {
+    return fail(Errc::InvalidArgument, "a tilted puzzle's result is its board");
+  }
   Problem& pr = puzzle_->getProblem(*p);
   if (pr.resultValid() && pr.getResultId() == *s && pr.getShapeMaximum(*s) == 0) {
     return {};
@@ -917,6 +979,9 @@ Result<void> Document::clearResult(Id problem) {
       !r) {
     return r;
   }
+  if (tilted()) {
+    return fail(Errc::InvalidArgument, "a tilted puzzle's result is its board");
+  }
   Problem& pr = puzzle_->getProblem(*p);
   if (!pr.resultValid()) {
     return {};
@@ -958,6 +1023,11 @@ Result<void> Document::setPieceCount(Id problem, Id shape, unsigned int min, uns
   if (max > 0 && sliding::isSliding(*puzzle_) &&
       sliding::isStartGoalShape(&puzzle_->getShape(*s))) {
     return fail(Errc::InvalidArgument, "a board cannot be a piece");
+  }
+  if (max > 0) {
+    if (Result<void> r = refuseTiltedBoard(*s, "the board cannot be a piece"); !r) {
+      return r;
+    }
   }
   if (pr.getShapeMinimum(*s) == min && pr.getShapeMaximum(*s) == max) {
     return {};
@@ -1450,6 +1520,9 @@ Result<void> Document::deleteDisassemblies(Id problem, std::optional<Id> solutio
 Result<std::vector<Id>> Document::assembliesToShapes(Id problem, const AssemblyImport& opt) {
   if (Result<void> r = checkNotSolving(); !r) {
     return std::unexpected(r.error());
+  }
+  if (tilted()) {
+    return fail(Errc::Unsupported, "a tilted puzzle's shapes are its board and its pieces");
   }
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {

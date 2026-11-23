@@ -73,6 +73,10 @@ struct Tray {
   bool operator==(const Tray&) const = default;
 };
 
+/// `tray` with side `size` (1 .. Tray::kMaxSize): the walls still inside
+/// the tray stay where they are, the others go.
+[[nodiscard]] Tray withSize(const Tray& tray, unsigned int size);
+
 /// What a cell of the board's box is to the tray.
 enum class Cell : std::uint8_t {
   /// It does not reach into the tray.

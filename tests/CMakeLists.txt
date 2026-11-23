@@ -7,6 +7,7 @@ add_executable(bt_tests
   unit/app/test_document.cpp
   unit/app/test_document_sliding.cpp
   unit/app/test_document_stacking.cpp
+  unit/app/test_document_tilted.cpp
   unit/app/test_document_solving.cpp
   unit/app/test_layer_geometry.cpp
   unit/app/test_playback_explorers.cpp

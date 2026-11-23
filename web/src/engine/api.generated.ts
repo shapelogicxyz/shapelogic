@@ -573,7 +573,14 @@ export type ShapeTask =
  */
 export type MeshStyle = 'drawing' | 'wireframe' | 'flat' | 'stl' | 'uniform';
 
-export type ChangeKind = 'shapes' | 'colors' | 'problems' | 'solutions' | 'notes' | 'rodSets';
+export type ChangeKind =
+  | 'shapes'
+  | 'colors'
+  | 'problems'
+  | 'solutions'
+  | 'notes'
+  | 'rodSets'
+  | 'tray';
 
 /**
  * A counter the problem moves on every change of its saved list (a solution added, removed,
@@ -794,6 +801,16 @@ export interface ShapeSummary {
   discColor: ColorId | null;
   /** The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none. */
   image: ShapeImage | null;
+  /**
+   * A Tilted Square puzzle's board (its first shape, label B): made from the tray, never edited.
+   * False for any other shape.
+   */
+  board: boolean;
+  /**
+   * A Tilted Square puzzle's piece: every cell of it lies on a whole cell of the board (a tray
+   * change can leave a piece that has no such place). True for the board and off such a puzzle.
+   */
+  fits: boolean;
 }
 
 /**
@@ -928,11 +945,121 @@ export interface Snapshot {
   /** A stacking puzzle's boards (at least one); empty on other grids. */
   rodSets: RodSet[];
   /**
+   * A Tilted Square puzzle's tray (tray.json); null on any other puzzle. A puzzle with a tray is
+   * on the bricks grid.
+   */
+  tray: Tray | null;
+  /**
    * What opening the file changed, to tell the user (the original's load message). Only in the
    * result of document.open, document.openBytes and solve.importPaused, and only when there is
    * something to tell.
    */
   notice?: string;
+}
+
+/**
+ * How the grid is placed in a tilted tray: where the most cells are whole, or where the user put
+ * it.
+ */
+export type TrayPlacement = 'best' | 'custom';
+
+/**
+ * The settings of a tilted tray a client may give (tray.set, tray.preview, document.new): each
+ * over what the tray has, or for a new tray over the defaults (size 8, straight, strict, best
+ * placement). The slope is down/over and is put in lowest terms (down 0 is a straight tray).
+ */
+export interface TraySettings {
+  /**
+   * The tray's side in cells. A smaller side keeps the walls still inside the tray.
+   * @minimum 1
+   * @maximum 64
+   */
+  size?: number;
+  /**
+   * @minimum 1
+   * @maximum 64
+   */
+  over?: number;
+  /**
+   * At most over.
+   * @minimum 0
+   * @maximum 64
+   */
+  down?: number;
+  /**
+   * How far a cell may reach past the tray's edge or into a wall, in cell widths; 0 is strict.
+   * @minimum 0
+   * @maximum 0.25
+   */
+  allowance?: number;
+  placement?: TrayPlacement;
+  /**
+   * With the custom placement: where grid point (0, 0) lies in the tray. With the best placement
+   * it is worked out and what is given is ignored.
+   * @minimum -1024
+   * @maximum 1024
+   */
+  shiftX?: number;
+  /**
+   * @minimum -1024
+   * @maximum 1024
+   */
+  shiftY?: number;
+}
+
+/**
+ * A Tilted Square puzzle's tray (decision 0045): a square of straight unit squares, some of them
+ * walls, with the cube grid turned inside it by atan2(down, over). The board (the puzzle's first
+ * shape) is the box of every cell that reaches into the tray; its whole cells are those within the
+ * allowance of an open square everywhere.
+ */
+export interface Tray {
+  /** @minimum 1 */
+  size: number;
+  /** @minimum 1 */
+  over: number;
+  /** @minimum 0 */
+  down: number;
+  /** @minimum 0 */
+  allowance: number;
+  placement: TrayPlacement;
+  /** The shift in use, whichever the placement, in its canonical form. */
+  shiftX: number;
+  shiftY: number;
+  /** The tray's wall squares, [x, y] each, row by row. */
+  walls: ([number, number])[];
+  /** The turn of the grid in the tray. */
+  degrees: number;
+  /**
+   * The board's whole cells.
+   * @minimum 0
+   */
+  whole: number;
+  /**
+   * The cells the tray's edge or a wall cuts.
+   * @minimum 0
+   */
+  cut: number;
+  /**
+   * The board's size [x, y] in cells: every shape's.
+   * @minItems 2
+   * @maxItems 2
+   */
+  box: [number, number];
+  /**
+   * The board's cells row by row from y = 0, x * y characters: w whole, c cut, o outside the tray.
+   * @pattern ^[wco]*$
+   */
+  cells: string;
+  /**
+   * The tray's corners (0, 0), (size, 0), (size, size), (0, size) in the board's grid (cell (x, y)
+   * is the unit square at (x, y), y up).
+   * @minItems 4
+   * @maxItems 4
+   */
+  corners: [Point2, Point2, Point2, Point2];
+  /** Each wall square's corners in the board's grid, in the order of walls. */
+  wallPolygons: ([Point2, Point2, Point2, Point2])[];
 }
 
 /** A row of the status window. */
@@ -1019,6 +1146,8 @@ export interface SolverSettings {
   autosave?: boolean;
   /** Always show Assemblies (not in the original). */
   keepAssemblies?: boolean;
+  /** A Tilted Square puzzle: Pieces may be turned over (not in the original). */
+  flipPieces?: boolean;
   /**
    * classic, crowell (sliding: the original's fast, deep or full, kept as stored and not written).
    */
@@ -1127,6 +1256,13 @@ export interface SolveOptions {
    * after every solution.
    */
   keepAssemblies?: boolean;
+  /**
+   * A Tilted Square puzzle (a puzzle with a tray): the pieces may be turned over (default true).
+   * Off, each piece is placed only in the four quarter turns in the tray's plane, and the search
+   * runs without its symmetry breaker: assemblies that are one another turned are found each and
+   * left to the rotation filter. No part on other puzzles.
+   */
+  flipPieces?: boolean;
   /** Keep the level summary of each take-apart, not its moves. */
   justLevels?: boolean;
   keepMirrors?: boolean;
@@ -1637,19 +1773,25 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * A new empty puzzle on a grid; the grid never changes. The open document goes (as with
-   * document.open, document.openBytes and solve.importPaused): its solves pause and are waited
-   * for, its analyses stop, its handles are dropped, and after the reply its problems whose work
-   * the events were reporting get a last solve.state idle and solution.analyseEnded (stopped); the
-   * revision counts on.
+   * A new empty puzzle on a grid, or with tray a new Tilted Square puzzle (invalid_argument for a
+   * tray on another grid than bricks, or a slope with down above over); the grid never changes.
+   * The open document goes (as with document.open, document.openBytes and solve.importPaused): its
+   * solves pause and are waited for, its analyses stop, its handles are dropped, and after the
+   * reply its problems whose work the events were reporting get a last solve.state idle and
+   * solution.analyseEnded (stopped); the revision counts on.
    * (document.json)
    */
   'document.new': {
     params: {
       grid: Grid;
+      /**
+       * A new Tilted Square puzzle (decision 0045), on the bricks grid only: the puzzle has this
+       * tray, its board as the first shape and one problem whose result is the board.
+       */
+      tray?: TraySettings;
     };
     result: Snapshot;
-    errors: never;
+    errors: 'invalid_argument';
   };
   /**
    * Opens a .xmpuzzle file (gzip or plain XML; one that inflates to more than 256 MiB is refused
@@ -2791,7 +2933,7 @@ export interface Methods {
   'shape.duplicate': {
     params: ShapeParam;
     result: ShapeMade;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_state' | 'invalid_argument';
   };
   /**
    * Removes a shape; the problems drop it.
@@ -2800,7 +2942,7 @@ export interface Methods {
   'shape.delete': {
     params: ShapeParam;
     result: Changed;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_state' | 'invalid_argument';
   };
   /**
    * Moves a shape to a place in the list; labels renumber. On a sliding puzzle the boards stay
@@ -3639,7 +3781,7 @@ export interface Methods {
       shapes: ShapeId[];
       revision: Revision;
     };
-    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state' | 'unsupported';
   };
   /**
    * Takes saved assemblies apart afterwards (Add disassembly): all, the ones without the moves
@@ -4331,6 +4473,75 @@ export interface Methods {
     };
     errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
   };
+  /**
+   * Sets the tray's settings (Tilt & tolerance): the fields given, over the tray's. The board is
+   * made again; every piece gets its size and is moved by whole cells to the place nearest its old
+   * one where all its cells are whole cells (one with no such place stays near its old place, and
+   * its fits is false); the problems lose their solutions. invalid_argument when a piece is larger
+   * than the new board (the message names it) or down is above over. unsupported on a puzzle
+   * without a tray. Refused while anything is solved. One undo step; nothing changes, no step.
+   * (tray.json)
+   */
+  'tray.set': {
+    params: {
+      tray: TraySettings;
+    };
+    result: Changed;
+    errors: 'unsupported' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Makes squares of the tray walls, or open again: each [x, y] inside the tray. A wall belongs to
+   * the tray and stays where it is at every tilt. The board and the pieces follow as with tray.set
+   * (with the best placement the grid is placed again). Returns how many squares changed. One undo
+   * step; none changed, no step.
+   * (tray.json)
+   */
+  'tray.setWalls': {
+    params: {
+      /** @maxItems 4096 */
+      squares: ([number, number])[];
+      wall: boolean;
+    };
+    result: {
+      /** @minimum 0 */
+      changed: number;
+      revision: Revision;
+    };
+    errors: 'unsupported' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * What a tray with these settings would be, changing nothing: the fields given over the open
+   * puzzle's tray (walls included), or over the defaults when it has none (the New puzzle dialog's
+   * count).
+   * (tray.json)
+   */
+  'tray.preview': {
+    params: {
+      tray: TraySettings;
+    };
+    result: {
+      /** @minimum 0 */
+      whole: number;
+      /** @minimum 0 */
+      cut: number;
+      degrees: number;
+      /**
+       * @minItems 2
+       * @maxItems 2
+       */
+      box: [number, number];
+      /**
+       * The slope in lowest terms.
+       * @minimum 1
+       */
+      over: number;
+      /** @minimum 0 */
+      down: number;
+      shiftX: number;
+      shiftY: number;
+    };
+    errors: 'invalid_argument';
+  };
 }
 
 /** Every event (notification) the engine sends. */
@@ -4601,6 +4812,9 @@ export const METHOD_NAMES = [
   'stacking.setProblemRodSet',
   'stacking.setRules',
   'stacking.setStacks',
+  'tray.preview',
+  'tray.set',
+  'tray.setWalls',
 ] as const satisfies readonly (keyof Methods)[];
 
 /** The events of the schema. */

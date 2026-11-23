@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tray.json",
+  "title": "Tilted trays",
+  "description": "A Tilted Square puzzle's tray (decision 0045; not in the original): a cube-grid puzzle with a tray (Snapshot.tray), made by document.new with tray. Its first shape is the board, made from the tray and never edited: shape.delete, shape.duplicate, shape.move, shape.setCells, shape.setBox and shape.task refuse it, and it is no piece. Every shape has the board's size, one layer: shape.create makes one of that size, shape.resize is refused. A piece's cells lie on the board's whole cells: an edit changes nothing elsewhere, and a shape task that would leave a piece off them is refused. A problem's result is the board (problem.create sets it; problem.setResult to another shape and problem.clearResult are refused). solution.toShapes is unsupported. All refusals here are invalid_argument unless said.",
+  "methods": {
+    "tray.set": {
+      "summary": "Sets the tray's settings (Tilt & tolerance): the fields given, over the tray's. The board is made again; every piece gets its size and is moved by whole cells to the place nearest its old one where all its cells are whole cells (one with no such place stays near its old place, and its fits is false); the problems lose their solutions. invalid_argument when a piece is larger than the new board (the message names it) or down is above over. unsupported on a puzzle without a tray. Refused while anything is solved. One undo step; nothing changes, no step.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "tray": {
+            "$ref": "types.json#/$defs/TraySettings"
+          }
+        },
+        "required": [
+          "tray"
+        ],
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "types.json#/$defs/Changed"
+      },
+      "errors": [
+        "unsupported",
+        "invalid_argument",
+        "invalid_state"
+      ]
+    },
+    "tray.setWalls": {
+      "summary": "Makes squares of the tray walls, or open again: each [x, y] inside the tray. A wall belongs to the tray and stays where it is at every tilt. The board and the pieces follow as with tray.set (with the best placement the grid is placed again). Returns how many squares changed. One undo step; none changed, no step.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "squares": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "maxItems": 4096
+          },
+          "wall": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "squares",
+          "wall"
+        ],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "changed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "revision": {
+            "$ref": "types.json#/$defs/Revision"
+          }
+        },
+        "required": [
+          "changed",
+          "revision"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "unsupported",
+        "invalid_argument",
+        "invalid_state"
+      ]
+    },
+    "tray.preview": {
+      "summary": "What a tray with these settings would be, changing nothing: the fields given over the open puzzle's tray (walls included), or over the defaults when it has none (the New puzzle dialog's count).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "tray": {
+            "$ref": "types.json#/$defs/TraySettings"
+          }
+        },
+        "required": [
+          "tray"
+        ],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "whole": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cut": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "degrees": {
+            "type": "number"
+          },
+          "box": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "over": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The slope in lowest terms."
+          },
+          "down": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "shiftX": {
+            "type": "number"
+          },
+          "shiftY": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "whole",
+          "cut",
+          "degrees",
+          "box",
+          "over",
+          "down",
+          "shiftX",
+          "shiftY"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "invalid_argument"
+      ]
+    }
+  }
+}

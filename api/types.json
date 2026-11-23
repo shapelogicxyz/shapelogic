@@ -40,7 +40,7 @@
       "description": "A button of the tool tabs; what the numbered ones do depends on the grid (shape.taskSet gives each one's group and label)."
     },
     "MeshStyle": {"enum": ["drawing", "wireframe", "flat", "stl", "uniform"], "description": "The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, flat faces with edge lines, the STL export's mesh at the view's own parameters, or the uniform mesher's solid (every edge of the piece chamfered to one width whatever its angle, concave edges too; neighboring cells joined by flat strips, so the checker alone shows the cells; closed; on the sphere grid the drawing mesh). The STL style is (the original's \"Draw pieces like STL export\": gap 0.02 and bevel 0.05 of a cell with the interior chamfers, the sphere grid's balls at two recursions; closed; the flat mesh where the mesher fails). The STL style's cell faces carry the checker flag, as the others', and bevels are flagged 16; the original drew it in one color. It is made with the Manifold library on the prism, rhombic and tetra-octa grids and takes a while for large shapes (seconds in a release build)."},
-    "ChangeKind": {"enum": ["shapes", "colors", "problems", "solutions", "notes", "rodSets"]},
+    "ChangeKind": {"enum": ["shapes", "colors", "problems", "solutions", "notes", "rodSets", "tray"]},
     "SolutionsVersion": {"type": "integer", "minimum": 0, "description": "A counter the problem moves on every change of its saved list (a solution added, removed, re-sorted or edited), kept while the document is open: solution.page and solve.solutionsAdded carry it, so pages read at one value belong together and a client knows when to page again."},
     "SortBy": {"enum": ["unsorted", "moves", "level", "rotations"], "description": "Where a new solution goes in the saved list while solving: the original's sort-by choice."},
     "ArrayRef": {
@@ -160,9 +160,11 @@
         "startGoal": {"type": ["integer", "null"], "minimum": 0, "description": "A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape."},
         "disc": {"type": ["integer", "null"], "minimum": 1, "description": "A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape."},
         "discColor": {"oneOf": [{"$ref": "#/$defs/ColorId"}, {"type": "null"}], "description": "A stacking puzzle's disc: the palette color of its first colored cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape."},
-        "image": {"oneOf": [{"$ref": "#/$defs/ShapeImage"}, {"type": "null"}], "description": "The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none."}
+        "image": {"oneOf": [{"$ref": "#/$defs/ShapeImage"}, {"type": "null"}], "description": "The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none."},
+        "board": {"type": "boolean", "description": "A Tilted Square puzzle's board (its first shape, label B): made from the tray, never edited. False for any other shape."},
+        "fits": {"type": "boolean", "description": "A Tilted Square puzzle's piece: every cell of it lies on a whole cell of the board (a tray change can leave a piece that has no such place). True for the board and off such a puzzle."}
       },
-      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "color", "startGoal", "disc", "discColor", "image"],
+      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "color", "startGoal", "disc", "discColor", "image", "board", "fits"],
       "additionalProperties": false
     },
     "ImageFit": {"enum": ["crop", "stretch"], "description": "How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, or squashed to it."},
@@ -233,9 +235,48 @@
         "colors": {"type": "array", "items": {"$ref": "#/$defs/Color"}},
         "problems": {"type": "array", "items": {"$ref": "#/$defs/ProblemSummary"}},
         "rodSets": {"type": "array", "items": {"$ref": "#/$defs/RodSet"}, "description": "A stacking puzzle's boards (at least one); empty on other grids."},
+        "tray": {"oneOf": [{"$ref": "#/$defs/Tray"}, {"type": "null"}], "description": "A Tilted Square puzzle's tray (tray.json); null on any other puzzle. A puzzle with a tray is on the bricks grid."},
         "notice": {"type": "string", "description": "What opening the file changed, to tell the user (the original's load message). Only in the result of document.open, document.openBytes and solve.importPaused, and only when there is something to tell."}
       },
-      "required": ["revision", "dirty", "grid", "path", "notes", "canUndo", "canRedo", "solving", "shapes", "colors", "problems", "rodSets"],
+      "required": ["revision", "dirty", "grid", "path", "notes", "canUndo", "canRedo", "solving", "shapes", "colors", "problems", "rodSets", "tray"],
+      "additionalProperties": false
+    },
+    "TrayPlacement": {"enum": ["best", "custom"], "description": "How the grid is placed in a tilted tray: where the most cells are whole, or where the user put it."},
+    "TraySettings": {
+      "type": "object",
+      "description": "The settings of a tilted tray a client may give (tray.set, tray.preview, document.new): each over what the tray has, or for a new tray over the defaults (size 8, straight, strict, best placement). The slope is down/over and is put in lowest terms (down 0 is a straight tray).",
+      "properties": {
+        "size": {"type": "integer", "minimum": 1, "maximum": 64, "description": "The tray's side in cells. A smaller side keeps the walls still inside the tray."},
+        "over": {"type": "integer", "minimum": 1, "maximum": 64},
+        "down": {"type": "integer", "minimum": 0, "maximum": 64, "description": "At most over."},
+        "allowance": {"type": "number", "minimum": 0, "maximum": 0.25, "description": "How far a cell may reach past the tray's edge or into a wall, in cell widths; 0 is strict."},
+        "placement": {"$ref": "#/$defs/TrayPlacement"},
+        "shiftX": {"type": "number", "minimum": -1024, "maximum": 1024, "description": "With the custom placement: where grid point (0, 0) lies in the tray. With the best placement it is worked out and what is given is ignored."},
+        "shiftY": {"type": "number", "minimum": -1024, "maximum": 1024}
+      },
+      "additionalProperties": false
+    },
+    "Tray": {
+      "type": "object",
+      "description": "A Tilted Square puzzle's tray (decision 0045): a square of straight unit squares, some of them walls, with the cube grid turned inside it by atan2(down, over). The board (the puzzle's first shape) is the box of every cell that reaches into the tray; its whole cells are those within the allowance of an open square everywhere.",
+      "properties": {
+        "size": {"type": "integer", "minimum": 1},
+        "over": {"type": "integer", "minimum": 1},
+        "down": {"type": "integer", "minimum": 0},
+        "allowance": {"type": "number", "minimum": 0},
+        "placement": {"$ref": "#/$defs/TrayPlacement"},
+        "shiftX": {"type": "number", "description": "The shift in use, whichever the placement, in its canonical form."},
+        "shiftY": {"type": "number"},
+        "walls": {"type": "array", "items": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 2, "maxItems": 2}, "description": "The tray's wall squares, [x, y] each, row by row."},
+        "degrees": {"type": "number", "description": "The turn of the grid in the tray."},
+        "whole": {"type": "integer", "minimum": 0, "description": "The board's whole cells."},
+        "cut": {"type": "integer", "minimum": 0, "description": "The cells the tray's edge or a wall cuts."},
+        "box": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 2, "maxItems": 2, "description": "The board's size [x, y] in cells: every shape's."},
+        "cells": {"type": "string", "pattern": "^[wco]*$", "description": "The board's cells row by row from y = 0, x * y characters: w whole, c cut, o outside the tray."},
+        "corners": {"type": "array", "items": {"$ref": "#/$defs/Point2"}, "minItems": 4, "maxItems": 4, "description": "The tray's corners (0, 0), (size, 0), (size, size), (0, size) in the board's grid (cell (x, y) is the unit square at (x, y), y up)."},
+        "wallPolygons": {"type": "array", "items": {"type": "array", "items": {"$ref": "#/$defs/Point2"}, "minItems": 4, "maxItems": 4}, "description": "Each wall square's corners in the board's grid, in the order of walls."}
+      },
+      "required": ["size", "over", "down", "allowance", "placement", "shiftX", "shiftY", "walls", "degrees", "whole", "cut", "box", "cells", "corners", "wallPolygons"],
       "additionalProperties": false
     },
     "ShapeInfo": {
@@ -303,6 +344,7 @@
         "highMemory": {"type": "boolean"},
         "autosave": {"type": "boolean"},
         "keepAssemblies": {"type": "boolean", "description": "Always show Assemblies (not in the original)."},
+        "flipPieces": {"type": "boolean", "description": "A Tilted Square puzzle: Pieces may be turned over (not in the original)."},
         "solverType": {"type": "string", "description": "classic, crowell (sliding: the original's fast, deep or full, kept as stored and not written)."},
         "sortBy": {"type": "string", "description": "unsorted, moves, level, rotations."}
       },
@@ -391,6 +433,7 @@
         "checkRotations": {"type": "boolean", "description": "Try 90 degree turns while taking apart."},
         "justCount": {"type": "boolean", "description": "Count, keep no solutions."},
         "keepAssemblies": {"type": "boolean", "description": "With disassemble: also keep the assemblies that do not come apart, without a disassembly, after every solution."},
+        "flipPieces": {"type": "boolean", "description": "A Tilted Square puzzle (a puzzle with a tray): the pieces may be turned over (default true). Off, each piece is placed only in the four quarter turns in the tray's plane, and the search runs without its symmetry breaker: assemblies that are one another turned are found each and left to the rotation filter. No part on other puzzles."},
         "justLevels": {"type": "boolean", "description": "Keep the level summary of each take-apart, not its moves."},
         "keepMirrors": {"type": "boolean"},
         "keepRotations": {"type": "boolean"},

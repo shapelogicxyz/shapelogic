@@ -65,6 +65,7 @@ enum ChangeFlag : std::uint32_t {
   kChangeSolutions = 8,
   kChangeNotes = 16,
   kChangeRodSets = 32,  ///< a stacking puzzle's rod sets
+  kChangeTray = 64,     ///< a Tilted Square puzzle's tray
 };
 
 /// The settings of a document that are not UI (configuration.cpp).
@@ -178,6 +179,11 @@ class Document {
  public:
   /// A new empty puzzle on a grid (document.new); the grid never changes.
   explicit Document(GridKind grid, DocumentSettings settings = {});
+  /// A new Tilted Square puzzle (decision 0045): a cube-grid puzzle with
+  /// `tray`, its board (shape 0) and one problem whose result is the board.
+  /// The tray's shift is the best one, or with a custom placement the one
+  /// given. InvalidArgument when the tray is not valid().
+  static Result<Document> newTilted(tilted::Tray tray, DocumentSettings settings = {});
   /// Loads a .xmpuzzle file (document.open).
   static Result<Document> open(const std::filesystem::path& path, DocumentSettings settings = {});
   /// The same from the file's bytes (document.openBytes).
@@ -479,6 +485,39 @@ class Document {
   /// (sliding::layoutRefusal). False, with no undo step, when that side is
   /// the position already.
   Result<bool> setSlideLayout(Id problem, bool goal, const std::vector<sliding::TrayCell>& at);
+
+  // ---- tilted trays (decision 0045) ---------------------------------------------
+  //
+  // A Tilted Square puzzle is a cube-grid puzzle with a tray
+  // (Puzzle::tray()). Shape 0 is its board: the tray's whole cells, as
+  // variable cells (the pieces must fit the board, not fill it), made from
+  // the tray and never edited. Every shape has the board's size, one layer,
+  // and a piece's cells lie on whole cells. So on such a puzzle: the board
+  // is not deleted, copied, moved, edited or used as a piece; no shape is
+  // resized; a problem's result is the board; and a shape task that would
+  // leave a piece off the whole cells is refused (InvalidArgument each).
+
+  /// True when the puzzle has a tilted tray.
+  [[nodiscard]] bool tilted() const { return puzzle_->tray().has_value(); }
+  /// Sets the tray's settings (tray.set): the board is made again, every
+  /// piece is given the new size and moved by whole cells to the place
+  /// nearest its old one where all its cells are whole (a piece with no
+  /// such place stays, centered on its old place, and fitsTray() tells).
+  /// With the best placement the shift is worked out; a custom one is put
+  /// in its canonical form. The solutions go. One undo step; refused
+  /// while anything is solved, when the tray is not valid(), and when a
+  /// piece is larger than the new board (InvalidArgument, naming it).
+  Result<void> setTray(tilted::Tray tray);
+  /// Makes the tray's squares `squares` ({x, y}, each inside the tray)
+  /// walls, or open again (tray.setWalls); the rest as setTray(). Returns
+  /// how many squares changed; none, no step.
+  Result<unsigned int> setTrayWalls(const std::vector<std::array<unsigned int, 2>>& squares,
+                                    bool wall);
+  /// True when every cell of shape `index` lies on a whole cell of the
+  /// board (always so off a tilted puzzle, and for the board).
+  [[nodiscard]] bool fitsTray(unsigned int index) const;
+  /// The board the tray gives (tilted() only), worked out once a tray.
+  [[nodiscard]] const tilted::Layout& trayLayout() const;
 
   // ---- stacking puzzles (decision 0015) ---------------------------------------
   //
@@ -816,6 +855,16 @@ class Document {
   /// What the original GUI hid on a stacking puzzle (InvalidArgument with
   /// `why`); nothing on other grids.
   [[nodiscard]] Result<void> refuseOnStacking(const char* why) const;
+
+  // ---- tilted trays (document_tilted.cpp) ------------------------------------------
+  /// InvalidArgument with `why` when the puzzle is tilted and `shape` is
+  /// its board.
+  [[nodiscard]] Result<void> refuseTiltedBoard(unsigned int shape, const char* why) const;
+  /// The common end of setTray() and setTrayWalls().
+  Result<void> applyTray(tilted::Tray next, const char* label);
+  /// After a file is read: makes the board and the shapes agree with the
+  /// tray; a puzzle whose shapes cannot is opened without its tray.
+  void adoptTray();
   /// A stacking problem's index, free to edit, standing on a rod set
   /// ("Choose a rod set with Set Start/Goal Rods").
   [[nodiscard]] Result<unsigned int> stackingProblem(Id problem) const;
@@ -837,6 +886,8 @@ class Document {
   std::unique_ptr<Puzzle> puzzle_;
   Ids ids_;
   std::string openNotice_;
+  /// trayLayout()'s answer and the tray it is for.
+  mutable std::unique_ptr<std::pair<tilted::Tray, tilted::Layout>> trayLayout_;
   Id nextId_ = 1;
   DocumentSettings settings_;
 

@@ -122,6 +122,7 @@ Engine::Engine(std::ostream& out, std::ostream& log)
   addSlidingMethods(methods_);
   addStackingMethods(methods_);
   addExportMethods(methods_);
+  addTrayMethods(methods_);
 }
 
 namespace {

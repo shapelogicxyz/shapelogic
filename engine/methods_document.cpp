@@ -20,8 +20,25 @@ constexpr std::size_t kMaxShapes = 65536;
 
 Reply documentNew(State& s, Params& p) {
   const GridKind grid = p.choice("grid", gridNames());
+  const bool tilted = p.has("tray");
+  const Json none;
+  const Json& given = tilted ? p.value("tray") : none;
   BTE_CHECK(p.finish());
-  s.replaceDocument(app::Document(grid, app::DocumentSettings{s.settings.undoDepth}), std::nullopt);
+  const app::DocumentSettings settings{s.settings.undoDepth};
+  if (tilted) {
+    // a Tilted Square puzzle: a cube-grid puzzle with a tray (decision 0045)
+    if (grid != GridKind::Bricks) {
+      return coreError(Errc::InvalidArgument, "a tilted tray is for the bricks grid");
+    }
+    RpcResult<tilted::Tray> tray = readTraySettings(given, tilted::Tray{});
+    if (!tray) {
+      return std::unexpected(tray.error());
+    }
+    BTE_TRY(app::Document doc, app::Document::newTilted(std::move(*tray), settings));
+    s.replaceDocument(std::move(doc), std::nullopt);
+    return snapshot(s);
+  }
+  s.replaceDocument(app::Document(grid, settings), std::nullopt);
   return snapshot(s);
 }
 

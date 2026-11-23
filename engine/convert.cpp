@@ -98,6 +98,12 @@ const Names<mesh::MeshStyle>& meshStyleNames() {
   return n;
 }
 
+const Names<tilted::Tray::Placement>& trayPlacementNames() {
+  static const Names<tilted::Tray::Placement> n = {{"best", tilted::Tray::Placement::Best},
+                                                   {"custom", tilted::Tray::Placement::Custom}};
+  return n;
+}
+
 const Names<SolutionOrder>& sortByNames() {
   static const Names<SolutionOrder> n = {{"unsorted", SolutionOrder::Unsorted},
                                          {"moves", SolutionOrder::Moves},
@@ -261,6 +267,8 @@ Json shapeSummary(const State& s, unsigned int index) {
   j["disc"] = disc ? Json(v.getDiskSize()) : Json(nullptr);
   j["discColor"] = disc ? discColor(s, v) : Json(nullptr);
   j["image"] = shapeImage(s.document().puzzle(), v);
+  j["board"] = s.document().tilted() && index == 0;
+  j["fits"] = s.document().fitsTray(index);
   return j;
 }
 
@@ -385,6 +393,56 @@ Json problemDetail(const State& s, unsigned int index) {
   });
 }
 
+Json trayJson(const app::Document& d) {
+  if (!d.tilted()) {
+    return nullptr;
+  }
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): tilted() says the puzzle has one
+  const tilted::Tray& t = *d.puzzle().tray();
+  const tilted::Layout& lay = d.trayLayout();
+  Json j = Json::object();
+  j["size"] = t.size;
+  j["over"] = t.over;
+  j["down"] = t.down;
+  j["allowance"] = t.allowance;
+  j["placement"] = t.placement == tilted::Tray::Placement::Best ? "best" : "custom";
+  j["shiftX"] = t.shiftX;
+  j["shiftY"] = t.shiftY;
+  Json walls = Json::array();
+  for (unsigned int y = 0; y < t.size; y++) {
+    for (unsigned int x = 0; x < t.size; x++) {
+      if (t.isWall(x, y)) {
+        walls.push_back(Json::array({x, y}));
+      }
+    }
+  }
+  j["walls"] = std::move(walls);
+  j["degrees"] = t.degrees();
+  j["whole"] = lay.whole;
+  j["cut"] = lay.cut;
+  j["box"] = Json::array({lay.sizeX, lay.sizeY});
+  std::string cells;
+  cells.reserve(lay.cells.size());
+  for (const tilted::Cell c : lay.cells) {
+    cells.push_back(c == tilted::Cell::Whole ? 'w' : c == tilted::Cell::Cut ? 'c' : 'o');
+  }
+  j["cells"] = std::move(cells);
+  const auto square = [](const std::array<tilted::Point, 4>& pts) {
+    Json out = Json::array();
+    for (const tilted::Point& p : pts) {
+      out.push_back(Json::array({p.x, p.y}));
+    }
+    return out;
+  };
+  j["corners"] = square(lay.corners);
+  Json polygons = Json::array();
+  for (const std::array<tilted::Point, 4>& w : lay.walls) {
+    polygons.push_back(square(w));
+  }
+  j["wallPolygons"] = std::move(polygons);
+  return j;
+}
+
 Json snapshot(const State& s) {
   const app::Document& d = s.document();
   const Puzzle& p = d.puzzle();
@@ -417,6 +475,7 @@ Json snapshot(const State& s) {
     rodSets.push_back(rodSetJson(s, i));
   }
   j["rodSets"] = std::move(rodSets);
+  j["tray"] = trayJson(d);
   return j;
 }
 
@@ -504,14 +563,15 @@ namespace {
 // The original's check boxes (mainwindow_solve.cpp's optionNames), and
 // verticalMoves, which sliding trays of several layers added,
 // anyOrientation and mirroredOrientations (a sliding piece's orientation),
-// keepAssemblies (Always show Assemblies) and optimizedPaths (Automatically
-// use optimized paths).
-constexpr std::array<std::string_view, 17> kSolverBoxes = {
+// keepAssemblies (Always show Assemblies), optimizedPaths (Automatically
+// use optimized paths) and flipPieces (a tilted tray's pieces may be
+// turned over).
+constexpr std::array<std::string_view, 18> kSolverBoxes = {
     "disassemble",   "checkRotations", "justCount",      "justLevels",
     "deepSymmetry",  "keepMirrors",    "keepRotations",  "strictColors",
     "nestedSlides",  "partialNested",  "verticalMoves",  "anyOrientation",
     "mirroredOrientations",            "highMemory",     "autosave",
-    "keepAssemblies", "optimizedPaths"};
+    "keepAssemblies", "optimizedPaths", "flipPieces"};
 
 bool isBox(std::string_view name) {
   for (const std::string_view b : kSolverBoxes) {
@@ -593,6 +653,7 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   o.checkRotations = p.optBoolean("checkRotations", o.checkRotations);
   o.justCount = p.optBoolean("justCount", o.justCount);
   o.keepAssemblies = p.optBoolean("keepAssemblies", o.keepAssemblies);
+  o.flipPieces = p.optBoolean("flipPieces", o.flipPieces);
   o.dropDisassemblies = p.optBoolean("justLevels", o.dropDisassemblies);
   o.matrix.keepMirrors = p.optBoolean("keepMirrors", o.matrix.keepMirrors);
   o.matrix.keepRotations = p.optBoolean("keepRotations", o.matrix.keepRotations);

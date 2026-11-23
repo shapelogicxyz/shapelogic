@@ -38,6 +38,10 @@ Document::Document(GridKind grid, DocumentSettings settings)
 
 Document::Document(std::unique_ptr<Puzzle> puzzle, DocumentSettings settings)
     : puzzle_(std::move(puzzle)), settings_(settings) {
+  // a tilted puzzle's board and shapes follow its tray
+  if (puzzle_->tray()) {
+    adoptTray();
+  }
   assignIds();
   // a file from the original may list a board below a piece
   if (sliding::isSliding(*puzzle_)) {
@@ -296,6 +300,10 @@ Result<unsigned int> Document::solutionIndex(Id problem, Id solution) const {
 std::string Document::shapeLabel(unsigned int index) { return "S" + std::to_string(index + 1); }
 
 std::string Document::shapeLabelOf(unsigned int index) const {
+  // a tilted puzzle: the board, then the pieces from S1
+  if (tilted()) {
+    return index == 0 ? "B" : "S" + std::to_string(index);
+  }
   return sliding::shapeLabel(*puzzle_, index);
 }
 

@@ -163,7 +163,8 @@ void announceChange(State& s) {
                                   std::pair{app::kChangeProblems, "problems"},
                                   std::pair{app::kChangeSolutions, "solutions"},
                                   std::pair{app::kChangeNotes, "notes"},
-                                  std::pair{app::kChangeRodSets, "rodSets"}}) {
+                                  std::pair{app::kChangeRodSets, "rodSets"},
+                                  std::pair{app::kChangeTray, "tray"}}) {
     if ((c.what & bit) != 0) {
       what.push_back(name);
     }

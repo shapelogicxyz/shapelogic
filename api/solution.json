@@ -107,7 +107,7 @@
         "required": ["shapes", "revision"],
         "additionalProperties": false
       },
-      "errors": ["not_found", "invalid_argument", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state", "unsupported"]
     },
     "solution.analyse": {
       "summary": "Takes saved assemblies apart afterwards (Add disassembly): all, the ones without the moves stored, or one. A job: returns at once, reports through events, stops with solution.analyseStop; the results go in when it ends (kept when stopped). Refused while the problem is being solved; while it runs, the document is frozen as while solving.",

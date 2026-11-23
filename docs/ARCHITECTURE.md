@@ -1038,6 +1038,29 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   `applyTask`, `minimizeShapes`; a nudge out of the grid is refused), the
   grid editor's cell tools (`CellTool`, mirror and span, `editCells`),
   `defaultShapeSize`, `sizeUnit`.
+- Tilted trays (decision 0045, stage B; `document_tilted.cpp`): a
+  document whose puzzle has a tray is `tilted()`. `Document::newTilted`
+  makes one: the tray with its shift worked out, the board as shape 0 and
+  one problem whose result is the board. The board is the tray's whole
+  cells as variable cells (the pieces must fit it, not fill it:
+  `fillTrayBoard`). `setTray` and `setTrayWalls` (one undo step each,
+  `touchWhole`; `applyTray`) make the board again, give every piece the
+  new size and move it by whole cells to the place nearest where it lay
+  in the tray with every cell whole (`fitToTray`, the place carried
+  between the two boards through the tray's frame); a piece with no such
+  place stays near it (`fitsTray` tells), one larger than the board
+  refuses the change. The other commands keep the rules (InvalidArgument):
+  the board is not deleted, copied, moved, edited or a piece; no shape is
+  resized and a new one has the board's size; a cell edit changes nothing
+  off the whole cells (`keepOnTray`); a shape task ends back on the
+  board's grid on whole cells or is refused; a problem's result is the
+  board. On open (`adoptTray`) a board that is not the tray's is made
+  again and the pieces are put on its grid; a puzzle whose shapes cannot
+  lie on it is opened without the tray, with a notice. The layout is
+  worked out once a tray (`trayLayout`). `SolveOptions::flipPieces` (off:
+  each piece keeps to the four turns about the layers' axis, through
+  `MatrixOptions::partTransforms`, so without the symmetry breaker) is
+  applied in `SolveSession` on a puzzle with a tray.
 - `analysis.h`: `Analysis`, saved assemblies taken apart afterwards
   (cb_AddDisasm / cb_AddAllDisasm: all, those without their moves, or one)
   on a thread of its own with one `Disassembler` and a pool for its

@@ -1,11 +1,17 @@
 # 0045: A Tilted Square puzzle is a cube-grid puzzle with a tray
 
-**Status:** accepted; stage A of `docs/TILTED-SQUARE-PLAN.md` is in the
-code: `core/shapelogic/model/tilted_tray.h` (`tilted::Tray`, `layout`,
+**Status:** accepted; stages A and B of `docs/TILTED-SQUARE-PLAN.md` are
+in the code. Stage B: `core/shapelogic/app/document_tilted.cpp`
+(`Document::newTilted`, `setTray`, `setTrayWalls`, `fitsTray`, `adoptTray`;
+`fitToTray`, `keepOnTray`), the guards in `document_commands.cpp`,
+`SolveOptions::flipPieces` (`solve/solve_session.cpp`), `api/tray.json`
+(`tray.set`, `tray.setWalls`, `tray.preview`), `engine/methods_tray.cpp`,
+`document.new`'s `tray`, `Snapshot.tray`, `ShapeSummary.board` and `fits`,
+`ChangeKind` `tray`. Stage A: `core/shapelogic/model/tilted_tray.h` (`tilted::Tray`, `layout`,
 `bestShift`, `canonicalShift`), `core/shapelogic/model/puzzle.h`
 (`Puzzle::tray`, `setTray`), `core/shapelogic/io/puzzle_file.cpp`
-(`readTray`, `writeTray`, `kSlotTray`). The document rules, the engine and
-the front end are stages B to E.
+(`readTray`, `writeTray`, `kSlotTray`). The front end is stages C to E, a
+solve over every placement stage F.
 
 ## Context
 The user draws tray puzzles whose square cells are turned inside a square
@@ -62,6 +68,30 @@ then to the first line that reaches the count. The shift is stored in the
 file for either placement, so a file opens to the same board whatever a
 later version computes.
 
+**The pieces must fit the board, not fill it** (stage B). The board's
+whole cells are variable cells, as a brick result's `+` cells are: a tray
+puzzle often leaves cells empty (Triple Play puts 21 cells of pieces on a
+board of 24). When the pieces have as many cells as the board they fill
+it anyway. The assemblers take a result with no fixed cell as it is.
+
+**One board, made by the document.** Shape 0 is the board, generated from
+the tray and never edited; every shape has its size, one layer; a piece's
+cells lie on whole cells. The precedent for "exactly one, made with the
+puzzle, never deleted" is the stacking rod set. A tray change is one undo
+step that makes the board again and moves each piece, by whole cells, to
+the place nearest where it lay in the tray. A piece larger than the new
+board refuses the change (nothing is cut off); one that fits the box but
+no whole cells stays and is told of (`fits`).
+
+**Pieces that are not turned over go through the matrix's own limits**
+(`flipPieces` off sets `MatrixOptions::partTransforms` to the four turns
+in the tray's plane). The matrix then has no symmetry breaker, so two
+assemblies that are one another turned are found each and left to the
+rotation filter: Triple Play's one assembly is counted as two. The plan
+had the breaker limited to the same turns instead; that needs the
+symmetry tables cut down to a subgroup and was left out. Flipping on, the
+ordinary search runs, breaker and all.
+
 ## Consequences
 - Lengths that are equal on paper differ by rounding, so a cell that
   reaches less than 1e-9 into a wall or past the rim is whole
@@ -77,6 +107,10 @@ later version computes.
   a polygon library outside the code.
 
 ## What was not done
-- No shape is made from the tray yet, and a tray does not limit what the
-  shapes are: that is the document's work (stage B).
+- With `flipPieces` off the symmetry breaker is not limited to the turns
+  in the plane; it is off (see above).
+- `solution.toShapes` is unsupported on a tilted puzzle: a shape made
+  from an assembly would not be a piece on the board's grid.
+- The cells' states are in `Snapshot.tray.cells`, not in `grid.geometry`
+  (which draws a space of a size, not a shape of the document).
 - Trays that are rectangles; a tray body in the STL or Puzzlecad export.

@@ -83,6 +83,12 @@ struct SolveOptions {
   bool checkRotations = false;
   /// Count only, keep no solutions (PAR_JUST_COUNT).
   bool justCount = false;
+  /// A Tilted Square puzzle (decision 0045): the pieces may be turned over.
+  /// Off, a piece is placed only in the four quarter turns in the tray's
+  /// plane (MatrixOptions::partTransforms, so without the symmetry breaker:
+  /// what the rotation filter does not drop is counted). No part on a
+  /// puzzle without a tray.
+  bool flipPieces = true;
   /// With `disassemble`: also keep the assemblies that do not come apart,
   /// without a disassembly, after every solution (not in the original).
   bool keepAssemblies = false;

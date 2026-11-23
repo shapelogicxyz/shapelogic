@@ -49,6 +49,8 @@ const shape = (id: string, label: string, startGoal: number | null = null): Shap
   disc: null,
   discColor: null,
   image: null,
+  board: false,
+  fits: true,
 });
 
 describe('the sliding options', () => {

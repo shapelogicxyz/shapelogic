@@ -5,14 +5,18 @@
   "description": "The puzzle being edited (one per engine): new, open, import, save, the Puzzlecad export, grid conversion, the notes, undo and redo. A new document drops every playback and explorer handle.",
   "methods": {
     "document.new": {
-      "summary": "A new empty puzzle on a grid; the grid never changes. The open document goes (as with document.open, document.openBytes and solve.importPaused): its solves pause and are waited for, its analyses stop, its handles are dropped, and after the reply its problems whose work the events were reporting get a last solve.state idle and solution.analyseEnded (stopped); the revision counts on.",
+      "summary": "A new empty puzzle on a grid, or with tray a new Tilted Square puzzle (invalid_argument for a tray on another grid than bricks, or a slope with down above over); the grid never changes. The open document goes (as with document.open, document.openBytes and solve.importPaused): its solves pause and are waited for, its analyses stop, its handles are dropped, and after the reply its problems whose work the events were reporting get a last solve.state idle and solution.analyseEnded (stopped); the revision counts on.",
       "params": {
         "type": "object",
-        "properties": {"grid": {"$ref": "types.json#/$defs/Grid"}},
+        "properties": {
+          "grid": {"$ref": "types.json#/$defs/Grid"},
+          "tray": {"$ref": "types.json#/$defs/TraySettings", "description": "A new Tilted Square puzzle (decision 0045), on the bricks grid only: the puzzle has this tray, its board as the first shape and one problem whose result is the board."}
+        },
         "required": ["grid"],
         "additionalProperties": false
       },
-      "result": {"$ref": "types.json#/$defs/Snapshot"}
+      "result": {"$ref": "types.json#/$defs/Snapshot"},
+      "errors": ["invalid_argument"]
     },
     "document.open": {
       "summary": "Opens a .xmpuzzle file (gzip or plain XML; one that inflates to more than 256 MiB is refused as parse_error); what this version does not model is kept. The open document goes as with document.new.",

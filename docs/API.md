@@ -44,6 +44,7 @@ follows it.
 - [Problems](#problems)
 - [Sliding puzzles](#sliding-puzzles)
 - [Stacking puzzles](#stacking-puzzles)
+- [Tilted trays](#tilted-trays)
 - [Solving](#solving)
 - [Solutions](#solutions)
 - [Playback](#playback)
@@ -202,15 +203,18 @@ The puzzle being edited (one per engine): new, open, import, save, the Puzzlecad
 
 ### `document.new`
 
-A new empty puzzle on a grid; the grid never changes. The open document goes (as with document.open, document.openBytes and solve.importPaused): its solves pause and are waited for, its analyses stop, its handles are dropped, and after the reply its problems whose work the events were reporting get a last solve.state idle and solution.analyseEnded (stopped); the revision counts on.
+A new empty puzzle on a grid, or with tray a new Tilted Square puzzle (invalid_argument for a tray on another grid than bricks, or a slope with down above over); the grid never changes. The open document goes (as with document.open, document.openBytes and solve.importPaused): its solves pause and are waited for, its analyses stop, its handles are dropped, and after the reply its problems whose work the events were reporting get a last solve.state idle and solution.analyseEnded (stopped); the revision counts on.
 
 Params:
 
 | name | type | | description |
 |---|---|---|---|
 | `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart. |
+| `tray` | [TraySettings](#traysettings) |  | A new Tilted Square puzzle (decision 0045), on the bricks grid only: the puzzle has this tray, its board as the first shape and one problem whose result is the board. |
 
 Result: [Snapshot](#snapshot)
+
+Errors: `invalid_argument`
 
 ### `document.open`
 
@@ -503,7 +507,7 @@ Params:
 
 Result: Made
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_state`, `invalid_argument`
 
 ### `shape.delete`
 
@@ -517,7 +521,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_state`, `invalid_argument`
 
 ### `shape.move`
 
@@ -2082,6 +2086,69 @@ One transfer: the top disc of rod 'from' onto rod 'to'.
 | `from` | integer | required |  |
 | `to` | integer | required |  |
 
+## Tilted trays
+
+A Tilted Square puzzle's tray (decision 0045; not in the original): a cube-grid puzzle with a tray (Snapshot.tray), made by document.new with tray. Its first shape is the board, made from the tray and never edited: shape.delete, shape.duplicate, shape.move, shape.setCells, shape.setBox and shape.task refuse it, and it is no piece. Every shape has the board's size, one layer: shape.create makes one of that size, shape.resize is refused. A piece's cells lie on the board's whole cells: an edit changes nothing elsewhere, and a shape task that would leave a piece off them is refused. A problem's result is the board (problem.create sets it; problem.setResult to another shape and problem.clearResult are refused). solution.toShapes is unsupported. All refusals here are invalid_argument unless said.
+
+### `tray.set`
+
+Sets the tray's settings (Tilt & tolerance): the fields given, over the tray's. The board is made again; every piece gets its size and is moved by whole cells to the place nearest its old one where all its cells are whole cells (one with no such place stays near its old place, and its fits is false); the problems lose their solutions. invalid_argument when a piece is larger than the new board (the message names it) or down is above over. unsupported on a puzzle without a tray. Refused while anything is solved. One undo step; nothing changes, no step.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `tray` | [TraySettings](#traysettings) | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `unsupported`, `invalid_argument`, `invalid_state`
+
+### `tray.setWalls`
+
+Makes squares of the tray walls, or open again: each [x, y] inside the tray. A wall belongs to the tray and stays where it is at every tilt. The board and the pieces follow as with tray.set (with the best placement the grid is placed again). Returns how many squares changed. One undo step; none changed, no step.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `squares` | integer[][] | required |  |
+| `wall` | boolean | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `changed` | integer | required |  |
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+Errors: `unsupported`, `invalid_argument`, `invalid_state`
+
+### `tray.preview`
+
+What a tray with these settings would be, changing nothing: the fields given over the open puzzle's tray (walls included), or over the defaults when it has none (the New puzzle dialog's count).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `tray` | [TraySettings](#traysettings) | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `whole` | integer | required |  |
+| `cut` | integer | required |  |
+| `degrees` | number | required |  |
+| `box` | integer[] | required |  |
+| `over` | integer | required | The slope in lowest terms. |
+| `down` | integer | required |  |
+| `shiftX` | number | required |  |
+| `shiftY` | number | required |  |
+
+Errors: `invalid_argument`
+
 ## Solving
 
 One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. A sliding problem is solved as the original's solve thread did: the assembler finds the start layouts, and each is searched to the goal (decision 0014). A stacking problem too (decision 0015): one search from its start stacking to its goal, its path the one solution; a paused stacking solve is its search saved in the engine's panexFolder, which outlives the run, the document and the engine: solve.continue carries it on (also on a reopened file), solve.start and solve.abort throw it away, solve.status describes it (savedSearch), and the paused solve's export and import carry it.
@@ -2454,7 +2521,7 @@ Result:
 | `shapes` | [ShapeId](#shapeid)[] | required |  |
 | `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
 
-Errors: `not_found`, `invalid_argument`, `invalid_state`
+Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`
 
 ### `solution.analyse`
 
@@ -3164,7 +3231,7 @@ The 3D view's bevelled cells, the same closed with the wire-frame faces flagged,
 
 ### ChangeKind
 
-`"shapes"` \| `"colors"` \| `"problems"` \| `"solutions"` \| `"notes"` \| `"rodSets"`
+`"shapes"` \| `"colors"` \| `"problems"` \| `"solutions"` \| `"notes"` \| `"rodSets"` \| `"tray"`
 
 ### SolutionsVersion
 
@@ -3287,6 +3354,8 @@ Where the rods and the discs of a stacking stand (the original's layoutBoard), i
 | `disc` | integer or null | required | A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape. |
 | `discColor` | [ColorId](#colorid) or null | required | A stacking puzzle's disc: the palette color of its first colored cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape. |
 | `image` | [ShapeImage](#shapeimage) or null | required | The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none. |
+| `board` | boolean | required | A Tilted Square puzzle's board (its first shape, label B): made from the tray, never edited. False for any other shape. |
+| `fits` | boolean | required | A Tilted Square puzzle's piece: every cell of it lies on a whole cell of the board (a tray change can leave a piece that has no such place). True for the board and off such a puzzle. |
 
 ### ImageFit
 
@@ -3363,7 +3432,50 @@ Everything a front end shows of the document's lists.
 | `colors` | [Color](#color)[] | required |  |
 | `problems` | [ProblemSummary](#problemsummary)[] | required |  |
 | `rodSets` | [RodSet](#rodset)[] | required | A stacking puzzle's boards (at least one); empty on other grids. |
+| `tray` | [Tray](#tray) or null | required | A Tilted Square puzzle's tray (tray.json); null on any other puzzle. A puzzle with a tray is on the bricks grid. |
 | `notice` | string |  | What opening the file changed, to tell the user (the original's load message). Only in the result of document.open, document.openBytes and solve.importPaused, and only when there is something to tell. |
+
+### TrayPlacement
+
+How the grid is placed in a tilted tray: where the most cells are whole, or where the user put it.
+
+`"best"` \| `"custom"`
+
+### TraySettings
+
+The settings of a tilted tray a client may give (tray.set, tray.preview, document.new): each over what the tray has, or for a new tray over the defaults (size 8, straight, strict, best placement). The slope is down/over and is put in lowest terms (down 0 is a straight tray).
+
+| name | type | | description |
+|---|---|---|---|
+| `size` | integer |  | The tray's side in cells. A smaller side keeps the walls still inside the tray. |
+| `over` | integer |  |  |
+| `down` | integer |  | At most over. |
+| `allowance` | number |  | How far a cell may reach past the tray's edge or into a wall, in cell widths; 0 is strict. |
+| `placement` | [TrayPlacement](#trayplacement) |  | How the grid is placed in a tilted tray: where the most cells are whole, or where the user put it. |
+| `shiftX` | number |  | With the custom placement: where grid point (0, 0) lies in the tray. With the best placement it is worked out and what is given is ignored. |
+| `shiftY` | number |  |  |
+
+### Tray
+
+A Tilted Square puzzle's tray (decision 0045): a square of straight unit squares, some of them walls, with the cube grid turned inside it by atan2(down, over). The board (the puzzle's first shape) is the box of every cell that reaches into the tray; its whole cells are those within the allowance of an open square everywhere.
+
+| name | type | | description |
+|---|---|---|---|
+| `size` | integer | required |  |
+| `over` | integer | required |  |
+| `down` | integer | required |  |
+| `allowance` | number | required |  |
+| `placement` | [TrayPlacement](#trayplacement) | required | How the grid is placed in a tilted tray: where the most cells are whole, or where the user put it. |
+| `shiftX` | number | required | The shift in use, whichever the placement, in its canonical form. |
+| `shiftY` | number | required |  |
+| `walls` | integer[][] | required | The tray's wall squares, [x, y] each, row by row. |
+| `degrees` | number | required | The turn of the grid in the tray. |
+| `whole` | integer | required | The board's whole cells. |
+| `cut` | integer | required | The cells the tray's edge or a wall cuts. |
+| `box` | integer[] | required | The board's size [x, y] in cells: every shape's. |
+| `cells` | string | required | The board's cells row by row from y = 0, x * y characters: w whole, c cut, o outside the tray. |
+| `corners` | [Point2](#point2)[] | required | The tray's corners (0, 0), (size, 0), (size, size), (0, size) in the board's grid (cell (x, y) is the unit square at (x, y), y up). |
+| `wallPolygons` | [Point2](#point2)[][] | required | Each wall square's corners in the board's grid, in the order of walls. |
 
 ### ShapeInfo
 
@@ -3428,6 +3540,7 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `highMemory` | boolean |  |  |
 | `autosave` | boolean |  |  |
 | `keepAssemblies` | boolean |  | Always show Assemblies (not in the original). |
+| `flipPieces` | boolean |  | A Tilted Square puzzle: Pieces may be turned over (not in the original). |
 | `solverType` | string |  | classic, crowell (sliding: the original's fast, deep or full, kept as stored and not written). |
 | `sortBy` | string |  | unsorted, moves, level, rotations. |
 | *other* | string | | |
@@ -3497,6 +3610,7 @@ What a solve does (the solve thread's flags); a missing field takes the engine's
 | `checkRotations` | boolean |  | Try 90 degree turns while taking apart. |
 | `justCount` | boolean |  | Count, keep no solutions. |
 | `keepAssemblies` | boolean |  | With disassemble: also keep the assemblies that do not come apart, without a disassembly, after every solution. |
+| `flipPieces` | boolean |  | A Tilted Square puzzle (a puzzle with a tray): the pieces may be turned over (default true). Off, each piece is placed only in the four quarter turns in the tray's plane, and the search runs without its symmetry breaker: assemblies that are one another turned are found each and left to the rotation filter. No part on other puzzles. |
 | `justLevels` | boolean |  | Keep the level summary of each take-apart, not its moves. |
 | `keepMirrors` | boolean |  |  |
 | `keepRotations` | boolean |  |  |

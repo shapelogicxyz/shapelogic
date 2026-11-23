@@ -448,6 +448,27 @@ double Tray::degrees() const {
          std::numbers::pi;
 }
 
+Tray withSize(const Tray& tray, unsigned int size) {
+  BT_ASSERT(size >= 1 && size <= Tray::kMaxSize);
+  Tray out = tray;
+  out.size = size;
+  out.walls.clear();
+  bool any = false;
+  std::vector<std::uint8_t> walls(static_cast<std::size_t>(size) * size, 0);
+  for (unsigned int y = 0; y < std::min(size, tray.size); y++) {
+    for (unsigned int x = 0; x < std::min(size, tray.size); x++) {
+      if (tray.isWall(x, y)) {
+        walls[(static_cast<std::size_t>(y) * size) + x] = 1;
+        any = true;
+      }
+    }
+  }
+  if (any) {
+    out.walls = std::move(walls);
+  }
+  return out;
+}
+
 Point canonicalShift(const Tray& tray, Point shift) {
   BT_ASSERT(tray.valid());
   const Geometry g(tray);

@@ -7,6 +7,7 @@ add_library(btcore STATIC
   shapelogic/app/document_commands.cpp
   shapelogic/app/document_sliding.cpp
   shapelogic/app/document_stacking.cpp
+  shapelogic/app/document_tilted.cpp
   shapelogic/app/explorers.cpp
   shapelogic/app/layer_geometry.cpp
   shapelogic/app/playback.cpp

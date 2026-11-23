@@ -38,7 +38,18 @@ with **File ▸ New ▸ Tilted Square**.
   refuses the sliding and stacking files ("unknown grid type") and writes
   no `timeMs`; none of its 342 mismatches names the tray. Run it again
   when the reference is back at the revision the harness expects.
-- [ ] Stage B: document rules and engine
+- [x] Stage B: document rules and engine (2026-11-22; decision 0045).
+  `core/shapelogic/app/document_tilted.cpp`, `SolveOptions::flipPieces`,
+  `api/tray.json` with `engine/methods_tray.cpp`, `Snapshot.tray`. Tests:
+  `tests/unit/app/test_document_tilted.cpp`, the contract test
+  `tilted_tray` (Triple Play made, solved and changed). Two things differ
+  from the stage's text below: with flipping off the search has no
+  symmetry breaker (assemblies that are one another turned are counted
+  each), and the cells' states are in `Snapshot.tray.cells`, not in
+  `grid.geometry`. `solution.toShapes` is refused on a tilted puzzle.
+  Gates: `just test-all` (the contract suite with it), `just test-asan`,
+  `just check` on the changed sources, `just app-check` and `just app-test`
+  passed; `just oracle-roundtrip` as under Stage A.
 - [ ] Stage C: the mode in the front end
 - [ ] Stage D: the tilted drawing
 - [ ] Stage E: fixture, guide and finish

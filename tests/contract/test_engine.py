@@ -2303,6 +2303,134 @@ def imports_exports_conversions(e):
 
 
 @test
+def tilted_tray(e):
+    """A Tilted Square puzzle (decision 0045): a cube-grid puzzle with a
+    tray. Triple Play (three pieces of seven cells in a 6 by 6 tray with two
+    corner walls) is made, solved and changed."""
+    prev = e.call("tray.preview", {"tray": {"size": 8, "over": 4, "down": 2}})
+    check(prev["whole"] == 45 and prev["over"] == 2 and prev["down"] == 1
+          and abs(prev["degrees"] - 26.565) < 0.001, f"the 8 by 8 tray at 1 down 2 over {prev}")
+    check(e.call("tray.preview", {"tray": {"size": 8, "over": 2, "down": 1, "allowance": 0.05}})["whole"] == 52,
+          "with an allowance")
+    e.fails("tray.preview", {"tray": {"over": 1, "down": 2}}, "invalid_argument")
+    e.fails("tray.preview", {"tray": {"size": 65}}, "invalid_params")
+    e.fails("tray.preview", {"tray": {"color": 1}}, "invalid_params")
+
+    # only a tilted puzzle has a tray
+    snap = e.call("document.new", {"grid": "bricks"})
+    check(snap["tray"] is None, "a brick puzzle has no tray")
+    e.fails("tray.set", {"tray": {"size": 4}}, "unsupported")
+    e.fails("tray.setWalls", {"squares": [[0, 0]], "wall": True}, "unsupported")
+    e.fails("document.new", {"grid": "sliding", "tray": {}}, "invalid_argument")
+    e.fails("document.new", {"grid": "bricks", "tray": {"over": 1, "down": 2}}, "invalid_argument")
+
+    snap = e.call("document.new", {"grid": "bricks", "tray": {"size": 6, "over": 3, "down": 1,
+                                                               "allowance": 0.05}})
+    tray = snap["tray"]
+    check(snap["grid"] == "bricks" and tray["size"] == 6 and tray["placement"] == "best"
+          and tray["whole"] == 26 and tray["walls"] == [], f"the new tray {tray}")
+    board = snap["shapes"][0]
+    check(len(snap["shapes"]) == 1 and board["board"] and board["fits"] and board["label"] == "B"
+          and board["variable"] == 26 and board["fixed"] == 0
+          and board["size"] == tray["box"] + [1], f"the board {board}")
+    check(len(snap["problems"]) == 1, "one problem")
+    p = snap["problems"][0]["id"]
+    check(e.call("problem.get", {"problem": p})["result"] == board["id"], "its result is the board")
+
+    # the corner walls: they belong to the tray
+    r = e.call("tray.setWalls", {"squares": [[5, 0], [0, 5]], "wall": True})
+    check(r["changed"] == 2, "two walls")
+    ev = changed_event(e, r["revision"])
+    check("tray" in ev["what"] and "shapes" in ev["what"], f"the walls' event {ev}")
+    check(e.call("tray.setWalls", {"squares": [[5, 0]], "wall": True})["changed"] == 0, "a wall already")
+    e.fails("tray.setWalls", {"squares": [[6, 0]], "wall": True}, "invalid_argument")
+    tray = e.call("document.get")["tray"]
+    x, y = tray["box"]
+    check(tray["whole"] == 24 and tray["walls"] == [[5, 0], [0, 5]] and len(tray["cells"]) == x * y
+          and tray["cells"].count("w") == 24 and tray["cells"].count("c") == tray["cut"]
+          and len(tray["corners"]) == 4 and len(tray["wallPolygons"]) == 2, f"the walled tray {tray}")
+
+    def draw(art):
+        """A new piece with a 4 by 4 picture's cells, at the first place
+        where they are all whole cells."""
+        cells = [(k % 4, k // 4) for k in range(16) if art[k] == "#"]
+        shape = e.call("shape.create")["shape"]
+        for oy in range(-3, y):
+            for ox in range(-3, x):
+                at = [(ox + cx, oy + cy) for cx, cy in cells]
+                if all(0 <= ax < x and 0 <= ay < y and tray["cells"][ay * x + ax] == "w" for ax, ay in at):
+                    n = e.call("shape.setCells", {"shape": shape, "tool": "fixed",
+                                                  "cells": [[ax, ay, 0] for ax, ay in at]})["changed"]
+                    check(n == len(cells), "the piece's cells")
+                    return shape
+        check(False, "the piece fits nowhere")
+
+    pieces = [draw(art) for art in ("_#___###_#__##__", "_#___#___#####__", "_#___#####___#__")]
+    snap = e.call("document.get")
+    check([s["label"] for s in snap["shapes"]] == ["B", "S1", "S2", "S3"]
+          and all(s["size"] == board["size"] and s["fits"] and not s["board"] for s in snap["shapes"][1:]),
+          "the pieces have the board's size")
+    for s in pieces:
+        e.call("problem.setPieceCount", {"problem": p, "shape": s, "min": 1, "max": 1})
+
+    # off the whole cells an edit changes nothing
+    cut = [[k % x, k // x, 0] for k in range(x * y) if tray["cells"][k] != "w"]
+    check(e.call("shape.setCells", {"shape": pieces[0], "tool": "fixed", "cells": cut})["changed"] == 0,
+          "cut cells take no piece")
+
+    # solved: 21 cells on a board of 24, one assembly (the two ways are one
+    # another turned half round)
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {}})
+    check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved")
+    e.drain()
+    check(e.call("problem.get", {"problem": p})["assemblies"] == 1, "Triple Play has one assembly")
+    # not turned over the pieces as drawn do not go
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {"flipPieces": False}})
+    check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved again")
+    e.drain()
+    check(e.call("problem.get", {"problem": p})["assemblies"] <= 2, "without turning over")
+
+    # what the board and the sizes refuse
+    b = board["id"]
+    e.fails("shape.delete", {"shape": b}, "invalid_argument")
+    e.fails("shape.duplicate", {"shape": b}, "invalid_argument")
+    e.fails("shape.move", {"shape": b, "toIndex": 1}, "invalid_argument")
+    e.fails("shape.setCells", {"shape": b, "tool": "fixed", "cells": [[2, 2, 0]]}, "invalid_argument")
+    e.fails("shape.resize", {"shape": pieces[0], "size": [4, 4, 1]}, "invalid_argument")
+    e.fails("problem.setResult", {"problem": p, "shape": pieces[0]}, "invalid_argument")
+    e.fails("problem.clearResult", {"problem": p}, "invalid_argument")
+    e.fails("problem.setPieceCount", {"problem": p, "shape": b, "min": 1, "max": 1}, "invalid_argument")
+    second = e.call("problem.create")["problem"]
+    check(e.call("problem.get", {"problem": second})["result"] == b, "a new problem's result is the board")
+
+    # another tilt, strict: the board again, the pieces kept, the solutions
+    # gone; one step back
+    rev = e.call("tray.set", {"tray": {"over": 4, "down": 2, "allowance": 0}})["revision"]
+    ev = changed_event(e, rev)
+    check(set(ev["what"]) >= {"tray", "shapes", "problems"} and len(ev["shapes"]) == 4, f"the tilt's event {ev}")
+    snap = e.call("document.get")
+    check(snap["tray"]["over"] == 2 and snap["tray"]["down"] == 1 and snap["tray"]["allowance"] == 0
+          and snap["tray"]["walls"] == [[5, 0], [0, 5]]
+          and snap["shapes"][0]["variable"] == snap["tray"]["whole"]
+          and all(s["fixed"] == 7 and s["size"] == snap["tray"]["box"] + [1] for s in snap["shapes"][1:]),
+          f"the new tilt {snap['tray']}")
+    check(e.call("problem.get", {"problem": p})["state"] == "unsolved", "the solutions went")
+    check(e.call("tray.set", {"tray": {"over": 2, "down": 1}})["revision"] == rev, "the same again: no step")
+    e.fails("tray.set", {"tray": {"size": 2}}, "invalid_argument")
+    e.call("edit.undo")
+    snap = e.call("document.get")
+    check(snap["tray"]["over"] == 3 and snap["tray"]["allowance"] == 0.05, "undone")
+
+    # saved and opened again
+    data = e.call("document.saveBytes")["data"]
+    again = e.call("document.openBytes", {"data": data})
+    check(again["tray"] == snap["tray"] and [s["size"] for s in again["shapes"]] == [s["size"] for s in snap["shapes"]],
+          "the same tray from the file")
+
+
+@test
 def unsupported_and_failures(e):
     # what a stacking puzzle cannot do or does not have
     with tempfile.TemporaryDirectory() as tmp:

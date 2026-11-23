@@ -37,7 +37,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s2",
@@ -55,7 +57,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s3",
@@ -73,7 +77,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s4",
@@ -91,7 +97,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s5",
@@ -109,7 +117,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s6",
@@ -127,7 +137,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s7",
@@ -145,7 +157,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s8",
@@ -163,7 +177,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s9",
@@ -181,7 +197,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s10",
@@ -199,7 +217,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s11",
@@ -217,7 +237,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s12",
@@ -235,7 +257,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s13",
@@ -253,7 +277,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s14",
@@ -271,7 +297,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s15",
@@ -289,7 +317,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s16",
@@ -307,7 +337,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s17",
@@ -325,7 +357,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s18",
@@ -343,7 +377,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s19",
@@ -361,7 +397,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s20",
@@ -379,7 +417,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s21",
@@ -397,7 +437,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s22",
@@ -415,7 +457,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     },
     {
      "id": "s23",
@@ -433,7 +477,9 @@
      "startGoal": null,
      "disc": null,
      "discColor": null,
-     "image": null
+     "image": null,
+     "board": false,
+     "fits": true
     }
    ],
    "colors": [],
@@ -458,7 +504,8 @@
      "slideGrid": 0
     }
    ],
-   "rodSets": []
+   "rodSets": [],
+   "tray": null
   },
   {
    "frame": {
@@ -1618,7 +1665,7 @@
    "assemblies": 1,
    "solutions": 1,
    "saved": 1,
-   "timeMs": 22,
+   "timeMs": 31,
    "searched": 1866,
    "searchDepth": 0,
    "triedApart": 1,
@@ -2282,8 +2329,8 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 55,
-     "usedMs": 22,
+     "elapsedMs": 52,
+     "usedMs": 31,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 1,
