@@ -486,7 +486,11 @@ export function installAppIpc(h: AppIpcHost): void {
   ipcMain.on('bt:help', (e, link: unknown) => {
     if (
       ours(e) !== null &&
-      (link === 'tutorial' || link === 'guide' || link === 'author' || link === 'issues')
+      (link === 'tutorial' ||
+        link === 'guide' ||
+        link === 'author' ||
+        link === 'issues' ||
+        link === 'tilted')
     ) {
       openHelp(link);
     }

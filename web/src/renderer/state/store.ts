@@ -16,6 +16,7 @@ import type {
   Settings,
   ShapeSummary,
   Snapshot,
+  TraySettings,
 } from '../../engine/api.generated.ts';
 import type { EngineApi, EngineStatus, EventParams } from '../../engine/client-types.ts';
 import { EngineError } from '../../engine/errors.ts';
@@ -205,9 +206,15 @@ export class Store {
     this.replaced(snap, snap.path === null ? name : null);
   }
 
-  /** A new empty puzzle on a grid (the grid never changes). */
-  async newDocument(grid: Grid): Promise<void> {
-    const snap = await this.engine.call('document.new', { grid });
+  /**
+   * A new empty puzzle on a grid (the grid never changes); with a tray, a
+   * new Tilted Square puzzle on the brick grid (its board and a problem).
+   */
+  async newDocument(grid: Grid, tray?: TraySettings): Promise<void> {
+    const snap = await this.engine.call(
+      'document.new',
+      tray === undefined ? { grid } : { grid, tray },
+    );
     this.replaced(snap, null);
   }
 
@@ -306,7 +313,8 @@ export class Store {
 
   private setSnapshot(snap: Snapshot, restarted: boolean): void {
     this.snapshot = snap;
-    setBoardCount(snap.shapes.filter(isTray).length);
+    // the boards take no piece color: a sliding puzzle's trays, a tilted puzzle's board
+    setBoardCount(snap.tray != null ? 1 : snap.shapes.filter(isTray).length);
     if (this.selected === null || !snap.shapes.some((s) => s.id === this.selected)) {
       this.selected = snap.shapes[0]?.id ?? null;
     }

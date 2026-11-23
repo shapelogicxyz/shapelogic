@@ -188,6 +188,8 @@ export interface ShapeLike {
   color: string | null;
   /** A sliding start/goal shape's number; null (or absent) for any other shape. */
   startGoal?: number | null;
+  /** A Tilted Square puzzle's board (absent: no). */
+  board?: boolean;
 }
 
 /** A palette color (a Color of the snapshot). */
@@ -215,14 +217,19 @@ export function copyColor(
     : fromHex(rgb);
 }
 
+/** Whether a shape is a board: a sliding start/goal shape or a tilted puzzle's board. */
+function boardLike(s: ShapeLike | undefined): boolean {
+  return isTray(s) || s?.board === true;
+}
+
 /** A shape's chip color: a board's theme color until it is given one, else its own or its number's. */
 export function chipColor(s: ShapeLike | undefined, index: number): Rgb3 {
-  return isTray(s) && s?.color == null ? boardDefault : shapeColor(s?.color ?? null, index);
+  return boardLike(s) && s?.color == null ? boardDefault : shapeColor(s?.color ?? null, index);
 }
 
 /** A shape's color in the 3D view: a board's theme color until it is given one, else its own or its number's. */
 export function viewColor(s: ShapeLike | undefined, index: number): Rgb3 {
-  return isTray(s) && s?.color == null ? boardDefault : shapeColor(s?.color ?? null, index);
+  return boardLike(s) && s?.color == null ? boardDefault : shapeColor(s?.color ?? null, index);
 }
 
 /** Whether a shape is a sliding start/goal shape. */

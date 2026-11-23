@@ -71,7 +71,9 @@ export function demoApp(version: string): DemoApp {
             ? 'https://github.com/shapelogicxyz/shapelogic/issues'
             : link === 'tutorial'
               ? '/docs/getting-started/'
-              : '/docs/';
+              : link === 'tilted'
+                ? '/research/tilted-square-geometry.html'
+                : '/docs/';
       window.open(page, '_blank', 'noopener');
     },
     goalWindow(picture, raise) {

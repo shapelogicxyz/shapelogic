@@ -36,7 +36,8 @@ import { openLogFiles } from './log-files.ts';
 import { openCliTool } from './cli-tool.ts';
 import { openAbout, openKeys, openNotes } from './help.ts';
 import { Menus } from './menus.ts';
-import { gridInfo } from './new-grids.ts';
+import { gridInfo, tiltedInfo } from './new-grids.ts';
+import { isTilted } from '../state/tilted.ts';
 import { keepState } from './persist.ts';
 import { prefs, setPrefs, validPrefs } from './prefs.ts';
 import { Rescue } from './rescue.ts';
@@ -109,12 +110,15 @@ function statusLine(
 // renderVType: fixed when the puzzle is made), named as File ▸ New names it
 function renderGridChip(store: Store): void {
   const grid = store.snapshot?.grid;
+  // a brick puzzle with a tray is a Tilted Square puzzle
   const label =
     grid === undefined
       ? ''
-      : ((gridInfo as Partial<Record<string, { name: string }>>)[grid]?.name ??
-        store.info?.grids.find((g) => g.grid === grid)?.label ??
-        grid);
+      : isTilted(store.snapshot)
+        ? tiltedInfo.name
+        : ((gridInfo as Partial<Record<string, { name: string }>>)[grid]?.name ??
+          store.info?.grids.find((g) => g.grid === grid)?.label ??
+          grid);
   const chip = byId('vtChip');
   chip.style.display = label === '' ? 'none' : '';
   chip.innerHTML = `Type: ${esc(label)}`;

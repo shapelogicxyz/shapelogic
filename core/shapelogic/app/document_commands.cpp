@@ -668,18 +668,12 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
         return std::unexpected(o.error());
       }
       if (onTilted) {
-        // back on the board's grid, on whole cells: where a nudge took it,
-        // or for the other tools as near as it can be to where it lay
-        const Voxel& before = puzzle_->getShape(which[k]);
-        const int code = static_cast<int>(task);
-        const bool nudge = code <= 5 || (code >= 27 && code <= 32);
-        std::optional<TrayFit> fit =
-            fitToTray(*copies[k], cellsMiddle(nudge ? *copies[k] : before), trayLayout());
-        if (!fit || !fit->fits) {
-          return fail(Errc::InvalidArgument, "the piece does not fit the board that way");
+        Result<std::unique_ptr<Voxel>> fit = onTrayAfterTask(which[k], *copies[k], task);
+        if (!fit) {
+          return std::unexpected(fit.error());
         }
-        o->changed = !(*fit->shape == before);
-        copies[k] = std::move(fit->shape);
+        o->changed = !(**fit == puzzle_->getShape(which[k]));
+        copies[k] = std::move(*fit);
       }
       changedShape[k] = o->changed;
       if (which[k] == *s) {
@@ -718,11 +712,27 @@ Result<mesh::DrawMesh> Document::shapeTaskPreview(Id shape, ShapeTask task) cons
                    [task](const ShapeTaskInfo& t) { return t.task == task; })) {
     return fail(Errc::Unsupported, "this grid has no such shape operation");
   }
-  const std::unique_ptr<Voxel> copy = puzzle_->getShape(*s).clone();
+  if (Result<void> r = refuseTiltedBoard(
+          *s, "the board is made from the tray's settings: the tools do not change it");
+      !r) {
+    return std::unexpected(r.error());
+  }
+  if (tilted() && task == ShapeTask::Minimize) {
+    return fail(Errc::InvalidArgument, "a tilted puzzle's shapes have the board's size");
+  }
+  std::unique_ptr<Voxel> copy = puzzle_->getShape(*s).clone();
   if (task == ShapeTask::Minimize) {
     minimizeShapes({copy.get()});
   } else if (const Result<TaskOutcome> o = applyTask(*copy, task); !o) {
     return std::unexpected(o.error());
+  }
+  // a tilted puzzle's piece as the task will leave it: on whole cells
+  if (tilted()) {
+    Result<std::unique_ptr<Voxel>> fit = onTrayAfterTask(*s, *copy, task);
+    if (!fit) {
+      return std::unexpected(fit.error());
+    }
+    copy = std::move(*fit);
   }
   return mesh::shapeDrawMesh(*copy, mesh::MeshStyle::Drawing);
 }

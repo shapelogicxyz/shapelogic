@@ -3,10 +3,14 @@
 // What File ▸ New says about each grid: its name, description, warning and
 // example picture. From the original's src/gui/tutorials.cpp (`grids[]`,
 // `selectorHtml`) and src/gui/images/examples/*.png (the pictures, copied
-// to ./new-grid-images). DOM-free apart from the picture URLs.
+// to ./new-grid-images). Besides the grids, Tilted Square (decision 0045):
+// a brick puzzle with a tray, which starts with the default tray (its
+// picture drawn by files.ts) and is changed in Tilt & tolerance. DOM-free
+// apart from the picture URLs.
 
 import type { Grid } from '../../engine/api.generated.ts';
 import { esc } from './dom.ts';
+import { NEW_TRAY, slopeText } from '../state/tilted.ts';
 import brick from './new-grid-images/brick.png?url';
 import cairo from './new-grid-images/cairo.png?url';
 import hexagonal from './new-grid-images/hexagonal.png?url';
@@ -130,20 +134,60 @@ export const gridInfo: Readonly<Record<Grid, GridInfo>> = {
   },
 };
 
-/** The dialog's body: the list of grids on the left, the information on the right. */
-export function newGridBody(grids: readonly Grid[]): string {
-  const items = grids
+/** What New lists: a grid, or Tilted Square (a brick puzzle with a tray). */
+export type NewKind = Grid | 'tilted';
+
+/** What New says of Tilted Square. */
+export const tiltedInfo: Readonly<Pick<GridInfo, 'name' | 'description'>> = {
+  name: 'Tilted Square',
+  description:
+    'Flat pieces of squares in a square tray whose grid is turned: 1 down and 2 over, 1 down and 3 ' +
+    'over, and so on. The cells the tray’s edge cuts hold no piece; the whole ones make the board, ' +
+    'which the pieces must fit. Squares of the tray may be walls. An allowance lets a cell reach ' +
+    'a little past the edge, as a real tray’s slack does. New in ShapeLogic.',
+};
+
+/** What New's example picture of Tilted Square shows: the tray a new puzzle starts with. */
+export const tiltedExample = `A new tray: ${String(NEW_TRAY.size)} by ${String(NEW_TRAY.size)}, ${slopeText(NEW_TRAY.down, NEW_TRAY.over)} (change it in Tilt & tolerance)`;
+
+/** A kind's name in the list. */
+export function kindName(kind: NewKind): string {
+  return kind === 'tilted' ? tiltedInfo.name : gridInfo[kind].name;
+}
+
+/** The dialog's body: the list of kinds on the left, the information on the right. */
+export function newGridBody(kinds: readonly NewKind[]): string {
+  const items = kinds
     .map(
       (g, i) =>
-        `<button class="ng-item" data-grid="${g}" aria-selected="false"${i === 0 ? ' data-focus' : ''}>${esc(gridInfo[g].name)}</button>`,
+        `<button class="ng-item" data-grid="${g}" aria-selected="false"${i === 0 ? ' data-focus' : ''}>${esc(kindName(g))}</button>`,
     )
     .join('');
   return `<div class="ng"><div class="ng-list" role="listbox" aria-label="Space grid" title="The kind of puzzle: the grid its shapes are made on">${items}</div><div class="ng-info" id="newInfo"></div></div>`;
 }
 
+/**
+ * The right side for Tilted Square, as for a grid: the description and an
+ * example, a picture of the tray a new puzzle starts with, which files.ts
+ * draws from tray.preview into #ngtPic. Its settings are changed after,
+ * in Tilt & tolerance.
+ */
+export function newTiltedHtml(): string {
+  return (
+    `<p class="ng-desc"><b>Description:</b><br>${esc(tiltedInfo.description)}</p>` +
+    `<p class="ng-ex"><b>Example:</b><br>${esc(tiltedExample)}</p>` +
+    '<div class="ng-pic ngt-pic" id="ngtPic" role="img" aria-label="' +
+    esc(tiltedExample) +
+    '"></div>'
+  );
+}
+
 /** What the right side says about a grid: description, warning, example. */
-export function newGridInfoHtml(grid: Grid): string {
-  const g = gridInfo[grid];
+export function newGridInfoHtml(kind: NewKind): string {
+  if (kind === 'tilted') {
+    return newTiltedHtml();
+  }
+  const g = gridInfo[kind];
   const warning =
     g.warning === null ? '' : `<p class="ng-warn"><b>Warning:</b><br>${esc(g.warning)}</p>`;
   return (

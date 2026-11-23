@@ -37,6 +37,8 @@ export const HELP_URLS: Readonly<Record<HelpLink, string>> = {
   author: 'https://github.com/hypnoz/',
   // the Log File Manager's link for reporting a problem
   issues: 'https://github.com/shapelogicxyz/shapelogic/issues',
+  // the Tilt & tolerance section's link: the research page on tilted trays
+  tilted: 'https://shapelogic.xyz/research/tilted-square-geometry.html',
 };
 
 /**

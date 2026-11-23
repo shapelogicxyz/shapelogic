@@ -110,7 +110,7 @@ export class RunCard {
   // it switches while a run is under way, when the options around it are frozen
   private liveRow(): string {
     const ws = this.ws;
-    if (!(ws.sliding || ws.stacking || ws.canDisassemble)) {
+    if (!(ws.sliding || ws.stacking || ws.canDisassemble || ws.tilted)) {
       return '';
     }
     const on = prefs.livePreview;
@@ -271,7 +271,7 @@ export class RunCard {
       `<div class="row2"><div class="t">${LABEL[k]}<small>${TIP[k]}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(TIP[k])}"><span class="tr"></span></div></div>`;
     setHtml(
       byId('slvMode'),
-      `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm" ${o.justLevels ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble Only</b><span class="d">Find every way the pieces fit the result.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount || !ws.canDisassemble ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble and Disassemble</b><span class="d">${ws.canDisassemble ? 'Also check that each assembly can be taken apart, moving pieces along the voxel axes.' : 'This space grid has no disassembler: the solver finds the assemblies only.'}</span></div></button>` +
+      `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm" ${o.justLevels ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble Only</b><span class="d">Find every way the pieces fit the result.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount || !ws.canDisassemble ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble and Disassemble</b><span class="d">${ws.canDisassemble ? 'Also check that each assembly can be taken apart, moving pieces along the voxel axes.' : ws.tilted ? 'A tilted tray’s pieces lie flat and lift straight out: the solver finds the assemblies only.' : 'This space grid has no disassembler: the solver finds the assemblies only.'}</span></div></button>` +
         (dis ? `<div class="slv-opts" style="margin:8px 2px 0">${sw('checkRotations')}</div>` : ''),
     );
   }
@@ -300,6 +300,7 @@ export class RunCard {
       box('strictColors', brick),
       brick && o.solver !== def.solver ? 'Solver type' : null,
       box('keepAssemblies', brick),
+      box('flipPieces', ws.tilted),
       box('nestedSlides', ws.sliding),
       box('partialNested', ws.sliding),
       box('verticalMoves', ws.sliding),
@@ -366,7 +367,7 @@ export class RunCard {
     setHtml(
       opts,
       this.liveRow() +
-        sw('keepAssemblies') +
+        (ws.tilted ? sw('flipPieces') : sw('keepAssemblies')) +
         sw('justCount') +
         sw('justLevels') +
         sw('keepMirrors') +

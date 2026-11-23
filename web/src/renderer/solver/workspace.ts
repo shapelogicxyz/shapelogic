@@ -494,10 +494,21 @@ export class SolverWorkspace {
     return familyOf(this.store.snapshot?.grid);
   }
 
-  /** Whether the puzzle's grid has a take-apart (spheres have none). */
+  /**
+   * Whether the puzzle's grid has a take-apart (spheres have none). A
+   * Tilted Square puzzle's pieces lie flat in a tray: they are not taken
+   * apart either.
+   */
   get canDisassemble(): boolean {
     const grid = this.store.snapshot?.grid;
-    return this.store.info?.grids.find((g) => g.grid === grid)?.disassemble !== false;
+    return (
+      !this.tilted && this.store.info?.grids.find((g) => g.grid === grid)?.disassemble !== false
+    );
+  }
+
+  /** Whether the puzzle is a Tilted Square puzzle (decision 0045). */
+  get tilted(): boolean {
+    return this.store.snapshot?.tray != null;
   }
 
   /** A stacking problem's board (null: none read, or another grid). */
@@ -1240,7 +1251,7 @@ export class SolverWorkspace {
         () =>
           this.store.engine.call('problem.setSolverSettings', {
             problem,
-            settings: writeOptions(next, d.solverSettings, this.family),
+            settings: writeOptions(next, d.solverSettings, this.family, this.tilted),
           }),
         (r) => this.whenShown(r),
       );

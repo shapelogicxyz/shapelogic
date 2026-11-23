@@ -309,8 +309,11 @@ export interface LogExportSizes {
 export type LogExportResult =
   { ok: true; path: string } | { ok: false; canceled: true } | { ok: false; error: string };
 
-/** The links of the Help menu (the main process holds the addresses). */
-export type HelpLink = 'tutorial' | 'guide' | 'author' | 'issues';
+/**
+ * The links of the Help menu (the main process holds the addresses), and
+ * the research page on tilted trays (the Tilt & tolerance section's link).
+ */
+export type HelpLink = 'tutorial' | 'guide' | 'author' | 'issues' | 'tilted';
 
 /**
  * What the update check found (main/updates.ts): the latest release

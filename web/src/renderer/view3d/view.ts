@@ -326,6 +326,7 @@ export class View3D {
           if (c.kind === 'document' && c.restarted) {
             this.cache.drop(null);
           }
+          this.syncTurn();
           this.reload();
           break;
         case 'status':
@@ -615,6 +616,17 @@ export class View3D {
 
   private get stacking(): boolean {
     return this.store.snapshot?.grid === 'stacking';
+  }
+
+  // a Tilted Square puzzle: the grid turned as it lies in the tray (the
+  // board's views show it so), whichever workspace draws it
+  private syncTurn(): void {
+    const tray = this.store.snapshot?.tray;
+    const turn = tray == null ? 0 : (tray.degrees * Math.PI) / 180;
+    if (turn !== this.renderer.turn) {
+      this.renderer.turn = turn;
+      this.renderer.request();
+    }
   }
 
   // the upright frame: the Z axis direction's, but a stacking puzzle's view
@@ -957,6 +969,7 @@ export class View3D {
     const stacking = this.stacking;
     // a stacking puzzle's Puzzle workspace draws its board, not the pieces scene
     this.renderer.tilt = stacking;
+    this.syncTurn();
     this.camera.setBase(this.upright(), performance.now());
     // a sliding board's trays in the Puzzle view, the pieces scene under
     // them (draw() shows each in its own band)

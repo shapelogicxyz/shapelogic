@@ -79,7 +79,7 @@
       ]
     },
     "tray.preview": {
-      "summary": "What a tray with these settings would be, changing nothing: the fields given over the open puzzle's tray (walls included), or over the defaults when it has none (the New puzzle dialog's count).",
+      "summary": "What a tray with these settings would be, changing nothing: the fields given over the open puzzle's tray (walls included), or over the defaults when it has none; with the best placement the shift worked out (the New puzzle dialog's picture and count, and the Tilt & tolerance section's).",
       "params": {
         "type": "object",
         "properties": {
@@ -93,55 +93,7 @@
         "additionalProperties": false
       },
       "result": {
-        "type": "object",
-        "properties": {
-          "whole": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "cut": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "degrees": {
-            "type": "number"
-          },
-          "box": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "minItems": 2,
-            "maxItems": 2
-          },
-          "over": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "The slope in lowest terms."
-          },
-          "down": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "shiftX": {
-            "type": "number"
-          },
-          "shiftY": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "whole",
-          "cut",
-          "degrees",
-          "box",
-          "over",
-          "down",
-          "shiftX",
-          "shiftY"
-        ],
-        "additionalProperties": false
+        "$ref": "types.json#/$defs/Tray"
       },
       "errors": [
         "invalid_argument"

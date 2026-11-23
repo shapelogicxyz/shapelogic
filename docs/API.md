@@ -2126,7 +2126,7 @@ Errors: `unsupported`, `invalid_argument`, `invalid_state`
 
 ### `tray.preview`
 
-What a tray with these settings would be, changing nothing: the fields given over the open puzzle's tray (walls included), or over the defaults when it has none (the New puzzle dialog's count).
+What a tray with these settings would be, changing nothing: the fields given over the open puzzle's tray (walls included), or over the defaults when it has none; with the best placement the shift worked out (the New puzzle dialog's picture and count, and the Tilt & tolerance section's).
 
 Params:
 
@@ -2134,18 +2134,7 @@ Params:
 |---|---|---|---|
 | `tray` | [TraySettings](#traysettings) | required |  |
 
-Result:
-
-| name | type | | description |
-|---|---|---|---|
-| `whole` | integer | required |  |
-| `cut` | integer | required |  |
-| `degrees` | number | required |  |
-| `box` | integer[] | required |  |
-| `over` | integer | required | The slope in lowest terms. |
-| `down` | integer | required |  |
-| `shiftX` | number | required |  |
-| `shiftY` | number | required |  |
+Result: [Tray](#tray)
 
 Errors: `invalid_argument`
 

@@ -18,9 +18,10 @@
 // process for a new window.
 
 import type { BtApp } from '../../engine/app-bridge.ts';
-import type { Grid } from '../../engine/api.generated.ts';
 import { newOrder } from './files-order.ts';
 import { newGridBody, newGridInfoHtml } from './new-grids.ts';
+import type { NewKind } from './new-grids.ts';
+import { NEW_TRAY, trayPicture } from '../state/tilted.ts';
 import { sizeText } from '../state/stacking.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Store } from '../state/store.ts';
@@ -147,6 +148,21 @@ export class Files {
     return false;
   }
 
+  // New's Tilted Square: the tray a new puzzle starts with, drawn as its example
+  private drawNewTray(): void {
+    const pic = byId('ngtPic');
+    this.store.engine.call('tray.preview', { tray: { ...NEW_TRAY } }).then(
+      (t) => {
+        if (document.body.contains(pic)) {
+          pic.innerHTML = trayPicture(t, { px: 220, view: 'cells', id: 'ngtClip' });
+        }
+      },
+      () => {
+        // an example only: nothing drawn when the engine cannot answer
+      },
+    );
+  }
+
   /** File ▸ New: the grid chosen once, then an empty puzzle on it. */
   async newPuzzle(): Promise<void> {
     if (!this.ready() || !(await this.confirmDiscard('create a new puzzle'))) {
@@ -163,16 +179,18 @@ export class Files {
       }
     }
     // the grids this version solves, in the original's grid selector's
-    // order (gridtypegui.cpp: Brick, Sliding, Stacking, then the others)
-    const grids = info.grids
-      .filter((g) => g.supported)
-      .sort((a, b) => newOrder(a.grid) - newOrder(b.grid))
-      .map((g) => g.grid);
+    // order (gridtypegui.cpp: Brick, Sliding, Stacking, then the others),
+    // with Tilted Square (a brick puzzle with a tray) after Stacking
+    const supported = info.grids.filter((g) => g.supported).map((g) => g.grid);
+    const grids: NewKind[] = [
+      ...supported,
+      ...(supported.includes('bricks') ? (['tilted'] as const) : []),
+    ].sort((a, b) => newOrder(a) - newOrder(b));
     const first = grids[0];
     if (first === undefined) {
       return;
     }
-    let chosen: Grid = first;
+    let chosen: NewKind = first;
     const answer = openDialog({
       id: 'newPuzzle',
       title: 'New puzzle',
@@ -191,17 +209,20 @@ export class Files {
     });
     // openDialog adds its element before it returns
     const dlg = byId('newPuzzle');
-    const show = (g: Grid): void => {
+    const show = (g: NewKind): void => {
       chosen = g;
       for (const b of dlg.querySelectorAll<HTMLElement>('[data-grid]')) {
         b.setAttribute('aria-selected', String(b.dataset.grid === g));
       }
       byId('newInfo').innerHTML = newGridInfoHtml(g);
+      if (g === 'tilted') {
+        this.drawNewTray();
+      }
     };
     dlg.addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('[data-grid]');
       if (b !== null) {
-        show(b.dataset.grid as Grid);
+        show(b.dataset.grid as NewKind);
       }
     });
     dlg.addEventListener('keydown', (e) => {
@@ -220,6 +241,12 @@ export class Files {
       return;
     }
     try {
+      if (chosen === 'tilted') {
+        // the default tray; Tilt & tolerance changes it
+        await this.store.newDocument('bricks', { ...NEW_TRAY, placement: 'best' });
+        flash('A new Tilted Square puzzle: select the board to set its tilt and tolerance');
+        return;
+      }
       await this.store.newDocument(chosen);
       flash('A new, empty puzzle');
     } catch (e) {

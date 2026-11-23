@@ -50,10 +50,51 @@ with **File ▸ New ▸ Tilted Square**.
   Gates: `just test-all` (the contract suite with it), `just test-asan`,
   `just check` on the changed sources, `just app-check` and `just app-test`
   passed; `just oracle-roundtrip` as under Stage A.
-- [ ] Stage C: the mode in the front end
+- [x] Stage C: the mode in the front end (2026-11-22). `state/tilted.ts`,
+  `entities/tilt-card.ts`, `entities/tray-view.ts`, File ▸ New's Tilted
+  Square, the Board section, the Solver's Pieces may be turned over.
+  Tests: `web/tests/unit/renderer/tilted.test.ts`,
+  `web/tests/e2e/tilted.e2e.ts` (written here, not in stage F). What
+  differs from the text below: the board's views draw the tray in
+  its own frame from the start, so stage D is left with the grid editor
+  of a piece and the 3D views; a piece's
+  grid already grays the cells the tray cuts; Pieces may be turned over is
+  in the Solver's Search Options with the problem's other solver
+  settings, not in the Puzzle workspace; and File ▸ New asks nothing (the
+  user, 2026-11-22: simple like the other modes): it shows the default
+  tray as its example and makes it, 8 by 8, 1 down 2 over, strict, and
+  Tilt & tolerance changes it. At the user's ask the 3D view's turn
+  (stage D, item 2's first part: `ViewRenderer.turn`, set by `View3D`'s
+  `syncTurn` from the tray's angle) came early: the model lies in the 3D
+  view as the grid lies in the tray, in every workspace whose scene is
+  under the view's root. Two engine fixes came with stage C:
+  `shape.taskPreview` shows where a task leaves a tilted piece (it showed
+  the task alone), and `tray.preview` answers a whole `Tray` (the New
+  dialog's picture). Later, at the user's ask: the board has two views,
+  Tray and Cells, both the turned cells under the straight squares and
+  both taking clicks for walls; Tray brings the squares out (bright
+  lines, the cells muted), Cells the turned cells (vivid colors, strong
+  lines, the squares faint). The Both view went.
 - [ ] Stage D: the tilted drawing
-- [ ] Stage E: fixture, guide and finish
-- [ ] Stage F: every placement
+- [ ] Stage E: rectangular trays
+- [ ] Stage F: fixture, guide and finish
+- [ ] Stage G: every placement
+
+## Who builds each stage
+
+| Stage | Work | Complexity | Model | State |
+|---|---|---|---|---|
+| A | Geometry, model, file (core) | Medium to high: the exact best-placement search with walls | Fable 5.2 High | Done (adbae15) |
+| B | Document rules and engine | High: one-step tray changes that move every piece, the refusals, flipping in the solver | Fable 5.2 High | Done (1d7c352) |
+| C | The mode in the front end | Medium: much work, most of it on patterns the code has | Opus 5.5 High | Done, not committed |
+| D | The tilted drawing (a piece's 2D grid turned, the 3D outline, the Puzzle pieces) | Medium to high: two grids drawn over each other, hit testing under the turn | Opus 5.5 High | Not started (the 3D turn came early with C) |
+| E | Rectangular trays | Medium: the exact search and the file format again, with the walled square as the oracle | Fable 5.2 High | Not started |
+| F | Fixture, guide and finish | Low to medium: tests, the Triple Play fixture, the guide page, docs | Opus 5.5 High | Not started |
+| G | Every placement | High: every board the sliding grid can make, exactly, and a job that solves each | Fable 5.2 High | Not started |
+
+The rule behind the choice: Fable for the stages where a wrong answer is
+hard to see (counts and boards that tests must pin exactly), Opus for the
+stages whose mistakes show on screen or in a failing test.
 
 ## Decisions
 
@@ -143,8 +184,8 @@ squares filled, (5, 0) and (0, 5). Worked out with Stage A's geometry on
   pieces, though 96 of 8,100 other placements tried do. The placement
   with the most whole cells is not always one the pieces fit.
 
-It is Stage E's fixture and demo example, and the test that the mode can
-do a real puzzle. The last point is why Stage F tries every placement
+It is Stage F's fixture and demo example, and the test that the mode can
+do a real puzzle. The last point is why Stage G tries every placement
 (the user, 2026-11-22: "more results are better than missing some").
 
 ## Stage A: geometry, model and file
@@ -267,29 +308,77 @@ Core only.
 
 ## Stage D: the tilted drawing
 
-1. **The 2D editor** (`entities/grid2d.ts`). The cells, the hints, the
-   marks and the overlay go in one group turned by the tilt about the
-   tray's center and clipped to the tray, with the tray's outline over
-   it. Cut cells are gray and take no pointer events. The fit uses the
-   tray's side. The angle and the board's view join `builtFor`. The
-   rulers and the axis lines are off. `cellAt` finds a cell with
-   `elementFromPoint`, which follows the turn, so painting, strokes and
-   the box selection need no change. The straight squares are a second,
-   unturned layer of polygons in the same SVG: alone in Tray, on top
-   and taking the pointer in Both, absent in Cells. Walls are dark in
-   every view, the pieces' canvases included.
-2. **The 3D views** (`view3d/renderer.ts`). A `turn` about z is
-   multiplied in after `TILT` in `frame()` and set where
-   `renderer.tilt` is (`view3d/view.ts`). The shape view, the Solver's
-   assemblies, their animation, the picking and the image exports then
-   turn together. The tray's outline and its wall squares are lines in
-   `view3d/overlays.ts` (the shape view) and through
-   `SolutionScene.setWalls` (the Solver; `view3d/walls.ts` is the
-   pattern). The home view is straight down, without perspective. The
-   Puzzle workspace's pieces are turned too (`view3d/pieces.ts`).
+1. **A piece's 2D editor** (`entities/grid2d.ts`). The cells, the
+   hints, the marks and the overlay go in one group turned by the tilt
+   about the tray's center and clipped to the tray, with the tray's
+   outline over it. Cut cells stay gray and take no pointer events (as
+   stage C does them). The fit uses the tray's side. The angle joins
+   `builtFor`. The rulers and the axis lines are off. `cellAt` finds a
+   cell with `elementFromPoint`, which follows the turn, so painting,
+   strokes and the box selection need no change. The tray's walls are
+   drawn dark behind the piece's cells. (The board's own views are stage
+   C's, in the tray's frame already.)
+2. **The 3D views** (`view3d/renderer.ts`). The turn about z came early
+   with stage C (`ViewRenderer.turn`); the shape view, the Solver's
+   assemblies, their animation, the picking and the image exports turn
+   together. Still to do:
+   - **The tray in 3D.** Its outline and its walls (the user,
+     2026-11-22): each wall square a block one layer high, straight in
+     the tray's frame (so turned against the grid), in the walls' color
+     of the 2D views, around the board in the shape view and around the
+     pieces in the Solver. A wall made or opened in the board's views
+     shows at once in 3D (the snapshot's `tray.wallPolygons` and
+     `corners`, which change with every `tray.setWalls`). In the shape
+     view the blocks are built in the renderer (`view3d/board.ts`'s
+     `boxesGeometry` is the pattern) and the outline is fat lines
+     (`view3d/overlays.ts`); in the Solver through
+     `SolutionScene.setWalls` (`view3d/walls.ts` is the pattern) in the
+     solution's centered frame. The SVG export includes them.
+   - The home view straight down, without perspective, for a tilted
+     puzzle.
+   - The Puzzle workspace's pieces turned too (`view3d/pieces.ts`).
 3. **Gates.** Stage C's, and the reference screenshots reviewed.
 
-## Stage E: fixture, guide and finish
+## Stage E: rectangular trays
+
+A tray of any width and height, not only square (the user, 2026-11-22).
+Until it is in, a rectangle is had with walls: a 6 by 8 tray is an 8 by 8
+tray with two rows walled, which gives the same whole cells and the same
+best placement (a wall acts as the edge does, the allowance included).
+
+1. **The geometry** (`model/tilted_tray.{h,cpp}`): `Tray::width` and
+   `Tray::height` in place of `size`; the wall mask is width by height;
+   `layout` and `bestShift` take the edges at x = width and y = height
+   (the lines the sweep tries, the cells' range, the window); the
+   symmetric tie-break takes the rectangle's center; `withSize(tray, w,
+   h)` keeps the walls still inside. `valid()` bounds each side by
+   `kMaxSize`.
+2. **The file.** `<tray>` keeps `size` for a square tray, so the files
+   written so far read and write byte for byte as before; a rectangle
+   writes `width` and `height` instead. The reader takes either.
+3. **The engine and the API.** `TraySettings` takes `width` and
+   `height` (`size` stays, setting both); `Tray` answers `width` and
+   `height` in place of `size`, and the front end follows. `tray.set`
+   with a new width or height keeps the walls inside the new tray.
+4. **The front end.** Tilt & tolerance: Width and Height steppers in
+   place of Tray size, with a link switch (on at first) that keeps them
+   equal; the readout says "8 by 6". The tray picture, the board's views
+   and the New dialog's example draw a rectangle. File ▸ New still makes
+   the 8 by 8 square.
+5. **Tests.**
+   - A rectangle equals the square with the extra rows or columns walled:
+     the same whole cells, cell for cell, and the same best count, for
+     widths and heights 3 to 10, slopes 1:1 to 1:4, allowances 0 and
+     0.05 (the walled square is the oracle).
+   - A square tray's file is written as before (the round trip tests of
+     stage A unchanged); a rectangle's round-trips.
+   - The contract test makes a 6 by 8 tray and solves a puzzle in it;
+     the e2e spec sets width and height in Tilt & tolerance, the link off.
+6. **Gates.** Stage A's and B's (`just test-all`, `just test-asan`, the
+   contract suite, `just check` on the changed sources), then `just
+   app-check`, `just app-test` and the tilted e2e spec.
+
+## Stage F: fixture, guide and finish
 
 1. **Fixture.** `tests/data/puzzles/tilted/`: Triple Play (a 6 by 6
    tray, two corner walls, 1 down 3 over, allowance 0.05: 2 assemblies)
@@ -302,10 +391,10 @@ Core only.
    `docs/webui-spec.md`, a handoff note, `RELEASE_NOTES.md`.
 3. **Gates.** The `just gate` groups for what changed, `just site-build`.
 
-## Stage F: every placement
+## Stage G: every placement
 
 In a real tray the pieces may sit anywhere, so the true question is
-whether some placement of the grid takes them. Stages A to E solve the one
+whether some placement of the grid takes them. Stages A to F solve the one
 placement in use (the best, or the user's own); this stage looks at all of
 them.
 
@@ -341,8 +430,6 @@ them.
    app-check`, `just app-test`, and the e2e spec for the list.
 
 ## Not in this plan
-- Trays that are not square in outline other than by walls
-  (rectangles of two sizes).
 - A tray body in the Puzzlecad or STL export.
 - The Play tab.
 - Turning an existing Brick puzzle into a tilted one.

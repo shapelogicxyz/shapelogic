@@ -80,9 +80,13 @@ export class PiecesCard {
       ? 'double-click or + to put on the rod'
       : 'drag, double-click or + to add';
 
-    // the result: on a sliding puzzle, one of its boards
+    // the result: on a sliding puzzle, one of its boards; on a tilted
+    // puzzle always its board (no Change…)
     const sliding = ws.store.snapshot?.grid === 'sliding';
-    const change = `<button class="btn sm" id="pzChange" title="${sliding ? 'Choose a board as this problem’s result' : 'Choose another shape as this problem’s result'}">Change…</button>`;
+    const tilted = ws.store.snapshot?.tray != null;
+    const change = tilted
+      ? ''
+      : `<button class="btn sm" id="pzChange" title="${sliding ? 'Choose a board as this problem’s result' : 'Choose another shape as this problem’s result'}">Change…</button>`;
     const R = result === null ? undefined : byShape.get(result);
     const f = ws.fit;
     if (d === null) {
@@ -242,7 +246,7 @@ export class PiecesCard {
     openPopAt(
       e.clientX,
       e.clientY,
-      `<div class="ph">Piece ${esc(ws.labelOf(u))}</div><button data-k="up" title="Use one more of this piece">One more (+1)<span class="kb">+</span></button><button data-k="dn" ${inPuzzle ? '' : 'disabled'} title="Use one fewer of this piece; at 0 it leaves the puzzle">One fewer (−1)<span class="kb">−</span></button><button data-k="off" ${inPuzzle ? '' : 'disabled'} title="Take this piece out of the puzzle">Remove from puzzle<span class="kb">Del</span></button>${ws.store.snapshot?.grid === 'sliding' ? '' : '<hr><button data-k="res" title="Make this shape the problem’s result">Set as result</button>'}`,
+      `<div class="ph">Piece ${esc(ws.labelOf(u))}</div><button data-k="up" title="Use one more of this piece">One more (+1)<span class="kb">+</span></button><button data-k="dn" ${inPuzzle ? '' : 'disabled'} title="Use one fewer of this piece; at 0 it leaves the puzzle">One fewer (−1)<span class="kb">−</span></button><button data-k="off" ${inPuzzle ? '' : 'disabled'} title="Take this piece out of the puzzle">Remove from puzzle<span class="kb">Del</span></button>${ws.store.snapshot?.grid === 'sliding' || ws.store.snapshot?.tray != null ? '' : '<hr><button data-k="res" title="Make this shape the problem’s result">Set as result</button>'}`,
       (k) => {
         switch (k) {
           case 'up':

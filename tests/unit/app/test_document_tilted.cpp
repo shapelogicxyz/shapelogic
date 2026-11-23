@@ -387,6 +387,9 @@ TEST_CASE("tilted document: a piece's cells stay on whole cells", "[app][documen
       CHECK(o.error().code == Errc::InvalidArgument);
     }
   }
+  // the preview is what the task does
+  CHECK_FALSE(d.shapeTaskPreview(d.shapeIds()[0], ShapeTask::Nudge0).has_value());
+  CHECK(d.shapeTaskPreview(small, ShapeTask::Rotate10).has_value());
   // "to all shapes" leaves the board alone
   CHECK(d.puzzle().getShape(0).countState(Voxel::kVariable) == 45);
 

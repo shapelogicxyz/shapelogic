@@ -41,6 +41,8 @@ using Names = std::vector<std::pair<std::string_view, E>>;
 [[nodiscard]] const Names<tilted::Tray::Placement>& trayPlacementNames();
 /// A Tilted Square puzzle's tray (types.json Tray), or null.
 [[nodiscard]] Json trayJson(const app::Document& d);
+/// A tray and its board (types.json Tray).
+[[nodiscard]] Json trayJson(const tilted::Tray& t, const tilted::Layout& lay);
 /// A tray's settings read from `given` (types.json TraySettings) over
 /// `base`: the slope in lowest terms, a new size keeping the walls inside
 /// it. An error when `given` is no object, holds a field it should not, or

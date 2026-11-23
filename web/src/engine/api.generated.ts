@@ -4511,35 +4511,16 @@ export interface Methods {
   };
   /**
    * What a tray with these settings would be, changing nothing: the fields given over the open
-   * puzzle's tray (walls included), or over the defaults when it has none (the New puzzle dialog's
-   * count).
+   * puzzle's tray (walls included), or over the defaults when it has none; with the best placement
+   * the shift worked out (the New puzzle dialog's picture and count, and the Tilt & tolerance
+   * section's).
    * (tray.json)
    */
   'tray.preview': {
     params: {
       tray: TraySettings;
     };
-    result: {
-      /** @minimum 0 */
-      whole: number;
-      /** @minimum 0 */
-      cut: number;
-      degrees: number;
-      /**
-       * @minItems 2
-       * @maxItems 2
-       */
-      box: [number, number];
-      /**
-       * The slope in lowest terms.
-       * @minimum 1
-       */
-      over: number;
-      /** @minimum 0 */
-      down: number;
-      shiftX: number;
-      shiftY: number;
-    };
+    result: Tray;
     errors: 'invalid_argument';
   };
 }

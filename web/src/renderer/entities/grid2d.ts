@@ -74,6 +74,12 @@ export interface GridInput {
   image?: { picture: PieceImage; toCells: Affine; src: readonly number[] } | null;
   /** The layer hinted at under this one: its drawing and its cells (null: none). */
   hint?: { geo: LayerGeometry; cells: ReadonlyMap<string, CellValue> } | null;
+  /**
+   * A Tilted Square puzzle's piece: whether the board's cell at (x, y) is
+   * whole. The others are drawn gray and take no pointer: a piece's cells
+   * lie on whole cells (decision 0045). Absent on other shapes.
+   */
+  whole?: ((x: number, y: number) => boolean) | null;
 }
 
 /** How much of the shape's color a hinted cell shows (the original's sixth). */
@@ -386,8 +392,17 @@ export class Grid2D {
       } else if (picture !== null && v !== undefined) {
         col = picture;
       }
+      // a tilted puzzle's piece: the cells the tray cuts take nothing
+      const cut = input.whole != null && !input.whole(c.at[0], c.at[1]);
+      if (cut && v === undefined) {
+        col = 'var(--line2)';
+      }
+      el.classList.toggle('tcut', cut);
       el.setAttribute('fill', col);
-      el.setAttribute('fill-opacity', vr ? '0.5' : v === undefined && hinted !== '' ? '0' : '1');
+      el.setAttribute(
+        'fill-opacity',
+        vr ? '0.5' : v === undefined && hinted !== '' && !cut ? '0' : '1',
+      );
       el.setAttribute('stroke', vr ? 'var(--text)' : 'var(--line2)');
       el.setAttribute('stroke-width', vr ? '1.6' : '1.2');
       if (vr) {

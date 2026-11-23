@@ -54,6 +54,9 @@ import type { CellValue } from './shape-cells.ts';
 import { RodsCard } from './rods-card.ts';
 import { rodSetText } from '../state/stacking.ts';
 import { ShapesList } from './shapes-list.ts';
+import { TiltCard, tiltKey } from './tilt-card.ts';
+import { TrayViewCard } from './tray-view.ts';
+import { cellState, isTiltBoard, isTilted } from '../state/tilted.ts';
 import { boardCenter } from '../view3d/board.ts';
 import { Stroke } from './stroke.ts';
 
@@ -68,6 +71,9 @@ export class EntitiesWorkspace {
   private readonly geos: LayerGeometries;
   private readonly list: ShapesList;
   private readonly inspector: Inspector;
+  /** A tilted puzzle's Tilt & tolerance section, and its board's views. */
+  private readonly tilt: TiltCard;
+  private readonly trayView: TrayViewCard;
   private readonly card: EditorCard;
   private readonly grid: Grid2D;
   private readonly edit3d: Edit3D;
@@ -111,6 +117,19 @@ export class EntitiesWorkspace {
       store,
       refuse,
       refuseList: () => this.edits.refuseList(),
+      mutate: (doing, call) => this.mutate(doing, call),
+    });
+    this.tilt = new TiltCard({
+      store,
+      refuse,
+      mutate: (doing, call) => this.mutate(doing, call),
+      openPage: () => {
+        window.btApp.openHelp('tilted');
+      },
+    });
+    this.trayView = new TrayViewCard({
+      store,
+      refuse,
       mutate: (doing, call) => this.mutate(doing, call),
     });
     this.inspector = new Inspector({
@@ -345,11 +364,20 @@ export class EntitiesWorkspace {
   // the inspector again only when what it shows changed (not every cell drawn)
   private renderInspector(): void {
     const s = this.store.shape;
-    const k = `${String(this.tasks?.length)}:${this.tasksFor}:${s?.id}:${s?.label}:${s?.color}:${(s?.fixed ?? 0) + (s?.variable ?? 0) === 0}:${this.state.applyAll}:${this.store.indexOf(s?.id ?? '')}`;
+    const k = `${String(this.tasks?.length)}:${this.tasksFor}:${s?.id}:${s?.label}:${s?.color}:${(s?.fixed ?? 0) + (s?.variable ?? 0) === 0}:${this.state.applyAll}:${this.store.indexOf(s?.id ?? '')}:${tiltKey(this.store)}`;
     if (k !== this.inspectorKey) {
       this.inspectorKey = k;
       this.inspector.render();
+      this.tilt.render();
     }
+    // a tilted puzzle: the board has only Tilt & tolerance; a piece has no
+    // Fit & scale (every shape has the board's size)
+    const tilted = isTilted(this.store.snapshot);
+    const board = tilted && isTiltBoard(s);
+    byId('secTf').hidden = board;
+    byId('secFit').hidden = tilted;
+    byId('secTools').hidden = board;
+    byId('secTut').hidden = !tilted;
   }
 
   private xyLayer(): number {
@@ -441,8 +469,24 @@ export class EntitiesWorkspace {
       this.geo = null;
       this.hintGeo = null;
       this.grid.show(null);
+      this.trayView.show(null);
+      byId('stage').classList.remove('tltb', 'tlt');
       return;
     }
+    // a tilted puzzle's board: the tray, seen as the board's view says
+    // (tray-view.ts), in place of the voxel grid
+    const tiltBoard = isTiltBoard(shape) && snap.tray != null;
+    byId('stage').classList.toggle('tltb', tiltBoard);
+    byId('stage').classList.toggle('tlt', snap.tray != null);
+    if (tiltBoard) {
+      this.geo = null;
+      this.hintGeo = null;
+      this.geoKey = '';
+      this.grid.show(null);
+      this.trayView.show(snap.tray);
+      return;
+    }
+    this.trayView.show(null);
     const st = this.state;
     const plane = planeMap(st.plane, shape.size);
     const next = st.layer + (prefs.hintLayer === 'Above' ? 1 : -1);
@@ -475,6 +519,11 @@ export class EntitiesWorkspace {
               }
             : null,
         image: this.pictureOf(shape),
+        // a tilted puzzle's piece: the board's whole cells (state/tilted.ts)
+        whole:
+          snap.tray != null && st.plane === 'XY'
+            ? (x: number, y: number) => snap.tray != null && cellState(snap.tray, x, y) === 'w'
+            : null,
         hint:
           hintGeo === null || hintLayer === null
             ? null

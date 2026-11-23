@@ -9,7 +9,8 @@
 // Each render is measured ("view3d:render", performance.measure). The
 // view's picture as a PNG at a scale of its size (File ▸ Export ▸ Image,
 // stage 7) is a render at that pixel ratio, read back at once. A stacking
-// puzzle's view is tilted as the original's (`tilt`).
+// puzzle's view is tilted as the original's (`tilt`); a Tilted Square
+// puzzle's grid is turned in its tray (`turn`, decision 0045).
 
 import {
   Group,
@@ -29,6 +30,7 @@ type V3 = [number, number, number];
 
 /** -90° about X: voxel (x, y, z) to (x, z, -y), the original's tiltPlates. */
 const TILT = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -Math.PI / 2);
+const Z_AXIS = new Vector3(0, 0, 1);
 
 export class ViewRenderer {
   readonly gl: WebGLRenderer;
@@ -48,6 +50,14 @@ export class ViewRenderer {
    * the tilt, nor does this one).
    */
   tilt = false;
+  /**
+   * A Tilted Square puzzle's view: the model turned by this angle (radians,
+   * counter-clockwise seen from +Z) about the Z axis through its center,
+   * innermost, so the grid lies in the view as it lies in the tray (the
+   * board's views, entities/tray-view.ts). 0: not turned.
+   */
+  turn = 0;
+  private readonly turnQ = new Quaternion();
   /** The viewport's size in CSS pixels. */
   width = 1;
   height = 1;
@@ -114,6 +124,9 @@ export class ViewRenderer {
     this.root.quaternion.copy(cam.q);
     if (this.tilt) {
       this.root.quaternion.multiply(TILT);
+    }
+    if (this.turn !== 0) {
+      this.root.quaternion.multiply(this.turnQ.setFromAxisAngle(Z_AXIS, this.turn));
     }
     this.model.position.set(-extent[0] / 2, -extent[1] / 2, -extent[2] / 2);
     this.place(cam, sc, EYE_DISTANCE, Math.hypot(...extent) + 2);

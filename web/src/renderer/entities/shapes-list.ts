@@ -16,7 +16,9 @@
 // DiskSelector): each disc's "size" field with − and + (1 to 100,
 // stacking.setDiscSize), no weight; New makes a disc of size 1. On a
 // sliding puzzle the boards have a list of their own above the pieces,
-// with + New Board in its header.
+// with + New Board in its header. On a Tilted Square puzzle (decision
+// 0045) the one board is there alone, made from the tray: it is renamed,
+// never copied, deleted or moved, and New makes a piece of its size.
 
 import type { ShapeSummary } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
@@ -30,6 +32,7 @@ import { chipColor, contrast, hex, isTray, shownName } from '../shell/piece-colo
 import { openPopAt } from '../shell/popover.ts';
 import { prefs } from '../shell/prefs.ts';
 import { DISC_MAX, DISC_MIN, DISC_SIZE_REFUSED, discSizeOf } from '../state/stacking.ts';
+import { isTiltBoard, isTilted } from '../state/tilted.ts';
 import { tell } from '../shell/dialog.ts';
 import { flash } from '../shell/status.ts';
 
@@ -77,7 +80,14 @@ export class ShapesList {
   /** The list a shape's row is in. */
   private listOf(id: string | null): HTMLElement {
     const s = this.shapes.find((x) => x.id === id);
-    return this.host.store.snapshot?.grid === 'sliding' && isTray(s) ? this.boards : this.list;
+    return (this.host.store.snapshot?.grid === 'sliding' && isTray(s)) || isTiltBoard(s)
+      ? this.boards
+      : this.list;
+  }
+
+  /** Whether the puzzle is a Tilted Square puzzle (its board leads the list). */
+  private get tilted(): boolean {
+    return isTilted(this.host.store.snapshot);
   }
 
   /** A shape's row, in either list. */
@@ -94,15 +104,30 @@ export class ShapesList {
     const shapes = this.shapes;
     const discs = store.snapshot?.grid === 'stacking';
     const sliding = store.snapshot?.grid === 'sliding';
+    const tilted = this.tilted;
     // a sliding puzzle's boards (the trays that hold start and goal
     // positions) in their own list, its pieces in Shapes; the rows keep
-    // their places in the whole list (data-i), boards first
-    const boards = sliding ? shapes.filter(isTray).length : 0;
+    // their places in the whole list (data-i), boards first. A tilted
+    // puzzle's one board, the same way.
+    const boards = sliding
+      ? shapes.filter(isTray).length
+      : tilted
+        ? shapes.filter(isTiltBoard).length
+        : 0;
     byId('shapeCount').textContent = String(shapes.length - boards);
     byId('boardCount').textContent = String(boards);
-    byId('btnNew').title = discs ? 'New disc (size 1)' : sliding ? 'New piece' : 'New shape';
-    byId('btnNewWhat').hidden = !sliding;
-    byId('boardsSec').hidden = !sliding;
+    byId('boardCount').style.display = tilted ? 'none' : '';
+    byId('btnNewBoard').hidden = tilted;
+    byId('boardsTitle').textContent = tilted ? 'Board' : 'Boards';
+    byId('btnNew').title = discs
+      ? 'New disc (size 1)'
+      : sliding
+        ? 'New piece'
+        : tilted
+          ? 'New piece: a grid the board’s size, to draw on its whole cells'
+          : 'New shape';
+    byId('btnNewWhat').hidden = !sliding && !tilted;
+    byId('boardsSec').hidden = !sliding && !tilted;
     if (this.renaming === null && this.sizing === null) {
       const rows = shapes.map((s, i) => {
         const { bg, fg } = chipColors(s, i);
@@ -119,6 +144,16 @@ export class ShapesList {
    <button class="ib" data-a="label" title="Rename">${ic('edit', 17)}</button>
    <button class="ib" data-a="copy" title="Duplicate (added as the last disc)">${ic('copy', 17)}</button>
    <button class="ib del" data-a="del" title="Delete">${ic('trash', 17)}</button>
+  </span></div>`;
+        }
+        if (isTiltBoard(s)) {
+          // the tilted puzzle's board: renamed, never copied, deleted or moved
+          return `<div class="row ${sel ? 'sel' : ''}" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}" title="The board: the tray’s whole cells. Select it to tilt the tray, set the allowance and draw walls">
+  <span class="grip"></span>
+  <span class="chip" style="background:${bg};color:${fg}">${esc(s.label)}</span>
+  <span class="lbl">${s.name === '' ? '<b class="sgtag">Tray</b>' : esc(s.name)}</span>
+  <span class="acts">
+   <button class="ib" data-a="label" title="Rename">${ic('edit', 17)}</button>
   </span></div>`;
         }
         return `<div class="row ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
@@ -201,8 +236,9 @@ export class ShapesList {
         : [prefs.newX * u, prefs.newY * u, prefs.newZ * u];
     const lastPiece = this.shapes.filter((x) => !isTray(x)).at(-1);
     const from = grid === 'sliding' ? lastPiece : sel;
+    // a disc takes no size, nor a tilted puzzle's piece (the board's)
     const params: { size?: [number, number, number] } =
-      grid === 'stacking'
+      grid === 'stacking' || this.tilted
         ? {}
         : { size: from == null ? fresh : [from.size[0], from.size[1], from.size[2]] };
     const r = await this.host.mutate('New shape', () => store.engine.call('shape.create', params));
@@ -224,6 +260,10 @@ export class ShapesList {
       return;
     }
     if (this.host.refuse()) {
+      return;
+    }
+    if (isTiltBoard(s) && (a === 'copy' || a === 'del' || a === 'up' || a === 'down')) {
+      flash('The board is made from the tray: it is not copied, deleted or moved');
       return;
     }
     const e = store.engine;
@@ -327,6 +367,10 @@ export class ShapesList {
     const shapes = this.shapes;
     if (to < 0 || to >= shapes.length || to === from) {
       return false;
+    }
+    // a tilted puzzle's board stays first
+    if (this.tilted) {
+      return !isTiltBoard(shapes[from]) && !isTiltBoard(shapes[to]);
     }
     if (this.host.store.snapshot?.grid !== 'sliding') {
       return true;
@@ -585,6 +629,18 @@ export class ShapesList {
       const i = shapes.findIndex((s) => s.id === id);
       const s = shapes[i];
       if (s === undefined) {
+        return;
+      }
+      if (isTiltBoard(s)) {
+        // the board: a name and a color, nothing that would copy or move it
+        openPopAt(
+          e.clientX,
+          e.clientY,
+          `<div class="ph">Board</div><button data-k="label" title="Give the board a name">Rename…<span class="kb">F2</span></button><hr><button data-k="color" title="Choose the board’s own color">Color…</button><button data-k="nocolor" ${s.color === null ? 'disabled' : ''} title="Back to the theme’s board color">Default color</button>`,
+          (k) => {
+            void this.action(k, id);
+          },
+        );
         return;
       }
       openPopAt(

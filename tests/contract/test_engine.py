@@ -2312,6 +2312,8 @@ def tilted_tray(e):
           and abs(prev["degrees"] - 26.565) < 0.001, f"the 8 by 8 tray at 1 down 2 over {prev}")
     check(e.call("tray.preview", {"tray": {"size": 8, "over": 2, "down": 1, "allowance": 0.05}})["whole"] == 52,
           "with an allowance")
+    check(len(prev["cells"]) == prev["box"][0] * prev["box"][1] and prev["cells"].count("w") == 45
+          and len(prev["corners"]) == 4 and prev["placement"] == "best", "the preview's board")
     e.fails("tray.preview", {"tray": {"over": 1, "down": 2}}, "invalid_argument")
     e.fails("tray.preview", {"tray": {"size": 65}}, "invalid_params")
     e.fails("tray.preview", {"tray": {"color": 1}}, "invalid_params")
@@ -2392,6 +2394,9 @@ def tilted_tray(e):
     e.drain()
     check(e.call("problem.get", {"problem": p})["assemblies"] <= 2, "without turning over")
 
+    # the Transform preview of a piece shows where the task leaves it; the
+    # board has none
+    e.fails("shape.taskPreview", {"shape": board["id"], "task": "rotate10"}, "invalid_argument")
     # what the board and the sizes refuse
     b = board["id"]
     e.fails("shape.delete", {"shape": b}, "invalid_argument")

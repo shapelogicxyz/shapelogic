@@ -38,6 +38,8 @@ export const TIP: Record<BoxName, string> = {
     'When the board divides into a grid of cells that its blocks fill (a 3×3 board of 6×6 blocks, say), every piece stops only on that grid: blocks on its lines, smaller pieces where they fit in a block’s hole or where they start or end. This limits the search space, so the search is far smaller and faster, but a solution it finds may have more moves than the fewest, and when it finds none a full search may still find one. Off, Solve asks first when the board fits such a grid.',
   keepAssemblies:
     'Always show Assembly results even when Disassemble is selected and no Disassemblies are found. Disassemblies will be shown at the top of the results.',
+  flipPieces:
+    'A Tilted Square puzzle: a piece may be placed turned over, as its mirror image. Off, every piece keeps the side it is drawn with up, as tiles with a printed face do; assemblies that are one another turned are then each counted.',
 };
 
 /** The stacking puzzles' tooltips where they differ (mainwindow_layout.cpp, mainwindow_solve.cpp). */
@@ -63,6 +65,7 @@ export const LABEL: Record<BoxName, string> = {
   mirroredOrientations: 'Include mirrored orientations',
   optimizedPaths: 'Automatically use optimized paths',
   keepAssemblies: 'Always show Assemblies',
+  flipPieces: 'Pieces may be turned over',
 };
 
 /** The two limits' names and help. */

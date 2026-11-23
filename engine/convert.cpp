@@ -398,8 +398,10 @@ Json trayJson(const app::Document& d) {
     return nullptr;
   }
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): tilted() says the puzzle has one
-  const tilted::Tray& t = *d.puzzle().tray();
-  const tilted::Layout& lay = d.trayLayout();
+  return trayJson(*d.puzzle().tray(), d.trayLayout());
+}
+
+Json trayJson(const tilted::Tray& t, const tilted::Layout& lay) {
   Json j = Json::object();
   j["size"] = t.size;
   j["over"] = t.over;

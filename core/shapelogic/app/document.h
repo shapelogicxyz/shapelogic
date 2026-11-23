@@ -860,6 +860,13 @@ class Document {
   /// InvalidArgument with `why` when the puzzle is tilted and `shape` is
   /// its board.
   [[nodiscard]] Result<void> refuseTiltedBoard(unsigned int shape, const char* why) const;
+  /// A tilted puzzle's piece after shape task `task` made `after` of it:
+  /// back on the board's grid on whole cells (a nudge where it took the
+  /// piece, the other tools as near as can be to where it lay). An error
+  /// when it cannot be.
+  [[nodiscard]] Result<std::unique_ptr<Voxel>> onTrayAfterTask(unsigned int shape,
+                                                               const Voxel& after,
+                                                               ShapeTask task) const;
   /// The common end of setTray() and setTrayWalls().
   Result<void> applyTray(tilted::Tray next, const char* label);
   /// After a file is read: makes the board and the shapes agree with the

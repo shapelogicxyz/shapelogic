@@ -113,15 +113,7 @@ Reply trayPreview(State& s, Params& p) {
     t.shiftX = at.x;
     t.shiftY = at.y;
   }
-  const tilted::Layout lay = tilted::layout(t);
-  return Json{{"whole", lay.whole},
-              {"cut", lay.cut},
-              {"degrees", t.degrees()},
-              {"box", Json::array({lay.sizeX, lay.sizeY})},
-              {"over", t.over},
-              {"down", t.down},
-              {"shiftX", t.shiftX},
-              {"shiftY", t.shiftY}};
+  return trayJson(t, tilted::layout(t));
 }
 
 }  // namespace

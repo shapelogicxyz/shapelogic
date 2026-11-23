@@ -71,7 +71,8 @@ export type BoxName =
   | 'anyOrientation'
   | 'mirroredOrientations'
   | 'optimizedPaths'
-  | 'keepAssemblies';
+  | 'keepAssemblies'
+  | 'flipPieces';
 
 /** The options as the Solver card shows and edits them. */
 export interface SearchOptions {
@@ -104,6 +105,8 @@ export interface SearchOptions {
   autosave: boolean;
   /** With the take-apart: also keep the assemblies that do not come apart (Always show Assemblies; not in the original). */
   keepAssemblies: boolean;
+  /** A Tilted Square puzzle: the pieces may be turned over (Pieces may be turned over; not in the original). */
+  flipPieces: boolean;
   solver: Solver;
   sortBy: SortBy;
 }
@@ -126,6 +129,7 @@ export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
   optimizedPaths: false,
   autosave: true,
   keepAssemblies: false,
+  flipPieces: true,
   solver: 'classic',
   sortBy: 'moves',
 };
@@ -264,6 +268,7 @@ export function readOptions(
     'mirroredOrientations',
     'optimizedPaths',
     'keepAssemblies',
+    'flipPieces',
   ];
   for (const b of boxes) {
     const v = stored[b];
@@ -296,6 +301,7 @@ export function writeOptions(
   o: SearchOptions,
   stored: SolverSettings,
   family: Family = 'brick',
+  tilted = false,
 ): SolverSettings {
   const sliding = family === 'sliding';
   const out: SolverSettings = {
@@ -316,6 +322,10 @@ export function writeOptions(
   if (family === 'brick') {
     out.solverType = o.solver;
     out.keepAssemblies = o.keepAssemblies;
+  }
+  // a tilted puzzle's pieces turned over or not (decision 0045)
+  if (tilted) {
+    out.flipPieces = o.flipPieces;
   }
   // the sliding boxes go with a sliding puzzle's problems only
   if (sliding) {
@@ -517,6 +527,8 @@ export function solveOptions(
     justCount: o.justCount,
     justLevels: o.justLevels,
     keepAssemblies: o.disassemble && o.keepAssemblies,
+    // only a tilted puzzle shows the box, so only its problems turn it off
+    ...(o.flipPieces ? {} : { flipPieces: false }),
     keepMirrors: o.keepMirrors,
     keepRotations: o.keepRotations,
     completeRotations: o.deepSymmetry,

@@ -1438,3 +1438,57 @@ html[data-density=minimal] .pseg .gbtn.mpx{width:22px}
 .slv-fold.closed #slvAdvHead .chev{transform:rotate(-90deg)}
 .slv-fold .slv-dbgrow .chev{transform:rotate(-90deg)}
 .slv-fold .slv-advbody{padding:4px 0 8px}
+
+/* ---- a Tilted Square puzzle (decision 0045) ---- */
+/* the board's views take the grid's place; a piece has no size steppers or layers (one layer, the board's size) */
+#trayArea{display:none}
+#stage.tltb #trayArea{flex:1;min-width:0;min-height:0;display:grid;place-items:center;overflow:hidden;touch-action:none}
+#stage.tltb :is(#garea,#selbar,#lstrip,#toolStrip,#modRow,#planeSub,#colFoot,#gridSize){display:none}
+#stage.tlt :is(#gridSize,#lstrip){display:none}
+.bviews{display:none}
+#stage.tltb .bviews{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 0}
+.bviews .bv .gbtn{width:auto;height:calc(32px + var(--fh));padding:0 14px}
+.bviews .bvline{font-size:calc(12px + var(--fs))}
+/* the tray picture (state/tilted.ts trayPicture), in the New dialog and the board's views:
+   the turned cells under the straight squares; Tray brings the squares out, Cells the cells */
+.tpic{display:block;max-width:100%;max-height:100%}
+.tpic .tp-floor{fill:var(--panel)}
+.tpic .tp-edge{fill:none;stroke:var(--text);stroke-width:2.5}
+.tpic .tp-whole{stroke-linejoin:round}
+.tpic .tp-cut{fill:var(--line2)}
+.tpic .tp-wall{fill:#2b2f37}
+.tpic .tp-sq{fill:transparent}
+.tpic .tp-sq.wall{fill:#2b2f37}
+.tpic .tp-sq.pending{fill:#2b2f37;fill-opacity:.75}
+.tpic .tp-sq.opening{fill:var(--accent);fill-opacity:.3}
+/* Cells: vivid turned cells with strong lines, the squares faint */
+.tpic.tp-cells .tp-whole{stroke:#10131a;stroke-width:1.4}
+.tpic.tp-cells .tp-whole.a{fill:#2f5bff}.tpic.tp-cells .tp-whole.b{fill:#1fb24a}
+.tpic.tp-cells .tp-cut{stroke:#8a93a3;stroke-width:.8}
+.tpic.tp-cells .tp-sq{stroke:var(--muted);stroke-width:.7;stroke-dasharray:3 3;stroke-opacity:.7}
+/* Tray: the straight squares' lines bright, the turned cells muted under them */
+.tpic.tp-tray .tp-whole{stroke:var(--line2);stroke-width:.6;fill-opacity:.35}
+.tpic.tp-tray .tp-whole.a{fill:#2f5bff}.tpic.tp-tray .tp-whole.b{fill:#1fb24a}
+.tpic.tp-tray .tp-cut{fill-opacity:.5;stroke:none}
+.tpic.tp-tray .tp-sq{stroke:#ff8a00;stroke-width:1.8}
+.tpic.tp-tray .tp-sq.wall{stroke:#ff8a00}
+.tpic .tp-sq[data-sq]:not(.wall):hover{fill:var(--accent);fill-opacity:.18}
+#stage.tltb #trayArea .tpic{cursor:crosshair}
+/* the Tilt & tolerance section */
+.tilt .row2{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px}
+.tilt .row2.sub{padding-left:18px}
+.tilt .row2 .t{flex:1;min-width:0}
+.tilt .row2 .t small{display:block;color:var(--muted);font-size:calc(11px + var(--fs));line-height:1.3}
+.tilt .step{width:112px;flex:none}
+.tilt .step input.v{min-width:0;width:100%;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-weight:600;text-align:center;padding:0}
+.tilt .switch{margin:0;flex:none}
+.tilt .tsh{width:64px;height:calc(26px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);font:inherit;text-align:center}
+.tilt .tshs{display:flex;gap:6px}
+.tilt select{font:inherit;height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text)}
+.tilt .tline{margin:2px 0 6px;color:var(--muted);font-size:calc(12px + var(--fs))}
+.tilt .tread{margin:10px 0 4px;font-weight:600}
+.tilt .thint{margin:0 0 10px;color:var(--muted);font-size:calc(12px + var(--fs))}
+/* File ▸ New's Tilted Square: its example, the default tray */
+.ngt-pic{display:grid;place-items:center}
+/* a tilted puzzle's piece: the cells the tray cuts are gray and take no pointer */
+#garea .cell.tcut{pointer-events:none}

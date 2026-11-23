@@ -452,7 +452,8 @@ export class Inspector {
         void this.run(b.dataset.task as ShapeTask);
         return;
       }
-      const sh = t.closest<HTMLElement>('.sec>button.sh');
+      // a section that is a link (the Tilted Square Tutorial) does not fold
+      const sh = t.closest<HTMLElement>('.sec:not([data-nofold])>button.sh');
       sh?.parentElement?.classList.toggle('closed');
     });
     const tmat = byId('tmat');

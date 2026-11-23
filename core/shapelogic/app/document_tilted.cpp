@@ -249,6 +249,18 @@ bool Document::fitsTray(unsigned int index) const {
   return onTray(puzzle_->getShape(index), trayLayout());
 }
 
+Result<std::unique_ptr<Voxel>> Document::onTrayAfterTask(unsigned int shape, const Voxel& after,
+                                                         ShapeTask task) const {
+  const Voxel& before = puzzle_->getShape(shape);
+  const int code = static_cast<int>(task);
+  const bool nudge = code <= 5 || (code >= 27 && code <= 32);
+  std::optional<TrayFit> fit = fitToTray(after, cellsMiddle(nudge ? after : before), trayLayout());
+  if (!fit || !fit->fits) {
+    return fail(Errc::InvalidArgument, "the piece does not fit the board that way");
+  }
+  return std::move(fit->shape);
+}
+
 Result<void> Document::refuseTiltedBoard(unsigned int shape, const char* why) const {
   if (tilted() && shape == 0) {
     return fail(Errc::InvalidArgument, why);

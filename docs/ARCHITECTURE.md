@@ -2051,6 +2051,37 @@ What exists after stage 8:
     `document.changed.notice` and an opened file's `Snapshot.notice`) in
     message boxes (`dialog.ts`'s `tell`, one at a time); File ▸ New's
     grids in the original's order (`shell/files-order.ts`).
+  - Tilted Square puzzles (decision 0045, stage C of
+    docs/TILTED-SQUARE-PLAN.md): a brick puzzle with `Snapshot.tray`
+    (`state/tilted.ts`: `isTilted`, `isTiltBoard`, the words for a tray,
+    `boardToTray` from the board's grid to the tray's frame by the tray's
+    corners, and `trayPicture`, the tray as SVG: the turned cells whole
+    or cut under the straight squares, with the walls, in the Tray or the
+    Cells view). File ▸ New lists Tilted Square after Stacking, as
+    plainly as the grids (`shell/new-grids.ts` `NewKind`, `newTiltedHtml`: the
+    description and, as the example, the default tray drawn from
+    `tray.preview` by `files.ts`); OK makes the default tray (`NEW_TRAY`,
+    `document.new`'s `tray`), which Tilt & tolerance then changes; the
+    type chip says Tilted Square. The board leads the list alone in the Board section
+    (`shapes-list.ts`: renamed, colored, never copied, deleted or moved;
+    + New Piece makes a shape of the board's size). With the board
+    selected the inspector has only Tilt & tolerance (`entities/tilt-
+    card.ts`: size, down and over, the allowance switch and amount, the
+    placement and a custom shift, each change one `tray.set`; a link to the
+    research page through `openHelp('tilted')`), and the grid area shows
+    the board's views (`entities/tray-view.ts`: Tray and Cells, both the
+    turned cells under the straight squares, Tray bringing the squares
+    out and Cells the cells; a click or a drag over squares is one
+    `tray.setWalls`), the
+    voxel editor's controls hidden (`#stage.tltb`). A piece is drawn in the
+    grid editor with the cells the tray cuts gray and inert
+    (`GridInput.whole`), without size steppers or layers (`#stage.tlt`) or
+    Fit & scale. The Puzzle workspace has no Change… for the result; the
+    Solver offers assemble only, and Pieces may be turned over
+    (`flipPieces`, stored with the problem, sent only when off). The 3D
+    view turns the model by the tray's angle about Z, innermost
+    (`ViewRenderer.turn`, `View3D.syncTurn`); a piece's grid editor does
+    not turn yet (stage D).
   - Stacking puzzles (deferred part 4, docs/webui-spec.md section 9, the
     original GUI's stacking branches): the shapes list's rows are the disc
     list on a stacking puzzle (`shapes-list.ts`: "size" with its field, +
