@@ -2080,8 +2080,24 @@ What exists after stage 8:
     Solver offers assemble only, and Pieces may be turned over
     (`flipPieces`, stored with the problem, sent only when off). The 3D
     view turns the model by the tray's angle about Z, innermost
-    (`ViewRenderer.turn`, `View3D.syncTurn`); a piece's grid editor does
-    not turn yet (stage D).
+    (`ViewRenderer.turn`, `View3D.syncTurn`), draws the tray's outline
+    and its walls as blocks one layer high in the theme's wall color
+    (`--twall`: dark on the light theme, light on the dark one, as in the
+    2D views; `view3d/tray3d.ts`,
+    `TrayScene`: in the model for the shape view, under the root centered
+    on the result for the Solver; `#vp`'s `data-tray-walls`), draws the
+    board itself as its whole cells, blocks in the blue and green checker
+    of the board's Cells view instead of its mesh of variable cells
+    (`CheckerCells`; the shape view through `TrayScene`, `#vp`'s
+    `data-tray-cells`; the Puzzle workspace's result through
+    `PiecesLook.standIn`; the walls pushed back in depth so a cell the
+    allowance lets into a wall does not flicker), turns the Puzzle
+    workspace's pieces too, and goes home straight down on the
+    tray (`Camera.setHome`). A piece's grid editor is turned the same way
+    (`Grid2D.buildTilted`: the cells in one group turned by the tray's
+    angle about its center, clipped to it, fitted on its side, with its
+    walls and outline; no axes or rulers; the pointer finds cells through
+    `elementFromPoint`, which follows the turn).
   - Stacking puzzles (deferred part 4, docs/webui-spec.md section 9, the
     original GUI's stacking branches): the shapes list's rows are the disc
     list on a stacking puzzle (`shapes-list.ts`: "size" with its field, +

@@ -25,7 +25,6 @@ import {
   parseAllowance,
   parseWhole,
   slopeText,
-  trayLine,
 } from '../state/tilted.ts';
 
 /** What the section asks of the workspace. */
@@ -136,8 +135,6 @@ export class TiltCard {
             true,
           )
         : '') +
-      `<p class="tread" role="status">${esc(trayLine(t))}</p>` +
-      '<p class="thint">Click or drag over the board’s squares to draw walls.</p>' +
       '</div>';
   }
 

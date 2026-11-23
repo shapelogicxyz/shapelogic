@@ -1,7 +1,7 @@
 # 0045: A Tilted Square puzzle is a cube-grid puzzle with a tray
 
-**Status:** accepted; stages A to C of `docs/TILTED-SQUARE-PLAN.md` are
-in the code (stage C, the front end: see the plan's status). Stage B: `core/shapelogic/app/document_tilted.cpp`
+**Status:** accepted; stages A to D of `docs/TILTED-SQUARE-PLAN.md` are
+in the code (stages C and D, the front end: see the plan's status). Stage B: `core/shapelogic/app/document_tilted.cpp`
 (`Document::newTilted`, `setTray`, `setTrayWalls`, `fitsTray`, `adoptTray`;
 `fitToTray`, `keepOnTray`), the guards in `document_commands.cpp`,
 `SolveOptions::flipPieces` (`solve/solve_session.cpp`), `api/tray.json`

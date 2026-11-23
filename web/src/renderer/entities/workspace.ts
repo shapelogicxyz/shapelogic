@@ -519,10 +519,19 @@ export class EntitiesWorkspace {
               }
             : null,
         image: this.pictureOf(shape),
-        // a tilted puzzle's piece: the board's whole cells (state/tilted.ts)
+        // a tilted puzzle's piece: the board's whole cells (state/tilted.ts),
+        // and the grid turned so the tray stands straight
         whole:
           snap.tray != null && st.plane === 'XY'
             ? (x: number, y: number) => snap.tray != null && cellState(snap.tray, x, y) === 'w'
+            : null,
+        tilt:
+          snap.tray != null && st.plane === 'XY'
+            ? {
+                degrees: snap.tray.degrees,
+                corners: snap.tray.corners,
+                walls: snap.tray.wallPolygons,
+              }
             : null,
         hint:
           hintGeo === null || hintLayer === null

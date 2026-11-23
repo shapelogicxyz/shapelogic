@@ -42,18 +42,16 @@ export function degreesText(degrees: number): string {
   return `${degrees.toFixed(2)}°`;
 }
 
-/** A count with its noun: "1 wall", "4 walls". */
-function count(n: number, noun: string): string {
-  return `${String(n)} ${noun}${n === 1 ? '' : 's'}`;
-}
-
-/** The tray in one line: "45 whole cells · 26.57° · 4 walls". */
-export function trayLine(t: Pick<Tray, 'whole' | 'degrees' | 'walls'>): string {
-  const parts = [count(t.whole, 'whole cell'), degreesText(t.degrees)];
+/**
+ * What the tray gives, a line each: "Whole cells: 45", "Tilt angle:
+ * 26.57°", and "Walls: 4" when it has walls.
+ */
+export function trayFacts(t: Pick<Tray, 'whole' | 'degrees' | 'walls'>): string[] {
+  const lines = [`Whole cells: ${String(t.whole)}`, `Tilt angle: ${degreesText(t.degrees)}`];
   if (t.walls.length > 0) {
-    parts.push(count(t.walls.length, 'wall'));
+    lines.push(`Walls: ${String(t.walls.length)}`);
   }
-  return parts.join(' · ');
+  return lines;
 }
 
 /**

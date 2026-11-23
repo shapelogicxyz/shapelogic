@@ -211,6 +211,12 @@ export class Camera {
   py = HOME.py;
 
   private anim: Animation | null = null;
+  /**
+   * The home view's orientation in place of HOME's angles, or null: a
+   * Tilted Square puzzle's is straight down on the tray (world to view
+   * unturned: +Z toward the viewer, +Y up), whatever the upright frame.
+   */
+  private homeQ: Quaternion | null = null;
   private zoomTarget: number | null = null;
   private zoomLast = 0;
   private arc: { x: number; y: number; w: number; h: number } | null = null;
@@ -231,6 +237,15 @@ export class Camera {
     return [u.x, u.y, u.z];
   }
 
+  /** The home view's orientation (null: HOME's angles in the upright frame). */
+  setHome(q: Quaternion | null): void {
+    this.homeQ = q === null ? null : q.clone();
+  }
+
+  private homeOrientation(): Quaternion {
+    return this.homeQ === null ? this.fromAngles(HOME) : this.homeQ.clone();
+  }
+
   /**
    * Another upright frame: the view goes home in it, animated from `now`,
    * or at once without a time (the first view).
@@ -242,7 +257,7 @@ export class Camera {
     this.base = b.clone();
     if (now === undefined) {
       this.stop();
-      this.q = this.fromAngles(HOME);
+      this.q = this.homeOrientation();
       this.zoom = HOME.zoom;
       this.px = HOME.px;
       this.py = HOME.py;
@@ -329,7 +344,7 @@ export class Camera {
 
   /** The home view, animated. */
   home(now: number): void {
-    this.animateTo({ q: this.fromAngles(HOME), zoom: HOME.zoom, px: HOME.px, py: HOME.py }, now);
+    this.animateTo({ q: this.homeOrientation(), zoom: HOME.zoom, px: HOME.px, py: HOME.py }, now);
   }
 
   /** Framed again, the orientation kept (the mockup's fitView). */

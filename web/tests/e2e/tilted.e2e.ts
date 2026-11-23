@@ -90,11 +90,15 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     await expect(page.locator('#stage')).toHaveClass(/tltb/);
     await expect(page.locator('#garea')).toBeHidden();
     await expect(page.locator('#trayArea svg')).toBeVisible();
-    await expect(page.locator('#tiltBody .tread')).toHaveText('45 whole cells · 26.57°');
+    // what the tray gives, under the board's view buttons
+    await expect(page.locator('#boardViews .tread')).toHaveText('Whole cells: 45');
+    await expect(page.locator('#boardViews .tangle')).toHaveText('Tilt angle: 26.57°');
+    await expect(page.locator('#boardViews .thint')).toContainText('draw walls');
+    await expect(page.locator('#tiltBody .tread')).toHaveCount(0);
     // the allowance switched on: 52 (the research page's figure)
     await page.click('#tiltBody [data-tallow]');
     await settled(page);
-    await expect(page.locator('#tiltBody .tread')).toHaveText('52 whole cells · 26.57°');
+    await expect(page.locator('#boardViews .tread')).toHaveText('Whole cells: 52');
     await expect(page.locator('#tiltBody [data-tf="allowance"]')).toHaveValue('0.05');
     // typed: a 6 by 6 tray at 1 down 3 over
     await page.fill('#tiltBody [data-tf="size"]', '6');
@@ -107,7 +111,8 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     expect(snap.tray?.size).toBe(6);
     expect(snap.tray?.over).toBe(3);
     expect(snap.tray?.allowance).toBe(0.05);
-    await expect(page.locator('#tiltBody .tread')).toHaveText('26 whole cells · 18.43°');
+    await expect(page.locator('#boardViews .tread')).toHaveText('Whole cells: 26');
+    await expect(page.locator('#boardViews .tangle')).toHaveText('Tilt angle: 18.43°');
     // down above over is refused, the field put back
     await page.fill('#tiltBody [data-tf="down"]', '4');
     await page.press('#tiltBody [data-tf="down"]', 'Enter');
@@ -121,12 +126,12 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     // Over +1: 1 down 4 over, one undo step
     await page.click('#tiltBody [data-tk="over"][data-d="1"]');
     await settled(page);
-    await expect(page.locator('#tiltBody .tread')).toContainText('14.04°');
+    await expect(page.locator('#boardViews .tangle')).toHaveText('Tilt angle: 14.04°');
     expect((await docOf(page)).tray?.over).toBe(4);
     await page.keyboard.press('Control+z');
     await settled(page);
     expect((await docOf(page)).tray?.over).toBe(3);
-    await expect(page.locator('#tiltBody .tread')).toHaveText('26 whole cells · 18.43°');
+    await expect(page.locator('#boardViews .tangle')).toHaveText('Tilt angle: 18.43°');
 
     // walls: in the Tray view a drag over two squares is one step
     await page.click('#boardViews [data-bv="tray"]');
@@ -173,6 +178,8 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     await expect(page.locator('#trayArea svg')).toHaveClass(/tp-tray/);
     await expect(page.locator('#trayArea svg [data-sq]')).toHaveCount(36);
     await expect(page.locator('#trayArea svg .tp-whole')).toHaveCount(24);
+    // the 3D view draws the board as its whole cells, checker blocks in the tray
+    await expect(page.locator('#vp')).toHaveAttribute('data-tray-cells', '24');
 
     // a new piece has the board's size; the grid editor draws it, without size steppers or layers
     await page.click('#btnNew');
@@ -193,6 +200,13 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
       true,
     );
     await expect(page.locator(SHAPE_ROWS)).toHaveCount(2);
+    // its grid turned so the tray stands straight (stage D), the tray's walls drawn in it
+    await expect(page.locator('#garea svg')).toHaveAttribute('data-tilt', '18.43');
+    await expect(page.locator('#garea svg .twalls polygon')).toHaveCount(2);
+    await expect(page.locator('#garea svg .tedge')).toHaveCount(1);
+    // the 3D view: the tray's two walls as blocks
+    await expect(page.locator('#vp')).toHaveAttribute('data-tray-walls', '2');
+    await expect(page.locator('#vp')).toHaveAttribute('data-tray-cells', '0');
     // its grid: the cells the tray cuts are gray and take nothing; a whole cell takes the tool
     const [bx = 0, by = 0] = snap.tray?.box ?? [];
     await expect(page.locator('#garea .cell')).toHaveCount(bx * by);

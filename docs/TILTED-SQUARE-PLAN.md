@@ -75,7 +75,20 @@ with **File ▸ New ▸ Tilted Square**.
   both taking clicks for walls; Tray brings the squares out (bright
   lines, the cells muted), Cells the turned cells (vivid colors, strong
   lines, the squares faint). The Both view went.
-- [ ] Stage D: the tilted drawing
+- [x] Stage D: the tilted drawing (2026-11-22). A piece's grid editor
+  turned so the tray stands straight, clipped to it, with its outline and
+  walls (`Grid2D.buildTilted`, `GridInput.tilt`); the tray in 3D
+  (`view3d/tray3d.ts`: the outline and each wall a dark block one layer
+  high, in the shape view's model and around the Solver's pieces, redrawn
+  with every wall change; the board as checker blocks in the Cells view's
+  blue and green, in the shape view and as the Puzzle workspace's result); a straight-down home view for a tilted puzzle
+  (`Camera.setHome`); the Puzzle workspace's pieces turned. The
+  perspective is left as the Display menu sets it (the plan had it off).
+  Tests: `tilted.test.ts` (the blocks' geometry), `tilted.e2e.ts` (the
+  turned editor, the 3D walls). The entities, view, picking and tilted
+  specs passed three times, puzzle, solver and sliding once; the stacking
+  spec's player screenshot fails with and without this stage (its
+  reference shows the Solver card before the foldable explorer).
 - [ ] Stage E: rectangular trays
 - [ ] Stage F: fixture, guide and finish
 - [ ] Stage G: every placement
@@ -86,8 +99,8 @@ with **File ▸ New ▸ Tilted Square**.
 |---|---|---|---|---|
 | A | Geometry, model, file (core) | Medium to high: the exact best-placement search with walls | Fable 5.2 High | Done (adbae15) |
 | B | Document rules and engine | High: one-step tray changes that move every piece, the refusals, flipping in the solver | Fable 5.2 High | Done (1d7c352) |
-| C | The mode in the front end | Medium: much work, most of it on patterns the code has | Opus 5.5 High | Done, not committed |
-| D | The tilted drawing (a piece's 2D grid turned, the 3D outline, the Puzzle pieces) | Medium to high: two grids drawn over each other, hit testing under the turn | Opus 5.5 High | Not started (the 3D turn came early with C) |
+| C | The mode in the front end | Medium: much work, most of it on patterns the code has | Opus 5.5 High | Done (dc30490) |
+| D | The tilted drawing (a piece's 2D grid turned, the tray and its walls in 3D, the Puzzle pieces) | Medium to high: two grids drawn over each other, hit testing under the turn | Opus 5.5 High | Done |
 | E | Rectangular trays | Medium: the exact search and the file format again, with the walled square as the oracle | Fable 5.2 High | Not started |
 | F | Fixture, guide and finish | Low to medium: tests, the Triple Play fixture, the guide page, docs | Opus 5.5 High | Not started |
 | G | Every placement | High: every board the sliding grid can make, exactly, and a job that solves each | Fable 5.2 High | Not started |

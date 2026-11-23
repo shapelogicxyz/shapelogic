@@ -26,9 +26,15 @@ import {
   parseWhole,
   slopeText,
   squareOf,
-  trayLine,
+  trayFacts,
   trayPicture,
 } from '../../../src/renderer/state/tilted.ts';
+import {
+  checkerBlocks,
+  prismEdges,
+  prismTriangles,
+  wholeSquares,
+} from '../../../src/renderer/view3d/tray3d.ts';
 
 /** A 2 by 2 tray turned 45° (1 down, 1 over), as the engine would send it. */
 function diamond(): Tray {
@@ -63,10 +69,15 @@ describe('a tilted tray in words', () => {
   it('names the slope, the angle and what the tray gives', () => {
     expect(slopeText(1, 2)).toBe('1 down, 2 over');
     expect(slopeText(0, 1)).toBe('straight');
-    expect(trayLine({ whole: 45, degrees: 26.565051, walls: [] })).toBe('45 whole cells · 26.57°');
-    expect(trayLine({ whole: 1, degrees: 45, walls: [[0, 0]] })).toBe(
-      '1 whole cell · 45.00° · 1 wall',
-    );
+    expect(trayFacts({ whole: 45, degrees: 26.565051, walls: [] })).toEqual([
+      'Whole cells: 45',
+      'Tilt angle: 26.57°',
+    ]);
+    expect(trayFacts({ whole: 1, degrees: 45, walls: [[0, 0]] })).toEqual([
+      'Whole cells: 1',
+      'Tilt angle: 45.00°',
+      'Walls: 1',
+    ]);
   });
 
   it('reads the fields, refusing what the engine would', () => {
@@ -186,5 +197,54 @@ describe('Pieces may be turned over', () => {
     expect(solveOptions({ ...DEFAULT_OPTIONS, flipPieces: false }, DEFAULT_LIMITS).flipPieces).toBe(
       false,
     );
+  });
+});
+
+describe('the tray in 3D', () => {
+  const square: [number, number][] = [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ];
+  it('makes each wall square a block: 12 triangles, 12 edges', () => {
+    const tri = prismTriangles([square, square], 0, 1);
+    // two blocks, 12 triangles each, 3 corners of 3 numbers
+    expect(tri.length).toBe(2 * 12 * 9);
+    expect(prismEdges([square], 0, 1).length).toBe(12 * 6);
+    // from z0 to z1, moved by the offset
+    const moved = prismTriangles([square], 0, 1, [10, 20, -0.5]);
+    const zs = [...moved].filter((_, i) => i % 3 === 2);
+    expect(Math.min(...zs)).toBe(-0.5);
+    expect(Math.max(...zs)).toBe(0.5);
+    const xs = [...moved].filter((_, i) => i % 3 === 0);
+    expect(Math.min(...xs)).toBe(10);
+    expect(Math.max(...xs)).toBe(11);
+  });
+
+  it('leaves out what is not four-sided', () => {
+    expect(prismTriangles([square.slice(0, 3)], 0, 1).length).toBe(0);
+    expect(prismEdges([square.slice(0, 3)], 0, 1).length).toBe(0);
+  });
+
+  it('draws the board as its whole cells, blocks in a checker of two colors', () => {
+    const t = { box: [3, 2] as [number, number], cells: 'wwcwoo' };
+    const sq = wholeSquares(t);
+    // the whole cells (0,0), (1,0) and (0,1); cut and outside cells left out
+    expect(sq.map((s) => s.quad[0])).toEqual([
+      [0, 0],
+      [1, 0],
+      [0, 1],
+    ]);
+    expect(sq.map((s) => s.tone)).toEqual([0, 1, 1]);
+    const b = checkerBlocks(t, 0, 1);
+    expect(b.positions.length).toBe(3 * 12 * 9);
+    expect(b.colors.length).toBe(b.positions.length);
+    // the top faces (the second six corners of a block) in the two colors, unshaded
+    const top = (i: number): number[] => [
+      ...b.colors.slice((i * 36 + 6) * 3, (i * 36 + 6) * 3 + 3),
+    ];
+    expect(top(1)).toEqual(top(2));
+    expect(top(0)).not.toEqual(top(1));
   });
 });

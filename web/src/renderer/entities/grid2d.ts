@@ -80,6 +80,17 @@ export interface GridInput {
    * lie on whole cells (decision 0045). Absent on other shapes.
    */
   whole?: ((x: number, y: number) => boolean) | null;
+  /**
+   * A Tilted Square puzzle's piece: the tray, in the grid's own units (the
+   * board's grid): its corners and its walls' squares. The grid is drawn
+   * turned so the tray stands straight, clipped to it, with its outline
+   * and walls over the cells (decision 0045, stage D). Absent: not turned.
+   */
+  tilt?: {
+    degrees: number;
+    corners: readonly P2[];
+    walls: readonly (readonly P2[])[];
+  } | null;
 }
 
 /** How much of the shape's color a hinted cell shows (the original's sixth). */
@@ -181,7 +192,8 @@ export class Grid2D {
     if (aw === 0 || ah === 0) {
       return;
     }
-    const shape = `${aw}x${ah}:${input.grid}:${input.plane.ca}${input.plane.ra}:${input.geo.width}x${input.geo.height}:${input.geo.cells.length}:${input.layer}:${input.geo.cells[0]?.at.join(',') ?? ''}`;
+    const tilt = input.tilt == null ? '' : JSON.stringify(input.tilt);
+    const shape = `${aw}x${ah}:${input.grid}:${input.plane.ca}${input.plane.ra}:${input.geo.width}x${input.geo.height}:${input.geo.cells.length}:${input.layer}:${input.geo.cells[0]?.at.join(',') ?? ''}:${tilt}`;
     if (shape !== this.builtFor || this.svg === null) {
       this.build(input, aw, ah);
       this.builtFor = shape;
@@ -238,6 +250,10 @@ export class Grid2D {
 
   // the SVG for a layer drawing at a size (spaceGridSvg's fit)
   private build(input: GridInput, aw: number, ah: number): void {
+    if (input.tilt != null) {
+      this.buildTilted(input, input.tilt, aw, ah);
+      return;
+    }
     const { width: ex, height: ey } = input.geo;
     // every grid shrinks to fit its area instead of being cut off (a very
     // large one is better edited in the focus: the card offers it); in the
@@ -309,6 +325,60 @@ export class Grid2D {
     b += '<g class="names" pointer-events="none"></g>';
     b += '<g class="ovl" pointer-events="none"></g>';
     this.area.innerHTML = `<svg width="${aw}" height="${ah}" style="display:block" data-grid="${esc(input.grid)}">${b}</svg>`;
+    this.svg = this.area.querySelector('svg');
+    this.cellEls = [...this.area.querySelectorAll<SVGElement>('.cell')];
+    this.overlay = this.area.querySelector<SVGGElement>('.ovl');
+  }
+
+  /**
+   * A Tilted Square puzzle's piece (decision 0045): the grid turned by the
+   * tray's angle about the tray's center so the tray stands straight,
+   * fitted on the tray's side and clipped to it, with the tray's walls and
+   * outline over the cells. The cells keep their places in the grid's units
+   * (X, Y) inside the turned group, so the cursor, strokes and the box
+   * selection work as on a straight grid: the pointer finds a cell through
+   * elementFromPoint, which follows the turn. No axes or rulers: the grid's
+   * axes are not the tray's.
+   */
+  private buildTilted(
+    input: GridInput,
+    tilt: NonNullable<GridInput['tilt']>,
+    aw: number,
+    ah: number,
+  ): void {
+    const ey = input.geo.height;
+    const [c0, c1] = tilt.corners;
+    const side =
+      c0 === undefined || c1 === undefined ? 1 : Math.hypot(c1[0] - c0[0], c1[1] - c0[1]);
+    const cx = tilt.corners.reduce((s, p) => s + p[0], 0) / Math.max(1, tilt.corners.length);
+    const cy = tilt.corners.reduce((s, p) => s + p[1], 0) / Math.max(1, tilt.corners.length);
+    const most = this.host.focused() ? Infinity : 110;
+    this.sc = Math.max(
+      2,
+      Math.min(most, Math.min((aw - 2 * this.margin) / side, (ah - 2 * this.margin) / side)),
+    );
+    // the tray's center at the area's center
+    this.ox = aw / 2 - cx * this.sc;
+    this.oy = ah / 2 - (ey - cy) * this.sc;
+    const poly = (pts: readonly P2[]): string =>
+      pts.map((q) => `${this.X(q[0]).toFixed(1)},${this.Y(q[1], ey).toFixed(1)}`).join(' ');
+    // SVG turns clockwise on the screen, y down: the grid's counter-clockwise turn is negative
+    const turn = `rotate(${(-tilt.degrees).toFixed(4)} ${(aw / 2).toFixed(2)} ${(ah / 2).toFixed(2)})`;
+    const clip = `${this.patternId}t`;
+    let b = `<defs class="pdefs"></defs><defs><clipPath id="${clip}"><polygon points="${poly(tilt.corners)}"/></clipPath></defs>`;
+    b += `<g class="tturn" transform="${turn}"><g clip-path="url(#${clip})">`;
+    b += '<g class="hint" pointer-events="none"></g>';
+    input.geo.cells.forEach((c, i) => {
+      b += this.shapeOf(c, ey, `class="cell sp" data-i="${i}" data-at="${c.at.join(',')}"`);
+    });
+    b += '<g class="cmarks" pointer-events="none"></g>';
+    b += `<g class="twalls" pointer-events="none">${tilt.walls.map((w) => `<polygon points="${poly(w)}"/>`).join('')}</g>`;
+    b += '</g>';
+    b += `<polygon class="tedge" pointer-events="none" points="${poly(tilt.corners)}"/>`;
+    b += '<g class="names" pointer-events="none"></g>';
+    b += '<g class="ovl" pointer-events="none"></g>';
+    b += '</g>';
+    this.area.innerHTML = `<svg width="${aw}" height="${ah}" style="display:block" data-grid="${esc(input.grid)}" data-tilt="${tilt.degrees.toFixed(2)}">${b}</svg>`;
     this.svg = this.area.querySelector('svg');
     this.cellEls = [...this.area.querySelectorAll<SVGElement>('.cell')];
     this.overlay = this.area.querySelector<SVGGElement>('.ovl');

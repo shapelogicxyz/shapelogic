@@ -1446,32 +1446,44 @@ html[data-density=minimal] .pseg .gbtn.mpx{width:22px}
 #stage.tltb :is(#garea,#selbar,#lstrip,#toolStrip,#modRow,#planeSub,#colFoot,#gridSize){display:none}
 #stage.tlt :is(#gridSize,#lstrip){display:none}
 .bviews{display:none}
-#stage.tltb .bviews{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 0}
-.bviews .bv .gbtn{width:auto;height:calc(32px + var(--fh));padding:0 14px}
-.bviews .bvline{font-size:calc(12px + var(--fs))}
+#stage.tltb .bviews{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 10px}
+/* as high as + New Piece at every density (.btn.sm, and the densities' .btn heights that win over it) */
+#boardViews .bv .gbtn{width:auto;height:calc(26px + var(--fh));padding:0 12px}
+html:is([data-density=standard],[data-density=compact]) #boardViews .bv .gbtn{height:calc(28px + var(--fh))}
+.bviews .bvfacts{flex-basis:100%}
+.bviews .bvfacts p{margin:0;line-height:1.45}
+.bviews .bvfacts :is(.tread,.tangle,.twallcount){font-weight:600}
+.bviews .bvfacts .thint{margin-top:4px;color:var(--muted);font-size:calc(12px + var(--fs))}
 /* the tray picture (state/tilted.ts trayPicture), in the New dialog and the board's views:
    the turned cells under the straight squares; Tray brings the squares out, Cells the cells */
+/* a wall square: dark on the light theme, light on the dark one, so it stands out from the panel and the cut cells
+   (the 3D view's wall blocks take the same colors, View3D.syncTurn) */
+/* and the Cells view's straight square lines: the text color, half strength on the light theme, near full white on the dark one;
+   and the cut cells around the whole ones in the board's views (--tcut) */
+:root{--twall:#2b2f37;--twallEdge:#8a93a3;--tsqLine:rgba(26,31,41,.45);--tcut:#ffffff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--twall:#b4bccb;--twallEdge:#5d6676;--tsqLine:rgba(255,255,255,.88);--tcut:#1b1d23}}
+:root[data-theme="dark"]{--twall:#b4bccb;--twallEdge:#5d6676;--tsqLine:rgba(255,255,255,.88);--tcut:#1b1d23}
 .tpic{display:block;max-width:100%;max-height:100%}
 .tpic .tp-floor{fill:var(--panel)}
 .tpic .tp-edge{fill:none;stroke:var(--text);stroke-width:2.5}
 .tpic .tp-whole{stroke-linejoin:round}
-.tpic .tp-cut{fill:var(--line2)}
-.tpic .tp-wall{fill:#2b2f37}
+.tpic .tp-cut{fill:var(--tcut)}
+.tpic .tp-wall{fill:var(--twall)}
 .tpic .tp-sq{fill:transparent}
-.tpic .tp-sq.wall{fill:#2b2f37}
-.tpic .tp-sq.pending{fill:#2b2f37;fill-opacity:.75}
+.tpic .tp-sq.wall{fill:var(--twall)}
+.tpic .tp-sq.pending{fill:var(--twall);fill-opacity:.75}
 .tpic .tp-sq.opening{fill:var(--accent);fill-opacity:.3}
-/* Cells: vivid turned cells with strong lines, the squares faint */
+/* Cells: vivid turned cells with strong lines, the squares' lines plain but clear */
 .tpic.tp-cells .tp-whole{stroke:#10131a;stroke-width:1.4}
-.tpic.tp-cells .tp-whole.a{fill:#2f5bff}.tpic.tp-cells .tp-whole.b{fill:#1fb24a}
+.tpic.tp-cells .tp-whole.a{fill:#1919f3}.tpic.tp-cells .tp-whole.b{fill:#62e03e}
 .tpic.tp-cells .tp-cut{stroke:#8a93a3;stroke-width:.8}
-.tpic.tp-cells .tp-sq{stroke:var(--muted);stroke-width:.7;stroke-dasharray:3 3;stroke-opacity:.7}
-/* Tray: the straight squares' lines bright, the turned cells muted under them */
-.tpic.tp-tray .tp-whole{stroke:var(--line2);stroke-width:.6;fill-opacity:.35}
-.tpic.tp-tray .tp-whole.a{fill:#2f5bff}.tpic.tp-tray .tp-whole.b{fill:#1fb24a}
-.tpic.tp-tray .tp-cut{fill-opacity:.5;stroke:none}
-.tpic.tp-tray .tp-sq{stroke:#ff8a00;stroke-width:1.8}
-.tpic.tp-tray .tp-sq.wall{stroke:#ff8a00}
+.tpic.tp-cells .tp-sq{stroke:var(--tsqLine);stroke-width:1}
+/* Tray: the straight squares' lines bright orange over the turned cells, the cells' own lines thin */
+.tpic.tp-tray .tp-whole{stroke:#10131a;stroke-width:.6;stroke-opacity:.6}
+.tpic.tp-tray .tp-whole.a{fill:#1919f3}.tpic.tp-tray .tp-whole.b{fill:#62e03e}
+.tpic.tp-tray .tp-cut{stroke:none}
+.tpic.tp-tray .tp-sq{stroke:#ff6600;stroke-width:2.2}
+.tpic.tp-tray .tp-sq.wall{stroke:#ff6600}
 .tpic .tp-sq[data-sq]:not(.wall):hover{fill:var(--accent);fill-opacity:.18}
 #stage.tltb #trayArea .tpic{cursor:crosshair}
 /* the Tilt & tolerance section */
@@ -1486,9 +1498,10 @@ html[data-density=minimal] .pseg .gbtn.mpx{width:22px}
 .tilt .tshs{display:flex;gap:6px}
 .tilt select{font:inherit;height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text)}
 .tilt .tline{margin:2px 0 6px;color:var(--muted);font-size:calc(12px + var(--fs))}
-.tilt .tread{margin:10px 0 4px;font-weight:600}
-.tilt .thint{margin:0 0 10px;color:var(--muted);font-size:calc(12px + var(--fs))}
 /* File ▸ New's Tilted Square: its example, the default tray */
 .ngt-pic{display:grid;place-items:center}
 /* a tilted puzzle's piece: the cells the tray cuts are gray and take no pointer */
 #garea .cell.tcut{pointer-events:none}
+/* a tilted puzzle's piece: the grid turned in its tray, the tray's walls and outline over the cells */
+#garea .twalls polygon{fill:var(--twall)}
+#garea .tedge{fill:none;stroke:var(--text);stroke-width:2.5}

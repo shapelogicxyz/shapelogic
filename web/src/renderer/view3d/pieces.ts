@@ -27,7 +27,7 @@ import {
   Vector3,
   Vector4,
 } from 'three';
-import type { Camera as Camera3 } from 'three';
+import type { BufferGeometry, Camera as Camera3, Material } from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -67,6 +67,19 @@ export interface PiecesLook {
   colorOf(shape: string): Rgb3;
   /** A sliding piece's picture (null: none, or not decoded yet). */
   pictureOf?(shape: string): PiecePicture | null;
+  /**
+   * What draws a shape in place of its mesh (null: its mesh): faces in a
+   * material of their own and edges, in the mesh's frame (a Tilted Square
+   * board's checker blocks). The mesh still sizes and places it.
+   */
+  standIn?(shape: string): PieceStandIn | null;
+}
+
+/** Faces and edges drawn in place of a shape's mesh (`PiecesLook.standIn`). */
+export interface PieceStandIn {
+  faces: BufferGeometry;
+  material: Material;
+  edges: LineSegmentsGeometry;
 }
 
 /** A shape's mesh with its center and size (from the frame's lo and hi). */
@@ -241,20 +254,28 @@ export class PiecesScene {
       const inner = new Group();
       inner.position.set(-m.center[0], -m.center[1], -m.center[2]);
       group.add(inner);
-      if (item.optional) {
-        inner.add(new Mesh(m.built.faces, this.depthOnly));
-      }
-      const faces = new Mesh(m.built.faces, item.optional ? d.faded : d.normal);
-      faces.userData.faces = true;
-      faces.renderOrder = item.optional ? 2 : 0;
-      inner.add(faces);
-      if (m.built.marks !== null) {
-        const marks = new Mesh(m.built.marks, item.optional ? this.markFaded : this.markMaterial);
-        marks.renderOrder = item.optional ? 2 : 0;
-        inner.add(marks);
-      }
-      if (d.edges !== null) {
-        inner.add(new LineSegments2(d.edges, item.optional ? this.edgeFaded : this.edgeMaterial));
+      const stand = look.standIn?.(item.shape) ?? null;
+      if (stand !== null) {
+        const faces = new Mesh(stand.faces, stand.material);
+        faces.userData.faces = true;
+        inner.add(faces);
+        inner.add(new LineSegments2(stand.edges, this.edgeMaterial));
+      } else {
+        if (item.optional) {
+          inner.add(new Mesh(m.built.faces, this.depthOnly));
+        }
+        const faces = new Mesh(m.built.faces, item.optional ? d.faded : d.normal);
+        faces.userData.faces = true;
+        faces.renderOrder = item.optional ? 2 : 0;
+        inner.add(faces);
+        if (m.built.marks !== null) {
+          const marks = new Mesh(m.built.marks, item.optional ? this.markFaded : this.markMaterial);
+          marks.renderOrder = item.optional ? 2 : 0;
+          inner.add(marks);
+        }
+        if (d.edges !== null) {
+          inner.add(new LineSegments2(d.edges, item.optional ? this.edgeFaded : this.edgeMaterial));
+        }
       }
       const at = new Vector3();
       // the result fills its larger place, the pieces keep their sizes to each other

@@ -58,6 +58,7 @@ import { vectorImage } from './svg.ts';
 import { Toolbar } from './toolbar.ts';
 import { TrayView } from './trays.ts';
 import { wallOutline, wallSegments } from './walls.ts';
+import { CheckerCells, TrayScene } from './tray3d.ts';
 import type { TrayModel } from './trays.ts';
 import type { Display, EditButton, NavMode } from './toolbar.ts';
 import { ViewCube } from './viewcube.ts';
@@ -205,6 +206,13 @@ export class View3D {
   private readonly pieces: PiecesScene;
   private piecesModel: PiecesModel | null = null;
   private readonly solution = new SolutionScene(labelSprite);
+  /** A Tilted Square puzzle's tray: around the shape, and around the Solver's pieces. */
+  private readonly shapeTray = new TrayScene();
+  private readonly solutionTray = new TrayScene();
+  /** A Tilted Square board's cells as the Puzzle view draws its result. */
+  private readonly boardCells = new CheckerCells();
+  /** Whether the home view is the tilted puzzle's, straight down on the tray. */
+  private tiltedHome = false;
   private solutionModel: SolutionModel | null = null;
   /**
    * What each layer would show; the explorer's over the player's while it
@@ -291,6 +299,9 @@ export class View3D {
     // centerd on the result (the poses' frame), turned by the camera as the shape is
     this.solution.group.visible = false;
     this.renderer.root.add(this.solution.group);
+    this.renderer.model.add(this.shapeTray.group);
+    this.solutionTray.group.visible = false;
+    this.renderer.root.add(this.solutionTray.group);
     this.renderer.onDraw(() => {
       this.draw();
     });
@@ -627,6 +638,32 @@ export class View3D {
       this.renderer.turn = turn;
       this.renderer.request();
     }
+    // the tray itself, its walls as they are now: in the shape view's model
+    // (the board's grid, every shape's), and around the Solver's pieces
+    // (centered on the result, one layer)
+    const t3 = tray == null ? null : { corners: tray.corners, walls: tray.wallPolygons };
+    const rim = css('--text') || '#1a1f29';
+    this.shapeTray.setRimColor(rim);
+    this.solutionTray.setRimColor(rim);
+    const wall = css('--twall') || '#2b2f37';
+    const wallEdge = css('--twallEdge') || '#8a93a3';
+    this.shapeTray.setWallColor(wall, wallEdge);
+    this.solutionTray.setWallColor(wall, wallEdge);
+    const shape = this.store.shape;
+    this.shapeTray.set(t3, 1, [0, 0, 0], shape?.board === true && tray != null ? tray : null);
+    const [bx, by] = tray?.box ?? [1, 1];
+    this.solutionTray.set(t3, 1, [-bx / 2, -by / 2, -0.5]);
+    this.solutionTray.group.visible = t3 !== null && this.solverMode;
+    const vp = byId('vp');
+    vp.dataset.trayWalls = String(this.shapeTray.walls);
+    vp.dataset.trayCells = String(this.shapeTray.cells);
+    // a tilted puzzle's home view looks straight down on the tray
+    if ((tray != null) !== this.tiltedHome) {
+      this.tiltedHome = tray != null;
+      this.camera.setHome(this.tiltedHome ? new Quaternion() : null);
+      this.camera.home(performance.now());
+    }
+    this.renderer.request();
   }
 
   // the upright frame: the Z axis direction's, but a stacking puzzle's view
@@ -719,6 +756,8 @@ export class View3D {
     this.solution.setResolution(vp.clientWidth, vp.clientHeight);
     this.trays.setResolution(vp.clientWidth, vp.clientHeight);
     this.board.setResolution(vp.clientWidth, vp.clientHeight);
+    this.shapeTray.setResolution(vp.clientWidth, vp.clientHeight);
+    this.solutionTray.setResolution(vp.clientWidth, vp.clientHeight);
     this.cube.draw();
     this.renderer.request();
   }
@@ -760,6 +799,16 @@ export class View3D {
     }
     const size = shape.size;
     const revision = snap.revision;
+    // a Tilted Square board is drawn by its tray (syncTurn), its whole
+    // cells as checker blocks: its mesh would show variable cells
+    if (snap.tray != null && shape.board) {
+      this.shownKey = key;
+      this.scene.setMesh(null);
+      byId('vp').dataset.shown = `${shape.id}:${style}`;
+      byId('vp').dataset.revision = String(revision);
+      this.lookChanged();
+      return;
+    }
     this.cache.get(shape.id, style, revision).then(
       (reply) => {
         if (n !== this.loading) {
@@ -954,6 +1003,15 @@ export class View3D {
       colorOf: (shape) => {
         const i = this.store.indexOf(shape);
         return viewColor(snap?.shapes[i], i);
+      },
+      // a Tilted Square board (the result) as checker blocks, as in the shape view
+      standIn: (shape) => {
+        const tray = snap?.tray;
+        const s = snap?.shapes[this.store.indexOf(shape)];
+        if (tray == null || s?.board !== true) {
+          return null;
+        }
+        return { ...this.boardCells.geometry(tray), material: this.boardCells.material };
       },
       pictureOf: (shape) => this.pictureOf(shape),
     };
@@ -1266,7 +1324,14 @@ export class View3D {
       Math.max(EYE_DISTANCE, 2.5 * reach),
       reach,
     );
-    this.pieces.turn(this.camera.q);
+    // a tilted puzzle's pieces lie as they lie in the tray (the view's turn)
+    this.pieces.turn(
+      this.renderer.turn === 0
+        ? this.camera.q
+        : this.camera.q
+            .clone()
+            .multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), this.renderer.turn)),
+    );
     r.render();
     this.pieces.place(r.camera, r.width, r.height, sc, top);
   }

@@ -12,7 +12,7 @@
 import type { Tray } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId } from '../shell/dom.ts';
-import { squareOf, trayLine, trayPicture } from '../state/tilted.ts';
+import { squareOf, trayFacts, trayPicture } from '../state/tilted.ts';
 import type { TrayView } from '../state/tilted.ts';
 
 /** What the view asks of the workspace. */
@@ -27,12 +27,12 @@ export interface TrayViewHost {
 const VIEWS: readonly { view: TrayView; label: string; tip: string }[] = [
   {
     view: 'tray',
-    label: 'Tray',
+    label: 'Focus Tray',
     tip: 'The tray’s straight squares brought out over the turned cells: click or drag to make walls',
   },
   {
     view: 'cells',
-    label: 'Cells',
+    label: 'Focus Cells',
     tip: 'The turned cells the tray gives brought out (whole in color, cut by the edge or a wall in gray): click or drag over squares to make walls',
   },
 ];
@@ -64,7 +64,15 @@ export class TrayViewCard {
         : `<div class="pseg bv" role="radiogroup" aria-label="Board view">${VIEWS.map(
             (v) =>
               `<button class="gbtn ${this.view === v.view ? 'on' : ''}" data-bv="${v.view}" role="radio" aria-checked="${String(this.view === v.view)}" title="${v.tip}"><span>${v.label}</span></button>`,
-          ).join('')}</div><span class="mute bvline">${trayLine(tray)}</span>`;
+          ).join('')}</div>` +
+          // what the tray gives, and how to draw walls, under the buttons
+          `<div class="bvfacts" role="status">${trayFacts(tray)
+            .map(
+              (line, i) => `<p class="${['tread', 'tangle', 'twallcount'][i] ?? ''}">${line}</p>`,
+            )
+            .join(
+              '',
+            )}<p class="thint">Click or drag over the board’s squares to draw walls.</p></div>`;
     this.draw();
   }
 
