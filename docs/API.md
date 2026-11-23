@@ -2088,7 +2088,7 @@ One transfer: the top disc of rod 'from' onto rod 'to'.
 
 ## Tilted trays
 
-A Tilted Square puzzle's tray (decision 0045; not in the original): a cube-grid puzzle with a tray (Snapshot.tray), made by document.new with tray. Its first shape is the board, made from the tray and never edited: shape.delete, shape.duplicate, shape.move, shape.setCells, shape.setBox and shape.task refuse it, and it is no piece. Every shape has the board's size, one layer: shape.create makes one of that size, shape.resize is refused. A piece's cells lie on the board's whole cells: an edit changes nothing elsewhere, and a shape task that would leave a piece off them is refused. A problem's result is the board (problem.create sets it; problem.setResult to another shape and problem.clearResult are refused). solution.toShapes is unsupported. All refusals here are invalid_argument unless said.
+A Tilted Square puzzle's tray (decision 0045; not in the original): a cube-grid puzzle with a tray (Snapshot.tray), made by document.new with tray. Its first shape is the board, made from the tray and never edited: shape.delete, shape.duplicate, shape.move, shape.setCells, shape.setBox and shape.task refuse it, and it is no piece. Every shape has the board's size, one layer: shape.create makes one of that size, shape.resize is refused. A piece's cells lie on the board's whole cells: an edit changes nothing elsewhere, and a shape task that would leave a piece off them is refused. A problem's result is the board (problem.create sets it; problem.setResult to another shape and problem.clearResult are refused). solution.toShapes is unsupported. All refusals here are invalid_argument unless said. The grid can lie in the tray in more ways than the one in use: tray.placements lists every board worth trying, and tray.fitPlacements counts a problem's assemblies on each.
 
 ### `tray.set`
 
@@ -2137,6 +2137,149 @@ Params:
 Result: [Tray](#tray)
 
 Errors: `invalid_argument`
+
+### `tray.placements`
+
+Every board the tray can give that is worth trying, changing nothing: the grid slid over every place it can lie, each board once (boards that are one another moved by whole cells or turned by quarter turns are one), and no board that is part of another (the pieces need only fit, so it holds nothing the larger one cannot). The most whole cells first, the best placement's board before the others with as many. A board is used with tray.set (placement custom, its shiftX and shiftY) and drawn with tray.preview. unsupported on a puzzle without a tray.
+
+Params:
+
+(none)
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `boards` | PlacedBoard[] | required |  |
+| `complete` | boolean | required | False when the looking was cut short (a large tray at a steep slope with many walls): boards may be missing. |
+| `inUse` | integer or null | required | The place in boards of the board the tray lies at (as it is, or turned); null when that board is none of them (a part of one). |
+
+Errors: `unsupported`
+
+### `tray.fitPlacements`
+
+Counts the assemblies of a problem's pieces on every board of tray.placements, one board after the other, by the ordinary solve on a copy: the document is not changed. A job: returns at once, reports through tray.fitProgress and tray.fitEnded, stops with tray.fitPlacementsStop. options are the solve's (flipPieces, threads, solver); the count alone is taken. Refused (invalid_state) while the problem is being solved, analyzed or tried already; invalid_argument when the problem has no pieces; unsupported on a puzzle without a tray. While it runs the document is frozen as while solving.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `options` | [SolveOptions](#solveoptions) |  |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `total` | integer | required | Boards to try. |
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`
+
+### `tray.fitPlacementsStop`
+
+Stops a fit; what it counted is kept. Does not wait: tray.fitEnded follows.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [Empty](#empty)
+
+Errors: `not_found`, `invalid_state`
+
+### `tray.fitPlacementsStatus`
+
+Where a fit stands: running, or how the problem's last one ended (kept until the next one starts or the tray, a shape of the problem or the problem changes); inactive with no boards when there is none.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: FitProgress
+
+Errors: `not_found`
+
+### event `tray.fitProgress`
+
+A fit's progress; at most four times a second.
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `complete` | boolean | required | False when the boards are not every one there is (tray.placements). |
+| `total` | integer | required |  |
+| `done` | integer | required | Boards tried to the end. |
+| `current` | number | required | How far the solve of the board under way is. |
+| `stopped` | boolean | required | Ended before every board was tried (stopped, or by an error). |
+| `failure` | string or null | required | What ended it early, when it was no stop: a solve that could not start, or an internal error. |
+| `boards` | FitBoard[] | required | The boards in tray.placements' order. |
+
+### event `tray.fitEnded`
+
+A fit ended (through, stopped, or ended early by an error: failure says what). document.changed follows (nothing changed but solving). The problems of a document that is replaced get one with stopped true after the replacing call's reply.
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `complete` | boolean | required | False when the boards are not every one there is (tray.placements). |
+| `total` | integer | required |  |
+| `done` | integer | required | Boards tried to the end. |
+| `current` | number | required | How far the solve of the board under way is. |
+| `stopped` | boolean | required | Ended before every board was tried (stopped, or by an error). |
+| `failure` | string or null | required | What ended it early, when it was no stop: a solve that could not start, or an internal error. |
+| `boards` | FitBoard[] | required | The boards in tray.placements' order. |
+
+#### PlacedBoard
+
+A board the tray gives and a shift that gives it (tray.set with placement custom).
+
+| name | type | | description |
+|---|---|---|---|
+| `shiftX` | number | required |  |
+| `shiftY` | number | required |  |
+| `whole` | integer | required | Its whole cells. |
+
+#### FitBoard
+
+A board of a fit and what was found on it.
+
+| name | type | | description |
+|---|---|---|---|
+| `shiftX` | number | required |  |
+| `shiftY` | number | required |  |
+| `whole` | integer | required |  |
+| `counted` | boolean | required | The board was tried to the end: assemblies is its count. |
+| `assemblies` | integer | required | The assemblies of the pieces on it; of the board under way, or the one a fit was stopped on, those found so far. |
+
+#### FitProgress
+
+| name | type | | description |
+|---|---|---|---|
+| `active` | boolean | required |  |
+| `complete` | boolean | required | False when the boards are not every one there is (tray.placements). |
+| `total` | integer | required |  |
+| `done` | integer | required | Boards tried to the end. |
+| `current` | number | required | How far the solve of the board under way is. |
+| `stopped` | boolean | required | Ended before every board was tried (stopped, or by an error). |
+| `failure` | string or null | required | What ended it early, when it was no stop: a solve that could not start, or an internal error. |
+| `boards` | FitBoard[] | required | The boards in tray.placements' order. |
+
+#### FitEvent
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `complete` | boolean | required | False when the boards are not every one there is (tray.placements). |
+| `total` | integer | required |  |
+| `done` | integer | required | Boards tried to the end. |
+| `current` | number | required | How far the solve of the board under way is. |
+| `stopped` | boolean | required | Ended before every board was tried (stopped, or by an error). |
+| `failure` | string or null | required | What ended it early, when it was no stop: a solve that could not start, or an internal error. |
+| `boards` | FitBoard[] | required | The boards in tray.placements' order. |
 
 ## Solving
 

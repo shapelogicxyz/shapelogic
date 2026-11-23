@@ -1059,7 +1059,8 @@ makes it with one problem whose result is the board. The type chip reads
   on, the height takes the width), **Down** and **Over** steppers, a line
   "6 by 6 · 1 down, 3 over · turned 18.43°", **Allowance** (a switch;
   on, **Amount** in cell widths, 0.05 at first, at most 0.25), **Placement**
-  (**Most whole cells** or **Custom**, with the shift along x and y). Each
+  (**Most whole cells** or **Custom**, with the shift along x and y), **Every
+  placement** (**Placements…**, section 13.5). Each
   change is one `tray.set`, one undo step; the engine makes the board again
   and moves each piece by whole cells to the nearest place where it is
   whole. Below it, the **Tilted Square Tutorial** header opens the research
@@ -1092,4 +1093,39 @@ plane and the search has no symmetry breaker. The tray's walls stand
 around the solution's pieces in the 3D view. The disassembly player says
 "A tilted tray's pieces lie flat and lift straight out: there is nothing
 to take apart." and offers no **Analyse disassembly** (nor on Spheres,
-whose grid has no disassembler).
+whose grid has no disassembler). A solve that ends with no assembly says
+"No assemblies found. The pieces do not fit the board where the grid lies
+now. Another placement of the grid in the tray may take them." with **Try
+every placement**, which opens the Placements dialog (13.5) for the
+problem and counts at once with the options shown.
+
+### 13.5 Placements
+A dialog (`#placementsDlg`, `entities/placements-dialog.ts`) of every board
+the grid can give in the tray (`tray.placements`), opened by
+**Placements…** in Tilt & tolerance's **Every placement** row and by the
+Solver's **Try every placement**.
+- A line says how many boards there are ("The grid gives 6 boards in this
+  tray, the most whole cells first. A board that is part of another is left
+  out: it holds nothing the larger one cannot."), and when the engine's
+  list is cut short, that it is not complete.
+- **Pieces of** chooses the problem (hidden with one problem). **Count
+  assemblies** starts `tray.fitPlacements` and reads **Stop** while it
+  runs; beside it the state: "Trying placement 3 of 6…", then "1 of 6
+  placements takes the pieces", "No placement takes the pieces", or
+  "Stopped after 2 of 6 placements: none takes the pieces so far". A
+  refusal is said there too (a problem without pieces; in the demo, that
+  searches run in the app).
+- A row a board, 40 at a time with **Show more**: its picture (the Cells
+  view, from `tray.preview` at its shift), "24 whole cells", under it
+  "Most whole cells" for the first and "In use" for the board the tray
+  lies at, then the count ("Waiting", "Trying…", "12 so far…", "No
+  assembly", "1 assembly", "7 or more" for the board a count was stopped
+  on, "Not tried"), and **Use** ("In use", disabled, on the board in use).
+  When a count ends, the first board that takes the pieces is scrolled
+  into sight.
+- **Use** stops a count under way, then sets the placement with one
+  `tray.set` (the first board: the best placement; another: custom, its
+  shift), one undo step, closes the dialog and says "The grid lies at the
+  placement chosen: 24 whole cells" (or names the pieces that no longer
+  fit). **Close**, Esc or a click beside the dialog closes it and stops a
+  count under way.

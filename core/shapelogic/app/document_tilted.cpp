@@ -242,6 +242,15 @@ const tilted::Layout& Document::trayLayout() const {
   return trayLayout_->second;
 }
 
+const tilted::Placements& Document::trayPlacements() const {
+  BT_ASSERT(tilted());
+  if (!trayPlacements_ || trayPlacements_->first != trayOf(*puzzle_)) {
+    trayPlacements_ = std::make_unique<std::pair<tilted::Tray, tilted::Placements>>(
+        trayOf(*puzzle_), tilted::placements(trayOf(*puzzle_)));
+  }
+  return trayPlacements_->second;
+}
+
 bool Document::fitsTray(unsigned int index) const {
   if (!tilted() || index == 0) {
     return true;
@@ -377,6 +386,7 @@ Result<void> Document::applyTray(tilted::Tray next, const char* label) {
 
   StepGuard g(*this, label);
   touchWhole();
+  fitEnds_.clear();  // the boards a fit counted on are the old tray's
   puzzle_->setTray(std::move(next));
   if (count == 0) {
     (void)puzzle_->addShape(layNew.sizeX, layNew.sizeY, 1);
@@ -394,5 +404,73 @@ Result<void> Document::applyTray(tilted::Tray next, const char* label) {
   g.commit(kChangeShapes | kChangeProblems | kChangeTray | lastChange_.what);
   return {};
 }
+
+// ---- trying every placement -----------------------------------------------------------
+
+Result<unsigned int> Document::fitPlacementsStart(Id problem, const SolveOptions& options) {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  if (!tilted()) {
+    return fail(Errc::Unsupported, "the puzzle has no tilted tray");
+  }
+  if (Result<void> r = checkProblemFree(*p); !r) {
+    return std::unexpected(r.error());
+  }
+  if (grouping_) {
+    return fail(Errc::InvalidState, "a group of edits is open");
+  }
+  const Problem& pr = puzzle_->getProblem(*p);
+  if (pr.getNumberOfPieces() == 0) {
+    return fail(Errc::InvalidArgument, "the problem has no pieces");
+  }
+  const tilted::Placements& boards = trayPlacements();
+
+  // A puzzle of the fit's own: the tray, the colors, every shape in its
+  // place (so that the problem's shape numbers hold) and the problem's
+  // definition. The shapes are only read here, as a run of another problem
+  // reads them; this problem has no run.
+  auto scratch = std::make_unique<Puzzle>(GridType(GridKind::Bricks));
+  scratch->setTray(trayOf(*puzzle_));
+  for (unsigned int c = 0; c < puzzle_->colorNumber(); c++) {
+    const Rgb rgb = puzzle_->getColor(c);
+    (void)scratch->addColor(rgb.r, rgb.g, rgb.b);
+  }
+  for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
+    (void)scratch->addShape(puzzle_->getShape(i).clone());
+  }
+  (void)scratch->addProblem(pr);
+
+  fitEnds_.erase(problem);
+  fits_.emplace(problem, std::make_unique<PlacementFit>(std::move(scratch), boards, options));
+  return static_cast<unsigned int>(boards.boards.size());
+}
+
+Result<void> Document::fitPlacementsStop(Id problem) {
+  if (Result<unsigned int> p = problemIndex(problem); !p) {
+    return std::unexpected(p.error());
+  }
+  const auto it = fits_.find(problem);
+  if (it == fits_.end()) {
+    return fail(Errc::InvalidState, "the tray's placements are not being tried with the problem");
+  }
+  it->second->stop();
+  return {};
+}
+
+Result<PlacementFitProgress> Document::fitPlacementsProgress(Id problem) const {
+  if (Result<unsigned int> p = problemIndex(problem); !p) {
+    return std::unexpected(p.error());
+  }
+  const auto it = fits_.find(problem);
+  if (it != fits_.end()) {
+    return it->second->progress();
+  }
+  const auto e = fitEnds_.find(problem);
+  return e == fitEnds_.end() ? PlacementFitProgress{} : e->second;
+}
+
+bool Document::fittingPlacements(Id problem) const { return fits_.contains(problem); }
 
 }  // namespace bt::app

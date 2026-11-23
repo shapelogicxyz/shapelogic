@@ -43,6 +43,9 @@ using Names = std::vector<std::pair<std::string_view, E>>;
 [[nodiscard]] Json trayJson(const app::Document& d);
 /// A tray and its board (types.json Tray).
 [[nodiscard]] Json trayJson(const tilted::Tray& t, const tilted::Layout& lay);
+/// Where a fit of a tray's placements stands (tray.json FitProgress without
+/// `active`: the fields a tray.fitProgress event and the status share).
+[[nodiscard]] Json placementFitJson(const app::PlacementFitProgress& f);
 /// A tray's settings read from `given` (types.json TraySettings) over
 /// `base`: the slope in lowest terms, a new size keeping the walls inside
 /// it. An error when `given` is no object, holds a field it should not, or

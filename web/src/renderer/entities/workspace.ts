@@ -54,6 +54,7 @@ import type { CellValue } from './shape-cells.ts';
 import { RodsCard } from './rods-card.ts';
 import { rodSetText } from '../state/stacking.ts';
 import { ShapesList } from './shapes-list.ts';
+import { openPlacements } from './placements-dialog.ts';
 import { TiltCard, tiltKey } from './tilt-card.ts';
 import { TrayViewCard } from './tray-view.ts';
 import { cellState, isTiltBoard, isTilted } from '../state/tilted.ts';
@@ -125,6 +126,11 @@ export class EntitiesWorkspace {
       mutate: (doing, call) => this.mutate(doing, call),
       openPage: () => {
         window.btApp.openHelp('tilted');
+      },
+      openPlacements: () => {
+        if (!refuse()) {
+          void openPlacements({ store, mutate: (doing, call) => this.mutate(doing, call) });
+        }
       },
     });
     this.trayView = new TrayViewCard({

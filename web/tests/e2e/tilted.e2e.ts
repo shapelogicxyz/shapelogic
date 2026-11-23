@@ -7,6 +7,9 @@
 // another width than height (stage E) is set with Keep square off. The
 // Triple Play fixture (stage F) is opened and solved, with its pieces turned
 // over and one face up; a piece a wall leaves without a place is marked.
+// Every placement (stage G): the Placements dialog lists the boards the
+// grid can give, the Solver's Try every placement counts the assemblies on
+// each, and Use puts the grid at the one that takes the pieces.
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -365,6 +368,90 @@ test('a piece a tray change leaves without a place is marked, and the change say
     await page.keyboard.press('Control+z');
     await settled(page);
     await expect(page.locator('#shapeList .row .tnofit')).toHaveCount(0);
+  } finally {
+    await a.close();
+  }
+});
+
+test('every placement: the list, the count on each board, and the one that takes the pieces used', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    // Triple Play's pieces, the walls on the other diagonal: the best
+    // placement takes no pieces (the file holds the solve: no assembly)
+    await openFixture(page, 'tilted/OtherDiagonal.xmpuzzle');
+    const snap = await docOf(page);
+    expect(snap.tray?.placement).toBe('best');
+    expect(snap.tray?.whole).toBe(24);
+
+    // Tilt & tolerance ▸ Placements…: six boards, the one in use first,
+    // each with its picture; nothing counted yet
+    await page.click('#boardList .row');
+    await settled(page);
+    await page.click('#tiltBody [data-tplaces]');
+    const dlg = page.locator('#placementsDlg');
+    await expect(dlg.locator('.plc-row')).toHaveCount(6);
+    await expect(dlg.locator('.plc-row .plc-t b')).toHaveText([
+      '24 whole cells',
+      '24 whole cells',
+      '24 whole cells',
+      '24 whole cells',
+      '24 whole cells',
+      '23 whole cells',
+    ]);
+    await expect(dlg.locator('.plc-row[data-k="0"] .plc-t small')).toHaveText(
+      'Most whole cells · In use',
+    );
+    await expect(dlg.locator('.plc-row[data-k="0"] [data-use]')).toBeDisabled();
+    await expect(dlg.locator('.plc-row .plc-pic svg')).toHaveCount(6);
+    await expect(dlg.locator('.plc-row[data-k="5"] .plc-pic svg .tp-whole')).toHaveCount(23);
+    await expect(dlg.locator('.plc-row[data-fit="none"]')).toHaveCount(6);
+    // one problem: no choice of problem is shown
+    await expect(dlg.locator('.plc-prob')).toBeHidden();
+    await expect(dlg.locator('[data-plc="run"]')).toHaveText('Count assemblies');
+    await page.click('#placementsDlg [data-x="close"]');
+    await expect(dlg).toHaveCount(0);
+
+    // the Solver: no assembly, and the offer to try every placement, which
+    // opens the list and counts at once
+    await toSolver(page);
+    await solverSettled(page);
+    await expect(page.locator('#slvSel .slv-empty')).toContainText('No assemblies found');
+    await page.click('#slvSel [data-tryplaces]');
+    await expect(dlg.locator('.plc-row')).toHaveCount(6);
+    await expect(dlg.locator('[data-plc="sum"]')).toHaveText('1 of 6 placements takes the pieces');
+    await expect(dlg.locator('[data-plc="run"]')).toHaveText('Count assemblies');
+    await expect(dlg.locator('.plc-row .plc-fit')).toHaveText([
+      'No assembly',
+      'No assembly',
+      'No assembly',
+      'No assembly',
+      '1 assembly',
+      'No assembly',
+    ]);
+    // the document is as it was: nothing counted changed it
+    const during = await docOf(page);
+    expect(during.tray).toEqual(snap.tray);
+    expect(during.dirty).toBe(false);
+
+    // Use on the board that takes the pieces: the grid lies there (a custom
+    // placement), the dialog closes, and the solve finds the assembly
+    await dlg.locator('.plc-row[data-fit="fits"] [data-use]').click();
+    await expect(dlg).toHaveCount(0);
+    await solverSettled(page);
+    await expect(page.locator('#stText')).toContainText('The grid lies at the placement chosen');
+    const used = await docOf(page);
+    expect(used.tray?.placement).toBe('custom');
+    expect(used.tray?.whole).toBe(24);
+    expect(used.shapes.slice(1).every((x) => x.fits)).toBe(true);
+    await runButton(page, 'start');
+    await runEnded(page, 'finished');
+    await expect(page.locator('#slvAsm')).toHaveText('1');
+
+    // one step back: the best placement again
+    await page.keyboard.press('Control+z');
+    await solverSettled(page);
+    expect((await docOf(page)).tray).toEqual(snap.tray);
   } finally {
     await a.close();
   }

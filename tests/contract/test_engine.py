@@ -2507,6 +2507,124 @@ def tilted_tray(e):
 
 
 @test
+def tilted_placements(e):
+    """Every placement of a tilted tray (stage G of
+    docs/TILTED-SQUARE-PLAN.md): the boards the tray can give, and the job
+    that counts a problem's assemblies on each. Triple Play with its walls
+    on the other diagonal: the best placement takes no pieces, others do."""
+    e.call("document.new", {"grid": "bricks"})
+    e.fails("tray.placements", {}, "unsupported")
+    plain = e.call("problem.create")["problem"]
+    e.fails("tray.fitPlacements", {"problem": plain}, "unsupported")
+
+    snap = e.call("document.new", {"grid": "bricks", "tray": {"size": 6, "over": 3, "down": 1,
+                                                                "allowance": 0.05}})
+    p = snap["problems"][0]["id"]
+    e.call("tray.setWalls", {"squares": [[0, 0], [5, 5]], "wall": True})
+    tray = e.call("document.get")["tray"]
+
+    def draw(art, tray):
+        x, y = tray["box"]
+        cells = [(k % 4, k // 4) for k in range(16) if art[k] == "#"]
+        shape = e.call("shape.create")["shape"]
+        for oy in range(-3, y):
+            for ox in range(-3, x):
+                at = [(ox + cx, oy + cy) for cx, cy in cells]
+                if all(0 <= ax < x and 0 <= ay < y and tray["cells"][ay * x + ax] == "w" for ax, ay in at):
+                    e.call("shape.setCells", {"shape": shape, "tool": "fixed",
+                                              "cells": [[ax, ay, 0] for ax, ay in at]})
+                    return shape
+        check(False, "the piece fits nowhere")
+
+    e.fails("tray.fitPlacements", {"problem": p}, "invalid_argument")  # no pieces yet
+    for art in ("_#___###_#__##__", "_#___#___#####__", "_#___#####___#__"):
+        e.call("problem.setPieceCount", {"problem": p, "shape": draw(art, tray), "min": 1, "max": 1})
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {}})
+    check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved")
+    e.drain()
+    check(e.call("problem.get", {"problem": p})["assemblies"] == 0, "the best placement takes no pieces")
+
+    # the boards: the one in use (the best) first, the most cells first,
+    # each drawn by tray.preview at its shift
+    placed = e.call("tray.placements")
+    boards = placed["boards"]
+    check(len(boards) == 6 and placed["complete"] and placed["inUse"] == 0, f"the placements {placed}")
+    check(boards[0]["shiftX"] == tray["shiftX"] and boards[0]["shiftY"] == tray["shiftY"]
+          and boards[0]["whole"] == tray["whole"] == 24, "the best placement is the first")
+    check([b["whole"] for b in boards] == sorted((b["whole"] for b in boards), reverse=True), "the most cells first")
+    for b in boards:
+        shown = e.call("tray.preview", {"tray": {"placement": "custom", "shiftX": b["shiftX"],
+                                                 "shiftY": b["shiftY"]}})
+        check(shown["whole"] == b["whole"] and abs(shown["shiftX"] - b["shiftX"]) < 1e-9
+              and abs(shown["shiftY"] - b["shiftY"]) < 1e-9, f"the board at its shift {b}")
+
+    # the fit: every board tried, the document not changed
+    e.fails("tray.fitPlacements", {"problem": "p999"}, "not_found")
+    e.fails("tray.fitPlacementsStop", {"problem": p}, "invalid_state")
+    idle = e.call("tray.fitPlacementsStatus", {"problem": p})
+    check(not idle["active"] and idle["boards"] == [] and idle["total"] == 0, f"no fit yet {idle}")
+    rev = e.call("document.get")["revision"]
+    start = len(e.events)
+    check(e.call("tray.fitPlacements", {"problem": p, "options": {}})["total"] == 6, "six boards to try")
+    end = e.wait_event("tray.fitEnded", lambda q: q["problem"] == p, start=start)
+    check(end["total"] == 6 and end["done"] == 6 and not end["stopped"] and end["failure"] is None
+          and end["complete"] and all(b["counted"] for b in end["boards"]), f"the fit's end {end}")
+    check([(b["shiftX"], b["shiftY"], b["whole"]) for b in end["boards"]]
+          == [(b["shiftX"], b["shiftY"], b["whole"]) for b in boards], "the fit's boards are the list's")
+    check(end["boards"][0]["assemblies"] == 0 and any(b["assemblies"] > 0 for b in end["boards"]),
+          f"other placements take the pieces {end['boards']}")
+    # its end is a revision of its own, of the problem alone
+    ev = changed_event(e, rev + 1)
+    check(ev["what"] == ["problems"] and ev["problems"] == [p], f"the end's event {ev}")
+    after = e.call("document.get")
+    check(after["tray"] == tray and not after["solving"], "the document is as it was")
+    status = e.call("tray.fitPlacementsStatus", {"problem": p})
+    check(not status["active"] and status["boards"] == end["boards"] and status["done"] == 6, "the status after")
+
+    # a board that takes the pieces, used: the solve finds its count
+    k = next(i for i, b in enumerate(end["boards"]) if b["assemblies"] > 0)
+    e.call("tray.set", {"tray": {"placement": "custom", "shiftX": boards[k]["shiftX"],
+                                 "shiftY": boards[k]["shiftY"]}})
+    check(e.call("tray.placements")["inUse"] == k, "the board in use")
+    check(e.call("tray.fitPlacementsStatus", {"problem": p})["boards"] == [], "the tray changed: the counts went")
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {}})
+    check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved at the placement")
+    e.drain()
+    check(e.call("problem.get", {"problem": p})["assemblies"] == end["boards"][k]["assemblies"],
+          "the placement's count")
+
+    # a long fit (twenty dominoes on 45 cells), told as it goes, the
+    # document frozen meanwhile, stopped; then one ended by a new document
+    snap = e.call("document.new", {"grid": "bricks", "tray": {"size": 8, "over": 2, "down": 1}})
+    p = snap["problems"][0]["id"]
+    domino = draw("##______________", snap["tray"])
+    e.call("problem.setPieceCount", {"problem": p, "shape": domino, "min": 20, "max": 20})
+    start = len(e.events)
+    total = e.call("tray.fitPlacements", {"problem": p, "options": {"threads": 2}})["total"]
+    check(total >= 2, "two boards or more")
+    told = e.wait_event("tray.fitProgress", lambda q: q["problem"] == p and q["boards"][0]["assemblies"] > 0,
+                        start=start)
+    check(told["done"] == 0 and told["total"] == total and not told["boards"][0]["counted"]
+          and 0 <= told["current"] <= 1, f"the progress {told}")
+    check(e.call("tray.fitPlacementsStatus", {"problem": p})["active"], "active")
+    e.fails("tray.set", {"tray": {"over": 3}}, "invalid_state")
+    e.fails("tray.fitPlacements", {"problem": p}, "invalid_state")
+    e.fails("solve.start", {"problem": p}, "invalid_state")
+    e.call("tray.fitPlacementsStop", {"problem": p})
+    end = e.wait_event("tray.fitEnded", lambda q: q["problem"] == p, start=start)
+    check(end["stopped"] and end["done"] == 0 and end["failure"] is None
+          and end["boards"][0]["assemblies"] > 0 and not end["boards"][0]["counted"], f"stopped {end}")
+    e.drain()
+    start = len(e.events)
+    e.call("tray.fitPlacements", {"problem": p})
+    e.call("document.new", {"grid": "bricks"})
+    gone = e.wait_event("tray.fitEnded", lambda q: q["problem"] == p, start=start)
+    check(gone["stopped"], "the fit ended with its document")
+
+
+@test
 def unsupported_and_failures(e):
     # what a stacking puzzle cannot do or does not have
     with tempfile.TemporaryDirectory() as tmp:

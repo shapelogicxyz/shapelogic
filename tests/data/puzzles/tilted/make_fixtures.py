@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Makes this folder's fixtures: Tilted Square puzzles (decision 0045,
-docs/TILTED-SQUARE-PLAN.md stage F), made through the engine as the front
-end makes them.
+docs/TILTED-SQUARE-PLAN.md stages F and G), made through the engine as the
+front end makes them.
 
 - `TriplePlay.xmpuzzle`: "Triple Play (IPP34)" by Goh Pit Khiam and Jerry
   Loo. A 6 by 6 tray with the corner squares (5, 0) and (0, 5) walled, at 1
@@ -15,6 +15,11 @@ end makes them.
   search has no symmetry breaker).
 - `EightByEight.xmpuzzle`: an open 8 by 8 tray at 1 down 2 over, strict:
   45 whole cells, filled by five pieces of nine (two assemblies).
+- `OtherDiagonal.xmpuzzle` (stage G): Triple Play's pieces in its tray
+  with the walls on the other diagonal, the corner squares (0, 0) and
+  (5, 5). The best placement has 24 whole cells and takes no pieces (no
+  assembly); of the six boards the grid can give (tray.placements) others
+  do, which the script checks with tray.fitPlacements.
 
 It also writes the site demo's Tilted Square example,
 `site/public/examples/demo/tilted.xmpuzzle`: Triple Play's first problem and
@@ -24,6 +29,9 @@ and the copy of `TriplePlay.xmpuzzle` the user guide offers to download,
 
     just build release
     python3 tests/data/puzzles/tilted/make_fixtures.py build/release/engine/shapelogic_engine
+
+Names after the engine make those fixtures alone (`triple_play`,
+`eight_by_eight`, `other_diagonal`), the others staying as they are.
 
 Made again, only the problems' `timeMs`, the uids and the order of
 the solutions found side by side differ. No test runs
@@ -172,11 +180,42 @@ def eight_by_eight(e):
     save(e, HERE / "EightByEight.xmpuzzle")
 
 
+def other_diagonal(e):
+    e.call("document.new", {"grid": "bricks", "tray": {"size": 6, "over": 3, "down": 1,
+                                                       "allowance": 0.05}})
+    e.call("tray.setWalls", {"squares": [[0, 0], [5, 5]], "wall": True})
+    e.call("document.setNotes", {"text": "Triple Play's pieces in its tray with the walls on the other "
+                                         "diagonal: they do not fit where the most cells are whole. "
+                                         "Tilt & tolerance, Placements… lists the placements that take them."})
+    snap = e.call("document.get")
+    problem = snap["problems"][0]["id"]
+    e.call("problem.rename", {"problem": problem, "name": "Other diagonal"})
+    for art in TRIPLE_PLAY:
+        e.call("problem.setPieceCount", {"problem": problem, "shape": draw(e, snap["tray"], art),
+                                         "min": 1, "max": 1})
+    n = solve(e, problem, True)
+    boards = e.call("tray.placements")
+    start = len(e.events)
+    e.call("tray.fitPlacements", {"problem": problem, "options": {"flipPieces": True}})
+    end = e.wait_event("tray.fitEnded", lambda q: q["problem"] == problem, start=start)
+    e.drain()
+    counts = [b["assemblies"] for b in end["boards"]]
+    print("Other diagonal:", n, "at the best placement; over the placements", counts)
+    if n != 0 or boards["inUse"] != 0 or len(counts) != 6 or counts[0] != 0 or not any(counts):
+        sys.exit("the other diagonal's best placement takes no pieces, and others do")
+    save(e, HERE / "OtherDiagonal.xmpuzzle")
+
+
 def main():
+    made = {"triple_play": triple_play, "eight_by_eight": eight_by_eight,
+            "other_diagonal": other_diagonal}
+    names = sys.argv[2:] or list(made)
+    if any(n not in made for n in names):
+        sys.exit(f"the fixtures are {', '.join(made)}")
     e = Engine(pathlib.Path(sys.argv[1]).resolve())
     try:
-        triple_play(e)
-        eight_by_eight(e)
+        for n in names:
+            made[n](e)
     finally:
         e.close()
 

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "tray.json",
   "title": "Tilted trays",
-  "description": "A Tilted Square puzzle's tray (decision 0045; not in the original): a cube-grid puzzle with a tray (Snapshot.tray), made by document.new with tray. Its first shape is the board, made from the tray and never edited: shape.delete, shape.duplicate, shape.move, shape.setCells, shape.setBox and shape.task refuse it, and it is no piece. Every shape has the board's size, one layer: shape.create makes one of that size, shape.resize is refused. A piece's cells lie on the board's whole cells: an edit changes nothing elsewhere, and a shape task that would leave a piece off them is refused. A problem's result is the board (problem.create sets it; problem.setResult to another shape and problem.clearResult are refused). solution.toShapes is unsupported. All refusals here are invalid_argument unless said.",
+  "description": "A Tilted Square puzzle's tray (decision 0045; not in the original): a cube-grid puzzle with a tray (Snapshot.tray), made by document.new with tray. Its first shape is the board, made from the tray and never edited: shape.delete, shape.duplicate, shape.move, shape.setCells, shape.setBox and shape.task refuse it, and it is no piece. Every shape has the board's size, one layer: shape.create makes one of that size, shape.resize is refused. A piece's cells lie on the board's whole cells: an edit changes nothing elsewhere, and a shape task that would leave a piece off them is refused. A problem's result is the board (problem.create sets it; problem.setResult to another shape and problem.clearResult are refused). solution.toShapes is unsupported. All refusals here are invalid_argument unless said. The grid can lie in the tray in more ways than the one in use: tray.placements lists every board worth trying, and tray.fitPlacements counts a problem's assemblies on each.",
   "methods": {
     "tray.set": {
       "summary": "Sets the tray's settings (Tilt & tolerance): the fields given, over the tray's. The board is made again; every piece gets its size and is moved by whole cells to the place nearest its old one where all its cells are whole cells (one with no such place stays near its old place, and its fits is false); the problems lose their solutions. A new width or height keeps the walls still inside the tray. invalid_argument when a piece is larger than the new board (the message names it) or down is above over. unsupported on a puzzle without a tray. Refused while anything is solved. One undo step; nothing changes, no step.",
@@ -98,6 +98,311 @@
       "errors": [
         "invalid_argument"
       ]
+    },
+    "tray.placements": {
+      "summary": "Every board the tray can give that is worth trying, changing nothing: the grid slid over every place it can lie, each board once (boards that are one another moved by whole cells or turned by quarter turns are one), and no board that is part of another (the pieces need only fit, so it holds nothing the larger one cannot). The most whole cells first, the best placement's board before the others with as many. A board is used with tray.set (placement custom, its shiftX and shiftY) and drawn with tray.preview. unsupported on a puzzle without a tray.",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "boards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/PlacedBoard"
+            }
+          },
+          "complete": {
+            "type": "boolean",
+            "description": "False when the looking was cut short (a large tray at a steep slope with many walls): boards may be missing."
+          },
+          "inUse": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "The place in boards of the board the tray lies at (as it is, or turned); null when that board is none of them (a part of one)."
+          }
+        },
+        "required": [
+          "boards",
+          "complete",
+          "inUse"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "unsupported"
+      ]
+    },
+    "tray.fitPlacements": {
+      "summary": "Counts the assemblies of a problem's pieces on every board of tray.placements, one board after the other, by the ordinary solve on a copy: the document is not changed. A job: returns at once, reports through tray.fitProgress and tray.fitEnded, stops with tray.fitPlacementsStop. options are the solve's (flipPieces, threads, solver); the count alone is taken. Refused (invalid_state) while the problem is being solved, analyzed or tried already; invalid_argument when the problem has no pieces; unsupported on a puzzle without a tray. While it runs the document is frozen as while solving.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {
+            "$ref": "types.json#/$defs/ProblemId"
+          },
+          "options": {
+            "$ref": "types.json#/$defs/SolveOptions"
+          }
+        },
+        "required": [
+          "problem"
+        ],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Boards to try."
+          }
+        },
+        "required": [
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "not_found",
+        "invalid_argument",
+        "invalid_state",
+        "unsupported"
+      ]
+    },
+    "tray.fitPlacementsStop": {
+      "summary": "Stops a fit; what it counted is kept. Does not wait: tray.fitEnded follows.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {
+            "$ref": "types.json#/$defs/ProblemId"
+          }
+        },
+        "required": [
+          "problem"
+        ],
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "types.json#/$defs/Empty"
+      },
+      "errors": [
+        "not_found",
+        "invalid_state"
+      ]
+    },
+    "tray.fitPlacementsStatus": {
+      "summary": "Where a fit stands: running, or how the problem's last one ended (kept until the next one starts or the tray, a shape of the problem or the problem changes); inactive with no boards when there is none.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {
+            "$ref": "types.json#/$defs/ProblemId"
+          }
+        },
+        "required": [
+          "problem"
+        ],
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "#/$defs/FitProgress"
+      },
+      "errors": [
+        "not_found"
+      ]
+    }
+  },
+  "events": {
+    "tray.fitProgress": {
+      "summary": "A fit's progress; at most four times a second.",
+      "params": {
+        "$ref": "#/$defs/FitEvent"
+      }
+    },
+    "tray.fitEnded": {
+      "summary": "A fit ended (through, stopped, or ended early by an error: failure says what). document.changed follows (nothing changed but solving). The problems of a document that is replaced get one with stopped true after the replacing call's reply.",
+      "params": {
+        "$ref": "#/$defs/FitEvent"
+      }
+    }
+  },
+  "$defs": {
+    "PlacedBoard": {
+      "type": "object",
+      "description": "A board the tray gives and a shift that gives it (tray.set with placement custom).",
+      "properties": {
+        "shiftX": {
+          "type": "number"
+        },
+        "shiftY": {
+          "type": "number"
+        },
+        "whole": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Its whole cells."
+        }
+      },
+      "required": [
+        "shiftX",
+        "shiftY",
+        "whole"
+      ],
+      "additionalProperties": false
+    },
+    "FitBoard": {
+      "type": "object",
+      "description": "A board of a fit and what was found on it.",
+      "properties": {
+        "shiftX": {
+          "type": "number"
+        },
+        "shiftY": {
+          "type": "number"
+        },
+        "whole": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "counted": {
+          "type": "boolean",
+          "description": "The board was tried to the end: assemblies is its count."
+        },
+        "assemblies": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The assemblies of the pieces on it; of the board under way, or the one a fit was stopped on, those found so far."
+        }
+      },
+      "required": [
+        "shiftX",
+        "shiftY",
+        "whole",
+        "counted",
+        "assemblies"
+      ],
+      "additionalProperties": false
+    },
+    "FitProgress": {
+      "type": "object",
+      "properties": {
+        "active": {
+          "type": "boolean"
+        },
+        "complete": {
+          "type": "boolean",
+          "description": "False when the boards are not every one there is (tray.placements)."
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Boards tried to the end."
+        },
+        "current": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How far the solve of the board under way is."
+        },
+        "stopped": {
+          "type": "boolean",
+          "description": "Ended before every board was tried (stopped, or by an error)."
+        },
+        "failure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "What ended it early, when it was no stop: a solve that could not start, or an internal error."
+        },
+        "boards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FitBoard"
+          },
+          "description": "The boards in tray.placements' order."
+        }
+      },
+      "required": [
+        "active",
+        "complete",
+        "total",
+        "done",
+        "current",
+        "stopped",
+        "failure",
+        "boards"
+      ],
+      "additionalProperties": false
+    },
+    "FitEvent": {
+      "type": "object",
+      "properties": {
+        "problem": {
+          "$ref": "types.json#/$defs/ProblemId"
+        },
+        "complete": {
+          "type": "boolean",
+          "description": "False when the boards are not every one there is (tray.placements)."
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Boards tried to the end."
+        },
+        "current": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How far the solve of the board under way is."
+        },
+        "stopped": {
+          "type": "boolean",
+          "description": "Ended before every board was tried (stopped, or by an error)."
+        },
+        "failure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "What ended it early, when it was no stop: a solve that could not start, or an internal error."
+        },
+        "boards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FitBoard"
+          },
+          "description": "The boards in tray.placements' order."
+        }
+      },
+      "required": [
+        "problem",
+        "complete",
+        "total",
+        "done",
+        "current",
+        "stopped",
+        "failure",
+        "boards"
+      ],
+      "additionalProperties": false
     }
   }
 }

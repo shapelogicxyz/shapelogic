@@ -56,6 +56,9 @@ settings. Each change is one step that **Undo** takes back.
   cells** puts it where the most cells are whole. **Custom** lets you give
   the shift yourself: where the grid's point (0, 0) lies in the tray, in
   cells.
+- **Every placement**: **Placements…** lists every board the grid can give
+  in the tray, wherever it lies. See [Every placement](#every-placement)
+  below.
 
 When the tray changes, the board is made again and each piece moves by whole
 cells to the nearest place where all its cells are whole. A piece that fits
@@ -120,9 +123,40 @@ two assemblies that are the same turned half round may both be listed. The
 setting is kept with each problem: Triple Play's second problem, **One face
 up**, has it off and uses the mirror images of two of the pieces.
 
+## Every placement
+
+In a real tray the pieces may sit anywhere, so the grid may lie anywhere too.
+The placement with the most whole cells is not always one the pieces fit: put
+Triple Play's two corner walls on the other diagonal, and its pieces no longer
+go where the most cells are whole, yet they do go on another board with as
+many cells.
+
+![The Placements dialog: six boards, and the one that takes the pieces.](../../../../assets/screens/tilted-placements.png)
+
+**Placements…** in **Tilt & tolerance** lists every board worth trying, the
+most whole cells first, each with its picture and its count of whole cells.
+Each board is listed once: boards that are the same moved by whole cells or
+turned a quarter are one, and a board that is part of another is left out,
+since the pieces need only fit and it holds nothing the larger one cannot.
+
+- **Count assemblies** solves a problem on each board in turn and writes
+  the number of assemblies in its row. **Pieces of** chooses the problem
+  when the puzzle has several. Nothing in the puzzle is changed, and
+  **Stop** ends the count early, keeping what was counted.
+- **Use** on a row puts the grid at that placement: one step that **Undo**
+  takes back. The first board is the **Most whole cells** placement; any
+  other becomes a **Custom** one.
+
+When a solve of a tilted problem ends with no assembly, the Solver offers
+**Try every placement**: it opens the same list and counts at once, with the
+Solver's options.
+
+A very large tray at a steep slope with many walls can give more boards than
+can be looked at; the dialog then says its list is not complete.
+
 :::tip
-The placement with the most whole cells is not always one the pieces fit. If
-the solver finds nothing, try an allowance, or a **Custom** placement.
+If no placement takes the pieces, try an allowance: a small one can add whole
+rows of cells.
 :::
 
 ## The file

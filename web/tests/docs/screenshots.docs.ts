@@ -104,3 +104,24 @@ test('the tilted screenshots', async () => {
     await app.close();
   }
 });
+
+// every placement of a tilted tray (stage G): Triple Play's pieces with the
+// walls on the other diagonal, where the best placement takes no pieces:
+// the Solver's Try every placement has counted the assemblies on each board
+test('the tilted placements screenshot', async () => {
+  mkdirSync(OUT, { recursive: true });
+  const app = await launch({ scale: 2 });
+  const { page } = app;
+  try {
+    await openNested(page, 'tilted/OtherDiagonal.xmpuzzle');
+    await toSolver(page);
+    await page.click('#slvSel [data-tryplaces]');
+    await expect(page.locator('#placementsDlg [data-plc="sum"]')).toHaveText(
+      '1 of 6 placements takes the pieces',
+    );
+    await expect(page.locator('#placementsDlg .plc-row .plc-pic svg')).toHaveCount(6);
+    await shot(page, 'tilted-placements');
+  } finally {
+    await app.close();
+  }
+});

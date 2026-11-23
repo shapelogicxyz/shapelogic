@@ -21,6 +21,7 @@
 /// (decision 0015). The rules for edits while solving are decision 0011.
 
 #include "shapelogic/app/analysis.h"
+#include "shapelogic/app/placement_fit.h"
 #include "shapelogic/app/explorers.h"
 #include "shapelogic/app/playback.h"
 #include "shapelogic/app/queries.h"
@@ -518,6 +519,10 @@ class Document {
   [[nodiscard]] bool fitsTray(unsigned int index) const;
   /// The board the tray gives (tilted() only), worked out once a tray.
   [[nodiscard]] const tilted::Layout& trayLayout() const;
+  /// Every board the tray can give that is worth trying
+  /// (tilted::placements(), tilted() only), worked out once a tray: the best
+  /// placement's first, `inUse` the board the tray lies at.
+  [[nodiscard]] const tilted::Placements& trayPlacements() const;
 
   // ---- stacking puzzles (decision 0015) ---------------------------------------
   //
@@ -690,8 +695,8 @@ class Document {
   /// began: the search's folder could not be written
   /// (SolveSession::folderFailure); empty otherwise.
   [[nodiscard]] std::optional<FolderFailure> solveFolderFailure(Id problem) const;
-  /// Whether any run or analysis is active (the guards of decision 0011
-  /// hold for both).
+  /// Whether any run, analysis or fit of the tray's placements is active
+  /// (the guards of decision 0011 hold for all three).
   [[nodiscard]] bool solving() const;
 
   /// Writes a paused solve of a problem as a .slsolve file
@@ -720,12 +725,35 @@ class Document {
   /// in by poll().
   [[nodiscard]] bool analysing(Id problem) const;
 
+  // ---- trying a tilted tray's every placement -----------------------------------
+
+  /// Counts the assemblies of a problem's pieces on every board of
+  /// trayPlacements() (tray.fitPlacements), on a thread of its own and on a
+  /// copy of the shapes and the problem: the document is not changed.
+  /// `options` are the solve's (the pieces turned over or not, the threads).
+  /// Unsupported without a tray; refused (InvalidState) while the problem
+  /// is being solved, analysed or tried already, and in a group of edits;
+  /// InvalidArgument when the problem has no pieces. While it lasts the
+  /// document is frozen as while solving (decision 0011), so what it counts
+  /// stays what the document holds. Returns the number of boards.
+  Result<unsigned int> fitPlacementsStart(Id problem, const SolveOptions& options);
+  /// Asks a fit to stop; what it counted is kept. Does not wait.
+  Result<void> fitPlacementsStop(Id problem);
+  /// Where it stands: running; or, once poll() has seen it end, how the
+  /// last one ended (inactive, kept until the next one starts or the tray,
+  /// a piece or the problem changes, or its solve is reset); inactive with
+  /// no boards when there is none.
+  [[nodiscard]] Result<PlacementFitProgress> fitPlacementsProgress(Id problem) const;
+  /// A fit of the problem exists: running, or ended and not yet seen by
+  /// poll().
+  [[nodiscard]] bool fittingPlacements(Id problem) const;
+
   /// Takes in what background work did: the results of the analyses that
-  /// have ended go into their problems, and the runs that ended since the
-  /// last call are noted. Either gives a new revision, with lastChange()
-  /// saying what (solving changes no undo step). Returns whether there was
-  /// any. The owner calls it now and then (the engine every 50 ms while
-  /// solving() and after each request).
+  /// have ended go into their problems, and the runs and the fits that
+  /// ended since the last call are noted. Either gives a new revision, with
+  /// lastChange() saying what (solving changes no undo step). Returns
+  /// whether there was any. The owner calls it now and then (the engine
+  /// every 50 ms while solving() and after each request).
   bool poll();
 
   /// Calls f(problem) while the problem's solve does not write it.
@@ -895,6 +923,8 @@ class Document {
   std::string openNotice_;
   /// trayLayout()'s answer and the tray it is for.
   mutable std::unique_ptr<std::pair<tilted::Tray, tilted::Layout>> trayLayout_;
+  /// trayPlacements()'s answer and the tray it is for.
+  mutable std::unique_ptr<std::pair<tilted::Tray, tilted::Placements>> trayPlacements_;
   Id nextId_ = 1;
   DocumentSettings settings_;
 
@@ -922,6 +952,12 @@ class Document {
   /// How each problem's last analysis ended, kept by poll() as it puts the
   /// results in: an owner that looks after poll() still learns its counts.
   std::map<Id, AnalyseProgress> analysisEnds_;
+  /// One fit of the tray's placements per problem, until poll() sees it
+  /// ended; they hold puzzles of their own.
+  std::map<Id, std::unique_ptr<PlacementFit>> fits_;
+  /// How each problem's last fit ended, kept by poll(): dropped when what
+  /// it counted is no longer what the document holds.
+  std::map<Id, PlacementFitProgress> fitEnds_;
 };
 
 }  // namespace bt::app

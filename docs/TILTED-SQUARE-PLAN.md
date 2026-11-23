@@ -4,7 +4,7 @@
 Written on 2026-11-22 from the research page "Tilted Square Geometry"
 (`site/public/research/tilted-square-geometry.html`) and a survey of how
 the Sliding and Stacking modes are built. "Status" below says which
-stages are in the code.
+stages are in the code: all of them, since 2026-11-23.
 
 **What the mode is.** A 2D tray packing puzzle: a square tray whose
 square cells are turned inside it by arctan(down/over) ("1 down, n
@@ -134,7 +134,39 @@ with **File ▸ New ▸ Tilted Square**.
   `SolveSession`); a piece that fits nowhere is marked "Doesn't fit" and a
   tray change that leaves one says so; the disassembly player offers no
   analysis on a tilted or Spheres puzzle.
-- [ ] Stage G: every placement
+- [x] Stage G: every placement (2026-11-23). `tilted::placements()`
+  (`model/tilted_tray.{h,cpp}`: the lines `bestShift` sweeps, swept for
+  every stretch where the cells whole are more than on either side; equal
+  boards once, parts of others dropped, `PlacementLimits`),
+  `app/placement_fit.{h,cpp}` (`PlacementFit`, the job) with
+  `Document::trayPlacements`, `fitPlacementsStart`, `Stop` and `Progress`,
+  the engine's `tray.placements`, `tray.fitPlacements`,
+  `tray.fitPlacementsStop`, `tray.fitPlacementsStatus` and the events
+  `tray.fitProgress` and `tray.fitEnded`. Front end: the Placements dialog
+  (`entities/placements-dialog.ts`, `state/placements.ts`), **Placements…**
+  in Tilt & tolerance, **Try every placement** in the Solver's empty card.
+  Fixture `tests/data/puzzles/tilted/OtherDiagonal.xmpuzzle` (Triple Play's
+  pieces, the walls on the other diagonal): six boards, the best takes no
+  pieces, one of the others takes them in 1 way. What differs from the
+  text below: boards are compared as shapes, not after `canonicalShift`
+  (the same cells moved by whole cells are one board, and so are boards
+  turned by quarter turns, since a piece can be turned; mirror images
+  stay apart, a problem may keep its pieces face up); the crossings are
+  not taken pair by pair (each line is swept, which finds the same boards
+  with far less work); the limit is on the work and on the boards kept,
+  not on a number of crossings; the list is a method of its own
+  (`tray.placements`, which the dialog shows before any count) and the job
+  takes the list as it is; the job freezes the document while it runs (as
+  an analysis does), so its counts stay true; a board too small for the
+  pieces, or one a piece fits nowhere on, counts as taking none (a solve
+  of it ends in an error). Tests: `test_tilted_tray.cpp` (the best first,
+  each board its own, the board of every shift of a net part of a board
+  listed, the limits and the stop), `test_document_tilted.cpp` (each
+  board's count against a puzzle made at that placement, the options, the
+  refusals, a stop, a small board), the contract test `tilted_placements`,
+  `placements.test.ts`, `tests/engine/tilted.test.ts`, `tilted.e2e.ts`
+  (the list, Try every placement, Use, Undo). Gates: see
+  `docs/handoff/tilted-square.md`.
 
 ## Who builds each stage
 
@@ -146,7 +178,7 @@ with **File ▸ New ▸ Tilted Square**.
 | D | The tilted drawing (a piece's 2D grid turned, the tray and its walls in 3D, the Puzzle pieces) | Medium to high: two grids drawn over each other, hit testing under the turn | Opus 5.5 High | Done |
 | E | Rectangular trays | Medium: the exact search and the file format again, with the walled square as the oracle | Fable 5.2 High | Done |
 | F | Fixture, guide and finish | Low to medium: tests, the Triple Play fixture, the guide page, docs | Opus 5.5 High | Done |
-| G | Every placement | High: every board the sliding grid can make, exactly, and a job that solves each | Fable 5.2 High | Not started |
+| G | Every placement | High: every board the sliding grid can make, exactly, and a job that solves each | Fable 5.2 High | Done |
 
 The rule behind the choice: Fable for the stages where a wrong answer is
 hard to see (counts and boards that tests must pin exactly), Opus for the

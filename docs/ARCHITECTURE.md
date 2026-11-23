@@ -306,7 +306,22 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   cell's allowed stretch less the stretches the blocks forbid), within the
   window that holds a copy of every shift; a placement symmetric about the
   tray's center wins a tie. `canonicalShift` gives the one form of a shift
-  among those a whole grid step apart. The board's shape is not made here
+  among those a whole grid step apart. `tilted::placements` (stage G)
+  gives every board worth trying, over every place the grid can lie: a
+  cell stays whole up to and on the lines `bestShift` sweeps, so the cells
+  whole at any shift are all whole on one of those lines, at a stretch
+  where pieces have begun and the next thing is a piece's end; each line
+  (`sweepLines`, shared with `bestShift`) is swept, the sets of cells met
+  told apart by two sums of per-cell numbers (`cellMark`), and the board
+  taken in the middle of each such stretch with the same test `layout`
+  uses. Boards that are one another moved by whole cells or turned by
+  quarter turns are one (the least of the four turns' texts is the key),
+  and a board that is part of another in that sense is dropped (the pieces
+  need only fit); mirrored boards are kept, since not every problem turns
+  its pieces over. The best placement's board is first, with its shift;
+  `inUse` is the board the tray lies at. `PlacementLimits` (boards kept,
+  cells looked at: about a second) and a stop token cut it short, and the
+  answer then says it is not complete. The board's shape is not made here
   (the document does that, stage B of docs/TILTED-SQUARE-PLAN.md). A
   rectangle is by the rule the square with the rows or columns beyond it
   walled (a wall acts as the edge does, the allowance included): the
@@ -1071,7 +1086,24 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   `MatrixOptions::partTransforms` from `trayPlaneTurns`, so without the
   symmetry breaker) is applied in `SolveSession` on a puzzle with a tray;
   `shapelogic_cli` applies the same, as each problem's stored setting says
-  (`storedFlipPieces`) or as `--flip on|off` says.
+  (`storedFlipPieces`) or as `--flip on|off` says. Every placement (stage
+  G): `trayPlacements()` is `tilted::placements` of the tray, worked out
+  once a tray.
+- `placement_fit.h` (decision 0045, stage G; new code on `Analysis`'s
+  pattern): `PlacementFit`, the assemblies of one problem's pieces on each
+  board of the tray's placements, on a thread of its own. It owns a
+  puzzle of its own (the tray, the colors, every shape cloned in its
+  place, the problem's definition) and for each board sets the tray's
+  shift, makes the board (`fillTrayBoard`) and runs an ordinary
+  `SolveSession` that only counts, so a board's count is what the Solver
+  would find there; progress (the boards done, the count so far and the
+  fraction of the board under way) and a stop that pauses the solve under
+  way. The document runs one per problem (`fitPlacementsStart`,
+  `fitPlacementsStop`, `fitPlacementsProgress`): refused while the problem
+  is solved, analyzed or tried, the document frozen while it lasts
+  (`solving()`), nothing of the document changed; `poll()` notes its end
+  as a revision of the problem alone (no solutions changed, not dirty) and
+  keeps how it ended until the tray, a piece or the problem changes.
 - `analysis.h`: `Analysis`, saved assemblies taken apart afterwards
   (cb_AddDisasm / cb_AddAllDisasm: all, those without their moves, or one)
   on a thread of its own with one `Disassembler` and a pool for its
@@ -2122,7 +2154,22 @@ What exists after stage 8:
     settings) and `tests/e2e/tilted.e2e.ts`; the guide's page is
     `puzzle-types/tilted-square.md`, its pictures taken by
     `tests/docs/screenshots.docs.ts`, and the demo opens Triple Play as
-    its Tilted Square example (`src/demo/main.ts`: assemble only).
+    its Tilted Square example (`src/demo/main.ts`: assemble only). Every
+    placement (stage G): the Placements dialog
+    (`entities/placements-dialog.ts`, its words in `state/placements.ts`)
+    lists the boards of `tray.placements`, each drawn from `tray.preview`
+    at its shift (the pictures fetched one after the other, 40 rows at a
+    time), counts a problem's assemblies on each with `tray.fitPlacements`
+    (the rows filled from `tray.fitProgress` and `tray.fitEnded`; the
+    options the Solver's as shown, or made of the problem's stored
+    settings) and puts the grid at a board with one `tray.set` (Use: the
+    first board the best placement, any other a custom shift; a count
+    under way is stopped and its end waited for first). It opens from Tilt
+    & tolerance (Placements…) and from the Solver's empty card after a
+    solve with no assembly (Try every placement, counting at once). The
+    demo refuses the count as it refuses a solve (`engine-bridge.ts`); the
+    list works there. The fixture `OtherDiagonal.xmpuzzle` (the best
+    placement takes no pieces, one of six boards does) is its test.
   - Stacking puzzles (deferred part 4, docs/webui-spec.md section 9, the
     original GUI's stacking branches): the shapes list's rows are the disc
     list on a stacking puzzle (`shapes-list.ts`: "size" with its field, +

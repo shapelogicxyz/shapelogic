@@ -63,6 +63,7 @@ import { phaseTag, phaseText, PICKING_UP_NOTE, pickingUpText } from './performan
 import type { SlidePhase } from './performance.ts';
 import { noteIsTrouble } from './problem-note.ts';
 import { RunCard } from './run-card.ts';
+import { openPlacements } from '../entities/placements-dialog.ts';
 import {
   defaultLimits,
   DEFAULT_OPTIONS,
@@ -1358,6 +1359,22 @@ export class SolverWorkspace {
     const now = this.optionsNow(problem === this.current ? this.options : defaultsOf(this.family));
     const kept = this.store.snapshot?.problems.find((q) => q.id === problem)?.slideGrid ?? 0;
     return this.sliding && kept > 0 ? withOptimizedPaths(now, true) : now;
+  }
+
+  /**
+   * A tilted problem whose solve found no assembly: the Placements dialog,
+   * counting the problem's assemblies on every board the grid can give at
+   * once, with the options shown (Try every placement).
+   */
+  tryPlacements(): void {
+    const problem = this.current;
+    if (problem === null || !this.tilted || this.calling || this.running || this.analysing) {
+      return;
+    }
+    void openPlacements(
+      { store: this.store, mutate: (doing, call) => this.edits.mutate(doing, call) },
+      { problem, options: this.optionsNow(), start: true },
+    );
   }
 
   // ---- the run ----

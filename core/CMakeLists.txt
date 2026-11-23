@@ -10,6 +10,7 @@ add_library(btcore STATIC
   shapelogic/app/document_tilted.cpp
   shapelogic/app/explorers.cpp
   shapelogic/app/layer_geometry.cpp
+  shapelogic/app/placement_fit.cpp
   shapelogic/app/playback.cpp
   shapelogic/app/queries.cpp
   shapelogic/app/shape_tools.cpp

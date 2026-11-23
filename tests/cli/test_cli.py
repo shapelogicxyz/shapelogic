@@ -334,7 +334,7 @@ def test_tilted() -> None:
     import gzip
     import re
     files = sorted((PUZZLES / "tilted").glob("*.xmpuzzle"))
-    check("tilted", len(files) == 2, str(files))
+    check("tilted", len(files) == 3, str(files))
 
     def problems(xml: str) -> list[tuple[str, str]]:
         return re.findall(r'<problem name="[^"]*"[^>]* state="2" assemblies="(\d+)"(.*?)</problem>', xml, re.S)

@@ -346,6 +346,89 @@ export interface PlayTransfer {
   to: number;
 }
 
+// ---- tray.json: Tilted trays ----
+
+/** A board the tray gives and a shift that gives it (tray.set with placement custom). */
+export interface PlacedBoard {
+  shiftX: number;
+  shiftY: number;
+  /**
+   * Its whole cells.
+   * @minimum 0
+   */
+  whole: number;
+}
+
+/** A board of a fit and what was found on it. */
+export interface FitBoard {
+  shiftX: number;
+  shiftY: number;
+  /** @minimum 0 */
+  whole: number;
+  /** The board was tried to the end: assemblies is its count. */
+  counted: boolean;
+  /**
+   * The assemblies of the pieces on it; of the board under way, or the one a fit was stopped on,
+   * those found so far.
+   * @minimum 0
+   */
+  assemblies: number;
+}
+
+export interface FitProgress {
+  active: boolean;
+  /** False when the boards are not every one there is (tray.placements). */
+  complete: boolean;
+  /** @minimum 0 */
+  total: number;
+  /**
+   * Boards tried to the end.
+   * @minimum 0
+   */
+  done: number;
+  /**
+   * How far the solve of the board under way is.
+   * @minimum 0
+   * @maximum 1
+   */
+  current: number;
+  /** Ended before every board was tried (stopped, or by an error). */
+  stopped: boolean;
+  /**
+   * What ended it early, when it was no stop: a solve that could not start, or an internal error.
+   */
+  failure: string | null;
+  /** The boards in tray.placements' order. */
+  boards: FitBoard[];
+}
+
+export interface FitEvent {
+  problem: ProblemId;
+  /** False when the boards are not every one there is (tray.placements). */
+  complete: boolean;
+  /** @minimum 0 */
+  total: number;
+  /**
+   * Boards tried to the end.
+   * @minimum 0
+   */
+  done: number;
+  /**
+   * How far the solve of the board under way is.
+   * @minimum 0
+   * @maximum 1
+   */
+  current: number;
+  /** Ended before every board was tried (stopped, or by an error). */
+  stopped: boolean;
+  /**
+   * What ended it early, when it was no stop: a solve that could not start, or an internal error.
+   */
+  failure: string | null;
+  /** The boards in tray.placements' order. */
+  boards: FitBoard[];
+}
+
 // ---- types.json: Shared definitions ----
 
 /**
@@ -4546,6 +4629,81 @@ export interface Methods {
     result: Tray;
     errors: 'invalid_argument';
   };
+  /**
+   * Every board the tray can give that is worth trying, changing nothing: the grid slid over every
+   * place it can lie, each board once (boards that are one another moved by whole cells or turned
+   * by quarter turns are one), and no board that is part of another (the pieces need only fit, so
+   * it holds nothing the larger one cannot). The most whole cells first, the best placement's
+   * board before the others with as many. A board is used with tray.set (placement custom, its
+   * shiftX and shiftY) and drawn with tray.preview. unsupported on a puzzle without a tray.
+   * (tray.json)
+   */
+  'tray.placements': {
+    params: Record<string, never>;
+    result: {
+      boards: PlacedBoard[];
+      /**
+       * False when the looking was cut short (a large tray at a steep slope with many walls):
+       * boards may be missing.
+       */
+      complete: boolean;
+      /**
+       * The place in boards of the board the tray lies at (as it is, or turned); null when that
+       * board is none of them (a part of one).
+       * @minimum 0
+       */
+      inUse: number | null;
+    };
+    errors: 'unsupported';
+  };
+  /**
+   * Counts the assemblies of a problem's pieces on every board of tray.placements, one board after
+   * the other, by the ordinary solve on a copy: the document is not changed. A job: returns at
+   * once, reports through tray.fitProgress and tray.fitEnded, stops with tray.fitPlacementsStop.
+   * options are the solve's (flipPieces, threads, solver); the count alone is taken. Refused
+   * (invalid_state) while the problem is being solved, analyzed or tried already; invalid_argument
+   * when the problem has no pieces; unsupported on a puzzle without a tray. While it runs the
+   * document is frozen as while solving.
+   * (tray.json)
+   */
+  'tray.fitPlacements': {
+    params: {
+      problem: ProblemId;
+      options?: SolveOptions;
+    };
+    result: {
+      /**
+       * Boards to try.
+       * @minimum 0
+       */
+      total: number;
+    };
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state' | 'unsupported';
+  };
+  /**
+   * Stops a fit; what it counted is kept. Does not wait: tray.fitEnded follows.
+   * (tray.json)
+   */
+  'tray.fitPlacementsStop': {
+    params: {
+      problem: ProblemId;
+    };
+    result: Empty;
+    errors: 'not_found' | 'invalid_state';
+  };
+  /**
+   * Where a fit stands: running, or how the problem's last one ended (kept until the next one
+   * starts or the tray, a shape of the problem or the problem changes); inactive with no boards
+   * when there is none.
+   * (tray.json)
+   */
+  'tray.fitPlacementsStatus': {
+    params: {
+      problem: ProblemId;
+    };
+    result: FitProgress;
+    errors: 'not_found';
+  };
 }
 
 /** Every event (notification) the engine sends. */
@@ -4668,6 +4826,22 @@ export interface Events {
       problem: ProblemId;
       failure: SolveFailure;
     };
+  };
+  /**
+   * A fit's progress; at most four times a second.
+   * (tray.json)
+   */
+  'tray.fitProgress': {
+    params: FitEvent;
+  };
+  /**
+   * A fit ended (through, stopped, or ended early by an error: failure says what).
+   * document.changed follows (nothing changed but solving). The problems of a document that is
+   * replaced get one with stopped true after the replacing call's reply.
+   * (tray.json)
+   */
+  'tray.fitEnded': {
+    params: FitEvent;
   };
 }
 
@@ -4816,6 +4990,10 @@ export const METHOD_NAMES = [
   'stacking.setProblemRodSet',
   'stacking.setRules',
   'stacking.setStacks',
+  'tray.fitPlacements',
+  'tray.fitPlacementsStatus',
+  'tray.fitPlacementsStop',
+  'tray.placements',
   'tray.preview',
   'tray.set',
   'tray.setWalls',
@@ -4832,6 +5010,8 @@ export const EVENT_NAMES = [
   'solve.progress',
   'solve.solutionsAdded',
   'solve.state',
+  'tray.fitEnded',
+  'tray.fitProgress',
 ] as const satisfies readonly (keyof Events)[];
 
 /**

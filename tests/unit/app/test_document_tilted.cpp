@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A document with a tilted tray (decision 0045, stage B of
-// docs/TILTED-SQUARE-PLAN.md).
+// docs/TILTED-SQUARE-PLAN.md), and the fit of its every placement (stage G).
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/base/solve_state.h"
@@ -13,10 +13,12 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -87,6 +89,50 @@ Id drawPiece(Document& d, const std::string& art) {
 }
 
 unsigned int filled(const Voxel& v) { return v.countState(Voxel::kFilled); }
+
+/// Triple Play's three pieces as its file draws them.
+const std::vector<std::string> kTriplePlay = {"_#___###_#__##__", "_#___#___#####__",
+                                              "_#___#####___#__"};
+
+/// Triple Play's tray with its walls on the other diagonal, the corner
+/// squares (0, 0) and (5, 5).
+tilted::Tray otherDiagonalTray() {
+  tilted::Tray t = trayOf(6, 3, 1, 0.05);
+  t.walls.assign(36, 0);
+  t.walls[0] = 1;
+  t.walls[35] = 1;
+  return t;
+}
+
+/// A document on `tray` with one of each of `pieces` in its problem.
+Document withPieces(const tilted::Tray& tray, const std::vector<std::string>& pieces) {
+  Document d = Document::newTilted(tray).value();
+  const Id problem = d.problemIds()[0];
+  for (const std::string& art : pieces) {
+    REQUIRE(d.setPieceCount(problem, drawPiece(d, art), 1, 1).has_value());
+  }
+  return d;
+}
+
+/// The assemblies an ordinary solve of the document's problem finds.
+std::uint64_t solved(Document& d, bool flip = true) {
+  const Id problem = d.problemIds()[0];
+  SolveOptions o;
+  o.flipPieces = flip;
+  REQUIRE(d.solveStart(problem, o).has_value());
+  REQUIRE(d.solveWait(problem).has_value());
+  return d.puzzle().getProblem(0).getNumAssemblies();
+}
+
+/// Waits for the fit of the document's problem to end; how it ended.
+PlacementFitProgress fitEnd(Document& d) {
+  const Id problem = d.problemIds()[0];
+  while (d.fittingPlacements(problem)) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    d.poll();
+  }
+  return d.fitPlacementsProgress(problem).value();
+}
 
 }  // namespace
 
@@ -655,7 +701,8 @@ TEST_CASE("tilted document: the fixtures open with their board and solve to what
     std::vector<std::uint64_t> assemblies;
   };
   const std::vector<Expected> fixtures = {{"TriplePlay.xmpuzzle", {1, 2}},
-                                          {"EightByEight.xmpuzzle", {2}}};
+                                          {"EightByEight.xmpuzzle", {2}},
+                                          {"OtherDiagonal.xmpuzzle", {0}}};
   for (const Expected& f : fixtures) {
     INFO(f.file);
     const std::string path = std::string("tests/data/puzzles/tilted/") + f.file;
@@ -698,3 +745,203 @@ TEST_CASE("tilted document: the fixtures open with their board and solve to what
     }
   }
 }
+
+// ---- every placement (stage G) ----------------------------------------------------
+
+TEST_CASE("tilted document: the best placement is not always the one the pieces fit",
+          "[app][document][tilted][parallel]") {
+  // Triple Play with its walls on the other diagonal: the placement with
+  // the most whole cells takes no pieces, others do
+  Document d = withPieces(otherDiagonalTray(), kTriplePlay);
+  const Id problem = d.problemIds()[0];
+  CHECK(solved(d) == 0);
+  const tilted::Tray before = *d.puzzle().tray();
+  const tilted::Placements& listed = d.trayPlacements();
+  REQUIRE(listed.boards.size() == 6);
+  CHECK(listed.complete);
+  CHECK(listed.inUse == std::size_t{0});
+  CHECK(listed.boards[0].shiftX == before.shiftX);
+  CHECK(listed.boards[0].shiftY == before.shiftY);
+
+  d.poll();  // the solve above is taken in
+  const std::uint64_t revision = d.revision();
+  const bool couldUndo = d.canUndo();
+  REQUIRE(d.fitPlacementsStart(problem, SolveOptions{}).value() == 6);
+  // while it lasts the document is frozen, and the problem is taken
+  CHECK(d.solving());
+  CHECK(d.fittingPlacements(problem));
+  CHECK(d.setTray(trayOf(6, 3, 1)).error().code == Errc::InvalidState);
+  CHECK(d.solveStart(problem, SolveOptions{}).error().code == Errc::InvalidState);
+  CHECK(d.fitPlacementsStart(problem, SolveOptions{}).error().code == Errc::InvalidState);
+
+  const PlacementFitProgress end = fitEnd(d);
+  CHECK_FALSE(end.active);
+  CHECK_FALSE(end.stopped);
+  CHECK_FALSE(end.failure.has_value());
+  CHECK(end.complete);
+  CHECK(end.done == 6);
+  REQUIRE(end.boards.size() == 6);
+  // the end is a revision of its own (solving is over), and nothing else
+  // changed: the tray, the problem's own result, the history
+  CHECK_FALSE(d.solving());
+  CHECK(d.revision() == revision + 1);
+  CHECK(d.lastChange().what == kChangeProblems);
+  CHECK(d.canUndo() == couldUndo);
+  CHECK(*d.puzzle().tray() == before);
+  CHECK(d.puzzle().getProblem(0).getNumAssemblies() == 0);
+
+  // each board's count is what a puzzle made at that placement solves to
+  CHECK(end.boards[0].assemblies == 0);
+  unsigned int taking = 0;
+  for (std::size_t k = 0; k < end.boards.size(); k++) {
+    INFO("board " << k);
+    CHECK(end.boards[k].counted);
+    CHECK(end.boards[k].board.shiftX == listed.boards[k].shiftX);
+    CHECK(end.boards[k].board.whole == listed.boards[k].whole);
+    tilted::Tray at = otherDiagonalTray();
+    at.placement = tilted::Tray::Placement::Custom;
+    at.shiftX = end.boards[k].board.shiftX;
+    at.shiftY = end.boards[k].board.shiftY;
+    Document alone = withPieces(at, kTriplePlay);
+    CHECK(alone.puzzle().getShape(0).countState(Voxel::kVariable) == end.boards[k].board.whole);
+    CHECK(solved(alone) == end.boards[k].assemblies);
+    taking += end.boards[k].assemblies > 0 ? 1 : 0;
+  }
+  CHECK(taking >= 1);
+
+  // a board that takes the pieces, chosen: the document solves to its count
+  const auto fits = std::find_if(end.boards.begin(), end.boards.end(),
+                                 [](const BoardFit& b) { return b.assemblies > 0; });
+  REQUIRE(fits != end.boards.end());
+  tilted::Tray chosen = before;
+  chosen.placement = tilted::Tray::Placement::Custom;
+  chosen.shiftX = fits->board.shiftX;
+  chosen.shiftY = fits->board.shiftY;
+  REQUIRE(d.setTray(chosen).has_value());
+  CHECK(d.trayPlacements().inUse == static_cast<std::size_t>(fits - end.boards.begin()));
+  // the pieces were moved onto the new board where they fit one by one
+  CHECK(solved(d) == fits->assemblies);
+  // the tray changed: the last fit's counts are gone
+  CHECK(d.fitPlacementsProgress(problem).value().boards.empty());
+}
+
+TEST_CASE("tilted document: the fit follows the solve's options",
+          "[app][document][tilted][parallel]") {
+  // Triple Play's own tray: its first board is the one in use, so the fit
+  // counts on it what the document itself solves to
+  const auto firstBoard = [](Document& d, bool flip) {
+    SolveOptions o;
+    o.flipPieces = flip;
+    o.threads = 2;
+    REQUIRE(d.fitPlacementsStart(d.problemIds()[0], o).has_value());
+    const PlacementFitProgress end = fitEnd(d);
+    REQUIRE_FALSE(end.failure.has_value());
+    REQUIRE_FALSE(end.boards.empty());
+    REQUIRE(end.boards[0].counted);
+    return end.boards[0].assemblies;
+  };
+  Document turned = withPieces(triplePlayTray(), kTriplePlay);
+  CHECK(firstBoard(turned, true) == 1);
+  CHECK(solved(turned, true) == 1);
+  // kept face up, the one mix of drawn and mirrored pieces that goes has
+  // its way and the same turned half round; the other mixes have none
+  const std::vector<std::string> mirrored = {"__#_###___#___##", "__#___#_###___##",
+                                             "__#_###___##__#_"};
+  std::uint64_t found = 0;
+  for (unsigned int mix = 0; mix < 8; mix++) {
+    std::vector<std::string> pieces;
+    for (unsigned int k = 0; k < 3; k++) {
+      pieces.push_back(((mix >> k) & 1U) != 0 ? mirrored[k] : kTriplePlay[k]);
+    }
+    Document d = withPieces(triplePlayTray(), pieces);
+    const std::uint64_t n = firstBoard(d, false);
+    INFO("mix " << mix);
+    CHECK(n == solved(d, false));
+    found += n;
+  }
+  CHECK(found == 2);
+}
+
+TEST_CASE("tilted document: a board too small for the pieces takes none",
+          "[app][document][tilted][parallel]") {
+  // the other diagonal's boards have 24 cells, and one 23. With a fourth
+  // piece of three cells the pieces have 24: a solve of the small board
+  // ends in an error (too many units), the fit counts it as taking none
+  // and goes on. With one of seven they have 28, more than any board.
+  for (const auto& [extra, cells] : {std::pair<std::string, unsigned int>{"###_____________", 24},
+                                     std::pair<std::string, unsigned int>{"####_###________", 28}}) {
+    std::vector<std::string> pieces = kTriplePlay;
+    pieces.push_back(extra);
+    Document d = withPieces(otherDiagonalTray(), pieces);
+    const Id problem = d.problemIds()[0];
+    REQUIRE(d.fitPlacementsStart(problem, SolveOptions{}).value() == 6);
+    const PlacementFitProgress end = fitEnd(d);
+    INFO(cells << " cells of pieces");
+    CHECK_FALSE(end.failure.has_value());
+    CHECK_FALSE(end.stopped);
+    CHECK(end.done == 6);
+    for (const BoardFit& b : end.boards) {
+      CHECK(b.counted);
+      if (b.board.whole < cells) {
+        CHECK(b.assemblies == 0);
+      }
+    }
+    CHECK(end.boards.back().board.whole == 23);
+    CHECK(end.boards.back().assemblies == 0);
+  }
+}
+
+TEST_CASE("tilted document: a fit is refused, stopped and thrown away",
+          "[app][document][tilted][parallel]") {
+  // not a tilted puzzle, no such problem, no pieces, none to stop
+  Document plain(GridKind::Bricks);
+  const Id plainProblem = plain.createProblem().value();
+  CHECK(plain.fitPlacementsStart(plainProblem, SolveOptions{}).error().code == Errc::Unsupported);
+  Document d = Document::newTilted(trayOf(8, 2, 1)).value();
+  const Id problem = d.problemIds()[0];
+  CHECK(d.fitPlacementsStart(problem + 100, SolveOptions{}).error().code == Errc::NotFound);
+  CHECK(d.fitPlacementsStart(problem, SolveOptions{}).error().code == Errc::InvalidArgument);
+  CHECK(d.fitPlacementsStop(problem).error().code == Errc::InvalidState);
+  CHECK(d.fitPlacementsStop(problem + 100).error().code == Errc::NotFound);
+  CHECK(d.fitPlacementsProgress(problem).value().boards.empty());
+  CHECK_FALSE(d.fitPlacementsProgress(problem).value().active);
+
+  // twenty dominoes on 45 cells: far too many ways to count in a test
+  const Id domino = drawPiece(d, "##______________");
+  REQUIRE(d.setPieceCount(problem, domino, 20, 20).has_value());
+  REQUIRE(d.fitPlacementsStart(problem, SolveOptions{}).value() >= 2);
+  // the first board is under way: its count so far is told
+  for (int tries = 0; tries < 5000; tries++) {
+    if (d.fitPlacementsProgress(problem).value().boards[0].assemblies > 0) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+  }
+  const PlacementFitProgress running = d.fitPlacementsProgress(problem).value();
+  CHECK(running.active);
+  CHECK(running.done == 0);
+  CHECK(running.boards[0].assemblies > 0);
+  CHECK_FALSE(running.boards[0].counted);
+  REQUIRE(d.fitPlacementsStop(problem).has_value());
+  const PlacementFitProgress end = fitEnd(d);
+  CHECK_FALSE(end.active);
+  CHECK(end.stopped);
+  CHECK_FALSE(end.failure.has_value());
+  CHECK(end.done == 0);
+  CHECK(end.boards[0].assemblies > 0);
+  CHECK_FALSE(end.boards[0].counted);
+  CHECK(end.boards[1].assemblies == 0);
+  CHECK_FALSE(d.solving());
+  // the piece changed: the counts are gone
+  REQUIRE(d.setPieceCount(problem, domino, 2, 2).has_value());
+  CHECK(d.fitPlacementsProgress(problem).value().boards.empty());
+
+  // a document closed with its fit running stops it
+  {
+    Document closing = Document::newTilted(trayOf(8, 2, 1)).value();
+    const Id pr = closing.problemIds()[0];
+    REQUIRE(closing.setPieceCount(pr, drawPiece(closing, "##______________"), 20, 20).has_value());
+    REQUIRE(closing.fitPlacementsStart(pr, SolveOptions{}).has_value());
+  }
+}
+

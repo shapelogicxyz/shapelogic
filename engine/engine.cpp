@@ -3,6 +3,7 @@
 #include "engine.h"
 
 #include "app_log.h"
+#include "convert.h"
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/system.h"
@@ -76,6 +77,16 @@ void State::replaceDocument(app::Document d, std::optional<std::filesystem::path
                                        {"separated", a->separated},
                                        {"stopped", true},
                                        {"failure", a->failure ? Json(*a->failure) : Json(nullptr)}});
+      }
+    }
+    if (w.fitting) {
+      // NOLINTNEXTLINE(bugprone-unchecked-optional-access): the engine always holds a document
+      const Result<app::PlacementFitProgress> f = doc->fitPlacementsProgress(id);
+      if (f) {
+        Json ended = placementFitJson(*f);
+        ended["problem"] = problem;
+        ended["stopped"] = true;
+        queuedEvents.emplace_back("tray.fitEnded", std::move(ended));
       }
     }
   }

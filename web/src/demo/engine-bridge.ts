@@ -3,8 +3,9 @@
 // The demo's window.bt: the engine client over the browser engine
 // (wasm-transport.ts), served to the renderer's proxy as Electron's main
 // process serves a window (main/engine-ipc.ts). A call that would start a
-// search is refused before it reaches the engine: a solve, an analysis or
-// an explorer would run on the page's one thread for as long as it took.
+// search is refused before it reaches the engine: a solve, an analysis, a
+// fit of a tilted tray's placements or an explorer would run on the page's
+// one thread for as long as it took.
 // solve.start alone may be taken by the demo (`solveHook`): the call is
 // answered as the engine would, and the events of a run are played to the
 // renderer while the demo puts the saved solution back (main.ts).
@@ -20,7 +21,7 @@ export const SEARCH_REFUSED =
   'searches run in the app, not in this demo (Download ShapeLogic to solve)';
 
 const SEARCHES =
-  /^(solve\.(start|prepare|continue)|solution\.analyse|explore\.(openAssembly|openMovements|analyse))$/;
+  /^(solve\.(start|prepare|continue)|solution\.analyse|tray\.fitPlacements|explore\.(openAssembly|openMovements|analyse))$/;
 
 /** The events a played run sends to the renderer, as the engine's would come. */
 export interface RunEvents {

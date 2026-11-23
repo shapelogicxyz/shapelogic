@@ -4,7 +4,9 @@
 // docs/TILTED-SQUARE-PLAN.md; tests/data/puzzles/tilted) through the
 // client: each opens quietly with its tray, and each problem, solved with
 // the options the Solver makes of its stored settings (readOptions,
-// solveOptions), finds the assemblies its file holds.
+// solveOptions), finds the assemblies its file holds. Every placement
+// (stage G): the boards of the fixture whose best placement takes no
+// pieces, and the fit that finds the one that does.
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -24,6 +26,16 @@ const FILES = [
     assemblies: [1, 2],
   },
   { file: 'tilted/EightByEight.xmpuzzle', whole: 45, walls: [], flip: [true], assemblies: [2] },
+  {
+    file: 'tilted/OtherDiagonal.xmpuzzle',
+    whole: 24,
+    walls: [
+      [0, 0],
+      [5, 5],
+    ],
+    flip: [true],
+    assemblies: [0],
+  },
 ] as const;
 
 describe.skipIf(ENGINE === null)('Tilted Square fixtures', () => {
@@ -80,4 +92,61 @@ describe.skipIf(ENGINE === null)('Tilted Square fixtures', () => {
       }
     });
   }
+
+  it('OtherDiagonal: the best placement takes no pieces, another does', async () => {
+    const c = s.client;
+    const snap = await c.call('document.open', {
+      path: `${FIXTURES}/tilted/OtherDiagonal.xmpuzzle`,
+    });
+    const problem = snap.problems[0]?.id ?? '';
+    const listed = await c.call('tray.placements');
+    expect(listed.complete).toBe(true);
+    expect(listed.inUse).toBe(0);
+    expect(listed.boards.map((b) => b.whole)).toEqual([24, 24, 24, 24, 24, 23]);
+    expect(listed.boards[0]?.shiftX).toBe(snap.tray?.shiftX);
+    // each board drawn at its shift, as the dialog draws it
+    for (const b of listed.boards) {
+      const t = await c.call('tray.preview', {
+        tray: { placement: 'custom', shiftX: b.shiftX, shiftY: b.shiftY },
+      });
+      expect(t.whole).toBe(b.whole);
+    }
+    // the fit, with the options the dialog makes of the stored settings
+    const detail = await c.call('problem.get', { problem });
+    const options = solveOptions(
+      readOptions(detail.solverSettings, undefined, 'brick', false),
+      defaultLimits(),
+    );
+    const start = s.events.length;
+    expect((await c.call('tray.fitPlacements', { problem, options })).total).toBe(6);
+    const end = await s.waitFor('tray.fitEnded', (e) => e.problem === problem, start, 60_000);
+    expect(end.stopped).toBe(false);
+    expect(end.failure).toBeNull();
+    expect(end.done).toBe(6);
+    expect(end.boards.map((b) => b.counted)).toEqual([true, true, true, true, true, true]);
+    expect(end.boards.map((b) => b.assemblies)).toEqual([0, 0, 0, 0, 1, 0]);
+    await s.drain(20);
+    // nothing changed but the revision that ends the freeze
+    const after = await c.call('document.get');
+    expect(after.dirty).toBe(false);
+    expect(after.solving).toBe(false);
+    expect(after.tray).toEqual(snap.tray);
+    // the board that takes them, used and solved
+    const fits = listed.boards[4];
+    await c.call('tray.set', {
+      tray: { placement: 'custom', shiftX: fits?.shiftX ?? 0, shiftY: fits?.shiftY ?? 0 },
+    });
+    expect((await c.call('tray.placements')).inUse).toBe(4);
+    const from = s.events.length;
+    await c.call('solve.start', { problem, options });
+    const solved = await s.waitFor(
+      'solve.state',
+      (e) => e.problem === problem && (e.state === 'finished' || e.state === 'error'),
+      from,
+      60_000,
+    );
+    expect(solved.state).toBe('finished');
+    await s.drain(20);
+    expect((await c.call('problem.get', { problem })).assemblies).toBe(1);
+  });
 });

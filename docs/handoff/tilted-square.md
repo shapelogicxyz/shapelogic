@@ -1,10 +1,10 @@
-# Handoff: the Tilted Square mode, stages A to F
+# Handoff: the Tilted Square mode, stages A to G
 
 The stages of [docs/TILTED-SQUARE-PLAN.md](../TILTED-SQUARE-PLAN.md),
 decision 0045. A to E (geometry, document and engine, front end, drawing,
 rectangular trays) are described in the plan's Status and in
 docs/ARCHITECTURE.md; this note is Stage F's (fixture, guide and finish)
-and the brief for Stage G.
+and, at its end, Stage G's (every placement), the last of the plan.
 
 ## Done (Stage F)
 
@@ -107,12 +107,124 @@ and the brief for Stage G.
   opens; the guide page links to it but the app does not link to the guide
   page.
 
-## Brief for Stage G (every placement)
-As in the plan: `tilted::placements()` (the boards at the crossings of the
-sweep lines, equal ones once, parts of others dropped, a limit that says
-when it is not complete), `tray.fitPlacements` (a job per problem, on a
-scratch copy, with a stop token and progress), "Placements…" in Tilt &
-tolerance and "Try every placement" in the Solver after no assembly.
-Triple Play with its walls on the other diagonal is the test: the best
-placement takes no pieces, others do. `make_fixtures.py` is the place to
-add such a fixture.
+## Done (Stage G: every placement)
+
+### Core
+- `tilted::placements(tray, stop, limits)` (`model/tilted_tray.{h,cpp}`):
+  every board the tray gives over every place the grid can lie, each
+  once, none that is part of another; the best placement's first with its
+  shift; `inUse` the board the tray lies at; `complete` false when
+  `PlacementLimits` (boards kept, cells looked at) or the stop cut it
+  short. It sweeps the lines `bestShift` sweeps (`sweepLines`,
+  `piecesOnLine`, now shared): a cell's whole shifts are a closed set, so
+  the cells whole anywhere are all whole on one of those lines where
+  pieces have begun and the next thing is an end. `bestShift` gives the
+  answers it gave (its tests are unchanged and pass).
+- Boards are compared as shapes: moved by whole cells or turned by quarter
+  turns they are one, and "part of" is meant the same way. Mirror images
+  stay apart (a problem may keep its pieces face up).
+- `app/placement_fit.{h,cpp}`: `PlacementFit`, a thread that solves one
+  problem on each board with an ordinary `SolveSession` (count only) on a
+  puzzle of its own. `Document::trayPlacements`, `fitPlacementsStart`,
+  `fitPlacementsStop`, `fitPlacementsProgress`, `fittingPlacements`;
+  `solving()` is true while one runs (the document is frozen), `poll()`
+  notes its end as a revision of the problem alone and keeps how it ended
+  until the tray, a piece or the problem changes.
+- A board with fewer cells than the pieces, or one a piece fits nowhere
+  on, ends a solve in an error (`TooManyUnits`, `CannotPlace`); the fit
+  counts it as taking none and goes on.
+
+### Engine
+`tray.placements` (the list: shift and whole cells of each board,
+`complete`, `inUse`), `tray.fitPlacements` (the job, with the solve's
+options), `tray.fitPlacementsStop`, `tray.fitPlacementsStatus`, the events
+`tray.fitProgress` (four times a second at most) and `tray.fitEnded`. The
+end is told only once the document is free again (a fit that ends between
+the poll's taking in and its telling is told at the next poll), so a client
+that hears it can change the tray at once. A replaced document's fit gets a
+`tray.fitEnded` with `stopped` true.
+
+### Front end
+- `entities/placements-dialog.ts` (words in `state/placements.ts`): the
+  list with a picture a board (`tray.preview` at its shift), **Count
+  assemblies** / **Stop**, **Pieces of** with several problems, **Use**
+  (one `tray.set`: the first board the best placement, another a custom
+  shift), **Show more** past 40 rows.
+- **Placements…** in Tilt & tolerance (`tilt-card.ts`, the Every
+  placement row); **Try every placement** in the Solver's empty card after
+  a solve with no assembly (`solutions-card.ts`, `workspace.ts`
+  `tryPlacements`), counting at once with the options shown.
+- The demo refuses the count as it refuses a solve (`engine-bridge.ts`);
+  the list works there.
+
+### Fixture, guide, docs
+- `tests/data/puzzles/tilted/OtherDiagonal.xmpuzzle` (made by
+  `make_fixtures.py other_diagonal`, which now takes the names of the
+  fixtures to make): Triple Play's pieces, the walls at (0, 0) and (5, 5).
+  Six boards (24, 24, 24, 24, 24 and 23 whole cells); the best takes no
+  pieces, the fifth takes them in 1 way, the others in none.
+- The guide's page has an **Every placement** section with a picture
+  (`tilted-placements.png`, taken by "the tilted placements screenshot"),
+  `docs/webui-spec.md` 13.5, `docs/ARCHITECTURE.md`, decision 0045,
+  `RELEASE_NOTES.md`, `docs/API.md` (generated).
+
+### Tests
+- `tests/unit/model/test_tilted_tray.cpp`: the best placement first and in
+  use; each board listed has its count at its shift, a canonical shift,
+  and is part of no other; asked again, the same answer; **the board of
+  every shift of a net (60 by 60, 80 by 80 for Triple Play's trays) is part
+  of a board listed**, for ten trays (open, with an allowance, 1:1, a
+  rectangle, corner walls, scattered walls); a straight tray has one
+  board; the board in use; the stop and both limits.
+- `tests/unit/app/test_document_tilted.cpp`: the other diagonal (the best
+  placement solves to 0, the list has 6 boards, the fit's count of each
+  board equals the solve of a puzzle made at that placement, the document
+  unchanged but for one revision, the board that takes the pieces used and
+  solved), the solve's options (turned over and face up, all eight mixes),
+  the refusals, a long fit told as it runs and stopped, a document closed
+  with its fit running, a board too small for the pieces; the new fixture
+  in the fixtures' case.
+- `tests/contract/test_engine.py` `tilted_placements`: the four methods
+  and both events, the freeze, the stop, the end with a new document.
+- `web/tests/unit/renderer/placements.test.ts`,
+  `web/tests/engine/tilted.test.ts` (the fixture and its fit through the
+  client), `web/tests/e2e/tilted.e2e.ts` (the list from Tilt & tolerance,
+  Try every placement, Use, the solve, Undo).
+
+## Gates (Stage G)
+All on 2026-11-23, after the last change, one after the other:
+- `just test-all` (21 of 21: the unit shards, the contract suite with its
+  coverage of 150 methods, the CLI, the Python module, the API docs),
+  `just test-asan` (20 of 20), `just test-tsan` (the `[parallel]` cases,
+  the fit's among them, and the contract suite on the TSan engine): passed.
+- `just check` on the ten changed C++ sources: no finding.
+- `just app-check`; `just app-test` (53 files, 555 tests, the engine tests
+  on the release engine): passed.
+- The tilted, solver and entities e2e specs (24 tests), three times:
+  passed each time.
+- `just site-demo` (the demo rebuilt: the renderer changed, and the site's
+  test "the demo is the current app" fails until it is), `just site-demo
+  --check`, `just site-build`: passed.
+- Not run: the oracle (nothing it reads changed; `bestShift`, whose sweep
+  was split into shared parts, is pinned by its own tests, which pass
+  unchanged; `oracle-roundtrip` still waits on the reference checkout, as
+  under Stage A), the benchmarks, the other e2e specs.
+- The first `just test-all` of the stage failed in two places, both counts
+  of the files in `tests/data/puzzles/tilted` (two, now three):
+  `test_puzzle_file.cpp` and `test_cli.py`. Fixed, then everything above
+  was run again.
+
+## Known issues (Stage G)
+- A fit counts every assembly of every board; there is no "stop at the
+  first assembly". Stop ends it and keeps the counts.
+- A board and its mirror image are both listed, and both tried, even for
+  a problem whose pieces may be turned over (their counts are then equal).
+- The five boards of 24 cells of Triple Play's trays look much alike at
+  the size of the list's pictures: they differ by a cell or two along the
+  rim.
+- A solve that ends in an error because the pieces have more cells than
+  the board in use ("Pieces contain too many units") offers no Try every
+  placement; only a solve that ends with no assembly does. With the best
+  placement in use no other board has more cells, so nothing is missed
+  there; with a custom placement of fewer cells, Placements… in Tilt &
+  tolerance is the way.

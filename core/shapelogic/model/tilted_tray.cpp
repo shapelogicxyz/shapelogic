@@ -13,6 +13,8 @@
 #include <numbers>
 #include <numeric>
 #include <optional>
+#include <string>
+#include <unordered_set>
 #include <utility>
 
 namespace bt::tilted {
@@ -327,14 +329,23 @@ void sortUnique(std::vector<double>& v) {
   v.resize(kept);
 }
 
-/// The most whole cells along `line`, and the middle of the stretch that has
-/// them.
+/// A stretch of a line on which one cell is whole: lambda in lo .. hi, both
+/// ends included.
+struct Piece {
+  double lo = 0.0;
+  double hi = 0.0;
+  /// The cell, numbered row by row over Geometry::cellRange().
+  unsigned int cell = 0;
+};
+
+/// Where each cell is whole along `line`, cell by cell, a cell's stretches in
+/// rising order.
 ///
 /// Along the line each cell is whole on a closed interval (inside the rim)
-/// less an open interval for every block it would reach into. The count can
-/// only rise where one of the closed pieces left begins, so those starts
-/// are the places tried.
-LineBest bestOnLine(const Geometry& g, const Line& line) {
+/// less an open interval for every block it would reach into: closed pieces
+/// are left.
+void piecesOnLine(const Geometry& g, const Line& line, std::vector<Piece>& out) {
+  out.clear();
   const auto [ri, rj] = g.cellRange();
   const double t = g.allowance();
   // the line's position and direction along the grid's axes
@@ -343,11 +354,10 @@ LineBest bestOnLine(const Geometry& g, const Line& line) {
   const double du = (line.dx * g.c()) + (line.dy * g.s());
   const double dv = (line.dy * g.c()) - (line.dx * g.s());
 
-  std::vector<double> starts;
-  std::vector<double> ends;
   std::vector<std::pair<double, double>> cuts;
+  unsigned int cell = 0;
   for (int j = static_cast<int>(rj.lo); j <= static_cast<int>(rj.hi); j++) {
-    for (int i = static_cast<int>(ri.lo); i <= static_cast<int>(ri.hi); i++) {
+    for (int i = static_cast<int>(ri.lo); i <= static_cast<int>(ri.hi); i++, cell++) {
       const Rect box = g.cellBox(i, j);
       Span in = line.range;
       keepWhere(in, box.x0 + line.px + t + kEps, line.dx);
@@ -386,16 +396,29 @@ LineBest bestOnLine(const Geometry& g, const Line& line) {
           continue;
         }
         if (a >= start) {
-          starts.push_back(start);
-          ends.push_back(std::min(a, in.hi));
+          out.push_back({start, std::min(a, in.hi), cell});
         }
         start = b;
       }
       if (start <= in.hi) {
-        starts.push_back(start);
-        ends.push_back(in.hi);
+        out.push_back({start, in.hi, cell});
       }
     }
+  }
+}
+
+/// The most whole cells along `line`, and the middle of the stretch that has
+/// them. The count can only rise where one of the cells' pieces begins, so
+/// those starts are the places tried.
+LineBest bestOnLine(const Geometry& g, const Line& line, std::vector<Piece>& pieces) {
+  piecesOnLine(g, line, pieces);
+  std::vector<double> starts;
+  std::vector<double> ends;
+  starts.reserve(pieces.size());
+  ends.reserve(pieces.size());
+  for (const Piece& p : pieces) {
+    starts.push_back(p.lo);
+    ends.push_back(p.hi);
   }
 
   std::sort(starts.begin(), starts.end());
@@ -422,10 +445,246 @@ LineBest bestOnLine(const Geometry& g, const Line& line) {
   return best;
 }
 
+/// The lines of shifts the board can change on, within kWindow of zero: on
+/// every other shift each cell is whole or cut as on the shifts around it.
+///
+/// A cell's corner is at a whole number of 1/h in x and in y at shift zero,
+/// so it meets the upright line x = X when the shift's x is X - m/h; a
+/// wall's corner P meets a cell's edge when the shift's part along the
+/// grid's first axis is P.u - k. (The lines along the grid's second axis are
+/// not needed: where two lines cross, one of them is of these three kinds.)
+std::vector<Line> sweepLines(const Geometry& g) {
+  const double t = g.allowance();
+  const double h = g.h();
+  const double c = g.c();
+  const double s = g.s();
+  std::vector<double> xs = {-t, g.width() + t};
+  std::vector<double> ys = {-t, g.height() + t};
+  std::vector<double> us;
+  for (const Block& b : g.blocks()) {
+    xs.push_back(b.r.x0);
+    xs.push_back(b.r.x1);
+    ys.push_back(b.r.y0);
+    ys.push_back(b.r.y1);
+    if (s > 0.0) {
+      for (const double x : {b.r.x0, b.r.x1}) {
+        for (const double y : {b.r.y0, b.r.y1}) {
+          us.push_back((x * c) + (y * s));
+        }
+      }
+    }
+  }
+  sortUnique(xs);
+  sortUnique(ys);
+  sortUnique(us);
+
+  const auto offsets = [&](const std::vector<double>& at, double step, double reach) {
+    std::vector<double> out;
+    for (const double v : at) {
+      const auto first = static_cast<long>(std::ceil((v - reach) / step));
+      const auto last = static_cast<long>(std::floor((v + reach) / step));
+      for (long m = first; m <= last; m++) {
+        out.push_back(v - (static_cast<double>(m) * step));
+      }
+    }
+    sortUnique(out);
+    return out;
+  };
+
+  std::vector<Line> lines;
+  Span window;
+  window.lo = -kWindow;
+  window.hi = kWindow;
+  for (const double x : offsets(xs, 1.0 / h, kWindow)) {
+    lines.push_back({x, 0.0, 0.0, 1.0, window});
+  }
+  for (const double y : offsets(ys, 1.0 / h, kWindow)) {
+    lines.push_back({0.0, y, 1.0, 0.0, window});
+  }
+  for (const double u : offsets(us, 1.0, kWindow * (c + s))) {
+    // shifts whose part along the first axis is u: u * (c, s) + lambda * (-s, c)
+    Line line{u * c, u * s, -s, c, {}};
+    keepWhere(line.range, line.px + kWindow, line.dx);
+    keepWhere(line.range, kWindow - line.px, -line.dx);
+    keepWhere(line.range, line.py + kWindow, line.dy);
+    keepWhere(line.range, kWindow - line.py, -line.dy);
+    if (!line.range.empty()) {
+      lines.push_back(line);
+    }
+  }
+  return lines;
+}
+
 /// `shift` moved by whole grid steps to within half a grid step of zero.
 Point nearZero(const Geometry& g, double sx, double sy) {
   const Point at = g.toGrid(sx, sy, 0.0, 0.0);
   return g.turned(at.x - std::round(at.x), at.y - std::round(at.y));
+}
+
+/// A board's whole cells in their own box (the lowest x and y are 0).
+struct BoardCells {
+  unsigned int w = 0;
+  unsigned int h = 0;
+  /// Each cell's x and y, row by row.
+  std::vector<std::array<unsigned int, 2>> cells;
+
+  /// The cells as text, row by row with the box's size first: equal boards
+  /// have equal texts.
+  [[nodiscard]] std::string text() const {
+    std::string out = std::to_string(w) + "x" + std::to_string(h) + ":";
+    const std::size_t head = out.size();
+    out.append(static_cast<std::size_t>(w) * h, '.');
+    for (const std::array<unsigned int, 2>& c : cells) {
+      out[head + (static_cast<std::size_t>(c[1]) * w) + c[0]] = '#';
+    }
+    return out;
+  }
+
+  /// The board turned a quarter: (x, y) goes to (h - 1 - y, x).
+  [[nodiscard]] BoardCells turned() const {
+    BoardCells out;
+    out.w = h;
+    out.h = w;
+    out.cells.reserve(cells.size());
+    for (const std::array<unsigned int, 2>& c : cells) {
+      out.cells.push_back({h - 1 - c[1], c[0]});
+    }
+    std::sort(out.cells.begin(), out.cells.end(),
+              [](const auto& a, const auto& b) { return a[1] != b[1] ? a[1] < b[1] : a[0] < b[0]; });
+    return out;
+  }
+};
+
+/// The cells flagged in `in` (row by row over a `wide` grid) in their own box.
+BoardCells boxed(const std::vector<std::uint8_t>& in, unsigned int wide) {
+  BoardCells out;
+  unsigned int x0 = wide;
+  unsigned int y0 = 0;
+  unsigned int x1 = 0;
+  unsigned int y1 = 0;
+  bool any = false;
+  for (unsigned int k = 0; k < in.size(); k++) {
+    if (in[k] == 0) {
+      continue;
+    }
+    const unsigned int x = k % wide;
+    const unsigned int y = k / wide;
+    if (!any) {
+      y0 = y;
+      any = true;
+    }
+    x0 = std::min(x0, x);
+    x1 = std::max(x1, x);
+    y1 = y;
+  }
+  if (!any) {
+    return out;
+  }
+  out.w = x1 - x0 + 1;
+  out.h = y1 - y0 + 1;
+  for (unsigned int k = 0; k < in.size(); k++) {
+    if (in[k] != 0) {
+      out.cells.push_back({(k % wide) - x0, (k / wide) - y0});
+    }
+  }
+  return out;
+}
+
+/// The board in its four turns.
+std::array<BoardCells, 4> turnsOf(BoardCells cells) {
+  std::array<BoardCells, 4> out;
+  out[0] = std::move(cells);
+  for (std::size_t k = 1; k < 4; k++) {
+    out[k] = out[k - 1].turned();
+  }
+  return out;
+}
+
+/// A board found.
+struct FoundBoard {
+  /// The least of the four turns' texts: equal for boards that are one
+  /// another turned.
+  std::string key;
+  BoardCells cells;
+  double shiftX = 0.0;
+  double shiftY = 0.0;
+  /// The best placement's board: first among those with as many cells.
+  bool best = false;
+
+  [[nodiscard]] std::size_t whole() const { return cells.cells.size(); }
+};
+
+FoundBoard foundBoard(BoardCells cells, double sx, double sy) {
+  FoundBoard out;
+  out.shiftX = sx;
+  out.shiftY = sy;
+  const std::array<BoardCells, 4> turns = turnsOf(std::move(cells));
+  out.key = turns[0].text();
+  for (std::size_t k = 1; k < 4; k++) {
+    out.key = std::min(out.key, turns[k].text());
+  }
+  out.cells = turns[0];
+  return out;
+}
+
+/// True when one of `part` (a board's four turns), moved by whole cells,
+/// lies on cells of `all`.
+bool partOf(const std::array<BoardCells, 4>& part, const BoardCells& all) {
+  std::vector<std::uint8_t> on(static_cast<std::size_t>(all.w) * all.h, 0);
+  for (const std::array<unsigned int, 2>& c : all.cells) {
+    on[(static_cast<std::size_t>(c[1]) * all.w) + c[0]] = 1;
+  }
+  for (const BoardCells& a : part) {
+    if (a.w > all.w || a.h > all.h) {
+      continue;
+    }
+    for (unsigned int dy = 0; dy + a.h <= all.h; dy++) {
+      for (unsigned int dx = 0; dx + a.w <= all.w; dx++) {
+        const bool inside = std::all_of(a.cells.begin(), a.cells.end(), [&](const auto& c) {
+          return on[(static_cast<std::size_t>(c[1] + dy) * all.w) + c[0] + dx] != 0;
+        });
+        if (inside) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/// Two numbers for a cell, the same on every machine (SplitMix64): a set of
+/// cells is told from another by the two sums of its cells' numbers.
+std::array<std::uint64_t, 2> cellMark(std::size_t cell) {
+  const auto mix = [](std::uint64_t z) {
+    z += 0x9E3779B97F4A7C15ULL;
+    z = (z ^ (z >> 30U)) * 0xBF58476D1CE4E5B9ULL;
+    z = (z ^ (z >> 27U)) * 0x94D049BB133111EBULL;
+    return z ^ (z >> 31U);
+  };
+  const std::uint64_t first = mix(cell);
+  return {first, mix(first ^ 0xD1B54A32D192ED03ULL)};
+}
+
+/// Hashes a pair of marks.
+struct MarkHash {
+  std::size_t operator()(const std::array<std::uint64_t, 2>& m) const noexcept {
+    return static_cast<std::size_t>(m[0] ^ (m[1] * 0x9E3779B97F4A7C15ULL));
+  }
+};
+
+/// The cells whole at a shift within kWindow of zero, in their own box.
+BoardCells boardAt(const Geometry& g, double sx, double sy) {
+  const auto [ri, rj] = g.cellRange();
+  const auto wide = static_cast<unsigned int>(ri.hi - ri.lo) + 1;
+  const auto high = static_cast<unsigned int>(rj.hi - rj.lo) + 1;
+  std::vector<std::uint8_t> in(static_cast<std::size_t>(wide) * high, 0);
+  std::size_t k = 0;
+  for (int j = static_cast<int>(rj.lo); j <= static_cast<int>(rj.hi); j++) {
+    for (int i = static_cast<int>(ri.lo); i <= static_cast<int>(ri.hi); i++, k++) {
+      in[k] = g.whole(i, j, sx, sy) ? 1 : 0;
+    }
+  }
+  return boxed(in, wide);
 }
 
 }  // namespace
@@ -579,80 +838,18 @@ Layout layout(const Tray& tray) {
 Placed bestShift(const Tray& tray) {
   BT_ASSERT(tray.valid());
   const Geometry g(tray);
-  const double t = g.allowance();
-  const double h = g.h();
-  const double c = g.c();
-  const double s = g.s();
-
-  // The lines the count can change on. A cell's corner is at a whole number
-  // of 1/h in x and in y at shift zero, so it meets the upright line x = X
-  // when the shift's x is X - m/h; a wall's corner P meets a cell's edge
-  // when the shift's part along the grid's first axis is P.u - k.
-  std::vector<double> xs = {-t, g.width() + t};
-  std::vector<double> ys = {-t, g.height() + t};
-  std::vector<double> us;
-  for (const Block& b : g.blocks()) {
-    xs.push_back(b.r.x0);
-    xs.push_back(b.r.x1);
-    ys.push_back(b.r.y0);
-    ys.push_back(b.r.y1);
-    if (s > 0.0) {
-      for (const double x : {b.r.x0, b.r.x1}) {
-        for (const double y : {b.r.y0, b.r.y1}) {
-          us.push_back((x * c) + (y * s));
-        }
-      }
-    }
-  }
-  sortUnique(xs);
-  sortUnique(ys);
-  sortUnique(us);
-
-  const auto offsets = [&](const std::vector<double>& at, double step, double reach) {
-    std::vector<double> out;
-    for (const double v : at) {
-      const auto first = static_cast<long>(std::ceil((v - reach) / step));
-      const auto last = static_cast<long>(std::floor((v + reach) / step));
-      for (long m = first; m <= last; m++) {
-        out.push_back(v - (static_cast<double>(m) * step));
-      }
-    }
-    sortUnique(out);
-    return out;
-  };
-
+  // every line the count can change on is swept
   Placed best;
   bool found = false;
-  const auto tryLine = [&](const Line& line) {
-    if (line.range.empty()) {
-      return;
-    }
-    const LineBest lb = bestOnLine(g, line);
+  std::vector<Piece> pieces;
+  for (const Line& line : sweepLines(g)) {
+    const LineBest lb = bestOnLine(g, line, pieces);
     if (!found || lb.count > best.whole) {
       found = true;
       best.whole = lb.count;
       best.shiftX = line.px + (lb.lambda * line.dx);
       best.shiftY = line.py + (lb.lambda * line.dy);
     }
-  };
-
-  Span window;
-  window.lo = -kWindow;
-  window.hi = kWindow;
-  for (const double x : offsets(xs, 1.0 / h, kWindow)) {
-    tryLine({x, 0.0, 0.0, 1.0, window});
-  }
-  for (const double y : offsets(ys, 1.0 / h, kWindow)) {
-    tryLine({0.0, y, 1.0, 0.0, window});
-  }
-  for (const double u : offsets(us, 1.0, kWindow * (c + s))) {
-    // shifts whose part along the first axis is u: u * (c, s) + lambda * (-s, c)
-    Line line{u * c, u * s, -s, c, {}};
-    keepWhere(line.range, line.px + kWindow, line.dx);
-    keepWhere(line.range, kWindow - line.px, -line.dx);
-    keepWhere(line.range, line.py + kWindow, line.dy);
-    keepWhere(line.range, kWindow - line.py, -line.dy);
-    tryLine(line);
   }
 
   // a placement symmetric about the tray's center, when it is as good: the
@@ -683,6 +880,128 @@ Placed bestShift(const Tray& tray) {
   best.shiftX = canon.x;
   best.shiftY = canon.y;
   return best;
+}
+
+Placements placements(const Tray& tray, const StopToken& stop, const PlacementLimits& limits) {
+  BT_ASSERT(tray.valid());
+  const Geometry g(tray);
+  const auto [ri, rj] = g.cellRange();
+  const auto wide = static_cast<unsigned int>(ri.hi - ri.lo) + 1;
+  const auto high = static_cast<unsigned int>(rj.hi - rj.lo) + 1;
+  const std::size_t cellCount = static_cast<std::size_t>(wide) * high;
+
+  Placements out;
+  std::vector<FoundBoard> found;
+  std::unordered_set<std::string> keys;
+  std::uint64_t work = 0;
+  const auto add = [&](double sx, double sy) {
+    work += cellCount;
+    FoundBoard b = foundBoard(boardAt(g, sx, sy), sx, sy);
+    if (keys.contains(b.key)) {
+      return;
+    }
+    if (found.size() >= limits.maxBoards) {
+      out.complete = false;  // one more than may be kept
+      return;
+    }
+    keys.insert(b.key);
+    found.push_back(std::move(b));
+  };
+  // the best placement first, so that its board keeps its shift
+  const Placed best = bestShift(tray);
+  const Point bestNear = nearZero(g, best.shiftX, best.shiftY);
+  add(bestNear.x, bestNear.y);
+  found[0].shiftX = best.shiftX;
+  found[0].shiftY = best.shiftY;
+  found[0].best = true;
+
+  // Each line swept: where pieces have begun and the next thing is a piece's
+  // end, the cells whole are more than on either side. The board is taken
+  // in the middle of that stretch, where rounding cannot change it.
+  std::vector<std::array<std::uint64_t, 2>> marks(cellCount);
+  for (std::size_t k = 0; k < cellCount; k++) {
+    marks[k] = cellMark(k);
+  }
+  std::vector<Piece> pieces;
+  std::vector<std::size_t> byEnd;
+  // the same cells are met on many lines: looked at once
+  std::unordered_set<std::array<std::uint64_t, 2>, MarkHash> swept;
+  for (const Line& line : sweepLines(g)) {
+    if (!out.complete || stop.stopRequested() || work > limits.maxWork) {
+      out.complete = false;
+      break;
+    }
+    piecesOnLine(g, line, pieces);
+    work += cellCount + pieces.size();
+    std::sort(pieces.begin(), pieces.end(),
+              [](const Piece& a, const Piece& b) { return a.lo < b.lo; });
+    byEnd.resize(pieces.size());
+    std::iota(byEnd.begin(), byEnd.end(), std::size_t{0});
+    std::sort(byEnd.begin(), byEnd.end(),
+              [&](std::size_t a, std::size_t b) { return pieces[a].hi < pieces[b].hi; });
+    std::array<std::uint64_t, 2> in{};
+    std::size_t begun = 0;
+    std::size_t ended = 0;
+    bool rising = false;
+    double last = 0.0;
+    while (ended < pieces.size()) {
+      const Piece& end = pieces[byEnd[ended]];
+      if (begun < pieces.size() && pieces[begun].lo <= end.hi) {
+        // a piece that begins where another ends is whole there too
+        const std::array<std::uint64_t, 2>& m = marks[pieces[begun].cell];
+        in = {in[0] + m[0], in[1] + m[1]};
+        last = pieces[begun].lo;
+        rising = true;
+        begun++;
+        continue;
+      }
+      if (rising && swept.insert(in).second) {
+        const double lambda = (last + end.hi) / 2.0;
+        add(line.px + (lambda * line.dx), line.py + (lambda * line.dy));
+      }
+      rising = false;
+      const std::array<std::uint64_t, 2>& m = marks[end.cell];
+      in = {in[0] - m[0], in[1] - m[1]};
+      ended++;
+    }
+  }
+
+  // the most cells first; a board that is part of one with more cells goes
+  std::sort(found.begin(), found.end(), [](const FoundBoard& a, const FoundBoard& b) {
+    if (a.whole() != b.whole()) {
+      return a.whole() > b.whole();
+    }
+    return a.best != b.best ? a.best : a.key < b.key;
+  });
+  std::vector<const FoundBoard*> kept;
+  bool stopped = false;
+  for (const FoundBoard& b : found) {
+    // stopped, the rest is kept as it is: the answer is not complete anyway
+    stopped = stopped || stop.stopRequested();
+    bool part = false;
+    if (!stopped && !kept.empty() && kept.front()->whole() > b.whole()) {
+      const std::array<BoardCells, 4> turns = turnsOf(b.cells);
+      part = std::any_of(kept.begin(), kept.end(), [&](const FoundBoard* k) {
+        return k->whole() > b.whole() && partOf(turns, k->cells);
+      });
+    }
+    if (!part) {
+      kept.push_back(&b);
+    }
+  }
+
+  out.complete = out.complete && !stopped;
+
+  const Point own = nearZero(g, tray.shiftX, tray.shiftY);
+  const std::string ownKey = foundBoard(boardAt(g, own.x, own.y), own.x, own.y).key;
+  for (const FoundBoard* b : kept) {
+    if (b->key == ownKey) {
+      out.inUse = out.boards.size();
+    }
+    const Point canon = canonicalShift(tray, {b->shiftX, b->shiftY});
+    out.boards.push_back({canon.x, canon.y, static_cast<unsigned int>(b->whole())});
+  }
+  return out;
 }
 
 }  // namespace bt::tilted

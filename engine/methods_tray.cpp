@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// tray.* (api/tray.json): a Tilted Square puzzle's tray (decision 0045).
+// tray.* (api/tray.json): a Tilted Square puzzle's tray (decision 0045), its
+// placements and the job that tries them all (stage G).
 #include "convert.h"
 #include "engine.h"
 
@@ -56,6 +57,24 @@ RpcResult<tilted::Tray> readTraySettings(const Json& given, const tilted::Tray& 
   t.shiftX = shiftX;
   t.shiftY = shiftY;
   return t;
+}
+
+Json placementFitJson(const app::PlacementFitProgress& f) {
+  Json boards = Json::array();
+  for (const app::BoardFit& b : f.boards) {
+    boards.push_back(Json{{"shiftX", b.board.shiftX},
+                          {"shiftY", b.board.shiftY},
+                          {"whole", b.board.whole},
+                          {"counted", b.counted},
+                          {"assemblies", b.assemblies}});
+  }
+  return Json{{"complete", f.complete},
+              {"total", f.boards.size()},
+              {"done", f.done},
+              {"current", f.current},
+              {"stopped", f.stopped},
+              {"failure", f.failure ? Json(*f.failure) : Json(nullptr)},
+              {"boards", std::move(boards)}};
 }
 
 namespace {
@@ -124,12 +143,59 @@ Reply trayPreview(State& s, Params& p) {
   return trayJson(t, tilted::layout(t));
 }
 
+Reply trayPlacements(State& s, Params& p) {
+  BTE_CHECK(p.finish());
+  if (!s.document().tilted()) {
+    return coreError(Errc::Unsupported, "the puzzle has no tilted tray");
+  }
+  const tilted::Placements& found = s.document().trayPlacements();
+  Json boards = Json::array();
+  for (const tilted::Placed& b : found.boards) {
+    boards.push_back(Json{{"shiftX", b.shiftX}, {"shiftY", b.shiftY}, {"whole", b.whole}});
+  }
+  return Json{{"boards", std::move(boards)},
+              {"complete", found.complete},
+              {"inUse", found.inUse ? Json(*found.inUse) : Json(nullptr)}};
+}
+
+Reply trayFitPlacements(State& s, Params& p) {
+  const app::Id problem = p.id("problem", IdKind::Problem);
+  const Json given = p.has("options") ? p.value("options") : Json(nullptr);
+  BTE_CHECK(p.finish());
+  BTE_TRY(const SolveOptions options, solveOptionsFrom(s, given));
+  BTE_TRY(const unsigned int total, s.document().fitPlacementsStart(problem, options));
+  State::Watch& w = s.watches[problem];
+  w.fitting = true;
+  w.fitAt = {};
+  return Json{{"total", total}};
+}
+
+Reply trayFitPlacementsStop(State& s, Params& p) {
+  const app::Id problem = p.id("problem", IdKind::Problem);
+  BTE_CHECK(p.finish());
+  BTE_CHECK(s.document().fitPlacementsStop(problem));
+  return Json::object();
+}
+
+Reply trayFitPlacementsStatus(State& s, Params& p) {
+  const app::Id problem = p.id("problem", IdKind::Problem);
+  BTE_CHECK(p.finish());
+  BTE_TRY(const app::PlacementFitProgress f, s.document().fitPlacementsProgress(problem));
+  Json j = placementFitJson(f);
+  j["active"] = f.active;
+  return j;
+}
+
 }  // namespace
 
 void addTrayMethods(MethodTable& t) {
   t["tray.set"] = traySet;
   t["tray.setWalls"] = traySetWalls;
   t["tray.preview"] = trayPreview;
+  t["tray.placements"] = trayPlacements;
+  t["tray.fitPlacements"] = trayFitPlacements;
+  t["tray.fitPlacementsStop"] = trayFitPlacementsStop;
+  t["tray.fitPlacementsStatus"] = trayFitPlacementsStatus;
 }
 
 }  // namespace bt::engine

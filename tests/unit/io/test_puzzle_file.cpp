@@ -145,7 +145,7 @@ TEST_CASE("puzzle file: the tilted fixtures are saved byte for byte as they were
     CHECK(io::writePuzzle(parse(ours)) == ours);
     checked++;
   }
-  CHECK(checked == 2);
+  CHECK(checked == 3);
 }
 
 TEST_CASE("puzzle file: content the model does not know is kept in place", "[io][file]") {

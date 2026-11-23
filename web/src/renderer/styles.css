@@ -1499,6 +1499,23 @@ html:is([data-density=standard],[data-density=compact]) #boardViews .bv .gbtn{he
 .tilt .tshs{display:flex;gap:6px}
 .tilt select{font:inherit;height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text)}
 .tilt .tline{margin:2px 0 6px;color:var(--muted);font-size:calc(12px + var(--fs))}
+/* the Placements dialog (stage G): every board the grid can give, a row each */
+.plc-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.plc-bar select{font:inherit;height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);margin-left:6px}
+.plc-bar .plc-sum{flex:1;min-width:140px;color:var(--muted)}
+.plc-list{overflow:auto;min-height:120px;max-height:min(52vh,460px);border:1px solid var(--line);border-radius:8px}
+.plc-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.plc-row:last-child{border-bottom:0}
+.plc-row.inuse{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.plc-row .plc-pic{flex:none;width:80px;height:80px;display:grid;place-items:center}
+.plc-row .plc-t{flex:1;min-width:0}
+.plc-row .plc-t small{display:block;color:var(--muted);font-size:calc(11px + var(--fs));min-height:1.3em}
+.plc-row .plc-fit{flex:none;width:132px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.plc-row[data-fit="fits"] .plc-fit,.plc-row[data-fit="partial"] .plc-fit{color:var(--text);font-weight:600}
+.plc-row[data-fit="trying"] .plc-fit{color:var(--accent)}
+.plc-row .btn{flex:none;min-width:58px}
+.plc-more{display:block;margin:8px auto}
+.slv-empty .slv-try{display:block;margin:10px auto 0}
 /* File ▸ New's Tilted Square: its example, the default tray */
 .ngt-pic{display:grid;place-items:center}
 /* a tilted puzzle's piece: the cells the tray cuts are gray and take no pointer */

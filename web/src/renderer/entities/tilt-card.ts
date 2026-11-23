@@ -5,8 +5,9 @@
 // its width and height (linked while the Keep square switch is on, so a
 // change of one changes both), the slope (down and over, the angle beside them), the
 // allowance (a switch, and the amount while it is on), the placement
-// (where the most cells are whole, or a shift of the user's own), what the
-// tray gives. Below it (and below Repair & surface for a piece) the
+// (where the most cells are whole, or a shift of the user's own, and
+// Placements… for every board the grid can give: placements-dialog.ts),
+// what the tray gives. Below it (and below Repair & surface for a piece) the
 // Tilted Square Tutorial, a section header that opens the research page
 // that explains the geometry. Each
 // change is one tray.set (one undo step: the engine makes the board again
@@ -40,6 +41,8 @@ export interface TiltHost {
   mutate<T extends { revision: number }>(doing: string, call: () => Promise<T>): Promise<T | null>;
   /** Opens the research page on tilted trays. */
   openPage(): void;
+  /** Opens the Placements dialog: every board the grid can give in the tray. */
+  openPlacements(): void;
 }
 
 /** Whether the section shows: a tilted puzzle with its board selected. */
@@ -166,6 +169,12 @@ export class TiltCard {
             true,
           )
         : '') +
+      row(
+        'Every placement',
+        'The boards the grid gives wherever it lies, and which of them take the pieces',
+        '<button class="btn sm" data-tplaces title="List every board the grid can give in this tray, count the assemblies of a problem’s pieces on each, and choose one">Placements…</button>',
+        true,
+      ) +
       '</div>';
   }
 
@@ -288,7 +297,9 @@ export class TiltCard {
         this.set(this.change(key, t[key] + Number(b.dataset.d)));
         return;
       }
-      if (el.closest('[data-tallow]') !== null) {
+      if (el.closest('[data-tplaces]') !== null) {
+        this.host.openPlacements();
+      } else if (el.closest('[data-tallow]') !== null) {
         this.toggleAllowance();
       } else if (el.closest('[data-tlink]') !== null) {
         this.toggleLink();

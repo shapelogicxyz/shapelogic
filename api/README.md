@@ -23,6 +23,7 @@ The JSON Schema of every `shapelogic_engine` method and event (decisions 0003 an
 | `problem.json` | `problem.*` |
 | `sliding.json` | `sliding.*`: a sliding puzzle's start/goal shapes and stamps |
 | `stacking.json` | `stacking.*`: a stacking puzzle's rod sets, discs and stacks |
+| `tray.json` | `tray.*`: a Tilted Square puzzle's tray, its placements, and the fit that tries them all with its events |
 | `solve.json` | `solve.*` and its events |
 | `solution.json` | `solution.*` and the analysis events |
 | `playback.json` | `playback.*` |

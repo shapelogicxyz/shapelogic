@@ -53,6 +53,7 @@ Document::Document(Document&&) noexcept = default;
 
 Document::~Document() {
   // the analyses and solves first: they hold the puzzle
+  fits_.clear();
   analyses_.clear();
   sessions_.clear();
 }
@@ -634,7 +635,7 @@ Result<void> Document::endGroup() {
 // ---- the guards of decision 0011 ------------------------------------------------------
 
 bool Document::solving() const {
-  return !analyses_.empty() ||
+  return !analyses_.empty() || !fits_.empty() ||
          std::any_of(sessions_.begin(), sessions_.end(),
                      [](const auto& s) { return isActive(s.second->state()); });
 }
@@ -654,15 +655,23 @@ Result<void> Document::checkProblemFree(unsigned int problem) const {
   if (analyses_.contains(ids_.problems[problem])) {
     return fail(Errc::InvalidState, "the problem's solutions are being taken apart: stop it first");
   }
+  if (fits_.contains(ids_.problems[problem])) {
+    return fail(Errc::InvalidState,
+                "the tray's placements are being tried with the problem: stop it first");
+  }
   return {};
 }
 
 void Document::endSessions() {
   BT_ASSERT(!solving());
   sessions_.clear();
+  fitEnds_.clear();
 }
 
 void Document::endSession(unsigned int problem) {
+  // what the last fit of the tray's placements counted was this problem's
+  // as it was
+  fitEnds_.erase(ids_.problems[problem]);
   const auto it = sessions_.find(ids_.problems[problem]);
   if (it != sessions_.end()) {
     BT_ASSERT(!isActive(it->second->state()));
@@ -1180,6 +1189,18 @@ bool Document::analysing(Id problem) const { return analyses_.contains(problem);
 
 bool Document::poll() {
   std::vector<Id> touched;
+  // the fits that ended changed nothing: noted only, so that whoever
+  // mirrors solving() learns it is over
+  bool results = false;
+  for (auto it = fits_.begin(); it != fits_.end();) {
+    if (it->second->active()) {
+      ++it;
+      continue;
+    }
+    fitEnds_[it->first] = it->second->progress();
+    touched.push_back(it->first);
+    it = fits_.erase(it);
+  }
   // the analyses that ended: their separations go in (the problem cannot
   // have changed: it was frozen)
   for (auto it = analyses_.begin(); it != analyses_.end();) {
@@ -1199,7 +1220,10 @@ bool Document::poll() {
         }
       }
     }
-    touched.push_back(it->first);
+    if (std::find(touched.begin(), touched.end(), it->first) == touched.end()) {
+      touched.push_back(it->first);
+    }
+    results = true;
     it = analyses_.erase(it);
   }
   // the runs that ended
@@ -1212,13 +1236,15 @@ bool Document::poll() {
     if (std::find(touched.begin(), touched.end(), *it) == touched.end()) {
       touched.push_back(*it);
     }
+    results = true;
     it = runsStarted_.erase(it);
   }
   if (touched.empty()) {
     return false;
   }
-  solveDirty_ = true;
-  lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, std::move(touched), {}};
+  solveDirty_ = solveDirty_ || results;
+  lastChange_ = ChangeSet{(results ? kChangeSolutions : 0U) | kChangeProblems, {},
+                          std::move(touched), {}};
   revision_++;
   return true;
 }

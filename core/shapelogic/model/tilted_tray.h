@@ -15,8 +15,12 @@
 /// A grid point g lies at shift + R(g) in the tray, R the turn by
 /// atan2(down, over).
 
+#include "shapelogic/base/stop.h"
+
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace bt::tilted {
@@ -141,5 +145,48 @@ struct Placed {
 /// (0, 0) lies in grid cell (0, 0): every shift that gives the same board
 /// has one such form.
 [[nodiscard]] Point canonicalShift(const Tray& tray, Point shift);
+
+/// How long placements() may look. A tray of ordinary size is far below
+/// both; a large one at a steep slope with many walls is cut short.
+struct PlacementLimits {
+  /// The most distinct boards kept while looking.
+  std::size_t maxBoards = 4096;
+  /// The most looking: cells looked at along the lines swept (20 million
+  /// are about a second).
+  std::uint64_t maxWork = 20'000'000;
+};
+
+/// Every board a tray can give that is worth trying (placements()).
+struct Placements {
+  /// The boards, the one with the most whole cells first (among equal
+  /// counts the order is fixed, the same each time): each with a shift that
+  /// gives it, in its canonical form.
+  std::vector<Placed> boards;
+  /// False when the looking was cut short (PlacementLimits, or `stop`):
+  /// boards may be missing.
+  bool complete = true;
+  /// The board the tray's own shift gives, when it is one of `boards` (as
+  /// it lies, or turned).
+  std::optional<std::size_t> inUse;
+};
+
+/// The boards of `tray` (valid(); its placement is not looked at) over every
+/// place the grid can lie, each board once.
+///
+/// As the grid slides, a cell stays whole up to and on the lines where its
+/// corner meets an edge of the tray or of a wall, or a wall's corner meets
+/// its edge. So the cells whole at any shift are all whole at some point of
+/// one of those lines, at the end of a stretch on which nothing changes:
+/// each line is swept and the board of each such stretch taken. Two boards
+/// are one when their cells are the same, moved by whole cells or turned by
+/// quarter turns (a piece can be turned as well), and a board that is part
+/// of another in that sense is left out: the pieces need only fit, so it
+/// holds nothing the larger one cannot. A mirrored board is kept: not every
+/// problem lets its pieces be turned over.
+///
+/// The best placement (bestShift()) is among the boards, with its shift.
+/// Exact up to `limits`; `stop` cuts it short too.
+[[nodiscard]] Placements placements(const Tray& tray, const StopToken& stop = {},
+                                    const PlacementLimits& limits = {});
 
 }  // namespace bt::tilted

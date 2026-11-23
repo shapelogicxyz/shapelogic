@@ -296,6 +296,10 @@ export class SolutionsCard {
       return '<b>Search paused</b>Press <b style="display:inline">Continue</b> to carry the search on; solutions appear here as they are found.';
     }
     if (p?.state === 'solved' && (p.assemblies ?? 0) === 0) {
+      if (ws.tilted) {
+        // the grid can lie elsewhere in the tray: another board may take the pieces
+        return '<b>No assemblies found</b>The pieces do not fit the board where the grid lies now. Another placement of the grid in the tray may take them.<button class="btn sm pri slv-try" data-tryplaces title="Solve the problem on every board the grid can give in the tray, and list which of them take the pieces">Try every placement</button>';
+      }
       return '<b>No assemblies found</b>The pieces cannot fill the result with the current ranges and color rules. Review the Puzzle tab.';
     }
     if (p !== null && (p.assemblies ?? 0) > 0 && ws.options.disassemble) {
@@ -721,6 +725,10 @@ export class SolutionsCard {
         return;
       }
       const t = e.target as Element;
+      if (t.closest('[data-tryplaces]') !== null) {
+        ws.tryPlacements();
+        return;
+      }
       const nb = t.closest<HTMLButtonElement>('.nb');
       if (nb !== null && !nb.disabled) {
         ws.select(ws.sel + Number(nb.dataset.n));

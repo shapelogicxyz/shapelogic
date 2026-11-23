@@ -149,6 +149,35 @@ void pollAnalysis(State& s, app::Id id, State::Watch& w,
   w.analysing = false;
 }
 
+// The fit of the tray's placements with one problem.
+void pollFit(State& s, app::Id id, State::Watch& w, std::chrono::steady_clock::time_point now) {
+  if (!w.fitting) {
+    return;
+  }
+  const Result<app::PlacementFitProgress> f = s.document().fitPlacementsProgress(id);
+  if (!f) {
+    w.fitting = false;
+    return;
+  }
+  Json told = placementFitJson(*f);
+  told["problem"] = problemName(id);
+  // A fit that ended after this poll took in the ended work still freezes
+  // the document: its end is told at the next poll, when a client that
+  // hears of it can change the tray at once.
+  if (f->active || s.document().fittingPlacements(id)) {
+    if (f->active && now - w.fitAt >= kProgressEvery) {
+      s.out.notify("tray.fitProgress", std::move(told));
+      w.fitAt = now;
+    }
+    return;
+  }
+  if (f->failure) {
+    logLine(s, LogLevel::Error, "Placements Failed", problemTitle(s, id) + ": " + *f->failure);
+  }
+  s.out.notify("tray.fitEnded", std::move(told));
+  w.fitting = false;
+}
+
 }  // namespace
 
 void announceChange(State& s) {
@@ -216,6 +245,7 @@ void pollEvents(State& s, std::chrono::steady_clock::time_point now,
     State::Watch& w = it != s.watches.end() ? it->second : s.watches[id];
     pollSolve(s, id, i, w, now);
     pollAnalysis(s, id, w, now);
+    pollFit(s, id, w, now);
   }
   // problems that are gone
   std::erase_if(s.watches, [&d](const auto& w) { return !d.problemIndex(w.first); });

@@ -111,6 +111,24 @@ had the breaker limited to the same turns instead; that needs the
 symmetry tables cut down to a subgroup and was left out. Flipping on, the
 ordinary search runs, breaker and all.
 
+**Every placement is a list of boards, and a job that solves each** (stage
+G). The placement with the most whole cells is not always one the pieces
+fit, and in a real tray the grid may lie anywhere. `tilted::placements`
+lists every board worth trying: each cell is whole on a closed set of
+shifts, so whatever cells are whole at a shift are all whole at some point
+of the lines the best-placement search sweeps, and sweeping those lines
+finds every board that is not part of another. Boards are compared as
+shapes: the same cells moved by whole cells or turned by quarter turns are
+one board (a piece can be turned as well), and a board that is part of
+another is left out, since the pieces need only fit. Mirror images are
+kept apart, because a problem may keep its pieces face up. The job
+`tray.fitPlacements` counts one problem's assemblies on each board by the
+ordinary solve on a puzzle of its own, so the document is not changed and
+a board's count is what the Solver finds once that placement is used.
+While it runs the document is frozen as while solving, so the counts stay
+true to what the document holds; its end is a revision that changes
+nothing but that.
+
 ## Consequences
 - Lengths that are equal on paper differ by rounding, so a cell that
   reaches less than 1e-9 into a wall or past the rim is whole
@@ -125,6 +143,12 @@ ordinary search runs, breaker and all.
   1:6, five allowances) and walled trays whose counts were confirmed with
   a polygon library outside the code.
 
+- Every placement costs a few milliseconds for the trays people draw (six
+  boards for Triple Play's tray, 23 for an 8 by 8 tray with nine walls).
+  `PlacementLimits` stops the looking after about a second (a 64 by 64
+  tray at a steep slope with walls); the list then says it is not
+  complete.
+
 ## What was not done
 - With `flipPieces` off the symmetry breaker is not limited to the turns
   in the plane; it is off (see above).
@@ -133,3 +157,6 @@ ordinary search runs, breaker and all.
 - The cells' states are in `Snapshot.tray.cells`, not in `grid.geometry`
   (which draws a space of a size, not a shape of the document).
 - A tray body in the STL or Puzzlecad export.
+- A fit counts every assembly of each board; it has no "stop at the first"
+  (Stop ends it, keeping the counts so far). A board whose mirror image is
+  also listed is tried twice even when the problem turns its pieces over.

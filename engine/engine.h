@@ -133,6 +133,9 @@ struct State {
     bool analysing = false;
     std::chrono::steady_clock::time_point analyseAt{};
     unsigned int analysed = 0;
+    /// A fit of the tray's placements (tray.fitPlacements) is reported.
+    bool fitting = false;
+    std::chrono::steady_clock::time_point fitAt{};
     /// solve.preview is on: the poll sends a picture of the search with
     /// each solve.progress.
     bool preview = false;
@@ -152,8 +155,9 @@ struct State {
   /// {revision}: the result of a mutating method.
   [[nodiscard]] Json changed() const { return Json{{"revision", revision()}}; }
   /// Replaces the document; drops the handles and what the events told,
-  /// after queueing a last solve.state idle and solution.analyseEnded for
-  /// the old document's problems whose work the events were reporting.
+  /// after queueing a last solve.state idle, solution.analyseEnded and
+  /// tray.fitEnded for the old document's problems whose work the events
+  /// were reporting.
   void replaceDocument(app::Document d, std::optional<std::filesystem::path> from);
   /// Sends a frame now (before the reply) and describes it. Throws
   /// (std::runtime_error) inside a notification: no reply would refer to
@@ -183,8 +187,9 @@ void addStackingMethods(MethodTable& t);
 void addExportMethods(MethodTable& t);
 void addTrayMethods(MethodTable& t);
 
-/// Sends the events of the background work: solves, analyses, and
-/// document.changed when the document changed without a request (events.cpp).
+/// Sends the events of the background work: solves, analyses, fits of a
+/// tray's placements, and document.changed when the document changed
+/// without a request (events.cpp).
 /// What has ended is taken in first (Document::poll) and announced last, so
 /// each run's last solve.state and each analysis's analyseEnded come before
 /// the document.changed of their results (decision 0012). `between` runs

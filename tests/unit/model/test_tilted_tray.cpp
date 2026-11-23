@@ -5,9 +5,13 @@
 // trays by the placements found here, each counted again with a polygon
 // library (cell inside the open squares grown by the allowance). A
 // rectangular tray (stage E) is checked against the square tray with the
-// rows or columns beyond it walled, which must give the same board.
+// rows or columns beyond it walled, which must give the same board. The
+// boards of every placement (stage G) are checked against the boards of a
+// net of shifts, each of which must be part of a board listed.
 
 #include "shapelogic/model/tilted_tray.h"
+
+#include "shapelogic/base/stop.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -17,6 +21,7 @@
 #include <cstddef>
 #include <limits>
 #include <numbers>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -24,6 +29,7 @@ using namespace bt;
 using tilted::Cell;
 using tilted::Layout;
 using tilted::Placed;
+using tilted::Placements;
 using tilted::Point;
 using tilted::Tray;
 
@@ -122,6 +128,64 @@ std::vector<std::pair<long, long>> wholeCells(const Tray& t) {
     }
   }
   std::sort(out.begin(), out.end());
+  return out;
+}
+
+/// A board's whole cells, as they lie in its box.
+using CellSet = std::set<std::pair<int, int>>;
+
+/// The whole cells of the tray's board at a shift.
+CellSet boardCells(Tray t, double shiftX, double shiftY) {
+  t.placement = Tray::Placement::Custom;
+  t.shiftX = shiftX;
+  t.shiftY = shiftY;
+  const Layout lay = tilted::layout(t);
+  CellSet out;
+  for (unsigned int y = 0; y < lay.sizeY; y++) {
+    for (unsigned int x = 0; x < lay.sizeX; x++) {
+      if (lay.at(x, y) == Cell::Whole) {
+        out.emplace(static_cast<int>(x), static_cast<int>(y));
+      }
+    }
+  }
+  return out;
+}
+
+/// True when `part`, turned by quarter turns and moved by whole cells, lies
+/// on cells of `all`: tried for every turn and every move that puts its
+/// first cell on a cell of `all`.
+bool isPartOf(const CellSet& part, const CellSet& all) {
+  if (part.empty()) {
+    return true;
+  }
+  CellSet turned = part;
+  for (int turn = 0; turn < 4; turn++) {
+    const std::pair<int, int> first = *turned.begin();
+    for (const std::pair<int, int>& to : all) {
+      const int dx = to.first - first.first;
+      const int dy = to.second - first.second;
+      const bool inside = std::all_of(turned.begin(), turned.end(), [&](const auto& c) {
+        return all.contains({c.first + dx, c.second + dy});
+      });
+      if (inside) {
+        return true;
+      }
+    }
+    CellSet next;
+    for (const std::pair<int, int>& c : turned) {
+      next.emplace(-c.second, c.first);
+    }
+    turned = std::move(next);
+  }
+  return false;
+}
+
+/// The boards placements() lists, as cells.
+std::vector<CellSet> listed(const Tray& t, const Placements& p) {
+  std::vector<CellSet> out;
+  for (const Placed& b : p.boards) {
+    out.push_back(boardCells(t, b.shiftX, b.shiftY));
+  }
   return out;
 }
 
@@ -718,4 +782,186 @@ TEST_CASE("tilted tray: a new size keeps the walls inside", "[model][tilted]") {
   CHECK(narrow.over == 2);
   CHECK(narrow.down == 1);
   CHECK(narrow.allowance == 0.05);
+}
+
+// ---- every placement (stage G) ----------------------------------------------------
+
+TEST_CASE("tilted tray: the placements hold the best one first", "[model][tilted]") {
+  for (const Tray& open : {trayOf(8, 2, 1), trayOf(8, 2, 1, 0.025), trayOf(8, 1, 1), trayOf(8, 3, 1),
+                           rectOf(6, 8, 2, 1), walled(trayOf(8, 3, 1), kCorners)}) {
+    const Tray t = atBest(open);
+    const Placed best = tilted::bestShift(t);
+    const Placements p = tilted::placements(t);
+    INFO(t.width << " by " << t.height << ", " << t.down << " down " << t.over << " over");
+    CHECK(p.complete);
+    REQUIRE_FALSE(p.boards.empty());
+    CHECK(p.boards[0].shiftX == best.shiftX);
+    CHECK(p.boards[0].shiftY == best.shiftY);
+    CHECK(p.boards[0].whole == best.whole);
+    // the tray lies at its best placement: that is the board in use
+    CHECK(p.inUse == std::size_t{0});
+    // the most cells first
+    CHECK(std::is_sorted(p.boards.begin(), p.boards.end(),
+                         [](const Placed& a, const Placed& b) { return a.whole > b.whole; }));
+  }
+  // the research page's counts: 45 strictly, 52 with an allowance of 0.025
+  CHECK(tilted::placements(trayOf(8, 2, 1)).boards[0].whole == 45);
+  CHECK(tilted::placements(trayOf(8, 2, 1, 0.025)).boards[0].whole == 52);
+}
+
+TEST_CASE("tilted tray: each placement listed is a board of its own", "[model][tilted]") {
+  Tray triple = walled(trayOf(6, 3, 1, 0.05), {5, 30});
+  Tray other = walled(trayOf(6, 3, 1, 0.05), {0, 35});
+  for (const Tray& t : {trayOf(8, 2, 1), trayOf(8, 2, 1, 0.025), walled(trayOf(8, 3, 1, 0.05), kCorners),
+                        triple, other, walled(trayOf(8, 2, 1, 0.05), kScattered)}) {
+    const Placements p = tilted::placements(t);
+    const std::vector<CellSet> boards = listed(t, p);
+    INFO(t.width << " by " << t.height << ", " << t.down << " down " << t.over << " over, "
+                 << boards.size() << " boards");
+    CHECK(p.complete);
+    for (std::size_t a = 0; a < boards.size(); a++) {
+      INFO("board " << a);
+      // the shift gives the count said, and is in its canonical form
+      CHECK(boards[a].size() == p.boards[a].whole);
+      const Point canon = tilted::canonicalShift(t, {p.boards[a].shiftX, p.boards[a].shiftY});
+      CHECK(std::abs(canon.x - p.boards[a].shiftX) < 1e-9);
+      CHECK(std::abs(canon.y - p.boards[a].shiftY) < 1e-9);
+      // no board is part of another, turned or not (equal ones are once)
+      for (std::size_t b = 0; b < boards.size(); b++) {
+        if (a != b) {
+          INFO("against board " << b);
+          CHECK_FALSE(isPartOf(boards[a], boards[b]));
+        }
+      }
+    }
+    // asked again, the same answer
+    const Placements again = tilted::placements(t);
+    REQUIRE(again.boards.size() == p.boards.size());
+    for (std::size_t a = 0; a < p.boards.size(); a++) {
+      CHECK(again.boards[a].shiftX == p.boards[a].shiftX);
+      CHECK(again.boards[a].shiftY == p.boards[a].shiftY);
+      CHECK(again.boards[a].whole == p.boards[a].whole);
+    }
+  }
+  // Triple Play's tray, and the same with its walls on the other diagonal:
+  // five boards of 24 cells and one of 23 that is part of none of them
+  CHECK(tilted::placements(triple).boards.size() == 6);
+  CHECK(tilted::placements(other).boards.size() == 6);
+}
+
+TEST_CASE("tilted tray: the board of every shift is part of a placement listed",
+          "[model][tilted][slow]") {
+  // a net of shifts over more than one grid step each way: whatever board a
+  // shift gives, a board listed holds it (moved by whole cells, or turned)
+  const auto covered = [](const Tray& t, int n) {
+    const Placements p = tilted::placements(t);
+    REQUIRE(p.complete);
+    const std::vector<CellSet> boards = listed(t, p);
+    std::set<CellSet> seen;
+    unsigned int missed = 0;
+    for (int a = 0; a < n; a++) {
+      for (int b = 0; b < n; b++) {
+        CellSet at = boardCells(t, -0.75 + (1.5 * a / n), -0.75 + (1.5 * b / n));
+        if (!seen.insert(at).second) {
+          continue;
+        }
+        const bool held = std::any_of(boards.begin(), boards.end(),
+                                      [&](const CellSet& all) { return isPartOf(at, all); });
+        missed += held ? 0 : 1;
+      }
+    }
+    INFO(t.width << " by " << t.height << ", " << t.down << " down " << t.over << " over, allowance "
+                 << t.allowance << ": " << seen.size() << " boards on the net, " << boards.size()
+                 << " listed");
+    CHECK(missed == 0);
+    // the net finds boards that are not the best one's parts: the list is
+    // needed (but for a straight tray, which has the one board)
+    return seen.size();
+  };
+  CHECK(covered(trayOf(8, 2, 1), 60) > 1);
+  CHECK(covered(trayOf(8, 2, 1, 0.025), 60) > 1);
+  CHECK(covered(trayOf(7, 1, 1), 60) > 1);
+  CHECK(covered(rectOf(6, 8, 3, 2, 0.05), 60) > 1);
+  CHECK(covered(walled(trayOf(8, 3, 1), kCorners), 60) > 1);
+  CHECK(covered(walled(trayOf(8, 3, 1, 0.05), kCorners), 60) > 1);
+  CHECK(covered(walled(trayOf(6, 3, 1, 0.05), {5, 30}), 80) > 1);
+  CHECK(covered(walled(trayOf(6, 3, 1, 0.05), {0, 35}), 80) > 1);
+  CHECK(covered(walled(trayOf(8, 2, 1, 0.05), kScattered), 60) > 1);
+  CHECK(covered(walled(trayOf(8, 5, 2), kScattered), 60) > 1);
+}
+
+TEST_CASE("tilted tray: a straight tray has one placement", "[model][tilted]") {
+  const Placements open = tilted::placements(trayOf(5, 1, 0));
+  REQUIRE(open.boards.size() == 1);
+  CHECK(open.boards[0].whole == 25);
+  CHECK(open.complete);
+  const Placements corners = tilted::placements(walled(trayOf(8, 1, 0), kCorners));
+  REQUIRE(corners.boards.size() == 1);
+  CHECK(corners.boards[0].whole == 60);
+  // with an allowance too: the cells lie on the squares
+  const Placements loose = tilted::placements(walled(trayOf(8, 1, 0, 0.05), kCorners));
+  REQUIRE(loose.boards.size() == 1);
+  CHECK(loose.boards[0].whole == 60);
+}
+
+TEST_CASE("tilted tray: the placement in use", "[model][tilted]") {
+  Tray t = atBest(trayOf(8, 2, 1));
+  const Placements p = tilted::placements(t);
+  REQUIRE(p.boards.size() >= 2);
+  // each board's own shift is that board
+  for (std::size_t k = 0; k < p.boards.size(); k++) {
+    Tray at = t;
+    at.placement = Tray::Placement::Custom;
+    at.shiftX = p.boards[k].shiftX;
+    at.shiftY = p.boards[k].shiftY;
+    CHECK(tilted::placements(at).inUse == k);
+    // and moved by grid steps it still is
+    const double h = std::hypot(2.0, 1.0);
+    at.shiftX += (3.0 * 2.0 / h) - (-2.0 * 1.0 / h);
+    at.shiftY += (3.0 * 1.0 / h) + (-2.0 * 2.0 / h);
+    CHECK(tilted::placements(at).inUse == k);
+  }
+  // a shift whose board has fewer cells than any listed is none of them
+  Tray poor = t;
+  poor.placement = Tray::Placement::Custom;
+  bool found = false;
+  for (int a = 0; a < 20 && !found; a++) {
+    for (int b = 0; b < 20 && !found; b++) {
+      poor.shiftX = 0.05 * a;
+      poor.shiftY = 0.05 * b;
+      found = tilted::layout(poor).whole < p.boards.back().whole;
+    }
+  }
+  REQUIRE(found);
+  CHECK_FALSE(tilted::placements(poor).inUse.has_value());
+}
+
+TEST_CASE("tilted tray: placements stopped or past their limit say so", "[model][tilted]") {
+  const Tray t = walled(trayOf(8, 2, 1, 0.05), kScattered);
+  const Placements all = tilted::placements(t);
+  REQUIRE(all.complete);
+  REQUIRE(all.boards.size() > 1);
+  // stopped before it began: the best placement alone, and not complete
+  StopSource stop;
+  stop.request(StopKind::Abort);
+  const Placements cut = tilted::placements(t, stop.token());
+  CHECK_FALSE(cut.complete);
+  REQUIRE(cut.boards.size() == 1);
+  CHECK(cut.boards[0].whole == all.boards[0].whole);
+  CHECK(cut.boards[0].shiftX == all.boards[0].shiftX);
+
+  // past a limit: what was found so far, the best placement first
+  tilted::PlacementLimits little;
+  little.maxWork = 2000;
+  const Placements some = tilted::placements(t, {}, little);
+  CHECK_FALSE(some.complete);
+  REQUIRE_FALSE(some.boards.empty());
+  CHECK(some.boards.size() < all.boards.size());
+  CHECK(some.boards[0].shiftX == all.boards[0].shiftX);
+  tilted::PlacementLimits few;
+  few.maxBoards = 3;
+  const Placements three = tilted::placements(t, {}, few);
+  CHECK_FALSE(three.complete);
+  CHECK(three.boards.size() <= 3);
+  CHECK(three.boards[0].shiftX == all.boards[0].shiftX);
 }
