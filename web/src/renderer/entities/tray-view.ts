@@ -12,7 +12,8 @@
 import type { Tray } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId } from '../shell/dom.ts';
-import { squareOf, trayFacts, trayPicture } from '../state/tilted.ts';
+import { flash } from '../shell/status.ts';
+import { squareOf, trayFacts, trayPicture, unfitIds, unfitNote } from '../state/tilted.ts';
 import type { TrayView } from '../state/tilted.ts';
 
 /** What the view asks of the workspace. */
@@ -130,7 +131,8 @@ export class TrayViewCard {
     if (d === null || d.squares.size === 0) {
       return;
     }
-    await this.host.mutate(d.wall ? 'Walls' : 'Open squares', () =>
+    const unfit = unfitIds(this.host.store.snapshot?.shapes ?? []);
+    const done = await this.host.mutate(d.wall ? 'Walls' : 'Open squares', () =>
       this.host.store.engine.call('tray.setWalls', {
         squares: [...d.squares.values()],
         wall: d.wall,
@@ -138,6 +140,10 @@ export class TrayViewCard {
     );
     this.drawnFor = '';
     this.draw();
+    const note = done === null ? null : unfitNote(unfit, this.host.store.snapshot?.shapes ?? []);
+    if (note !== null) {
+      flash(note, 6000);
+    }
   }
 
   private install(): void {

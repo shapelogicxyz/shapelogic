@@ -115,6 +115,11 @@ void usage(HelpKind kind) {
         "  --solver TYPE   (default: Complete (ShapeLogic))\n"
         "            \"Complete (ShapeLogic)\"  complete take-apart (also: classic)\n"
         "            \"Fast (Crowell)\"         90° take-apart heuristics (also: crowell)\n"
+        "  --flip on|off\n"
+        "          a Tilted Square puzzle (a brick puzzle with a tray): on, the pieces\n"
+        "          may be turned over; off, each keeps one face up and only turns in\n"
+        "          the tray. Without it, each problem's own setting (the GUI's Pieces\n"
+        "          may be turned over; on when the file has none)\n"
         "\n  Switches for benchmarks and comparisons (the answers stay the same):\n"
         "  --no-simd            the plain search and scalar loops only\n"
         "  --no-row-check       check each assembly against its rotations as built, not\n"
@@ -382,6 +387,17 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.slideStopsApart = true;
     } else if (a == "--slide-plain-keys") {
       o.slidePlainKeys = true;
+    } else if (a == "--flip") {
+      const std::string_view how = hasValue ? std::string_view(argv[i + 1]) : std::string_view();
+      if (how == "on") {
+        o.flip = true;
+      } else if (how == "off") {
+        o.flip = false;
+      } else {
+        std::fprintf(stderr, "shapelogic_cli: %s requires on or off\n", argv[i]);
+        return kExitUsage;
+      }
+      i++;
     } else if (a == "--slide-packing") {
       const std::string_view how = hasValue ? std::string_view(argv[i + 1]) : std::string_view();
       if (how == "auto") {

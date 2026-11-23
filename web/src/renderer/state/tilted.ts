@@ -32,6 +32,28 @@ export const ALLOWANCE_MAX = 0.25;
 /** The largest tray side and slope number. */
 export const TRAY_MAX = 64;
 
+/** The ids of a tilted puzzle's pieces that do not fit its board (ShapeSummary.fits). */
+export function unfitIds(shapes: readonly Pick<ShapeSummary, 'id' | 'fits'>[]): Set<string> {
+  return new Set(shapes.filter((s) => !s.fits).map((s) => s.id));
+}
+
+/**
+ * What a tray change says of the pieces it left off the board's whole
+ * cells (those that fitted before it): null when there are none.
+ */
+export function unfitNote(
+  before: ReadonlySet<string>,
+  shapes: readonly Pick<ShapeSummary, 'id' | 'label' | 'fits'>[],
+): string | null {
+  const now = shapes.filter((s) => !s.fits && !before.has(s.id)).map((s) => s.label);
+  if (now.length === 0) {
+    return null;
+  }
+  const names =
+    now.length === 1 ? (now[0] ?? '') : `${now.slice(0, -1).join(', ')} and ${now.at(-1) ?? ''}`;
+  return `${names} no longer ${now.length === 1 ? 'fits' : 'fit'} the board: no place has every cell on a whole cell`;
+}
+
 /** A tray's size in words, its width first: "8 by 6". */
 export function sizeText(width: number, height: number): string {
   return `${String(width)} by ${String(height)}`;

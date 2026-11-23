@@ -112,7 +112,28 @@ with **File ▸ New ▸ Tilted Square**.
   square off). Gates: `just test-all`, `just test-asan`, `just check` on
   the changed sources, `just app-check`, `just app-test` and the tilted e2e
   spec (three times) passed; `just oracle-roundtrip` as under Stage A.
-- [ ] Stage F: fixture, guide and finish
+- [x] Stage F: fixture, guide and finish (2026-11-23). Fixtures in
+  `tests/data/puzzles/tilted/` made by its `make_fixtures.py` (which also
+  writes the demo's example and the guide's download): Triple Play, with a
+  second problem "One face up" (`flipPieces` off, the one mix of drawn and
+  mirrored pieces that goes: 2 assemblies), and an 8 by 8 tray at 1 down 2
+  over that five pieces of nine fill (2 assemblies). Triple Play turned
+  over has 1 assembly, not the 2 item 1 below says (the two ways are one
+  another turned half round, as stage B found). Checks in
+  `test_puzzle_file.cpp`, `test_document_tilted.cpp`, `test_cli.py`, the
+  engine test `web/tests/engine/tilted.test.ts` and a second test in
+  `tilted.e2e.ts` (Triple Play opened and solved). The guide's page
+  `puzzle-types/tilted-square.md` with screenshots, the demo's Tilted
+  Square example (demo rebuilt), `docs/ARCHITECTURE.md`,
+  `docs/webui-spec.md` section 13, `docs/handoff/tilted-square.md`,
+  `RELEASE_NOTES.md`. Gates: `just gate build unit app site` passed (with
+  `just site-demo --check`), `just check` on the changed C++ tests, the
+  tilted e2e spec three times. Then three fixes (the handoff's "Fixed"):
+  the CLI follows each problem's stored `flipPieces` and takes `--flip
+  on|off` (`bt::trayPlaneTurns`, `bt::storedFlipPieces`, shared with
+  `SolveSession`); a piece that fits nowhere is marked "Doesn't fit" and a
+  tray change that leaves one says so; the disassembly player offers no
+  analysis on a tilted or Spheres puzzle.
 - [ ] Stage G: every placement
 
 ## Who builds each stage
@@ -124,7 +145,7 @@ with **File ▸ New ▸ Tilted Square**.
 | C | The mode in the front end | Medium: much work, most of it on patterns the code has | Opus 5.5 High | Done (dc30490) |
 | D | The tilted drawing (a piece's 2D grid turned, the tray and its walls in 3D, the Puzzle pieces) | Medium to high: two grids drawn over each other, hit testing under the turn | Opus 5.5 High | Done |
 | E | Rectangular trays | Medium: the exact search and the file format again, with the walled square as the oracle | Fable 5.2 High | Done |
-| F | Fixture, guide and finish | Low to medium: tests, the Triple Play fixture, the guide page, docs | Opus 5.5 High | Not started |
+| F | Fixture, guide and finish | Low to medium: tests, the Triple Play fixture, the guide page, docs | Opus 5.5 High | Done |
 | G | Every placement | High: every board the sliding grid can make, exactly, and a job that solves each | Fable 5.2 High | Not started |
 
 The rule behind the choice: Fable for the stages where a wrong answer is

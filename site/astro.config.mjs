@@ -94,6 +94,7 @@ export default defineConfig({
             { label: 'Brick', slug: 'docs/puzzle-types/brick' },
             { label: 'Sliding', slug: 'docs/puzzle-types/sliding' },
             { label: 'Stacking', slug: 'docs/puzzle-types/stacking' },
+            { label: 'Tilted Square', slug: 'docs/puzzle-types/tilted-square' },
             { label: 'Triangular Prism', slug: 'docs/puzzle-types/triangular-prism' },
             { label: 'Spheres', slug: 'docs/puzzle-types/spheres' },
             { label: 'Rhombic', slug: 'docs/puzzle-types/rhombic' },

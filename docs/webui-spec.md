@@ -1026,3 +1026,70 @@ the grids a puzzle converts to are `engine.info`'s `convertsTo`.
 | File ▸ Import, File ▸ Export ▸ Puzzlecad, Edit ▸ Convert | `mainwindow_file.cpp` (`cb_Load_Ps3d`, `cb_Load_Scad`, `cb_Export_Scad`, `cb_Convert`), `convertwindow.cpp` (section 11) |
 | Rod sets, discs, stacks, the validity bar | `mainwindow_rods.cpp`, `BlockList.cpp` (`DiskSelector`, `RodSelector`, `RodStackList`), `rodbars.h` |
 | The stacking view, the player in transfers | `voxelframe.cpp` (`showRodSet`, `showStacking`, `showStackingAssembly`), `mainwindow_solve.cpp` (`animStep`) |
+
+## 13. Tilted Square puzzles (decision 0045)
+
+Not in the mockup or the original: a mode of ShapeLogic's own, built in the
+stages of docs/TILTED-SQUARE-PLAN.md. A Tilted Square puzzle is a Brick
+puzzle with a tray (`Snapshot.tray`, `state/tilted.ts`'s `isTilted`): a
+`width` by `height` tray of straight unit squares, each open or a wall,
+whose grid is turned by arctan(down/over). The turned cells wholly inside
+the tray and clear of the walls (less the allowance) are the **board**,
+shape 0, its cells variable: the pieces must fit it, not fill it. Every
+shape has the board's size, one layer.
+
+### 13.1 New
+File ▸ New lists **Tilted Square** after Stacking, as plainly as the grids:
+a description and, as the example, the tray a new puzzle starts with (8 by
+8, 1 down 2 over, strict: 45 whole cells), drawn from `tray.preview`. OK
+makes it with one problem whose result is the board. The type chip reads
+"Type: Tilted Square".
+
+### 13.2 Entities workspace
+- **Left card.** The board leads in a **Board** section of one row (label
+  `B`; renamed and colored, never copied, deleted or moved; Del says
+  why). **+ New Piece** makes a shape of the board's size. A piece with
+  no place where all its cells are whole (`ShapeSummary.fits` false) has a
+  red **Doesn't fit** tag in its row, and the tray change or wall that
+  left it so names it in the status bar ("S1 no longer fits the board: no
+  place has every cell on a whole cell").
+- **Tilt & tolerance** (`#secTilt`), with the board selected, in place of
+  Transform, Fit & scale and Repair & surface: **Width** and **Height**
+  steppers with **Keep square** (on at first; off for a rectangle; turned
+  on, the height takes the width), **Down** and **Over** steppers, a line
+  "6 by 6 · 1 down, 3 over · turned 18.43°", **Allowance** (a switch;
+  on, **Amount** in cell widths, 0.05 at first, at most 0.25), **Placement**
+  (**Most whole cells** or **Custom**, with the shift along x and y). Each
+  change is one `tray.set`, one undo step; the engine makes the board again
+  and moves each piece by whole cells to the nearest place where it is
+  whole. Below it, the **Tilted Square Tutorial** header opens the research
+  page (`openHelp('tilted')`).
+- **Right card, the board.** The voxel editor's controls are hidden
+  (`#stage.tltb`). **Focus Tray** and **Focus Cells** switch the board's
+  picture: both draw the turned cells under the tray's straight squares;
+  Focus Tray brings the squares out, Focus Cells the cells (whole in a blue
+  and green checker, cut in gray). Above it: "Tray: 6 by 6", "Whole
+  cells: 24", "Tilt angle: 18.43°", "Walls: 2" and how to draw walls. A
+  click or a drag over squares makes walls (a drag from a wall opens
+  squares): one `tray.setWalls`, one undo step.
+- **Right card, a piece.** The grid editor turned so the tray stands
+  straight, clipped to it, with its outline and walls; the cells the tray
+  cuts gray and inert. No size steppers and no layers (`#stage.tlt`).
+- **3D view.** The model turned by the tray's angle about Z, the tray's
+  outline and walls as blocks one layer high, the board as its whole
+  cells in the Cells view's checker; home is straight down.
+
+### 13.3 Puzzle workspace
+The result is the board, with no Change…; the pieces are turned as in the
+tray.
+
+### 13.4 Solver workspace
+**Assemble Only**; **Assemble and Disassemble** is grayed ("A tilted
+tray's pieces lie flat and lift straight out"). **Pieces may be turned
+over** in Search Options, on at first, stored with the problem
+(`flipPieces`); off, each piece keeps to the four turns in the tray's
+plane and the search has no symmetry breaker. The tray's walls stand
+around the solution's pieces in the 3D view. The disassembly player says
+"A tilted tray's pieces lie flat and lift straight out: there is nothing
+to take apart." and offers no **Analyse disassembly** (nor on Spheres,
+whose grid has no disassembler).

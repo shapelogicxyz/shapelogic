@@ -326,13 +326,58 @@ def test_new_grids() -> None:
                   (int(assemblies), int(solutions)) and j.get("level", 0) >= 1, r.stdout + r.stderr)
 
 
+def test_tilted() -> None:
+    """The Tilted Square fixtures (decision 0045): Brick files with a tray.
+    Each problem, solved as its stored setting says (the pieces turned over
+    or one face up), finds the assemblies the file holds; --flip goes over
+    the stored setting; --save solves as the GUI does."""
+    import gzip
+    import re
+    files = sorted((PUZZLES / "tilted").glob("*.xmpuzzle"))
+    check("tilted", len(files) == 2, str(files))
+
+    def problems(xml: str) -> list[tuple[str, str]]:
+        return re.findall(r'<problem name="[^"]*"[^>]* state="2" assemblies="(\d+)"(.*?)</problem>', xml, re.S)
+
+    def assemblies(*args: str | Path) -> int | None:
+        r = run("--json", *args)
+        return json.loads(r.stdout).get("assemblies") if r.returncode == 0 else None
+
+    for f in files:
+        saved = problems(gzip.decompress(f.read_bytes()).decode())
+        check(f"{f.name} solved", len(saved) >= 1, str(len(saved)))
+        for i, (count, _) in enumerate(saved):
+            check(f"{f.name} problem {i}", assemblies("-o", str(i), f) == int(count))
+
+    # Triple Play: problem 1 keeps its pieces one face up (2 assemblies, no
+    # symmetry breaker); turned over they go in one way. Problem 0's pieces
+    # as drawn do not go one face up.
+    tp = PUZZLES / "tilted" / "TriplePlay.xmpuzzle"
+    check("--flip on over the stored off", assemblies("-o", "1", "--flip", "on", tp) == 1)
+    check("--flip off over the stored on", assemblies("-o", "0", "--flip", "off", tp) == 0)
+    r = run("--flip", "on", CUBE)
+    check("--flip on a puzzle without a tray", r.returncode == 2 and "--flip is for Tilted Square" in r.stderr,
+          r.stderr)
+    r = run("--flip", "maybe", tp)
+    check("--flip needs on or off", r.returncode == 2 and "requires on or off" in r.stderr, r.stderr)
+    # --save: the GUI's solve, each problem as its setting says
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "tp.xmpuzzle"
+        r = run("--save", out, "--restart", "-q", "-o", "all", tp)
+        check("--save of Triple Play", r.returncode == 0, r.stdout + r.stderr)
+        data = out.read_bytes()
+        xml = gzip.decompress(data).decode() if data[:2] == b"\x1f\x8b" else data.decode()
+        check("--save keeps each problem's setting", [c for c, _ in problems(xml)] == ["1", "2"],
+              str(problems(xml)))
+
+
 def main() -> int:
     global BT
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--bt", type=Path, required=True)
     BT = p.parse_args().bt
     for test in (test_help_and_mistakes, test_stacking, test_sliding, test_no_result, test_solving,
-                 test_save_ask_and_retake, test_new_grids):
+                 test_save_ask_and_retake, test_new_grids, test_tilted):
         test()
     print(f"{'all passed' if not failures else f'{len(failures)} failed'}")
     return 1 if failures else 0

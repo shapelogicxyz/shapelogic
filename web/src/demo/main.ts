@@ -8,8 +8,8 @@
 // type is on the site (site/public/examples/demo/<type>.xmpuzzle: a solved
 // first problem and only its shapes); the top bar's list chooses one, and
 // it is opened as a dropped file would be, its problem set to take apart
-// where the grid can (Spheres only assembles; Sliding and Stacking search
-// for their own paths). The page's URL keeps the choice and the theme
+// where the grid can (Spheres and Tilted Square only assemble; Sliding and
+// Stacking search for their own paths). The page's URL keeps the choice and the theme
 // (`?type=sliding&theme=dark`), so Reset (a reload) starts that example
 // again. Nothing else is kept.
 //
@@ -24,11 +24,12 @@
 // file's first; another problem's Solve is refused with the other
 // searches (engine-bridge.ts).
 
-import type { Grid, SolveProgress, SolveState } from '../engine/api.generated.ts';
+import type { SolveProgress, SolveState } from '../engine/api.generated.ts';
 import { EngineClient } from '../engine/client.ts';
 import { fromBase64 } from '../engine/recorder.ts';
 import { startApp } from '../renderer/shell/app.ts';
-import { gridInfo } from '../renderer/shell/new-grids.ts';
+import { kindName } from '../renderer/shell/new-grids.ts';
+import type { NewKind } from '../renderer/shell/new-grids.ts';
 import { onPrefs, prefs, setPrefs } from '../renderer/shell/prefs.ts';
 import type { Store } from '../renderer/state/store.ts';
 import { demoApp } from './demo-app.ts';
@@ -37,10 +38,13 @@ import type { RunEvents } from './engine-bridge.ts';
 import createEngine from './engine/shapelogic_engine.js';
 import { WasmTransport } from './wasm-transport.ts';
 
-/** One puzzle type's example: its key in the URL and the file's name, its grid, the name it is opened under. */
+/**
+ * One puzzle type's example: its key in the URL and the file's name, its
+ * kind in File ▸ New (a grid, or Tilted Square), the name it is opened under.
+ */
 interface Example {
   key: string;
-  grid: Grid;
+  grid: NewKind;
   name: string;
 }
 
@@ -52,6 +56,8 @@ const EXAMPLES: readonly Example[] = [
   DEFAULT_EXAMPLE,
   { key: 'sliding', grid: 'sliding', name: 'Abe 1 to 6 Heart.xmpuzzle' },
   { key: 'stacking', grid: 'stacking', name: 'Panex Swap 3.xmpuzzle' },
+  // tests/data/puzzles/tilted/TriplePlay.xmpuzzle's first problem and its shapes
+  { key: 'tilted', grid: 'tilted', name: 'Triple Play.xmpuzzle' },
   { key: 'prism', grid: 'prisms', name: 'Prisgon.xmpuzzle' },
   { key: 'spheres', grid: 'spheres', name: 'BallRoom.xmpuzzle' },
   { key: 'rhombic', grid: 'rhombic', name: 'DiagonalCube.xmpuzzle' },
@@ -69,17 +75,18 @@ const TICK_MS = 100;
 
 /**
  * What a run of the grid's solver does: assemble and take apart (the
- * brick family on a grid with a take-apart), only assemble (Spheres),
- * the sliding search, the stacking search.
+ * brick family on a grid with a take-apart), only assemble (Spheres, and
+ * a Tilted Square tray, whose pieces lie flat), the sliding search, the
+ * stacking search.
  */
 type RunKind = 'apart' | 'assemble' | 'sliding' | 'stacking';
 
-function runKind(grid: Grid): RunKind {
+function runKind(grid: NewKind): RunKind {
   return grid === 'sliding'
     ? 'sliding'
     : grid === 'stacking'
       ? 'stacking'
-      : grid === 'spheres'
+      : grid === 'spheres' || grid === 'tilted'
         ? 'assemble'
         : 'apart';
 }
@@ -200,7 +207,7 @@ function topBar(current: Example): Bar | null {
   for (const e of EXAMPLES) {
     const o = document.createElement('option');
     o.value = e.key;
-    o.textContent = gridInfo[e.grid].name;
+    o.textContent = kindName(e.grid);
     type.append(o);
   }
   type.value = current.key;
@@ -538,7 +545,7 @@ class Demo {
     }
     // the Solver shows Assemble and Disassemble where the grid takes apart,
     // Find Solutions for a sliding or stacking search, Assemble alone on
-    // Spheres (the file does not say)
+    // Spheres and a tilted tray (the file does not say)
     const settings = (await this.store.engine.call('problem.get', { problem })).solverSettings;
     const set = await this.store.engine.call('problem.setSolverSettings', {
       problem,

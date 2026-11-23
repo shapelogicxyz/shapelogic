@@ -144,6 +144,18 @@ struct SolveOptions {
   std::shared_ptr<MemoryShare> memoryShare;
 };
 
+/// A Tilted Square puzzle's pieces kept face up (SolveOptions::flipPieces
+/// off, decision 0045): for each part of `problem`, the transformations
+/// that only turn it in the tray's plane, the quarter turns about the
+/// layers' axis (MatrixOptions::partTransforms).
+[[nodiscard]] std::vector<std::uint64_t> trayPlaneTurns(const Puzzle& puzzle,
+                                                        const Problem& problem);
+
+/// Whether a problem's stored solver settings let a tilted tray's pieces be
+/// turned over: the Solver's Pieces may be turned over (`flipPieces`), true
+/// when it is not stored. The CLI's default, as the Solver's.
+[[nodiscard]] bool storedFlipPieces(const Problem& problem);
+
 /// What start(), prepare() and resume() are refused with (IoError) while
 /// another solve of the same problem works in its search folders: a copy
 /// of the problem in this program, or the problem in another one

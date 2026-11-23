@@ -4,15 +4,17 @@
 // docs/TILTED-SQUARE-PLAN.md): made with File ▸ New, its board in the
 // Board section, the Tilt & tolerance section, walls drawn in the board's
 // views, a piece on the board's grid, and the Solver's options. A tray of
-// another width than height (stage E) is set with Keep square off.
+// another width than height (stage E) is set with Keep square off. The
+// Triple Play fixture (stage F) is opened and solved, with its pieces turned
+// over and one face up; a piece a wall leaves without a place is marked.
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import type { Snapshot } from '../../src/engine/api.generated.ts';
-import { BUILT, ENGINE, engineCall, launch, menu, SHAPE_ROWS } from './app.ts';
+import { BUILT, ENGINE, engineCall, launch, menu, openFixture, SHAPE_ROWS } from './app.ts';
 import { settled } from './editor.ts';
-import { toSolver } from './solver.ts';
+import { confirm, runButton, runEnded, solverSettled, toSolver } from './solver.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
 
@@ -267,6 +269,102 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     await page.click('#slvOptHead');
     await expect(page.locator('#slvOpts [data-o="flipPieces"]')).toBeVisible();
     await expect(page.locator('#slvOpts [data-o="keepAssemblies"]')).toHaveCount(0);
+  } finally {
+    await a.close();
+  }
+});
+
+test('Triple Play opened and solved: turned over, and one face up', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    // tests/data/puzzles/tilted: a 6 by 6 tray, two corner walls, 1 down 3 over, allowance 0.05
+    await openFixture(page, 'tilted/TriplePlay.xmpuzzle');
+    await expect(page.locator('#vtChip')).toHaveText('Type: Tilted Square');
+    const snap = await docOf(page);
+    expect(snap.tray?.whole).toBe(24);
+    expect(snap.tray?.walls).toEqual([
+      [5, 0],
+      [0, 5],
+    ]);
+    expect(snap.shapes.map((s) => s.label)).toEqual(['B', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6']);
+    await page.click('#boardList .row');
+    await settled(page);
+    await expect(page.locator('#boardViews .tread')).toHaveText('Whole cells: 24');
+    await expect(page.locator('#tiltBody [data-tallow]')).toHaveAttribute('aria-checked', 'true');
+
+    // each problem as its file holds it, then solved again from nothing
+    await toSolver(page);
+    const [first, second] = snap.problems.map((p) => p.id);
+    for (const [problem, flip, found] of [
+      [first, true, 1],
+      [second, false, 2],
+    ] as const) {
+      await page.click(`#slvProbs .row[data-id="${problem ?? ''}"]`);
+      await solverSettled(page);
+      await expect(page.locator('#leftS')).toHaveAttribute('data-problem', problem ?? '');
+      await expect(page.locator('#slvAsm')).toHaveText(String(found));
+      // the stored setting: the pieces turned over, or one face up
+      await page.click('#slvOptHead');
+      const sw = page.locator('#slvOpts [data-o="flipPieces"]');
+      await expect(sw).toHaveAttribute('aria-checked', String(flip));
+      await page.click('#slvOptHead');
+      await runButton(page, 'reset');
+      await confirm(page, /^Reset the problem\?$/, true);
+      await solverSettled(page);
+      await runButton(page, 'start');
+      await runEnded(page, 'finished');
+      await expect(page.locator('#slvAsm')).toHaveText(String(found));
+      await expect(page.locator(`#slvProbs .row[data-id="${problem ?? ''}"] .st`)).toHaveText(
+        found === 1 ? '1 assembly' : `${String(found)} assemblies`,
+      );
+    }
+    // the player: nothing to take apart, no analysis offered
+    await page.click('#slvList .lrow[data-i="0"]');
+    await expect(page.locator('#splayer')).toContainText('there is nothing to take apart');
+    await expect(page.locator('#splayer [data-a="analyse"]')).toHaveCount(0);
+  } finally {
+    await a.close();
+  }
+});
+
+test('a piece a tray change leaves without a place is marked, and the change says so', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    await menu(page, 'new');
+    await page.click('#newPuzzle [data-grid="tilted"]');
+    const gen = await page.getAttribute('#stage', 'data-generation');
+    await page.click('#newPuzzle [data-x="ok"]');
+    await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', gen ?? '');
+    await settled(page);
+    // a piece of the board's first twelve whole cells (8 by 8, 1 down 2 over)
+    const tray = (await docOf(page)).tray;
+    const [bx = 0] = tray?.box ?? [];
+    const whole = (tray?.cells ?? '')
+      .split('')
+      .map((c, k) => (c === 'w' ? [k % bx, Math.floor(k / bx), 0] : null))
+      .filter((c) => c !== null)
+      .slice(0, 12);
+    const { shape } = await engineCall<{ shape: string }>(page, 'shape.create');
+    await engineCall(page, 'shape.setCells', { shape, tool: 'fixed', cells: whole });
+    await settled(page);
+    await expect(page.locator('#shapeList .row .tnofit')).toHaveCount(0);
+    // a wall at square (2, 2): no place has all twelve cells whole
+    await page.click('#boardList .row');
+    await settled(page);
+    await page.click('#boardViews [data-bv="tray"]');
+    await page.locator('#trayArea svg [data-sq="2,2"]').click();
+    await settled(page);
+    expect((await docOf(page)).shapes[1]?.fits).toBe(false);
+    await expect(page.locator('#stText')).toContainText('S1 no longer fits the board');
+    await expect(page.locator(`#shapeList .row[data-id="${shape}"] .tnofit`)).toHaveText(
+      'Doesn’t fit',
+    );
+    // undone: it fits again
+    await page.keyboard.press('Control+z');
+    await settled(page);
+    await expect(page.locator('#shapeList .row .tnofit')).toHaveCount(0);
   } finally {
     await a.close();
   }

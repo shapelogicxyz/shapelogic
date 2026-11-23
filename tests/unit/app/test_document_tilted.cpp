@@ -4,6 +4,8 @@
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/base/solve_state.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/assembly.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/tilted_tray.h"
 
@@ -638,4 +640,61 @@ TEST_CASE("tilted document: a rectangular tray is saved and opened",
   CHECK(again.puzzle().getShape(1) == d.puzzle().getShape(1));
   CHECK(again.openNotice().empty());
   CHECK(again.saveBytes().value() == bytes);
+}
+
+// ---- the fixtures (stage F) -----------------------------------------------------------
+
+TEST_CASE("tilted document: the fixtures open with their board and solve to what they hold",
+          "[app][document][tilted]") {
+  // tests/data/puzzles/tilted (made by its make_fixtures.py): each file's
+  // board is the one its tray makes, its pieces lie on whole cells, and each
+  // problem, solved again as its stored settings say, finds the assemblies
+  // the file holds
+  struct Expected {
+    const char* file;
+    std::vector<std::uint64_t> assemblies;
+  };
+  const std::vector<Expected> fixtures = {{"TriplePlay.xmpuzzle", {1, 2}},
+                                          {"EightByEight.xmpuzzle", {2}}};
+  for (const Expected& f : fixtures) {
+    INFO(f.file);
+    const std::string path = std::string("tests/data/puzzles/tilted/") + f.file;
+    Document d = Document::open(path).value();
+    REQUIRE(d.tilted());
+    CHECK(d.openNotice().empty());
+    // the board was not made again: the file's is the tray's
+    const Puzzle raw = io::loadPuzzle(path).value();
+    CHECK(d.puzzle().getShape(0) == raw.getShape(0));
+    const tilted::Layout lay = tilted::layout(*d.puzzle().tray());
+    CHECK(d.puzzle().getShape(0).countState(Voxel::kVariable) == lay.whole);
+    for (unsigned int s = 1; s < d.puzzle().getNumberOfShapes(); s++) {
+      CHECK(d.fitsTray(s));
+    }
+    REQUIRE(d.problemIds().size() == f.assemblies.size());
+    for (unsigned int k = 0; k < f.assemblies.size(); k++) {
+      INFO("problem " << k);
+      const Problem& saved = raw.getProblem(k);
+      CHECK(saved.getNumAssemblies() == f.assemblies[k]);
+      SolveOptions o;
+      const auto& stored = saved.getSolverOptions();
+      const auto flip = stored.find("flipPieces");
+      o.flipPieces = flip == stored.end() || flip->second != "0";
+      const Id problem = d.problemIds()[k];
+      REQUIRE(d.solveStart(problem, o).has_value());
+      REQUIRE(d.solveWait(problem).has_value());
+      const Problem& again = d.puzzle().getProblem(k);
+      CHECK(again.getNumAssemblies() == f.assemblies[k]);
+      // the same assemblies, as a multiset
+      std::vector<Assembly> before;
+      std::vector<Assembly> after;
+      for (unsigned int i = 0; i < saved.getNumberOfSavedSolutions(); i++) {
+        before.push_back(saved.getSavedSolution(i).getAssembly());
+      }
+      for (unsigned int i = 0; i < again.getNumberOfSavedSolutions(); i++) {
+        after.push_back(again.getSavedSolution(i).getAssembly());
+      }
+      CHECK(before.size() == f.assemblies[k]);
+      CHECK(std::is_permutation(before.begin(), before.end(), after.begin(), after.end()));
+    }
+  }
 }

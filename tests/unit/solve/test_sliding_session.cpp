@@ -155,6 +155,21 @@ void untilSearching(const SolveSession& s) {
   }
 }
 
+// The same for a test that tries again when the run is through first:
+// false when the run ended before it searched a start.
+bool searchingOrEnded(const SolveSession& s) {
+  for (;;) {
+    const SolveProgress p = s.progress();
+    if (p.stage == SolveStage::Other && p.searched > 0) {
+      return true;
+    }
+    if (!isActive(s.state())) {
+      return false;
+    }
+    std::this_thread::yield();
+  }
+}
+
 // Asks for a save point as soon as the run takes one (it does nothing while
 // the run prepares), and until the run has ended.
 void askSavePoint(SolveSession& s) {
@@ -1097,7 +1112,10 @@ TEST_CASE("sliding session: starts not searched completely stay counted over a p
     Puzzle p = manyStarts();
     SolveSession s(p, p.getProblem(0), o);
     REQUIRE(s.start().has_value());
-    untilSearching(s);
+    if (!searchingOrEnded(s)) {
+      s.wait();
+      continue;  // through before a start was seen searched: again
+    }
     s.pauseAtSavePoint();
     s.wait();
     if (s.state() != SolveState::Paused) {

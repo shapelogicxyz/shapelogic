@@ -50,6 +50,11 @@ struct Options {
   bool highMemory = false;     ///< --high-memory
   bool optimizedPaths = false;  ///< --optimized-paths: stops held to the grid the board fits
 
+  /// --flip on|off: a Tilted Square puzzle's pieces may be turned over, or
+  /// keep one face up (decision 0045); unset, each problem's stored
+  /// setting (bt::storedFlipPieces), as the GUI's Solver does
+  std::optional<bool> flip;
+
   // burrTxt's stacking options (--high-memory and --restart too)
   bool panexSolver = false;          ///< --solver of a stacking puzzle: the Panex Solver
   const char* panexDir = nullptr;    ///< --panex-dir DIR

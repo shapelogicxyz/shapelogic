@@ -123,6 +123,31 @@ TEST_CASE("puzzle file: the new grids' fixtures are saved byte for byte as they 
   CHECK(grids == std::set<GridKind>{GridKind::Hexagonal, GridKind::Cairo});
 }
 
+// The Tilted Square puzzles (decision 0045; tests/data/puzzles/tilted, made
+// by its make_fixtures.py) are Brick files with a <tray> the original does
+// not know: saved as they were written, and read back to themselves.
+TEST_CASE("puzzle file: the tilted fixtures are saved byte for byte as they were written",
+          "[io][file][tilted]") {
+  unsigned int checked = 0;
+  for (const auto& entry : std::filesystem::directory_iterator("tests/data/puzzles/tilted")) {
+    const std::filesystem::path& path = entry.path();
+    if (path.extension() != ".xmpuzzle") {
+      continue;
+    }
+    INFO(path.filename().string());
+    const Result<std::string> written = io::readMaybeGzipFile(path);
+    REQUIRE(written.has_value());
+    const Puzzle p = test::loadFixture("tilted/" + path.filename().string());
+    CHECK(p.getGridType().getType() == GridKind::Bricks);
+    CHECK(p.tray().has_value());
+    const std::string ours = io::writePuzzle(p);
+    CHECK(test::withoutUids(ours) == test::withoutUids(*written));
+    CHECK(io::writePuzzle(parse(ours)) == ours);
+    checked++;
+  }
+  CHECK(checked == 2);
+}
+
 TEST_CASE("puzzle file: content the model does not know is kept in place", "[io][file]") {
   const std::string in =
       "<puzzle version=\"2\" future=\"1\">"

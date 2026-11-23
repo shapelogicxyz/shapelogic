@@ -27,7 +27,7 @@ under [`--save`](#--save-solve-and-write-the-solved-file).
 - [Solving](#solving)
   - [What a solve does](#what-a-solve-does) · [Output](#output) · [The level text](#the-level-text)
   - [`-d`](#-d-solve-completely) · [`-q`](#-q-quiet) · [`-s`](#-s-print-the-assemblies) · [`-p`](#-p-print-the-moves) · [`-n`](#-n-no-newline) · [`-o`](#-o-choose-the-problem) · [`-r`](#-r-reduce-the-placements) · [`-t`](#-t-threads) · [`--progress`](#--progress)
-- [Brick puzzles](#brick-puzzles-1): [`--solver`](#--solver-complete-or-fast) · [`-R`](#-r-rotations) · [`-C`](#-c-strict-colors)
+- [Brick puzzles](#brick-puzzles-1): [`--solver`](#--solver-complete-or-fast) · [`-R`](#-r-rotations) · [`-C`](#-c-strict-colors) · [`--flip`](#--flip-tilted-square-pieces-turned-over-or-not)
 - [Sliding puzzles](#sliding-puzzles-1): [`--solver`](#--solver-one-solver) · [`--nested-slides`, `--partial-nested`](#--nested-slides-and---partial-nested) · [`--vertical-moves`](#--vertical-moves) · [`--optimized-paths`](#--optimized-paths) · [`--any-orientation`, `--mirrored-orientations`](#--any-orientation-and---mirrored-orientations) · [`--high-memory`](#--high-memory)
 - [Stacking puzzles](#stacking-puzzles-1): [`--solver`](#--solver-stacking-or-panex) · [Long Panex searches](#long-panex-searches-stop-and-carry-on)
 - [`--json`: machine-readable output](#--json-machine-readable-output)
@@ -155,6 +155,7 @@ The tool has four modes. Which one runs depends on the options:
 | `-R` | Also try 90° piece rotations when taking apart. Implies `-d`. |
 | `-C` | Strict color rules: a colored cell fits only a result cell of the same color. |
 | `--solver` | `"Complete (ShapeLogic)"` (default, also `classic`) or `"Fast (Crowell)"` (also `crowell`). |
+| `--flip on\|off` | A Tilted Square puzzle: whether the pieces may be turned over. Without it, each problem's own setting. |
 
 ### Sliding puzzles
 
@@ -452,6 +453,19 @@ cells. By default a colored piece cell also fits a neutral (uncolored)
 result cell, and a neutral piece cell fits any result cell. With `-C`, a cell
 fits only a result cell of exactly the same color: colored on the same
 color, neutral on neutral.
+
+### `--flip`: Tilted Square pieces turned over or not
+
+```sh
+shapelogic_cli -o 1 --flip on TriplePlay.xmpuzzle
+```
+
+A [Tilted Square](/docs/puzzle-types/tilted-square/) puzzle is a Brick
+puzzle with a tray. Each of its problems keeps the Solver's **Pieces may be
+turned over** setting, and the command line follows it, with or without
+`--save`. `--flip on` lets the pieces be turned over whatever the problem
+says; `--flip off` keeps each piece one face up, turning only in the tray.
+On a puzzle without a tray `--flip` is refused.
 
 ## Sliding puzzles
 

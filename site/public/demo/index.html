@@ -6,7 +6,7 @@
   toolbar, the status bar, the settings dialog). The Entities cards are the
   mockup's (stage 2: the shapes list and inspector, the voxel editor) and
   so are the Puzzle cards (stage 3: problems, result, pieces, library, fit;
-  selected piece, groups, colour rules); their contents are rendered from
+  selected piece, groups, color rules); their contents are rendered from
   the engine's data; so are the Solver's (stage 4). The Play card and the
   board over the viewport (#leftPl, #playStage) are this program's own
   (decisions 0039 and 0042: a sliding or a stacking puzzle played by hand). The mockup's menu
@@ -21,8 +21,8 @@
     />
     <link rel="icon" type="image/png" href="/demo/assets/favicon-neqYVYks.png" />
     <title>ShapeLogic demo</title>
-    <script type="module" crossorigin src="/demo/assets/index-Bf9B_Ly6.js"></script>
-    <link rel="stylesheet" crossorigin href="/demo/assets/index-CITRCJLE.css">
+    <script type="module" crossorigin src="/demo/assets/index-D3ue2rKv.js"></script>
+    <link rel="stylesheet" crossorigin href="/demo/assets/index-Bt7SuTe0.css">
   </head>
   <body>
     <div id="wrap">
@@ -42,7 +42,7 @@
             <div class="lfull">
               <div id="boardsSec" hidden>
                 <div class="ch">
-                  Boards
+                  <span id="boardsTitle">Boards</span>
                   <span
                     class="chip"
                     id="boardCount"
@@ -90,6 +90,18 @@
               ></div>
               <div class="ch" style="border-top: 1px solid var(--line)" id="inspHead"></div>
               <div class="insp" id="insp">
+                <div class="sec" id="secTilt" hidden>
+                  <button
+                    class="sh"
+                    title="Show or hide the tray’s settings: its size, the tilt, the allowance and the placement"
+                  >
+                    <span class="chev"></span>Tilt &amp; tolerance<span
+                      class="sum"
+                      id="tiltSum"
+                    ></span>
+                  </button>
+                  <div class="sb" id="tiltBody"></div>
+                </div>
                 <div class="sec" id="secTf">
                   <button
                     class="sh"
@@ -120,10 +132,18 @@
                   </button>
                   <div class="sb" id="toolsBody"></div>
                 </div>
+                <div class="sec closed" id="secTut" data-nofold hidden>
+                  <button
+                    class="sh"
+                    title="Open the Tilted Square tutorial, the research page on tilted trays, in your browser"
+                  >
+                    <span class="chev"></span>Tilted Square Tutorial
+                  </button>
+                </div>
               </div>
               <input
                 type="color"
-                id="shapeColourPick"
+                id="shapeColorPick"
                 tabindex="-1"
                 aria-hidden="true"
                 style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0"
@@ -468,6 +488,7 @@
                   <div class="size3" id="sizeSteppers"></div>
                 </div>
                 <div class="colfoot" id="colFoot"></div>
+                <div class="bviews" id="boardViews"></div>
               </div>
               <div class="gbody">
                 <div class="lstrip" id="lstrip"></div>
@@ -477,6 +498,7 @@
                     id="garea"
                     title="Click or drag: active tool (Shift fixed · Alt variable · Ctrl erase) · Right-click or right-drag: erase"
                   ></div>
+                  <div id="trayArea"></div>
                   <div class="selbar" id="selbar"></div>
                 </div>
               </div>
@@ -486,7 +508,7 @@
             </div>
             <div class="rrail" id="rrail"></div>
             <!-- once a document: a grid too large for the card points at the focus -->
-            <div class="ftip" id="bigTip" role="alertdialog" aria-labelledby="bigTipMsg" hidden>
+            <div class="ftip" id="bigTip" role="alertdialog" aria-labeledby="bigTipMsg" hidden>
               <p id="bigTipMsg">
                 You are using a very large grid that may not fit well in the small grid editor.
                 Consider using the expanded grid editor view.

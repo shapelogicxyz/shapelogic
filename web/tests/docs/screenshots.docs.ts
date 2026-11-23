@@ -79,3 +79,28 @@ for (const [kind, fixture] of [
     }
   });
 }
+
+// a Tilted Square puzzle (decision 0045): Triple Play, its board with Tilt &
+// tolerance, a piece on the turned grid, the Puzzle workspace, and the
+// Solver showing its assembly (the file holds it solved)
+test('the tilted screenshots', async () => {
+  mkdirSync(OUT, { recursive: true });
+  const app = await launch({ scale: 2 });
+  const { page } = app;
+  try {
+    await openNested(page, 'tilted/TriplePlay.xmpuzzle');
+    await shot(page, 'tilted-entities');
+    const piece = page.locator('#shapeList .row').first();
+    await piece.locator('.chip').click();
+    await expect(piece).toHaveClass(/\bsel\b/);
+    await shot(page, 'tilted-piece');
+    await page.keyboard.press('Control+2');
+    await expect(page.locator('#stage')).toHaveAttribute('data-tab', 'puzzle');
+    await shot(page, 'tilted-puzzle');
+    await toSolver(page);
+    await page.click('#slvList .lrow[data-i="0"]');
+    await shot(page, 'tilted-solver');
+  } finally {
+    await app.close();
+  }
+});

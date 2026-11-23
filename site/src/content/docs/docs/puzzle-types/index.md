@@ -1,6 +1,6 @@
 ---
 title: Puzzle Types
-description: The nine kinds of puzzle ShapeLogic handles, and how to choose one.
+description: The ten kinds of puzzle ShapeLogic handles, and how to choose one.
 ---
 
 When you choose **File ▸ New**, ShapeLogic asks which kind of puzzle to make.
@@ -13,6 +13,7 @@ grid has to be chosen before you start, so pick it first.
 | [Brick](/docs/puzzle-types/brick/) | Cubes | Burrs, packing puzzles |
 | [Sliding](/docs/puzzle-types/sliding/) | Flat pieces in a tray | Klotski, 15-puzzle style puzzles |
 | [Stacking](/docs/puzzle-types/stacking/) | Discs on rods | Tower of Hanoi, Panex |
+| [Tilted Square](/docs/puzzle-types/tilted-square/) | Flat squares on a turned grid in a tray | Tray packing puzzles with a tilted grid (new in ShapeLogic) |
 | [Triangular Prism](/docs/puzzle-types/triangular-prism/) | Prisms with a triangular base | Puzzles built on triangular layers |
 | [Spheres](/docs/puzzle-types/spheres/) | Balls in the tightest packing | Pyramid and ball packing |
 | [Rhombic](/docs/puzzle-types/rhombic/) | Small tetrahedra cut from cubes | Rhombic dodecahedra, stellations |
@@ -33,7 +34,8 @@ pieces fill the result, then checks which assemblies can really be taken apart
 and shows how. (BurrTools takes only the first two apart; ShapeLogic works out
 how the cells of the other grids can move from their shapes.)
 
-For **Spheres** puzzles there is no disassembler. The solver finds every
+For **Spheres** and **Tilted Square** puzzles there is no disassembler (a
+tilted tray's pieces lie flat and lift straight out). The solver finds every
 assembly but cannot check whether it can be taken apart. The Solver workspace
 offers **Assemble Only** (**Assemble and Disassemble** is grayed out); the
 Solutions count stays empty and the assemblies are what you get.

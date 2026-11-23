@@ -747,6 +747,11 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       matrix.partTransforms = bt::sliding::partTransforms(puzzle, problem, o.anyOrientation,
                                                           o.mirroredOrientations);
     }
+    // a tilted tray's pieces kept one face up turn only in the tray (as
+    // SolveSession does it)
+    if (puzzle.tray() && !o.flip.value_or(bt::storedFlipPieces(problem))) {
+      matrix.partTransforms = bt::trayPlaneTurns(puzzle, problem);
+    }
     if (const bt::AssemblerError err = assembler->createMatrix(matrix);
         err != bt::AssemblerError::None) {
       return reportMatrixError(o, err, assembler->errorParam());
@@ -1294,6 +1299,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
       continue;
     }
 
+    so.flipPieces = o.flip.value_or(bt::storedFlipPieces(problem));
     bt::SolveSession session(puzzle, problem, so);
     if (const bt::Result<void> r = session.resume(); !r) {
       std::printf("Could not start Solver\n");
@@ -1395,6 +1401,11 @@ int main(int argc, char** argv) {
     std::fprintf(stderr,
                  "shapelogic_cli: --high-memory is for sliding and stacking puzzles; this is a %s puzzle\n",
                  kindName(kind));
+    return kExitUsage;
+  }
+  if (o.flip.has_value() && !puzzle.tray()) {
+    std::fputs("shapelogic_cli: --flip is for Tilted Square puzzles (a brick puzzle with a tray)\n",
+               stderr);
     return kExitUsage;
   }
   if ((o.rotations || o.strictColors) && kind != PuzzleKind::Brick) {

@@ -551,21 +551,28 @@ export class SolutionsCard {
     }
     if (row.disassembly !== 'tree') {
       const insep = ws.inseparable(row.id);
+      // a grid without a take-apart (Spheres) and a tilted tray, whose
+      // pieces lie flat, offer no analysis
+      const apart = ws.family === 'brick' && ws.canDisassemble;
       const txt =
         ws.family !== 'brick'
           ? // a start layout kept without its path to the goal (Find Solutions off)
             'Find Solutions was not checked: no path to the goal was searched for this start.'
-          : insep
-            ? 'This assembly cannot be taken apart.'
-            : row.disassembly === 'summary'
-              ? 'Only the level was kept for this solution — the moves were not stored.'
-              : ws.options.disassemble
-                ? 'No disassembly stored.'
-                : 'Disassembly was not checked for this assembly.';
+          : ws.tilted
+            ? 'A tilted tray’s pieces lie flat and lift straight out: there is nothing to take apart.'
+            : !ws.canDisassemble
+              ? 'This space grid has no disassembler: the solver keeps the assemblies only.'
+              : insep
+                ? 'This assembly cannot be taken apart.'
+                : row.disassembly === 'summary'
+                  ? 'Only the level was kept for this solution — the moves were not stored.'
+                  : ws.options.disassemble
+                    ? 'No disassembly stored.'
+                    : 'Disassembly was not checked for this assembly.';
       setHtml(
         el,
         head() +
-          `<div class="msg"><span>${txt}</span>${insep || ws.family !== 'brick' ? '' : `<button class="btn sm" data-a="analyse" ${ws.analysing || ws.running ? 'disabled' : ''} title="Work out how this assembly comes apart, and keep its disassembly">Analyse disassembly</button>`}</div>`,
+          `<div class="msg"><span>${txt}</span>${insep || !apart ? '' : `<button class="btn sm" data-a="analyse" ${ws.analysing || ws.running ? 'disabled' : ''} title="Work out how this assembly comes apart, and keep its disassembly">Analyse disassembly</button>`}</div>`,
       );
       return;
     }

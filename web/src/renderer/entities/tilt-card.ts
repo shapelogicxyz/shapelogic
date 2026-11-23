@@ -27,6 +27,8 @@ import {
   parseWhole,
   sizeText,
   slopeText,
+  unfitIds,
+  unfitNote,
 } from '../state/tilted.ts';
 
 /** What the section asks of the workspace. */
@@ -173,10 +175,16 @@ export class TiltCard {
       this.render();
       return;
     }
+    const unfit = unfitIds(this.host.store.snapshot?.shapes ?? []);
     void this.host
       .mutate(doing, () => this.host.store.engine.call('tray.set', { tray: change }))
-      .then(() => {
+      .then((done) => {
         this.render();
+        const note =
+          done === null ? null : unfitNote(unfit, this.host.store.snapshot?.shapes ?? []);
+        if (note !== null) {
+          flash(note, 6000);
+        }
       });
   }
 

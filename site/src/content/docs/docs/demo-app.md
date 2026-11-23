@@ -14,6 +14,7 @@ The list at the top right opens a solved example of each puzzle type:
 | Brick | Pelikan burr |
 | Sliding | 1 to 6 Heart |
 | Stacking | Panex Swap, with 3 discs per tower |
+| Tilted Square | Triple Play, by Goh Pit Khiam and Jerry Loo |
 | Triangular Prism | Prisgon |
 | Spheres | Ball Room |
 | Rhombic | Diagonal Cube |
@@ -37,8 +38,8 @@ building puzzles work for real:
   and zooms, and every display style is there.
 - **Puzzle tab:** make new problems, choose their result and add pieces.
 - **Solver tab:** change the options and play the disassembly of the saved
-  solution, move by move. Spheres puzzles only assemble: their grid has no
-  take-apart, so the Ball Room shows its assemblies.
+  solution, move by move. Spheres and Tilted Square puzzles only assemble:
+  the Ball Room and Triple Play show their assemblies.
 - **Play tab** (Sliding and Stacking): move the pieces or discs yourself
   from the start to the goal.
 

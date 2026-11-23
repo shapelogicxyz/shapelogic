@@ -29,6 +29,8 @@ import {
   squareOf,
   trayFacts,
   trayPicture,
+  unfitIds,
+  unfitNote,
 } from '../../../src/renderer/state/tilted.ts';
 import {
   checkerBlocks,
@@ -370,5 +372,27 @@ describe('the tray in 3D', () => {
     ];
     expect(top(1)).toEqual(top(2));
     expect(top(0)).not.toEqual(top(1));
+  });
+});
+
+describe('the pieces a tray change leaves off the board', () => {
+  const shapes = [
+    { id: 'b', label: 'B', fits: true },
+    { id: 'p1', label: 'S1', fits: false },
+    { id: 'p2', label: 'S2', fits: false },
+    { id: 'p3', label: 'S3', fits: false },
+  ];
+  it('names those that fitted before', () => {
+    expect([...unfitIds(shapes)]).toEqual(['p1', 'p2', 'p3']);
+    expect(unfitNote(new Set(['p1', 'p2', 'p3']), shapes)).toBeNull();
+    expect(unfitNote(new Set(['p1', 'p2']), shapes)).toBe(
+      'S3 no longer fits the board: no place has every cell on a whole cell',
+    );
+    expect(unfitNote(new Set(), shapes)).toBe(
+      'S1, S2 and S3 no longer fit the board: no place has every cell on a whole cell',
+    );
+    expect(unfitNote(new Set(['p1']), shapes)).toBe(
+      'S2 and S3 no longer fit the board: no place has every cell on a whole cell',
+    );
   });
 });

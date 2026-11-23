@@ -36,6 +36,13 @@ import { isTiltBoard, isTilted } from '../state/tilted.ts';
 import { tell } from '../shell/dialog.ts';
 import { flash } from '../shell/status.ts';
 
+/**
+ * A tilted puzzle's piece with a cell off the board's whole cells (a tray
+ * change found it no place where all its cells are whole: `ShapeSummary.fits`).
+ */
+const NO_FIT =
+  '<span class="tnofit" title="Not every cell of this piece lies on a whole cell of the board: the Solver finds no assembly with it. Draw it again on the whole cells, or change the tray">Doesn’t fit</span>';
+
 /** What the list asks of the workspace. */
 export interface ListHost {
   store: Store;
@@ -159,7 +166,7 @@ export class ShapesList {
         return `<div class="row ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
   <span class="grip" title="Drag to reorder — ids follow the order">${ic('grip', 14)}</span>
   <span class="chip" style="background:${bg};color:${fg}">${esc(s.label)}</span>
-  <span class="lbl">${isTray(s) && s.name === '' ? `<b class="sgtag">${esc(shownName(s))}</b>` : esc(s.name)}</span>
+  <span class="lbl">${isTray(s) && s.name === '' ? `<b class="sgtag">${esc(shownName(s))}</b>` : esc(s.name)}</span>${tilted && !s.fits ? NO_FIT : ''}
   <span class="acts">
    <button class="ib" data-a="label" title="Rename">${ic('edit', 17)}</button>
    <button class="ib" data-a="copy" title="Duplicate (added as the last shape)">${ic('copy', 17)}</button>

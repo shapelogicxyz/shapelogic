@@ -92,7 +92,7 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | `tests/cli/` | `test_cli.py` (ctest `cli`): `shapelogic_cli`'s options, refusals and modes on the fixtures |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
 | `tests/bench/` | `bench.py`: solve speed against the original, back to back |
-| `tests/data/` | test fixtures: `puzzles/` (copied from the original; `puzzles/new-grids/`, the hexagonal and cairo puzzles, made by this engine, as the original has no such grids), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`), `slide_paused_by_v1.8.1/` (a sliding solve paused by release v1.8.1's engine, the document and the search folder it left, with the script that made it: decision 0033) |
+| `tests/data/` | test fixtures: `puzzles/` (copied from the original; `puzzles/new-grids/`, the hexagonal and cairo puzzles, made by this engine, as the original has no such grids; `puzzles/tilted/`, Tilted Square puzzles made through the engine by the folder's `make_fixtures.py`, which also writes the site demo's Tilted Square example: decision 0045), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`), `slide_paused_by_v1.8.1/` (a sliding solve paused by release v1.8.1's engine, the document and the search folder it left, with the script that made it: decision 0033) |
 | `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solutions`) |
 | `docs/` | this file, PLAN.md, FRONTEND-PLAN.md, API.md (generated), decisions/, handoff/, webui-spec.md, mockup/ (Girish Sharma's mockup, vendored), core-api.md (the draft API.md replaced) |
 | `cmake/` | warnings, sanitizers, dependencies, whether the Python module is built (`Python.cmake`) |
@@ -1068,8 +1068,10 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   lie on it is opened without the tray, with a notice. The layout is
   worked out once a tray (`trayLayout`). `SolveOptions::flipPieces` (off:
   each piece keeps to the four turns about the layers' axis, through
-  `MatrixOptions::partTransforms`, so without the symmetry breaker) is
-  applied in `SolveSession` on a puzzle with a tray.
+  `MatrixOptions::partTransforms` from `trayPlaneTurns`, so without the
+  symmetry breaker) is applied in `SolveSession` on a puzzle with a tray;
+  `shapelogic_cli` applies the same, as each problem's stored setting says
+  (`storedFlipPieces`) or as `--flip on|off` says.
 - `analysis.h`: `Analysis`, saved assemblies taken apart afterwards
   (cb_AddDisasm / cb_AddAllDisasm: all, those without their moves, or one)
   on a thread of its own with one `Disassembler` and a pool for its
@@ -2089,7 +2091,10 @@ What exists after stage 8:
     voxel editor's controls hidden (`#stage.tltb`). A piece is drawn in the
     grid editor with the cells the tray cuts gray and inert
     (`GridInput.whole`), without size steppers or layers (`#stage.tlt`) or
-    Fit & scale. The Puzzle workspace has no Change… for the result; the
+    Fit & scale. A piece with no place on the board's whole cells
+    (`ShapeSummary.fits`) is tagged Doesn't fit in its row, and the tray
+    change that left it so names it in the status bar
+    (`state/tilted.ts` `unfitNote`). The Puzzle workspace has no Change… for the result; the
     Solver offers assemble only, and Pieces may be turned over
     (`flipPieces`, stored with the problem, sent only when off). The 3D
     view turns the model by the tray's angle about Z, innermost
@@ -2110,7 +2115,14 @@ What exists after stage 8:
     (`Grid2D.buildTilted`: the cells in one group turned by the tray's
     angle about its center, clipped to it, fitted on its width and height, with its
     walls and outline; no axes or rulers; the pointer finds cells through
-    `elementFromPoint`, which follows the turn).
+    `elementFromPoint`, which follows the turn). Its fixtures
+    (`tests/data/puzzles/tilted`: Triple Play with a problem one face up,
+    and an 8 by 8 tray its pieces fill) are opened and solved by
+    `tests/engine/tilted.test.ts` (the Solver's options from the stored
+    settings) and `tests/e2e/tilted.e2e.ts`; the guide's page is
+    `puzzle-types/tilted-square.md`, its pictures taken by
+    `tests/docs/screenshots.docs.ts`, and the demo opens Triple Play as
+    its Tilted Square example (`src/demo/main.ts`: assemble only).
   - Stacking puzzles (deferred part 4, docs/webui-spec.md section 9, the
     original GUI's stacking branches): the shapes list's rows are the disc
     list on a stacking puzzle (`shapes-list.ts`: "size" with its field, +

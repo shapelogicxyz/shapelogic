@@ -1136,6 +1136,7 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 
 /* ---- deferred part 2: sliding puzzles (docs/webui-spec.md, section 8) ---- */
 .row .sgtag{font-weight:600;color:var(--muted);font-size:calc(11px + var(--fs))}
+.row .tnofit{flex:none;font-weight:600;color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent);border-radius:5px;padding:1px 6px;font-size:calc(10px + var(--fs));white-space:nowrap}
 #btnNewBoard[hidden]{display:none}
 /* + New Piece and + New Board together: tighter, so the header still holds the collapse button */
 .ch:has(#btnNewBoard:not([hidden])){gap:4px}
