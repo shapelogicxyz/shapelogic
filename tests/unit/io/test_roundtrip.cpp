@@ -15,6 +15,8 @@
 #include <fstream>
 #include <map>
 #include <string>
+#include <utility>
+#include <vector>
 
 using namespace bt;
 using bt::test::fromLayers;
@@ -264,7 +266,8 @@ namespace {
 /// digits do not end, and two walls.
 tilted::Tray sampleTray() {
   tilted::Tray t;
-  t.size = 8;
+  t.width = 8;
+  t.height = 8;
   t.over = 2;
   t.down = 1;
   t.allowance = 0.05;
@@ -300,19 +303,131 @@ TEST_CASE("puzzle: a tilted tray survives a save and reload", "[io][roundtrip][t
 
   // the best placement and no walls: no walls attribute
   tilted::Tray plain;
-  plain.size = 5;
+  plain.width = 5;
+  plain.height = 5;
   plain.over = 1;
   plain.down = 1;
   original.setTray(plain);
   const std::string plainSaved = io::writePuzzle(original);
   CHECK(plainSaved.find("placement=\"best\"") != std::string::npos);
   CHECK(plainSaved.find("walls=") == std::string::npos);
+  // a square tray is written with its size, as before there were rectangles
+  CHECK(plainSaved.find("<tray size=\"5\" over=\"1\" down=\"1\" allowance=\"0\" "
+                        "placement=\"best\" shiftX=\"0\" shiftY=\"0\"/>") != std::string::npos);
+  CHECK(plainSaved.find("width=") == std::string::npos);
+  CHECK(plainSaved.find("height=") == std::string::npos);
   CHECK(*reloaded(original).tray() == plain);
 
   // a puzzle without a tray writes no such element
   original.setTray(std::nullopt);
   CHECK(io::writePuzzle(original).find("<tray") == std::string::npos);
   CHECK_FALSE(reloaded(original).tray().has_value());
+}
+
+TEST_CASE("puzzle: a rectangular tray survives a save and reload", "[io][roundtrip][tilted]") {
+  // 6 wide and 8 high, a custom shift, walls at (5, 0), (0, 1) and (5, 7)
+  tilted::Tray rect = sampleTray();
+  rect.width = 6;
+  rect.walls.assign(48, 0);
+  rect.walls[5] = 1;
+  rect.walls[6] = 1;
+  rect.walls[47] = 1;
+  REQUIRE(rect.valid());
+  Puzzle original;
+  original.addShape(3, 3, 1);
+  original.setTray(rect);
+
+  // width and height in place of size, the walls row by row along the width
+  const std::string saved = io::writePuzzle(original);
+  CHECK(saved.find("<tray width=\"6\" height=\"8\" over=\"2\" down=\"1\" allowance=\"0.05\" "
+                   "placement=\"custom\"") != std::string::npos);
+  CHECK(saved.find("size=") == std::string::npos);
+  CHECK(saved.find("walls=\"_____##" + std::string(40, '_') + "#\"") != std::string::npos);
+
+  const Puzzle restored = reloaded(original);
+  REQUIRE(restored.tray().has_value());
+  CHECK(*restored.tray() == rect);
+  CHECK(restored.tray()->isWall(5, 0));
+  CHECK(restored.tray()->isWall(0, 1));
+  CHECK(restored.tray()->isWall(5, 7));
+  CHECK_FALSE(restored.tray()->isWall(0, 5));
+  CHECK(io::writePuzzle(restored) == saved);
+
+  // the other way round is another tray
+  tilted::Tray lying = sampleTray();
+  lying.height = 6;
+  lying.walls.assign(48, 0);
+  lying.walls[7] = 1;
+  original.setTray(lying);
+  const std::string lyingSaved = io::writePuzzle(original);
+  CHECK(lyingSaved.find("<tray width=\"8\" height=\"6\"") != std::string::npos);
+  CHECK(*reloaded(original).tray() == lying);
+  CHECK(reloaded(original).tray()->isWall(7, 0));
+}
+
+TEST_CASE("puzzle: the reader takes a tray's size or its width and height",
+          "[io][roundtrip][tilted]") {
+  const auto parsed = [](const std::string& sides, const std::string& walls = "") {
+    return io::parsePuzzle("<?xml version=\"1.0\"?>\n<puzzle version=\"2\"><gridType type=\"0\"/>"
+                           "<tray " + sides + " over=\"3\" down=\"1\" allowance=\"0\" "
+                           "placement=\"best\" shiftX=\"0\" shiftY=\"0\"" + walls +
+                           "/><colors/><shapes/><problems/><comment/></puzzle>");
+  };
+  const auto sidesOf = [&](const std::string& sides, const std::string& walls = "") {
+    const Result<Puzzle> p = parsed(sides, walls);
+    REQUIRE(p.has_value());
+    REQUIRE(p->tray().has_value());
+    return std::pair<unsigned int, unsigned int>{p->tray()->width, p->tray()->height};
+  };
+  CHECK(sidesOf("size=\"4\"") == std::pair<unsigned int, unsigned int>{4, 4});
+  CHECK(sidesOf("width=\"3\" height=\"5\"") == std::pair<unsigned int, unsigned int>{3, 5});
+  // a side given beside the size goes over it
+  CHECK(sidesOf("size=\"4\" height=\"7\"") == std::pair<unsigned int, unsigned int>{4, 7});
+  CHECK(sidesOf("size=\"4\" width=\"2\"") == std::pair<unsigned int, unsigned int>{2, 4});
+  CHECK(sidesOf("size=\"9\" width=\"3\" height=\"5\"") ==
+        std::pair<unsigned int, unsigned int>{3, 5});
+  // the walls are width * height, row by row along the width
+  {
+    const Result<Puzzle> p = parsed("width=\"3\" height=\"2\"", " walls=\"__#_#_\"");
+    REQUIRE(p.has_value());
+    REQUIRE(p->tray().has_value());
+    CHECK(p->tray()->isWall(2, 0));
+    CHECK(p->tray()->isWall(1, 1));
+    CHECK_FALSE(p->tray()->isWall(0, 1));
+    // written as it was read
+    CHECK(io::writePuzzle(*p).find("<tray width=\"3\" height=\"2\" over=\"3\" down=\"1\" "
+                                   "allowance=\"0\" placement=\"best\" shiftX=\"0\" "
+                                   "shiftY=\"0\" walls=\"__#_#_\"/>") != std::string::npos);
+  }
+  // equal sides are a square, and written with its size
+  {
+    const Result<Puzzle> p = parsed("width=\"5\" height=\"5\"");
+    REQUIRE(p.has_value());
+    REQUIRE(p->tray().has_value());
+    CHECK(io::writePuzzle(*p).find("<tray size=\"5\" over=") != std::string::npos);
+  }
+
+  // one side alone, a side out of range or not a number, a bad size beside
+  // good sides, walls for the square of a side: no tray, the element kept
+  const std::vector<std::pair<std::string, std::string>> bad = {
+      {"width=\"4\"", ""},
+      {"height=\"4\"", ""},
+      {"", ""},
+      {"width=\"0\" height=\"4\"", ""},
+      {"width=\"4\" height=\"65\"", ""},
+      {"width=\"4\" height=\"x\"", ""},
+      {"size=\"4\" width=\"-1\"", ""},
+      {"size=\"400\" width=\"4\" height=\"4\"", ""},
+      {"width=\"3\" height=\"2\"", " walls=\"_________\""},
+      {"width=\"3\" height=\"2\"", " walls=\"____\""},
+  };
+  for (const auto& [sides, walls] : bad) {
+    INFO(sides << walls);
+    const Result<Puzzle> p = parsed(sides, walls);
+    REQUIRE(p.has_value());
+    CHECK_FALSE(p->tray().has_value());
+    CHECK(io::writePuzzle(*p).find("<tray ") != std::string::npos);
+  }
 }
 
 TEST_CASE("puzzle: a tray the reader cannot take is kept as the file has it",
@@ -328,7 +443,8 @@ TEST_CASE("puzzle: a tray the reader cannot take is kept as the file has it",
     const Result<Puzzle> p = io::parsePuzzle(fileWith(good));
     REQUIRE(p.has_value());
     REQUIRE(p->tray().has_value());
-    CHECK(p->tray()->size == 4);
+    CHECK(p->tray()->width == 4);
+    CHECK(p->tray()->height == 4);
     CHECK(p->tray()->over == 3);
     CHECK(p->tray()->shiftX == 0.25);
     CHECK(p->tray()->isWall(0, 0));
@@ -370,7 +486,8 @@ TEST_CASE("puzzle: a tray the reader cannot take is kept as the file has it",
     const Result<Puzzle> p = io::parsePuzzle(fileWith(good + bad[0]));
     REQUIRE(p.has_value());
     REQUIRE(p->tray().has_value());
-    CHECK(p->tray()->size == 4);
+    CHECK(p->tray()->width == 4);
+    CHECK(p->tray()->height == 4);
     const std::string again = io::writePuzzle(*p);
     CHECK(again.find("size=\"4\"") != std::string::npos);
     CHECK(again.find("size=\"400\"") != std::string::npos);

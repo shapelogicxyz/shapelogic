@@ -9,10 +9,13 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace bt;
@@ -23,7 +26,8 @@ namespace {
 tilted::Tray trayOf(unsigned int size, unsigned int over, unsigned int down,
                     double allowance = 0.0) {
   tilted::Tray t;
-  t.size = size;
+  t.width = size;
+  t.height = size;
   t.over = over;
   t.down = down;
   t.allowance = allowance;
@@ -288,7 +292,7 @@ TEST_CASE("tilted document: walls belong to the tray", "[app][document][tilted]"
   CHECK(d.puzzle().getShape(0).countState(Voxel::kVariable) == 45);
 
   // a smaller tray keeps the walls still inside it
-  REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), 5)).has_value());
+  REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), 5, 5)).has_value());
   CHECK(d.puzzle().tray()->isWall(0, 0));
   CHECK_FALSE(d.puzzle().tray()->isWall(4, 4));
 
@@ -449,4 +453,189 @@ TEST_CASE("tilted document: saved and opened again", "[app][document][tilted]") 
   CHECK_FALSE(brick.tilted());
   CHECK_FALSE(brick.openNotice().empty());
   CHECK(brick.puzzle().getShape(1).getZ() == 2);
+}
+
+// ---- rectangular trays (stage E) ---------------------------------------------------
+
+namespace {
+
+/// A tray `width` by `height` at slope down/over.
+tilted::Tray rectOf(unsigned int width, unsigned int height, unsigned int over, unsigned int down,
+                    double allowance = 0.0) {
+  tilted::Tray t = trayOf(width, over, down, allowance);
+  t.height = height;
+  return t;
+}
+
+/// The assemblies of Triple Play's three pieces on the board of `d`.
+std::uint64_t triplePlayOn(Document& d, bool flip = true) {
+  const Id problem = d.problemIds()[0];
+  for (const char* art : {"_#___###_#__##__", "_#___#___#####__", "_#___#####___#__"}) {
+    REQUIRE(d.setPieceCount(problem, drawPiece(d, art), 1, 1).has_value());
+  }
+  SolveOptions o;
+  o.flipPieces = flip;
+  REQUIRE(d.solveStart(problem, o).has_value());
+  REQUIRE(d.solveWait(problem).has_value());
+  return d.puzzle().getProblem(0).getNumAssemblies();
+}
+
+}  // namespace
+
+TEST_CASE("tilted document: a rectangular tray", "[app][document][tilted]") {
+  // 6 wide and 8 high, 1 down 2 over
+  const tilted::Tray rect = rectOf(6, 8, 2, 1);
+  Document d = Document::newTilted(rect).value();
+  REQUIRE(d.tilted());
+  CHECK(d.puzzle().tray()->width == 6);
+  CHECK(d.puzzle().tray()->height == 8);
+  const tilted::Placed best = tilted::bestShift(rect);
+  CHECK(d.puzzle().tray()->shiftX == best.shiftX);
+  CHECK(d.puzzle().tray()->shiftY == best.shiftY);
+  const tilted::Layout lay = tilted::layout(*d.puzzle().tray());
+  CHECK(d.puzzle().getShape(0).getX() == lay.sizeX);
+  CHECK(d.puzzle().getShape(0).getY() == lay.sizeY);
+  CHECK(d.puzzle().getShape(0).countState(Voxel::kVariable) == best.whole);
+
+  // the 8 by 8 tray with its last two columns walled has as many cells
+  Document square = Document::newTilted(trayOf(8, 2, 1)).value();
+  std::vector<std::array<unsigned int, 2>> columns;
+  for (unsigned int y = 0; y < 8; y++) {
+    columns.push_back({6, y});
+    columns.push_back({7, y});
+  }
+  REQUIRE(square.setTrayWalls(columns, true).value() == 16);
+  CHECK(square.puzzle().getShape(0).countState(Voxel::kVariable) == best.whole);
+
+  // walls: the squares of the rectangle, and no others
+  CHECK(d.setTrayWalls({{5, 7}, {0, 3}}, true).value() == 2);
+  CHECK(d.puzzle().tray()->walls.size() == 48);
+  CHECK(d.puzzle().tray()->isWall(5, 7));
+  CHECK(d.puzzle().tray()->isWall(0, 3));
+  CHECK_FALSE(d.puzzle().tray()->isWall(3, 0));
+  CHECK(d.setTrayWalls({{6, 0}}, true).error().code == Errc::InvalidArgument);
+  CHECK(d.setTrayWalls({{0, 8}}, true).error().code == Errc::InvalidArgument);
+  CHECK(d.setTrayWalls({{7, 5}}, true).error().code == Errc::InvalidArgument);
+  CHECK(tilted::layout(*d.puzzle().tray()).walls.size() == 2);
+
+  // wider: the walls stay where they are; lower: the one in the last row goes
+  REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), 9, 8)).has_value());
+  CHECK(d.puzzle().tray()->width == 9);
+  CHECK(d.puzzle().tray()->walls.size() == 72);
+  CHECK(d.puzzle().tray()->isWall(5, 7));
+  CHECK(d.puzzle().tray()->isWall(0, 3));
+  REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), 9, 5)).has_value());
+  CHECK(d.puzzle().tray()->isWall(0, 3));
+  CHECK(std::count(d.puzzle().tray()->walls.begin(), d.puzzle().tray()->walls.end(), 1) == 1);
+  CHECK(d.puzzle().getShape(0).countState(Voxel::kVariable) ==
+        tilted::bestShift(*d.puzzle().tray()).whole);
+  // each a step back
+  REQUIRE(d.undo().has_value());
+  CHECK(d.puzzle().tray()->height == 8);
+  CHECK(d.puzzle().tray()->isWall(5, 7));
+  REQUIRE(d.undo().has_value());
+  CHECK(d.puzzle().tray()->width == 6);
+  CHECK(d.puzzle().tray()->walls.size() == 48);
+  REQUIRE(d.undo().has_value());
+  CHECK(d.puzzle().tray()->walls.empty());
+  CHECK(*d.puzzle().tray() == [&] {
+    tilted::Tray t = rect;
+    t.shiftX = best.shiftX;
+    t.shiftY = best.shiftY;
+    return t;
+  }());
+}
+
+TEST_CASE("tilted document: the pieces follow a tray made a rectangle",
+          "[app][document][tilted]") {
+  Document d = Document::newTilted(trayOf(8, 2, 1)).value();
+  const Id a = drawPiece(d, "_#___###_#__##__");
+  const Id b = drawPiece(d, "##__##__________");
+  // lower and wider, then narrow: every piece on the new board, its cells kept
+  for (const auto& [width, height] :
+       std::vector<std::pair<unsigned int, unsigned int>>{{10, 5}, {5, 9}, {11, 6}}) {
+    INFO(width << " by " << height);
+    REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), width, height)).has_value());
+    const tilted::Layout lay = tilted::layout(*d.puzzle().tray());
+    for (const Id id : {a, b}) {
+      const unsigned int index = d.shapeIndex(id).value();
+      const Voxel& v = d.puzzle().getShape(index);
+      CHECK(v.getX() == lay.sizeX);
+      CHECK(v.getY() == lay.sizeY);
+      CHECK(filled(v) == (id == a ? 7U : 4U));
+      CHECK(d.fitsTray(index));
+    }
+  }
+  // a tray too low for the larger piece: it is kept and said not to fit;
+  // the smaller one lies on whole cells
+  REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), 12, 3)).has_value());
+  CHECK(filled(d.puzzle().getShape(d.shapeIndex(a).value())) == 7);
+  CHECK_FALSE(d.fitsTray(d.shapeIndex(a).value()));
+  CHECK(filled(d.puzzle().getShape(d.shapeIndex(b).value())) == 4);
+  CHECK(d.fitsTray(d.shapeIndex(b).value()));
+  // a tray whose board is smaller than a piece refuses, and names the piece
+  const Result<void> r = d.setTray(tilted::withSize(*d.puzzle().tray(), 1, 1));
+  REQUIRE_FALSE(r.has_value());
+  CHECK(r.error().code == Errc::InvalidArgument);
+  CHECK(r.error().message.find("S1") != std::string::npos);
+  CHECK(d.puzzle().tray()->width == 12);
+  CHECK(d.puzzle().tray()->height == 3);
+}
+
+TEST_CASE("tilted document: a rectangular tray is solved", "[app][document][tilted]") {
+  // Triple Play's tray as a rectangle: 6 by 8 with the two rows above the
+  // 6 by 6 opening walled, and its two corners. The same board, the same
+  // one assembly.
+  tilted::Tray high = rectOf(6, 8, 3, 1, 0.05);
+  high.walls.assign(48, 0);
+  high.walls[5] = 1;
+  high.walls[30] = 1;
+  for (unsigned int k = 36; k < 48; k++) {
+    high.walls[k] = 1;
+  }
+  Document walledRect = Document::newTilted(high).value();
+  CHECK(walledRect.puzzle().getShape(0).countState(Voxel::kVariable) == 24);
+  CHECK(triplePlayOn(walledRect) == 1);
+
+  // The three pieces in an open 6 by 8 tray at 1 down 2 over, and in the 8
+  // by 8 tray with two columns walled: the same board, so as many
+  // assemblies, with the pieces turned over and not.
+  for (const bool flip : {true, false}) {
+    INFO("flip " << flip);
+    Document rect = Document::newTilted(rectOf(6, 8, 2, 1)).value();
+    Document square = Document::newTilted(trayOf(8, 2, 1)).value();
+    std::vector<std::array<unsigned int, 2>> columns;
+    for (unsigned int y = 0; y < 8; y++) {
+      columns.push_back({6, y});
+      columns.push_back({7, y});
+    }
+    REQUIRE(square.setTrayWalls(columns, true).value() == 16);
+    REQUIRE(rect.puzzle().getShape(0).countState(Voxel::kVariable) ==
+            square.puzzle().getShape(0).countState(Voxel::kVariable));
+    const std::uint64_t inRect = triplePlayOn(rect, flip);
+    const std::uint64_t inSquare = triplePlayOn(square, flip);
+    CHECK(inRect > 0);
+    CHECK(inRect == inSquare);
+  }
+}
+
+TEST_CASE("tilted document: a rectangular tray is saved and opened",
+          "[app][document][tilted]") {
+  tilted::Tray rect = rectOf(7, 4, 3, 1, 0.05);
+  rect.walls.assign(28, 0);
+  rect.walls[6] = 1;
+  rect.walls[21] = 1;
+  Document d = Document::newTilted(rect).value();
+  (void)drawPiece(d, "##__#___________");
+  const std::string bytes = d.saveBytes().value();
+  CHECK(bytes.find("<tray width=\"7\" height=\"4\"") != std::string::npos);
+  Document again = Document::openBytes(bytes).value();
+  REQUIRE(again.tilted());
+  CHECK(*again.puzzle().tray() == *d.puzzle().tray());
+  CHECK(again.puzzle().tray()->isWall(6, 0));
+  CHECK(again.puzzle().tray()->isWall(0, 3));
+  CHECK(again.puzzle().getShape(0) == d.puzzle().getShape(0));
+  CHECK(again.puzzle().getShape(1) == d.puzzle().getShape(1));
+  CHECK(again.openNotice().empty());
+  CHECK(again.saveBytes().value() == bytes);
 }

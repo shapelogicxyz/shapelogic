@@ -81,19 +81,23 @@ void keepWhere(Span& sp, double a, double b) {
 class Geometry {
  public:
   explicit Geometry(const Tray& tray)
-      : size_(static_cast<int>(tray.size)),
+      : w_(static_cast<int>(tray.width)),
+        h_(static_cast<int>(tray.height)),
         t_(tray.allowance),
-        h_(std::hypot(static_cast<double>(tray.over), static_cast<double>(tray.down))),
-        c_(static_cast<double>(tray.over) / h_),
-        s_(static_cast<double>(tray.down) / h_),
+        hyp_(std::hypot(static_cast<double>(tray.over), static_cast<double>(tray.down))),
+        c_(static_cast<double>(tray.over) / hyp_),
+        s_(static_cast<double>(tray.down) / hyp_),
         tray_(&tray) {
-    buckets_.resize(static_cast<std::size_t>(size_ + 2) * static_cast<std::size_t>(size_ + 2));
+    buckets_.resize(static_cast<std::size_t>(w_ + 2) * static_cast<std::size_t>(h_ + 2));
     buildBlocks();
   }
 
-  [[nodiscard]] int size() const { return size_; }
+  /// The tray's sides.
+  [[nodiscard]] double width() const { return static_cast<double>(w_); }
+  [[nodiscard]] double height() const { return static_cast<double>(h_); }
   [[nodiscard]] double allowance() const { return t_; }
-  [[nodiscard]] double h() const { return h_; }
+  /// The length of the slope's (over, down).
+  [[nodiscard]] double h() const { return hyp_; }
   [[nodiscard]] double c() const { return c_; }
   [[nodiscard]] double s() const { return s_; }
   [[nodiscard]] const std::vector<Block>& blocks() const { return blocks_; }
@@ -136,9 +140,8 @@ class Geometry {
   /// True when cell (i, j) is whole at the shift.
   [[nodiscard]] bool whole(int i, int j, double sx, double sy) const {
     const Rect box = cellBox(i, j);
-    const auto side = static_cast<double>(size_);
-    if (box.x0 + sx < -t_ - kEps || box.x1 + sx > side + t_ + kEps || box.y0 + sy < -t_ - kEps ||
-        box.y1 + sy > side + t_ + kEps) {
+    if (box.x0 + sx < -t_ - kEps || box.x1 + sx > width() + t_ + kEps ||
+        box.y0 + sy < -t_ - kEps || box.y1 + sy > height() + t_ + kEps) {
       return false;
     }
     bool hit = false;
@@ -154,10 +157,10 @@ class Geometry {
     if (blocks_.empty()) {
       return;
     }
-    const int a0 = std::clamp(static_cast<int>(std::floor(x0)), -1, size_);
-    const int a1 = std::clamp(static_cast<int>(std::floor(x1)), -1, size_);
-    const int b0 = std::clamp(static_cast<int>(std::floor(y0)), -1, size_);
-    const int b1 = std::clamp(static_cast<int>(std::floor(y1)), -1, size_);
+    const int a0 = std::clamp(static_cast<int>(std::floor(x0)), -1, w_);
+    const int a1 = std::clamp(static_cast<int>(std::floor(x1)), -1, w_);
+    const int b0 = std::clamp(static_cast<int>(std::floor(y0)), -1, h_);
+    const int b1 = std::clamp(static_cast<int>(std::floor(y1)), -1, h_);
     for (int b = b0; b <= b1; b++) {
       for (int a = a0; a <= a1; a++) {
         for (const unsigned int k : buckets_[bucketOf(a, b)]) {
@@ -170,14 +173,15 @@ class Geometry {
   /// The cells that can be whole for some shift within kWindow of zero:
   /// i in first.lo .. first.hi, j in second.lo .. second.hi (whole numbers).
   [[nodiscard]] std::pair<Span, Span> cellRange() const {
+    // along the grid's axes the tray reaches from 0 to width * c + height * s
+    // and from -width * s to height * c
     const double reach = (t_ + kWindow) * (c_ + s_);
-    const auto side = static_cast<double>(size_);
     Span i;
     i.lo = std::floor(-reach) - 1.0;
-    i.hi = std::ceil((side * (c_ + s_)) + reach);
+    i.hi = std::ceil((width() * c_) + (height() * s_) + reach);
     Span j;
-    j.lo = std::floor((-side * s_) - reach) - 1.0;
-    j.hi = std::ceil((side * c_) + reach);
+    j.lo = std::floor((-width() * s_) - reach) - 1.0;
+    j.hi = std::ceil((height() * c_) + reach);
     return {i, j};
   }
 
@@ -197,13 +201,13 @@ class Geometry {
 
  private:
   [[nodiscard]] std::size_t bucketOf(int a, int b) const {
-    return (static_cast<std::size_t>(b + 1) * static_cast<std::size_t>(size_ + 2)) +
+    return (static_cast<std::size_t>(b + 1) * static_cast<std::size_t>(w_ + 2)) +
            static_cast<std::size_t>(a + 1);
   }
 
   /// True when tray square (a, b) is a wall or lies outside the tray.
   [[nodiscard]] bool forbidden(int a, int b) const {
-    if (a < 0 || b < 0 || a >= size_ || b >= size_) {
+    if (a < 0 || b < 0 || a >= w_ || b >= h_) {
       return true;
     }
     return tray_->isWall(static_cast<unsigned int>(a), static_cast<unsigned int>(b));
@@ -225,11 +229,10 @@ class Geometry {
   void addBlock(int a, int b, Rect r) {
     // a cell must stay within t of the tray anyway (whole()): what lies
     // farther out needs no block
-    const auto side = static_cast<double>(size_);
     r.x0 = std::max(r.x0, -t_);
     r.y0 = std::max(r.y0, -t_);
-    r.x1 = std::min(r.x1, side + t_);
-    r.y1 = std::min(r.y1, side + t_);
+    r.x1 = std::min(r.x1, width() + t_);
+    r.y1 = std::min(r.y1, height() + t_);
     if (r.x1 - r.x0 <= kSame || r.y1 - r.y0 <= kSame) {
       return;
     }
@@ -247,8 +250,8 @@ class Geometry {
     if (tray_->walls.empty()) {
       return;  // the rim alone is whole()'s first test
     }
-    for (int b = -1; b <= size_; b++) {
-      for (int a = -1; a <= size_; a++) {
+    for (int b = -1; b <= h_; b++) {
+      for (int a = -1; a <= w_; a++) {
         if (!forbidden(a, b)) {
           continue;
         }
@@ -286,9 +289,10 @@ class Geometry {
     }
   }
 
-  int size_;
+  int w_;
+  int h_;
   double t_;
-  double h_;
+  double hyp_;
   double c_;
   double s_;
   const Tray* tray_;
@@ -332,7 +336,6 @@ void sortUnique(std::vector<double>& v) {
 /// are the places tried.
 LineBest bestOnLine(const Geometry& g, const Line& line) {
   const auto [ri, rj] = g.cellRange();
-  const auto side = static_cast<double>(g.size());
   const double t = g.allowance();
   // the line's position and direction along the grid's axes
   const double pu = (line.px * g.c()) + (line.py * g.s());
@@ -348,9 +351,9 @@ LineBest bestOnLine(const Geometry& g, const Line& line) {
       const Rect box = g.cellBox(i, j);
       Span in = line.range;
       keepWhere(in, box.x0 + line.px + t + kEps, line.dx);
-      keepWhere(in, side + t + kEps - box.x1 - line.px, -line.dx);
+      keepWhere(in, g.width() + t + kEps - box.x1 - line.px, -line.dx);
       keepWhere(in, box.y0 + line.py + t + kEps, line.dy);
-      keepWhere(in, side + t + kEps - box.y1 - line.py, -line.dy);
+      keepWhere(in, g.height() + t + kEps - box.y1 - line.py, -line.dy);
       if (in.empty()) {
         continue;
       }
@@ -428,8 +431,8 @@ Point nearZero(const Geometry& g, double sx, double sy) {
 }  // namespace
 
 bool Tray::valid() const {
-  if (size < 1 || size > kMaxSize || over < 1 || over > kMaxSlope || down > over ||
-      std::gcd(over, down) != 1) {
+  if (width < 1 || width > kMaxSize || height < 1 || height > kMaxSize || over < 1 ||
+      over > kMaxSlope || down > over || std::gcd(over, down) != 1) {
     return false;
   }
   if (!std::isfinite(allowance) || allowance < 0.0 || allowance > kMaxAllowance ||
@@ -440,7 +443,7 @@ bool Tray::valid() const {
   if (placement != Placement::Best && placement != Placement::Custom) {
     return false;
   }
-  return walls.empty() || walls.size() == static_cast<std::size_t>(size) * size;
+  return walls.empty() || walls.size() == static_cast<std::size_t>(width) * height;
 }
 
 double Tray::degrees() const {
@@ -448,17 +451,18 @@ double Tray::degrees() const {
          std::numbers::pi;
 }
 
-Tray withSize(const Tray& tray, unsigned int size) {
-  BT_ASSERT(size >= 1 && size <= Tray::kMaxSize);
+Tray withSize(const Tray& tray, unsigned int width, unsigned int height) {
+  BT_ASSERT(width >= 1 && width <= Tray::kMaxSize && height >= 1 && height <= Tray::kMaxSize);
   Tray out = tray;
-  out.size = size;
+  out.width = width;
+  out.height = height;
   out.walls.clear();
   bool any = false;
-  std::vector<std::uint8_t> walls(static_cast<std::size_t>(size) * size, 0);
-  for (unsigned int y = 0; y < std::min(size, tray.size); y++) {
-    for (unsigned int x = 0; x < std::min(size, tray.size); x++) {
+  std::vector<std::uint8_t> walls(static_cast<std::size_t>(width) * height, 0);
+  for (unsigned int y = 0; y < std::min(height, tray.height); y++) {
+    for (unsigned int x = 0; x < std::min(width, tray.width); x++) {
       if (tray.isWall(x, y)) {
-        walls[(static_cast<std::size_t>(y) * size) + x] = 1;
+        walls[(static_cast<std::size_t>(y) * width) + x] = 1;
         any = true;
       }
     }
@@ -485,14 +489,15 @@ Point canonicalShift(const Tray& tray, Point shift) {
 Layout layout(const Tray& tray) {
   BT_ASSERT(tray.valid());
   const Geometry g(tray);
-  const auto side = static_cast<double>(tray.size);
+  const double wide = g.width();
+  const double high = g.height();
   const double sx = tray.shiftX;
   const double sy = tray.shiftY;
 
-  // the grid cells the tray's square can touch
+  // the grid cells the tray's rectangle can touch
   const std::array<Point, 4> trayCorners = {
-      g.toGrid(0.0, 0.0, sx, sy), g.toGrid(side, 0.0, sx, sy), g.toGrid(side, side, sx, sy),
-      g.toGrid(0.0, side, sx, sy)};
+      g.toGrid(0.0, 0.0, sx, sy), g.toGrid(wide, 0.0, sx, sy), g.toGrid(wide, high, sx, sy),
+      g.toGrid(0.0, high, sx, sy)};
   double gx0 = trayCorners[0].x;
   double gx1 = gx0;
   double gy0 = trayCorners[0].y;
@@ -510,11 +515,11 @@ Layout layout(const Tray& tray) {
 
   // the tray itself, as a block: a cell that reaches into it is on the board
   Block inside;
-  inside.r = {0.0, 0.0, side, side};
+  inside.r = {0.0, 0.0, wide, high};
   inside.u0 = 0.0;
-  inside.u1 = side * (g.c() + g.s());
-  inside.v0 = -side * g.s();
-  inside.v1 = side * g.c();
+  inside.u1 = (wide * g.c()) + (high * g.s());
+  inside.v0 = -wide * g.s();
+  inside.v1 = high * g.c();
 
   std::optional<int> minI;
   int maxI = 0;
@@ -535,7 +540,7 @@ Layout layout(const Tray& tray) {
       maxJ = std::max(maxJ, j);
     }
   }
-  BT_ASSERT(minI.has_value());  // a tray of side 1 or more holds part of a cell
+  BT_ASSERT(minI.has_value());  // a tray with sides of 1 or more holds part of a cell
 
   Layout out;
   out.sizeX = static_cast<unsigned int>(maxI - *minI + 1);
@@ -557,9 +562,9 @@ Layout layout(const Tray& tray) {
     const Point p = g.toGrid(x, y, sx, sy);
     return Point{p.x - static_cast<double>(*minI), p.y - static_cast<double>(minJ)};
   };
-  out.corners = {inBox(0.0, 0.0), inBox(side, 0.0), inBox(side, side), inBox(0.0, side)};
-  for (unsigned int y = 0; y < tray.size; y++) {
-    for (unsigned int x = 0; x < tray.size; x++) {
+  out.corners = {inBox(0.0, 0.0), inBox(wide, 0.0), inBox(wide, high), inBox(0.0, high)};
+  for (unsigned int y = 0; y < tray.height; y++) {
+    for (unsigned int x = 0; x < tray.width; x++) {
       if (tray.isWall(x, y)) {
         const auto wx = static_cast<double>(x);
         const auto wy = static_cast<double>(y);
@@ -574,7 +579,6 @@ Layout layout(const Tray& tray) {
 Placed bestShift(const Tray& tray) {
   BT_ASSERT(tray.valid());
   const Geometry g(tray);
-  const auto side = static_cast<double>(tray.size);
   const double t = g.allowance();
   const double h = g.h();
   const double c = g.c();
@@ -584,8 +588,8 @@ Placed bestShift(const Tray& tray) {
   // of 1/h in x and in y at shift zero, so it meets the upright line x = X
   // when the shift's x is X - m/h; a wall's corner P meets a cell's edge
   // when the shift's part along the grid's first axis is P.u - k.
-  std::vector<double> xs = {-t, side + t};
-  std::vector<double> ys = {-t, side + t};
+  std::vector<double> xs = {-t, g.width() + t};
+  std::vector<double> ys = {-t, g.height() + t};
   std::vector<double> us;
   for (const Block& b : g.blocks()) {
     xs.push_back(b.r.x0);
@@ -653,14 +657,15 @@ Placed bestShift(const Tray& tray) {
 
   // a placement symmetric about the tray's center, when it is as good: the
   // center on a cell's middle, on a grid point, or on the middle of an edge
-  const double mid = side / 2.0;
+  const double midX = g.width() / 2.0;
+  const double midY = g.height() / 2.0;
   const std::array<Point, 4> centered = {g.turned(0.5, 0.5), g.turned(0.0, 0.0),
                                              g.turned(0.5, 0.0), g.turned(0.0, 0.5)};
   std::array<Point, 4> sym{};
   std::array<unsigned int, 4> symCount{};
   unsigned int top = best.whole;
   for (std::size_t k = 0; k < centered.size(); k++) {
-    sym[k] = nearZero(g, mid - centered[k].x, mid - centered[k].y);
+    sym[k] = nearZero(g, midX - centered[k].x, midY - centered[k].y);
     symCount[k] = g.countAt(sym[k].x, sym[k].y);
     top = std::max(top, symCount[k]);
   }

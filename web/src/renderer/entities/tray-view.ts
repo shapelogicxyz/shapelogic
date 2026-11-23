@@ -68,7 +68,8 @@ export class TrayViewCard {
           // what the tray gives, and how to draw walls, under the buttons
           `<div class="bvfacts" role="status">${trayFacts(tray)
             .map(
-              (line, i) => `<p class="${['tread', 'tangle', 'twallcount'][i] ?? ''}">${line}</p>`,
+              (line, i) =>
+                `<p class="${['tsize', 'tread', 'tangle', 'twallcount'][i] ?? ''}">${line}</p>`,
             )
             .join(
               '',
@@ -84,9 +85,12 @@ export class TrayViewCard {
       this.drawnFor = '';
       return;
     }
-    const room = Math.min(area.clientWidth, area.clientHeight || area.clientWidth);
-    const px = Math.max(80, room - 12);
-    const key = `${this.view}:${String(px)}:${t.cells}:${JSON.stringify(t.walls)}:${JSON.stringify(t.corners)}:${String(t.size)}`;
+    // the largest squares with which the tray's width and height both fit
+    const roomX = area.clientWidth - 12;
+    const roomY = (area.clientHeight || area.clientWidth) - 12;
+    const square = Math.min(roomX / t.width, roomY / t.height);
+    const px = Math.max(80, Math.floor(square * Math.max(t.width, t.height)));
+    const key = `${this.view}:${String(px)}:${t.cells}:${JSON.stringify(t.walls)}:${JSON.stringify(t.corners)}:${String(t.width)}x${String(t.height)}`;
     if (key === this.drawnFor && this.drag === null) {
       return;
     }

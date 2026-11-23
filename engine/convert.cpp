@@ -403,7 +403,8 @@ Json trayJson(const app::Document& d) {
 
 Json trayJson(const tilted::Tray& t, const tilted::Layout& lay) {
   Json j = Json::object();
-  j["size"] = t.size;
+  j["width"] = t.width;
+  j["height"] = t.height;
   j["over"] = t.over;
   j["down"] = t.down;
   j["allowance"] = t.allowance;
@@ -411,8 +412,8 @@ Json trayJson(const tilted::Tray& t, const tilted::Layout& lay) {
   j["shiftX"] = t.shiftX;
   j["shiftY"] = t.shiftY;
   Json walls = Json::array();
-  for (unsigned int y = 0; y < t.size; y++) {
-    for (unsigned int x = 0; x < t.size; x++) {
+  for (unsigned int y = 0; y < t.height; y++) {
+    for (unsigned int x = 0; x < t.width; x++) {
       if (t.isWall(x, y)) {
         walls.push_back(Json::array({x, y}));
       }

@@ -3,7 +3,9 @@
 // worked out outside this code: those of the open trays by the program
 // behind the research page "Tilted Square Geometry", those of the walled
 // trays by the placements found here, each counted again with a polygon
-// library (cell inside the open squares grown by the allowance).
+// library (cell inside the open squares grown by the allowance). A
+// rectangular tray (stage E) is checked against the square tray with the
+// rows or columns beyond it walled, which must give the same board.
 
 #include "shapelogic/model/tilted_tray.h"
 
@@ -15,6 +17,7 @@
 #include <cstddef>
 #include <limits>
 #include <numbers>
+#include <utility>
 #include <vector>
 
 using namespace bt;
@@ -26,19 +29,26 @@ using tilted::Tray;
 
 namespace {
 
-/// A tray of side `size` at slope down/over, strict, without walls.
-Tray trayOf(unsigned int size, unsigned int over, unsigned int down, double allowance = 0.0) {
+/// A tray `width` by `height` at slope down/over, without walls.
+Tray rectOf(unsigned int width, unsigned int height, unsigned int over, unsigned int down,
+            double allowance = 0.0) {
   Tray t;
-  t.size = size;
+  t.width = width;
+  t.height = height;
   t.over = over;
   t.down = down;
   t.allowance = allowance;
   return t;
 }
 
-/// The tray with the listed squares (index y * size + x) made walls.
+/// A square tray of side `size` at slope down/over, strict, without walls.
+Tray trayOf(unsigned int size, unsigned int over, unsigned int down, double allowance = 0.0) {
+  return rectOf(size, size, over, down, allowance);
+}
+
+/// The tray with the listed squares (index y * width + x) made walls.
 Tray walled(Tray t, const std::vector<unsigned int>& squares) {
-  t.walls.assign(static_cast<std::size_t>(t.size) * t.size, 0);
+  t.walls.assign(static_cast<std::size_t>(t.width) * t.height, 0);
   for (const unsigned int k : squares) {
     t.walls[k] = 1;
   }
@@ -68,6 +78,53 @@ unsigned int searched(Tray t, int n) {
   return best;
 }
 
+/// The square tray that stands for the rectangle `t`: its side the
+/// rectangle's longer one, every square beyond the rectangle a wall, the
+/// rectangle's own walls kept. The same slope, allowance, placement and
+/// shift: the rectangle lies at the square's corner (0, 0).
+Tray asWalledSquare(const Tray& t) {
+  const unsigned int side = std::max(t.width, t.height);
+  Tray sq = t;
+  sq.width = side;
+  sq.height = side;
+  sq.walls.assign(static_cast<std::size_t>(side) * side, 0);
+  for (unsigned int y = 0; y < side; y++) {
+    for (unsigned int x = 0; x < side; x++) {
+      if (x >= t.width || y >= t.height || t.isWall(x, y)) {
+        sq.walls[(static_cast<std::size_t>(y) * side) + x] = 1;
+      }
+    }
+  }
+  if (std::find(sq.walls.begin(), sq.walls.end(), 1) == sq.walls.end()) {
+    sq.walls.clear();
+  }
+  return sq;
+}
+
+/// The whole cells of a tray's board as grid cells (i, j), in order: the
+/// board's box begins at a grid cell that the tray's corner (0, 0) tells
+/// (it lies at R^T(-shift) in the grid and at corners[0] in the box).
+std::vector<std::pair<long, long>> wholeCells(const Tray& t) {
+  const Layout lay = tilted::layout(t);
+  const double h = std::hypot(static_cast<double>(t.over), static_cast<double>(t.down));
+  const double c = t.over / h;
+  const double s = t.down / h;
+  const double gx = (-t.shiftX * c) + (-t.shiftY * s);
+  const double gy = (-t.shiftY * c) - (-t.shiftX * s);
+  const long i0 = std::lround(gx - lay.corners[0].x);
+  const long j0 = std::lround(gy - lay.corners[0].y);
+  std::vector<std::pair<long, long>> out;
+  for (unsigned int y = 0; y < lay.sizeY; y++) {
+    for (unsigned int x = 0; x < lay.sizeX; x++) {
+      if (lay.at(x, y) == Cell::Whole) {
+        out.emplace_back(i0 + x, j0 + y);
+      }
+    }
+  }
+  std::sort(out.begin(), out.end());
+  return out;
+}
+
 const std::vector<unsigned int> kCorners = {0, 7, 56, 63};
 const std::vector<unsigned int> kScattered = {0, 1, 8, 27, 28, 36, 62, 63, 23};
 
@@ -80,6 +137,15 @@ TEST_CASE("tilted tray: settings in range", "[model][tilted]") {
 
   CHECK_FALSE(trayOf(0, 1, 0).valid());
   CHECK_FALSE(trayOf(Tray::kMaxSize + 1, 1, 0).valid());
+  // each side has the bounds
+  CHECK(rectOf(1, Tray::kMaxSize, 2, 1).valid());
+  CHECK(rectOf(Tray::kMaxSize, 1, 2, 1).valid());
+  CHECK_FALSE(rectOf(0, 8, 1, 0).valid());
+  CHECK_FALSE(rectOf(8, 0, 1, 0).valid());
+  CHECK_FALSE(rectOf(Tray::kMaxSize + 1, 8, 1, 0).valid());
+  CHECK_FALSE(rectOf(8, Tray::kMaxSize + 1, 1, 0).valid());
+  CHECK(trayOf(8, 2, 1).square());
+  CHECK_FALSE(rectOf(8, 6, 2, 1).square());
   CHECK_FALSE(trayOf(8, 0, 0).valid());
   // down no more than over, and in lowest terms
   CHECK_FALSE(trayOf(8, 1, 2).valid());
@@ -95,6 +161,14 @@ TEST_CASE("tilted tray: settings in range", "[model][tilted]") {
   CHECK_FALSE(t.valid());
   t.walls.assign(64, 0);
   CHECK(t.valid());
+  // a rectangle's walls are width * height
+  Tray r = rectOf(6, 8, 2, 1);
+  r.walls.assign(36, 0);
+  CHECK_FALSE(r.valid());
+  r.walls.assign(64, 0);
+  CHECK_FALSE(r.valid());
+  r.walls.assign(48, 0);
+  CHECK(r.valid());
   t.shiftX = std::numeric_limits<double>::infinity();
   CHECK_FALSE(t.valid());
   t.shiftX = Tray::kMaxShift;
@@ -419,4 +493,229 @@ TEST_CASE("tilted tray: the allowance at a wall", "[model][tilted]") {
   const double cy = (-pair.shiftY * r) - (-pair.shiftX * r);
   CHECK(touching.at(static_cast<unsigned int>(std::lround(low2.x - cx)),
                     static_cast<unsigned int>(std::lround(low2.y - cy))) == Cell::Whole);
+}
+
+// ---- rectangular trays (stage E) ---------------------------------------------------
+
+TEST_CASE("tilted tray: a straight rectangle is the plain board", "[model][tilted]") {
+  const Tray t = atBest(rectOf(6, 4, 1, 0));
+  const Layout lay = tilted::layout(t);
+  CHECK(lay.sizeX == 6);
+  CHECK(lay.sizeY == 4);
+  CHECK(lay.whole == 24);
+  CHECK(lay.cut == 0);
+  CHECK(std::abs(lay.corners[0].x) < 1e-9);
+  CHECK(std::abs(lay.corners[0].y) < 1e-9);
+  CHECK(std::abs(lay.corners[1].x - 6.0) < 1e-9);
+  CHECK(std::abs(lay.corners[1].y) < 1e-9);
+  CHECK(std::abs(lay.corners[2].x - 6.0) < 1e-9);
+  CHECK(std::abs(lay.corners[2].y - 4.0) < 1e-9);
+  CHECK(std::abs(lay.corners[3].x) < 1e-9);
+  CHECK(std::abs(lay.corners[3].y - 4.0) < 1e-9);
+
+  // the walls are numbered row by row along the width: square (5, 1) is 11
+  const Tray w = atBest(walled(rectOf(6, 4, 1, 0), {11, 18}));
+  CHECK(w.isWall(5, 1));
+  CHECK(w.isWall(0, 3));
+  CHECK_FALSE(w.isWall(1, 1));
+  CHECK_FALSE(w.isWall(3, 0));
+  const Layout walls = tilted::layout(w);
+  CHECK(walls.whole == 22);
+  CHECK(walls.at(5, 1) == Cell::Cut);
+  CHECK(walls.at(0, 3) == Cell::Cut);
+  CHECK(walls.at(4, 1) == Cell::Whole);
+  REQUIRE(walls.walls.size() == 2);
+  CHECK(std::abs(walls.walls[0][0].x - 5.0) < 1e-9);
+  CHECK(std::abs(walls.walls[0][0].y - 1.0) < 1e-9);
+  CHECK(std::abs(walls.walls[1][2].x - 1.0) < 1e-9);
+  CHECK(std::abs(walls.walls[1][2].y - 4.0) < 1e-9);
+}
+
+TEST_CASE("tilted tray: a rectangle's board at its shift", "[model][tilted]") {
+  const Tray t = atBest(rectOf(9, 5, 2, 1, 0.0));
+  const Layout lay = tilted::layout(t);
+  CHECK(lay.whole == tilted::bestShift(t).whole);
+  CHECK(static_cast<unsigned int>(std::count(lay.cells.begin(), lay.cells.end(), Cell::Whole)) ==
+        lay.whole);
+  // the tray is 9 by 5 in the box's frame, turned by the slope
+  const auto sideLength = [&](std::size_t a, std::size_t b) {
+    return std::hypot(lay.corners[b].x - lay.corners[a].x, lay.corners[b].y - lay.corners[a].y);
+  };
+  CHECK(std::abs(sideLength(0, 1) - 9.0) < 1e-9);
+  CHECK(std::abs(sideLength(1, 2) - 5.0) < 1e-9);
+  CHECK(std::abs(sideLength(2, 3) - 9.0) < 1e-9);
+  CHECK(std::abs(sideLength(3, 0) - 5.0) < 1e-9);
+  const Point edge = {lay.corners[1].x - lay.corners[0].x, lay.corners[1].y - lay.corners[0].y};
+  CHECK(std::abs((std::atan2(-edge.y, edge.x) * 180.0 / std::numbers::pi) - t.degrees()) <
+        1e-9);
+  // every whole cell lies inside the rectangle, and every row and column of
+  // the box holds a cell that reaches into it
+  const auto inside = [&](double x, double y) {
+    for (std::size_t k = 0; k < 4; k++) {
+      const Point a = lay.corners[k];
+      const Point b = lay.corners[(k + 1) % 4];
+      if (((b.x - a.x) * (y - a.y)) - ((b.y - a.y) * (x - a.x)) < -1e-8) {
+        return false;
+      }
+    }
+    return true;
+  };
+  for (unsigned int y = 0; y < lay.sizeY; y++) {
+    bool any = false;
+    for (unsigned int x = 0; x < lay.sizeX; x++) {
+      any = any || lay.at(x, y) != Cell::Outside;
+      if (lay.at(x, y) == Cell::Whole) {
+        CHECK(inside(x, y));
+        CHECK(inside(x + 1.0, y));
+        CHECK(inside(x + 1.0, y + 1.0));
+        CHECK(inside(x, y + 1.0));
+      }
+    }
+    CHECK(any);
+  }
+  for (unsigned int x = 0; x < lay.sizeX; x++) {
+    bool any = false;
+    for (unsigned int y = 0; y < lay.sizeY; y++) {
+      any = any || lay.at(x, y) != Cell::Outside;
+    }
+    CHECK(any);
+  }
+  // the same settings give the same shift, in its canonical form
+  const Placed a = tilted::bestShift(t);
+  const Placed b = tilted::bestShift(t);
+  CHECK(a.shiftX == b.shiftX);
+  CHECK(a.shiftY == b.shiftY);
+  const Point again = tilted::canonicalShift(t, {a.shiftX, a.shiftY});
+  CHECK(std::abs(again.x - a.shiftX) < 1e-9);
+  CHECK(std::abs(again.y - a.shiftY) < 1e-9);
+}
+
+TEST_CASE("tilted tray: a rectangle is the square with the rest walled",
+          "[model][tilted][slow]") {
+  // The oracle of stage E: a wall acts as the edge does, the allowance
+  // included, so the 6 by 8 tray is the 8 by 8 tray with two columns
+  // walled: the same whole cells at every shift, and the same best count.
+  // The square goes through the walls' blocks, the rectangle through the
+  // edge test alone.
+  for (unsigned int width = 3; width <= 10; width++) {
+    for (unsigned int height = 3; height <= 10; height++) {
+      for (const unsigned int over : {1U, 2U, 3U, 4U}) {
+        for (const double allowance : {0.0, 0.05}) {
+          INFO(width << " by " << height << ", 1 down " << over << " over, allowance "
+                     << allowance);
+          const Tray rect = rectOf(width, height, over, 1, allowance);
+          const Tray square = asWalledSquare(rect);
+          REQUIRE(square.valid());
+          const Placed bestRect = tilted::bestShift(rect);
+          const Placed bestSquare = tilted::bestShift(square);
+          CHECK(bestRect.whole == bestSquare.whole);
+
+          // cell for cell, where each of the two would place the grid
+          for (const Placed& at : {bestRect, bestSquare}) {
+            Tray r = rect;
+            r.shiftX = at.shiftX;
+            r.shiftY = at.shiftY;
+            const Tray q = asWalledSquare(r);
+            const std::vector<std::pair<long, long>> cells = wholeCells(r);
+            CHECK(cells.size() == bestRect.whole);
+            CHECK(cells == wholeCells(q));
+          }
+          // and at shifts that are no one's best
+          for (int k = 0; k < 6; k++) {
+            Tray r = rect;
+            r.placement = Tray::Placement::Custom;
+            r.shiftX = -0.61 + (0.23 * k) + (0.011 * width);
+            r.shiftY = 0.47 - (0.19 * k) - (0.013 * height);
+            const std::vector<std::pair<long, long>> cells = wholeCells(r);
+            CHECK(cells == wholeCells(asWalledSquare(r)));
+            CHECK(cells.size() <= bestRect.whole);
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("tilted tray: a rectangle with walls of its own", "[model][tilted]") {
+  // the oracle again, with walls inside the rectangle and on its rim, some
+  // side by side: a 6 by 8 tray, index y * 6 + x
+  const std::vector<unsigned int> squares = {0, 5, 14, 15, 20, 33, 42, 47};
+  for (const unsigned int over : {1U, 2U, 3U, 5U}) {
+    for (const double allowance : {0.0, 0.05, 0.1}) {
+      INFO("1 down " << over << " over, allowance " << allowance);
+      const Tray rect = walled(rectOf(6, 8, over, 1, allowance), squares);
+      const Tray square = asWalledSquare(rect);
+      const Placed best = tilted::bestShift(rect);
+      CHECK(best.whole == tilted::bestShift(square).whole);
+      CHECK(tilted::layout(atBest(rect)).whole == best.whole);
+      CHECK(tilted::layout(atBest(rect)).walls.size() == squares.size());
+      CHECK(wholeCells(atBest(rect)) == wholeCells(asWalledSquare(atBest(rect))));
+      // no net of shifts does better, and a wall never adds a cell
+      CHECK(searched(rect, 8) <= best.whole);
+      CHECK(best.whole <= tilted::bestShift(rectOf(6, 8, over, 1, allowance)).whole);
+    }
+  }
+}
+
+TEST_CASE("tilted tray: a rectangle turned a quarter holds as many cells", "[model][tilted]") {
+  // A width by height tray turned a quarter is the height by width tray,
+  // and the square grid a quarter turn on is the same grid: the best counts
+  // are equal. Nothing of this goes through walls.
+  for (const unsigned int over : {1U, 2U, 3U, 4U, 5U}) {
+    for (const double allowance : {0.0, 0.02, 0.05}) {
+      for (const auto& [width, height] :
+           std::vector<std::pair<unsigned int, unsigned int>>{
+               {3, 5}, {4, 7}, {6, 8}, {5, 12}, {9, 10}, {1, 6}, {2, 11}}) {
+        INFO(width << " by " << height << ", 1 down " << over << " over, allowance "
+                   << allowance);
+        const unsigned int wide = tilted::bestShift(rectOf(width, height, over, 1, allowance)).whole;
+        const unsigned int high = tilted::bestShift(rectOf(height, width, over, 1, allowance)).whole;
+        CHECK(wide == high);
+        // no net of shifts does better
+        CHECK(searched(rectOf(width, height, over, 1, allowance), 10) <= wide);
+      }
+    }
+  }
+  // a tray one cell wide holds nothing once the grid is turned
+  CHECK(tilted::bestShift(rectOf(1, 6, 2, 1)).whole == 0);
+  CHECK(tilted::bestShift(rectOf(1, 6, 1, 0)).whole == 6);
+}
+
+TEST_CASE("tilted tray: a new size keeps the walls inside", "[model][tilted]") {
+  // an 8 by 8 tray with walls at (0, 0), (7, 0), (2, 5), (7, 7)
+  const Tray t = walled(trayOf(8, 2, 1, 0.05), {0, 7, 42, 63});
+  // narrower: the walls of the columns that stay, numbered along the new width
+  const Tray narrow = tilted::withSize(t, 6, 8);
+  CHECK(narrow.valid());
+  CHECK(narrow.width == 6);
+  CHECK(narrow.height == 8);
+  CHECK(narrow.walls.size() == 48);
+  CHECK(narrow.isWall(0, 0));
+  CHECK(narrow.isWall(2, 5));
+  CHECK(std::count(narrow.walls.begin(), narrow.walls.end(), 1) == 2);
+  // lower: the rows that stay
+  const Tray low = tilted::withSize(t, 8, 5);
+  CHECK(low.isWall(0, 0));
+  CHECK(low.isWall(7, 0));
+  CHECK(std::count(low.walls.begin(), low.walls.end(), 1) == 2);
+  // wider and higher: every wall where it was
+  const Tray grown = tilted::withSize(t, 10, 9);
+  CHECK(grown.walls.size() == 90);
+  CHECK(grown.isWall(0, 0));
+  CHECK(grown.isWall(7, 0));
+  CHECK(grown.isWall(2, 5));
+  CHECK(grown.isWall(7, 7));
+  CHECK(std::count(grown.walls.begin(), grown.walls.end(), 1) == 4);
+  // and back: what was cut off does not return
+  const Tray back = tilted::withSize(narrow, 8, 8);
+  CHECK(std::count(back.walls.begin(), back.walls.end(), 1) == 2);
+  CHECK_FALSE(back.isWall(7, 0));
+  CHECK_FALSE(back.isWall(7, 7));
+  // no wall left: no wall list
+  CHECK(tilted::withSize(t, 1, 1).walls.size() == 1);
+  CHECK(tilted::withSize(walled(trayOf(8, 2, 1), {63}), 4, 4).walls.empty());
+  // the other settings stay
+  CHECK(narrow.over == 2);
+  CHECK(narrow.down == 1);
+  CHECK(narrow.allowance == 0.05);
 }

@@ -89,7 +89,29 @@ with **File ▸ New ▸ Tilted Square**.
   specs passed three times, puzzle, solver and sliding once; the stacking
   spec's player screenshot fails with and without this stage (its
   reference shows the Solver card before the foldable explorer).
-- [ ] Stage E: rectangular trays
+- [x] Stage E: rectangular trays (2026-11-23). `Tray::width` and
+  `height` in place of `size` (`withSize(tray, width, height)`), `<tray>`'s
+  `width` and `height` for a rectangle (`size` kept for a square, so the
+  files written before are written as they were; the reader takes either),
+  `TraySettings.width` and `height` (`size` sets both), `Tray.width` and
+  `height` in place of `size`. Front end: Width and Height in Tilt &
+  tolerance with the Keep square switch (the plan's link switch; on at
+  first for each document, off by itself for a tray that is not square;
+  turned on, the height takes the width), the tray's size in the readout
+  ("Tray: 8 by 6") and in the line under the steppers, the tray picture, the
+  board's views and a piece's turned editor fitted to a rectangle. Tests:
+  `test_tilted_tray.cpp` (the walled square as the oracle, widths and
+  heights 3 to 10, slopes 1:1 to 1:4, allowances 0 and 0.05, cell for cell
+  and in the best count; a rectangle with walls of its own; the quarter
+  turn, which goes through no wall: a width by height tray holds as many
+  cells as the height by width one), `test_roundtrip.cpp`,
+  `test_document_tilted.cpp` (Triple Play's pieces in a 6 by 8 tray and in
+  the 8 by 8 tray with two columns walled: as many assemblies), the
+  contract test `tilted_tray` (the same through the engine),
+  `tilted.test.ts`, `tilted.e2e.ts` (width and height set with Keep
+  square off). Gates: `just test-all`, `just test-asan`, `just check` on
+  the changed sources, `just app-check`, `just app-test` and the tilted e2e
+  spec (three times) passed; `just oracle-roundtrip` as under Stage A.
 - [ ] Stage F: fixture, guide and finish
 - [ ] Stage G: every placement
 
@@ -101,7 +123,7 @@ with **File ▸ New ▸ Tilted Square**.
 | B | Document rules and engine | High: one-step tray changes that move every piece, the refusals, flipping in the solver | Fable 5.2 High | Done (1d7c352) |
 | C | The mode in the front end | Medium: much work, most of it on patterns the code has | Opus 5.5 High | Done (dc30490) |
 | D | The tilted drawing (a piece's 2D grid turned, the tray and its walls in 3D, the Puzzle pieces) | Medium to high: two grids drawn over each other, hit testing under the turn | Opus 5.5 High | Done |
-| E | Rectangular trays | Medium: the exact search and the file format again, with the walled square as the oracle | Fable 5.2 High | Not started |
+| E | Rectangular trays | Medium: the exact search and the file format again, with the walled square as the oracle | Fable 5.2 High | Done |
 | F | Fixture, guide and finish | Low to medium: tests, the Triple Play fixture, the guide page, docs | Opus 5.5 High | Not started |
 | G | Every placement | High: every board the sliding grid can make, exactly, and a job that solves each | Fable 5.2 High | Not started |
 
@@ -355,9 +377,9 @@ Core only.
 ## Stage E: rectangular trays
 
 A tray of any width and height, not only square (the user, 2026-11-22).
-Until it is in, a rectangle is had with walls: a 6 by 8 tray is an 8 by 8
-tray with two rows walled, which gives the same whole cells and the same
-best placement (a wall acts as the edge does, the allowance included).
+Before it, a rectangle was had with walls: a 6 by 8 tray is an 8 by 8
+tray with two columns walled, which gives the same whole cells and the
+same best count (a wall acts as the edge does, the allowance included).
 
 1. **The geometry** (`model/tilted_tray.{h,cpp}`): `Tray::width` and
    `Tray::height` in place of `size`; the wall mask is width by height;

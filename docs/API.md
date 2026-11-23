@@ -2092,7 +2092,7 @@ A Tilted Square puzzle's tray (decision 0045; not in the original): a cube-grid 
 
 ### `tray.set`
 
-Sets the tray's settings (Tilt & tolerance): the fields given, over the tray's. The board is made again; every piece gets its size and is moved by whole cells to the place nearest its old one where all its cells are whole cells (one with no such place stays near its old place, and its fits is false); the problems lose their solutions. invalid_argument when a piece is larger than the new board (the message names it) or down is above over. unsupported on a puzzle without a tray. Refused while anything is solved. One undo step; nothing changes, no step.
+Sets the tray's settings (Tilt & tolerance): the fields given, over the tray's. The board is made again; every piece gets its size and is moved by whole cells to the place nearest its old one where all its cells are whole cells (one with no such place stays near its old place, and its fits is false); the problems lose their solutions. A new width or height keeps the walls still inside the tray. invalid_argument when a piece is larger than the new board (the message names it) or down is above over. unsupported on a puzzle without a tray. Refused while anything is solved. One undo step; nothing changes, no step.
 
 Params:
 
@@ -3432,11 +3432,13 @@ How the grid is placed in a tilted tray: where the most cells are whole, or wher
 
 ### TraySettings
 
-The settings of a tilted tray a client may give (tray.set, tray.preview, document.new): each over what the tray has, or for a new tray over the defaults (size 8, straight, strict, best placement). The slope is down/over and is put in lowest terms (down 0 is a straight tray).
+The settings of a tilted tray a client may give (tray.set, tray.preview, document.new): each over what the tray has, or for a new tray over the defaults (8 by 8, straight, strict, best placement). The tray is width by height squares: size sets both sides, and width or height given with it goes over it. The slope is down/over and is put in lowest terms (down 0 is a straight tray).
 
 | name | type | | description |
 |---|---|---|---|
-| `size` | integer |  | The tray's side in cells. A smaller side keeps the walls still inside the tray. |
+| `size` | integer |  | Both of the tray's sides in cells: a square tray. |
+| `width` | integer |  | The tray's side along x in cells. A smaller side keeps the walls still inside the tray. |
+| `height` | integer |  | The tray's side along y in cells; as width. |
 | `over` | integer |  |  |
 | `down` | integer |  | At most over. |
 | `allowance` | number |  | How far a cell may reach past the tray's edge or into a wall, in cell widths; 0 is strict. |
@@ -3446,11 +3448,12 @@ The settings of a tilted tray a client may give (tray.set, tray.preview, documen
 
 ### Tray
 
-A Tilted Square puzzle's tray (decision 0045): a square of straight unit squares, some of them walls, with the cube grid turned inside it by atan2(down, over). The board (the puzzle's first shape) is the box of every cell that reaches into the tray; its whole cells are those within the allowance of an open square everywhere.
+A Tilted Square puzzle's tray (decision 0045): width by height straight unit squares (a square or any rectangle), some of them walls, with the cube grid turned inside it by atan2(down, over). The board (the puzzle's first shape) is the box of every cell that reaches into the tray; its whole cells are those within the allowance of an open square everywhere.
 
 | name | type | | description |
 |---|---|---|---|
-| `size` | integer | required |  |
+| `width` | integer | required | The tray's side along x, in squares. |
+| `height` | integer | required | The tray's side along y, in squares. |
 | `over` | integer | required |  |
 | `down` | integer | required |  |
 | `allowance` | number | required |  |
@@ -3463,7 +3466,7 @@ A Tilted Square puzzle's tray (decision 0045): a square of straight unit squares
 | `cut` | integer | required | The cells the tray's edge or a wall cuts. |
 | `box` | integer[] | required | The board's size [x, y] in cells: every shape's. |
 | `cells` | string | required | The board's cells row by row from y = 0, x * y characters: w whole, c cut, o outside the tray. |
-| `corners` | [Point2](#point2)[] | required | The tray's corners (0, 0), (size, 0), (size, size), (0, size) in the board's grid (cell (x, y) is the unit square at (x, y), y up). |
+| `corners` | [Point2](#point2)[] | required | The tray's corners (0, 0), (width, 0), (width, height), (0, height) in the board's grid (cell (x, y) is the unit square at (x, y), y up). |
 | `wallPolygons` | [Point2](#point2)[][] | required | Each wall square's corners in the board's grid, in the order of walls. |
 
 ### ShapeInfo

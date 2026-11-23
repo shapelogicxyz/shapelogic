@@ -24,6 +24,7 @@ import {
   isTilted,
   parseAllowance,
   parseWhole,
+  sizeText,
   slopeText,
   squareOf,
   trayFacts,
@@ -42,7 +43,8 @@ function diamond(): Tray {
   // the tray's corner (0, 0) at board point (1, 0.5); its x edge along (r, -r), its y edge along (r, r)
   const c0: [number, number] = [1, 0.5];
   return {
-    size: 2,
+    width: 2,
+    height: 2,
     over: 1,
     down: 1,
     allowance: 0,
@@ -65,15 +67,55 @@ function diamond(): Tray {
   };
 }
 
+/**
+ * A straight 3 by 2 tray (3 wide, 2 high) with a wall at (2, 1), as the
+ * engine would send it: the board is the tray, cell for cell.
+ */
+function lying(): Tray {
+  return {
+    width: 3,
+    height: 2,
+    over: 1,
+    down: 0,
+    allowance: 0,
+    placement: 'best',
+    shiftX: 0,
+    shiftY: 0,
+    walls: [[2, 1]],
+    degrees: 0,
+    whole: 5,
+    cut: 1,
+    box: [3, 2],
+    cells: 'wwwwwc',
+    corners: [
+      [0, 0],
+      [3, 0],
+      [3, 2],
+      [0, 2],
+    ],
+    wallPolygons: [
+      [
+        [2, 1],
+        [3, 1],
+        [3, 2],
+        [2, 2],
+      ],
+    ],
+  };
+}
+
 describe('a tilted tray in words', () => {
   it('names the slope, the angle and what the tray gives', () => {
     expect(slopeText(1, 2)).toBe('1 down, 2 over');
     expect(slopeText(0, 1)).toBe('straight');
-    expect(trayFacts({ whole: 45, degrees: 26.565051, walls: [] })).toEqual([
+    expect(sizeText(8, 6)).toBe('8 by 6');
+    expect(trayFacts({ width: 8, height: 8, whole: 45, degrees: 26.565051, walls: [] })).toEqual([
+      'Tray: 8 by 8',
       'Whole cells: 45',
       'Tilt angle: 26.57°',
     ]);
-    expect(trayFacts({ whole: 1, degrees: 45, walls: [[0, 0]] })).toEqual([
+    expect(trayFacts({ width: 8, height: 6, whole: 1, degrees: 45, walls: [[0, 0]] })).toEqual([
+      'Tray: 8 by 6',
       'Whole cells: 1',
       'Tilt angle: 45.00°',
       'Walls: 1',
@@ -119,6 +161,34 @@ describe('the tray in its own frame', () => {
     near(toTray(t.corners[3]), [0, 2]);
   });
 
+  it('maps a rectangular tray by its width and its height', () => {
+    // 3 wide and 5 high, turned 1 down 2 over: its x edge along (2, -1) / √5 in the board's grid
+    const h = Math.sqrt(5);
+    const c0: [number, number] = [0.3, 1.7];
+    const ex = [2 / h, -1 / h] as const;
+    const ey = [1 / h, 2 / h] as const;
+    const at = (u: number, v: number): [number, number] => [
+      c0[0] + u * ex[0] + v * ey[0],
+      c0[1] + u * ex[1] + v * ey[1],
+    ];
+    const toTray = boardToTray({
+      width: 3,
+      height: 5,
+      corners: [at(0, 0), at(3, 0), at(3, 5), at(0, 5)],
+    });
+    for (const [u, v] of [
+      [0, 0],
+      [3, 0],
+      [3, 5],
+      [0, 5],
+      [1.25, 4.5],
+    ] as const) {
+      const p = toTray(at(u, v));
+      expect(p[0]).toBeCloseTo(u, 9);
+      expect(p[1]).toBeCloseTo(v, 9);
+    }
+  });
+
   it('reads the board cells row by row from the bottom', () => {
     const t = diamond();
     expect(cellState(t, 0, 0)).toBe('c');
@@ -146,6 +216,60 @@ describe('the tray in its own frame', () => {
     }
     // without hit targets (the New dialog's example)
     expect(trayPicture(t, { px: 100, view: 'cells', id: 'c2' })).not.toContain('data-sq');
+    // a square tray's picture is square: px and the margin on each side
+    expect(trayPicture(t, { px: 100, view: 'cells', id: 'c3', margin: 5 })).toContain(
+      'viewBox="0 0 110 110" width="110" height="110"',
+    );
+  });
+
+  it('draws a rectangular tray as a rectangle, its longer side px long', () => {
+    const t = lying();
+    const svg = trayPicture(t, { px: 150, view: 'tray', id: 'r1', margin: 5, editable: true });
+    // 3 by 2 squares of 50 pixels, and the margin
+    expect(svg).toContain('viewBox="0 0 160 110" width="160" height="110"');
+    expect(svg).toContain('data-size="3x2"');
+    // the floor, the clip and the outline are the tray's rectangle
+    const rect = 'x="5.00" y="5.00" width="150.00" height="100.00"';
+    expect(svg).toContain(`<rect class="tp-floor" ${rect}/>`);
+    expect(svg).toContain(`<clipPath id="r1"><rect ${rect}/></clipPath>`);
+    expect(svg).toContain(`<rect class="tp-edge" ${rect}/>`);
+    // a square a tray square, y up: (0, 0) at the bottom left, the wall (2, 1) at the top right
+    expect(svg.match(/data-sq="/g)?.length).toBe(6);
+    expect(svg).toContain(
+      '<rect class="tp-sq" data-sq="0,0" x="5.00" y="55.00" width="50.00" height="50.00"/>',
+    );
+    expect(svg).toContain(
+      '<rect class="tp-sq wall" data-sq="2,1" x="105.00" y="5.00" width="50.00" height="50.00"/>',
+    );
+    // the cells: five whole, the one under the wall cut
+    expect(svg.match(/tp-whole/g)?.length).toBe(5);
+    expect(svg.match(/tp-cut/g)?.length).toBe(1);
+    expect(svg).toContain(
+      '<polygon class="tp-cut" points="105.00,55.00 155.00,55.00 155.00,5.00 105.00,5.00"/>',
+    );
+
+    // higher than wide: px is the height
+    const upright: Tray = {
+      ...t,
+      width: 2,
+      height: 3,
+      walls: [],
+      box: [2, 3],
+      cells: 'wwwwww',
+      corners: [
+        [0, 0],
+        [2, 0],
+        [2, 3],
+        [0, 3],
+      ],
+      wallPolygons: [],
+    };
+    const tall = trayPicture(upright, { px: 150, view: 'cells', id: 'r2', margin: 5 });
+    expect(tall).toContain('viewBox="0 0 110 160" width="110" height="160"');
+    expect(tall).toContain('data-size="2x3"');
+    expect(tall).toContain(
+      '<rect class="tp-edge" x="5.00" y="5.00" width="100.00" height="150.00"/>',
+    );
   });
 });
 

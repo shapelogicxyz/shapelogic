@@ -3,7 +3,8 @@
 // A Tilted Square puzzle (decision 0045, stage C of
 // docs/TILTED-SQUARE-PLAN.md): made with File ▸ New, its board in the
 // Board section, the Tilt & tolerance section, walls drawn in the board's
-// views, a piece on the board's grid, and the Solver's options.
+// views, a piece on the board's grid, and the Solver's options. A tray of
+// another width than height (stage E) is set with Keep square off.
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -55,7 +56,8 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
 
     let snap = await docOf(page);
     expect(snap.grid).toBe('bricks');
-    expect(snap.tray?.size).toBe(8);
+    expect(snap.tray?.width).toBe(8);
+    expect(snap.tray?.height).toBe(8);
     expect(snap.tray?.over).toBe(2);
     expect(snap.tray?.down).toBe(1);
     expect(snap.tray?.allowance).toBe(0);
@@ -91,6 +93,7 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     await expect(page.locator('#garea')).toBeHidden();
     await expect(page.locator('#trayArea svg')).toBeVisible();
     // what the tray gives, under the board's view buttons
+    await expect(page.locator('#boardViews .tsize')).toHaveText('Tray: 8 by 8');
     await expect(page.locator('#boardViews .tread')).toHaveText('Whole cells: 45');
     await expect(page.locator('#boardViews .tangle')).toHaveText('Tilt angle: 26.57°');
     await expect(page.locator('#boardViews .thint')).toContainText('draw walls');
@@ -100,19 +103,59 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     await settled(page);
     await expect(page.locator('#boardViews .tread')).toHaveText('Whole cells: 52');
     await expect(page.locator('#tiltBody [data-tf="allowance"]')).toHaveValue('0.05');
-    // typed: a 6 by 6 tray at 1 down 3 over
-    await page.fill('#tiltBody [data-tf="size"]', '6');
-    await page.press('#tiltBody [data-tf="size"]', 'Enter');
+    // typed: a 6 by 6 tray at 1 down 3 over (Keep square is on: the width sets both sides)
+    await expect(page.locator('#tiltBody [data-tlink]')).toHaveAttribute('aria-checked', 'true');
+    await page.fill('#tiltBody [data-tf="width"]', '6');
+    await page.press('#tiltBody [data-tf="width"]', 'Enter');
     await settled(page);
+    await expect(page.locator('#tiltBody [data-tf="height"]')).toHaveValue('6');
     await page.fill('#tiltBody [data-tf="over"]', '3');
     await page.press('#tiltBody [data-tf="over"]', 'Enter');
     await settled(page);
     snap = await docOf(page);
-    expect(snap.tray?.size).toBe(6);
+    expect(snap.tray?.width).toBe(6);
+    expect(snap.tray?.height).toBe(6);
     expect(snap.tray?.over).toBe(3);
     expect(snap.tray?.allowance).toBe(0.05);
     await expect(page.locator('#boardViews .tread')).toHaveText('Whole cells: 26');
     await expect(page.locator('#boardViews .tangle')).toHaveText('Tilt angle: 18.43°');
+
+    // a rectangular tray (stage E): Keep square off, the height alone, 6 by 8
+    await page.click('#tiltBody [data-tlink]');
+    await expect(page.locator('#tiltBody [data-tlink]')).toHaveAttribute('aria-checked', 'false');
+    await page.fill('#tiltBody [data-tf="height"]', '8');
+    await page.press('#tiltBody [data-tf="height"]', 'Enter');
+    await settled(page);
+    snap = await docOf(page);
+    expect(snap.tray?.width).toBe(6);
+    expect(snap.tray?.height).toBe(8);
+    await expect(page.locator('#tiltBody [data-tf="width"]')).toHaveValue('6');
+    await expect(page.locator('#boardViews .tsize')).toHaveText('Tray: 6 by 8');
+    await expect(page.locator('#tiltBody .tline')).toContainText('6 by 8');
+    // the board's picture is the rectangle: 6 by 8 squares, higher than wide
+    await expect(page.locator('#trayArea svg')).toHaveAttribute('data-size', '6x8');
+    await expect(page.locator('#trayArea svg [data-sq]')).toHaveCount(48);
+    await expect(page.locator('#trayArea svg .tp-whole')).toHaveCount(snap.tray?.whole ?? -1);
+    const tall = await page.locator('#trayArea svg').boundingBox();
+    expect(tall !== null && tall.height > tall.width * 1.2).toBe(true);
+    // the width's stepper: 7 by 8, the height stays; one step back
+    await page.click('#tiltBody [data-tk="width"][data-d="1"]');
+    await settled(page);
+    snap = await docOf(page);
+    expect([snap.tray?.width, snap.tray?.height]).toEqual([7, 8]);
+    await page.keyboard.press('Control+z');
+    await settled(page);
+    snap = await docOf(page);
+    expect([snap.tray?.width, snap.tray?.height]).toEqual([6, 8]);
+    await expect(page.locator('#tiltBody [data-tlink]')).toHaveAttribute('aria-checked', 'false');
+    // Keep square on again: the height takes the width, 6 by 6 as before
+    await page.click('#tiltBody [data-tlink]');
+    await settled(page);
+    snap = await docOf(page);
+    expect([snap.tray?.width, snap.tray?.height]).toEqual([6, 6]);
+    await expect(page.locator('#tiltBody [data-tlink]')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('#boardViews .tsize')).toHaveText('Tray: 6 by 6');
+    await expect(page.locator('#boardViews .tread')).toHaveText('Whole cells: 26');
     // down above over is refused, the field put back
     await page.fill('#tiltBody [data-tf="down"]', '4');
     await page.press('#tiltBody [data-tf="down"]', 'Enter');

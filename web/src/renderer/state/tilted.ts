@@ -6,7 +6,7 @@
 // the tray in its own frame (the straight squares, the walls, the turned
 // cells whole or cut), drawn from what the engine sends (the board's cells
 // and the tray's corners in the board's grid). DOM-free, for the unit
-// tests.
+// tests. A tray is width by height squares: a square, or any rectangle.
 
 import type { ShapeSummary, Snapshot, Tray, TraySettings } from '../../engine/api.generated.ts';
 
@@ -32,6 +32,11 @@ export const ALLOWANCE_MAX = 0.25;
 /** The largest tray side and slope number. */
 export const TRAY_MAX = 64;
 
+/** A tray's size in words, its width first: "8 by 6". */
+export function sizeText(width: number, height: number): string {
+  return `${String(width)} by ${String(height)}`;
+}
+
 /** The slope in words: "1 down, 2 over", or "straight". */
 export function slopeText(down: number, over: number): string {
   return down === 0 ? 'straight' : `${String(down)} down, ${String(over)} over`;
@@ -43,11 +48,17 @@ export function degreesText(degrees: number): string {
 }
 
 /**
- * What the tray gives, a line each: "Whole cells: 45", "Tilt angle:
- * 26.57°", and "Walls: 4" when it has walls.
+ * What the tray is and gives, a line each: "Tray: 8 by 6", "Whole cells:
+ * 45", "Tilt angle: 26.57°", and "Walls: 4" when it has walls.
  */
-export function trayFacts(t: Pick<Tray, 'whole' | 'degrees' | 'walls'>): string[] {
-  const lines = [`Whole cells: ${String(t.whole)}`, `Tilt angle: ${degreesText(t.degrees)}`];
+export function trayFacts(
+  t: Pick<Tray, 'width' | 'height' | 'whole' | 'degrees' | 'walls'>,
+): string[] {
+  const lines = [
+    `Tray: ${sizeText(t.width, t.height)}`,
+    `Whole cells: ${String(t.whole)}`,
+    `Tilt angle: ${degreesText(t.degrees)}`,
+  ];
   if (t.walls.length > 0) {
     lines.push(`Walls: ${String(t.walls.length)}`);
   }
@@ -78,10 +89,11 @@ export type Pt = readonly [number, number];
  * corners say where the tray lies in the board's grid, and the grid is
  * turned in it.
  */
-export function boardToTray(t: Pick<Tray, 'size' | 'corners'>): (p: Pt) => Pt {
+export function boardToTray(t: Pick<Tray, 'width' | 'height' | 'corners'>): (p: Pt) => Pt {
   const [c0, c1, , c3] = t.corners;
-  const ex = [(c1[0] - c0[0]) / t.size, (c1[1] - c0[1]) / t.size] as const;
-  const ey = [(c3[0] - c0[0]) / t.size, (c3[1] - c0[1]) / t.size] as const;
+  // the tray's sides are width and height long in the grid, so these are unit vectors
+  const ex = [(c1[0] - c0[0]) / t.width, (c1[1] - c0[1]) / t.width] as const;
+  const ey = [(c3[0] - c0[0]) / t.height, (c3[1] - c0[1]) / t.height] as const;
   return (p) => {
     const dx = p[0] - c0[0];
     const dy = p[1] - c0[1];
@@ -112,7 +124,7 @@ export type TrayView = 'tray' | 'cells';
 
 /** What trayPicture draws. */
 export interface PictureOptions {
-  /** The side of the tray in pixels (without the margin). */
+  /** The tray's longer side in pixels (without the margin). */
   px: number;
   view: TrayView;
   /** Room around the tray, in pixels. */
@@ -132,19 +144,23 @@ export interface PictureOptions {
  */
 export function trayPicture(t: Tray, o: PictureOptions): string {
   const m = o.margin ?? 2;
-  const k = o.px / t.size;
+  // a square of the tray, in pixels
+  const k = o.px / Math.max(t.width, t.height);
   const X = (u: number): string => (m + u * k).toFixed(2);
-  const Y = (v: number): string => (m + (t.size - v) * k).toFixed(2);
-  const side = (m * 2 + o.px).toFixed(0);
+  const Y = (v: number): string => (m + (t.height - v) * k).toFixed(2);
+  const wide = (m * 2 + t.width * k).toFixed(0);
+  const high = (m * 2 + t.height * k).toFixed(0);
+  // the tray's rectangle: the floor, the clip and the outline
+  const rect = `x="${X(0)}" y="${Y(t.height)}" width="${(t.width * k).toFixed(2)}" height="${(t.height * k).toFixed(2)}"`;
   const walls = new Set(t.walls.map(([x, y]) => `${String(x)},${String(y)}`));
   const out: string[] = [
-    `<svg class="tpic tp-${o.view}" viewBox="0 0 ${side} ${side}" width="${side}" height="${side}" xmlns="http://www.w3.org/2000/svg" data-size="${String(t.size)}">`,
-    `<defs><clipPath id="${o.id}"><rect x="${X(0)}" y="${Y(t.size)}" width="${o.px.toFixed(2)}" height="${o.px.toFixed(2)}"/></clipPath></defs>`,
-    `<rect class="tp-floor" x="${X(0)}" y="${Y(t.size)}" width="${o.px.toFixed(2)}" height="${o.px.toFixed(2)}"/>`,
+    `<svg class="tpic tp-${o.view}" viewBox="0 0 ${wide} ${high}" width="${wide}" height="${high}" xmlns="http://www.w3.org/2000/svg" data-size="${String(t.width)}x${String(t.height)}">`,
+    `<defs><clipPath id="${o.id}"><rect ${rect}/></clipPath></defs>`,
+    `<rect class="tp-floor" ${rect}/>`,
   ];
   const squares = (cls: string, all: boolean): void => {
-    for (let y = 0; y < t.size; y++) {
-      for (let x = 0; x < t.size; x++) {
+    for (let y = 0; y < t.height; y++) {
+      for (let x = 0; x < t.width; x++) {
         const key = `${String(x)},${String(y)}`;
         const wall = walls.has(key);
         if (!all && !wall) {
@@ -191,10 +207,7 @@ export function trayPicture(t: Tray, o: PictureOptions): string {
     squares('tp-wall', false);
     squares('tp-sq', true);
   }
-  out.push(
-    `<rect class="tp-edge" x="${X(0)}" y="${Y(t.size)}" width="${o.px.toFixed(2)}" height="${o.px.toFixed(2)}"/>`,
-    '</svg>',
-  );
+  out.push(`<rect class="tp-edge" ${rect}/>`, '</svg>');
   return out.join('');
 }
 

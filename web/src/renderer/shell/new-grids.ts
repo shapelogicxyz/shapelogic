@@ -141,7 +141,7 @@ export type NewKind = Grid | 'tilted';
 export const tiltedInfo: Readonly<Pick<GridInfo, 'name' | 'description'>> = {
   name: 'Tilted Square',
   description:
-    'Flat pieces of squares in a square tray whose grid is turned: 1 down and 2 over, 1 down and 3 ' +
+    'Flat pieces of squares in a square or rectangular tray whose grid is turned: 1 down and 2 over, 1 down and 3 ' +
     'over, and so on. The cells the tray’s edge cuts hold no piece; the whole ones make the board, ' +
     'which the pieces must fit. Squares of the tray may be walls. An allowance lets a cell reach ' +
     'a little past the edge, as a real tray’s slack does. New in ShapeLogic.',

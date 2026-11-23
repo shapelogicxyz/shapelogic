@@ -322,16 +322,16 @@ Result<unsigned int> Document::setTrayWalls(
     return std::unexpected(r.error());
   }
   tilted::Tray next = trayOf(*puzzle_);
-  const std::size_t all = static_cast<std::size_t>(next.size) * next.size;
+  const std::size_t all = static_cast<std::size_t>(next.width) * next.height;
   if (next.walls.empty()) {
     next.walls.assign(all, 0);
   }
   unsigned int changed = 0;
   for (const std::array<unsigned int, 2>& sq : squares) {
-    if (sq[0] >= next.size || sq[1] >= next.size) {
+    if (sq[0] >= next.width || sq[1] >= next.height) {
       return fail(Errc::InvalidArgument, "a square is outside the tray");
     }
-    std::uint8_t& at = next.walls[(static_cast<std::size_t>(sq[1]) * next.size) + sq[0]];
+    std::uint8_t& at = next.walls[(static_cast<std::size_t>(sq[1]) * next.width) + sq[0]];
     const std::uint8_t to = wall ? 1 : 0;
     changed += at != to ? 1 : 0;
     at = to;

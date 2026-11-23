@@ -2316,6 +2316,17 @@ def tilted_tray(e):
           and len(prev["corners"]) == 4 and prev["placement"] == "best", "the preview's board")
     e.fails("tray.preview", {"tray": {"over": 1, "down": 2}}, "invalid_argument")
     e.fails("tray.preview", {"tray": {"size": 65}}, "invalid_params")
+    check(prev["width"] == 8 and prev["height"] == 8 and "size" not in prev, "a square tray's sides")
+    # a rectangle (stage E): width and height; size sets both, a side given with it goes over it
+    rect = e.call("tray.preview", {"tray": {"width": 6, "height": 8, "over": 2, "down": 1}})
+    check(rect["width"] == 6 and rect["height"] == 8 and rect["cells"].count("w") == rect["whole"],
+          f"the 6 by 8 tray {rect}")
+    lying = e.call("tray.preview", {"tray": {"width": 8, "height": 6, "over": 2, "down": 1}})
+    check(lying["whole"] == rect["whole"] and 30 <= rect["whole"] < 45, "turned a quarter it holds as many cells")
+    mixed = e.call("tray.preview", {"tray": {"size": 5, "height": 7}})
+    check(mixed["width"] == 5 and mixed["height"] == 7, "a height over the size")
+    e.fails("tray.preview", {"tray": {"width": 0}}, "invalid_params")
+    e.fails("tray.preview", {"tray": {"height": 65}}, "invalid_params")
     e.fails("tray.preview", {"tray": {"color": 1}}, "invalid_params")
 
     # only a tilted puzzle has a tray
@@ -2329,7 +2340,8 @@ def tilted_tray(e):
     snap = e.call("document.new", {"grid": "bricks", "tray": {"size": 6, "over": 3, "down": 1,
                                                                "allowance": 0.05}})
     tray = snap["tray"]
-    check(snap["grid"] == "bricks" and tray["size"] == 6 and tray["placement"] == "best"
+    check(snap["grid"] == "bricks" and tray["width"] == 6 and tray["height"] == 6
+          and tray["placement"] == "best"
           and tray["whole"] == 26 and tray["walls"] == [], f"the new tray {tray}")
     board = snap["shapes"][0]
     check(len(snap["shapes"]) == 1 and board["board"] and board["fits"] and board["label"] == "B"
@@ -2352,9 +2364,10 @@ def tilted_tray(e):
           and tray["cells"].count("w") == 24 and tray["cells"].count("c") == tray["cut"]
           and len(tray["corners"]) == 4 and len(tray["wallPolygons"]) == 2, f"the walled tray {tray}")
 
-    def draw(art):
+    def draw(art, tray=tray):
         """A new piece with a 4 by 4 picture's cells, at the first place
-        where they are all whole cells."""
+        where they are all whole cells of the tray's board."""
+        x, y = tray["box"]
         cells = [(k % 4, k // 4) for k in range(16) if art[k] == "#"]
         shape = e.call("shape.create")["shape"]
         for oy in range(-3, y):
@@ -2433,6 +2446,64 @@ def tilted_tray(e):
     again = e.call("document.openBytes", {"data": data})
     check(again["tray"] == snap["tray"] and [s["size"] for s in again["shapes"]] == [s["size"] for s in snap["shapes"]],
           "the same tray from the file")
+
+    # a rectangular tray (stage E): 6 by 8 at 1 down 2 over. It is the 8 by
+    # 8 tray with its last two columns walled, so the same pieces go into
+    # both in as many ways.
+    arts = ("_#___###_#__##__", "_#___#___#####__", "_#___#####___#__")
+
+    def solved(settings, walls):
+        """A new puzzle with the tray and Triple Play's pieces, solved:
+        its tray and its assemblies."""
+        made = e.call("document.new", {"grid": "bricks", "tray": settings})
+        if walls:
+            check(e.call("tray.setWalls", {"squares": walls, "wall": True})["changed"] == len(walls), "walled")
+        tray = e.call("document.get")["tray"]
+        problem = made["problems"][0]["id"]
+        for art in arts:
+            e.call("problem.setPieceCount", {"problem": problem, "shape": draw(art, tray), "min": 1, "max": 1})
+        start = len(e.events)
+        e.call("solve.start", {"problem": problem, "options": {}})
+        check(wait_state(e, problem, ("finished", "error"), start) == "finished", "the tray solved")
+        e.drain()
+        return tray, e.call("problem.get", {"problem": problem})["assemblies"]
+
+    square, in_square = solved({"size": 8, "over": 2, "down": 1},
+                               [[x, y] for y in range(8) for x in (6, 7)])
+    rect, in_rect = solved({"width": 6, "height": 8, "over": 2, "down": 1}, [])
+    check(rect["width"] == 6 and rect["height"] == 8 and rect["walls"] == [] and rect["wallPolygons"] == []
+          and len(rect["cells"]) == rect["box"][0] * rect["box"][1], f"the rectangular tray {rect}")
+    check(rect["whole"] == square["whole"] and len(square["walls"]) == 16, "the rectangle's board is the walled square's")
+    check(in_rect == in_square and in_rect > 0, f"as many assemblies: {in_rect} and {in_square}")
+    # its corners: 6 along the first side, 8 along the second
+    c = rect["corners"]
+    side = lambda a, b: ((c[a][0] - c[b][0]) ** 2 + (c[a][1] - c[b][1]) ** 2) ** 0.5
+    check(abs(side(0, 1) - 6) < 1e-9 and abs(side(1, 2) - 8) < 1e-9, "the tray's corners")
+
+    # walls are the rectangle's squares; a new width or height keeps those still inside
+    check(e.call("tray.setWalls", {"squares": [[5, 7], [0, 0]], "wall": True})["changed"] == 2, "walls of the rectangle")
+    e.fails("tray.setWalls", {"squares": [[6, 0]], "wall": True}, "invalid_argument")
+    e.fails("tray.setWalls", {"squares": [[0, 8]], "wall": True}, "invalid_argument")
+    e.call("tray.set", {"tray": {"width": 9}})
+    t = e.call("document.get")["tray"]
+    check(t["width"] == 9 and t["height"] == 8 and t["walls"] == [[0, 0], [5, 7]], f"wider {t}")
+    e.call("tray.set", {"tray": {"height": 7}})
+    t = e.call("document.get")["tray"]
+    check(t["width"] == 9 and t["height"] == 7 and t["walls"] == [[0, 0]], f"lower {t}")
+    rev = e.call("tray.set", {"tray": {"size": 9, "height": 7}})["revision"]
+    check(rev == e.call("document.get")["revision"] and e.call("document.get")["tray"] == t, "the same again")
+    e.call("tray.set", {"tray": {"size": 10}})
+    t = e.call("document.get")["tray"]
+    check(t["width"] == 10 and t["height"] == 10 and t["walls"] == [[0, 0]], f"a square again {t}")
+    e.call("edit.undo")
+    e.call("edit.undo")
+    snap = e.call("document.get")
+    check(snap["tray"]["width"] == 9 and snap["tray"]["height"] == 8
+          and snap["tray"]["walls"] == [[0, 0], [5, 7]], "two steps back")
+    # saved and opened again: width and height in the file
+    again = e.call("document.openBytes", {"data": e.call("document.saveBytes")["data"]})
+    check(again["tray"] == snap["tray"] and [s["size"] for s in again["shapes"]] == [s["size"] for s in snap["shapes"]],
+          "the same rectangular tray from the file")
 
 
 @test

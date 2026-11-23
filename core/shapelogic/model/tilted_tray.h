@@ -2,15 +2,16 @@
 #pragma once
 
 /// @file
-/// The tilted tray of a Tilted Square puzzle (decision 0045): a square tray
-/// of straight unit squares, some of them walls, with the puzzle's square
-/// grid turned inside it. From the tray's settings this works out which
+/// The tilted tray of a Tilted Square puzzle (decision 0045): a tray of
+/// straight unit squares, `width` by `height` of them (a square, or since
+/// stage E any rectangle), some of them walls, with the puzzle's square grid
+/// turned inside it. From the tray's settings this works out which
 /// cells of the turned grid are whole, and where the grid sits to keep the
 /// most of them. New code; the geometry is that of the research page
 /// "Tilted Square Geometry" (site/public/research/tilted-square-geometry.html).
 ///
 /// Two frames are used. The tray's: its squares are [x, x+1] x [y, y+1] for
-/// x, y in 0 .. size-1. The grid's: cell (i, j) is the unit square at (i, j).
+/// x in 0 .. width-1, y in 0 .. height-1. The grid's: cell (i, j) is the unit square at (i, j).
 /// A grid point g lies at shift + R(g) in the tray, R the turn by
 /// atan2(down, over).
 
@@ -41,8 +42,9 @@ struct Tray {
     Custom,
   };
 
-  /// The tray's side, in cells: 1 .. kMaxSize.
-  unsigned int size = 8;
+  /// The tray's sides, in cells: 1 .. kMaxSize each.
+  unsigned int width = 8;
+  unsigned int height = 8;
   /// The slope down/over, in lowest terms, 0 <= down <= over: "1 down, n
   /// over" is down 1, over n; a straight tray is down 0, over 1.
   unsigned int over = 1;
@@ -56,26 +58,28 @@ struct Tray {
   /// to the same board.
   double shiftX = 0.0;
   double shiftY = 0.0;
-  /// The walls: size * size squares, row by row from y = 0 (index
-  /// y * size + x), nonzero a wall; or empty, no walls.
+  /// The walls: width * height squares, row by row from y = 0 (index
+  /// y * width + x), nonzero a wall; or empty, no walls.
   std::vector<std::uint8_t> walls;
 
   /// True when square (x, y) of the tray is a wall.
   [[nodiscard]] bool isWall(unsigned int x, unsigned int y) const {
-    return !walls.empty() && walls[y * size + x] != 0;
+    return !walls.empty() && walls[(y * width) + x] != 0;
   }
   /// True when every setting is in range, the slope is in lowest terms and
   /// the walls are none or one a square.
   [[nodiscard]] bool valid() const;
+  /// True when the tray is as wide as it is high.
+  [[nodiscard]] bool square() const { return width == height; }
   /// The turn of the grid in the tray, in degrees: atan2(down, over).
   [[nodiscard]] double degrees() const;
 
   bool operator==(const Tray&) const = default;
 };
 
-/// `tray` with side `size` (1 .. Tray::kMaxSize): the walls still inside
-/// the tray stay where they are, the others go.
-[[nodiscard]] Tray withSize(const Tray& tray, unsigned int size);
+/// `tray` made `width` by `height` (1 .. Tray::kMaxSize each): the walls
+/// still inside the tray stay where they are, the others go.
+[[nodiscard]] Tray withSize(const Tray& tray, unsigned int width, unsigned int height);
 
 /// What a cell of the board's box is to the tray.
 enum class Cell : std::uint8_t {
@@ -101,8 +105,8 @@ struct Layout {
   unsigned int sizeY = 0;
   /// sizeX * sizeY states, row by row from y = 0.
   std::vector<Cell> cells;
-  /// The tray's corners (0, 0), (size, 0), (size, size), (0, size) in the
-  /// box's frame.
+  /// The tray's corners (0, 0), (width, 0), (width, height), (0, height) in
+  /// the box's frame.
   std::array<Point, 4> corners{};
   /// Each wall square's corners in the box's frame, in the walls' order.
   std::vector<std::array<Point, 4>> walls;

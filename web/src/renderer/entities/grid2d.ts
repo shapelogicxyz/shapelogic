@@ -333,7 +333,7 @@ export class Grid2D {
   /**
    * A Tilted Square puzzle's piece (decision 0045): the grid turned by the
    * tray's angle about the tray's center so the tray stands straight,
-   * fitted on the tray's side and clipped to it, with the tray's walls and
+   * fitted on the tray's width and height and clipped to it, with the tray's walls and
    * outline over the cells. The cells keep their places in the grid's units
    * (X, Y) inside the turned group, so the cursor, strokes and the box
    * selection work as on a straight grid: the pointer finds a cell through
@@ -347,15 +347,19 @@ export class Grid2D {
     ah: number,
   ): void {
     const ey = input.geo.height;
-    const [c0, c1] = tilt.corners;
-    const side =
-      c0 === undefined || c1 === undefined ? 1 : Math.hypot(c1[0] - c0[0], c1[1] - c0[1]);
+    // the tray's sides, in the grid's units: across (corner 0 to 1) and up
+    // (corner 0 to 3), as it stands once the grid is turned
+    const [c0, c1, , c3] = tilt.corners;
+    const sideTo = (c: P2 | undefined): number =>
+      c0 === undefined || c === undefined ? 1 : Math.hypot(c[0] - c0[0], c[1] - c0[1]);
+    const wide = sideTo(c1);
+    const high = sideTo(c3);
     const cx = tilt.corners.reduce((s, p) => s + p[0], 0) / Math.max(1, tilt.corners.length);
     const cy = tilt.corners.reduce((s, p) => s + p[1], 0) / Math.max(1, tilt.corners.length);
     const most = this.host.focused() ? Infinity : 110;
     this.sc = Math.max(
       2,
-      Math.min(most, Math.min((aw - 2 * this.margin) / side, (ah - 2 * this.margin) / side)),
+      Math.min(most, Math.min((aw - 2 * this.margin) / wide, (ah - 2 * this.margin) / high)),
     );
     // the tray's center at the area's center
     this.ox = aw / 2 - cx * this.sc;

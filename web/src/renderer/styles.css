@@ -1452,7 +1452,7 @@ html[data-density=minimal] .pseg .gbtn.mpx{width:22px}
 html:is([data-density=standard],[data-density=compact]) #boardViews .bv .gbtn{height:calc(28px + var(--fh))}
 .bviews .bvfacts{flex-basis:100%}
 .bviews .bvfacts p{margin:0;line-height:1.45}
-.bviews .bvfacts :is(.tread,.tangle,.twallcount){font-weight:600}
+.bviews .bvfacts :is(.tsize,.tread,.tangle,.twallcount){font-weight:600}
 .bviews .bvfacts .thint{margin-top:4px;color:var(--muted);font-size:calc(12px + var(--fs))}
 /* the tray picture (state/tilted.ts trayPicture), in the New dialog and the board's views:
    the turned cells under the straight squares; Tray brings the squares out, Cells the cells */

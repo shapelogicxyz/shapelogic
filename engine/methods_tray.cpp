@@ -17,7 +17,13 @@ RpcResult<tilted::Tray> readTraySettings(const Json& given, const tilted::Tray& 
     return std::unexpected(invalidParams("'tray' must be an object"));
   }
   Params p(given);
-  const auto size = static_cast<unsigned int>(p.optInteger("size", base.size, 1, tilted::Tray::kMaxSize));
+  // size sets both sides; width and height each go over it
+  const bool sized = p.has("size");
+  const auto size = static_cast<unsigned int>(p.optInteger("size", 1, 1, tilted::Tray::kMaxSize));
+  const auto width = static_cast<unsigned int>(
+      p.optInteger("width", sized ? size : base.width, 1, tilted::Tray::kMaxSize));
+  const auto height = static_cast<unsigned int>(
+      p.optInteger("height", sized ? size : base.height, 1, tilted::Tray::kMaxSize));
   auto over = static_cast<unsigned int>(p.optInteger("over", base.over, 1, tilted::Tray::kMaxSlope));
   auto down = static_cast<unsigned int>(p.optInteger("down", base.down, 0, tilted::Tray::kMaxSlope));
   const double allowance = p.optNumber("allowance", base.allowance, 0.0, tilted::Tray::kMaxAllowance);
@@ -40,7 +46,9 @@ RpcResult<tilted::Tray> readTraySettings(const Json& given, const tilted::Tray& 
   const unsigned int g = std::gcd(over, down);
   over /= g;
   down /= g;
-  tilted::Tray t = size == base.size ? base : tilted::withSize(base, size);
+  tilted::Tray t = width == base.width && height == base.height
+                       ? base
+                       : tilted::withSize(base, width, height);
   t.over = over;
   t.down = down;
   t.allowance = allowance;

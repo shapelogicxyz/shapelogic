@@ -2,7 +2,8 @@
 //
 // The left card's Tilt & tolerance section (decision 0045): with a Tilted
 // Square puzzle's board selected, the tray's settings above Transform:
-// its size, the slope (down and over, the angle beside them), the
+// its width and height (linked while the Keep square switch is on, so a
+// change of one changes both), the slope (down and over, the angle beside them), the
 // allowance (a switch, and the amount while it is on), the placement
 // (where the most cells are whole, or a shift of the user's own), what the
 // tray gives. Below it (and below Repair & surface for a piece) the
@@ -24,6 +25,7 @@ import {
   isTiltBoard,
   parseAllowance,
   parseWhole,
+  sizeText,
   slopeText,
 } from '../state/tilted.ts';
 
@@ -47,7 +49,7 @@ export function tiltShown(store: Store): boolean {
 export function tiltKey(store: Store): string {
   const t = store.snapshot?.tray;
   return tiltShown(store) && t != null
-    ? `${String(t.size)}/${String(t.over)}/${String(t.down)}/${String(t.allowance)}/${t.placement}/${String(t.shiftX)}/${String(t.shiftY)}/${String(t.walls.length)}/${String(t.whole)}`
+    ? `${String(t.width)}x${String(t.height)}/${String(t.over)}/${String(t.down)}/${String(t.allowance)}/${t.placement}/${String(t.shiftX)}/${String(t.shiftY)}/${String(t.walls.length)}/${String(t.whole)}`
     : '-';
 }
 
@@ -55,6 +57,12 @@ export class TiltCard {
   private readonly host: TiltHost;
   /** The allowance the switch gives when turned on: the last amount used, else 0.05. */
   private lastAllowance = ALLOWANCE_ON;
+  /**
+   * Keep square: the width and the height change together. On at first for
+   * each document; off for a tray that is not square.
+   */
+  private linked = true;
+  private linkedFor = -1;
 
   constructor(host: TiltHost) {
     this.host = host;
@@ -76,9 +84,19 @@ export class TiltCard {
     if (t.allowance > 0) {
       this.lastAllowance = t.allowance;
     }
+    // another document: linked again; a tray that is not square is not linked
+    if (this.linkedFor !== this.host.store.generation) {
+      this.linkedFor = this.host.store.generation;
+      this.linked = true;
+    }
+    if (t.width !== t.height) {
+      this.linked = false;
+    }
+    const linked = this.linked;
+    // the header's summary stays one line: the size is in the line under the steppers
     byId('tiltSum').textContent = `${slopeText(t.down, t.over)} · ${degreesText(t.degrees)}`;
     const step = (
-      key: 'size' | 'down' | 'over',
+      key: 'width' | 'height' | 'down' | 'over',
       value: number,
       min: number,
       max: number,
@@ -94,9 +112,20 @@ export class TiltCard {
     byId('tiltBody').innerHTML =
       '<div class="tilt">' +
       row(
-        'Tray size',
-        'The tray’s side, in cells',
-        step('size', t.size, 1, TRAY_MAX, 'Tray size'),
+        'Width',
+        linked ? 'The tray’s sides, in cells' : 'The tray’s side across, in cells',
+        step('width', t.width, 1, TRAY_MAX, 'Width'),
+      ) +
+      row(
+        'Height',
+        linked ? 'As the width: the tray is kept square' : 'The tray’s side up, in cells',
+        step('height', t.height, 1, TRAY_MAX, 'Height'),
+      ) +
+      row(
+        'Keep square',
+        'The width and the height change together',
+        `<div class="switch ${linked ? 'on' : ''}" data-tlink role="switch" tabindex="0" aria-checked="${String(linked)}" title="${linked ? 'Set the width and the height each on its own: a rectangular tray' : 'Make the tray square (the height takes the width) and keep it so'}"><span class="tr"></span></div>`,
+        true,
       ) +
       row(
         'Down',
@@ -108,7 +137,7 @@ export class TiltCard {
         'Cells over for the cells down',
         step('over', t.over, Math.max(1, t.down), TRAY_MAX, 'Over'),
       ) +
-      `<p class="tline">${esc(slopeText(t.down, t.over))} · turned ${esc(degreesText(t.degrees))}</p>` +
+      `<p class="tline">${esc(sizeText(t.width, t.height))} · ${esc(slopeText(t.down, t.over))} · turned ${esc(degreesText(t.degrees))}</p>` +
       row(
         'Allowance',
         'Let a cell reach a little past the tray’s edge or into a wall, as a real tray’s slack does',
@@ -160,19 +189,21 @@ export class TiltCard {
     }
     const v = input.value;
     switch (key) {
-      case 'size':
+      case 'width':
+      case 'height':
       case 'over':
       case 'down': {
-        const min = key === 'size' ? 1 : key === 'over' ? Math.max(1, t.down) : 0;
+        const side = key === 'width' || key === 'height';
+        const min = side ? 1 : key === 'over' ? Math.max(1, t.down) : 0;
         const max = key === 'down' ? t.over : TRAY_MAX;
         const n = parseWhole(v, min, max);
         if (n === null) {
           flash(
-            `${key === 'size' ? 'Tray size' : key === 'down' ? 'Down' : 'Over'}: a whole number from ${String(min)} to ${String(max)}`,
+            `${key === 'width' ? 'Width' : key === 'height' ? 'Height' : key === 'down' ? 'Down' : 'Over'}: a whole number from ${String(min)} to ${String(max)}`,
           );
           this.render();
         } else if (n !== t[key]) {
-          this.set({ [key]: n });
+          this.set(this.change(key, n));
         }
         return;
       }
@@ -210,6 +241,27 @@ export class TiltCard {
     }
   }
 
+  // a new value of a stepper's field: a side of a linked tray sets both
+  private change(key: 'width' | 'height' | 'down' | 'over', n: number): TraySettings {
+    return this.linked && (key === 'width' || key === 'height') ? { size: n } : { [key]: n };
+  }
+
+  // Keep square: turned on, a tray that is not square takes its width for
+  // both sides (refused when a piece is too large for it: the switch then
+  // goes back with the next drawing); turned off, nothing changes yet
+  private toggleLink(): void {
+    const t = this.tray;
+    if (t === null) {
+      return;
+    }
+    this.linked = !this.linked;
+    if (this.linked && t.width !== t.height) {
+      this.set({ size: t.width });
+    } else {
+      this.render();
+    }
+  }
+
   private toggleAllowance(): void {
     const t = this.tray;
     if (t !== null) {
@@ -224,12 +276,14 @@ export class TiltCard {
       const b = el.closest<HTMLButtonElement>('button[data-tk]');
       const t = this.tray;
       if (b !== null && !b.disabled && t !== null) {
-        const key = b.dataset.tk as 'size' | 'over' | 'down';
-        this.set({ [key]: t[key] + Number(b.dataset.d) });
+        const key = b.dataset.tk as 'width' | 'height' | 'over' | 'down';
+        this.set(this.change(key, t[key] + Number(b.dataset.d)));
         return;
       }
       if (el.closest('[data-tallow]') !== null) {
         this.toggleAllowance();
+      } else if (el.closest('[data-tlink]') !== null) {
+        this.toggleLink();
       }
     });
     // the Tilted Square Tutorial: a section header that opens the research page
@@ -249,6 +303,9 @@ export class TiltCard {
       if ((e.key === ' ' || e.key === 'Enter') && el.closest('[data-tallow]') !== null) {
         e.preventDefault();
         this.toggleAllowance();
+      } else if ((e.key === ' ' || e.key === 'Enter') && el.closest('[data-tlink]') !== null) {
+        e.preventDefault();
+        this.toggleLink();
       } else if (e.key === 'Enter' && el.matches('input[data-tf]')) {
         (el as HTMLInputElement).blur();
       }

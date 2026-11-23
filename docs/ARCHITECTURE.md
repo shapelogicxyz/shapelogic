@@ -285,10 +285,13 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   original's dialog offered); a budget of cells (`kMaxConvertedCells`).
 
 - `tilted_tray.h` (decision 0045; new code, namespace `tilted`): the tray
-  of a Tilted Square puzzle, a square of straight unit squares, some of
-  them walls, with the cube grid turned inside it by atan2(down, over).
-  `tilted::Tray` is the settings (size, slope in lowest terms, allowance,
-  placement, the shift in use, walls; `valid()`); a `Puzzle` on the
+  of a Tilted Square puzzle, `width` by `height` straight unit squares (a
+  square, or since stage E any rectangle), some of them walls, with the
+  cube grid turned inside it by atan2(down, over).
+  `tilted::Tray` is the settings (width and height, slope in lowest
+  terms, allowance, placement, the shift in use, walls numbered row by row
+  along the width; `valid()`; `withSize` gives the tray another width or
+  height and keeps the walls still inside); a `Puzzle` on the
   Bricks grid may hold one (`Puzzle::tray`, `setTray`). `tilted::layout`
   gives the board at the tray's shift: the box of every cell that reaches
   into the tray, each cell whole, cut or outside, and the tray's corners
@@ -304,7 +307,10 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   window that holds a copy of every shift; a placement symmetric about the
   tray's center wins a tie. `canonicalShift` gives the one form of a shift
   among those a whole grid step apart. The board's shape is not made here
-  (the document does that, stage B of docs/TILTED-SQUARE-PLAN.md).
+  (the document does that, stage B of docs/TILTED-SQUARE-PLAN.md). A
+  rectangle is by the rule the square with the rows or columns beyond it
+  walled (a wall acts as the edge does, the allowance included): the
+  tests hold the two equal, cell for cell and in the best count.
 
 The model has no locks and no atomics (the original's problem had both for
 its solver thread). While a `SolveSession` runs, it alone writes its
@@ -330,7 +336,10 @@ solve).
   by the `Puzzle`) and `grid/shape_image.h` (a shape's picture, moved with
   its cells).
 - The tilted tray (decision 0045): `<tray>` at puzzle level, after
-  `<gridType>`, with `size`, `over`, `down`, `allowance`, `placement`
+  `<gridType>`, with `size` (a square tray, as every tray was before
+  stage E, so those files are written as they were) or `width` and
+  `height` (a rectangle; the reader takes either, a side over the size),
+  `over`, `down`, `allowance`, `placement`
   (`best` or `custom`), `shiftX`, `shiftY` (written in as few digits as
   read back to the same value) and, when there are walls, `walls` (a
   character a square, row by row, `#` a wall). Written only when the
@@ -2057,7 +2066,8 @@ What exists after stage 8:
     `boardToTray` from the board's grid to the tray's frame by the tray's
     corners, and `trayPicture`, the tray as SVG: the turned cells whole
     or cut under the straight squares, with the walls, in the Tray or the
-    Cells view). File ▸ New lists Tilted Square after Stacking, as
+    Cells view; a rectangle `width` by `height`, its longer side the
+    picture's `px`). File ▸ New lists Tilted Square after Stacking, as
     plainly as the grids (`shell/new-grids.ts` `NewKind`, `newTiltedHtml`: the
     description and, as the example, the default tray drawn from
     `tray.preview` by `files.ts`); OK makes the default tray (`NEW_TRAY`,
@@ -2066,7 +2076,10 @@ What exists after stage 8:
     (`shapes-list.ts`: renamed, colored, never copied, deleted or moved;
     + New Piece makes a shape of the board's size). With the board
     selected the inspector has only Tilt & tolerance (`entities/tilt-
-    card.ts`: size, down and over, the allowance switch and amount, the
+    card.ts`: width and height, with Keep square, a switch of the card, on
+    at first for each document, that sends a changed side as `size` so
+    both follow, and that turned on makes the tray square; down and over,
+    the allowance switch and amount, the
     placement and a custom shift, each change one `tray.set`; a link to the
     research page through `openHelp('tilted')`), and the grid area shows
     the board's views (`entities/tray-view.ts`: Tray and Cells, both the
@@ -2095,7 +2108,7 @@ What exists after stage 8:
     workspace's pieces too, and goes home straight down on the
     tray (`Camera.setHome`). A piece's grid editor is turned the same way
     (`Grid2D.buildTilted`: the cells in one group turned by the tray's
-    angle about its center, clipped to it, fitted on its side, with its
+    angle about its center, clipped to it, fitted on its width and height, with its
     walls and outline; no axes or rulers; the pointer finds cells through
     `elementFromPoint`, which follows the turn).
   - Stacking puzzles (deferred part 4, docs/webui-spec.md section 9, the

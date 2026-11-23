@@ -1,7 +1,9 @@
 # 0045: A Tilted Square puzzle is a cube-grid puzzle with a tray
 
-**Status:** accepted; stages A to D of `docs/TILTED-SQUARE-PLAN.md` are
-in the code (stages C and D, the front end: see the plan's status). Stage B: `core/shapelogic/app/document_tilted.cpp`
+**Status:** accepted; stages A to E of `docs/TILTED-SQUARE-PLAN.md` are
+in the code (stages C and D, the front end: see the plan's status; stage
+E, rectangular trays: `Tray::width` and `height`, `withSize`, `<tray>`'s
+`width` and `height`, `TraySettings.width` and `height`). Stage B: `core/shapelogic/app/document_tilted.cpp`
 (`Document::newTilted`, `setTray`, `setTrayWalls`, `fitsTray`, `adoptTray`;
 `fitToTray`, `keepOnTray`), the guards in `document_commands.cpp`,
 `SolveOptions::flipPieces` (`solve/solve_session.cpp`), `api/tray.json`
@@ -11,8 +13,7 @@ in the code (stages C and D, the front end: see the plan's status). Stage B: `co
 `bestShift`, `canonicalShift`), `core/shapelogic/model/puzzle.h`
 (`Puzzle::tray`, `setTray`), `core/shapelogic/io/puzzle_file.cpp`
 (`readTray`, `writeTray`, `kSlotTray`). The front end is stages C and D,
-rectangular trays stage E, the fixture and guide stage F, a solve over
-every placement stage G.
+the fixture and guide stage F, a solve over every placement stage G.
 
 ## Context
 The user draws tray puzzles whose square cells are turned inside a square
@@ -44,6 +45,23 @@ L is L by L unit squares, each open or a wall. A wall stays where it is at
 every tilt. (An earlier idea, blocking turned cells, was dropped: a turned
 cell has no counterpart at another tilt, so its block would have nowhere
 to go.) The board's cells are always generated, never painted.
+
+**A tray is a rectangle, width by height** (stage E; the user asked for
+any width and height, not only squares). Nothing in the rule changes: the
+edges are at x = width and y = height, the walls are numbered row by row
+along the width, and a tie goes to a placement symmetric about the
+rectangle's center. A rectangle was already to be had as a square with
+rows or columns walled, since a wall acts as the edge does, the allowance
+included; that is now the test: for widths and heights 3 to 10 the
+rectangle and the walled square give the same whole cells at every shift
+tried and the same best count. A second test goes through no wall: a
+width by height tray turned a quarter is the height by width tray, and
+holds as many cells. **The file keeps `size` for a square tray**, so
+every file written before reads and writes byte for byte as it did; a
+rectangle is written with `width` and `height`, and the reader takes
+either (a side given beside `size` goes over it). The engine's
+`TraySettings` likewise keeps `size`, which sets both sides; `Tray`
+answers `width` and `height`.
 
 **A cell is whole when every point of it is within the allowance of an
 open square**, in x and in y. With no walls this is the research page's
@@ -114,4 +132,4 @@ ordinary search runs, breaker and all.
   from an assembly would not be a piece on the board's grid.
 - The cells' states are in `Snapshot.tray.cells`, not in `grid.geometry`
   (which draws a space of a size, not a shape of the document).
-- Trays that are rectangles; a tray body in the STL or Puzzlecad export.
+- A tray body in the STL or Puzzlecad export.

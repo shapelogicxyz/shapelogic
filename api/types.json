@@ -244,9 +244,11 @@
     "TrayPlacement": {"enum": ["best", "custom"], "description": "How the grid is placed in a tilted tray: where the most cells are whole, or where the user put it."},
     "TraySettings": {
       "type": "object",
-      "description": "The settings of a tilted tray a client may give (tray.set, tray.preview, document.new): each over what the tray has, or for a new tray over the defaults (size 8, straight, strict, best placement). The slope is down/over and is put in lowest terms (down 0 is a straight tray).",
+      "description": "The settings of a tilted tray a client may give (tray.set, tray.preview, document.new): each over what the tray has, or for a new tray over the defaults (8 by 8, straight, strict, best placement). The tray is width by height squares: size sets both sides, and width or height given with it goes over it. The slope is down/over and is put in lowest terms (down 0 is a straight tray).",
       "properties": {
-        "size": {"type": "integer", "minimum": 1, "maximum": 64, "description": "The tray's side in cells. A smaller side keeps the walls still inside the tray."},
+        "size": {"type": "integer", "minimum": 1, "maximum": 64, "description": "Both of the tray's sides in cells: a square tray."},
+        "width": {"type": "integer", "minimum": 1, "maximum": 64, "description": "The tray's side along x in cells. A smaller side keeps the walls still inside the tray."},
+        "height": {"type": "integer", "minimum": 1, "maximum": 64, "description": "The tray's side along y in cells; as width."},
         "over": {"type": "integer", "minimum": 1, "maximum": 64},
         "down": {"type": "integer", "minimum": 0, "maximum": 64, "description": "At most over."},
         "allowance": {"type": "number", "minimum": 0, "maximum": 0.25, "description": "How far a cell may reach past the tray's edge or into a wall, in cell widths; 0 is strict."},
@@ -258,9 +260,10 @@
     },
     "Tray": {
       "type": "object",
-      "description": "A Tilted Square puzzle's tray (decision 0045): a square of straight unit squares, some of them walls, with the cube grid turned inside it by atan2(down, over). The board (the puzzle's first shape) is the box of every cell that reaches into the tray; its whole cells are those within the allowance of an open square everywhere.",
+      "description": "A Tilted Square puzzle's tray (decision 0045): width by height straight unit squares (a square or any rectangle), some of them walls, with the cube grid turned inside it by atan2(down, over). The board (the puzzle's first shape) is the box of every cell that reaches into the tray; its whole cells are those within the allowance of an open square everywhere.",
       "properties": {
-        "size": {"type": "integer", "minimum": 1},
+        "width": {"type": "integer", "minimum": 1, "description": "The tray's side along x, in squares."},
+        "height": {"type": "integer", "minimum": 1, "description": "The tray's side along y, in squares."},
         "over": {"type": "integer", "minimum": 1},
         "down": {"type": "integer", "minimum": 0},
         "allowance": {"type": "number", "minimum": 0},
@@ -273,10 +276,10 @@
         "cut": {"type": "integer", "minimum": 0, "description": "The cells the tray's edge or a wall cuts."},
         "box": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 2, "maxItems": 2, "description": "The board's size [x, y] in cells: every shape's."},
         "cells": {"type": "string", "pattern": "^[wco]*$", "description": "The board's cells row by row from y = 0, x * y characters: w whole, c cut, o outside the tray."},
-        "corners": {"type": "array", "items": {"$ref": "#/$defs/Point2"}, "minItems": 4, "maxItems": 4, "description": "The tray's corners (0, 0), (size, 0), (size, size), (0, size) in the board's grid (cell (x, y) is the unit square at (x, y), y up)."},
+        "corners": {"type": "array", "items": {"$ref": "#/$defs/Point2"}, "minItems": 4, "maxItems": 4, "description": "The tray's corners (0, 0), (width, 0), (width, height), (0, height) in the board's grid (cell (x, y) is the unit square at (x, y), y up)."},
         "wallPolygons": {"type": "array", "items": {"type": "array", "items": {"$ref": "#/$defs/Point2"}, "minItems": 4, "maxItems": 4}, "description": "Each wall square's corners in the board's grid, in the order of walls."}
       },
-      "required": ["size", "over", "down", "allowance", "placement", "shiftX", "shiftY", "walls", "degrees", "whole", "cut", "box", "cells", "corners", "wallPolygons"],
+      "required": ["width", "height", "over", "down", "allowance", "placement", "shiftX", "shiftY", "walls", "degrees", "whole", "cut", "box", "cells", "corners", "wallPolygons"],
       "additionalProperties": false
     },
     "ShapeInfo": {

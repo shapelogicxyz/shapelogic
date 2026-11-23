@@ -1203,21 +1203,33 @@ std::optional<unsigned int> wholeOf(const XmlElement& e, const char* name, unsig
 
 /// <tray>: the tray of a Tilted Square puzzle. Nothing when a setting is
 /// missing or out of range (an edited file can hold anything); the element
-/// is then kept as the file has it.
+/// is then kept as the file has it. A square tray has `size`, a rectangle
+/// `width` and `height` (writeTray()); either of those two, when there,
+/// goes over `size`.
 std::optional<tilted::Tray> readTray(const XmlElement& e) {
   tilted::Tray t;
   const std::optional<unsigned int> size = wholeOf(e, "size", tilted::Tray::kMaxSize);
+  const auto sideOf = [&](const char* name) {
+    return e.findAttribute(name) != nullptr ? wholeOf(e, name, tilted::Tray::kMaxSize) : size;
+  };
+  const std::optional<unsigned int> width = sideOf("width");
+  const std::optional<unsigned int> height = sideOf("height");
   const std::optional<unsigned int> over = wholeOf(e, "over", tilted::Tray::kMaxSlope);
   const std::optional<unsigned int> down = wholeOf(e, "down", tilted::Tray::kMaxSlope);
   const std::optional<double> allowance = realOf(e.attribute("allowance"));
   const std::optional<double> shiftX = realOf(e.attribute("shiftX"));
   const std::optional<double> shiftY = realOf(e.attribute("shiftY"));
   const std::string placement = e.attribute("placement");
-  if (!size || !over || !down || !allowance || !shiftX || !shiftY ||
+  if (!width || !height || !over || !down || !allowance || !shiftX || !shiftY ||
       (placement != "best" && placement != "custom")) {
     return std::nullopt;
   }
-  t.size = *size;
+  // a size beside both sides says nothing, but a bad one is still a bad file
+  if (e.findAttribute("size") != nullptr && !size) {
+    return std::nullopt;
+  }
+  t.width = *width;
+  t.height = *height;
   t.over = *over;
   t.down = *down;
   t.allowance = *allowance;
@@ -1226,7 +1238,7 @@ std::optional<tilted::Tray> readTray(const XmlElement& e) {
   t.shiftY = *shiftY;
   // the walls: a character a square, row by row, '#' a wall and '_' open
   if (const std::string* walls = e.findAttribute("walls"); walls != nullptr) {
-    if (walls->size() != static_cast<std::size_t>(t.size) * t.size) {
+    if (walls->size() != static_cast<std::size_t>(t.width) * t.height) {
       return std::nullopt;
     }
     for (const char ch : *walls) {
@@ -1744,10 +1756,17 @@ std::string realText(double v) {
   return buf.data();
 }
 
-/// The puzzle's <tray> (decision 0045).
+/// The puzzle's <tray> (decision 0045). A square tray is written with
+/// `size`, as every tray was before there were rectangles, so those files
+/// read and write as they did; a rectangle with `width` and `height`.
 void writeTray(XmlWriter& xml, const tilted::Tray& t) {
   xml.newTag("tray");
-  xml.newAttrib("size", t.size);
+  if (t.square()) {
+    xml.newAttrib("size", t.width);
+  } else {
+    xml.newAttrib("width", t.width);
+    xml.newAttrib("height", t.height);
+  }
   xml.newAttrib("over", t.over);
   xml.newAttrib("down", t.down);
   xml.newAttrib("allowance", realText(t.allowance));
