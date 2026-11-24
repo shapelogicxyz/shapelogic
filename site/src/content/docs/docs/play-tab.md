@@ -95,8 +95,11 @@ When the problem has a Goal and the pieces reach it, the board shows
 ### Nested slides
 
 If the problem's Solver options allow **nested slides**, a piece carries
-what is nested in it when it cannot move alone. Hold `Shift` while you
-drag to carry the nested pieces even when the piece could move alone.
+what is nested in it when it cannot move alone. It works the other way
+too: drag a nested piece into the walls of the piece it sits in, and that
+piece moves with it, as it would if you pushed it by hand. Either way it is
+the same move as dragging the outer piece. Hold `Shift` while you drag to
+move the pieces together even when the piece could move alone.
 
 ### Boards with more than one layer
 

@@ -7,7 +7,8 @@
 // Redo beside the board and on Ctrl+Z (the game's, not the document's);
 // the moves exported to a file, imported again and played back; a file of
 // another board refused; the position saved as the Start and as the Goal;
-// with nested slides a piece carrying what is nested in it.
+// with nested slides a piece carrying what is nested in it, and moving
+// what it is nested in when pushed into its walls.
 
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -324,7 +325,7 @@ test('the moves of a game are exported, imported and played back; the position i
   }
 });
 
-test('with nested slides a piece carries what is nested in it, or moves alone', async () => {
+test('with nested slides a piece carries what is nested in it, moves what it is in, or moves alone', async () => {
   const a = await launch();
   const page = a.page;
   try {
@@ -359,6 +360,14 @@ test('with nested slides a piece carries what is nested in it, or moves alone', 
     await expect(page.locator(STAGE)).toHaveAttribute('data-revision', String(set.revision));
     await expect(page.locator('#plNote')).toContainText('Nested slides');
     // the document changed under the game: its move was made again and is still there
+    await expectGame(page, 1, 0, false);
+
+    // the Smile pushed into the Cave's wall takes the Cave along: the Cave's move
+    await drag(page, '3,4,0', [[2, 0]]);
+    await expectGame(page, 1, 1, false);
+    await expect(page.locator('.pl-piece[data-at="5,3,0"]')).toHaveCount(1);
+    await expect(page.locator('.pl-piece[data-at="5,4,0"]')).toHaveCount(1);
+    await page.click('#plUndo');
     await expectGame(page, 1, 0, false);
 
     // a plain drag still takes the Cave alone where it can go alone

@@ -66,6 +66,8 @@ export class PlayWorkspace {
   private readonly edits: Edits;
   private readonly app: BtApp;
   private readonly host: PlayHost;
+  /** The sliding puzzles' play (the demo sets what its board hides). */
+  readonly sliding: SlidingPlay;
   /** The kinds of puzzle played, and the one of the puzzle open (null: it is not played). */
   private readonly kinds: readonly PlayKind[];
   private kind: PlayKind | null = null;
@@ -101,7 +103,8 @@ export class PlayWorkspace {
         this.render();
       },
     };
-    this.kinds = [new SlidingPlay(store, mine), new StackingPlay(store, mine)];
+    this.sliding = new SlidingPlay(store, mine);
+    this.kinds = [this.sliding, new StackingPlay(store, mine)];
     for (const k of this.kinds) {
       k.mount(false);
     }

@@ -1611,7 +1611,7 @@ Errors: `not_found`, `unsupported`
 
 ### `sliding.playReach`
 
-Where one move can take a piece of a position, by the slide search's rules: one move is the piece going anywhere it can reach while the others stay put, round corners included, in its layer unless 'rules' allows vertical moves. The groups are those the search moves: the piece alone; with nested slides also the piece with what is nested in its outline (when anything is); with partial nesting also the wider group (when it is wider). Each stop says whether the position it gives is the goal, as the search judges it (any copy of a piece on any of its goals, a piece without a goal anywhere, no piece resting on a variable cell; never when the problem has no goals). The stops of a group are joined by single steps to the place it is at: a drag follows them. Refused (invalid_argument) with the reason when 'places' is no position of the problem's pieces on its board (another number of places, a piece off the floor, two on one cell) or there is no such piece. Changes nothing.
+Where one move can take a piece of a position, by the slide search's rules: one move is the piece going anywhere it can reach while the others stay put, round corners included, in its layer unless 'rules' allows vertical moves. The groups are those the search moves: the piece alone; with nested slides also the piece with what is nested in its outline (when anything is); with partial nesting also the wider group (when it is wider); with either, then the groups of the pieces it is nested in, smallest first (pushed into the walls it sits in, a piece takes them along: the outer piece's move, the same as dragging it). Each stop says whether the position it gives is the goal, as the search judges it (any copy of a piece on any of its goals, a piece without a goal anywhere, no piece resting on a variable cell; never when the problem has no goals). The stops of a group are joined by single steps to the place it is at: a drag follows them. Refused (invalid_argument) with the reason when 'places' is no position of the problem's pieces on its board (another number of places, a piece off the floor, two on one cell) or there is no such piece. Changes nothing.
 
 Params:
 
@@ -1632,7 +1632,7 @@ Result:
 
 | name | type | | description |
 |---|---|---|---|
-| `groups.movers` | integer[] | required | The piece first, then what it carries. |
+| `groups.movers` | integer[] | required | The piece that carries the others first (the piece asked about, unless it is nested in it), then what it carries. |
 | `groups.stops` | object[] | required | Every shift the group can reach in one move, nearest first; none when it cannot move. |
 
 `groups.stops`:

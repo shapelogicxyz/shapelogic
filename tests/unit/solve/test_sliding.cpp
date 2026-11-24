@@ -5587,13 +5587,17 @@ TEST_CASE("sliding: a search that cannot save itself is left as it was last save
   REQUIRE(whole.has_value());
 
   // its levels in memory, so that only its saves write, one after every
-  // level; the disk fills in the middle of one of them
+  // level whatever a save takes (with SaveCadence's wait, 50 times the
+  // last save, a machine with a slower disk ended the search before its
+  // second save and never filled the disk); the disk fills in the middle
+  // of one of them
   {
     std::vector<LogLine> told;
     SlideSearch first;
     first.threads = 2;
     first.workDir = dir.string();
     first.autosaveFloorSeconds = 0;
+    first.autosaveEveryLevel = true;
     first.failWriteAt = 60000;
     first.onLog = [&told](LogLevel level, const std::string& text) {
       if (level != LogLevel::Debug) {

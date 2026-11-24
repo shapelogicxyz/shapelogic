@@ -140,7 +140,7 @@ For a sliding or a stacking puzzle played by hand. See [Play Tab](/docs/play-tab
 | Action | Windows and Linux | macOS |
 |---|---|---|
 | Slide a piece: anywhere it can reach is one move | Drag it | Drag it |
-| Nested slides: carry what is nested in the piece first | `Shift`+drag | `Shift`+drag |
+| Nested slides: move the piece with what is nested in it, or with what it is nested in, first | `Shift`+drag | `Shift`+drag |
 | Stacking: put a top disc on another rod; every transfer is one move | Drag it, or click it and then the rod | Drag it, or click it and then the rod |
 | Undo / redo a move | `Ctrl+Z` / `Shift+Ctrl+Z` | `⌘Z` / `Shift+⌘Z` |
 | One move back / forward | `←` / `→` | `←` / `→` |

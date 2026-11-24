@@ -107,6 +107,9 @@ table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
 .s-a { stroke: var(--series-1); } .s-b { stroke: var(--series-2); } .s-c { stroke: var(--series-3); }
 .lo { color: var(--muted); }
 td.hi { font-weight: 700; color: var(--series-2); }
+.pair { display: grid; grid-template-columns: 460fr 415fr; gap: 24px; align-items: center; }
+.pair picture img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--rule); }
+@media (max-width: 700px) { .pair { grid-template-columns: 1fr; } }
 </style></head><body>
 <header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
 <main>
@@ -859,160 +862,7 @@ td.hi { font-weight: 700; color: var(--series-2); }
 <p>A unit cell turned by &#952; needs an upright box of side</p>
 <p class="formula"><i>w</i> = cos&#160;&#952; + sin&#160;&#952; = (<i>n</i>+1) / &#8730;(<i>n</i>&#178;+1)</p>
 <p>It lies inside the tray exactly when that box does, which means exactly when its center is at least <i>w</i>/2 from every edge. So the whole cells of any layout are the cells whose centers fall inside an inner square of side <i>a</i> = <i>L</i>&#160;&#8722;&#160;<i>w</i>, set in by <i>w</i>/2 from each side. The inset is 0.707 at 45&#176;, 0.671 at 1:2, 0.632 at 1:3, and it approaches 0.5 as the grid straightens. Everything outside the inner square is a ring of cut cells.</p>
-<figure><svg viewBox="0 0 860 430" role="img" aria-label="A cell fits when its center is inside the inset square; the centers lie in evenly spaced rows" xmlns="http://www.w3.org/2000/svg">
-<clipPath id="clip9"><rect x="40" y="20" width="340" height="340"/></clipPath>
-<g clip-path="url(#clip9)">
-<polygon class="cell cut" points="8.12,391.88 46.14,372.87 27.13,334.86 -10.88,353.86"/>
-<polygon class="cell cut" points="65.14,410.88 103.16,391.88 84.15,353.86 46.14,372.87"/>
-<polygon class="cell cut" points="46.14,372.87 84.15,353.86 65.14,315.85 27.13,334.86"/>
-<polygon class="cell cut" points="27.13,334.86 65.14,315.85 46.14,277.84 8.12,296.84"/>
-<polygon class="cell cut" points="8.12,296.84 46.14,277.84 27.13,239.82 -10.88,258.83"/>
-<polygon class="cell cut" points="103.16,391.88 141.17,372.87 122.16,334.86 84.15,353.86"/>
-<polygon class="cell cut" points="46.14,277.84 84.15,258.83 65.14,220.82 27.13,239.82"/>
-<polygon class="cell cut" points="27.13,239.82 65.14,220.82 46.14,182.80 8.12,201.81"/>
-<polygon class="cell cut" points="8.12,201.81 46.14,182.80 27.13,144.79 -10.88,163.80"/>
-<polygon class="cell cut" points="160.18,410.88 198.19,391.88 179.18,353.86 141.17,372.87"/>
-<polygon class="cell cut" points="141.17,372.87 179.18,353.86 160.18,315.85 122.16,334.86"/>
-<polygon class="cell cut" points="46.14,182.80 84.15,163.80 65.14,125.78 27.13,144.79"/>
-<polygon class="cell cut" points="27.13,144.79 65.14,125.78 46.14,87.77 8.12,106.78"/>
-<polygon class="cell cut" points="8.12,106.78 46.14,87.77 27.13,49.76 -10.88,68.76"/>
-<polygon class="cell cut" points="198.19,391.88 236.20,372.87 217.20,334.86 179.18,353.86"/>
-<polygon class="cell cut" points="46.14,87.77 84.15,68.76 65.14,30.75 27.13,49.76"/>
-<polygon class="cell cut" points="27.13,49.76 65.14,30.75 46.14,-7.26 8.12,11.74"/>
-<polygon class="cell cut" points="255.21,410.88 293.22,391.88 274.22,353.86 236.20,372.87"/>
-<polygon class="cell cut" points="236.20,372.87 274.22,353.86 255.21,315.85 217.20,334.86"/>
-<polygon class="cell cut" points="84.15,68.76 122.16,49.76 103.16,11.74 65.14,30.75"/>
-<polygon class="cell cut" points="65.14,30.75 103.16,11.74 84.15,-26.27 46.14,-7.26"/>
-<polygon class="cell cut" points="293.22,391.88 331.24,372.87 312.23,334.86 274.22,353.86"/>
-<polygon class="cell cut" points="122.16,49.76 160.18,30.75 141.17,-7.26 103.16,11.74"/>
-<polygon class="cell cut" points="350.24,410.88 388.26,391.88 369.25,353.86 331.24,372.87"/>
-<polygon class="cell cut" points="331.24,372.87 369.25,353.86 350.24,315.85 312.23,334.86"/>
-<polygon class="cell cut" points="179.18,68.76 217.20,49.76 198.19,11.74 160.18,30.75"/>
-<polygon class="cell cut" points="160.18,30.75 198.19,11.74 179.18,-26.27 141.17,-7.26"/>
-<polygon class="cell cut" points="388.26,391.88 426.27,372.87 407.26,334.86 369.25,353.86"/>
-<polygon class="cell cut" points="369.25,353.86 407.26,334.86 388.26,296.84 350.24,315.85"/>
-<polygon class="cell cut" points="350.24,315.85 388.26,296.84 369.25,258.83 331.24,277.84"/>
-<polygon class="cell cut" points="217.20,49.76 255.21,30.75 236.20,-7.26 198.19,11.74"/>
-<polygon class="cell cut" points="388.26,296.84 426.27,277.84 407.26,239.82 369.25,258.83"/>
-<polygon class="cell cut" points="369.25,258.83 407.26,239.82 388.26,201.81 350.24,220.82"/>
-<polygon class="cell cut" points="350.24,220.82 388.26,201.81 369.25,163.80 331.24,182.80"/>
-<polygon class="cell cut" points="274.22,68.76 312.23,49.76 293.22,11.74 255.21,30.75"/>
-<polygon class="cell cut" points="255.21,30.75 293.22,11.74 274.22,-26.27 236.20,-7.26"/>
-<polygon class="cell cut" points="388.26,201.81 426.27,182.80 407.26,144.79 369.25,163.80"/>
-<polygon class="cell cut" points="369.25,163.80 407.26,144.79 388.26,106.78 350.24,125.78"/>
-<polygon class="cell cut" points="350.24,125.78 388.26,106.78 369.25,68.76 331.24,87.77"/>
-<polygon class="cell cut" points="312.23,49.76 350.24,30.75 331.24,-7.26 293.22,11.74"/>
-<polygon class="cell cut" points="388.26,106.78 426.27,87.77 407.26,49.76 369.25,68.76"/>
-<polygon class="cell cut" points="369.25,68.76 407.26,49.76 388.26,11.74 350.24,30.75"/>
-<polygon class="cell cut" points="350.24,30.75 388.26,11.74 369.25,-26.27 331.24,-7.26"/>
-<polygon class="cell ca" points="84.15,353.86 122.16,334.86 103.16,296.84 65.14,315.85"/>
-<polygon class="cell cb" points="65.14,315.85 103.16,296.84 84.15,258.83 46.14,277.84"/>
-<polygon class="cell cb" points="122.16,334.86 160.18,315.85 141.17,277.84 103.16,296.84"/>
-<polygon class="cell ca" points="103.16,296.84 141.17,277.84 122.16,239.82 84.15,258.83"/>
-<polygon class="cell cb" points="84.15,258.83 122.16,239.82 103.16,201.81 65.14,220.82"/>
-<polygon class="cell ca" points="65.14,220.82 103.16,201.81 84.15,163.80 46.14,182.80"/>
-<polygon class="cell cb" points="179.18,353.86 217.20,334.86 198.19,296.84 160.18,315.85"/>
-<polygon class="cell ca" points="160.18,315.85 198.19,296.84 179.18,258.83 141.17,277.84"/>
-<polygon class="cell cb" points="141.17,277.84 179.18,258.83 160.18,220.82 122.16,239.82"/>
-<polygon class="cell ca" points="122.16,239.82 160.18,220.82 141.17,182.80 103.16,201.81"/>
-<polygon class="cell cb" points="103.16,201.81 141.17,182.80 122.16,144.79 84.15,163.80"/>
-<polygon class="cell ca" points="84.15,163.80 122.16,144.79 103.16,106.78 65.14,125.78"/>
-<polygon class="cell cb" points="65.14,125.78 103.16,106.78 84.15,68.76 46.14,87.77"/>
-<polygon class="cell ca" points="217.20,334.86 255.21,315.85 236.20,277.84 198.19,296.84"/>
-<polygon class="cell cb" points="198.19,296.84 236.20,277.84 217.20,239.82 179.18,258.83"/>
-<polygon class="cell ca" points="179.18,258.83 217.20,239.82 198.19,201.81 160.18,220.82"/>
-<polygon class="cell cb" points="160.18,220.82 198.19,201.81 179.18,163.80 141.17,182.80"/>
-<polygon class="cell ca" points="141.17,182.80 179.18,163.80 160.18,125.78 122.16,144.79"/>
-<polygon class="cell cb" points="122.16,144.79 160.18,125.78 141.17,87.77 103.16,106.78"/>
-<polygon class="cell ca" points="103.16,106.78 141.17,87.77 122.16,49.76 84.15,68.76"/>
-<polygon class="cell ca" points="274.22,353.86 312.23,334.86 293.22,296.84 255.21,315.85"/>
-<polygon class="cell cb" points="255.21,315.85 293.22,296.84 274.22,258.83 236.20,277.84"/>
-<polygon class="cell ca" points="236.20,277.84 274.22,258.83 255.21,220.82 217.20,239.82"/>
-<polygon class="cell cb" points="217.20,239.82 255.21,220.82 236.20,182.80 198.19,201.81"/>
-<polygon class="cell ca" points="198.19,201.81 236.20,182.80 217.20,144.79 179.18,163.80"/>
-<polygon class="cell cb" points="179.18,163.80 217.20,144.79 198.19,106.78 160.18,125.78"/>
-<polygon class="cell ca" points="160.18,125.78 198.19,106.78 179.18,68.76 141.17,87.77"/>
-<polygon class="cell cb" points="141.17,87.77 179.18,68.76 160.18,30.75 122.16,49.76"/>
-<polygon class="cell cb" points="312.23,334.86 350.24,315.85 331.24,277.84 293.22,296.84"/>
-<polygon class="cell ca" points="293.22,296.84 331.24,277.84 312.23,239.82 274.22,258.83"/>
-<polygon class="cell cb" points="274.22,258.83 312.23,239.82 293.22,201.81 255.21,220.82"/>
-<polygon class="cell ca" points="255.21,220.82 293.22,201.81 274.22,163.80 236.20,182.80"/>
-<polygon class="cell cb" points="236.20,182.80 274.22,163.80 255.21,125.78 217.20,144.79"/>
-<polygon class="cell ca" points="217.20,144.79 255.21,125.78 236.20,87.77 198.19,106.78"/>
-<polygon class="cell cb" points="198.19,106.78 236.20,87.77 217.20,49.76 179.18,68.76"/>
-<polygon class="cell cb" points="331.24,277.84 369.25,258.83 350.24,220.82 312.23,239.82"/>
-<polygon class="cell ca" points="312.23,239.82 350.24,220.82 331.24,182.80 293.22,201.81"/>
-<polygon class="cell cb" points="293.22,201.81 331.24,182.80 312.23,144.79 274.22,163.80"/>
-<polygon class="cell ca" points="274.22,163.80 312.23,144.79 293.22,106.78 255.21,125.78"/>
-<polygon class="cell cb" points="255.21,125.78 293.22,106.78 274.22,68.76 236.20,87.77"/>
-<polygon class="cell ca" points="236.20,87.77 274.22,68.76 255.21,30.75 217.20,49.76"/>
-<polygon class="cell ca" points="331.24,182.80 369.25,163.80 350.24,125.78 312.23,144.79"/>
-<polygon class="cell cb" points="312.23,144.79 350.24,125.78 331.24,87.77 293.22,106.78"/>
-<polygon class="cell ca" points="293.22,106.78 331.24,87.77 312.23,49.76 274.22,68.76"/>
-<polygon class="cell cb" points="331.24,87.77 369.25,68.76 350.24,30.75 312.23,49.76"/>
-</g>
-<rect class="inset" x="68.51" y="48.51" width="282.98" height="282.98"/>
-<circle class="dot" cx="93.65" cy="325.35" r="2.6"/>
-<circle class="dot" cx="74.65" cy="287.34" r="2.6"/>
-<circle class="dot" cx="131.67" cy="306.35" r="2.6"/>
-<circle class="dot" cx="112.66" cy="268.33" r="2.6"/>
-<circle class="dot" cx="93.65" cy="230.32" r="2.6"/>
-<circle class="dot" cx="74.65" cy="192.31" r="2.6"/>
-<circle class="dot" cx="188.69" cy="325.35" r="2.6"/>
-<circle class="dot" cx="169.68" cy="287.34" r="2.6"/>
-<circle class="dot" cx="150.67" cy="249.33" r="2.6"/>
-<circle class="dot" cx="131.67" cy="211.31" r="2.6"/>
-<circle class="dot" cx="112.66" cy="173.30" r="2.6"/>
-<circle class="dot" cx="93.65" cy="135.29" r="2.6"/>
-<circle class="dot" cx="74.65" cy="97.27" r="2.6"/>
-<circle class="dot" cx="226.70" cy="306.35" r="2.6"/>
-<circle class="dot" cx="207.69" cy="268.33" r="2.6"/>
-<circle class="dot" cx="188.69" cy="230.32" r="2.6"/>
-<circle class="dot" cx="169.68" cy="192.31" r="2.6"/>
-<circle class="dot" cx="150.67" cy="154.29" r="2.6"/>
-<circle class="dot" cx="131.67" cy="116.28" r="2.6"/>
-<circle class="dot" cx="112.66" cy="78.27" r="2.6"/>
-<circle class="dot" cx="283.72" cy="325.35" r="2.6"/>
-<circle class="dot" cx="264.71" cy="287.34" r="2.6"/>
-<circle class="dot" cx="245.71" cy="249.33" r="2.6"/>
-<circle class="dot" cx="226.70" cy="211.31" r="2.6"/>
-<circle class="dot" cx="207.69" cy="173.30" r="2.6"/>
-<circle class="dot" cx="188.69" cy="135.29" r="2.6"/>
-<circle class="dot" cx="169.68" cy="97.27" r="2.6"/>
-<circle class="dot" cx="150.67" cy="59.26" r="2.6"/>
-<circle class="dot" cx="321.73" cy="306.35" r="2.6"/>
-<circle class="dot" cx="302.73" cy="268.33" r="2.6"/>
-<circle class="dot" cx="283.72" cy="230.32" r="2.6"/>
-<circle class="dot" cx="264.71" cy="192.31" r="2.6"/>
-<circle class="dot" cx="245.71" cy="154.29" r="2.6"/>
-<circle class="dot" cx="226.70" cy="116.28" r="2.6"/>
-<circle class="dot" cx="207.69" cy="78.27" r="2.6"/>
-<circle class="dot" cx="340.74" cy="249.33" r="2.6"/>
-<circle class="dot" cx="321.73" cy="211.31" r="2.6"/>
-<circle class="dot" cx="302.73" cy="173.30" r="2.6"/>
-<circle class="dot" cx="283.72" cy="135.29" r="2.6"/>
-<circle class="dot" cx="264.71" cy="97.27" r="2.6"/>
-<circle class="dot" cx="245.71" cy="59.26" r="2.6"/>
-<circle class="dot" cx="340.74" cy="154.29" r="2.6"/>
-<circle class="dot" cx="321.73" cy="116.28" r="2.6"/>
-<circle class="dot" cx="302.73" cy="78.27" r="2.6"/>
-<circle class="dot" cx="340.74" cy="59.26" r="2.6"/>
-<circle class="dotx" cx="55.64" cy="344.36" r="2.2"/>
-<circle class="dotx" cx="55.64" cy="249.33" r="2.2"/>
-<circle class="dotx" cx="150.67" cy="344.36" r="2.2"/>
-<circle class="dotx" cx="55.64" cy="154.29" r="2.2"/>
-<circle class="dotx" cx="55.64" cy="59.26" r="2.2"/>
-<circle class="dotx" cx="245.71" cy="344.36" r="2.2"/>
-<circle class="dotx" cx="93.65" cy="40.25" r="2.2"/>
-<circle class="dotx" cx="340.74" cy="344.36" r="2.2"/>
-<circle class="dotx" cx="188.69" cy="40.25" r="2.2"/>
-<circle class="dotx" cx="359.75" cy="287.34" r="2.2"/>
-<circle class="dotx" cx="359.75" cy="192.31" r="2.2"/>
-<circle class="dotx" cx="283.72" cy="40.25" r="2.2"/>
-<circle class="dotx" cx="359.75" cy="97.27" r="2.2"/>
-<rect class="tray" x="40" y="20" width="340" height="340"/>
-<text class="ctitle" x="210.0" y="386" text-anchor="middle">8 &#215; 8, 1 down, 2 over: 45 centers inside the dashed square</text>
-<text class="csub" x="210.0" y="404" text-anchor="middle">inset w/2 = 0.671 from every edge</text>
+<figure><div class="pair"><picture><source srcset="tilted-square-geometry/slide-dark.gif" media="(prefers-color-scheme: dark)"><img src="tilted-square-geometry/slide-light.gif" width="460" height="560" loading="lazy" alt="Animation: the 8 by 8 tray at 1:2 with the turned grid sliding one step along a row and one along a column; filled dots are centers inside the dashed square, the count of whole cells goes between 45 and 39 and back"></picture><svg viewBox="455 10 415 400" role="img" aria-label="The turned cell needs an upright box of side w; the centers lie in evenly spaced rows" xmlns="http://www.w3.org/2000/svg">
 <rect class="bbox" x="510.0" y="86.1" width="93.9" height="93.9"/>
 <polygon class="cell ca" points="541.30,180.00 603.91,148.70 572.61,86.09 510.00,117.39"/>
 <circle class="dot" cx="557.0" cy="133.0" r="3"/>
@@ -1055,7 +905,7 @@ td.hi { font-weight: 700; color: var(--series-2); }
 <line class="dim2" x1="480.0" y1="366.7" x2="526.5" y2="366.7"/>
 <text class="note" x="503.3" y="361.7" text-anchor="middle">shift n/s</text>
 <text class="ctitle" x="660" y="254" text-anchor="middle">Centers lie in rows</text>
-</svg><figcaption>Figure 3. Left: the 8&#160;&#215;&#160;8 tray at 1:2 in its best placement. Filled dots are centers inside the dashed square: those cells are whole. Open dots belong to cut cells. Right: the turned cell's upright box, and the rows the centers lie in.</figcaption></figure>
+</svg></div><figcaption>Figure 3. Left: the 8&#160;&#215;&#160;8 tray at 1:2, with the grid sliding under it (about 20 seconds, then it starts again). Filled dots are centers inside the dashed square: those cells are whole. Open dots belong to cut cells. The count changes only when a center crosses the dashed line. Right: the turned cell's upright box, and the rows the centers lie in.</figcaption></figure>
 
 <h2 id="s5">5. How many fit</h2>
 <p>The centers of the turned grid lie in level rows. For slope 1/<i>n</i>:</p>
@@ -1084,8 +934,8 @@ td.hi { font-weight: 700; color: var(--series-2); }
 </ul>
 <p>With every corner strictly inside, each row keeps 3 cells and the tray keeps 45. Let a corner poke past the wall by 0.025 of a cell and every row can take a fourth. The best count jumps to 52, more than the 50 at 45&#176;.</p>
 <figure><svg viewBox="0 0 860 410" role="img" aria-label="The same tray strict and with a small overhang allowed" xmlns="http://www.w3.org/2000/svg">
-<clipPath id="clip10"><rect x="70" y="16" width="320" height="320"/></clipPath>
-<g clip-path="url(#clip10)">
+<clipPath id="clip9"><rect x="70" y="16" width="320" height="320"/></clipPath>
+<g clip-path="url(#clip9)">
 <polygon class="cell cut" points="40.00,366.00 75.78,348.11 57.89,312.33 22.11,330.22"/>
 <polygon class="cell cut" points="93.67,383.89 129.44,366.00 111.55,330.22 75.78,348.11"/>
 <polygon class="cell cut" points="75.78,348.11 111.55,330.22 93.67,294.45 57.89,312.33"/>
@@ -1178,8 +1028,8 @@ td.hi { font-weight: 700; color: var(--series-2); }
 <rect class="tray" x="70" y="16" width="320" height="320"/>
 <text class="ctitle" x="230.0" y="362" text-anchor="middle">Strict: 45 whole cells</text>
 <text class="csub" x="230.0" y="380" text-anchor="middle">best placement, every corner inside</text>
-<clipPath id="clip11"><rect x="470" y="16" width="320" height="320"/></clipPath>
-<g clip-path="url(#clip11)">
+<clipPath id="clip10"><rect x="470" y="16" width="320" height="320"/></clipPath>
+<g clip-path="url(#clip10)">
 <polygon class="cell cut" points="450.11,355.89 485.89,338.00 468.00,302.22 432.22,320.11"/>
 <polygon class="cell cut" points="503.78,373.78 539.55,355.89 521.67,320.11 485.89,338.00"/>
 <polygon class="cell cut" points="468.00,302.22 503.78,284.33 485.89,248.56 450.11,266.45"/>

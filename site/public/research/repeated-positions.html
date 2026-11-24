@@ -113,6 +113,23 @@ table.puz td:nth-child(2), table.puz th:nth-child(2) { text-align: left; }
 figure picture img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--rule); }
 details { margin: 6px 0 18px; } details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
 details .tw table { min-width: 620px; }
+.pl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 10px; }
+.pl-bar[hidden] { display: none; }
+.pl-btn { width: 48px; height: 48px; padding: 0; border-radius: 50%; border: 1px solid var(--axis); background: var(--surface-1); color: var(--ink); display: inline-grid; place-items: center; cursor: pointer; }
+.pl-btn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.pl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pl-main, .pl-main:hover { width: 60px; height: 60px; background: var(--accent); border-color: var(--accent); color: var(--page); }
+.pl-main svg { width: 28px; height: 28px; fill: currentColor; stroke: none; }
+.pl-main .i-pause, .pl-main.is-playing .i-play { display: none; } .pl-main.is-playing .i-pause { display: inline; }
+.pl-seek { flex: 1 1 140px; min-width: 120px; accent-color: var(--accent); }
+.pl-count { min-width: 4.2em; font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pl-speed { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--axis); border-radius: 999px; overflow: hidden; }
+.pl-label { padding: 0 10px 0 14px; font-size: 13px; color: var(--ink-2); }
+.pl-speed button { min-height: 38px; padding: 4px 12px; border: 0; border-left: 1px solid var(--axis); background: var(--surface-1); color: var(--ink-2); font: inherit; font-size: 14px; cursor: pointer; }
+.pl-speed button[aria-pressed="true"] { background: var(--accent); color: var(--page); }
+.pl-btn:focus-visible, .pl-speed button:focus-visible, .pl-seek:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.player.ready picture img { cursor: pointer; }
+@media print { .pl-bar { display: none; } }
 </style></head><body>
 <header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
 <main>
@@ -264,7 +281,101 @@ details .tw table { min-width: 620px; }
 <p><b>Why three levels are enough.</b> A search like this usually keeps a list of everything it has ever seen, so that it never goes round in circles. This one needs only the three fronts, because every move it follows can be made backwards: a slide can slide back and a turn can turn back. Removing a piece is the one move that cannot be undone, and it ends the search, so it is never followed. Suppose a move from P, in level <i>d</i>, led to a position Q that was first found in some level <i>k</i> two or more levels earlier. Undoing the move would take Q to P in one move, which would put P in level <i>k</i>&nbsp;+&nbsp;1 at the latest, not in level <i>d</i>. So Q can only be in level <i>d</i>&nbsp;&minus;&nbsp;1, <i>d</i> or <i>d</i>&nbsp;+&nbsp;1, and the three fronts hold exactly those.</p>
 <p>When the current front is through, the old front is let go, the current front becomes the old one, the new front becomes the current one, and an empty set becomes the new front.</p>
 <p>Figure 3 runs the whole search on a small graph of positions. It shows every move tested against the three fronts, the one link each new position gets, the fronts moving on after each level, a dead end being freed together with the branch behind it (section 6), and at the end the moves read back along the links.</p>
-<figure><picture><source srcset="repeated-positions/fronts-dark.gif" media="(prefers-color-scheme: dark)"><img src="repeated-positions/fronts-light.gif" width="820" height="520" loading="lazy" alt="Animation: the take-apart search on a small graph of positions, with its three fronts, the moves sorted into back, sideways, found already and new, the links back, a dead end freed, and the path read back from the separated position"></picture><figcaption>Figure 3. The take-apart search on a small graph of positions, move by move (about 90 seconds, then it starts again). S is the assembled puzzle and in X the puzzle has come apart. The graph is made up to show every case; a real puzzle&rsquo;s levels hold hundreds of positions.</figcaption></figure>
+<figure class="player" data-stills="repeated-positions/fronts/{theme}-{n}.webp" data-steps="{&quot;durations&quot;:[3600,900,1900,1900,3600,900,1900,1900,1900,1900,900,1900,1900,1900,1900,3600,900,1900,1900,1900,900,1900,1900,1900,1900,1900,900,1900,1900,3600,900,1900,1900,1900,900,1900,1900,1900,3600,900,1900,3200,1100,1100,1100,1100,5200],&quot;captions&quot;:[&quot;The search starts from the assembled puzzle, S. It is the current front, level 0. Each position stores one link back to where it was first found.&quot;,&quot;Take S from the current front and work out every move it has.&quot;,&quot;S to A: in none of the fronts, so A is new. It goes into the new front with a link back to S.&quot;,&quot;S to B: in none of the fronts, so B is new. It goes into the new front with a link back to S.&quot;,&quot;Level 0 is through. The fronts move on: current becomes old, new becomes current. The positions let go are kept only where a link leads back through them.&quot;,&quot;Take A from the current front and work out every move it has.&quot;,&quot;A to S: S is in the old front (back: one move nearer the start). The move is dropped and nothing about it is kept.&quot;,&quot;A to B: B is in the current front (sideways: same distance). The move is dropped and nothing about it is kept.&quot;,&quot;A to C: in none of the fronts, so C is new. It goes into the new front with a link back to A.&quot;,&quot;A to D: in none of the fronts, so D is new. It goes into the new front with a link back to A.&quot;,&quot;Take B from the current front and work out every move it has.&quot;,&quot;B to S: S is in the old front (back: one move nearer the start). The move is dropped and nothing about it is kept.&quot;,&quot;B to A: A is in the current front (sideways: same distance). The move is dropped and nothing about it is kept.&quot;,&quot;B to D: D is in the new front (found already for the next level). The move is dropped and nothing about it is kept.&quot;,&quot;B to E: in none of the fronts, so E is new. It goes into the new front with a link back to B.&quot;,&quot;Level 1 is through. The fronts move on: current becomes old, new becomes current. The positions let go are kept only where a link leads back through them.&quot;,&quot;Take C from the current front and work out every move it has.&quot;,&quot;C to A: A is in the old front (back: one move nearer the start). The move is dropped and nothing about it is kept.&quot;,&quot;C to D: D is in the current front (sideways: same distance). The move is dropped and nothing about it is kept.&quot;,&quot;C to F: in none of the fronts, so F is new. It goes into the new front with a link back to C.&quot;,&quot;Take D from the current front and work out every move it has.&quot;,&quot;D to A: A is in the old front (back: one move nearer the start). The move is dropped and nothing about it is kept.&quot;,&quot;D to B: B is in the old front (back: one move nearer the start). The move is dropped and nothing about it is kept.&quot;,&quot;D to C: C is in the current front (sideways: same distance). The move is dropped and nothing about it is kept.&quot;,&quot;D to E: E is in the current front (sideways: same distance). The move is dropped and nothing about it is kept.&quot;,&quot;D to G: in none of the fronts, so G is new. It goes into the new front with a link back to D.&quot;,&quot;Take E from the current front and work out every move it has.&quot;,&quot;E to B: B is in the old front (back: one move nearer the start). The move is dropped and nothing about it is kept.&quot;,&quot;E to D: D is in the current front (sideways: same distance). The move is dropped and nothing about it is kept.&quot;,&quot;Level 2 is through. The fronts move on: current becomes old, new becomes current. The positions let go are kept only where a link leads back through them.&quot;,&quot;Take F from the current front and work out every move it has.&quot;,&quot;F to C: C is in the old front (back: one move nearer the start). The move is dropped and nothing about it is kept.&quot;,&quot;F to G: G is in the current front (sideways: same distance). The move is dropped and nothing about it is kept.&quot;,&quot;F to I: in none of the fronts, so I is new. It goes into the new front with a link back to F.&quot;,&quot;Take G from the current front and work out every move it has.&quot;,&quot;G to D: D is in the old front (back: one move nearer the start). The move is dropped and nothing about it is kept.&quot;,&quot;G to F: F is in the current front (sideways: same distance). The move is dropped and nothing about it is kept.&quot;,&quot;G to H: in none of the fronts, so H is new. It goes into the new front with a link back to G.&quot;,&quot;Level 3 is through. The fronts move on and the old one is let go. B and E are freed: no newer position&#x27;s link leads back through them.&quot;,&quot;Take I from the current front and work out every move it has.&quot;,&quot;I to F: F is in the old front (back: one move nearer the start). The move is dropped and nothing about it is kept.&quot;,&quot;I to X: a new position, and in X the puzzle has fallen into two parts. The search stops here, 5 moves from the start.&quot;,&quot;Follow the links back from X: X \u2192 I.&quot;,&quot;Follow the links back from X: X \u2192 I \u2192 F.&quot;,&quot;Follow the links back from X: X \u2192 I \u2192 F \u2192 C.&quot;,&quot;Follow the links back from X: X \u2192 I \u2192 F \u2192 C \u2192 A.&quot;,&quot;Follow the links back from X: X \u2192 I \u2192 F \u2192 C \u2192 A \u2192 S. Read the other way, these are the 5 moves that take the puzzle apart.&quot;]}"><picture><source srcset="repeated-positions/fronts-dark.gif" media="(prefers-color-scheme: dark)"><img src="repeated-positions/fronts-light.gif" width="820" height="520" loading="lazy" alt="Animation: the take-apart search on a small graph of positions, with its three fronts, the moves sorted into back, sideways, found already and new, the links back, a dead end freed, and the path read back from the separated position"></picture><figcaption>Figure 3. The take-apart search on a small graph of positions, move by move (47 steps, about 90 seconds at 1&times;, then it starts again). S is the assembled puzzle and in X the puzzle has come apart. The graph is made up to show every case; a real puzzle&rsquo;s levels hold hundreds of positions. The arrows (or the arrow keys) go a step back or forward, and clicking the picture pauses or plays it.</figcaption></figure>
+<script>// The research pages' step-by-step player: turns each <figure class="player">
+// GIF into stills that can be stepped through or played at a chosen speed.
+// Without script the GIF plays as before. See tmp/gifkit/playerkit.py.
+(() => {
+  const BAR = '<button type="button" class="pl-btn" data-act="prev" aria-label="Previous step" title="Previous step (&larr;)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>'
+    + '<button type="button" class="pl-btn pl-main" data-act="play" aria-label="Pause" title="Play or pause"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-play" d="M8 5.5v13l10.5-6.5z"/><path class="i-pause" d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg></button>'
+    + '<button type="button" class="pl-btn" data-act="next" aria-label="Next step" title="Next step (&rarr;)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>'
+    + '<input type="range" class="pl-seek" min="1" max="1" value="1" aria-label="Step"><span class="pl-count" aria-hidden="true"></span>'
+    + '<span class="pl-speed" role="group" aria-label="Playback speed"><span class="pl-label">Speed</span><button type="button" data-speed="0.5">&frac12;&times;</button><button type="button" data-speed="1">1&times;</button><button type="button" data-speed="2">2&times;</button><button type="button" data-speed="4">4&times;</button></span>';
+  const dark = matchMedia("(prefers-color-scheme: dark)");
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+
+  function player(fig) {
+    const steps = JSON.parse(fig.dataset.steps);
+    const n = steps.durations.length;
+    const pad = Math.max(2, String(n).length);
+    const src = (theme, k) => fig.dataset.stills.replace("{theme}", theme).replace("{n}", String(k + 1).padStart(pad, "0"));
+    const bar = document.createElement("div");
+    bar.className = "pl-bar";
+    bar.innerHTML = BAR;
+    fig.insertBefore(bar, fig.firstChild);
+    const $ = (sel) => fig.querySelector(sel);
+    const source = $("picture source"), img = $("picture img");
+    const playBtn = $('[data-act="play"]'), seek = $(".pl-seek"), count = $(".pl-count");
+    const speedBtns = [...fig.querySelectorAll("[data-speed]")];
+    let i = 0, speed = 1, visible = false, timer = 0, playing = !still.matches;
+    const loaded = {};
+
+    function preload() {
+      const theme = dark.matches ? "dark" : "light";
+      if (loaded[theme]) return;
+      loaded[theme] = true;
+      for (let k = 0; k < n; k++) new Image().src = src(theme, k);
+    }
+    function show(k) {
+      i = (k + n) % n;
+      source.srcset = src("dark", i);
+      img.src = src("light", i);
+      img.alt = `Step ${i + 1} of ${n}: ${steps.captions[i]}`;
+      seek.value = i + 1;
+      count.textContent = `${i + 1} / ${n}`;
+    }
+    function schedule() {
+      clearTimeout(timer);
+      if (playing && visible) timer = setTimeout(() => { show(i + 1); schedule(); }, steps.durations[i] / speed);
+    }
+    function setPlaying(p) {
+      playing = p;
+      playBtn.classList.toggle("is-playing", p);
+      playBtn.setAttribute("aria-label", p ? "Pause" : "Play");
+      schedule();
+    }
+    function step(d) { setPlaying(false); show(i + d); }
+    function setSpeed(s) {
+      speed = s;
+      for (const b of speedBtns) b.setAttribute("aria-pressed", String(Number(b.dataset.speed) === s));
+      schedule();
+    }
+
+    seek.max = n;
+    show(0);
+    setSpeed(1);
+    setPlaying(playing);
+    fig.classList.add("ready");
+
+    $('[data-act="prev"]').addEventListener("click", () => step(-1));
+    $('[data-act="next"]').addEventListener("click", () => step(1));
+    playBtn.addEventListener("click", () => setPlaying(!playing));
+    img.addEventListener("click", () => setPlaying(!playing));
+    seek.addEventListener("input", () => { setPlaying(false); show(Number(seek.value) - 1); });
+    for (const b of speedBtns) b.addEventListener("click", () => setSpeed(Number(b.dataset.speed)));
+    fig.addEventListener("keydown", (e) => {
+      if (e.target === seek || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === "ArrowLeft") { step(-1); e.preventDefault(); }
+      if (e.key === "ArrowRight") { step(1); e.preventDefault(); }
+    });
+    dark.addEventListener("change", () => { if (visible) preload(); });
+
+    // play only while the figure is on screen, so a reader arriving finds it near the start
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver((entries) => {
+        visible = entries[entries.length - 1].isIntersecting;
+        if (visible) preload();
+        schedule();
+      }, { threshold: 0.25 }).observe(img);
+    } else {
+      visible = true;
+      preload();
+      schedule();
+    }
+  }
+
+  for (const fig of document.querySelectorAll("figure.player[data-stills][data-steps]")) player(fig);
+})();</script>
 <p><b>Threads.</b> When a level holds many positions, the search shares them out over the processor's cores. Each thread lists what its positions' moves lead to, without changing anything shared. The lists are then put together in the order a search on one thread would have made them. So every position gets the same link, and the take-apart comes out the same, however many threads ran.</p>
 
 <h2 id="s4">4. What happens to the other moves</h2>

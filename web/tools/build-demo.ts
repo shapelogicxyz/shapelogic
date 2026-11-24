@@ -14,8 +14,9 @@
 // --check then opens the built demo in Google Chrome (Playwright's `chrome`
 // channel) and drives it through its tabs, the solution's disassembly, a
 // played Solve and an edit, then the theme list, every puzzle type's
-// example (each one's played Solve, the Play tab of Sliding and Stacking)
-// and a reload that keeps the type, failing on an error of the page.
+// example (each one's played Solve, the Play tab of Sliding and Stacking),
+// a reload that keeps the type and the tab, and a tab named in the URL,
+// failing on an error of the page.
 
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -85,6 +86,7 @@ const TYPES: Record<string, string> = {
 
 /** Opens the `type` example from the list and plays its Solve (and Play, for Sliding and Stacking). */
 async function examplePlays(page: import('@playwright/test').Page, type: string): Promise<void> {
+  const sliding = type.startsWith('sliding');
   await page.selectOption('#demoType', type);
   await page.waitForFunction(
     (t) =>
@@ -97,9 +99,18 @@ async function examplePlays(page: import('@playwright/test').Page, type: string)
   await page.waitForSelector('#stage[data-tab="solver"][data-busy="0"]');
   await page.waitForSelector('#slvList .lrow[data-i="0"]', { timeout: 15_000 });
   await page.click('#leftS [data-r="start"]');
-  // a sliding board on a coarser grid asks first, as in the app
-  if (type === 'sliding') {
-    await page.getByRole('button', { name: 'Full Search' }).click();
+  // a sliding board on a coarser grid asks first, as in the app (the
+  // nested example's does; the standard one's starts at once)
+  const fullSearch = page.getByRole('button', { name: 'Full Search' });
+  await page.waitForFunction(
+    () =>
+      (document.getElementById('demoType') as HTMLSelectElement).disabled ||
+      [...document.querySelectorAll('button')].some((b) => b.textContent === 'Full Search'),
+    null,
+    { timeout: 5_000 },
+  );
+  if (sliding && (await fullSearch.isVisible())) {
+    await fullSearch.click();
   }
   await page.waitForFunction(
     () => (document.getElementById('demoType') as HTMLSelectElement).disabled,
@@ -112,13 +123,24 @@ async function examplePlays(page: import('@playwright/test').Page, type: string)
     { timeout: 15_000 },
   );
   await page.waitForSelector('#slvList .lrow[data-i="0"]', { timeout: 15_000 });
-  if (type === 'sliding' || type === 'stacking') {
+  if (sliding || type === 'stacking') {
     await page.keyboard.press('Control+4');
     await page.waitForSelector('#stage[data-tab="play"][data-busy="0"]');
     await page.waitForSelector(
-      type === 'sliding' ? '#playBoard:not([hidden]) > *' : '#stackBoard:not([hidden]) > *',
+      sliding ? '#playBoard:not([hidden]) > *' : '#stackBoard:not([hidden]) > *',
       { timeout: 15_000 },
     );
+    // the standard sliding example's board without its goal's shadows and
+    // lines, grid and labels; the nested one's with them
+    if (sliding) {
+      const plain = type === 'sliding-standard';
+      for (const c of ['noshades', 'nolines', 'nogrid', 'nolabels']) {
+        const on = await page.$eval('#playBoard', (b, k) => b.classList.contains(k), c);
+        if (on !== plain) {
+          throw new Error(`the ${type} example's board ${on ? 'has' : 'lacks'} ${c}`);
+        }
+      }
+    }
     await page.screenshot({ path: resolve(WEB, `test-results/demo-${type}.png`) });
   }
 }
@@ -216,6 +238,18 @@ async function check(headed: boolean): Promise<void> {
       { timeout: 60_000 },
     );
     await page.waitForSelector('html[data-theme="dark"]');
+    // and the tab (the last example's Solve was played in the Solver)
+    await page.waitForSelector('#stage[data-tab="solver"]');
+    // a tab asked for in the URL, and a key an older demo used
+    await page.goto(`${ORIGIN}${DEMO_BASE}?type=sliding&tab=play`);
+    await page.waitForSelector('#stage[data-tab="play"]', { timeout: 60_000 });
+    await page.waitForFunction(
+      () =>
+        window.location.search.includes('type=sliding-nested') &&
+        window.location.search.includes('tab=play'),
+    );
+    await page.keyboard.press('Control+2');
+    await page.waitForFunction(() => window.location.search.includes('tab=puzzle'));
     if (errors.length > 0) {
       throw new Error(`the page reported errors:\n${errors.join('\n')}`);
     }

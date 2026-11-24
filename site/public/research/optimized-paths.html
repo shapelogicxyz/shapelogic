@@ -87,6 +87,7 @@ table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
 .unitline { stroke: var(--grid); stroke-width: 0.6; }
 .pl { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 12px; font-weight: 600; fill: var(--ink); }
 
+figure picture img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--rule); }
 </style></head><body>
 <header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
 <main>
@@ -1253,64 +1254,7 @@ table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
 <li><b>A block parked part of the way</b> changes which holes face each other and which gaps are open. That could let a small piece cross between two blocks that never line up on the grid.</li>
 </ul>
 <p>The first is easy to show on a small board. Figure 3 is taken from the engine's tests. Two unit pieces have to change places along a corridor one cell wide. The only way is for one of them to step up into a pocket while the other passes. The corner block gives the board a grid of 2, and the pocket is one cell up, at an offset no unit piece starts or ends at. A full search solves the board in four moves. On the grid it has no solution.</p>
-<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 262" width="640" height="262" class="chart" role="img" aria-label="A small board where the grid finds no path and a full search finds four moves">
-<rect width="640" height="262" fill="var(--surface-1)"/>
-<text x="12.0" y="20.0" class="ctitle" text-anchor="start">A board the grid cannot solve</text>
-<text x="12.0" y="35.0" class="csub" text-anchor="start">From the engine's tests: units a and b are to change places; the grid is 2 cells</text>
-<text x="104.0" y="62.0" class="note" text-anchor="middle">Start</text>
-<rect x="24" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="64" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="64" y="150" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="104" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="104" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="104" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="144" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="144" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="144" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="105" y="71" width="78" height="78" class="floor"/>
-<rect x="107" y="73" width="74" height="74" rx="3" class="blk" stroke="var(--series-1)"/>
-<text x="144.0" y="114.0" class="note" text-anchor="middle">block</text>
-<rect x="28" y="194" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
-<text x="44.0" y="214.0" class="pl" text-anchor="middle">a</text>
-<rect x="68" y="194" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
-<text x="84.0" y="214.0" class="pl" text-anchor="middle">b</text>
-<text x="312.0" y="62.0" class="note" text-anchor="middle">After two moves of the full search</text>
-<rect x="232" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="272" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="272" y="150" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="312" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="312" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="312" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="352" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="352" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="352" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="313" y="71" width="78" height="78" class="floor"/>
-<rect x="315" y="73" width="74" height="74" rx="3" class="blk" stroke="var(--series-1)"/>
-<text x="352.0" y="114.0" class="note" text-anchor="middle">block</text>
-<rect x="276" y="154" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
-<text x="292.0" y="174.0" class="pl" text-anchor="middle">a</text>
-<rect x="356" y="194" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
-<text x="372.0" y="214.0" class="pl" text-anchor="middle">b</text>
-<rect x="270" y="148" width="44" height="44" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="4 3"/>
-<text x="520.0" y="62.0" class="note" text-anchor="middle">Goal, after four</text>
-<rect x="440" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="480" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="480" y="150" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="520" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="520" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="520" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="560" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="560" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="560" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
-<rect x="521" y="71" width="78" height="78" class="floor"/>
-<rect x="523" y="73" width="74" height="74" rx="3" class="blk" stroke="var(--series-1)"/>
-<text x="560.0" y="114.0" class="note" text-anchor="middle">block</text>
-<rect x="484" y="194" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
-<text x="500.0" y="214.0" class="pl" text-anchor="middle">a</text>
-<rect x="444" y="194" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
-<text x="460.0" y="214.0" class="pl" text-anchor="middle">b</text>
-<text x="232.0" y="246.0" class="csub" text-anchor="start">a waits in the pocket: one cell up, which is not a stop on the 2-cell grid</text>
-</svg><figcaption>Figure 3. A board where optimized paths reports no solution and a full search finds four moves. This is why "no solution (optimized)" always comes with the offer of a full search.</figcaption></figure>
+<figure><picture><source srcset="optimized-paths/pocket-dark.gif" media="(prefers-color-scheme: dark)"><img src="optimized-paths/pocket-light.gif" width="820" height="436" loading="lazy" alt="Animation: two units in a one-cell corridor change places in four moves of a full search, one of them waiting in a pocket one cell up; on the 2-cell grid the pocket is not a stop, so the units can never pass and the grid finds no solution"></picture><figcaption>Figure 3. A board where optimized paths reports no solution and a full search finds four moves (about 35 seconds, then it starts again). This is why "no solution (optimized)" always comes with the offer of a full search.</figcaption></figure>
 
 <h3>4.5 What the Heart boards show so far</h3>
 <p>An earlier version of the "Abe 1 to 6 Heart" file had five shorter problems, short enough for the full search to finish. Optimized paths found the same number of moves on all five.</p>

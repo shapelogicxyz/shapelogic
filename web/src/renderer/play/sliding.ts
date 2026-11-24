@@ -135,6 +135,24 @@ export class SlidingPlay implements PlayKind {
     });
   }
 
+  /**
+   * Hides the goal's shadows and lines, the grid and the pieces' names, or
+   * shows them, as their buttons do (the website's demo sets them for each
+   * of its examples).
+   */
+  setHidden(hidden: { shades: boolean; lines: boolean; grid: boolean; labels: boolean }): void {
+    this.shadesHidden = hidden.shades;
+    this.linesHidden = hidden.lines;
+    this.gridHidden = hidden.grid;
+    this.labelsHidden = hidden.labels;
+    if (this.mounted) {
+      this.showGoalButtons();
+      this.showGridButton();
+      this.showLabelsButton();
+      this.sendGoal(false);
+    }
+  }
+
   mount(on: boolean): void {
     this.mounted = on;
     byId('playBoard').hidden = !on;
@@ -241,7 +259,7 @@ export class SlidingPlay implements PlayKind {
     return depth > 1 && stored.verticalMoves
       ? 'This problem allows vertical moves; by hand a piece stays in its layer for now.'
       : stored.nestedSlides
-        ? 'Nested slides: a piece carries what is nested in it when it cannot move alone (Shift-drag to carry first).'
+        ? 'Nested slides: a piece that cannot move alone carries what is nested in it, or moves the piece it is nested in (Shift-drag to move them together first).'
         : '';
   }
 

@@ -203,89 +203,100 @@ table.puz td:nth-child(2) { text-align: center; } table.puz th:nth-child(2) { te
 <figure><svg viewBox="0 0 820 268" role="img" aria-label="Taking a node out of a doubly linked list and putting it back" xmlns="http://www.w3.org/2000/svg"><defs><marker id="dn-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arh"/></marker><marker id="dn-arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arh hl"/></marker></defs><text x="10" y="22" class="ctitle">1. In the list</text><rect x="20" y="92" width="54" height="34" rx="6" class="node"/><text x="47.0" y="114" text-anchor="middle" class="ndl">p</text><rect x="110" y="92" width="54" height="34" rx="6" class="node"/><text x="137.0" y="114" text-anchor="middle" class="ndl">x</text><rect x="200" y="92" width="54" height="34" rx="6" class="node"/><text x="227.0" y="114" text-anchor="middle" class="ndl">q</text><path d="M74,101 L110,101" class="lk" marker-end="url(#dn-ar)"/><path d="M164,101 L200,101" class="lk" marker-end="url(#dn-ar)"/><path d="M200,117 L164,117" class="lk" marker-end="url(#dn-ar)"/><path d="M110,117 L74,117" class="lk" marker-end="url(#dn-ar)"/><text x="137.0" y="52" text-anchor="middle" class="note">R: the link to the right</text><text x="137.0" y="184" text-anchor="middle" class="note">L: the link to the left</text><text x="282" y="22" class="ctitle">2. Taken out</text><rect x="292" y="92" width="54" height="34" rx="6" class="node"/><text x="319.0" y="114" text-anchor="middle" class="ndl">p</text><rect x="382" y="92" width="54" height="34" rx="6" class="node out"/><text x="409.0" y="114" text-anchor="middle" class="ndl">x</text><rect x="472" y="92" width="54" height="34" rx="6" class="node"/><text x="499.0" y="114" text-anchor="middle" class="ndl">q</text><path d="M346,101 C376,39 442,39 472,101" class="lk" marker-end="url(#dn-ar)"/><path d="M472,117 C442,179 376,179 346,117" class="lk" marker-end="url(#dn-ar)"/><path d="M436,101 L472,101" class="lk keep" marker-end="url(#dn-arh)"/><path d="M382,117 L346,117" class="lk keep" marker-end="url(#dn-arh)"/><text x="409.0" y="52" text-anchor="middle" class="note">p and q now skip x</text><text x="409.0" y="184" text-anchor="middle" class="note hltext">x still knows p and q</text><text x="292" y="226" class="code">R[L[x]] ← R[x]</text><text x="292" y="244" class="code">L[R[x]] ← L[x]</text><text x="554" y="22" class="ctitle">3. Put back</text><rect x="564" y="92" width="54" height="34" rx="6" class="node"/><text x="591.0" y="114" text-anchor="middle" class="ndl">p</text><rect x="654" y="92" width="54" height="34" rx="6" class="node back"/><text x="681.0" y="114" text-anchor="middle" class="ndl">x</text><rect x="744" y="92" width="54" height="34" rx="6" class="node"/><text x="771.0" y="114" text-anchor="middle" class="ndl">q</text><path d="M618,101 L654,101" class="lk back" marker-end="url(#dn-arh)"/><path d="M708,101 L744,101" class="lk" marker-end="url(#dn-ar)"/><path d="M744,117 L708,117" class="lk back" marker-end="url(#dn-arh)"/><path d="M654,117 L618,117" class="lk" marker-end="url(#dn-ar)"/><text x="681.0" y="52" text-anchor="middle" class="note">x’s own links lead back in</text><text x="564" y="226" class="code">R[L[x]] ← x</text><text x="564" y="244" class="code">L[R[x]] ← x</text></svg><figcaption>Figure 3. A node <i>x</i> leaves a doubly linked list and comes back. <i>R</i> is the link to the right and <i>L</i> the link to the left. While <i>x</i> is out, its neighbors skip it, but <i>x</i> keeps its own links (dashed), and they are all that is needed to put it back.</figcaption></figure>
 <p><b>Covering a column</b> uses this twice over. The column&rsquo;s header leaves the list of headers, and then every row that has a mark in the column leaves all the other columns it is in, with each of those columns&rsquo; counts going down by one. Choosing a row covers each of its columns in turn. <b>Uncovering</b> does the same steps backwards. A covered row never needs to be looked at again until it comes back.</p>
 <p>The animation shows the whole search of the small puzzle on its matrix. The column the search is working on is shaded, the rows it has chosen are outlined, and pale rows and columns are the ones currently linked out.</p>
-<figure class="player" id="dlx-player" data-steps="{&quot;durations&quot;:[3600,1600,2000,1600,2000,1800,1400,2000,1800,1400,2000,1800,1400,2000,1600,2000,1600,2000,2200,1400,2000,1600,2000,1600,2000,2200,1400,2000,1600,2000,1600,2000,2200,1400,2000,1600,2000,1600,2000,2200,1400,2000,1800,1400,5000],&quot;captions&quot;:[&quot;The puzzle as a matrix: 28 placements, one row each. An assembly is a set of rows that together cover every column exactly once.&quot;,&quot;Every column must be covered exactly once. Choose the column with the fewest rows: cell 1 has 7 rows. Try them one by one.&quot;,&quot;Take A on 1. Cover its columns (A, 1): they leave the matrix, and so do the 13 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: cell 5 has 2 rows. Try them one by one.&quot;,&quot;Take B on 2 5 6. Cover its columns (B, 2, 5, 6): they leave the matrix, and so do the 13 other rows that need one of them.&quot;,&quot;Piece c has no rows left, so it can never be covered. A dead end: go back.&quot;,&quot;Go back: uncover B on 2 5 6. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take C on 3 5 6 7. Cover its columns (C, 3, 5, 6, 7): they leave the matrix, and so do the 13 other rows that need one of them.&quot;,&quot;Piece b has no rows left, so it can never be covered. A dead end: go back.&quot;,&quot;Go back: uncover C on 3 5 6 7 and A on 1. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take B on 1 2 6. Cover its columns (B, 1, 2, 6): they leave the matrix, and so do the 22 other rows that need one of them.&quot;,&quot;Piece c has no rows left, so it can never be covered. A dead end: go back.&quot;,&quot;Go back: uncover B on 1 2 6. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take B on 1 5 6. Cover its columns (B, 1, 5, 6): they leave the matrix, and so do the 21 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece C has 1 row. Try it.&quot;,&quot;Take C on 2 3 4 8. Cover its columns (C, 2, 3, 4, 8): they leave the matrix, and so do the 4 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece A has 1 row. Try it.&quot;,&quot;Take A on 7. Cover its columns (A, 7): they leave the matrix, and so do the 0 other rows that need one of them.&quot;,&quot;No columns are left: every piece is placed and every cell is filled. An assembly. Go back for more.&quot;,&quot;Go back: uncover A on 7 and C on 2 3 4 8 and B on 1 5 6. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take B on 1 2 5. Cover its columns (B, 1, 2, 5): they leave the matrix, and so do the 21 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece C has 1 row. Try it.&quot;,&quot;Take C on 4 6 7 8. Cover its columns (C, 4, 6, 7, 8): they leave the matrix, and so do the 4 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece A has 1 row. Try it.&quot;,&quot;Take A on 3. Cover its columns (A, 3): they leave the matrix, and so do the 0 other rows that need one of them.&quot;,&quot;No columns are left: every piece is placed and every cell is filled. An assembly. Go back for more.&quot;,&quot;Go back: uncover A on 3 and C on 4 6 7 8 and B on 1 2 5. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take C on 1 2 3 5. Cover its columns (C, 1, 2, 3, 5): they leave the matrix, and so do the 22 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece B has 1 row. Try it.&quot;,&quot;Take B on 4 7 8. Cover its columns (B, 4, 7, 8): they leave the matrix, and so do the 3 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece A has 1 row. Try it.&quot;,&quot;Take A on 6. Cover its columns (A, 6): they leave the matrix, and so do the 0 other rows that need one of them.&quot;,&quot;No columns are left: every piece is placed and every cell is filled. An assembly. Go back for more.&quot;,&quot;Go back: uncover A on 6 and B on 4 7 8 and C on 1 2 3 5. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take C on 1 5 6 7. Cover its columns (C, 1, 5, 6, 7): they leave the matrix, and so do the 22 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece B has 1 row. Try it.&quot;,&quot;Take B on 3 4 8. Cover its columns (B, 3, 4, 8): they leave the matrix, and so do the 3 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece A has 1 row. Try it.&quot;,&quot;Take A on 2. Cover its columns (A, 2): they leave the matrix, and so do the 0 other rows that need one of them.&quot;,&quot;No columns are left: every piece is placed and every cell is filled. An assembly. Go back for more.&quot;,&quot;Go back: uncover A on 2 and B on 3 4 8 and C on 1 5 6 7. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take C on 1 2 3 7. Cover its columns (C, 1, 2, 3, 7): they leave the matrix, and so do the 23 other rows that need one of them.&quot;,&quot;Piece b has no rows left, so it can never be covered. A dead end: go back.&quot;,&quot;Go back: uncover C on 1 2 3 7. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Every row of cell 1 has been tried, so the search is over: 4 assemblies and 4 dead ends. The 4 are one arrangement, turned and mirrored.&quot;]}">
-<div class="pl-bar" hidden><button type="button" class="pl-btn" data-act="prev" aria-label="Previous step" title="Previous step (&larr;)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="pl-btn pl-main" data-act="play" aria-label="Pause" title="Play or pause"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-play" d="M8 5.5v13l10.5-6.5z"/><path class="i-pause" d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg></button><button type="button" class="pl-btn" data-act="next" aria-label="Next step" title="Next step (&rarr;)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button><input type="range" class="pl-seek" min="1" max="1" value="1" aria-label="Step"><span class="pl-count" aria-hidden="true"></span><span class="pl-speed" role="group" aria-label="Playback speed"><span class="pl-label">Speed</span><button type="button" data-speed="0.5">&frac12;&times;</button><button type="button" data-speed="1">1&times;</button><button type="button" data-speed="2">2&times;</button><button type="button" data-speed="4">4&times;</button></span></div>
-<picture><source srcset="assemblies-dancing-links/dlx-search-dark.gif" media="(prefers-color-scheme: dark)"><img src="assemblies-dancing-links/dlx-search-light.gif" width="820" height="520" loading="lazy" alt="Animation: the dancing links search of the small puzzle, step by step, on its matrix and in the box"></picture><figcaption>Figure 4. The dancing links search of the small puzzle, step by step (45 steps, about 90 seconds at 1&times;, then it starts again). Each step says what the search did. Going back several levels at once is shown as one step. The arrows (or the arrow keys) go a step back or forward, and clicking the picture pauses or plays it.</figcaption></figure>
-<script>// Figure 4's player: turns the animated GIF into stills that can be stepped
-// through or played at a chosen speed. Without script the GIF plays as before.
+<figure class="player" data-stills="assemblies-dancing-links/dlx-search/{theme}-{n}.webp" data-steps="{&quot;durations&quot;:[3600,1600,2000,1600,2000,1800,1400,2000,1800,1400,2000,1800,1400,2000,1600,2000,1600,2000,2200,1400,2000,1600,2000,1600,2000,2200,1400,2000,1600,2000,1600,2000,2200,1400,2000,1600,2000,1600,2000,2200,1400,2000,1800,1400,5000],&quot;captions&quot;:[&quot;The puzzle as a matrix: 28 placements, one row each. An assembly is a set of rows that together cover every column exactly once.&quot;,&quot;Every column must be covered exactly once. Choose the column with the fewest rows: cell 1 has 7 rows. Try them one by one.&quot;,&quot;Take A on 1. Cover its columns (A, 1): they leave the matrix, and so do the 13 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: cell 5 has 2 rows. Try them one by one.&quot;,&quot;Take B on 2 5 6. Cover its columns (B, 2, 5, 6): they leave the matrix, and so do the 13 other rows that need one of them.&quot;,&quot;Piece c has no rows left, so it can never be covered. A dead end: go back.&quot;,&quot;Go back: uncover B on 2 5 6. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take C on 3 5 6 7. Cover its columns (C, 3, 5, 6, 7): they leave the matrix, and so do the 13 other rows that need one of them.&quot;,&quot;Piece b has no rows left, so it can never be covered. A dead end: go back.&quot;,&quot;Go back: uncover C on 3 5 6 7 and A on 1. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take B on 1 2 6. Cover its columns (B, 1, 2, 6): they leave the matrix, and so do the 22 other rows that need one of them.&quot;,&quot;Piece c has no rows left, so it can never be covered. A dead end: go back.&quot;,&quot;Go back: uncover B on 1 2 6. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take B on 1 5 6. Cover its columns (B, 1, 5, 6): they leave the matrix, and so do the 21 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece C has 1 row. Try it.&quot;,&quot;Take C on 2 3 4 8. Cover its columns (C, 2, 3, 4, 8): they leave the matrix, and so do the 4 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece A has 1 row. Try it.&quot;,&quot;Take A on 7. Cover its columns (A, 7): they leave the matrix, and so do the 0 other rows that need one of them.&quot;,&quot;No columns are left: every piece is placed and every cell is filled. An assembly. Go back for more.&quot;,&quot;Go back: uncover A on 7 and C on 2 3 4 8 and B on 1 5 6. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take B on 1 2 5. Cover its columns (B, 1, 2, 5): they leave the matrix, and so do the 21 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece C has 1 row. Try it.&quot;,&quot;Take C on 4 6 7 8. Cover its columns (C, 4, 6, 7, 8): they leave the matrix, and so do the 4 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece A has 1 row. Try it.&quot;,&quot;Take A on 3. Cover its columns (A, 3): they leave the matrix, and so do the 0 other rows that need one of them.&quot;,&quot;No columns are left: every piece is placed and every cell is filled. An assembly. Go back for more.&quot;,&quot;Go back: uncover A on 3 and C on 4 6 7 8 and B on 1 2 5. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take C on 1 2 3 5. Cover its columns (C, 1, 2, 3, 5): they leave the matrix, and so do the 22 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece B has 1 row. Try it.&quot;,&quot;Take B on 4 7 8. Cover its columns (B, 4, 7, 8): they leave the matrix, and so do the 3 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece A has 1 row. Try it.&quot;,&quot;Take A on 6. Cover its columns (A, 6): they leave the matrix, and so do the 0 other rows that need one of them.&quot;,&quot;No columns are left: every piece is placed and every cell is filled. An assembly. Go back for more.&quot;,&quot;Go back: uncover A on 6 and B on 4 7 8 and C on 1 2 3 5. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take C on 1 5 6 7. Cover its columns (C, 1, 5, 6, 7): they leave the matrix, and so do the 22 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece B has 1 row. Try it.&quot;,&quot;Take B on 3 4 8. Cover its columns (B, 3, 4, 8): they leave the matrix, and so do the 3 other rows that need one of them.&quot;,&quot;Choose the column with the fewest rows: piece A has 1 row. Try it.&quot;,&quot;Take A on 2. Cover its columns (A, 2): they leave the matrix, and so do the 0 other rows that need one of them.&quot;,&quot;No columns are left: every piece is placed and every cell is filled. An assembly. Go back for more.&quot;,&quot;Go back: uncover A on 2 and B on 3 4 8 and C on 1 5 6 7. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Take C on 1 2 3 7. Cover its columns (C, 1, 2, 3, 7): they leave the matrix, and so do the 23 other rows that need one of them.&quot;,&quot;Piece b has no rows left, so it can never be covered. A dead end: go back.&quot;,&quot;Go back: uncover C on 1 2 3 7. Their columns and the rows they hid are linked back in, in the places they left, and the next row is tried.&quot;,&quot;Every row of cell 1 has been tried, so the search is over: 4 assemblies and 4 dead ends. The 4 are one arrangement, turned and mirrored.&quot;]}"><picture><source srcset="assemblies-dancing-links/dlx-search-dark.gif" media="(prefers-color-scheme: dark)"><img src="assemblies-dancing-links/dlx-search-light.gif" width="820" height="520" loading="lazy" alt="Animation: the dancing links search of the small puzzle, step by step, on its matrix and in the box"></picture><figcaption>Figure 4. The dancing links search of the small puzzle, step by step (45 steps, about 90 seconds at 1&times;, then it starts again). Each step says what the search did. Going back several levels at once is shown as one step. The arrows (or the arrow keys) go a step back or forward, and clicking the picture pauses or plays it.</figcaption></figure>
+<script>// The research pages' step-by-step player: turns each <figure class="player">
+// GIF into stills that can be stepped through or played at a chosen speed.
+// Without script the GIF plays as before. See tmp/gifkit/playerkit.py.
 (() => {
-  const fig = document.getElementById("dlx-player");
-  if (!fig) return;
-  const steps = JSON.parse(fig.dataset.steps);
-  const n = steps.durations.length;
-  const src = (theme, k) => `assemblies-dancing-links/dlx-search/${theme}-${String(k + 1).padStart(2, "0")}.webp`;
-  const $ = (sel) => fig.querySelector(sel);
-  const bar = $(".pl-bar"), source = $("picture source"), img = $("picture img");
-  const playBtn = $('[data-act="play"]'), seek = $(".pl-seek"), count = $(".pl-count");
-  const speedBtns = [...fig.querySelectorAll("[data-speed]")];
+  const BAR = '<button type="button" class="pl-btn" data-act="prev" aria-label="Previous step" title="Previous step (&larr;)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>'
+    + '<button type="button" class="pl-btn pl-main" data-act="play" aria-label="Pause" title="Play or pause"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-play" d="M8 5.5v13l10.5-6.5z"/><path class="i-pause" d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg></button>'
+    + '<button type="button" class="pl-btn" data-act="next" aria-label="Next step" title="Next step (&rarr;)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>'
+    + '<input type="range" class="pl-seek" min="1" max="1" value="1" aria-label="Step"><span class="pl-count" aria-hidden="true"></span>'
+    + '<span class="pl-speed" role="group" aria-label="Playback speed"><span class="pl-label">Speed</span><button type="button" data-speed="0.5">&frac12;&times;</button><button type="button" data-speed="1">1&times;</button><button type="button" data-speed="2">2&times;</button><button type="button" data-speed="4">4&times;</button></span>';
   const dark = matchMedia("(prefers-color-scheme: dark)");
-  let i = 0, speed = 1, visible = false, timer = 0;
-  let playing = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const loaded = {};
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
 
-  function preload() {
-    const theme = dark.matches ? "dark" : "light";
-    if (loaded[theme]) return;
-    loaded[theme] = true;
-    for (let k = 0; k < n; k++) new Image().src = src(theme, k);
-  }
-  function show(k) {
-    i = (k + n) % n;
-    source.srcset = src("dark", i);
-    img.src = src("light", i);
-    img.alt = `Step ${i + 1} of ${n}: ${steps.captions[i]}`;
-    seek.value = i + 1;
-    count.textContent = `${i + 1} / ${n}`;
-  }
-  function schedule() {
-    clearTimeout(timer);
-    if (playing && visible) timer = setTimeout(() => { show(i + 1); schedule(); }, steps.durations[i] / speed);
-  }
-  function setPlaying(p) {
-    playing = p;
-    playBtn.classList.toggle("is-playing", p);
-    playBtn.setAttribute("aria-label", p ? "Pause" : "Play");
-    schedule();
-  }
-  function step(d) { setPlaying(false); show(i + d); }
-  function setSpeed(s) {
-    speed = s;
-    for (const b of speedBtns) b.setAttribute("aria-pressed", String(Number(b.dataset.speed) === s));
-    schedule();
-  }
+  function player(fig) {
+    const steps = JSON.parse(fig.dataset.steps);
+    const n = steps.durations.length;
+    const pad = Math.max(2, String(n).length);
+    const src = (theme, k) => fig.dataset.stills.replace("{theme}", theme).replace("{n}", String(k + 1).padStart(pad, "0"));
+    const bar = document.createElement("div");
+    bar.className = "pl-bar";
+    bar.innerHTML = BAR;
+    fig.insertBefore(bar, fig.firstChild);
+    const $ = (sel) => fig.querySelector(sel);
+    const source = $("picture source"), img = $("picture img");
+    const playBtn = $('[data-act="play"]'), seek = $(".pl-seek"), count = $(".pl-count");
+    const speedBtns = [...fig.querySelectorAll("[data-speed]")];
+    let i = 0, speed = 1, visible = false, timer = 0, playing = !still.matches;
+    const loaded = {};
 
-  seek.max = n;
-  show(0);
-  setSpeed(1);
-  setPlaying(playing);
-  bar.hidden = false;
-  fig.classList.add("ready");
-
-  $('[data-act="prev"]').addEventListener("click", () => step(-1));
-  $('[data-act="next"]').addEventListener("click", () => step(1));
-  playBtn.addEventListener("click", () => setPlaying(!playing));
-  img.addEventListener("click", () => setPlaying(!playing));
-  seek.addEventListener("input", () => { setPlaying(false); show(Number(seek.value) - 1); });
-  for (const b of speedBtns) b.addEventListener("click", () => setSpeed(Number(b.dataset.speed)));
-  fig.addEventListener("keydown", (e) => {
-    if (e.target === seek || e.altKey || e.ctrlKey || e.metaKey) return;
-    if (e.key === "ArrowLeft") { step(-1); e.preventDefault(); }
-    if (e.key === "ArrowRight") { step(1); e.preventDefault(); }
-  });
-  dark.addEventListener("change", () => { if (visible) preload(); });
-
-  // play only while the figure is on screen, so a reader arriving finds it near the start
-  if ("IntersectionObserver" in window) {
-    new IntersectionObserver((entries) => {
-      visible = entries[entries.length - 1].isIntersecting;
-      if (visible) preload();
+    function preload() {
+      const theme = dark.matches ? "dark" : "light";
+      if (loaded[theme]) return;
+      loaded[theme] = true;
+      for (let k = 0; k < n; k++) new Image().src = src(theme, k);
+    }
+    function show(k) {
+      i = (k + n) % n;
+      source.srcset = src("dark", i);
+      img.src = src("light", i);
+      img.alt = `Step ${i + 1} of ${n}: ${steps.captions[i]}`;
+      seek.value = i + 1;
+      count.textContent = `${i + 1} / ${n}`;
+    }
+    function schedule() {
+      clearTimeout(timer);
+      if (playing && visible) timer = setTimeout(() => { show(i + 1); schedule(); }, steps.durations[i] / speed);
+    }
+    function setPlaying(p) {
+      playing = p;
+      playBtn.classList.toggle("is-playing", p);
+      playBtn.setAttribute("aria-label", p ? "Pause" : "Play");
       schedule();
-    }, { threshold: 0.25 }).observe(img);
-  } else {
-    visible = true;
-    preload();
-    schedule();
+    }
+    function step(d) { setPlaying(false); show(i + d); }
+    function setSpeed(s) {
+      speed = s;
+      for (const b of speedBtns) b.setAttribute("aria-pressed", String(Number(b.dataset.speed) === s));
+      schedule();
+    }
+
+    seek.max = n;
+    show(0);
+    setSpeed(1);
+    setPlaying(playing);
+    fig.classList.add("ready");
+
+    $('[data-act="prev"]').addEventListener("click", () => step(-1));
+    $('[data-act="next"]').addEventListener("click", () => step(1));
+    playBtn.addEventListener("click", () => setPlaying(!playing));
+    img.addEventListener("click", () => setPlaying(!playing));
+    seek.addEventListener("input", () => { setPlaying(false); show(Number(seek.value) - 1); });
+    for (const b of speedBtns) b.addEventListener("click", () => setSpeed(Number(b.dataset.speed)));
+    fig.addEventListener("keydown", (e) => {
+      if (e.target === seek || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === "ArrowLeft") { step(-1); e.preventDefault(); }
+      if (e.key === "ArrowRight") { step(1); e.preventDefault(); }
+    });
+    dark.addEventListener("change", () => { if (visible) preload(); });
+
+    // play only while the figure is on screen, so a reader arriving finds it near the start
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver((entries) => {
+        visible = entries[entries.length - 1].isIntersecting;
+        if (visible) preload();
+        schedule();
+      }, { threshold: 0.25 }).observe(img);
+    } else {
+      visible = true;
+      preload();
+      schedule();
+    }
   }
+
+  for (const fig of document.querySelectorAll("figure.player[data-stills][data-steps]")) player(fig);
 })();</script>
 <p>ShapeLogic keeps the nodes in plain arrays, one each for left, right, up and down links and one for the column (<span class="mono">DlxNodes</span> in <span class="mono">dlx_matrix.h</span>), with the up and down links side by side so that the cover loops need one register fewer. The plain search is written as a loop over an explicit list of the rows chosen, not as a function that calls itself. It can therefore stop after any step, be saved in the puzzle file, and carry on later from the same place, which is how the Solver pauses and how its autosave works.</p>
 

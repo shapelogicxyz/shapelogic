@@ -12,7 +12,8 @@ The list at the top right opens a solved example of each puzzle type:
 | Puzzle type | Example |
 | --- | --- |
 | Brick | Pelikan burr |
-| Sliding | 1 to 6 Heart |
+| Sliding (standard) | Kuroko Dairu |
+| Sliding (nested) | 1 to 6 Heart |
 | Stacking | Panex Swap, with 3 discs per tower |
 | Tilted Square | Triple Play, by Goh Pit Khiam and Jerry Loo |
 | Triangular Prism | Prisgon |
@@ -23,8 +24,12 @@ The list at the top right opens a solved example of each puzzle type:
 | Cairo Prism | a pentagon slab |
 
 Each example has one problem and only the shapes it uses. The demo's
-address keeps the type you chose (for example `/demo/?type=sliding`), so
-you can link straight to one. The list beside **Reset** switches between
+address keeps the type and the tab you chose (for example
+`/demo/?type=sliding-nested&tab=play`), so you can link straight to one.
+The types are `brick`, `sliding-standard`, `sliding-nested`, `stacking`,
+`tilted`, `prism`, `spheres`, `rhombic`, `tetraocta`, `hexagonal` and
+`cairo`; the tabs are `shapes`, `puzzle`, `solver` and `play` (Play only for
+the sliding and stacking examples). The list beside **Reset** switches between
 Light Mode and Dark Mode.
 
 ## What it is

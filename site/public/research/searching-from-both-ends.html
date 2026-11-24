@@ -88,6 +88,23 @@ table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
 .pl { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 12px; font-weight: 600; fill: var(--ink); }
 
 figure picture img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--rule); }
+.pl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 10px; }
+.pl-bar[hidden] { display: none; }
+.pl-btn { width: 48px; height: 48px; padding: 0; border-radius: 50%; border: 1px solid var(--axis); background: var(--surface-1); color: var(--ink); display: inline-grid; place-items: center; cursor: pointer; }
+.pl-btn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.pl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pl-main, .pl-main:hover { width: 60px; height: 60px; background: var(--accent); border-color: var(--accent); color: var(--page); }
+.pl-main svg { width: 28px; height: 28px; fill: currentColor; stroke: none; }
+.pl-main .i-pause, .pl-main.is-playing .i-play { display: none; } .pl-main.is-playing .i-pause { display: inline; }
+.pl-seek { flex: 1 1 140px; min-width: 120px; accent-color: var(--accent); }
+.pl-count { min-width: 4.2em; font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pl-speed { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--axis); border-radius: 999px; overflow: hidden; }
+.pl-label { padding: 0 10px 0 14px; font-size: 13px; color: var(--ink-2); }
+.pl-speed button { min-height: 38px; padding: 4px 12px; border: 0; border-left: 1px solid var(--axis); background: var(--surface-1); color: var(--ink-2); font: inherit; font-size: 14px; cursor: pointer; }
+.pl-speed button[aria-pressed="true"] { background: var(--accent); color: var(--page); }
+.pl-btn:focus-visible, .pl-speed button:focus-visible, .pl-seek:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.player.ready picture img { cursor: pointer; }
+@media print { .pl-bar { display: none; } }
 </style></head><body>
 <header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
 <main>
@@ -285,51 +302,7 @@ figure picture img { width: 100%; height: auto; display: block; border-radius: 8
 
 <p>It is natural to picture the search holding everything both ends have found and comparing the two piles all the time. It does something much cheaper that comes to the same thing.</p>
 <p><b>The test.</b> While a new level is being written, its keys come out in rising order. The other end's newest level is already a sorted list. The search walks the two lists together, as in Figure 3: it moves forward in whichever list has the smaller key, and if the two keys are ever equal, that arrangement is in both ends and the search is over. Each list is read once. For the sliding search this walk is one more stream in the merge that writes the level, so it adds almost nothing to the step.</p>
-<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 214" width="640" height="214" class="chart" role="img" aria-label="The meeting test as a walk along two sorted lists">
-<rect width="640" height="214" fill="var(--surface-1)"/>
-<text x="12.0" y="20.0" class="ctitle" text-anchor="start">The meeting test: two sorted lists walked together</text>
-<text x="12.0" y="35.0" class="csub" text-anchor="start">The keys here are made up; real ones are 64 or 128 bits</text>
-<text x="12.0" y="73.0" class="note" text-anchor="start">The start end's new level,</text>
-<text x="12.0" y="87.0" class="note" text-anchor="start">in rising order</text>
-<rect x="184" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
-<text x="208.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1042</text>
-<rect x="239" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
-<text x="263.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1187</text>
-<rect x="294" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
-<text x="318.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1310</text>
-<rect x="349" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.85" stroke="var(--series-1)" stroke-width="1.2"/>
-<text x="373.5" y="79.0" class="onfill" text-anchor="middle" style="font-size:11.5px">1604</text>
-<rect x="404" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
-<text x="428.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1873</text>
-<rect x="459" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
-<text x="483.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2046</text>
-<rect x="514" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
-<text x="538.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2331</text>
-<rect x="569" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
-<text x="593.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2590</text>
-<text x="12.0" y="151.0" class="note" text-anchor="start">The goal end's newest</text>
-<text x="12.0" y="165.0" class="note" text-anchor="start">level, in rising order</text>
-<rect x="184" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.2"/>
-<text x="208.5" y="157.0" class="tick" text-anchor="middle" style="fill:var(--ink)">973</text>
-<rect x="239" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.2"/>
-<text x="263.5" y="157.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1255</text>
-<rect x="294" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.85" stroke="var(--series-2)" stroke-width="1.2"/>
-<text x="318.5" y="157.0" class="onfill" text-anchor="middle" style="font-size:11.5px">1604</text>
-<rect x="349" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.2"/>
-<text x="373.5" y="157.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1719</text>
-<rect x="404" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.2"/>
-<text x="428.5" y="157.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2224</text>
-<rect x="459" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.2"/>
-<text x="483.5" y="157.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2408</text>
-<line x1="208.5" y1="88" x2="263.5" y2="140" stroke="var(--ink)" stroke-width="0.8" stroke-opacity="0.35"/>
-<line x1="263.5" y1="88" x2="263.5" y2="140" stroke="var(--ink)" stroke-width="0.8" stroke-opacity="0.35"/>
-<line x1="318.5" y1="88" x2="318.5" y2="140" stroke="var(--ink)" stroke-width="0.8" stroke-opacity="0.35"/>
-<line x1="373.5" y1="88" x2="318.5" y2="140" stroke="var(--ink)" stroke-width="2" stroke-opacity="1"/>
-<text x="404.0" y="108.0" class="note" text-anchor="start">the same key in both lists:</text>
-<text x="404.0" y="122.0" class="note" text-anchor="start">the ends have met</text>
-<text x="184.0" y="190.0" class="csub" text-anchor="start">Each list is read once, front to back. Neither end is ever searched</text>
-<text x="184.0" y="204.0" class="csub" text-anchor="start">for a key: the walk only moves forward in both lists.</text>
-</svg><figcaption>Figure 3. The meeting test. Both lists are sorted, so one pass finds a key they share.</figcaption></figure>
+<figure class="player" data-stills="searching-from-both-ends/meet/{theme}-{n}.webp" data-steps="{&quot;durations&quot;:[4200,3600,3600,3600,3600,3600,4200,6400],&quot;captions&quot;:[&quot;The goal end&#x27;s newest level is already a sorted list. The start end&#x27;s new level is being written, and its keys come out in rising order. The walk starts at the front of both.&quot;,&quot;1042 against 973: the goal end&#x27;s key is the smaller, so 973 cannot be in the new level (everything still to come is larger). Move on in the goal end&#x27;s list.&quot;,&quot;1042 against 1255: the new key is the smaller, so 1042 is not in the goal end&#x27;s list (everything left there is larger). Write the next key of the new level.&quot;,&quot;1187 against 1255: the new key is the smaller, so 1187 is not in the goal end&#x27;s list (everything left there is larger). Write the next key of the new level.&quot;,&quot;1310 against 1255: the goal end&#x27;s key is the smaller, so 1255 cannot be in the new level (everything still to come is larger). Move on in the goal end&#x27;s list.&quot;,&quot;1310 against 1604: the new key is the smaller, so 1310 is not in the goal end&#x27;s list (everything left there is larger). Write the next key of the new level.&quot;,&quot;1604 is in both lists: the arrangement is in both ends, so the ends have met and the search is over.&quot;,&quot;Each list was read once, front to back, and never searched: 4 keys of the new level and 3 of the other, and the rest of the new level is never written. In the sliding search this walk is one more stream in the merge that writes the level, so it costs almost nothing.&quot;]}"><picture><source srcset="searching-from-both-ends/meet-dark.gif" media="(prefers-color-scheme: dark)"><img src="searching-from-both-ends/meet-light.gif" width="820" height="372" loading="lazy" alt="Animation: the meeting test, the new level of the start end walked against the goal end&rsquo;s newest level, both in rising order, moving on in whichever list has the smaller key until the two keys are equal"></picture><figcaption>Figure 3. The meeting test, step by step (8 steps, about 30 seconds at 1&times;, then it starts again). Both lists are sorted, so one pass finds a key they share. The arrows (or the arrow keys) go a step back or forward, and clicking the picture pauses or plays it.</figcaption></figure>
 <p><b>Why the other end's newest level is enough.</b> Suppose a new arrangement of the start end were sitting in one of the goal end's older levels, say <i>j</i> moves from the goal. The arrangement it was made from is one move away from it, so that one is at most <i>j</i>&nbsp;+&nbsp;1 moves from the goal and lies in a level the goal end already has. But that arrangement belongs to an earlier level of the start end, so the two ends would have shared it already, and the search would have stopped then. The first shared arrangement can only ever be in the other end's newest level, and that is the only one compared.</p>
 <p><b>Why the first meeting is a shortest path.</b> Say the true answer is <i>L</i> moves, and follow one shortest path. While the two ends' depths add up to less than <i>L</i> they cannot share anything, because a shared arrangement would give a path shorter than <i>L</i>. At the step where the depths first add up to <i>L</i>, the level just built contains the arrangement of that shortest path at exactly that distance, and the same arrangement is in the other end's newest level. So the ends meet at that step and not later, and the path through the meeting arrangement has <i>L</i> moves. The Solver's "moves deep" during a solve is this sum of the two depths.</p>
 <p><b>Panex and the mirror.</b> In a tower swap the goal is the start seen in a mirror. Whatever the search from the start finds at depth <i>d</i>, a search from the goal would find the mirror image of it at the same depth. So the Panex Solver runs only the search from the start. After each level it makes the mirror image of that level, sorts it, and walks the level against it. A shared stacking is one that is <i>d</i> moves from the start and whose mirror image is too, which puts the stacking itself <i>d</i> moves from the goal: a path of 2<i>d</i> moves. It also walks each new level against the mirror of the level before, which catches paths of odd length, 2<i>d</i>&nbsp;&minus;&nbsp;1. The level-10 swap takes 31,537 moves, so its search met its mirror at depth 15,769, one search doing the work of two.</p>
@@ -584,7 +557,101 @@ figure picture img { width: 100%; height: auto; display: block; border-radius: 8
 <p><b>Panex</b> works the same way, with two differences. It always uses the small search between saved levels once its levels are on disk, and the saved level is read from its file as a stream rather than loaded. And for a mirrored goal there is no goal end to walk through: the second half of the path is traced through the start's levels in the mirror, and each stacking is turned back as it is written into the path. As soon as the ends meet, the Panex search notes the meeting stacking in its saved state, so stopping it while it traces loses none of the search.</p>
 <p>Every path a search returns is checked in the tests move by move: each step has to be a legal move from the arrangement before.</p>
 <p>Figure 6 puts sections 4 to 8 together on a small board, where each square stands for an arrangement and a step to a neighboring square for a move. Both ends start at once, as in the Panex Solver. Each step grows the narrower end, drops what is in that end&rsquo;s two newest levels, and walks the new level against the other end&rsquo;s newest one. Once they share a square, the path is rebuilt outwards from it, one level at a time.</p>
-<figure><picture><source srcset="searching-from-both-ends/two-ends-dark.gif" media="(prefers-color-scheme: dark)"><img src="searching-from-both-ends/two-ends-light.gif" width="820" height="590" loading="lazy" alt="Animation: a level search from both ends of a small board with a wall, growing the narrower end each step until the ends meet, then rebuilding the path outwards from the meeting square"></picture><figcaption>Figure 6. The two-ended search on a small board, step by step (about 80 seconds, then it starts again). The numbers are each square&rsquo;s level. The wall keeps the goal end&rsquo;s levels narrow, so the goal end grows more often and the ends meet nearer the start: where the work is least, not in the middle.</figcaption></figure>
+<figure class="player" data-stills="searching-from-both-ends/two-ends/{theme}-{n}.webp" data-steps="{&quot;durations&quot;:[3400,2200,2200,2200,2200,2200,2200,2200,2200,2200,2200,2200,2200,2200,2200,2200,2200,2200,2200,2200,6400,4200,1100,1100,1100,1100,1100,1100,1100,3200,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,5600],&quot;captions&quot;:[&quot;Level 0 of each end is one arrangement: the start on the left, the goal on the right. Here both ends start at once, as in the Panex Solver.&quot;,&quot;The newest levels are the same size (1), so the start end grows. Its level 1 has 3 arrangements: everything one move on, less what is in its two newest levels. Walked against the goal end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (1 against 3), so it grows. Its level 1 has 3 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The newest levels are the same size (3), so the start end grows. Its level 2 has 5 arrangements: everything one move on, less what is in its two newest levels. Walked against the goal end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (3 against 5), so it grows. Its level 2 has 5 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The newest levels are the same size (5), so the start end grows. Its level 3 has 7 arrangements: everything one move on, less what is in its two newest levels. Walked against the goal end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (5 against 7), so it grows. Its level 3 has 7 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The newest levels are the same size (7), so the start end grows. Its level 4 has 9 arrangements: everything one move on, less what is in its two newest levels. Walked against the goal end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (7 against 9), so it grows. Its level 4 has 9 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The newest levels are the same size (9), so the start end grows. Its level 5 has 11 arrangements: everything one move on, less what is in its two newest levels. Walked against the goal end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (9 against 11), so it grows. Its level 5 has 10 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (10 against 11), so it grows. Its level 6 has 10 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (10 against 11), so it grows. Its level 7 has 8 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (8 against 11), so it grows. Its level 8 has 8 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (8 against 11), so it grows. Its level 9 has 8 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (8 against 11), so it grows. Its level 10 has 10 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (10 against 11), so it grows. Its level 11 has 12 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The start end&#x27;s newest level is the smaller (11 against 12), so it grows. Its level 6 has 13 arrangements: everything one move on, less what is in its two newest levels. Walked against the goal end&#x27;s newest level: nothing shared.&quot;,&quot;The goal end&#x27;s newest level is the smaller (12 against 13), so it grows. Its level 12 has 13 arrangements: everything one move on, less what is in its two newest levels. Walked against the start end&#x27;s newest level: nothing shared.&quot;,&quot;The newest levels are the same size (13), so the start end grows. Its level 7 has 13 arrangements: everything one move on, less what is in its two newest levels. Walked against the goal end&#x27;s newest level: nothing shared.&quot;,&quot;The newest levels are the same size (13), so the start end grows. Its level 8 shares an arrangement with the goal end&#x27;s newest level: the ends have met, 8 moves from the start and 12 from the goal, so the fewest moves is 20. The goal end went deeper: the wall kept its levels small, so it was the narrower end more often.&quot;,&quot;Back to the start: work out the moves of the arrangement at hand and look each one up in the start end&#x27;s level 7. One of them is there, because that is how it got into its level.&quot;,&quot;Back to the start: work out the moves of the arrangement at hand and look each one up in the start end&#x27;s level 6. One of them is there, because that is how it got into its level.&quot;,&quot;Back to the start: work out the moves of the arrangement at hand and look each one up in the start end&#x27;s level 5. One of them is there, because that is how it got into its level.&quot;,&quot;Back to the start: work out the moves of the arrangement at hand and look each one up in the start end&#x27;s level 4. One of them is there, because that is how it got into its level.&quot;,&quot;Back to the start: work out the moves of the arrangement at hand and look each one up in the start end&#x27;s level 3. One of them is there, because that is how it got into its level.&quot;,&quot;Back to the start: work out the moves of the arrangement at hand and look each one up in the start end&#x27;s level 2. One of them is there, because that is how it got into its level.&quot;,&quot;Back to the start: work out the moves of the arrangement at hand and look each one up in the start end&#x27;s level 1. One of them is there, because that is how it got into its level.&quot;,&quot;Back to the start: work out the moves of the arrangement at hand and look each one up in the start end&#x27;s level 0. One of them is there, because that is how it got into its level.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 11.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 10.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 9.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 8.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 7.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 6.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 5.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 4.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 3.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 2.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 1.&quot;,&quot;Then on to the goal, the same way through the goal end&#x27;s levels: level 0.&quot;,&quot;The path: 8 moves from the start to the meeting arrangement and 12 from there to the goal, 20 in all, the fewest possible.&quot;]}"><picture><source srcset="searching-from-both-ends/two-ends-dark.gif" media="(prefers-color-scheme: dark)"><img src="searching-from-both-ends/two-ends-light.gif" width="820" height="590" loading="lazy" alt="Animation: a level search from both ends of a small board with a wall, growing the narrower end each step until the ends meet, then rebuilding the path outwards from the meeting square"></picture><figcaption>Figure 6. The two-ended search on a small board, step by step (42 steps, about 80 seconds at 1&times;, then it starts again). The numbers are each square&rsquo;s level. The wall keeps the goal end&rsquo;s levels narrow, so the goal end grows more often and the ends meet nearer the start: where the work is least, not in the middle. The arrows (or the arrow keys) go a step back or forward, and clicking the picture pauses or plays it.</figcaption></figure>
+<script>// The research pages' step-by-step player: turns each <figure class="player">
+// GIF into stills that can be stepped through or played at a chosen speed.
+// Without script the GIF plays as before. See tmp/gifkit/playerkit.py.
+(() => {
+  const BAR = '<button type="button" class="pl-btn" data-act="prev" aria-label="Previous step" title="Previous step (&larr;)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>'
+    + '<button type="button" class="pl-btn pl-main" data-act="play" aria-label="Pause" title="Play or pause"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-play" d="M8 5.5v13l10.5-6.5z"/><path class="i-pause" d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg></button>'
+    + '<button type="button" class="pl-btn" data-act="next" aria-label="Next step" title="Next step (&rarr;)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>'
+    + '<input type="range" class="pl-seek" min="1" max="1" value="1" aria-label="Step"><span class="pl-count" aria-hidden="true"></span>'
+    + '<span class="pl-speed" role="group" aria-label="Playback speed"><span class="pl-label">Speed</span><button type="button" data-speed="0.5">&frac12;&times;</button><button type="button" data-speed="1">1&times;</button><button type="button" data-speed="2">2&times;</button><button type="button" data-speed="4">4&times;</button></span>';
+  const dark = matchMedia("(prefers-color-scheme: dark)");
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+
+  function player(fig) {
+    const steps = JSON.parse(fig.dataset.steps);
+    const n = steps.durations.length;
+    const pad = Math.max(2, String(n).length);
+    const src = (theme, k) => fig.dataset.stills.replace("{theme}", theme).replace("{n}", String(k + 1).padStart(pad, "0"));
+    const bar = document.createElement("div");
+    bar.className = "pl-bar";
+    bar.innerHTML = BAR;
+    fig.insertBefore(bar, fig.firstChild);
+    const $ = (sel) => fig.querySelector(sel);
+    const source = $("picture source"), img = $("picture img");
+    const playBtn = $('[data-act="play"]'), seek = $(".pl-seek"), count = $(".pl-count");
+    const speedBtns = [...fig.querySelectorAll("[data-speed]")];
+    let i = 0, speed = 1, visible = false, timer = 0, playing = !still.matches;
+    const loaded = {};
+
+    function preload() {
+      const theme = dark.matches ? "dark" : "light";
+      if (loaded[theme]) return;
+      loaded[theme] = true;
+      for (let k = 0; k < n; k++) new Image().src = src(theme, k);
+    }
+    function show(k) {
+      i = (k + n) % n;
+      source.srcset = src("dark", i);
+      img.src = src("light", i);
+      img.alt = `Step ${i + 1} of ${n}: ${steps.captions[i]}`;
+      seek.value = i + 1;
+      count.textContent = `${i + 1} / ${n}`;
+    }
+    function schedule() {
+      clearTimeout(timer);
+      if (playing && visible) timer = setTimeout(() => { show(i + 1); schedule(); }, steps.durations[i] / speed);
+    }
+    function setPlaying(p) {
+      playing = p;
+      playBtn.classList.toggle("is-playing", p);
+      playBtn.setAttribute("aria-label", p ? "Pause" : "Play");
+      schedule();
+    }
+    function step(d) { setPlaying(false); show(i + d); }
+    function setSpeed(s) {
+      speed = s;
+      for (const b of speedBtns) b.setAttribute("aria-pressed", String(Number(b.dataset.speed) === s));
+      schedule();
+    }
+
+    seek.max = n;
+    show(0);
+    setSpeed(1);
+    setPlaying(playing);
+    fig.classList.add("ready");
+
+    $('[data-act="prev"]').addEventListener("click", () => step(-1));
+    $('[data-act="next"]').addEventListener("click", () => step(1));
+    playBtn.addEventListener("click", () => setPlaying(!playing));
+    img.addEventListener("click", () => setPlaying(!playing));
+    seek.addEventListener("input", () => { setPlaying(false); show(Number(seek.value) - 1); });
+    for (const b of speedBtns) b.addEventListener("click", () => setSpeed(Number(b.dataset.speed)));
+    fig.addEventListener("keydown", (e) => {
+      if (e.target === seek || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === "ArrowLeft") { step(-1); e.preventDefault(); }
+      if (e.key === "ArrowRight") { step(1); e.preventDefault(); }
+    });
+    dark.addEventListener("change", () => { if (visible) preload(); });
+
+    // play only while the figure is on screen, so a reader arriving finds it near the start
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver((entries) => {
+        visible = entries[entries.length - 1].isIntersecting;
+        if (visible) preload();
+        schedule();
+      }, { threshold: 0.25 }).observe(img);
+    } else {
+      visible = true;
+      preload();
+      schedule();
+    }
+  }
+
+  for (const fig of document.querySelectorAll("figure.player[data-stills][data-steps]")) player(fig);
+})();</script>
 
 <h2 id="s9">9. Measurements and limits</h2>
 

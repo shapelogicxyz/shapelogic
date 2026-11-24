@@ -282,6 +282,10 @@ struct SlideSearch {
   /// between two saves (the tests ask for less).
   bool autosave = true;
   unsigned int autosaveFloorSeconds = 60;
+  /// For the tests: save after every level however long saving takes
+  /// (SaveCadence's wait off), so the saves, and what they write, do not
+  /// hang on how fast the machine and its disk are.
+  bool autosaveEveryLevel = false;
   /// Search from the goal as well once a level has this many arrangements,
   /// when the goal is one arrangement: the ends meet in the middle, and the
   /// path is as short. 0 for the default, a million; smaller puzzles find

@@ -5872,7 +5872,7 @@ class LevelSearch {
       }
 
       // An autosave, so a crash loses no more than this.
-      if (search_.autosave && folder_.hasBase() && saves.due()) {
+      if (search_.autosave && folder_.hasBase() && (search_.autosaveEveryLevel || saves.due())) {
         const auto saveBegan = SaveCadence::Clock::now();
         if (!saveState(nullptr, true)) {
           return saveFailed();
@@ -7271,8 +7271,38 @@ Result<std::vector<PlayGroup>> playReach(const Puzzle& puzzle, const Problem& pr
     return fail(Errc::InvalidArgument, "The problem has no piece " + std::to_string(piece) + ".");
   }
   const GoalCheck goals(puzzle, problem, b.pieces);
+  std::vector<std::vector<unsigned int>> sets = playMovers(b, b.state, piece, rules);
+  // a piece nested in another may also move it: pushed into the walls it
+  // sits in, it takes them along. The move is the outer piece's (its group,
+  // the outer piece first); the innermost of them first, each set once
+  if (rules.nested || rules.partialNested) {
+    std::vector<std::vector<unsigned int>> seen;
+    for (std::vector<unsigned int> set : sets) {
+      std::ranges::sort(set);
+      seen.push_back(std::move(set));
+    }
+    std::vector<std::vector<unsigned int>> outer;
+    for (unsigned int q = 0; q < b.pieces.size(); q++) {
+      if (q == piece) {
+        continue;
+      }
+      for (std::vector<unsigned int>& set : playMovers(b, b.state, q, rules)) {
+        std::vector<unsigned int> sorted = set;
+        std::ranges::sort(sorted);
+        if (std::ranges::binary_search(sorted, piece) &&
+            std::ranges::find(seen, sorted) == seen.end()) {
+          seen.push_back(std::move(sorted));
+          outer.push_back(std::move(set));
+        }
+      }
+    }
+    std::ranges::stable_sort(outer, {}, &std::vector<unsigned int>::size);
+    for (std::vector<unsigned int>& set : outer) {
+      sets.push_back(std::move(set));
+    }
+  }
   std::vector<PlayGroup> out;
-  for (std::vector<unsigned int>& movers : playMovers(b, b.state, piece, rules)) {
+  for (std::vector<unsigned int>& movers : sets) {
     PlayGroup g;
     for (const SlideShift& by :
          reachableShifts(*b.tray, b.cells, b.state, movers, rules.verticalMoves)) {

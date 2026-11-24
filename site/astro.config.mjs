@@ -10,7 +10,7 @@ import starlightLinksValidator from 'starlight-links-validator';
 // public/demo/ is the app's demo (web/tools/record-demo.ts), a static page
 // of its own: the built site serves /demo/ from its index.html, the dev
 // server serves public files only by their full name, so it is told. The
-// query is kept: the demo's address names its example (/demo/?type=sliding).
+// query is kept: the demo's address names its example (/demo/?type=sliding-nested).
 const demoIndex = {
   name: 'demo-index',
   configureServer(server) {

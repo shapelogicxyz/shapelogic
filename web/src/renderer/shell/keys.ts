@@ -414,7 +414,7 @@ export const KEY_MAP: readonly KeyRow[] = [
   {
     group: 'Play',
     keys: 'Shift+@Drag a piece',
-    does: 'Nested slides: carry what is nested in the piece before moving it alone',
+    does: 'Nested slides: move the piece with what is nested in it, or what it is nested in, before moving it alone',
   },
   {
     group: 'Play',

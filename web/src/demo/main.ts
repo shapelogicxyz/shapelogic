@@ -5,13 +5,14 @@
 // engine compiled to WebAssembly (engine/wasm_main.cpp, wasm-transport.ts,
 // engine-bridge.ts) and the demo's app (demo-app.ts) in place of the
 // preload's window.bt and window.btApp. One example puzzle of each puzzle
-// type is on the site (site/public/examples/demo/<type>.xmpuzzle: a solved
-// first problem and only its shapes); the top bar's list chooses one, and
-// it is opened as a dropped file would be, its problem set to take apart
-// where the grid can (Spheres and Tilted Square only assemble; Sliding and
-// Stacking search for their own paths). The page's URL keeps the choice and the theme
-// (`?type=sliding&theme=dark`), so Reset (a reload) starts that example
-// again. Nothing else is kept.
+// type (two of Sliding: a standard board and a nested one) is on the site
+// (site/public/examples/demo/<key>.xmpuzzle: a solved first problem and
+// only its shapes); the top bar's list chooses one, and it is opened as a
+// dropped file would be, its problem set to take apart where the grid can
+// (Spheres and Tilted Square only assemble; Sliding and Stacking search for
+// their own paths). The page's URL keeps the choice, the theme and the tab
+// (`?type=sliding-nested&theme=dark&tab=play`), so Reset (a reload) starts
+// that example again where it was. Nothing else is kept.
 //
 // Solve plays a run without a search (a search would hold the page's one
 // thread): the run's events go to the renderer for about three seconds,
@@ -28,6 +29,8 @@ import type { SolveProgress, SolveState } from '../engine/api.generated.ts';
 import { EngineClient } from '../engine/client.ts';
 import { fromBase64 } from '../engine/recorder.ts';
 import { startApp } from '../renderer/shell/app.ts';
+import { onLayout, setTab, tab, workspaceShown } from '../renderer/shell/layout.ts';
+import type { Workspace } from '../renderer/shell/layout.ts';
 import { kindName } from '../renderer/shell/new-grids.ts';
 import type { NewKind } from '../renderer/shell/new-grids.ts';
 import { onPrefs, prefs, setPrefs } from '../renderer/shell/prefs.ts';
@@ -40,12 +43,17 @@ import { WasmTransport } from './wasm-transport.ts';
 
 /**
  * One puzzle type's example: its key in the URL and the file's name, its
- * kind in File ▸ New (a grid, or Tilted Square), the name it is opened under.
+ * kind in File ▸ New (a grid, or Tilted Square), the name it is opened under,
+ * and its name in the list where a type has more than one example (else the
+ * kind's name).
  */
 interface Example {
   key: string;
   grid: NewKind;
   name: string;
+  label?: string;
+  /** A sliding example's Play board with its goal's shadows and lines, grid and labels hidden (its pictures say enough). */
+  plain?: boolean;
 }
 
 /** The example opened when the URL names none. */
@@ -54,7 +62,19 @@ const DEFAULT_EXAMPLE: Example = { key: 'brick', grid: 'bricks', name: 'PelikanB
 /** The examples, in File ▸ New's order. */
 const EXAMPLES: readonly Example[] = [
   DEFAULT_EXAMPLE,
-  { key: 'sliding', grid: 'sliding', name: 'Abe 1 to 6 Heart.xmpuzzle' },
+  {
+    key: 'sliding-standard',
+    grid: 'sliding',
+    name: 'Abe-KurokoDairu.xmpuzzle',
+    label: 'Sliding (standard)',
+    plain: true,
+  },
+  {
+    key: 'sliding-nested',
+    grid: 'sliding',
+    name: 'Abe 1 to 6 Heart.xmpuzzle',
+    label: 'Sliding (nested)',
+  },
   { key: 'stacking', grid: 'stacking', name: 'Panex Swap 3.xmpuzzle' },
   // tests/data/puzzles/tilted/TriplePlay.xmpuzzle's first problem and its shapes
   { key: 'tilted', grid: 'tilted', name: 'Triple Play.xmpuzzle' },
@@ -65,6 +85,9 @@ const EXAMPLES: readonly Example[] = [
   { key: 'hexagonal', grid: 'hexagonal', name: 'HoneycombSeven.xmpuzzle' },
   { key: 'cairo', grid: 'cairo', name: 'PentagonSlab.xmpuzzle' },
 ];
+
+/** Keys an older demo put in its URL, and the example each one is now. */
+const OLD_KEYS: Readonly<Record<string, string>> = { sliding: 'sliding-nested' };
 
 /** Where an example's file is on the site. */
 const exampleUrl = (e: Example): string => `/examples/demo/${e.key}.xmpuzzle`;
@@ -131,9 +154,27 @@ const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(do
 
 /** The example the URL names (`?type=`), else the first. */
 function exampleFromUrl(): Example {
-  const key = new URLSearchParams(window.location.search).get('type');
+  const named = new URLSearchParams(window.location.search).get('type') ?? '';
+  const key = OLD_KEYS[named] ?? named;
   return EXAMPLES.find((e) => e.key === key) ?? DEFAULT_EXAMPLE;
 }
+
+/** The tabs' names in the URL (`?tab=`), as the rail names them. */
+const TAB_NAMES: Readonly<Record<Workspace, string>> = {
+  entities: 'shapes',
+  puzzle: 'puzzle',
+  solver: 'solver',
+  play: 'play',
+};
+
+/** The tab the URL names (`?tab=shapes|puzzle|solver|play`), else none (Shapes). */
+function tabFromUrl(): Workspace | null {
+  const t = new URLSearchParams(window.location.search).get('tab');
+  return (Object.keys(TAB_NAMES) as Workspace[]).find((w) => TAB_NAMES[w] === t) ?? null;
+}
+
+/** The tab the URL asked for, until the first example is open and it is shown. */
+let pendingTab: Workspace | null = null;
 
 /** The theme the URL names (`?theme=light|dark`), else none (the setting's default). */
 function themeFromUrl(): 'Light' | 'Dark' | null {
@@ -141,10 +182,11 @@ function themeFromUrl(): 'Light' | 'Dark' | null {
   return t === 'light' ? 'Light' : t === 'dark' ? 'Dark' : null;
 }
 
-/** Puts the example and the theme chosen in the URL (in place: no step in the history). */
+/** Puts the example, the theme and the tab chosen in the URL (in place: no step in the history). */
 function writeUrl(example: Example): void {
   const q = new URLSearchParams(window.location.search);
   q.set('type', example.key);
+  q.set('tab', TAB_NAMES[pendingTab ?? tab]);
   if (prefs.theme === 'Light' || prefs.theme === 'Dark') {
     q.set('theme', prefs.theme.toLowerCase());
   } else {
@@ -207,7 +249,7 @@ function topBar(current: Example): Bar | null {
   for (const e of EXAMPLES) {
     const o = document.createElement('option');
     o.value = e.key;
-    o.textContent = kindName(e.grid);
+    o.textContent = e.label ?? kindName(e.grid);
     type.append(o);
   }
   type.value = current.key;
@@ -502,6 +544,7 @@ function progressAt(t: number, o: Original): { state: SolveState; p: SolveProgre
 class Demo {
   private readonly store: Store;
   private readonly solver: ReturnType<typeof startApp>['solver'];
+  private readonly playTab: ReturnType<typeof startApp>['play'];
   private original: Original | null = null;
   /** The ids of the file's shapes and its problem in the document now (another after each open). */
   private shapeIds: string[] = [];
@@ -513,6 +556,7 @@ class Demo {
   constructor(app: ReturnType<typeof startApp>) {
     this.store = app.store;
     this.solver = app.solver;
+    this.playTab = app.play;
   }
 
   get busy(): boolean {
@@ -527,6 +571,9 @@ class Demo {
     }
     const bytes = new Uint8Array(await r.arrayBuffer());
     this.original = readOriginal(example, bytes, parseXml(await gunzip(bytes)));
+    // the Play board as the example wants it, whichever example was open before
+    const plain = example.plain === true;
+    this.playTab.sliding.setHidden({ shades: plain, lines: plain, grid: plain, labels: plain });
     await this.open(bytes);
   }
 
@@ -646,6 +693,7 @@ async function main(): Promise<void> {
   Object.defineProperty(window, 'bt', { value: bridge });
   Object.defineProperty(window, 'btApp', { value: app });
   let example = exampleFromUrl();
+  pendingTab = tabFromUrl();
   const bar = topBar(example);
   const theme = themeFromUrl();
   const started = startApp(theme === null ? {} : { prefs: { theme } });
@@ -709,6 +757,22 @@ async function main(): Promise<void> {
     if (bar !== null) {
       bar.type.disabled = demo.busy;
     }
+    // the tab asked for, once the example is open (Play is in the rail only
+    // for a sliding or a stacking puzzle); from then on the URL follows the tab
+    const wanted = pendingTab;
+    if (wanted !== null) {
+      await until(() => workspaceShown(wanted), 2000);
+      setTab(wanted);
+    }
+    pendingTab = null;
+    let shown = tab;
+    onLayout(() => {
+      if (tab !== shown) {
+        shown = tab;
+        writeUrl(example);
+      }
+    });
+    writeUrl(example);
   }
 }
 

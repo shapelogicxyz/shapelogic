@@ -76,7 +76,8 @@ struct PlayStop {
 
 /// Pieces that can move as one, and where one move can take them.
 struct PlayGroup {
-  /// The piece asked about first, then what it carries.
+  /// The piece that carries the others first (the piece asked about,
+  /// unless it is nested in it), then what it carries.
   std::vector<unsigned int> movers;
   /// Every shift they can reach while the others stay put, nearest first.
   std::vector<PlayStop> stops;
@@ -85,7 +86,10 @@ struct PlayGroup {
 /// Where one move can take piece `piece` of the position `places`: as the
 /// search has it, the piece alone, then with nested slides the piece with
 /// what is nested in it (when anything is), then with partial nesting the
-/// wider group (when it is wider). InvalidArgument when the places are no
+/// wider group (when it is wider), then, with either, the groups of the
+/// pieces it is nested in (smallest first; their movers start with the
+/// outer piece, as that piece's own reach has them, and are the same move
+/// as dragging it). InvalidArgument when the places are no
 /// position of the problem (layoutRefusal) or there is no such piece.
 [[nodiscard]] Result<std::vector<PlayGroup>> playReach(const Puzzle& puzzle,
                                                        const Problem& problem,

@@ -279,7 +279,7 @@ it all).
 | | ↑ / ↓, Home / End, PgUp / PgDn | previous / next, first / last, 8 back / forward |
 | | Del | remove the selected solution (asks) |
 | | double-click row, click header | select and play, sort (again to reverse) |
-| Play | drag a piece, Shift+drag | slide it, anywhere it can reach one move; carry what is nested first |
+| Play | drag a piece, Shift+drag | slide it, anywhere it can reach one move; carry what is nested, or move what it is nested in, first |
 | | Ctrl+Z / Shift+Ctrl+Z | undo / redo a move of the game |
 | | ← / →, Shift+← / Shift+→ | one move back / forward, to the Start / the last move |
 | | Space, Esc | play / pause the moves, pause |

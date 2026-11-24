@@ -416,7 +416,8 @@ TEST_CASE("sliding play: without goals nothing is solved", "[sliding][play]") {
   CHECK(solvedStops(reach->front()).empty());
 }
 
-TEST_CASE("sliding play: a piece carries what is nested in it only with nested slides",
+TEST_CASE("sliding play: a piece carries what is nested in it, and moves what it is nested "
+          "in, only with nested slides",
           "[sliding][play]") {
   // the Cave and the Smile in its pocket (test_sliding.cpp's nested puzzle)
   const Puzzle puz = test::loadFixture("sliding/test_sliding_nested.xmpuzzle");
@@ -432,7 +433,7 @@ TEST_CASE("sliding play: a piece carries what is nested in it only with nested s
 
   PlayRules nested;
   nested.nested = true;
-  unsigned int carriers = 0;
+  unsigned int pairs = 0;
   for (unsigned int piece = 0; piece < 6; piece++) {
     const auto alone = playReach(puz, pr, at, piece, {});
     REQUIRE(alone.has_value());
@@ -441,16 +442,22 @@ TEST_CASE("sliding play: a piece carries what is nested in it only with nested s
     REQUIRE(with.has_value());
     CHECK(with->front().movers == std::vector<unsigned int>{piece});
     if (with->size() > 1) {
-      carriers++;
-      // the Cave, with the Smile
+      pairs++;
+      // the Cave carrying the Smile, also when the Smile is dragged: pushed
+      // into the Cave's walls it takes the Cave along, the Cave's move
       CHECK(with->size() == 2);
       std::vector<unsigned int> group = (*with)[1].movers;
-      CHECK(group.front() == piece);
+      CHECK(group.front() == 4);
       std::ranges::sort(group);
       CHECK(group == std::vector<unsigned int>{4, 5});
+      const auto cave = playReach(puz, pr, at, 4, nested);
+      REQUIRE(cave.has_value());
+      REQUIRE(cave->size() == 2);
+      CHECK((*with)[1].movers == (*cave)[1].movers);
+      CHECK(shifts((*with)[1]) == shifts((*cave)[1]));
     }
   }
-  CHECK(carriers == 1);
+  CHECK(pairs == 2);
 
   // the search's path with nested slides is a game with them, and none without
   SlideSearch search;
