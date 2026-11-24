@@ -214,7 +214,7 @@ one) and **Remove image**.
 
 The button opens **Apply image**:
 
-![The Apply image dialog: Choose image… with the file's name, Crop or Stretch, a preview of Klotski's big square piece with a sunset on it, and Cancel and Apply.](../../../assets/screens/guide/image-dialog.png)
+![The Apply image dialog: Choose image… with the file's name, the Fit box (Crop, Stretch, Manual and Snap to grid) beside a Help box, a preview of Klotski's big square piece with a sunset on it, and Cancel and Apply.](../../../assets/screens/guide/image-dialog.png)
 
 - **Choose image…** picks a PNG, JPEG, WebP or GIF file on your computer.
   A larger picture is shrunk to 2048 pixels on its longer side, and the
@@ -231,6 +231,11 @@ The button opens **Apply image**:
   would leave the shape altogether, and the shape's color shows where it
   does not reach. Manual starts from what the fit chosen before it
   showed.
+- **Snap to grid**, under Manual (it can be ticked once Manual is chosen):
+  while you drag, the picture's edges snap to the grid's lines when they
+  come within a few pixels of one, shown dashed across the preview. Hold
+  `Alt` while you drag to place the picture freely. The dialog remembers
+  the choice.
 - **Several images** (Manual only): once there is one, the button reads
   **Additional image…** and puts a new picture on top of the others, at
   half the shape's size in its middle. Click a picture in the preview, or
@@ -239,9 +244,12 @@ The button opens **Apply image**:
   right. **Crop** and **Stretch** show one picture, the one picked, and
   their button, **Choose image…**, replaces it; going back to Manual
   before you click Apply brings the others back.
+- **Help**, beside Fit, says what the picture covers and, in Manual, how
+  to drag it.
 - The preview shows the shape's cells with the picture on them. It is as
-  large as the window leaves room for, so a larger window gives a larger
-  preview.
+  large as the window leaves room for and changes size with the window,
+  so a larger window gives a larger preview; in a very short window the
+  dialog scrolls, and its buttons stay in view.
 - **Remove image** takes the picture off; it is there only when the shape
   has one.
 
