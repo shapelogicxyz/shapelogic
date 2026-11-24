@@ -12,13 +12,14 @@
 // out no move of its own. A move made again (Undo, Redo, the playback) is
 // drawn along its route.
 
-import type { ShapeImage } from '../../engine/api.generated.ts';
+import type { BorderMaterial, ShapeImage } from '../../engine/api.generated.ts';
 import { esc } from '../shell/dom.ts';
 import { compose, pictureToCells } from '../shell/picture-math.ts';
 import type { Affine } from '../shell/picture-math.ts';
 import { boardColor, contrast, dark, hex, light } from '../shell/piece-colors.ts';
 import type { Rgb3 } from '../shell/piece-colors.ts';
 import { isDarkTheme } from '../shell/theme.ts';
+import { borderColor, borderImage } from '../shell/tray-border.ts';
 import { aim, alongRoute, follow, groupFor, routeLength, slide, stopsIn } from './follow.ts';
 import type { Has } from './follow.ts';
 import type { Cell, Move } from './game.ts';
@@ -40,6 +41,18 @@ export interface BoardPiece {
   picture: { image: ShapeImage; dataUrl: string; width: number; height: number } | null;
 }
 
+/** A tray's border: its outer corners, its surface, its own color and its picture (once decoded). */
+export interface BoardBorder {
+  round: boolean;
+  material: BorderMaterial;
+  /** Its own color; null: the tray's (the wood's with the wood material). */
+  color: Rgb3 | null;
+  /** 0 for a thin rim, else the rim's width in voxels. */
+  thickness: number;
+  /** Its picture, over the whole tray; the floor covers it. */
+  picture: BoardPiece['picture'];
+}
+
 /** What the board draws. */
 export interface BoardModel {
   size: Cell;
@@ -48,6 +61,12 @@ export interface BoardModel {
   floor: { at: Cell; variable: boolean }[];
   /** The board's picture on its floor, under the goals and the pieces, once decoded. */
   picture?: BoardPiece['picture'];
+  /**
+   * The tray's border as the board's Tray border section chose it (decision
+   * 0046); absent or null: the tray as it is drawn without one, in the
+   * board's color with a fine grain.
+   */
+  border?: BoardBorder | null;
   goals: { color: Rgb3; cells: Cell[] }[];
   pieces: BoardPiece[];
 }
@@ -79,9 +98,10 @@ interface TrayLook {
   at: number;
 }
 
-// with `flat`, Simple Pieces: no sides
-function trayLook(sc: number, flat: boolean): TrayLook {
-  const rim = Math.max(8, Math.min(30, Math.round(sc * 0.28)));
+// with `flat`, Simple Pieces: no sides; `thickness`: a thick border's, in
+// voxels (0: the thin rim)
+function trayLook(sc: number, flat: boolean, thickness = 0): TrayLook {
+  const rim = thickness > 0 ? thickness * sc : Math.max(8, Math.min(30, Math.round(sc * 0.28)));
   const depth = flat ? 0 : Math.max(3, Math.min(14, Math.round(sc * 0.11)));
   // room for the outer line
   return { rim, depth, at: rim + 2 };
@@ -304,7 +324,7 @@ export class PlayBoard {
     const [X, Y] = m.size;
     let sc = Math.min(CELL_MAX, Math.floor(Math.min(w / X, h / Y)));
     for (; sc > CELL_MIN; sc--) {
-      const t = trayLook(sc, this.simple);
+      const t = trayLook(sc, this.simple, m.border?.thickness ?? 0);
       const room = 2 * t.at + t.depth;
       if (X * sc + room <= w && Y * sc + room <= h) {
         break;
@@ -356,7 +376,7 @@ export class PlayBoard {
     const sc = this.cellSize();
     this.sc = sc;
     this.resized = false;
-    const look = trayLook(sc, this.simple);
+    const look = trayLook(sc, this.simple, m.border?.thickness ?? 0);
     const at = look.at;
     this.at = at;
     const z = this.layer;
@@ -365,7 +385,6 @@ export class PlayBoard {
     const base = m.color ?? boardColor();
     const trayColor = isDarkTheme() ? light(base) : dark(base);
     const lightTray = 3 * trayColor[0] + 6 * trayColor[1] + trayColor[2] > 5;
-    const tray = this.traySvg(X * sc, Y * sc, look, trayColor);
     let floor = '';
     let grid = '';
     const floorAt = new Set(
@@ -397,6 +416,7 @@ export class PlayBoard {
     const outlineOf = (cells: readonly Square[], inset: number, radius: number): string =>
       roundedOutline(cells, { scale: sc, at: [at, at], inset: () => inset, radius });
     const hollow = outlineOf(squares, 0, floorRadius);
+    const tray = this.traySvg(m, look, trayColor, hollow);
     const wall = tile.lift;
     const fall = Math.max(1.5, sc * 0.03);
     // each goal: its cells tinted in the piece's color on the bottom,
@@ -475,21 +495,34 @@ export class PlayBoard {
     this.inset();
   }
 
-  // the tray round cells w x h pixels: what goes under the floor (its
-  // sides, its body) and over it (its grain, its outer lines)
+  // the tray round the board's cells: what goes under the floor (its
+  // sides, its body) and over it (its grain, its outer lines). With a
+  // border (decision 0046) the body takes its color and its picture, its
+  // corners may be square, and its surface lies on the body only (`hollow`:
+  // the floor's outline), not on the floor: none for smooth, the grain
+  // stronger for textured, streaks along x for wood.
   private traySvg(
-    w: number,
-    h: number,
+    m: BoardModel,
     look: TrayLook,
-    color: Rgb3,
+    trayColor: Rgb3,
+    hollow: string,
   ): { under: string; over: string } {
+    const sc = this.sc;
     const { rim, depth, at } = look;
+    const border = m.border ?? null;
+    const color = border === null ? trayColor : borderColor(border, trayColor);
     const x = at - rim;
     const y = at - rim;
-    const ow = w + 2 * rim;
-    const oh = h + 2 * rim;
-    // square corners for Simple Pieces
-    const r = this.simple ? 0 : Math.round(rim * 1.3 + this.sc * 0.06);
+    const ow = m.size[0] * sc + 2 * rim;
+    const oh = m.size[1] * sc + 2 * rim;
+    // square corners for Simple Pieces, and for a border with sharp ones;
+    // a thick border's a quarter circle of its rim, as the 3D views draw it
+    const r =
+      this.simple || border?.round === false
+        ? 0
+        : (border?.thickness ?? 0) > 0
+          ? rim
+          : Math.round(rim * 1.3 + this.sc * 0.06);
     const rect = (dx: number, inflate: number, extra: string): string =>
       `<rect x="${fmt(x + dx - inflate)}" y="${fmt(y + dx - inflate)}" width="${fmt(ow + 2 * inflate)}" height="${fmt(oh + 2 * inflate)}" rx="${fmt(r === 0 ? 0 : Math.max(0, r + inflate))}"${extra}/>`;
     // the sides: the tray drawn again a pixel further down and right each
@@ -498,11 +531,42 @@ export class PlayBoard {
     for (let k = depth - 1; k >= 1; k--) {
       sides += rect(k, 0, '');
     }
-    const under = `<g class="pl-tray"><g fill="${hex(shade(color, 0.6))}">${sides}</g>${rect(0, 0, ` fill="${hex(color)}"`)}</g>`;
+    // the border's picture over the whole tray, its rim included
+    let picture = '';
+    const p = border?.picture ?? null;
+    if (p !== null) {
+      const image = borderImage(p.image, m.size, rim / sc);
+      const toBoard: Affine = [sc, 0, 0, -sc, at, at + m.size[1] * sc];
+      const t = compose(toBoard, pictureToCells(image))
+        .map((n) => n.toFixed(4))
+        .join(' ');
+      const [sx, sy, sw, sh] = image.src;
+      picture = `<g class="pl-borderpic" clip-path="url(#pl-trayclip)" pointer-events="none"><clipPath id="pl-borderpicsrc"><rect x="${String(sx)}" y="${String(sy)}" width="${String(sw)}" height="${String(sh)}"/></clipPath><g transform="matrix(${t})"><image href="${p.dataUrl}" width="${String(p.width)}" height="${String(p.height)}" preserveAspectRatio="none" clip-path="url(#pl-borderpicsrc)"/></g></g>`;
+    }
+    const under =
+      `<clipPath id="pl-trayclip">${rect(0, 0, '')}</clipPath>` +
+      `<g class="pl-tray" data-border="${border === null ? '' : `${border.round ? 'round' : 'sharp'}:${border.material}:${hex(color)}:${p === null ? '-' : 'image'}${border.thickness > 0 ? `:${String(border.thickness)}` : ''}`}"><g fill="${hex(shade(color, 0.6))}">${sides}</g>${rect(0, 0, ` fill="${hex(color)}"`)}</g>` +
+      picture;
+    let surface: string;
+    if (border === null) {
+      surface = `<g class="pl-grain" clip-path="url(#pl-trayclip)">${rect(0, 0, ' filter="url(#pl-grain)"')}</g>`;
+    } else if (border.material === 'smooth') {
+      surface = '';
+    } else {
+      // on the body only: the tray less the floor
+      const wood = border.material === 'wood';
+      surface =
+        `<mask id="pl-body" maskUnits="userSpaceOnUse" x="${fmt(x)}" y="${fmt(y)}" width="${fmt(ow)}" height="${fmt(oh)}">${rect(0, 0, ' fill="#fff"')}<path d="${hollow}" fill="#000"/></mask>` +
+        (wood
+          ? `<filter id="pl-woodgrain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="${(0.5 / sc).toFixed(4)} ${(6 / sc).toFixed(4)}" numOctaves="4" seed="11" result="n"/>` +
+            `<feColorMatrix in="n" type="matrix" values="0 0 0 0 0.24 0 0 0 0 0.12 0 0 0 0 0.03 0 3.2 0 0 -1.25" result="k"/>` +
+            `<feColorMatrix in="n" type="matrix" values="0 0 0 0 1 0 0 0 0 0.93 0 0 0 0 0.8 0 -3.2 0 0 1.35" result="w"/>` +
+            `<feMerge><feMergeNode in="w"/><feMergeNode in="k"/></feMerge></filter>`
+          : '') +
+        `<g class="${wood ? 'pl-wood' : 'pl-grain tex'}" mask="url(#pl-body)">${rect(0, 0, ` filter="url(#${wood ? 'pl-woodgrain' : 'pl-grain'})"`)}</g>`;
+    }
     const over =
-      `<g class="pl-grain" clip-path="url(#pl-trayclip)"><clipPath id="pl-trayclip">${rect(0, 0, '')}</clipPath>${rect(0, 0, ' filter="url(#pl-grain)"')}</g>` +
-      rect(0, -1, ' class="pl-trayedge"') +
-      rect(0, 0.5, ' class="pl-trayline"');
+      surface + rect(0, -1, ' class="pl-trayedge"') + rect(0, 0.5, ' class="pl-trayline"');
     return { under, over };
   }
 

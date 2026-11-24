@@ -236,28 +236,93 @@ std::optional<std::array<int, 4>> fourInts(const std::string& text) {
 }
 
 /// The picture of a shape (decision 0038): image, imageFit, imageSrc,
-/// imageBox, imageTurn. A picture with a bad attribute is dropped; the
-/// reader checks the image id once it has the <images> (readPuzzleElement).
-ShapeImage readShapeImage(const XmlElement& e) {
+/// imageBox, imageTurn; with the prefix "borderImage", the picture of its
+/// tray's border (decision 0046). A picture with a bad attribute is
+/// dropped; the reader checks the image id once it has the <images>
+/// (readPuzzleElement).
+ShapeImage readShapeImage(const XmlElement& e, const std::string& prefix = "image") {
   ShapeImage im;
-  const std::string* id = e.findAttribute("image");
+  const std::string* id = e.findAttribute(prefix);
   if (id == nullptr) {
     return im;
   }
-  const std::optional<std::array<int, 4>> src = fourInts(e.attribute("imageSrc"));
-  const std::optional<std::array<int, 4>> box = fourInts(e.attribute("imageBox"));
-  const int turn = atoiOf(e.attribute("imageTurn"));
-  const std::string fit = e.attribute("imageFit");
-  if (id->empty() || atoiOf(*id) < 0 || !src || !box || src->at(0) < 0 || src->at(1) < 0 ||
+  const std::optional<std::array<int, 4>> src = fourInts(e.attribute(prefix + "Src"));
+  const std::optional<std::array<int, 4>> box = fourInts(e.attribute(prefix + "Box"));
+  const int turn = atoiOf(e.attribute(prefix + "Turn"));
+  const std::string fit = e.attribute(prefix + "Fit");
+  // the part shown may reach past the picture's edges (decision 0047)
+  if (id->empty() || atoiOf(*id) < 0 || !src || !box || src->at(2) <= 0 || src->at(3) <= 0 ||
       turn < 0 || turn > 7) {
     return im;
   }
   im.id = atoiOf(*id);
-  im.fit = fit == "stretch" ? ImageFit::Stretch : ImageFit::Crop;
+  im.fit = fit == "stretch"  ? ImageFit::Stretch
+           : fit == "manual" ? ImageFit::Manual
+                             : ImageFit::Crop;
   im.src = *src;
   im.box = *box;
   im.turn = asUnsigned(turn);
   return im;
+}
+
+/// The attribute prefix of the k-th picture of a stack (decision 0047):
+/// `base` for the bottom one, as before, then base2, base3 and so on.
+std::string imagePrefix(const std::string& base, std::size_t k) {
+  return k == 0 ? base : base + std::to_string(k + 1);
+}
+
+/// A stack of pictures: the one at `base`, then base2, base3... while
+/// there is one; a picture with a bad attribute is left out.
+ShapeImages readShapeImages(const XmlElement& e, const std::string& base) {
+  ShapeImages out;
+  for (std::size_t k = 0; k < kMaxShapeImages && e.findAttribute(imagePrefix(base, k)) != nullptr;
+       k++) {
+    if (ShapeImage im = readShapeImage(e, imagePrefix(base, k)); im.present()) {
+      out.push_back(im);
+    }
+  }
+  return out;
+}
+
+/// Whether an attribute belongs to a stack of pictures: image, image2...,
+/// borderImage, borderImage2..., each with Fit, Src, Box or Turn or none.
+bool isImageAttribute(std::string_view name) {
+  for (const std::string_view base : {std::string_view{"borderImage"}, std::string_view{"image"}}) {
+    if (!name.starts_with(base)) {
+      continue;
+    }
+    std::string_view rest = name.substr(base.size());
+    while (!rest.empty() && rest.front() >= '0' && rest.front() <= '9') {
+      rest.remove_prefix(1);
+    }
+    if (rest.empty() || rest == "Fit" || rest == "Src" || rest == "Box" || rest == "Turn") {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// The border of a board's tray (decision 0046): border ("1" when shown),
+/// borderCorners, borderMaterial, borderColor, borderThickness and the
+/// borderImage attributes. A value this version does not know reads as the default.
+TrayBorder readTrayBorder(const XmlElement& e) {
+  TrayBorder b;
+  b.enabled = e.attribute("border") == "1";
+  if (e.attribute("borderCorners") == "sharp") {
+    b.corners = BorderCorners::Sharp;
+  }
+  const std::string material = e.attribute("borderMaterial");
+  b.material = material == "textured" ? BorderMaterial::Textured
+               : material == "wood"   ? BorderMaterial::Wood
+                                      : BorderMaterial::Smooth;
+  const std::string col = e.attribute("borderColor");
+  if (col.size() == 7 && col[0] == '#') {
+    b.color = static_cast<int>(std::strtoul(col.c_str() + 1, nullptr, 16) & 0xFFFFFF);
+  }
+  const unsigned long thick = std::strtoul(e.attribute("borderThickness").c_str(), nullptr, 10);
+  b.thickness = thick <= kMaxBorderThickness ? static_cast<unsigned int>(thick) : 0;
+  b.images = readShapeImages(e, "borderImage");
+  return b;
 }
 
 /// The <images> of a puzzle: each <image> with its id, type and the file in
@@ -396,15 +461,17 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
     v->setDiskSize(asUnsigned(atoiOf(disk)));
   }
 
-  v->setImage(readShapeImage(e));
+  v->setImages(readShapeImages(e, "image"));
+  v->setBorder(readTrayBorder(e));
 
   std::vector<std::pair<std::string, std::string>> extra;
   for (const XmlAttribute& a : e.attributes) {
     static constexpr std::string_view kKnown[] = {
         "x",     "y",        "z",     "type",     "hx",       "hy",       "hz",
-        "name",  "start",    "goal",  "weight",   "color",    "diskSize", "image",
-        "imageFit", "imageSrc", "imageBox", "imageTurn"};
-    if (std::find(std::begin(kKnown), std::end(kKnown), a.name) == std::end(kKnown)) {
+        "name",  "start",    "goal",  "weight",   "color",    "diskSize",
+        "border", "borderCorners", "borderMaterial", "borderColor", "borderThickness"};
+    if (std::find(std::begin(kKnown), std::end(kKnown), a.name) == std::end(kKnown) &&
+        !isImageAttribute(a.name)) {
       extra.emplace_back(a.name, a.value);
     }
   }
@@ -1360,12 +1427,21 @@ Puzzle readPuzzleElement(const XmlElement& root) {
     }
   }
 
-  // a shape showing a picture the file does not have loses it
+  // a shape loses a picture the file does not have, or one whose part
+  // shown misses it
+  auto present = [&puzzle](ShapeImages stack) {
+    std::erase_if(stack, [&puzzle](const ShapeImage& im) {
+      const PuzzleImage* file = puzzle.findImage(im.id);
+      return file == nullptr || !overlapsPicture(im.src, file->width, file->height);
+    });
+    return stack;
+  };
   for (unsigned int s = 0; s < puzzle.getNumberOfShapes(); s++) {
     Voxel& v = puzzle.getShape(s);
-    if (v.getImage().present() && puzzle.findImage(v.getImage().id) == nullptr) {
-      v.setImage(ShapeImage{});
-    }
+    v.setImages(present(v.getImages()));
+    TrayBorder b = v.getBorder();
+    b.images = present(b.images);
+    v.setBorder(b);
   }
 
   // only a cube-grid puzzle has a tilted tray
@@ -1452,16 +1528,44 @@ void writeVoxel(XmlWriter& xml, const Voxel& v) {
   }
 
   // the picture (decision 0038); the original passes over it
-  if (const ShapeImage& im = v.getImage(); im.present()) {
+  auto writeImage = [&xml](const ShapeImage& im, const std::string& prefix) {
     auto four = [](const std::array<int, 4>& a) {
       return std::to_string(a[0]) + ' ' + std::to_string(a[1]) + ' ' + std::to_string(a[2]) + ' ' +
              std::to_string(a[3]);
     };
-    xml.newAttrib("image", im.id);
-    xml.newAttrib("imageFit", im.fit == ImageFit::Stretch ? "stretch" : "crop");
-    xml.newAttrib("imageSrc", four(im.src));
-    xml.newAttrib("imageBox", four(im.box));
-    xml.newAttrib("imageTurn", im.turn);
+    xml.newAttrib(prefix, im.id);
+    xml.newAttrib(prefix + "Fit", imageFitName(im.fit));
+    xml.newAttrib(prefix + "Src", four(im.src));
+    xml.newAttrib(prefix + "Box", four(im.box));
+    xml.newAttrib(prefix + "Turn", im.turn);
+  };
+  for (std::size_t k = 0; k < v.getImages().size(); k++) {
+    writeImage(v.getImages()[k], imagePrefix("image", k));
+  }
+
+  // the tray's border (decision 0046): only what differs from none
+  if (const TrayBorder& b = v.getBorder(); !b.isDefault()) {
+    if (b.enabled) {
+      xml.newAttrib("border", 1);
+    }
+    if (b.corners != BorderCorners::Round) {
+      xml.newAttrib("borderCorners", borderCornersName(b.corners));
+    }
+    if (b.material != BorderMaterial::Smooth) {
+      xml.newAttrib("borderMaterial", borderMaterialName(b.material));
+    }
+    if (b.color >= 0) {
+      std::array<char, 8> c{};
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+      std::snprintf(c.data(), c.size(), "#%06X", asUnsigned(b.color) & 0xFFFFFF);
+      xml.newAttrib("borderColor", c.data());
+    }
+    if (b.thickness != 0) {
+      xml.newAttrib("borderThickness", b.thickness);
+    }
+    for (std::size_t k = 0; k < b.images.size(); k++) {
+      writeImage(b.images[k], imagePrefix("borderImage", k));
+    }
   }
 
   // room for other formats one day

@@ -35,6 +35,9 @@ describe('the problems list notes', () => {
     expect(problemNote('assembling', solved, 'sliding', null, false, 'save').text).toBe('saving');
     expect(problemNote('paused', solved, 'sliding', null, false, 'save').text).toBe('saving');
     expect(problemNote('paused', solved, 'sliding', null).text).toBe('paused');
+    // aborted while paused for a save: aborting until the abort is shown
+    expect(problemNote('paused', solved, 'brick', null, false, 'abort').text).toBe('aborting');
+    expect(problemNote('preparing', solved, 'brick', null, false, 'abort').text).toBe('aborting');
     // a started solve kept in the file; a stacking one's is its saved search
     const started = { ...solved, state: 'solving' as const };
     expect(problemNote('idle', started, 'brick', null).text).toBe('paused');

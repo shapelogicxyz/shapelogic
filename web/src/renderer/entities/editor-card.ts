@@ -392,7 +392,7 @@ export class EditorCard {
         : `<button class="ib" id="cAdd" title="Add color">${ic('plus', 22)}</button>`) +
       `<button class="ib" id="cEdit" title="${def ? 'Change this shape’s own color' : 'Change this restriction color'}">${ic('edit', 22)}</button>` +
       (this.imageable
-        ? `<button class="ib ${s?.image == null ? '' : 'on'}" id="cImage" title="${s?.image == null ? `Apply an image from this computer to the ${this.imageNoun}’s cells` : `Change or remove the ${this.imageNoun}’s image`}" aria-pressed="${String(s?.image != null)}">${ic('image', 22)}</button>`
+        ? `<button class="ib ${(s?.images.length ?? 0) === 0 ? '' : 'on'}" id="cImage" title="${(s?.images.length ?? 0) === 0 ? `Apply an image from this computer to the ${this.imageNoun}’s cells` : `Change or remove the ${this.imageNoun}’s image`}" aria-pressed="${String((s?.images.length ?? 0) > 0)}">${ic('image', 22)}</button>`
         : '') +
       (this.ownOnly
         ? ''
@@ -456,7 +456,7 @@ export class EditorCard {
   private colorMenu(): string {
     const def = this.host.state.color === null;
     const img = this.imageable
-      ? `<button data-k="img" title="Apply an image from this computer to the ${this.imageNoun}’s cells">${this.shape?.image == null ? 'Apply image…' : 'Change image…'}</button><button data-k="rmimg" ${this.shape?.image == null ? 'disabled' : ''} title="Take the image off this ${this.imageNoun}">Remove image</button>`
+      ? `<button data-k="img" title="Apply an image from this computer to the ${this.imageNoun}’s cells">${(this.shape?.images.length ?? 0) === 0 ? 'Apply image…' : 'Change image…'}</button><button data-k="rmimg" ${(this.shape?.images.length ?? 0) === 0 ? 'disabled' : ''} title="Take the image off this ${this.imageNoun}">Remove image</button>`
       : '';
     return `<button data-k="edit" title="${def ? 'Change this shape’s own color' : 'Change this restriction color'}">Edit color…</button><button data-k="rm" ${def ? 'disabled' : ''} title="Remove this restriction color from the puzzle">Remove color</button>${img}`;
   }

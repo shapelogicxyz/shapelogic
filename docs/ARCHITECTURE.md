@@ -350,6 +350,11 @@ solve).
   a `<voxel>`; the model's side is `model/puzzle_image.h` (the table, kept
   by the `Puzzle`) and `grid/shape_image.h` (a shape's picture, moved with
   its cells).
+- A sliding tray's border (decision 0046): the attributes `border`,
+  `borderCorners`, `borderMaterial`, `borderColor` and the `borderImage…`
+  ones on the board's `<voxel>`, written only where they differ from none;
+  the model's side is `grid/tray_border.h` (`TrayBorder`, on the `Voxel`).
+  Its picture is one of the `<images>` table.
 - The tilted tray (decision 0045): `<tray>` at puzzle level, after
   `<gridType>`, with `size` (a square tray, as every tray was before
   stage E, so those files are written as they were) or `width` and
@@ -1836,8 +1841,22 @@ What exists after stage 8:
     box tool, the layer strip with its marks, the selection bar, the size
     steppers in `sizeUnit` blocks rounded up as the original's, the
     palette, a sliding piece's or board's image button), `image-dialog.ts` (Apply
-    image, decision 0038: the file shrunk to 2048 pixels, Crop or Stretch,
-    the preview), `grid2d.ts` (`Grid2D`: one SVG renderer for every grid over
+    image, decisions 0038 and 0047: the file shrunk to 2048 pixels, Crop,
+    Stretch or Manual, whose dots size and move each picture, larger or
+    smaller than the box; the pictures as tiles to pick, take off and
+    drag into order, Additional image… in Manual; the preview; with
+    `frame`, the pictures of a tray's border, over the tray's whole
+    rectangle less the floor; `shell/piece-images.ts`'s `stackPicture`
+    draws a stack as one picture for the views), `border-card.ts` (`BorderCard`,
+    decision 0046: a sliding board's Tray border section above Transform,
+    which is folded for a board: the switch, the corners, the color and
+    image, the material, the thickness (thin, or 1 to 10 voxels), each
+    change one `shape.setBorder`;
+    `shell/tray-border.ts` is what the views share of it, and
+    `view3d/tray-border.ts` its geometry and material in the 3D views:
+    round the board on the Shapes tab, round both of the Puzzle tab's
+    trays, round the Solver's pieces in place of the walls' lines; the
+    Play board's `traySvg` draws its tray so), `grid2d.ts` (`Grid2D`: one SVG renderer for every grid over
     a layer drawing; the cursor outlined by its edges toward cells not
     under it; a drag collects every cell the pointer passes over, the right
     button erases; the box selection; a piece's or board's picture as a pattern on its

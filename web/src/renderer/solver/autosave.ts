@@ -26,7 +26,14 @@
 // so it could not come more often; a save point costs no search work now
 // (decision 0024). The page's `autosave` parameter (BT_AUTOSAVE_SECONDS,
 // which the main process passes in the page's address) sets the least time
-// between saves in seconds, for the e2e tests.
+// between saves in seconds, for the e2e tests. A run still preparing its
+// search (building and reducing its placements, minutes for a large
+// puzzle) has no save point yet, and the engine drops one asked for then:
+// the save waits till it searches, and File ▸ Save says so.
+//
+// An Abort while a save waits for its runs (`abort`): the save no longer
+// shows that run as its own, does not carry it on, and the journal writes
+// no copy of a solve thrown away.
 //
 // A run's pause is waited for by its revision (the solve record's end),
 // not its state. `saveAtSavePoint` is also what a save asked for while
@@ -116,6 +123,8 @@ export class Autosave {
   private saving = false;
   /** The solves the user paused while the save under way waited: not carried on. */
   private readonly held = new Set<string>();
+  /** The solves the user aborted while the save under way waited (`abort`). */
+  private readonly aborted = new Set<string>();
   /**
    * The page before this one (a reload) may have left a save unfinished: a
    * save point asked for, its pause not carried on. From the page's start
@@ -175,6 +184,11 @@ export class Autosave {
       return;
     }
     if (this.saving || now - this.since < this.wait) {
+      return;
+    }
+    // a run still preparing its search has no save point yet: the save
+    // waits till it searches (`preparing`)
+    if (this.preparing(active)) {
       return;
     }
     // nowhere to write, or a stacking search, which saves itself
@@ -322,12 +336,40 @@ export class Autosave {
   }
 
   /**
+   * The user aborted this solve: a save under way is no longer the one
+   * that stops it (`carriesOn` is false), and the journal's, if this was
+   * all it waited for, writes no copy of a solve thrown away.
+   */
+  abort(problem: string): void {
+    if (this.saving) {
+      this.held.add(problem);
+      this.aborted.add(problem);
+    }
+  }
+
+  // Whether one of these runs is still preparing its search (building and
+  // reducing its placements, which can take minutes): the engine has no
+  // save point before its search begins, and drops a solve.savePoint asked
+  // for then, so a save that asked would wait for the whole run's end.
+  private preparing(runs: readonly string[]): boolean {
+    return runs.some((p) => {
+      const r = this.solves.peek(p);
+      return r?.phase === 'active' && r.state === 'preparing';
+    });
+  }
+
+  /**
    * Whether the save under way paused this solve and will carry it on when
    * it is through: not one whose run is over for another reason (finished,
    * failed, or paused by something else than the save).
    */
   carriesOn(problem: string): boolean {
-    if (!this.saving || !this.pausing.has(problem) || this.held.has(problem)) {
+    if (
+      !this.saving ||
+      !this.pausing.has(problem) ||
+      this.held.has(problem) ||
+      this.aborted.has(problem)
+    ) {
       return false;
     }
     const r = this.solves.peek(problem);
@@ -431,6 +473,13 @@ export class Autosave {
       const grid = this.store.snapshot?.grid;
       const pause = grid === 'stacking' || (grid === 'sliding' && !journal);
       const toLevelEnd = grid === 'sliding' && !pause;
+      if (!pause && this.preparing(runs)) {
+        // no save point before the search begins (`preparing`)
+        if (byUser) {
+          flash('The solve is still preparing its search: save once it is searching', 5000);
+        }
+        return null;
+      }
       this.levelEnd = toLevelEnd;
       // from the first run asked until the last has ended, a save the user
       // asks for takes the journal's place (`join`): while a run is still
@@ -472,6 +521,10 @@ export class Autosave {
         return null;
       }
       if (journal && this.joined === null) {
+        // every solve it paused was aborted meanwhile: nothing to keep
+        if (paused.length > 0 && paused.every((p) => this.aborted.has(p))) {
+          return null;
+        }
         // the rescue copy keeps the solve; the puzzle's file is the user's to save
         if (this.rescue !== null && (await this.rescue())) {
           this.saves++;
@@ -508,6 +561,7 @@ export class Autosave {
       const joined = this.joined;
       this.joined = null;
       this.held.clear();
+      this.aborted.clear();
       this.pausing.clear();
       this.levelEnd = false;
       this.journalling = null;

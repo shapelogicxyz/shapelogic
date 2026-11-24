@@ -160,15 +160,44 @@
         "startGoal": {"type": ["integer", "null"], "minimum": 0, "description": "A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape."},
         "disc": {"type": ["integer", "null"], "minimum": 1, "description": "A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape."},
         "discColor": {"oneOf": [{"$ref": "#/$defs/ColorId"}, {"type": "null"}], "description": "A stacking puzzle's disc: the palette color of its first colored cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape."},
-        "image": {"oneOf": [{"$ref": "#/$defs/ShapeImage"}, {"type": "null"}], "description": "The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none."},
+        "images": {"type": "array", "items": {"$ref": "#/$defs/ShapeImage"}, "description": "The pictures on the shape's top faces (sliding puzzles, shape.setImage and shape.setImages), the bottom one first, the later ones on top (decision 0047); all lie over the same box with the same turn. Empty for none."},
+        "border": {"oneOf": [{"$ref": "#/$defs/TrayBorder"}, {"type": "null"}], "description": "A sliding puzzle's board: the border of its tray (shape.setBorder, decision 0046); null for any other shape."},
         "board": {"type": "boolean", "description": "A Tilted Square puzzle's board (its first shape, label B): made from the tray, never edited. False for any other shape."},
         "fits": {"type": "boolean", "description": "A Tilted Square puzzle's piece: every cell of it lies on a whole cell of the board (a tray change can leave a piece that has no such place). True for the board and off such a puzzle."}
       },
-      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "color", "startGoal", "disc", "discColor", "image", "board", "fits"],
+      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "color", "startGoal", "disc", "discColor", "images", "border", "board", "fits"],
       "additionalProperties": false
     },
-    "ImageFit": {"enum": ["crop", "stretch"], "description": "How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, or squashed to it."},
-    "PixelRect": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 4, "maxItems": 4, "description": "[x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner."},
+    "BorderCorners": {"enum": ["round", "sharp"], "description": "The outer corners of a tray's border: rounded, or square."},
+    "BorderMaterial": {"enum": ["smooth", "textured", "wood"], "description": "The surface of a tray's border: plain, a fine grain, or wood grain (light brown unless the border has a color or a picture of its own)."},
+    "TrayBorder": {
+      "type": "object",
+      "description": "The border of a sliding puzzle's tray (decision 0046): the tray's body around its floor, a rim round the board's rectangle and the cells that are no floor. The views draw it when 'enabled'; the look is kept while it is off.",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "corners": {"$ref": "#/$defs/BorderCorners"},
+        "material": {"$ref": "#/$defs/BorderMaterial"},
+        "color": {"oneOf": [{"$ref": "#/$defs/Rgb"}, {"type": "null"}], "description": "The border's own color; null for the board's (the wood's with the wood material)."},
+        "thickness": {"type": "integer", "minimum": 0, "maximum": 10, "description": "The rim round the board's rectangle: 0 for thin (0.28 of a cell), else its width in voxels."},
+        "images": {"type": "array", "items": {"$ref": "#/$defs/ShapeImage"}, "description": "Pictures over the whole tray, the rim included, shown on the border only (shape.setImage or shape.setImages with 'border'), the bottom one first; empty for none. Their 'src' and 'turn' count: the views lay them over the tray's outer rectangle as it is now, and 'box' is the board's rectangle when they were applied."}
+      },
+      "required": ["enabled", "corners", "material", "color", "thickness", "images"],
+      "additionalProperties": false
+    },
+    "ImageFit": {"enum": ["crop", "stretch", "manual"], "description": "How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, squashed to it, or sized and placed by hand (src is then whatever part the user chose)."},
+    "PixelRect": {"type": "array", "items": {"type": "integer"}, "minItems": 4, "maxItems": 4, "description": "[x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner. The sizes are at least 1; it may reach past the picture's edges (x or y below 0, or past its width or height: a picture smaller than its box, decision 0047) but always overlaps it."},
+    "ImageLayer": {
+      "type": "object",
+      "description": "One picture of a stack for shape.setImages (decision 0047): new image bytes or one the puzzle has, its fit and the part shown.",
+      "properties": {
+        "data": {"type": "string", "description": "The image file, base64. Give this or 'image'."},
+        "image": {"type": "integer", "minimum": 0, "description": "A picture the puzzle has (ShapeImage.image). Give this or 'data'."},
+        "fit": {"$ref": "#/$defs/ImageFit"},
+        "src": {"$ref": "#/$defs/PixelRect", "description": "The part of the picture shown, in its pixels."}
+      },
+      "required": ["fit", "src"],
+      "additionalProperties": false
+    },
     "ShapeImage": {
       "type": "object",
       "description": "A shape's picture (decision 0038). Seen from above, the part 'src' is laid over the cell rectangle 'box', turned by 'turn': q = M(turn) (u - 1/2, 1/2 - v), point = box corner + (q + 1/2) box size, for (u, v) in [0, 1] across src (u right, v down the picture). M(turn) is (turn mod 4) quarter turns counter-clockwise after a mirror in x when turn >= 4; turn 0 has the picture's top at the high-y side.",

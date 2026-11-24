@@ -357,8 +357,19 @@ Result<void> Document::setShapeColor(Id shape, std::optional<std::uint32_t> rgb)
 }
 
 Result<unsigned int> Document::setShapeImage(Id shape, const ImageChoice& choice) {
-  if (Result<void> r = checkNotSolving(); !r) {
+  const std::vector<ImageLayer> one{{choice.bytes, choice.id, choice.fit, choice.src}};
+  if (Result<void> r = setShapeImages(shape, one, choice.border); !r) {
     return std::unexpected(r.error());
+  }
+  const Voxel& v = puzzle_->getShape(*shapeIndex(shape));
+  return static_cast<unsigned int>(
+      bottomImage(choice.border ? v.getBorder().images : v.getImages()).id);
+}
+
+Result<void> Document::setShapeImages(Id shape, const std::vector<ImageLayer>& layers,
+                                      bool border) {
+  if (Result<void> r = checkNotSolving(); !r) {
+    return r;
   }
   const Result<unsigned int> s = shapeIndex(shape);
   if (!s) {
@@ -370,51 +381,79 @@ Result<unsigned int> Document::setShapeImage(Id shape, const ImageChoice& choice
   // a board takes one too: it lies on the tray's floor (its filled and
   // variable cells), under the pieces
   const Voxel& v = puzzle_->getShape(*s);
-  if (v.countState(Voxel::kEmpty) == v.getXYZ()) {
+  if (border) {
+    if (!sliding::isStartGoalShape(&v)) {
+      return fail(Errc::InvalidArgument, "only a board's tray has a border");
+    }
+  } else if (!layers.empty() && v.countState(Voxel::kEmpty) == v.getXYZ()) {
     return fail(Errc::InvalidArgument, "the shape has no cells to show a picture on");
   }
-  if (choice.bytes.has_value() == choice.id.has_value()) {
-    return fail(Errc::InvalidArgument, "give either the picture's bytes or its id");
+  if (layers.size() > kMaxShapeImages) {
+    return fail(Errc::InvalidArgument, "a shape shows at most 16 pictures");
   }
-  // the picture's size, to check the part shown against
-  std::optional<ImageInfo> info;
-  if (choice.bytes) {
-    info = sniffImage(*choice.bytes);
-    if (!info) {
-      return fail(Errc::InvalidArgument,
-                  "the picture is not a PNG or JPEG file of at most 8192 pixels a side");
+  // each picture's size, to check the part shown against
+  std::vector<ImageInfo> infos;
+  for (const ImageLayer& layer : layers) {
+    if (layer.bytes.has_value() == layer.id.has_value()) {
+      return fail(Errc::InvalidArgument, "give either the picture's bytes or its id");
     }
-  } else if (const PuzzleImage* im = puzzle_->findImage(static_cast<int>(*choice.id))) {
-    info = ImageInfo{im->type, im->width, im->height};
-  } else {
-    return fail(Errc::NotFound, "the puzzle has no picture " + std::to_string(*choice.id));
-  }
-  const std::array<int, 4>& src = choice.src;
-  if (src[0] < 0 || src[1] < 0 || src[2] <= 0 || src[3] <= 0 ||
-      static_cast<long long>(src[0]) + src[2] > info->width ||
-      static_cast<long long>(src[1]) + src[3] > info->height) {
-    return fail(Errc::InvalidArgument, "the part shown must lie inside the picture");
+    std::optional<ImageInfo> info;
+    if (layer.bytes) {
+      info = sniffImage(*layer.bytes);
+      if (!info) {
+        return fail(Errc::InvalidArgument,
+                    "the picture is not a PNG or JPEG file of at most 8192 pixels a side");
+      }
+    } else if (const PuzzleImage* im = puzzle_->findImage(static_cast<int>(*layer.id))) {
+      info = ImageInfo{im->type, im->width, im->height};
+    } else {
+      return fail(Errc::NotFound, "the puzzle has no picture " + std::to_string(*layer.id));
+    }
+    if (!overlapsPicture(layer.src, info->width, info->height)) {
+      return fail(Errc::InvalidArgument, "the part shown must overlap the picture");
+    }
+    infos.push_back(*info);
   }
 
-  StepGuard g(*this, "Shape image");
-  const unsigned int id = choice.bytes ? puzzle_->addImage(*info, *choice.bytes) : *choice.id;
-  ShapeImage image;
-  image.id = static_cast<int>(id);
-  image.fit = choice.fit;
-  image.src = src;
-  image.box = {static_cast<int>(v.boundX1()), static_cast<int>(v.boundY1()),
-               static_cast<int>(v.boundX2() - v.boundX1() + 1),
-               static_cast<int>(v.boundY2() - v.boundY1() + 1)};
-  if (v.getImage() != image) {
+  StepGuard g(*this, layers.empty() ? "Remove image" : "Shape image");
+  // over the whole tray for a border: the board's rectangle (the views add
+  // the rim); else the shape's bounding box. Every picture of the stack
+  // shares it.
+  const std::array<int, 4> box =
+      border ? std::array<int, 4>{0, 0, static_cast<int>(v.getX()), static_cast<int>(v.getY())}
+             : std::array<int, 4>{static_cast<int>(v.boundX1()), static_cast<int>(v.boundY1()),
+                                  static_cast<int>(v.boundX2() - v.boundX1() + 1),
+                                  static_cast<int>(v.boundY2() - v.boundY1() + 1)};
+  ShapeImages stack;
+  for (std::size_t k = 0; k < layers.size(); k++) {
+    const ImageLayer& layer = layers[k];
+    ShapeImage image;
+    // each layer has its bytes or its id (checked above)
+    image.id = static_cast<int>(layer.bytes ? puzzle_->addImage(infos[k], *layer.bytes)
+                                            : layer.id.value_or(0));
+    image.fit = layer.fit;
+    image.src = layer.src;
+    image.box = box;
+    stack.push_back(image);
+  }
+  if (border) {
+    if (v.getBorder().images != stack) {
+      touchShape(*s);
+      TrayBorder b = v.getBorder();
+      b.images = std::move(stack);
+      puzzle_->getShape(*s).setBorder(b);
+      lastChange_.shapes = {shape};
+    }
+  } else if (v.getImages() != stack) {
     touchShape(*s);
-    puzzle_->getShape(*s).setImage(image);
+    puzzle_->getShape(*s).setImages(std::move(stack));
     lastChange_.shapes = {shape};
   }
   g.commit(kChangeShapes);
-  return id;
+  return {};
 }
 
-Result<void> Document::clearShapeImage(Id shape) {
+Result<void> Document::clearShapeImage(Id shape, bool border) {
   if (Result<void> r = checkNotSolving(); !r) {
     return r;
   }
@@ -422,12 +461,56 @@ Result<void> Document::clearShapeImage(Id shape) {
   if (!s) {
     return std::unexpected(s.error());
   }
-  if (!puzzle_->getShape(*s).getImage().present()) {
+  const Voxel& v = puzzle_->getShape(*s);
+  if ((border ? v.getBorder().images : v.getImages()).empty()) {
     return {};
   }
   StepGuard g(*this, "Remove image");
   touchShape(*s);
-  puzzle_->getShape(*s).setImage(ShapeImage{});
+  if (border) {
+    TrayBorder b = v.getBorder();
+    b.images.clear();
+    puzzle_->getShape(*s).setBorder(b);
+  } else {
+    puzzle_->getShape(*s).setImages({});
+  }
+  lastChange_.shapes = {shape};
+  g.commit(kChangeShapes);
+  return {};
+}
+
+Result<void> Document::setTrayBorder(Id shape, const BorderChange& change) {
+  if (Result<void> r = checkNotSolving(); !r) {
+    return r;
+  }
+  const Result<unsigned int> s = shapeIndex(shape);
+  if (!s) {
+    return std::unexpected(s.error());
+  }
+  const Voxel& v = puzzle_->getShape(*s);
+  if (!sliding::isSliding(*puzzle_) || !sliding::isStartGoalShape(&v)) {
+    return fail(Errc::InvalidArgument, "only a sliding puzzle's board has a tray border");
+  }
+  if (change.color && *change.color && **change.color > 0xFFFFFF) {
+    return fail(Errc::InvalidArgument, "a color is 0xRRGGBB");
+  }
+  if (change.thickness && *change.thickness > kMaxBorderThickness) {
+    return fail(Errc::InvalidArgument, "a border is at most 10 voxels thick");
+  }
+  TrayBorder b = v.getBorder();
+  b.enabled = change.enabled.value_or(b.enabled);
+  b.corners = change.corners.value_or(b.corners);
+  b.material = change.material.value_or(b.material);
+  b.thickness = change.thickness.value_or(b.thickness);
+  if (change.color) {
+    b.color = *change.color ? static_cast<int>(**change.color) : -1;
+  }
+  if (b == v.getBorder()) {
+    return {};
+  }
+  StepGuard g(*this, "Tray border");
+  touchShape(*s);
+  puzzle_->getShape(*s).setBorder(b);
   lastChange_.shapes = {shape};
   g.commit(kChangeShapes);
   return {};

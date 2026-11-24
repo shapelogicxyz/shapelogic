@@ -380,8 +380,22 @@ where the problem's counts are.
   its own color (Default) is chosen; it is lit when the shape has an
   image. It
   opens **Apply image**: Choose image… (PNG, JPEG, WebP or GIF; shrunk to 2048
-  pixels), **Crop** (the middle part at the piece's proportions) or
-  **Stretch**, a preview of the piece's cells with the picture, and
+  pixels), **Crop** (the middle part at the piece's proportions),
+  **Stretch** or **Manual** (the whole picture over the piece, faint off
+  its cells, with dots at its corners and sides to resize it, Shift for
+  free proportions at a corner, and one in its middle to move it, arrow
+  keys too; it may be smaller than the box and lie partly off it, down
+  to 12 preview pixels a side and 2 of them over the box; several
+  pictures lie one on another, decision 0047), each picture chosen a tile
+  beside the button with an × that takes it off and that can be dragged
+  to reorder them (left the bottom, right the top; a click on a tile or on
+  a picture in the preview picks the one the dots are on), the button
+  Additional image… in Manual once there is a picture (on top, half the
+  box's size in its middle) and Choose image… otherwise (Crop and Stretch
+  show and send the picked picture only, and Choose image… replaces it),
+  a preview of the piece's
+  cells with the picture (as large as the window leaves room for: a 13 ×
+  9 tray in a 1400 × 900 window is drawn over 600 × 400 pixels), and
   Remove image when it has one. The picture covers the piece's bounding
   box, shows only on its filled cells (in the 2D grid and on the faces
   looking up in every 3D view) and turns, flips and moves with the
@@ -391,7 +405,28 @@ where the problem's counts are.
   goals' tint and the pieces; the Solver's wall lines show none. The
   color menu (right click) has Apply image… / Change image… and Remove
   image too.
-- **3D view of a tray:** the tray as any shape.
+- **Tray border** (decision 0046): with a board selected, a section of
+  that name above Transform, open, and Transform folded (open again for a
+  piece). **Show tray border** (a switch, off for a new board) draws the
+  tray's body round the floor, as the Play tab draws it, in every view of
+  the board: a rim round the board's rectangle and a block on every cell
+  that is no floor, a layer higher than the floor on the Shapes tab and in
+  the Puzzle tab's trays, as high as the result round the Solver's pieces
+  (in place of the walls' lines), and the Play tab's tray. While it is on:
+  **Corners** (Rounded, Sharp: the tray's outside corners), **Color** (a
+  swatch that opens the system's color picker, the image button, which
+  opens Apply image for the border: the picture over the whole tray, its
+  rim included, shown on all but the floor; Default takes the color off),
+  **Material** (Smooth, Textured, Wood grain; wood is a light brown until
+  the border has a color or an image, and the grain lies on those too),
+  **Thickness** (Thin, the rim Play has always drawn; Thick, a rim one
+  voxel wide, with **Voxels** below it choosing 1 to 10; the Puzzle tab's
+  trays stand further apart round a thick one).
+  Each change is one undo step; the look is kept while the border is off,
+  and Play then draws its tray as it always has. The 2D voxel editor
+  shows no border.
+- **3D view of a tray:** the tray as any shape, with its border when it
+  shows one.
 
 ### 8.2 Puzzle workspace
 - **Problems:** as on the other grids (New, Copy, Delete, rename,

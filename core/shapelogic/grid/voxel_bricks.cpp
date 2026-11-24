@@ -82,11 +82,14 @@ bool VoxelBricks::transform(unsigned int nr) {
   // the picture lies on the top faces: it follows turns about Z and
   // mirrors, and a turn that tips the shape (never on a sliding puzzle,
   // whose grid has none) takes it off
-  if (image_.present()) {
-    if (m[2] != 0 || m[5] != 0 || m[6] != 0 || m[7] != 0) {
-      image_ = ShapeImage{};
-    } else {
-      image_.transform({m[0], m[1], m[3], m[4]}, shx, shy);
+  // the border's pictures lie over the whole tray and turn with it
+  const bool tips = m[2] != 0 || m[5] != 0 || m[6] != 0 || m[7] != 0;
+  for (ShapeImages* stack : {&images_, &border_.images}) {
+    if (tips) {
+      stack->clear();
+    }
+    for (ShapeImage& im : *stack) {
+      im.transform({m[0], m[1], m[3], m[4]}, shx, shy);
     }
   }
 
@@ -271,7 +274,9 @@ void VoxelBricks::scale(unsigned int amount, bool grid) {
   voxels_ = sx_ * sy_ * sz_;
 
   hx_ = hy_ = hz_ = 0;
-  image_.scale(asInt(amount));
+  for (ShapeImage& im : images_) {
+    im.scale(asInt(amount));
+  }
 
   recalcBoundingBox();
 }
@@ -334,7 +339,9 @@ bool VoxelBricks::scaleDown(unsigned char by, bool action) {
             });
 
             space_ = std::move(s2);
-            image_.scaleDown(b);
+            for (ShapeImage& im : images_) {
+              im.scaleDown(b);
+            }
 
             sx_ = nsx;
             sy_ = nsy;

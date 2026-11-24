@@ -61,6 +61,11 @@ def png_header(w, h):
     return b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + struct.pack(">II", w, h) + b"\x08\x02\0\0\0"
 
 
+def bottom(x):
+    """The bottom picture of a shape's or a border's stack, or None."""
+    return x["images"][0] if x["images"] else None
+
+
 @test
 def shape_images(e):
     e.call("document.new", {"grid": "sliding"})
@@ -72,7 +77,7 @@ def shape_images(e):
                                   "fit": "crop", "src": [0, 0, 60, 40]})
     changed_event(e, r["revision"])
     snap = e.call("document.get")
-    im = snap["shapes"][0]["image"]
+    im = bottom(snap["shapes"][0])
     check(im is not None and im["box"] == [0, 0, 3, 2] and im["turn"] == 0, f"the picture {im}")
     check(im["width"] == 60 and im["height"] == 40 and im["fit"] == "crop", f"its size {im}")
     data = e.call("shape.imageData", {"image": im["image"]})
@@ -81,24 +86,24 @@ def shape_images(e):
 
     # it turns with the shape
     e.call("shape.task", {"shape": s, "task": "rotate10"})
-    turned = e.call("document.get")["shapes"][0]["image"]
+    turned = bottom(e.call("document.get")["shapes"][0])
     check(turned["box"] == [0, 0, 2, 3] and turned["turn"] != 0, f"turned {turned}")
 
     # another shape shows the same picture by its number
     t = e.call("shape.create", {"size": [1, 1, 1]})["shape"]
     e.call("shape.setCells", {"shape": t, "tool": "fixed", "cells": [[0, 0, 0]]})
     e.call("shape.setImage", {"shape": t, "image": im["image"], "fit": "stretch", "src": [10, 0, 40, 40]})
-    check(e.call("document.get")["shapes"][1]["image"]["image"] == im["image"], "shared")
+    check(bottom(e.call("document.get")["shapes"][1])["image"] == im["image"], "shared")
 
     # the file keeps it
     saved = e.call("document.saveBytes")["data"]
     again = e.call("document.openBytes", {"data": saved})
-    check(again["shapes"][0]["image"] == turned, f"after a save {again['shapes'][0]['image']}")
+    check(bottom(again["shapes"][0]) == turned, f"after a save {bottom(again['shapes'][0])}")
 
     e.call("shape.clearImage", {"shape": t})
-    check(e.call("document.get")["shapes"][1]["image"] is None, "cleared")
+    check(bottom(e.call("document.get")["shapes"][1]) is None, "cleared")
     r = e.call("edit.undo")
-    check(e.call("document.get")["shapes"][1]["image"] is not None, "undone")
+    check(bottom(e.call("document.get")["shapes"][1]) is not None, "undone")
 
     e.fails("shape.setImage", {"shape": s, "data": base64.b64encode(b"not a picture").decode(),
                                "fit": "crop", "src": [0, 0, 1, 1]}, "invalid_argument")
@@ -106,24 +111,71 @@ def shape_images(e):
             "invalid_params")
     e.fails("shape.setImage", {"shape": s, "image": 9, "fit": "crop", "src": [0, 0, 1, 1]},
             "not_found")
-    e.fails("shape.setImage", {"shape": s, "image": im["image"], "fit": "crop", "src": [0, 0, 61, 40]},
+    e.fails("shape.setImage", {"shape": s, "image": im["image"], "fit": "crop", "src": [60, 0, 10, 40]},
             "invalid_argument")
     e.fails("shape.imageData", {"image": 9}, "not_found")
+
+    # a stack (decision 0047): the second picture on top of the first, one of
+    # them smaller than the box (its part shown reaches past its edges)
+    small = png_header(20, 20)
+    r = e.call("shape.setImages", {"shape": t, "layers": [
+        {"image": im["image"], "fit": "manual", "src": [0, 0, 60, 40]},
+        {"data": base64.b64encode(small).decode(), "fit": "manual", "src": [-20, -20, 60, 60]}]})
+    changed_event(e, r["revision"])
+    stack = e.call("document.get")["shapes"][1]["images"]
+    check(len(stack) == 2 and stack[0]["image"] == im["image"]
+          and stack[1]["src"] == [-20, -20, 60, 60] and stack[0]["box"] == stack[1]["box"],
+          f"the stack {stack}")
+    saved = e.call("document.saveBytes")["data"]
+    check(e.call("document.openBytes", {"data": saved})["shapes"][1]["images"] == stack,
+          "the file keeps the stack")
+    e.fails("shape.setImages", {"shape": t, "layers": [{"fit": "manual", "src": [0, 0, 1, 1]}]},
+            "invalid_argument")
+    e.fails("shape.setImages", {"shape": t, "layers": [
+        {"image": im["image"], "fit": "manual", "src": [0, 0, 0, 40]}]}, "invalid_params")
 
     # a board takes one too, over its floor
     tray = e.call("sliding.addStartGoal", {"size": [4, 3]})["shape"]
     e.call("shape.setImage", {"shape": tray, "image": im["image"], "fit": "stretch",
                               "src": [0, 0, 60, 40]})
     board = next(x for x in e.call("document.get")["shapes"] if x["id"] == tray)
-    check(board["startGoal"] is not None and board["image"]["box"] == [0, 0, 4, 3],
-          f"the board's picture {board['image']}")
+    check(board["startGoal"] is not None and bottom(board)["box"] == [0, 0, 4, 3],
+          f"the board's picture {board['images']}")
+
+    # the board's tray has a border (decision 0046): off at first, its look kept
+    check(board["border"] == {"enabled": False, "corners": "round", "material": "smooth",
+                              "color": None, "thickness": 0, "images": []}, f"the border {board['border']}")
+    check(next(x for x in e.call("document.get")["shapes"] if x["id"] == s)["border"] is None,
+          "a piece has no border")
+    r = e.call("shape.setBorder", {"shape": tray, "enabled": True, "corners": "sharp",
+                                   "material": "wood", "color": "#336699", "thickness": 2})
+    changed_event(e, r["revision"])
+    e.call("shape.setImage", {"shape": tray, "image": im["image"], "fit": "crop",
+                              "src": [0, 0, 60, 40], "border": True})
+    board = next(x for x in e.call("document.get")["shapes"] if x["id"] == tray)
+    b = board["border"]
+    check(b["enabled"] and b["corners"] == "sharp" and b["material"] == "wood"
+          and b["color"] == "#336699" and b["thickness"] == 2, f"the border set {b}")
+    check(bottom(b)["image"] == im["image"] and bottom(b)["box"] == [0, 0, 4, 3],
+          f"the border's picture {b['images']}")
+    check(bottom(board)["fit"] == "stretch", "the floor's picture is its own")
+    e.call("shape.setBorder", {"shape": tray, "color": None})
+    e.call("shape.clearImage", {"shape": tray, "border": True})
+    b = next(x for x in e.call("document.get")["shapes"] if x["id"] == tray)["border"]
+    check(b["color"] is None and bottom(b) is None and b["material"] == "wood",
+          f"the border's color and picture off {b}")
+    e.fails("shape.setBorder", {"shape": s, "enabled": True}, "invalid_argument")
+    e.fails("shape.setBorder", {"shape": tray, "corners": "wavy"}, "invalid_params")
+    e.fails("shape.setBorder", {"shape": tray, "thickness": 11}, "invalid_params")
+    e.fails("shape.setImage", {"shape": s, "image": im["image"], "fit": "crop",
+                               "src": [0, 0, 60, 40], "border": True}, "invalid_argument")
 
     e.call("document.new", {"grid": "bricks"})
     c = e.call("shape.create", {"size": [1, 1, 1]})["shape"]
     e.call("shape.setCells", {"shape": c, "tool": "fixed", "cells": [[0, 0, 0]]})
     e.fails("shape.setImage", {"shape": c, "data": base64.b64encode(png).decode(),
                                "fit": "crop", "src": [0, 0, 60, 40]}, "invalid_argument")
-    check(e.call("document.get")["shapes"][0]["image"] is None, "none on cubes")
+    check(bottom(e.call("document.get")["shapes"][0]) is None, "none on cubes")
 
 
 # ---- engine and settings -------------------------------------------------------------------

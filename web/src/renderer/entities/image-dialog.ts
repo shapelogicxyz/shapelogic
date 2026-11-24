@@ -1,34 +1,68 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The Apply image dialog (decision 0038): a picture from the computer for
-// a sliding puzzle's piece or board, laid over its bounding box, upright,
-// and drawn only on its filled cells. Crop cuts the picture to the box's
-// proportions, centerd; Stretch squashes the whole picture into it. The
-// preview draws the piece's cells with the picture as it will look. A
-// picture larger than MAX_SIDE pixels, or of a type the file cannot hold,
-// is shrunk or turned into a PNG or JPEG first, here, so the file stays
-// small. The engine lays the picture on the cells (shape.setImage); from
-// then on it turns and moves with them.
+// The Apply image dialog (decisions 0038 and 0047): pictures from the
+// computer for a sliding puzzle's piece or board, laid over its bounding
+// box, upright, and drawn only on its filled cells. Crop cuts the picture
+// to the box's proportions, centered; Stretch squashes the whole picture
+// into it; Manual shows the whole picture over the piece with dots at its
+// corners, sides and middle to size and move it by hand: larger or smaller
+// than the box, and anywhere that leaves some of it over the box.
+//
+// Each picture chosen is a tile beside the button, with an X that takes
+// it off; in Manual several lie one on another, the later tiles on top,
+// and dragging a tile reorders them. Choose image… replaces the picture
+// shown; in Manual, once there is one, the button is Additional image…,
+// which puts a new one on top. Crop and Stretch show one picture, the
+// active one (the tile last picked, or the picture last clicked in the
+// preview); the others are kept while the dialog is open, so Manual
+// brings them back, and Apply sends only what the fit shows.
+//
+// The preview draws the piece's cells with the pictures as they will look,
+// as large as the window leaves room for (previewSize). A picture larger
+// than MAX_SIDE pixels, or of a type the file cannot hold, is shrunk or
+// turned into a PNG or JPEG first, here, so the file stays small. The
+// engine lays the stack on the cells (shape.setImages); from then on it
+// turns and moves with them.
 
-import type { ImageFit, ShapeImage } from '../../engine/api.generated.ts';
+import type { ImageFit, ImageLayer, ShapeImage } from '../../engine/api.generated.ts';
 import { closeDialog, openDialog } from '../shell/dialog.ts';
 import { esc } from '../shell/dom.ts';
 import { decodeImage } from '../shell/piece-images.ts';
 import type { PieceImage } from '../shell/piece-images.ts';
-import { cellBox, sourceRect } from '../shell/picture-math.ts';
+import {
+  cellBox,
+  dragRect,
+  previewSize,
+  rectFromSource,
+  sourceFromRect,
+  sourceRect,
+} from '../shell/picture-math.ts';
+import type { PictureHandle, PictureRect, PreviewSize } from '../shell/picture-math.ts';
 
 /** The longest side a picture is kept at, in pixels. */
 export const MAX_SIDE = 2048;
-/** The preview's size, in CSS pixels. */
-const PREVIEW_W = 300;
-const PREVIEW_H = 200;
+/** The most pictures a stack holds (the engine's kMaxShapeImages). */
+export const MAX_LAYERS = 16;
+/** The Manual fit's dots: how near a pointer grabs one, and their radius, in CSS pixels. */
+const GRAB = 9;
+const DOT = 4.5;
+/** The room kept between the dots and the preview's edges, in CSS pixels. */
+const EDGE = 7;
+/** The share of the preview the box and the active picture take after each drag, which leaves room to make it larger. */
+const ROOM = 0.85;
+/** In the Manual fit, the smallest side a picture is sized to, and how much of it stays over the box, in CSS pixels. */
+const MIN_SIDE = 12;
+const OVERLAP = 2;
 
-/** What the dialog sends: a new picture's file or the one the piece has, the fit and the part shown. */
+/** What the dialog sends: the pictures, the bottom one first, each a new file or one the shape has. */
 export interface ImageApply {
-  data?: string;
-  image?: number;
-  fit: ImageFit;
-  src: [number, number, number, number];
+  layers: ImageLayer[];
+}
+
+/** A tray's outer rectangle, for its border's picture. */
+export interface PictureFrame {
+  box: [number, number, number, number];
+  round: boolean;
 }
 
 export interface ImageDialogOptions {
@@ -36,15 +70,22 @@ export interface ImageDialogOptions {
   label: string;
   /** A board's picture (on its floor, under the pieces) rather than a piece's. */
   board?: boolean;
+  /**
+   * The picture of a board's tray border (decision 0046) rather than a
+   * shape's own: it lies over `box` (the tray's outer rectangle, in the
+   * board's cells: [x, y, width, height]), whose corners are round or
+   * square, and shows on all of it but `cells`, the floor.
+   */
+  frame?: PictureFrame;
   /** The piece's filled cells, [x, y, z]; only x and y count. */
   cells: readonly (readonly number[])[];
-  /** The color of the piece's cells where the picture does not reach. */
+  /** The color of the piece's cells where no picture reaches. */
   color: string;
-  /** The piece's picture now, decoded (null: none, or not loaded). */
-  current: { image: ShapeImage; picture: PieceImage } | null;
+  /** The piece's pictures now, the bottom one first, decoded. */
+  current: readonly { image: ShapeImage; picture: PieceImage }[];
   /** Apply: resolves true when the engine took it (the dialog then closes). */
   apply(a: ImageApply): Promise<boolean>;
-  /** Remove the piece's picture. */
+  /** Remove the piece's pictures. */
   remove(): void;
 }
 
@@ -90,28 +131,149 @@ export async function preparePicture(
   return { type, data, picture: await decodeImage('', type, data) };
 }
 
-/** Draws the piece's cells with the picture on them, as the grid will. */
-export function drawPreview(
-  canvas: HTMLCanvasElement,
-  cells: readonly (readonly number[])[],
-  color: string,
-  picture: PieceImage | null,
-  src: readonly number[],
-): void {
-  const box = cellBox(cells);
+/** The Manual fit's view in the preview: CSS pixels per cell, the box's top left corner and the preview's size. */
+interface ManualView {
+  k: number;
+  ox: number;
+  oy: number;
+  size: PreviewSize;
+}
+
+/**
+ * The Manual fit's view with the bw x bh box and the picture's rectangle
+ * `r` together in the middle, ROOM of the preview: a picture far larger
+ * than the box shows whole, and one far smaller leaves the box in view.
+ */
+function manualView(r: PictureRect, bw: number, bh: number, size: PreviewSize): ManualView {
+  const x1 = Math.min(0, r[0]);
+  const y1 = Math.min(0, r[1]);
+  const x2 = Math.max(bw, r[0] + r[2]);
+  const y2 = Math.max(bh, r[1] + r[3]);
+  const { w, h } = size;
+  const k = Math.min((ROOM * w) / (x2 - x1), (ROOM * h) / (y2 - y1));
+  return { k, ox: w / 2 - ((x1 + x2) / 2) * k, oy: h / 2 - ((y1 + y2) / 2) * k, size };
+}
+
+/** The preview less EDGE all round, in the box's cells: where a drag may take the dots. */
+function manualBounds(v: ManualView): [number, number, number, number] {
+  return [
+    (EDGE - v.ox) / v.k,
+    (EDGE - v.oy) / v.k,
+    (v.size.w - 2 * EDGE) / v.k,
+    (v.size.h - 2 * EDGE) / v.k,
+  ];
+}
+
+/** The dots of the picture's rectangle in the preview: corners and sides, then the middle. */
+function handlePoints(r: PictureRect, v: ManualView): [PictureHandle, number, number][] {
+  const x1 = v.ox + r[0] * v.k;
+  const y1 = v.oy + r[1] * v.k;
+  const x2 = x1 + r[2] * v.k;
+  const y2 = y1 + r[3] * v.k;
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  return [
+    ['nw', x1, y1],
+    ['n', mx, y1],
+    ['ne', x2, y1],
+    ['e', x2, my],
+    ['se', x2, y2],
+    ['s', mx, y2],
+    ['sw', x1, y2],
+    ['w', x1, my],
+    ['move', mx, my],
+  ];
+}
+
+/** Whether (x, y) in the preview lies on the picture's rectangle. */
+function onRect(r: PictureRect, v: ManualView, x: number, y: number): boolean {
+  const px = (x - v.ox) / v.k;
+  const py = (y - v.oy) / v.k;
+  return px >= r[0] && px <= r[0] + r[2] && py >= r[1] && py <= r[1] + r[3];
+}
+
+/** The dot at (x, y) in the preview; 'move' anywhere else on the picture; null off it. */
+function handleAt(r: PictureRect, v: ManualView, x: number, y: number): PictureHandle | null {
+  for (const [h, hx, hy] of handlePoints(r, v)) {
+    if (Math.hypot(x - hx, y - hy) <= GRAB) {
+      return h;
+    }
+  }
+  return onRect(r, v, x, y) ? 'move' : null;
+}
+
+/** The pointer over each dot. */
+const CURSORS: Record<PictureHandle, string> = {
+  move: 'move',
+  n: 'ns-resize',
+  s: 'ns-resize',
+  e: 'ew-resize',
+  w: 'ew-resize',
+  ne: 'nesw-resize',
+  sw: 'nesw-resize',
+  nw: 'nwse-resize',
+  se: 'nwse-resize',
+};
+
+/** A picture as the preview draws it: with Crop or Stretch its part shown over the box, in Manual the whole of it at `rect`. */
+export interface PreviewLayer {
+  picture: PieceImage;
+  src: readonly number[];
+  rect: PictureRect;
+}
+
+/** What the preview draws. */
+export interface PreviewInput {
+  cells: readonly (readonly number[])[];
+  color: string;
+  /** The pictures, the bottom one first. */
+  layers: readonly PreviewLayer[];
+  /** The Manual fit: its view and the picture with the dots (an index of `layers`); null for Crop and Stretch. */
+  manual: { view: ManualView; active: number } | null;
+  /** A tray's border: the pictures show on the frame's rectangle less the cells, the floor. */
+  frame: PictureFrame | null;
+  size: PreviewSize;
+}
+
+/**
+ * Draws the piece's cells with the pictures on them, as the grid will:
+ * the cells in the piece's color, then each picture over it, bottom
+ * first. In the Manual fit each picture lies whole at its rectangle, the
+ * active one also faint off the cells, with its edge and its dots.
+ */
+export function drawPreview(canvas: HTMLCanvasElement, input: PreviewInput): void {
+  const { cells, color, layers, manual, frame, size } = input;
+  const box = frame?.box ?? cellBox(cells);
   const ratio = window.devicePixelRatio || 1;
-  canvas.width = Math.round(PREVIEW_W * ratio);
-  canvas.height = Math.round(PREVIEW_H * ratio);
+  const { w: pw, h: ph } = size;
+  canvas.width = Math.round(pw * ratio);
+  canvas.height = Math.round(ph * ratio);
   const g = canvas.getContext('2d');
   if (g === null || box === null) {
     return;
   }
   g.setTransform(ratio, 0, 0, ratio, 0, 0);
-  g.clearRect(0, 0, PREVIEW_W, PREVIEW_H);
+  g.clearRect(0, 0, pw, ph);
   const [bx, by, bw, bh] = box;
-  const cs = Math.floor(Math.min((PREVIEW_W - 8) / bw, (PREVIEW_H - 8) / bh));
-  const ox = (PREVIEW_W - bw * cs) / 2;
-  const oy = (PREVIEW_H - bh * cs) / 2;
+  const cs = manual === null ? Math.floor(Math.min((pw - 8) / bw, (ph - 8) / bh)) : manual.view.k;
+  const ox = manual === null ? (pw - bw * cs) / 2 : manual.view.ox;
+  const oy = manual === null ? (ph - bh * cs) / 2 : manual.view.oy;
+  // where a whole picture lies in the Manual fit, in CSS pixels
+  const whole = (r: PictureRect): [number, number, number, number] => [
+    ox + r[0] * cs,
+    oy + r[1] * cs,
+    r[2] * cs,
+    r[3] * cs,
+  ];
+  const active = manual === null ? undefined : layers[manual.active];
+  if (active !== undefined) {
+    // the active picture's parts off the cells, faint
+    g.save();
+    g.globalAlpha = 0.35;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(active.picture.bitmap, ...whole(active.rect));
+    g.restore();
+  }
   // the y of the grid points up
   const at = (x: number, y: number): [number, number] => [
     ox + (x - bx) * cs,
@@ -120,71 +282,144 @@ export function drawPreview(
   const filled = new Set(cells.map((c) => `${String(c[0])},${String(c[1])}`));
   g.save();
   g.beginPath();
+  if (frame !== null) {
+    // the tray's whole rectangle, its corners round by the rim's width
+    g.roundRect(ox, oy, bw * cs, bh * cs, frame.round ? -bx * cs : 0);
+  }
   for (const k of filled) {
     const [x = 0, y = 0] = k.split(',').map(Number);
     const [px, py] = at(x, y);
     g.rect(px, py, cs, cs);
   }
-  g.clip();
+  // a border shows on the tray less its floor
+  g.clip(frame === null ? 'nonzero' : 'evenodd');
   g.fillStyle = color;
   g.fillRect(ox, oy, bw * cs, bh * cs);
-  if (picture !== null) {
-    const [sx = 0, sy = 0, sw = 1, sh = 1] = src;
-    g.imageSmoothingQuality = 'high';
-    g.drawImage(picture.bitmap, sx, sy, sw, sh, ox, oy, bw * cs, bh * cs);
+  g.imageSmoothingQuality = 'high';
+  for (const l of layers) {
+    if (manual !== null) {
+      g.drawImage(l.picture.bitmap, ...whole(l.rect));
+    } else {
+      const [sx = 0, sy = 0, sw = 1, sh = 1] = l.src;
+      g.drawImage(l.picture.bitmap, sx, sy, sw, sh, ox, oy, bw * cs, bh * cs);
+    }
   }
   g.restore();
   // the cells' edges, as the grid draws them
   g.strokeStyle = getComputedStyle(canvas).getPropertyValue('--line2') || '#888';
   g.lineWidth = 1;
-  for (let y = by; y < by + bh; y++) {
-    for (let x = bx; x < bx + bw; x++) {
-      const [px, py] = at(x, y);
-      if (filled.has(`${String(x)},${String(y)}`)) {
-        g.strokeRect(px + 0.5, py + 0.5, cs - 1, cs - 1);
-      }
+  for (const k of filled) {
+    const [x = 0, y = 0] = k.split(',').map(Number);
+    const [px, py] = at(x, y);
+    g.strokeRect(px + 0.5, py + 0.5, cs - 1, cs - 1);
+  }
+  if (manual !== null && active !== undefined) {
+    // the active picture's edge and its dots
+    const style = getComputedStyle(canvas);
+    const accent = style.getPropertyValue('--accent') || '#2f6df6';
+    const panel = style.getPropertyValue('--panel') || '#fff';
+    g.strokeStyle = accent;
+    g.lineWidth = 1.5;
+    g.strokeRect(...whole(active.rect));
+    for (const [h, hx, hy] of handlePoints(active.rect, manual.view)) {
+      g.beginPath();
+      g.arc(hx, hy, h === 'move' ? DOT + 1.5 : DOT, 0, 2 * Math.PI);
+      g.fillStyle = h === 'move' ? accent : panel;
+      g.strokeStyle = h === 'move' ? panel : accent;
+      g.fill();
+      g.stroke();
     }
   }
 }
 
+/** A picture in the dialog: its tile's name, its file or number, and where it lies in Manual. */
+interface Layer {
+  /** The tile's id, for its element. */
+  key: number;
+  name: string;
+  picture: PieceImage;
+  /** A new picture's file (base64)… */
+  data?: string;
+  /** …or one the shape has. */
+  image?: number;
+  /** Where the whole picture lies in Manual, in the box's cells. */
+  rect: PictureRect;
+  /** Whether `rect` was placed in Manual (else Manual starts from what Crop or Stretch showed). */
+  placed: boolean;
+}
+
 /** Opens the dialog for a piece or a board. */
 export function openImageDialog(o: ImageDialogOptions): void {
-  const box = cellBox(o.cells);
+  const frame = o.frame ?? null;
+  const box = frame?.box ?? cellBox(o.cells);
   if (box === null) {
     return;
   }
-  const n = o.board === true ? 'board' : 'piece';
+  const n = frame !== null ? 'tray border' : o.board === true ? 'board' : 'piece';
   const [, , bw, bh] = box;
-  // the picture shown: the piece's own until another is chosen
-  let chosen: { data: string; picture: PieceImage } | null = null;
-  let fit: ImageFit = o.current?.image.fit ?? 'crop';
-  const picture = (): PieceImage | null => chosen?.picture ?? o.current?.picture ?? null;
-  const src = (): [number, number, number, number] => {
-    const p = picture();
-    return p === null ? [0, 0, 1, 1] : sourceRect(fit, p.width, p.height, bw, bh);
+  const size = previewSize({ w: window.innerWidth, h: window.innerHeight }, bw / bh);
+  let keys = 0;
+  // the pictures, the bottom one first; the active one is the one Crop and
+  // Stretch show and the one with the dots in Manual
+  const layers: Layer[] = o.current.map((c, i) => ({
+    key: keys++,
+    name: o.current.length === 1 ? `The ${n}’s image` : `Image ${String(i + 1)}`,
+    picture: c.picture,
+    image: c.image.image,
+    rect: rectFromSource(c.image.src, c.picture.width, c.picture.height, bw, bh),
+    placed: c.image.fit === 'manual',
+  }));
+  let active = layers.length - 1;
+  let fit: ImageFit = o.current.at(-1)?.image.fit ?? 'crop';
+  let view: ManualView | null = null;
+  const current = (): Layer | undefined => layers[active];
+  // the pictures the fit shows: all in Manual, else the active one
+  const shown = (): Layer[] => {
+    const a = current();
+    return fit === 'manual' ? layers : a === undefined ? [] : [a];
   };
+  const srcOf = (l: Layer): [number, number, number, number] => {
+    const { width: w, height: h } = l.picture;
+    return fit === 'manual' ? sourceFromRect(l.rect, w, h, bw, bh) : sourceRect(fit, w, h, bw, bh);
+  };
+  // the Manual fit's view, fitted to the box and the active picture
+  const fitView = (): void => {
+    const a = current();
+    view = a === undefined ? null : manualView(a.rect, bw, bh, size);
+  };
+  // the rectangle snapped to whole pixels of its picture
+  const snap = (l: Layer): void => {
+    const { width: w, height: h } = l.picture;
+    l.rect = rectFromSource(sourceFromRect(l.rect, w, h, bw, bh), w, h, bw, bh);
+  };
+  if (fit === 'manual') {
+    fitView();
+  }
   const id = 'imageDlg';
   void openDialog({
     id,
-    title: `Apply image to ${o.label}`,
-    body: `<div class="form imgdlg">
-<div class="imgdlg-pick"><button class="btn" data-f="choose" title="Choose a PNG, JPEG, WebP or GIF picture on this computer">Choose image…</button><span data-f="name">${o.current === null ? 'No image chosen' : `The ${n}’s image`}</span><input type="file" data-f="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>
+    title: `Apply image to ${o.label}${frame === null ? '' : '’s tray border'}`,
+    body: `<div class="form imgdlg" style="--imgw:${String(size.w)}px">
+<div class="imgdlg-pick"><button class="btn" data-f="choose"></button><div class="imgdlg-tiles" data-f="tiles" role="list" aria-label="Images, the bottom one first"></div><input type="file" data-f="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>
 <fieldset><legend>Fit</legend>
 <label title="Cut the picture to the ${n}’s proportions, keeping its middle: nothing is squashed"><input type="radio" name="imgFit" value="crop" ${fit === 'crop' ? 'checked' : ''}> Crop</label>
 <label title="Squash the whole picture to the ${n}’s rectangle"><input type="radio" name="imgFit" value="stretch" ${fit === 'stretch' ? 'checked' : ''}> Stretch</label>
+<label title="Size and place each picture yourself: drag the dots at its corners and sides in the preview to resize it, and the one in its middle to move it; several pictures can lie one on another"><input type="radio" name="imgFit" value="manual" ${fit === 'manual' ? 'checked' : ''}> Manual</label>
 </fieldset>
-<canvas class="imgdlg-preview" data-f="preview" style="width:${String(PREVIEW_W)}px;height:${String(PREVIEW_H)}px" aria-label="Preview"></canvas>
-<p class="imgdlg-note">The image covers the ${n}’s ${esc(`${String(bw)} × ${String(bh)}`)} rectangle and shows only on its cells${o.board === true ? ', under the pieces. It turns with the board.' : '. It turns and moves with the piece.'}</p>
+<canvas class="imgdlg-preview" data-f="preview" style="width:${String(size.w)}px;height:${String(size.h)}px" aria-label="Preview"></canvas>
+<p class="imgdlg-hint" data-f="manualNote"${fit === 'manual' ? '' : ' hidden'}>Drag a corner to resize the picture (Shift: free proportions), a side to stretch it, and the middle to move it; the arrow keys move it too. It can be smaller than the ${n} and lie partly off it. Click a picture, or its tile, to pick it; drag the tiles to change which lies on top (the last one).</p>
+<p class="imgdlg-hint" data-f="singleNote" hidden></p>
+<p class="imgdlg-note">${frame !== null ? 'The image covers the whole tray, its rim included, and shows on the border: the rim and the walls, not the floor. It turns with the board.' : `The image covers the ${n}’s ${esc(`${String(bw)} × ${String(bh)}`)} rectangle and shows only on its cells${o.board === true ? ', under the pieces. It turns with the board.' : '. It turns and moves with the piece.'}`}</p>
 <div class="scad-err" data-f="err"></div></div>`,
     buttons: [
-      ...(o.current === null
+      ...(o.current.length === 0
         ? []
         : [
             {
               key: 'remove',
-              label: 'Remove image',
+              label: o.current.length === 1 ? 'Remove image' : 'Remove images',
               kind: 'danger' as const,
-              tip: `Take the image off this ${n}`,
+              tip: `Take the ${o.current.length === 1 ? 'image' : 'images'} off this ${n}`,
             },
           ]),
       { key: 'cancel', label: 'Cancel' },
@@ -205,17 +440,25 @@ export function openImageDialog(o: ImageDialogOptions): void {
         return true;
       }
       const err = el.querySelector<HTMLElement>('[data-f="err"]');
-      const p = picture();
-      if (p === null || (chosen === null && o.current === null)) {
+      const sent = shown();
+      if (sent.length === 0) {
+        if (o.current.length > 0) {
+          // every tile taken off: the shape's pictures too
+          o.remove();
+          return true;
+        }
         if (err !== null) {
           err.textContent = 'Choose an image first.';
         }
         return false;
       }
-      const a: ImageApply =
-        chosen !== null
-          ? { data: chosen.data, fit, src: src() }
-          : { image: o.current?.image.image ?? 0, fit, src: src() };
+      const a: ImageApply = {
+        layers: sent.map((l) => ({
+          ...(l.data !== undefined ? { data: l.data } : { image: l.image ?? 0 }),
+          fit,
+          src: srcOf(l),
+        })),
+      };
       // the dialog stays open until the engine has taken it
       void o.apply(a).then((ok) => {
         if (ok) {
@@ -233,30 +476,216 @@ export function openImageDialog(o: ImageDialogOptions): void {
   }
   const q = <T extends HTMLElement>(f: string): T | null => el.querySelector<T>(`[data-f="${f}"]`);
   const canvas = q<HTMLCanvasElement>('preview');
-  const redraw = (): void => {
-    if (canvas !== null) {
-      drawPreview(canvas, o.cells, o.color, picture(), src());
+  const manualNote = q('manualNote');
+  const singleNote = q('singleNote');
+  const choose = q<HTMLButtonElement>('choose');
+  const tiles = q('tiles');
+  // Additional image… only in Manual, once there is a picture
+  const adding = (): boolean => fit === 'manual' && layers.length > 0;
+  const drawTiles = (): void => {
+    if (choose !== null) {
+      const more = adding();
+      choose.textContent = more ? 'Additional image…' : 'Choose image…';
+      choose.title = more
+        ? 'Choose another picture on this computer, laid on top of the others'
+        : current() === undefined
+          ? 'Choose a PNG, JPEG, WebP or GIF picture on this computer'
+          : 'Choose a picture on this computer in place of this one';
+      choose.disabled = more && layers.length >= MAX_LAYERS;
+    }
+    if (tiles !== null) {
+      const list = shown();
+      const a = current();
+      tiles.innerHTML =
+        list.length === 0
+          ? '<span class="imgdlg-none">No image chosen</span>'
+          : list
+              .map(
+                (l) =>
+                  `<span class="imgtile${l === a ? ' on' : ''}" role="listitem" data-key="${String(l.key)}" draggable="${String(fit === 'manual' && list.length > 1)}" title="${esc(`${l.name} (${String(l.picture.width)} × ${String(l.picture.height)})`)}${fit === 'manual' && list.length > 1 ? ': drag to reorder; the last lies on top' : ''}"><span class="nm">${esc(`${l.name} (${String(l.picture.width)} × ${String(l.picture.height)})`)}</span><button class="x" data-rm aria-label="${esc(`Remove ${l.name}`)}" title="Take this image off">×</button></span>`,
+              )
+              .join('');
+    }
+    if (singleNote !== null) {
+      const hidden = fit !== 'manual' && layers.length > 1;
+      singleNote.hidden = !hidden;
+      singleNote.textContent = hidden
+        ? `${fit === 'crop' ? 'Crop' : 'Stretch'} shows one image, the one listed; Manual keeps all ${String(layers.length)}.`
+        : '';
     }
   };
+  const redraw = (): void => {
+    drawTiles();
+    if (canvas === null) {
+      return;
+    }
+    const a = current();
+    const manual =
+      fit === 'manual' && view !== null && a !== undefined
+        ? { view, active: layers.indexOf(a) }
+        : null;
+    canvas.tabIndex = manual === null ? -1 : 0;
+    if (manual === null) {
+      canvas.style.cursor = '';
+    }
+    drawPreview(canvas, {
+      cells: o.cells,
+      color: o.color,
+      layers: shown().map((l) => ({ picture: l.picture, src: srcOf(l), rect: l.rect })),
+      manual,
+      frame,
+      size,
+    });
+  };
+  /** The active picture snapped to whole pixels, and the view fitted to it again. */
+  const settle = (): void => {
+    const a = current();
+    if (a !== undefined) {
+      snap(a);
+    }
+    fitView();
+    redraw();
+  };
+  const limits = (v: ManualView): { minSide: number; overlap: number } => ({
+    minSide: MIN_SIDE / v.k,
+    overlap: OVERLAP / v.k,
+  });
+  // the Manual fit's drags: the dot grabbed, where, and the rectangle then
+  let drag: { handle: PictureHandle; x: number; y: number; start: PictureRect } | null = null;
+  const local = (e: PointerEvent): [number, number] => {
+    const b = canvas?.getBoundingClientRect();
+    return b === undefined ? [0, 0] : [e.clientX - b.left, e.clientY - b.top];
+  };
+  canvas?.addEventListener('pointerdown', (e) => {
+    if (fit !== 'manual' || view === null || e.button !== 0) {
+      return;
+    }
+    const [x, y] = local(e);
+    let a = current();
+    let handle = a === undefined ? null : handleAt(a.rect, view, x, y);
+    if (handle === null) {
+      // another picture under the pointer, the top one first, picked and held by its middle
+      const v = view;
+      const hit = [...layers].reverse().find((l) => onRect(l.rect, v, x, y));
+      if (hit !== undefined && hit !== a) {
+        active = layers.indexOf(hit);
+        a = hit;
+        handle = 'move';
+        redraw();
+      }
+    }
+    if (handle !== null && a !== undefined) {
+      drag = { handle, x, y, start: a.rect };
+      a.placed = true;
+      canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    }
+  });
+  canvas?.addEventListener('pointermove', (e) => {
+    const a = current();
+    if (fit !== 'manual' || view === null || a === undefined) {
+      return;
+    }
+    const [x, y] = local(e);
+    if (drag === null) {
+      const h = handleAt(a.rect, view, x, y);
+      const v = view;
+      canvas.style.cursor =
+        h !== null ? CURSORS[h] : layers.some((l) => onRect(l.rect, v, x, y)) ? 'pointer' : '';
+      return;
+    }
+    a.rect = dragRect(
+      drag.start,
+      drag.handle,
+      (x - drag.x) / view.k,
+      (y - drag.y) / view.k,
+      bw,
+      bh,
+      manualBounds(view),
+      e.shiftKey,
+      limits(view),
+    );
+    redraw();
+  });
+  const drop = (): void => {
+    if (drag !== null) {
+      drag = null;
+      settle();
+    }
+  };
+  canvas?.addEventListener('pointerup', drop);
+  canvas?.addEventListener('pointercancel', drop);
+  canvas?.addEventListener('keydown', (e) => {
+    const step: Record<string, [number, number]> = {
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+    };
+    const d = step[e.key];
+    const a = current();
+    if (fit !== 'manual' || view === null || a === undefined || d === undefined) {
+      return;
+    }
+    // a tenth of a cell, a whole one with Shift
+    const by = e.shiftKey ? 1 : 0.1;
+    a.placed = true;
+    a.rect = dragRect(
+      a.rect,
+      'move',
+      d[0] * by,
+      d[1] * by,
+      bw,
+      bh,
+      manualBounds(view),
+      false,
+      limits(view),
+    );
+    e.preventDefault();
+    e.stopPropagation();
+    settle();
+  });
   const file = q<HTMLInputElement>('file');
-  q('choose')?.addEventListener('click', () => file?.click());
+  choose?.addEventListener('click', () => file?.click());
   file?.addEventListener('change', () => {
     const f = file.files?.[0];
     const err = q('err');
     if (f === undefined) {
       return;
     }
+    // the same file again is a change too
+    file.value = '';
     preparePicture(f).then(
       (p) => {
-        chosen = { data: p.data, picture: p.picture };
-        const name = q('name');
-        if (name !== null) {
-          name.textContent = `${f.name} (${String(p.picture.width)} × ${String(p.picture.height)})`;
+        const { width: w, height: h } = p.picture;
+        // over the whole box, as Crop lays it
+        const rect = rectFromSource(sourceRect('crop', w, h, bw, bh), w, h, bw, bh);
+        const layer: Layer = {
+          key: keys++,
+          name: f.name,
+          picture: p.picture,
+          data: p.data,
+          rect,
+          placed: false,
+        };
+        if (adding()) {
+          // on top of the others, half the box's size in its middle so the
+          // ones under it still show
+          layer.rect = [rect[0] / 2 + bw / 4, rect[1] / 2 + bh / 4, rect[2] / 2, rect[3] / 2];
+          layer.placed = true;
+          layers.push(layer);
+          active = layers.length - 1;
+        } else if (current() === undefined) {
+          layers.push(layer);
+          active = 0;
+        } else {
+          // in place of the one shown
+          layers.splice(active, 1, layer);
         }
         if (err !== null) {
           err.textContent = '';
         }
-        redraw();
+        settle();
       },
       () => {
         if (err !== null) {
@@ -265,9 +694,85 @@ export function openImageDialog(o: ImageDialogOptions): void {
       },
     );
   });
+  // the tiles: a click picks one, its X takes it off, a drag reorders them
+  const tileOf = (t: EventTarget | null): Layer | undefined => {
+    const key = (t as Element | null)?.closest<HTMLElement>('.imgtile')?.dataset.key;
+    return layers.find((l) => String(l.key) === key);
+  };
+  tiles?.addEventListener('click', (e) => {
+    const l = tileOf(e.target);
+    if (l === undefined) {
+      return;
+    }
+    if ((e.target as Element).closest('[data-rm]') !== null) {
+      layers.splice(layers.indexOf(l), 1);
+      active = layers.length - 1;
+    } else {
+      active = layers.indexOf(l);
+    }
+    if (fit === 'manual') {
+      fitView();
+    }
+    redraw();
+  });
+  let dragged: Layer | undefined;
+  tiles?.addEventListener('dragstart', (e) => {
+    dragged = tileOf(e.target);
+    if (dragged === undefined || fit !== 'manual') {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer?.setData('text/plain', String(dragged.key));
+    if (e.dataTransfer !== null) {
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  });
+  tiles?.addEventListener('dragover', (e) => {
+    if (dragged !== undefined) {
+      e.preventDefault();
+    }
+  });
+  tiles?.addEventListener('drop', (e) => {
+    const from = dragged;
+    dragged = undefined;
+    if (from === undefined) {
+      return;
+    }
+    e.preventDefault();
+    const onto = tileOf(e.target);
+    const was = current();
+    layers.splice(layers.indexOf(from), 1);
+    if (onto === undefined || onto === from) {
+      // past the tiles: on top
+      layers.push(from);
+    } else {
+      // before the tile dropped on, or after it when dropped on its right half
+      const r = (e.target as Element).closest('.imgtile')?.getBoundingClientRect();
+      const after = r !== undefined && e.clientX > r.left + r.width / 2;
+      layers.splice(layers.indexOf(onto) + (after ? 1 : 0), 0, from);
+    }
+    active = was === undefined ? layers.length - 1 : layers.indexOf(was);
+    redraw();
+  });
+  tiles?.addEventListener('dragend', () => {
+    dragged = undefined;
+  });
   for (const r of el.querySelectorAll<HTMLInputElement>('input[name="imgFit"]')) {
     r.addEventListener('change', () => {
-      fit = r.value === 'stretch' ? 'stretch' : 'crop';
+      const a = current();
+      const was = a === undefined ? null : srcOf(a);
+      fit = r.value === 'stretch' ? 'stretch' : r.value === 'manual' ? 'manual' : 'crop';
+      if (fit === 'manual' && a !== undefined && was !== null) {
+        // Manual starts from what the fit before it showed, unless the
+        // picture was placed in Manual already
+        if (!a.placed) {
+          a.rect = rectFromSource(was, a.picture.width, a.picture.height, bw, bh);
+        }
+        fitView();
+      }
+      if (manualNote !== null) {
+        manualNote.hidden = fit !== 'manual';
+      }
       redraw();
     });
   }

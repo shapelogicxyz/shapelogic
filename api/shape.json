@@ -118,7 +118,7 @@
       "errors": ["not_found", "invalid_state"]
     },
     "shape.setImage": {
-      "summary": "Lays a picture over the shape's bounding box, upright, on a sliding puzzle (decision 0038): on a piece, or on a board (a start/goal shape), whose floor shows it under the pieces; new image bytes (a PNG or JPEG, at most 8192 pixels a side) or one the puzzle has, by its number. The picture then turns, flips and moves with the cells. Refused (invalid_argument) on other grids, for a shape without cells, bytes that are not such a picture, or a part outside it.",
+      "summary": "Lays a picture over the shape's bounding box, upright, on a sliding puzzle (decision 0038): on a piece, or on a board (a start/goal shape), whose floor shows it under the pieces; new image bytes (a PNG or JPEG, at most 8192 pixels a side) or one the puzzle has, by its number. The picture then turns, flips and moves with the cells; it takes the place of the ones the shape had. Refused (invalid_argument) on other grids, for a shape without cells, bytes that are not such a picture, or a part that misses it.",
       "params": {
         "type": "object",
         "properties": {
@@ -126,7 +126,8 @@
           "data": {"type": "string", "description": "The image file, base64. Give this or 'image'."},
           "image": {"type": "integer", "minimum": 0, "description": "A picture the puzzle has (ShapeImage.image). Give this or 'data'."},
           "fit": {"$ref": "types.json#/$defs/ImageFit"},
-          "src": {"$ref": "types.json#/$defs/PixelRect", "description": "The part of the picture shown, in its pixels."}
+          "src": {"$ref": "types.json#/$defs/PixelRect", "description": "The part of the picture shown, in its pixels."},
+          "border": {"type": "boolean", "description": "The picture of the tray's border (decision 0046) instead of the shape's own: laid over the whole tray and shown on its border. A board only (invalid_argument otherwise). Default false."}
         },
         "required": ["shape", "fit", "src"],
         "additionalProperties": false
@@ -134,11 +135,52 @@
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
+    "shape.setImages": {
+      "summary": "Lays a stack of pictures over the shape's bounding box (decision 0047), the bottom one first, in place of the ones it has: one undo step, none when nothing differs; an empty list takes them off. Each is as for shape.setImage; all share the box, and turn, flip and move with the cells together. Refused (invalid_argument) as shape.setImage is, and for more than 16 pictures.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "layers": {"type": "array", "items": {"$ref": "types.json#/$defs/ImageLayer"}, "maxItems": 16, "description": "The pictures, the bottom one first."},
+          "border": {"type": "boolean", "description": "The pictures of the tray's border (decision 0046) instead of the shape's own. A board only. Default false."}
+        },
+        "required": ["shape", "layers"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
     "shape.clearImage": {
-      "summary": "Takes the shape's picture off (nothing changes when it has none).",
-      "params": {"$ref": "#/$defs/ShapeParam"},
+      "summary": "Takes the shape's pictures off, or with 'border' the pictures of its tray's border (nothing changes when it has none).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "border": {"type": "boolean", "description": "The border's picture instead of the shape's own. Default false."}
+        },
+        "required": ["shape"],
+        "additionalProperties": false
+      },
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_state"]
+    },
+    "shape.setBorder": {
+      "summary": "Changes the border of a sliding puzzle's board (decision 0046): whether its tray shows one, its corners, its material, its thickness and its color. Only the fields given change; one undo step. Refused (invalid_argument) for a shape that is no sliding puzzle's board.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "enabled": {"type": "boolean"},
+          "corners": {"$ref": "types.json#/$defs/BorderCorners"},
+          "material": {"$ref": "types.json#/$defs/BorderMaterial"},
+          "thickness": {"type": "integer", "minimum": 0, "maximum": 10, "description": "0 for a thin rim, else the rim's width in voxels."},
+          "color": {"oneOf": [{"$ref": "types.json#/$defs/Rgb"}, {"type": "null"}], "description": "The border's own color, or null for none."}
+        },
+        "required": ["shape"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "shape.imageData": {
       "summary": "A picture of the puzzle: its file, which the client decodes and keeps by its hash (the snapshot carries only the number and hash).",

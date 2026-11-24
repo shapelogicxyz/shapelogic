@@ -165,8 +165,10 @@ with **File ▸ New ▸ Tilted Square**.
   board's count against a puzzle made at that placement, the options, the
   refusals, a stop, a small board), the contract test `tilted_placements`,
   `placements.test.ts`, `tests/engine/tilted.test.ts`, `tilted.e2e.ts`
-  (the list, Try every placement, Use, Undo). Gates: see
-  `docs/handoff/tilted-square.md`.
+  (the list, Try every placement, Use, Undo; then the problem chosen, a
+  count stopped, a board used while counting, Show more),
+  `test_engine.cpp` (the end of a fit told once the document is free).
+  Gates: see `docs/handoff/tilted-square.md`.
 
 ## Who builds each stage
 

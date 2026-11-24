@@ -143,6 +143,13 @@ export class SolverWorkspace {
   selId: string | null = null;
   /** A run call under way (Solve, Continue, Pause, Abort). */
   calling = false;
+  /**
+   * The problem whose Abort is under way, from the user's yes until the
+   * snapshot shows it: the engine answers nothing else until the run has
+   * stopped, so its last progress (a save waiting, a search going on) is
+   * not what it does.
+   */
+  private aborting: string | null = null;
   /** The snapshot revision the cards show, or -1 while loading. */
   shown = -1;
   readonly autosave: Autosave;
@@ -760,12 +767,20 @@ export class SolverWorkspace {
     return g?.stage !== 'stopping' || g.stopKind !== 'abort';
   }
 
+  /** Whether this problem's Abort is under way (the user said yes, the snapshot does not show it yet). */
+  isAborting(problem: string): boolean {
+    return this.aborting === problem;
+  }
+
   /** The Activity text: the solver's state (what it has found and gone through is details()). */
   activity(): string {
     const r = this.record;
     const p = this.problem;
     if (this.analysing) {
       return 'Analysing disassemblies';
+    }
+    if (this.current !== null && this.isAborting(this.current)) {
+      return 'Aborting the search…';
     }
     // paused for a save (the crash recovery copy, File ▸ Save), to carry on
     if (this.savingFor(r)) {
@@ -1758,10 +1773,13 @@ export class SolverWorkspace {
   /** solve.abort for a problem, shown or not. */
   private async abortSolve(problem: string): Promise<void> {
     this.calling = true;
+    this.aborting = problem;
+    // a crash recovery save waiting for this run must not carry it on or keep it
+    this.autosave.abort(problem);
     if (problem === this.current) {
       this.player.holdOpen();
     }
-    this.runCard.render();
+    this.render();
     try {
       const r = await this.edits.track(this.store.engine.call('solve.abort', { problem }));
       await this.whenShown(r.revision);
@@ -1770,6 +1788,7 @@ export class SolverWorkspace {
       reportError(e, 'Abort');
     } finally {
       this.calling = false;
+      this.aborting = null;
       this.render();
     }
   }

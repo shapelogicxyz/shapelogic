@@ -70,8 +70,12 @@ const PuzzleImage* Puzzle::findImage(int id) const {
 
 bool Puzzle::imageUsed(unsigned int id) const {
   for (const ClonePtr<Voxel>& v : shapes_) {
-    if (v->getImage().id == static_cast<int>(id)) {
-      return true;
+    for (const ShapeImages* stack : {&v->getImages(), &v->getBorder().images}) {
+      for (const ShapeImage& im : *stack) {
+        if (im.id == static_cast<int>(id)) {
+          return true;
+        }
+      }
     }
   }
   return false;

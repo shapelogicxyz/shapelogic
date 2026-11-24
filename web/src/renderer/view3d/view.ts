@@ -22,6 +22,7 @@
 
 import { Box3, Quaternion, Raycaster, Vector2, Vector3 } from 'three';
 
+import type { ShapeSummary, TrayBorder } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import { meshArrays } from '../../engine/frames.ts';
 import type { MeshArrays } from '../../engine/frames.ts';
@@ -30,8 +31,9 @@ import { byId, css, esc } from '../shell/dom.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { editorVisible, onLayout, tab, toggleFocus3d } from '../shell/layout.ts';
 import { chipColor, contrast, hex, ROD_CHIP, viewColor } from '../shell/piece-colors.ts';
-import { onPieceImage, piecePicture } from '../shell/piece-images.ts';
+import { borderPicture, onPieceImage, piecePicture } from '../shell/piece-images.ts';
 import type { PiecePicture } from '../shell/picture-math.ts';
+import { borderColor, borderRim, floorTest, shownBorder } from '../shell/tray-border.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { reportError, setCursor } from '../shell/status.ts';
 import { isDarkTheme, onTheme } from '../shell/theme.ts';
@@ -58,6 +60,8 @@ import { vectorImage } from './svg.ts';
 import { Toolbar } from './toolbar.ts';
 import { TrayView } from './trays.ts';
 import { wallOutline, wallSegments } from './walls.ts';
+import { floorOfMesh, TrayBorderMesh } from './tray-border.ts';
+import type { BorderLook } from './tray-border.ts';
 import { CheckerCells, TrayScene } from './tray3d.ts';
 import type { TrayModel } from './trays.ts';
 import type { Display, EditButton, NavMode } from './toolbar.ts';
@@ -209,6 +213,15 @@ export class View3D {
   /** A Tilted Square puzzle's tray: around the shape, and around the Solver's pieces. */
   private readonly shapeTray = new TrayScene();
   private readonly solutionTray = new TrayScene();
+  /** A sliding tray's border (decision 0046): round the board shown, and round the Solver's pieces. */
+  private readonly shapeBorder = new TrayBorderMesh();
+  private readonly solutionBorder = new TrayBorderMesh();
+  /** The Solver's result as its walls were read: its size and which cells are floor. */
+  private solutionFloor: {
+    shape: string;
+    size: readonly [number, number, number];
+    floor: (x: number, y: number) => boolean;
+  } | null = null;
   /** A Tilted Square board's cells as the Puzzle view draws its result. */
   private readonly boardCells = new CheckerCells();
   /** Whether the home view is the tilted puzzle's, straight down on the tray. */
@@ -253,6 +266,7 @@ export class View3D {
         style: () => this.display.style,
         changed: () => {
           byId('vp').dataset.tray = this.trays.describe();
+          byId('vp').dataset.trayBorder = this.trays.describeBorder();
           byId('vp').dataset.trayPoses = this.trays.posesShown();
           this.renderer.request();
         },
@@ -300,6 +314,9 @@ export class View3D {
     this.solution.group.visible = false;
     this.renderer.root.add(this.solution.group);
     this.renderer.model.add(this.shapeTray.group);
+    this.renderer.model.add(this.shapeBorder.group);
+    this.solutionBorder.group.visible = false;
+    this.renderer.root.add(this.solutionBorder.group);
     this.solutionTray.group.visible = false;
     this.renderer.root.add(this.solutionTray.group);
     this.renderer.onDraw(() => {
@@ -552,6 +569,7 @@ export class View3D {
     const n = ++this.wallLoads;
     if (model === null || result === null || snap?.grid !== 'sliding') {
       this.solution.setWalls(null);
+      this.solutionFloor = null;
       byId('vp').dataset.walls = '0';
       return;
     }
@@ -561,10 +579,12 @@ export class View3D {
           return;
         }
         const [sx, sy, sz] = r.shape.size;
-        const open = new Set(r.cells.map((c) => `${String(c.at[0])},${String(c.at[1])}`));
-        const outline = wallOutline(sx, sy, (x, y) => open.has(`${String(x)},${String(y)}`));
+        const floor = floorTest(r.cells.map((c) => c.at));
+        const outline = wallOutline(sx, sy, floor);
         this.solution.setWalls(wallSegments(outline, sx, sy, sz));
+        this.solutionFloor = { shape: result, size: r.shape.size, floor };
         byId('vp').dataset.walls = String(this.solution.wallCount);
+        this.syncBorders();
         this.renderer.request();
       },
       (e: unknown) => {
@@ -573,6 +593,69 @@ export class View3D {
         }
       },
     );
+  }
+
+  // a sliding tray's border (decision 0046): round the board the shape view
+  // shows, once its mesh is here (its cells are the floor), a layer higher
+  // than the floor; and round the Solver's pieces, as high as the result,
+  // in place of the walls' lines
+  private syncBorders(): void {
+    const store = this.store;
+    const snap = store.snapshot;
+    const sliding = snap?.grid === 'sliding';
+    const lookOf = (s: ShapeSummary, b: TrayBorder): BorderLook => ({
+      color: borderColor(b, viewColor(s, store.indexOf(s.id))),
+      material: b.material,
+      lit: prefs.lights,
+      picture: borderPicture(store.engine, s),
+    });
+    const shape = store.shape;
+    const b = sliding ? shownBorder(shape) : null;
+    const mesh = this.scene.mesh;
+    const src = mesh?.source ?? null;
+    if (
+      shape !== null &&
+      b !== null &&
+      mesh !== null &&
+      src?.kind === 'shape' &&
+      src.shape === shape.id
+    ) {
+      this.shapeBorder.set({
+        size: [shape.size[0], shape.size[1]],
+        floor: floorOfMesh(mesh.arrays.voxel, mesh.size),
+        z0: 0,
+        z1: shape.size[2] + 1,
+        round: b.corners === 'round',
+        rim: borderRim(b),
+        at: [[0, 0, 0]],
+      });
+      this.shapeBorder.setLook(lookOf(shape, b));
+    } else {
+      this.shapeBorder.set(null);
+    }
+    const f = this.solutionFloor;
+    const result = snap?.shapes.find((s) => s.id === this.solutionModel?.result) ?? null;
+    const rb = sliding ? shownBorder(result) : null;
+    if (result !== null && rb !== null && f?.shape === result.id) {
+      const [sx, sy, sz] = f.size;
+      this.solutionBorder.set({
+        size: [sx, sy],
+        floor: f.floor,
+        z0: 0,
+        z1: sz,
+        round: rb.corners === 'round',
+        rim: borderRim(rb),
+        at: [[-sx / 2, -sy / 2, -sz / 2]],
+      });
+      this.solutionBorder.setLook(lookOf(result, rb));
+    } else {
+      this.solutionBorder.set(null);
+    }
+    this.solution.showWalls(this.solutionBorder.count === 0);
+    this.solutionBorder.group.visible = this.solverMode;
+    const vp = byId('vp');
+    vp.dataset.border = this.shapeBorder.describe();
+    vp.dataset.solutionBorder = this.solutionBorder.describe();
   }
 
   /**
@@ -1114,6 +1197,7 @@ export class View3D {
         accent: css('--accent') || '#2f6df6',
       },
     });
+    this.syncBorders();
     this.renderEmpty();
     this.cube.draw();
     this.renderer.request();

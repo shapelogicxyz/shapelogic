@@ -9,7 +9,9 @@
 // over and one face up; a piece a wall leaves without a place is marked.
 // Every placement (stage G): the Placements dialog lists the boards the
 // grid can give, the Solver's Try every placement counts the assemblies on
-// each, and Use puts the grid at the one that takes the pieces.
+// each, and Use puts the grid at the one that takes the pieces. The
+// dialog's other ways: the problem chosen with Pieces of, a count stopped,
+// a board used while a count runs, and Show more on a tray of many boards.
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -452,6 +454,208 @@ test('every placement: the list, the count on each board, and the one that takes
     await page.keyboard.press('Control+z');
     await solverSettled(page);
     expect((await docOf(page)).tray).toEqual(snap.tray);
+  } finally {
+    await a.close();
+  }
+});
+
+/** A new Tilted Square puzzle (8 by 8, 1 down 2 over, strict), as File ▸ New makes it. */
+async function newTilted(page: Page): Promise<Snapshot> {
+  await menu(page, 'new');
+  await page.click('#newPuzzle [data-grid="tilted"]');
+  const gen = await page.getAttribute('#stage', 'data-generation');
+  await page.click('#newPuzzle [data-x="ok"]');
+  await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', gen ?? '');
+  await settled(page);
+  return docOf(page);
+}
+
+/** Opens the Placements dialog from Tilt & tolerance, the board selected. */
+async function openPlacementsDialog(page: Page): Promise<void> {
+  await page.click('#boardList .row');
+  await settled(page);
+  await page.click('#tiltBody [data-tplaces]');
+  await expect(page.locator('#placementsDlg .plc-row').first()).toBeVisible();
+}
+
+test('the Placements dialog counts for the problem chosen, with its stored options', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    // Triple Play: P1's pieces may be turned over (1 assembly on the board
+    // in use), P2 "One face up" keeps them face up (2)
+    await openFixture(page, 'tilted/TriplePlay.xmpuzzle');
+    const snap = await docOf(page);
+    const [first, second] = snap.problems.map((p) => p.id);
+    await openPlacementsDialog(page);
+    const dlg = page.locator('#placementsDlg');
+    await expect(dlg.locator('.plc-row')).toHaveCount(6);
+    // two problems: Pieces of chooses, the first at first
+    const pick = dlg.locator('[data-plc="problem"]');
+    await expect(dlg.locator('.plc-prob')).toBeVisible();
+    await expect(pick.locator('option')).toHaveCount(2);
+    await expect(pick).toHaveValue(first ?? '');
+    await page.click('#placementsDlg [data-plc="run"]');
+    await expect(dlg.locator('[data-plc="sum"]')).toHaveText(/ of 6 placements takes? the pieces$/);
+    await expect(dlg.locator('.plc-row[data-k="0"] .plc-fit')).toHaveText('1 assembly');
+    await expect(
+      dlg.locator('.plc-row[data-fit="waiting"], .plc-row[data-fit="trying"]'),
+    ).toHaveCount(0);
+
+    // the other problem: the counts are wiped, then counted with its own
+    // stored setting (the pieces face up: two ways on the board in use)
+    await pick.selectOption(second ?? '');
+    await expect(dlg.locator('.plc-row[data-fit="none"]')).toHaveCount(6);
+    await expect(dlg.locator('[data-plc="sum"]')).toHaveText('');
+    await page.click('#placementsDlg [data-plc="run"]');
+    await expect(dlg.locator('[data-plc="sum"]')).toHaveText(/ of 6 placements takes? the pieces$/);
+    await expect(dlg.locator('.plc-row[data-k="0"] .plc-fit')).toHaveText('2 assemblies');
+    await page.click('#placementsDlg [data-x="close"]');
+    await expect(dlg).toHaveCount(0);
+    // counting changed nothing
+    const after = await docOf(page);
+    expect(after.dirty).toBe(false);
+    expect(after.solving).toBe(false);
+    expect(after.tray).toEqual(snap.tray);
+  } finally {
+    await a.close();
+  }
+});
+
+test('the Placements dialog: a count stopped, and a board used while a count runs', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    // twenty dominoes on the 45 cells of a new tray: a count that does not end
+    const snap = await newTilted(page);
+    const [bx = 0] = snap.tray?.box ?? [];
+    const at = (snap.tray?.cells ?? '').indexOf('ww');
+    expect(at).toBeGreaterThanOrEqual(0);
+    const [x, y] = [at % bx, Math.floor(at / bx)];
+    const { shape } = await engineCall<{ shape: string }>(page, 'shape.create');
+    await engineCall(page, 'shape.setCells', {
+      shape,
+      tool: 'fixed',
+      cells: [
+        [x, y, 0],
+        [x + 1, y, 0],
+      ],
+    });
+    await engineCall(page, 'problem.setPieceCount', {
+      problem: snap.problems[0]?.id,
+      shape,
+      min: 20,
+      max: 20,
+    });
+    await settled(page);
+
+    await openPlacementsDialog(page);
+    const dlg = page.locator('#placementsDlg');
+    const run = dlg.locator('[data-plc="run"]');
+    const sum = dlg.locator('[data-plc="sum"]');
+    const rows = await dlg.locator('.plc-row').count();
+    expect(rows).toBeGreaterThanOrEqual(2);
+    // one problem: no choice shown
+    await expect(dlg.locator('.plc-prob')).toBeHidden();
+
+    // counting: the first board under way with what it has found, the rest
+    // waiting, the button now Stop
+    await run.click();
+    await expect(run).toHaveText('Stop');
+    await expect(dlg.locator('.plc-row[data-k="0"] .plc-fit')).toHaveText(/^[\d,]+ so far…$/);
+    await expect(dlg.locator('.plc-row[data-k="0"]')).toHaveAttribute('data-fit', 'trying');
+    await expect(dlg.locator('.plc-row[data-k="1"] .plc-fit')).toHaveText('Waiting');
+    await expect(sum).toHaveText(`Trying placement 1 of ${String(rows)}…`);
+    expect((await docOf(page)).solving).toBe(true);
+
+    // Stop: what was counted stays, the board stopped on says "or more"
+    await run.click();
+    await expect(sum).toHaveText(
+      `Stopped after 0 of ${String(rows)} placements: 1 takes the pieces so far`,
+    );
+    await expect(run).toHaveText('Count assemblies');
+    await expect(dlg.locator('.plc-row[data-k="0"]')).toHaveAttribute('data-fit', 'partial');
+    await expect(dlg.locator('.plc-row[data-k="0"] .plc-fit')).toHaveText(/^[\d,]+ or more$/);
+    await expect(dlg.locator('.plc-row[data-k="1"] .plc-fit')).toHaveText('Not tried');
+    await expect.poll(async () => (await docOf(page)).solving).toBe(false);
+
+    // counting again, a board is used while it runs: the count is stopped
+    // first, then the grid lies there, in one step
+    await run.click();
+    await expect(dlg.locator('.plc-row[data-k="0"] .plc-fit')).toHaveText(/^[\d,]+ so far…$/);
+    await dlg.locator('.plc-row[data-k="1"] [data-use]').click();
+    await expect(dlg).toHaveCount(0);
+    await settled(page);
+    await expect(page.locator('#stText')).toContainText('The grid lies at the placement chosen');
+    const used = await docOf(page);
+    expect(used.solving).toBe(false);
+    expect(used.tray?.placement).toBe('custom');
+    expect(used.shapes[1]?.fits).toBe(true);
+    const listed = await engineCall<{ inUse: number | null }>(page, 'tray.placements');
+    expect(listed.inUse).toBe(1);
+    await page.keyboard.press('Control+z');
+    await settled(page);
+    expect((await docOf(page)).tray).toEqual(snap.tray);
+
+    // closed while counting: the count is stopped
+    await openPlacementsDialog(page);
+    await run.click();
+    await expect(run).toHaveText('Stop');
+    await page.click('#placementsDlg [data-x="close"]');
+    await expect(dlg).toHaveCount(0);
+    await expect.poll(async () => (await docOf(page)).solving).toBe(false);
+  } finally {
+    await a.close();
+  }
+});
+
+test('the Placements dialog shows a tray of many boards forty at a time', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    // a 16 by 16 tray at 3 down 7 over with scattered walls gives about a hundred boards
+    await newTilted(page);
+    await engineCall(page, 'tray.set', { tray: { size: 16, over: 7, down: 3, allowance: 0.02 } });
+    await engineCall(page, 'tray.setWalls', {
+      squares: [
+        [0, 0],
+        [1, 1],
+        [8, 2],
+        [4, 6],
+        [8, 12],
+        [15, 15],
+      ],
+      wall: true,
+    });
+    await settled(page);
+    const listed = await engineCall<{ boards: { whole: number }[]; complete: boolean }>(
+      page,
+      'tray.placements',
+    );
+    const n = listed.boards.length;
+    expect(listed.complete).toBe(true);
+    expect(n).toBeGreaterThan(80);
+
+    await openPlacementsDialog(page);
+    const dlg = page.locator('#placementsDlg');
+    const more = dlg.locator('[data-more]');
+    await expect(dlg.locator('.cb p').first()).toContainText(`The grid gives ${String(n)} boards`);
+    await expect(dlg.locator('.plc-row')).toHaveCount(40);
+    await expect(more).toHaveText(`Show 40 more of ${String(n - 40)}`);
+    await expect(dlg.locator('.plc-row[data-k="0"] .plc-t b')).toHaveText(
+      `${String(listed.boards[0]?.whole ?? 0)} whole cells`,
+    );
+    await more.click();
+    await expect(dlg.locator('.plc-row')).toHaveCount(80);
+    await expect(more).toHaveText(`Show ${String(Math.min(40, n - 80))} more of ${String(n - 80)}`);
+    // the rows added get their pictures too
+    await expect(dlg.locator('.plc-row[data-k="45"] .plc-pic svg')).toHaveCount(1);
+    await more.click();
+    await expect(dlg.locator('.plc-row')).toHaveCount(n);
+    await expect(more).toHaveCount(0);
+    await expect(dlg.locator(`.plc-row[data-k="${String(n - 1)}"] .plc-t b`)).toHaveText(
+      `${String(listed.boards[n - 1]?.whole ?? 0)} whole cells`,
+    );
   } finally {
     await a.close();
   }

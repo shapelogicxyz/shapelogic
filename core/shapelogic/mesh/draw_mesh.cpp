@@ -135,8 +135,9 @@ DrawMesh shapeDrawMesh(const Voxel& v, MeshStyle style) {
   m.hotspot[0] = v.getHx();
   m.hotspot[1] = v.getHy();
   m.hotspot[2] = v.getHz();
-  if (v.getImage().present()) {
-    m.imageUv = imageUv(v.getImage(), m);
+  // the pictures of a stack share their box and turn (decision 0047)
+  if (!v.getImages().empty()) {
+    m.imageUv = imageUv(v.getImages().front(), m);
   }
   return m;
 }

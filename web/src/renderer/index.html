@@ -101,6 +101,15 @@
                   </button>
                   <div class="sb" id="tiltBody"></div>
                 </div>
+                <div class="sec" id="secBorder" hidden>
+                  <button
+                    class="sh"
+                    title="Show or hide the tray border’s settings: whether the tray shows its border, and its corners, color, image and material"
+                  >
+                    <span class="chev"></span>Tray border<span class="sum" id="borderSum"></span>
+                  </button>
+                  <div class="sb" id="borderBody"></div>
+                </div>
                 <div class="sec" id="secTf">
                   <button
                     class="sh"
@@ -143,6 +152,13 @@
               <input
                 type="color"
                 id="shapeColorPick"
+                tabindex="-1"
+                aria-hidden="true"
+                style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0"
+              />
+              <input
+                type="color"
+                id="borderColorPick"
                 tabindex="-1"
                 aria-hidden="true"
                 style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0"
@@ -493,10 +509,13 @@
                 <div class="lstrip" id="lstrip"></div>
                 <!-- the grid, and under it (beside the layers) the box selection's strip while selecting -->
                 <div class="gcol">
-                  <div
-                    id="garea"
-                    title="Click or drag: active tool (Shift fixed · Alt variable · Ctrl erase) · Right-click or right-drag: erase"
-                  ></div>
+                  <!-- the mouse help, in a row of its own above the grid (as a title on
+                       #garea, its tooltip sat on the cells being edited) -->
+                  <div class="ghelp mute" id="gridHelp">
+                    Click or drag: active tool (Shift fixed · Alt variable · Ctrl erase) ·
+                    Right-click or right-drag: erase
+                  </div>
+                  <div id="garea"></div>
                   <div id="trayArea"></div>
                   <div class="selbar" id="selbar"></div>
                 </div>

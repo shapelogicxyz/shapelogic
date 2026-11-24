@@ -46,8 +46,10 @@ export interface ProblemNote {
  * The note beside a problem. `found` is null until its finished solve has
  * been read; `pausedSearch` is a stacking problem's saved search (its
  * started solve, which the snapshot's state does not show); `stop` is what
- * a run under way was asked to stop for (its progress's stopKind), or
- * `save`: paused by a save that carries it on (the crash recovery copy).
+ * a run under way was asked to stop for (its progress's stopKind, or
+ * `abort` from the user's Abort until it is shown, the run paused for a
+ * save meanwhile too), or `save`: paused by a save that carries it on (the
+ * crash recovery copy).
  */
 export function problemNote(
   state: SolveState,
@@ -58,8 +60,8 @@ export function problemNote(
   pausedSearch = false,
   stop: 'pause' | 'abort' | 'save' | null = null,
 ): ProblemNote {
-  if (stop === 'save' && (isActive(state) || state === 'paused')) {
-    return { kind: 'solving', text: 'saving' };
+  if ((stop === 'save' || stop === 'abort') && (isActive(state) || state === 'paused')) {
+    return { kind: 'solving', text: stop === 'save' ? 'saving' : 'aborting' };
   }
   if (isActive(state)) {
     const text = stop === 'pause' ? 'pausing' : stop === 'abort' ? 'aborting' : 'solving';

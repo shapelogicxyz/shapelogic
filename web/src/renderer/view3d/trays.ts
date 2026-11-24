@@ -16,6 +16,8 @@ import type { MeshStyle } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { esc } from '../shell/dom.ts';
 import { boardColor, hex, viewColor } from '../shell/piece-colors.ts';
+import { borderPicture } from '../shell/piece-images.ts';
+import { borderColor, borderRim, shownBorder } from '../shell/tray-border.ts';
 import type { TrayCopy } from '../entities/tray.ts';
 import { buildMesh } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
@@ -23,6 +25,7 @@ import type { MeshCache } from './meshcache.ts';
 import { SolutionScene } from './solution.ts';
 import type { PiecePicture } from '../shell/picture-math.ts';
 import type { ScenePiece, ScenePose, SolutionLook } from './solution.ts';
+import { floorOfMesh, TrayBorderMesh } from './tray-border.ts';
 
 /** The board and where the copies stand on it, on START and on GOAL. */
 export interface TrayModel {
@@ -52,6 +55,9 @@ export class TrayView {
   readonly group = new Group();
   private readonly host: TraysHost;
   private readonly scene = new SolutionScene();
+  /** The trays' borders (decision 0046): round START and round GOAL. */
+  private readonly border = new TrayBorderMesh();
+  private lit = true;
   private model: TrayModel | null = null;
   /** The meshes this made (freed when replaced). */
   private built: BuiltMesh[] = [];
@@ -59,17 +65,20 @@ export class TrayView {
   private loads = 0;
   /** The tray shown: its size, or null when none is. */
   private size: readonly [number, number, number] | null = null;
+  /** The room between the two trays, in cells: TRAY_GAP, more round a thick border. */
+  private gap = TRAY_GAP;
 
   constructor(host: TraysHost, parent: Group) {
     this.host = host;
     this.group.add(this.scene.group);
+    this.group.add(this.border.group);
     parent.add(this.group);
   }
 
   /** The space the view frames while two trays are shown (null: none). */
   get extent(): [number, number, number] | null {
     const s = this.size;
-    return s === null ? null : [2 * s[0] + TRAY_GAP, s[1], s[2] + 1];
+    return s === null ? null : [2 * s[0] + this.gap, s[1], s[2] + 1];
   }
 
   /** A piece's picture by its shape (the view's; null: none, or not decoded yet). */
@@ -80,6 +89,30 @@ export class TrayView {
   /** Applies the pictures again (one was decoded). */
   applyPictures(): void {
     this.scene.applyPictures();
+    this.applyBorder();
+  }
+
+  // the border's look, from the board as the snapshot has it now
+  private applyBorder(): void {
+    const store = this.host.store;
+    const shapes = store.snapshot?.shapes ?? [];
+    const i = shapes.findIndex((s) => s.id === this.model?.tray);
+    const tray = shapes[i];
+    const b = shownBorder(tray);
+    if (tray === undefined || b === null || this.border.count === 0) {
+      return;
+    }
+    this.border.setLook({
+      color: borderColor(b, viewColor(tray, i)),
+      material: b.material,
+      lit: this.lit,
+      picture: borderPicture(store.engine, tray),
+    });
+  }
+
+  /** The borders drawn (the e2e tests read it): TrayBorderMesh.describe(). */
+  describeBorder(): string {
+    return this.border.describe();
   }
 
   /** Shows a board's trays (null: none). */
@@ -91,6 +124,8 @@ export class TrayView {
   /** The look of the pieces (the view's). */
   setLook(look: SolutionLook): void {
     this.scene.setLook(look);
+    this.lit = look.lit;
+    this.applyBorder();
   }
 
   /** The lines' widths follow the viewport. */
@@ -165,10 +200,15 @@ export class TrayView {
     this.size = model === null ? null : size;
     if (model === null || meshes === null || size === null) {
       this.scene.set(null);
+      this.border.set(null);
     } else {
       const store = this.host.store;
       const shapes = store.snapshot?.shapes ?? [];
-      const shift = size[0] + TRAY_GAP;
+      // the trays' borders, a layer higher than the floor: the pieces stand in them
+      const b = shownBorder(shapes.find((x) => x.id === model.tray));
+      // a thick border's rims, one on each tray, kept as far apart as thin ones
+      this.gap = b !== null && b.thickness > 0 ? TRAY_GAP + 2 * b.thickness : TRAY_GAP;
+      const shift = size[0] + this.gap;
       const pieces: ScenePiece[] = [];
       const poses: ScenePose[] = [];
       const pose = (t: [number, number, number]): ScenePose => ({
@@ -223,7 +263,24 @@ export class TrayView {
       };
       place(model.starts, 0);
       place(model.goals, shift);
-      this.scene.set({ key, extent: [2 * size[0] + TRAY_GAP, size[1], size[2] + 1], pieces });
+      this.border.set(
+        b === null || trayMesh === undefined
+          ? null
+          : {
+              size: [size[0], size[1]],
+              floor: floorOfMesh(trayMesh.arrays.voxel, trayMesh.size),
+              z0: 0,
+              z1: size[2] + 1,
+              round: b.corners === 'round',
+              rim: borderRim(b),
+              at: [
+                [0, 0, 0],
+                [shift, 0, 0],
+              ],
+            },
+      );
+      this.applyBorder();
+      this.scene.set({ key, extent: [2 * size[0] + this.gap, size[1], size[2] + 1], pieces });
       this.scene.setPoses(poses);
     }
     for (const b of old) {
@@ -241,10 +298,12 @@ export class TrayView {
     if (s === null) {
       return '';
     }
+    // clear of the trays' borders, when they have them
+    const rim = this.border.count === 0 ? 0 : this.border.rim;
     const at = (x: number): [number, number] =>
-      toScreen(model.localToWorld(new Vector3(x, s[1] + 0.7, s[2] + 1)));
+      toScreen(model.localToWorld(new Vector3(x, s[1] + 0.7 + rim, s[2] + 1)));
     const [ax, ay] = at(s[0] / 2);
-    const [bx, by] = at(s[0] + TRAY_GAP + s[0] / 2);
+    const [bx, by] = at(s[0] + this.gap + s[0] / 2);
     const tag = (t: string, x: number, y: number): string =>
       `<span style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px">${esc(t)}</span>`;
     return tag('START', ax, ay) + tag('GOAL', bx, by);

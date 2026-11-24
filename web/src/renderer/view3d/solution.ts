@@ -166,6 +166,8 @@ export class SolutionScene {
   /** The walls' lines (drawSlidingWalls: black, 5 pixels; white on the dark theme, setDark). */
   private readonly wallMaterial = new LineMaterial({ color: 0x000000, linewidth: 5 });
   private walls: LineSegments2 | null = null;
+  /** Whether the walls' lines are drawn (not while the tray's border shows the walls). */
+  private wallsShown = true;
   private draws: PieceDraw[] = [];
   private look: SolutionLook = {
     style: 'drawing',
@@ -211,7 +213,16 @@ export class SolutionScene {
       new LineSegmentsGeometry().setPositions(segments),
       this.wallMaterial,
     );
+    this.walls.visible = this.wallsShown;
     this.group.add(this.walls);
+  }
+
+  /** Draws the walls' lines or not (the tray's border, when shown, stands for them). */
+  showWalls(on: boolean): void {
+    this.wallsShown = on;
+    if (this.walls !== null) {
+      this.walls.visible = on;
+    }
   }
 
   /** How many wall segments are drawn (the e2e tests read it). */

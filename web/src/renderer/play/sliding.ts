@@ -14,19 +14,25 @@
 // not fix (nested slides, partial nesting) are read from its stored Solver
 // options; a piece stays in its layer when played by hand.
 
-import type { Methods, ProblemDetail, ShapeSummary } from '../../engine/api.generated.ts';
+import type {
+  Methods,
+  ProblemDetail,
+  ShapeImage,
+  ShapeSummary,
+} from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { tab } from '../shell/layout.ts';
 import { copyColor, fromHex, shapeColor } from '../shell/piece-colors.ts';
-import { onPieceImage, pieceImage } from '../shell/piece-images.ts';
+import { onPieceImage, stackPicture } from '../shell/piece-images.ts';
 import { onPrefs } from '../shell/prefs.ts';
 import { reportError } from '../shell/status.ts';
+import { shownBorder } from '../shell/tray-border.ts';
 import { onTheme } from '../shell/theme.ts';
 import { readOptions } from '../solver/settings.ts';
 import { PlayBoard } from './board.ts';
-import type { BoardModel, ReachGroup } from './board.ts';
+import type { BoardModel, BoardPiece, ReachGroup } from './board.ts';
 import { made, newGame, placesAt, withMoves } from './game.ts';
 import type { AnyGame, Cell, Game, Move } from './game.ts';
 import type { Loaded, PlayKind, PlayKindHost } from './kind.ts';
@@ -251,20 +257,34 @@ export class SlidingPlay implements PlayKind {
     const boardShape = start.board.shape;
     const tray = shapes.find((s) => s.id === boardShape);
     const copies = new Map<string, number>();
-    const trayImage = tray?.image ?? null;
-    const trayPicture = pieceImage(this.store.engine, trayImage);
+    // each stack of pictures as one (decision 0047), once decoded
+    const drawn = (images: readonly ShapeImage[] | undefined): BoardPiece['picture'] => {
+      const p = stackPicture(this.store.engine, images ?? []);
+      return p === null
+        ? null
+        : {
+            image: p.image,
+            dataUrl: p.picture.dataUrl,
+            width: p.picture.width,
+            height: p.picture.height,
+          };
+    };
+    // the tray's border as the board's section chose it (decision 0046)
+    const border = shownBorder(tray);
     return {
       size: cell(start.board.size),
       color: tray?.color == null ? null : fromHex(tray.color),
       floor: start.board.cells.map((c) => ({ at: cell(c.at), variable: c.state === 'variable' })),
-      picture:
-        trayImage === null || trayPicture === null
+      picture: drawn(tray?.images),
+      border:
+        border === null
           ? null
           : {
-              image: trayImage,
-              dataUrl: trayPicture.dataUrl,
-              width: trayPicture.width,
-              height: trayPicture.height,
+              round: border.corners === 'round',
+              material: border.material,
+              color: border.color === null ? null : fromHex(border.color),
+              thickness: border.thickness,
+              picture: drawn(border.images),
             },
       goals: start.goals.map((g) => {
         const i = indexOf(g.piece);
@@ -278,17 +298,12 @@ export class SlidingPlay implements PlayKind {
         const s: ShapeSummary | undefined = shapes[i];
         const sub = copies.get(p.piece) ?? 0;
         copies.set(p.piece, sub + 1);
-        const image = s?.image ?? null;
-        const picture = pieceImage(this.store.engine, image);
         return {
           cells: p.cells.map(cell),
           origin: cell(p.origin),
           color: copyColor(s, Math.max(0, i), sub, snap.colors),
           name: s?.name ?? '',
-          picture:
-            image === null || picture === null
-              ? null
-              : { image, dataUrl: picture.dataUrl, width: picture.width, height: picture.height },
+          picture: drawn(s?.images),
         };
       }),
     };

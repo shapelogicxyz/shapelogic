@@ -204,8 +204,7 @@ Json discColor(const State& s, const Voxel& v) {
 
 // The shape's picture (decision 0038), without its bytes: the snapshot is
 // sent whole on every change, the bytes once through shape.imageData.
-Json shapeImage(const Puzzle& puzzle, const Voxel& v) {
-  const ShapeImage& im = v.getImage();
+Json shapeImage(const Puzzle& puzzle, const ShapeImage& im) {
   const PuzzleImage* file = im.present() ? puzzle.findImage(im.id) : nullptr;
   if (file == nullptr) {
     return nullptr;
@@ -214,10 +213,43 @@ Json shapeImage(const Puzzle& puzzle, const Voxel& v) {
               {"hash", file->hash},
               {"width", file->width},
               {"height", file->height},
-              {"fit", im.fit == ImageFit::Stretch ? "stretch" : "crop"},
+              {"fit", imageFitName(im.fit)},
               {"src", im.src},
               {"box", im.box},
               {"turn", im.turn}};
+}
+
+// A stack of pictures, the bottom one first (decision 0047); one the file
+// does not have is left out.
+Json shapeImages(const Puzzle& puzzle, const ShapeImages& stack) {
+  Json out = Json::array();
+  for (const ShapeImage& im : stack) {
+    if (Json j = shapeImage(puzzle, im); !j.is_null()) {
+      out.push_back(std::move(j));
+    }
+  }
+  return out;
+}
+
+// A board's tray border (decision 0046); null for a shape that is no
+// sliding puzzle's board.
+Json trayBorder(const Puzzle& puzzle, const Voxel& v) {
+  if (!sliding::isSliding(puzzle) || !sliding::isStartGoalShape(&v)) {
+    return nullptr;
+  }
+  const TrayBorder& b = v.getBorder();
+  Json color = nullptr;
+  if (b.color >= 0) {
+    const auto u = static_cast<unsigned int>(b.color);
+    color = rgbText(Rgb{static_cast<std::uint8_t>(u >> 16), static_cast<std::uint8_t>(u >> 8),
+                        static_cast<std::uint8_t>(u)});
+  }
+  return Json{{"enabled", b.enabled},
+              {"corners", borderCornersName(b.corners)},
+              {"material", borderMaterialName(b.material)},
+              {"color", color},
+              {"thickness", b.thickness},
+              {"images", shapeImages(puzzle, b.images)}};
 }
 
 Json optionalCount(bool known, std::uint64_t value) {
@@ -266,7 +298,8 @@ Json shapeSummary(const State& s, unsigned int index) {
   const bool disc = stacking::isStacking(s.document().puzzle()) && v.getDiskSize() > 0;
   j["disc"] = disc ? Json(v.getDiskSize()) : Json(nullptr);
   j["discColor"] = disc ? discColor(s, v) : Json(nullptr);
-  j["image"] = shapeImage(s.document().puzzle(), v);
+  j["images"] = shapeImages(s.document().puzzle(), v.getImages());
+  j["border"] = trayBorder(s.document().puzzle(), v);
   j["board"] = s.document().tilted() && index == 0;
   j["fits"] = s.document().fitsTray(index);
   return j;

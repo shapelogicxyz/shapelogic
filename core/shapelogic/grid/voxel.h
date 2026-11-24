@@ -10,6 +10,7 @@
 #include "shapelogic/base/assert.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/shape_image.h"
+#include "shapelogic/grid/tray_border.h"
 #include "shapelogic/grid/symmetries.h"
 #include "shapelogic/grid/types.h"
 
@@ -410,10 +411,25 @@ class Voxel {
   [[nodiscard]] int getShapeColor() const { return shapeColor_; }
   void setShapeColor(int c) { shapeColor_ = c; }
 
-  /// The picture on the shape's top faces (sliding puzzles, decision 0038);
-  /// its id is -1 when there is none. It follows the cells when they move.
-  [[nodiscard]] const ShapeImage& getImage() const { return image_; }
-  void setImage(const ShapeImage& image) { image_ = image; }
+  /// The pictures on the shape's top faces (sliding puzzles, decisions
+  /// 0038 and 0047), the bottom one first; none when empty. They follow
+  /// the cells when they move.
+  [[nodiscard]] const ShapeImages& getImages() const { return images_; }
+  void setImages(ShapeImages images) { images_ = std::move(images); }
+  /// The bottom picture; its id is -1 when there is none.
+  [[nodiscard]] ShapeImage getImage() const { return bottomImage(images_); }
+  /// One picture, in place of all (none when it is not present).
+  void setImage(const ShapeImage& image) {
+    images_.clear();
+    if (image.present()) {
+      images_.push_back(image);
+    }
+  }
+
+  /// The border of the tray this shape is the board of (sliding puzzles,
+  /// decision 0046). Its picture's turn follows the cells when they turn.
+  [[nodiscard]] const TrayBorder& getBorder() const { return border_; }
+  void setBorder(const TrayBorder& border) { border_ = border; }
 
   /// Attributes of the shape's file element that this version does not know
   /// (name, value), written back unchanged (decision 0006).
@@ -460,7 +476,9 @@ class Voxel {
   int hz_ = 0;
 
   /// The picture, moved by the grid classes with the cells.
-  ShapeImage image_;
+  ShapeImages images_;
+  /// The tray's border; its picture turned by the grid classes with the cells.
+  TrayBorder border_;
 
   /// Start and goal marks per cell; each empty when the shape has none.
   std::vector<unsigned char> startPiece_;

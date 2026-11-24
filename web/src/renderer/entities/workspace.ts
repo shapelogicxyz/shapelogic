@@ -18,7 +18,7 @@
 // set chosen alone (stacking.rodSetLayout; the original's
 // `showSelectedRods`).
 
-import type { CellTool, ShapeSummary } from '../../engine/api.generated.ts';
+import type { CellTool, ShapeImage, ShapeSummary } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Edits } from '../state/edits.ts';
 import type { Store } from '../state/store.ts';
@@ -30,7 +30,8 @@ import { onKey } from '../shell/keyboard.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { editorVisible, layout, onLayout, tab } from '../shell/layout.ts';
 import { chipColor, hex, isTray, shapeColor } from '../shell/piece-colors.ts';
-import { onPieceImage, pieceImage } from '../shell/piece-images.ts';
+import { loadPieceImage, onPieceImage, stackPicture } from '../shell/piece-images.ts';
+import type { PieceImage } from '../shell/piece-images.ts';
 import { pictureToCells } from '../shell/picture-math.ts';
 import { flash, reportError, setCursor } from '../shell/status.ts';
 import { onTheme } from '../shell/theme.ts';
@@ -56,6 +57,8 @@ import { rodSetText } from '../state/stacking.ts';
 import { ShapesList } from './shapes-list.ts';
 import { openPlacements } from './placements-dialog.ts';
 import { TiltCard, tiltKey } from './tilt-card.ts';
+import { BorderCard, borderBoard, borderKey } from './border-card.ts';
+import { borderRim, trayBox } from '../shell/tray-border.ts';
 import { TrayViewCard } from './tray-view.ts';
 import { cellState, isTiltBoard, isTilted } from '../state/tilted.ts';
 import { boardCenter } from '../view3d/board.ts';
@@ -74,6 +77,10 @@ export class EntitiesWorkspace {
   private readonly inspector: Inspector;
   /** A tilted puzzle's Tilt & tolerance section, and its board's views. */
   private readonly tilt: TiltCard;
+  /** A sliding board's Tray border section. */
+  private readonly border: BorderCard;
+  /** Whether the shape shown last was a sliding board: Transform is folded for one. */
+  private borderShown = false;
   private readonly trayView: TrayViewCard;
   private readonly card: EditorCard;
   private readonly grid: Grid2D;
@@ -131,6 +138,14 @@ export class EntitiesWorkspace {
         if (!refuse()) {
           void openPlacements({ store, mutate: (doing, call) => this.mutate(doing, call) });
         }
+      },
+    });
+    this.border = new BorderCard({
+      store,
+      refuse,
+      mutate: (doing, call) => this.mutate(doing, call),
+      editImage: () => {
+        this.editBorderImage();
       },
     });
     this.trayView = new TrayViewCard({
@@ -370,11 +385,20 @@ export class EntitiesWorkspace {
   // the inspector again only when what it shows changed (not every cell drawn)
   private renderInspector(): void {
     const s = this.store.shape;
-    const k = `${String(this.tasks?.length)}:${this.tasksFor}:${s?.id}:${s?.label}:${s?.color}:${(s?.fixed ?? 0) + (s?.variable ?? 0) === 0}:${this.state.applyAll}:${this.store.indexOf(s?.id ?? '')}:${tiltKey(this.store)}`;
+    const k = `${String(this.tasks?.length)}:${this.tasksFor}:${s?.id}:${s?.label}:${s?.color}:${(s?.fixed ?? 0) + (s?.variable ?? 0) === 0}:${this.state.applyAll}:${this.store.indexOf(s?.id ?? '')}:${tiltKey(this.store)}:${borderKey(this.store)}`;
     if (k !== this.inspectorKey) {
       this.inspectorKey = k;
       this.inspector.render();
       this.tilt.render();
+      this.border.render();
+    }
+    // a sliding board: Tray border above Transform, which is folded for it
+    // at first (and open again for a piece); the user's own folding stays
+    // while the same kind of shape is shown
+    const bordered = borderBoard(this.store) !== null;
+    if (bordered !== this.borderShown) {
+      this.borderShown = bordered;
+      byId('secTf').classList.toggle('closed', bordered);
     }
     // a tilted puzzle: the board has only Tilt & tolerance; a piece has no
     // Fit & scale (every shape has the board's size)
@@ -436,33 +460,80 @@ export class EntitiesWorkspace {
       );
       return;
     }
-    const picture = pieceImage(this.store.engine, shape.image);
-    openImageDialog({
-      label: shape.label,
-      board: isTray(shape),
-      cells,
-      color: hex(chipColor(shape, this.store.indexOf(shape.id))),
-      current: shape.image !== null && picture !== null ? { image: shape.image, picture } : null,
-      apply: (a) =>
-        this.mutate('Image', () =>
-          this.store.engine.call('shape.setImage', { shape: shape.id, ...a }),
-        ).then((r) => r !== null),
-      remove: () =>
-        void this.mutate('Remove image', () =>
-          this.store.engine.call('shape.clearImage', { shape: shape.id }),
-        ),
+    void this.decoded(shape.images).then((current) => {
+      openImageDialog({
+        label: shape.label,
+        board: isTray(shape),
+        cells,
+        color: hex(chipColor(shape, this.store.indexOf(shape.id))),
+        current,
+        apply: (a) =>
+          this.mutate('Image', () =>
+            this.store.engine.call('shape.setImages', { shape: shape.id, layers: a.layers }),
+          ).then((r) => r !== null),
+        remove: () =>
+          void this.mutate('Remove image', () =>
+            this.store.engine.call('shape.clearImage', { shape: shape.id }),
+          ),
+      });
+    });
+  }
+
+  // a stack's pictures once decoded, the bottom one first (one that cannot be read is left out)
+  private async decoded(
+    images: readonly ShapeImage[],
+  ): Promise<{ image: ShapeImage; picture: PieceImage }[]> {
+    const pictures = await Promise.all(images.map((im) => loadPieceImage(this.store.engine, im)));
+    return images.flatMap((image, k) => {
+      const picture = pictures[k];
+      return picture == null ? [] : [{ image, picture }];
+    });
+  }
+
+  // the Apply image dialog for the border of the board shown (decision
+  // 0046): the picture over the whole tray, shown on all but the floor
+  private editBorderImage(): void {
+    const shape = borderBoard(this.store);
+    if (shape === null || this.refuse()) {
+      return;
+    }
+    const border = shape.border;
+    void this.decoded(border.images).then((current) => {
+      openImageDialog({
+        label: shape.label,
+        frame: {
+          box: trayBox(shape.size, borderRim(border)),
+          round: border.corners === 'round',
+        },
+        cells: [...this.cells.all.values()].map((v) => v.at),
+        color: hex(chipColor(shape, this.store.indexOf(shape.id))),
+        current,
+        apply: (a) =>
+          this.mutate('Image', () =>
+            this.store.engine.call('shape.setImages', {
+              shape: shape.id,
+              border: true,
+              layers: a.layers,
+            }),
+          ).then((r) => r !== null),
+        remove: () =>
+          void this.mutate('Remove image', () =>
+            this.store.engine.call('shape.clearImage', { shape: shape.id, border: true }),
+          ),
+      });
     });
   }
 
   // a sliding piece's or board's picture for the grid, once decoded (null: none yet)
-  private pictureOf(shape: { image: ShapeSummary['image'] }): GridInput['image'] {
-    if (this.store.snapshot?.grid !== 'sliding' || shape.image === null) {
+  private pictureOf(shape: { images: ShapeSummary['images'] }): GridInput['image'] {
+    if (this.store.snapshot?.grid !== 'sliding') {
       return null;
     }
-    const picture = pieceImage(this.store.engine, shape.image);
-    return picture === null
+    // the stack as one (decision 0047)
+    const p = stackPicture(this.store.engine, shape.images);
+    return p === null
       ? null
-      : { picture, toCells: pictureToCells(shape.image), src: shape.image.src };
+      : { picture: p.picture, toCells: pictureToCells(p.image), src: p.image.src };
   }
 
   // the grid of the layer shown: its drawing and the hinted layer's (asked

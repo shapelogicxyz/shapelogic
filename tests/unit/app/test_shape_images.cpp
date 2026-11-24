@@ -176,7 +176,10 @@ TEST_CASE("shape images: what the command refuses", "[app][sliding]") {
     return doc.setShapeImage(s, {std::string("not a picture"), std::nullopt, ImageFit::Crop, {0, 0, 1, 1}});
   });
   refused(d, Errc::InvalidArgument, [&](Document& doc) {
-    return doc.setShapeImage(s, {png, std::nullopt, ImageFit::Crop, {5, 0, 20, 10}});
+    return doc.setShapeImage(s, {png, std::nullopt, ImageFit::Crop, {20, 0, 20, 10}});
+  });
+  refused(d, Errc::InvalidArgument, [&](Document& doc) {
+    return doc.setShapeImage(s, {png, std::nullopt, ImageFit::Manual, {-40, 0, 40, 10}});
   });
   refused(d, Errc::InvalidArgument, [&](Document& doc) {
     return doc.setShapeImage(s, {png, 0U, ImageFit::Crop, {0, 0, 20, 10}});
@@ -254,6 +257,74 @@ TEST_CASE("shape images: the file keeps the pictures shapes show", "[app][slidin
   REQUIRE(back->findImage(0) != nullptr);
   CHECK(*back->findImage(0)->bytes == png);
   CHECK(io::writePuzzle(*back) == file);
+}
+
+TEST_CASE("shape images: a picture placed by hand keeps its fit and part in the file",
+          "[app][sliding][io]") {
+  Document d(GridKind::Sliding);
+  const Id s = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
+  REQUIRE(d.setShapeImage(s, {pngHeader(40, 20, 'm'), std::nullopt, ImageFit::Manual, {7, 3, 22, 11}})
+              .has_value());
+  CHECK(shapeOf(d, s).getImage().fit == ImageFit::Manual);
+  const std::string file = io::writePuzzle(d.puzzle());
+  CHECK(file.find("imageFit=\"manual\" imageSrc=\"7 3 22 11\"") != std::string::npos);
+  Result<Puzzle> back = io::parsePuzzle(file);
+  REQUIRE(back.has_value());
+  CHECK(back->getShape(0).getImage() == shapeOf(d, s).getImage());
+  CHECK(io::writePuzzle(*back) == file);
+}
+
+TEST_CASE("shape images: a stack of pictures, set in one step, kept by the file and turned",
+          "[app][sliding][io]") {
+  Document d(GridKind::Sliding);
+  const Id s = piece(d, 3, 2, {{0, 0, 0}, {1, 0, 0}, {2, 0, 0}, {0, 1, 0}});
+  // a picture smaller than the box (its part shown reaches past its
+  // edges), and a second one on top of it
+  const std::vector<Document::ImageLayer> two{
+      {pngHeader(30, 20, 'a'), std::nullopt, ImageFit::Manual, {-30, -10, 90, 60}},
+      {pngHeader(16, 16, 'b'), std::nullopt, ImageFit::Manual, {0, 0, 16, 16}}};
+  roundTrip(d, [&](Document& doc) { return doc.setShapeImages(s, two); });
+  const ShapeImages& stack = shapeOf(d, s).getImages();
+  REQUIRE(stack.size() == 2);
+  CHECK(stack[0].src == std::array<int, 4>{-30, -10, 90, 60});
+  CHECK(stack[1].src == std::array<int, 4>{0, 0, 16, 16});
+  CHECK(stack[0].box == stack[1].box);
+  CHECK(d.puzzle().images().size() == 2);
+  // the same stack again is no step; the pictures by id reorder it
+  const auto before = d.revision();
+  REQUIRE(d.setShapeImages(s, two).has_value());
+  CHECK(d.revision() == before);
+  const auto a = static_cast<unsigned int>(stack[0].id);
+  const auto b = static_cast<unsigned int>(stack[1].id);
+  roundTrip(d, [&](Document& doc) {
+    return doc.setShapeImages(s, {{std::nullopt, b, ImageFit::Manual, {0, 0, 16, 16}},
+                                  {std::nullopt, a, ImageFit::Manual, {-30, -10, 90, 60}}});
+  });
+  CHECK(shapeOf(d, s).getImages().at(0).id == static_cast<int>(b));
+
+  // the file: the bottom one as before, the next as image2
+  const std::string file = io::writePuzzle(d.puzzle());
+  CHECK(file.find("imageSrc=\"0 0 16 16\"") != std::string::npos);
+  CHECK(file.find("image2=\"" + std::to_string(a) + "\" image2Fit=\"manual\" image2Src=\"-30 -10 90 60\"") !=
+        std::string::npos);
+  Result<Puzzle> back = io::parsePuzzle(file);
+  REQUIRE(back.has_value());
+  CHECK(back->getShape(d.shapeIndex(s).value()).getImages() == shapeOf(d, s).getImages());
+  CHECK(back->getShape(d.shapeIndex(s).value()).getExtraAttributes().empty());
+  CHECK(io::writePuzzle(*back) == file);
+
+  // a quarter turn turns every picture of the stack
+  REQUIRE(d.shapeTask(s, ShapeTask::Rotate10).has_value());
+  CHECK(shapeOf(d, s).getImages().at(0).turn != 0);
+  CHECK(shapeOf(d, s).getImages().at(0).turn == shapeOf(d, s).getImages().at(1).turn);
+  CHECK(shapeOf(d, s).getImages().at(0).box == shapeOf(d, s).getImages().at(1).box);
+
+  // an empty stack takes them off; more than 16 are refused
+  roundTrip(d, [&](Document& doc) { return doc.setShapeImages(s, {}); });
+  CHECK(shapeOf(d, s).getImages().empty());
+  const std::vector<Document::ImageLayer> many(
+      kMaxShapeImages + 1, {std::nullopt, a, ImageFit::Manual, {0, 0, 30, 20}});
+  refused(d, Errc::InvalidArgument, [&](Document& doc) { return doc.setShapeImages(s, many); });
 }
 
 TEST_CASE("shape images: a file's bad pictures are dropped, not refused", "[app][sliding][io]") {
@@ -381,4 +452,89 @@ TEST_CASE("shape images: a board takes a picture on its floor, kept by the file"
 
   roundTrip(d, [&](Document& doc) { return doc.clearShapeImage(tray); });
   CHECK_FALSE(shapeOf(d, tray).getImage().present());
+}
+
+TEST_CASE("tray border: set on a board, undone, turned and kept by the file",
+          "[app][sliding][io]") {
+  Document d(GridKind::Sliding);
+  const Id tray = d.addStartGoal(std::array<unsigned int, 3>{3, 2, 1}).value();
+  const Id s = piece(d, 1, 1, {{0, 0, 0}});
+  CHECK(shapeOf(d, tray).getBorder().isDefault());
+  // a board without a border writes none of its attributes
+  CHECK(io::writePuzzle(d.puzzle()).find("border") == std::string::npos);
+
+  Document::BorderChange on;
+  on.enabled = true;
+  roundTrip(d, [&](Document& doc) { return doc.setTrayBorder(tray, on); });
+  CHECK(shapeOf(d, tray).getBorder().enabled);
+  // the same again is no step
+  const auto before = d.revision();
+  REQUIRE(d.setTrayBorder(tray, on).has_value());
+  CHECK(d.revision() == before);
+
+  Document::BorderChange look;
+  look.corners = BorderCorners::Sharp;
+  look.material = BorderMaterial::Wood;
+  look.color = std::optional<std::uint32_t>{0x336699};
+  look.thickness = 3;
+  roundTrip(d, [&](Document& doc) { return doc.setTrayBorder(tray, look); });
+  const TrayBorder& b = shapeOf(d, tray).getBorder();
+  CHECK(b.enabled);
+  CHECK(b.corners == BorderCorners::Sharp);
+  CHECK(b.material == BorderMaterial::Wood);
+  CHECK(b.color == 0x336699);
+  CHECK(b.thickness == 3);
+
+  // its picture: over the board's whole rectangle, another than the floor's
+  const std::string png = pngHeader(40, 30, 'r');
+  roundTrip(d, [&](Document& doc) {
+    return doc.setShapeImage(tray, {png, std::nullopt, ImageFit::Stretch, {0, 0, 40, 30}, true});
+  });
+  CHECK_FALSE(shapeOf(d, tray).getImage().present());
+  CHECK(shapeOf(d, tray).getBorder().images.at(0).box == std::array<int, 4>{0, 0, 3, 2});
+  CHECK(d.puzzle().imageUsed(static_cast<unsigned int>(shapeOf(d, tray).getBorder().images.at(0).id)));
+
+  // a quarter turn turns the border's picture with the board
+  REQUIRE(d.shapeTask(tray, ShapeTask::Rotate10).has_value());
+  CHECK(shapeOf(d, tray).getBorder().images.at(0).turn != 0);
+
+  const std::string file = io::writePuzzle(d.puzzle());
+  CHECK(file.find("border=\"1\" borderCorners=\"sharp\" borderMaterial=\"wood\" "
+                  "borderColor=\"#336699\" borderThickness=\"3\" borderImage=\"0\" borderImageFit=\"stretch\" "
+                  "borderImageSrc=\"0 0 40 30\"") != std::string::npos);
+  Result<Puzzle> back = io::parsePuzzle(file);
+  REQUIRE(back.has_value());
+  CHECK(back->getShape(d.shapeIndex(tray).value()).getBorder() == shapeOf(d, tray).getBorder());
+  REQUIRE(back->findImage(0) != nullptr);
+  CHECK(*back->findImage(0)->bytes == png);
+  CHECK(io::writePuzzle(*back) == file);
+
+  // the color and the picture come off; the rest stays
+  Document::BorderChange plain;
+  plain.color = std::optional<std::uint32_t>{};
+  roundTrip(d, [&](Document& doc) { return doc.setTrayBorder(tray, plain); });
+  CHECK(shapeOf(d, tray).getBorder().color == -1);
+  roundTrip(d, [&](Document& doc) { return doc.clearShapeImage(tray, true); });
+  CHECK(shapeOf(d, tray).getBorder().images.empty());
+  CHECK(shapeOf(d, tray).getBorder().material == BorderMaterial::Wood);
+
+  // thin again; no thicker than kMaxBorderThickness
+  Document::BorderChange thin;
+  thin.thickness = 0;
+  roundTrip(d, [&](Document& doc) { return doc.setTrayBorder(tray, thin); });
+  CHECK(shapeOf(d, tray).getBorder().thickness == 0);
+  CHECK(io::writePuzzle(d.puzzle()).find("borderThickness") == std::string::npos);
+  Document::BorderChange thick;
+  thick.thickness = kMaxBorderThickness + 1;
+  refused(d, Errc::InvalidArgument, [&](Document& doc) { return doc.setTrayBorder(tray, thick); });
+
+  // only a sliding puzzle's board has one
+  refused(d, Errc::InvalidArgument, [&](Document& doc) { return doc.setTrayBorder(s, on); });
+  refused(d, Errc::InvalidArgument, [&](Document& doc) {
+    return doc.setShapeImage(s, {png, std::nullopt, ImageFit::Stretch, {0, 0, 40, 30}, true});
+  });
+  Document bricks(GridKind::Bricks);
+  const Id c = bricks.createShape().value();
+  refused(bricks, Errc::InvalidArgument,
+          [&](Document& doc) { return doc.setTrayBorder(c, on); });
 }

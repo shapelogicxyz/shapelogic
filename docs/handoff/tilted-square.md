@@ -190,6 +190,18 @@ that hears it can change the tray at once. A replaced document's fit gets a
   `web/tests/engine/tilted.test.ts` (the fixture and its fit through the
   client), `web/tests/e2e/tilted.e2e.ts` (the list from Tilt & tolerance,
   Try every placement, Use, the solve, Undo).
+- Added after a review of the stage: `tests/unit/engine/test_engine.cpp`
+  "a fit that ends inside a poll is told once the document is free" (the
+  end is not told by the poll it ended in, the document still frozen; the
+  next poll tells it before its revision, and a `tray.set` then goes
+  through; it fails with the hold in `pollFit` taken out); three more
+  tests in `tilted.e2e.ts`: the count for the problem chosen with **Pieces
+  of**, each with its stored options (Triple Play: 1 assembly turned over,
+  2 one face up, on the board in use); a count of twenty dominoes told as
+  it runs, stopped ("or more", "Not tried"), a board used while a count
+  runs (the count stopped first, one undo step) and the dialog closed
+  while counting; a 16 by 16 tray of about a hundred boards shown forty
+  at a time with **Show more**.
 
 ## Gates (Stage G)
 All on 2026-11-23, after the last change, one after the other:
@@ -214,7 +226,23 @@ All on 2026-11-23, after the last change, one after the other:
   `test_puzzle_file.cpp` and `test_cli.py`. Fixed, then everything above
   was run again.
 
+## After the review (2026-11-23)
+- In the dialog's pictures the tray's straight squares are not outlined
+  (`.plc-row .plc-pic .tpic .tp-sq`): at that size their lines, bright in
+  the dark theme, hid the cells. The walls and the outline stay. The
+  guide's picture was taken again.
+- The tests above. Checked by hand in the built demo, dark theme: the
+  list, its pictures and Use work there; Count assemblies says "Searches
+  run in the app, not in this demo".
+- Gates after these: the tilted e2e spec (7 tests) three times, `just
+  app-check`, `just app-test`, `just test-all`, the tilted `[parallel]`
+  cases under TSan, `just check` on `test_engine.cpp`, `just site-demo`
+  with `--check`, `just site-build`: all passed.
+
 ## Known issues (Stage G)
+- **Placements…** is the last row of Tilt & tolerance: in a window 800
+  pixels high it lies below the left card's visible part, and the section
+  must be scrolled to reach it.
 - A fit counts every assembly of every board; there is no "stop at the
   first assembly". Stop ends it and keeps the counts.
 - A board and its mirror image are both listed, and both tried, even for

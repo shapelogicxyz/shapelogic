@@ -343,13 +343,50 @@ class Document {
     std::optional<unsigned int> id;
     ImageFit fit = ImageFit::Crop;
     std::array<int, 4> src{0, 0, 1, 1};
+    /// The picture of the tray's border (decision 0046), not the shape's
+    /// own: over the whole tray, for a board only.
+    bool border = false;
   };
   /// Lays a picture over the shape's bounding box, upright, on a sliding
   /// puzzle (InvalidArgument elsewhere, for an empty shape, bytes that are
-  /// not a picture, or a part outside it). Returns the picture's id.
+  /// not a picture, or a part outside it); with `choice.border`, over the
+  /// tray of a board, shown on its border (InvalidArgument for a shape
+  /// that is no board). Returns the picture's id.
   Result<unsigned int> setShapeImage(Id shape, const ImageChoice& choice);
-  /// Takes the shape's picture off (nothing when it has none).
-  Result<void> clearShapeImage(Id shape);
+  /// One picture of a stack for setShapeImages: its file (the bytes, or
+  /// the id of one the puzzle has), its fit and the part shown, which may
+  /// reach past the picture's edges but must overlap it.
+  struct ImageLayer {
+    std::optional<std::string> bytes;
+    std::optional<unsigned int> id;
+    ImageFit fit = ImageFit::Crop;
+    std::array<int, 4> src{0, 0, 1, 1};
+  };
+  /// Lays a stack of pictures over the shape's bounding box (with
+  /// `border`, over the board's tray), the bottom one first, in place of
+  /// the ones it has (decision 0047): one undo step, none when nothing
+  /// differs; an empty stack takes them off. InvalidArgument as for
+  /// setShapeImage, and for more than kMaxShapeImages.
+  Result<void> setShapeImages(Id shape, const std::vector<ImageLayer>& layers,
+                              bool border = false);
+  /// Takes the shape's picture off, or with `border` its border's
+  /// (nothing when it has none).
+  Result<void> clearShapeImage(Id shape, bool border = false);
+  /// What setTrayBorder changes: each field that is given.
+  struct BorderChange {
+    std::optional<bool> enabled;
+    std::optional<BorderCorners> corners;
+    std::optional<BorderMaterial> material;
+    /// 0 for thin, else the rim's width in voxels (up to kMaxBorderThickness).
+    std::optional<unsigned int> thickness;
+    /// The border's own color, 0xRRGGBB; an empty inner value takes it off.
+    std::optional<std::optional<std::uint32_t>> color;
+  };
+  /// Changes the border of a sliding puzzle's board (decision 0046): one
+  /// undo step, none when nothing differs. InvalidArgument for a shape
+  /// that is no sliding puzzle's board, a color over 0xFFFFFF or a
+  /// thickness over kMaxBorderThickness.
+  Result<void> setTrayBorder(Id shape, const BorderChange& change);
   /// Applies a cell tool to cells (shape.setCells); `color` is a color
   /// id, or 0 for none. Returns the number of cells changed (0 changes
   /// leave no undo step).

@@ -449,7 +449,7 @@ test('a picture on a sliding piece', async () => {
       mimeType: 'image/png',
       buffer: sunset(320, 240),
     });
-    await expect(dlg.locator('[data-f="name"]')).toContainText('sunset.png');
+    await expect(dlg.locator('[data-f="tiles"]')).toContainText('sunset.png');
     await page.mouse.move(0, 0);
     await crop(page, '#imageDlg .cfm', 'image-dialog');
     await dlg.locator('[data-x="apply"]').click();

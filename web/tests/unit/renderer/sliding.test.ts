@@ -48,7 +48,8 @@ const shape = (id: string, label: string, startGoal: number | null = null): Shap
   startGoal,
   disc: null,
   discColor: null,
-  image: null,
+  images: [],
+  border: null,
   board: false,
   fits: true,
 });

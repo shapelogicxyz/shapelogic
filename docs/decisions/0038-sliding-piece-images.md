@@ -49,8 +49,10 @@ says which one it shows and how:
   `x y width height` in whole pixels (no floating point in the file).
   `imageBox` is the cell rectangle it covers, in the shape's own grid.
   `imageTurn` (0 to 7) is the turn and mirror of the picture on it.
-  `imageFit` (`crop`, `stretch`) is how it was fitted, so the dialog
-  opens with the same choice.
+  `imageFit` (`crop`, `stretch`, `manual`) is how it was fitted, so the
+  dialog opens with the same choice (`manual` added 2026-11-23; a version
+  before it reads it as `crop` and keeps `imageSrc`, so the picture still
+  shows as placed).
 
 It cannot be a child of `<voxel>`: the reader keeps an element's text only
 when it has no children (`xml_document.cpp`), so a child would wipe the
@@ -85,7 +87,12 @@ lies on the floor under the pieces. The app
 shrinks a picture to 2048 pixels and saves it as a PNG or JPEG before it
 sends it, since base64 makes it a third bigger and gzip barely shrinks
 picture files. The dialog works out `src`: Stretch takes the whole picture,
-Crop the middle part with the box's proportions.
+Crop the middle part with the box's proportions. Manual (added 2026-11-23)
+shows the whole picture over the box with dots at its corners, sides and
+middle; `src` is then the part under the box, in whole pixels. At first
+the picture always covered the box (a drag stopped there), because `src`
+had to lie inside the picture. Decision 0047 lifts that: `src` may reach
+past the picture, and a shape may hold a stack of pictures.
 
 **Undo.** A `Voxel` holds only the small `ShapeImage`; the bytes are in the
 puzzle's table behind a `shared_ptr`, so the copy of a shape an undo step

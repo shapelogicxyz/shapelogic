@@ -882,8 +882,17 @@ export interface ShapeSummary {
    * the disc in (the original's diskTint); null for a disc without one, or for any other shape.
    */
   discColor: ColorId | null;
-  /** The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none. */
-  image: ShapeImage | null;
+  /**
+   * The pictures on the shape's top faces (sliding puzzles, shape.setImage and shape.setImages),
+   * the bottom one first, the later ones on top (decision 0047); all lie over the same box with
+   * the same turn. Empty for none.
+   */
+  images: ShapeImage[];
+  /**
+   * A sliding puzzle's board: the border of its tray (shape.setBorder, decision 0046); null for
+   * any other shape.
+   */
+  border: TrayBorder | null;
   /**
    * A Tilted Square puzzle's board (its first shape, label B): made from the tray, never edited.
    * False for any other shape.
@@ -896,18 +905,72 @@ export interface ShapeSummary {
   fits: boolean;
 }
 
+/** The outer corners of a tray's border: rounded, or square. */
+export type BorderCorners = 'round' | 'sharp';
+
+/**
+ * The surface of a tray's border: plain, a fine grain, or wood grain (light brown unless the
+ * border has a color or a picture of its own).
+ */
+export type BorderMaterial = 'smooth' | 'textured' | 'wood';
+
+/**
+ * The border of a sliding puzzle's tray (decision 0046): the tray's body around its floor, a rim
+ * round the board's rectangle and the cells that are no floor. The views draw it when 'enabled';
+ * the look is kept while it is off.
+ */
+export interface TrayBorder {
+  enabled: boolean;
+  corners: BorderCorners;
+  material: BorderMaterial;
+  /** The border's own color; null for the board's (the wood's with the wood material). */
+  color: Rgb | null;
+  /**
+   * The rim round the board's rectangle: 0 for thin (0.28 of a cell), else its width in voxels.
+   * @minimum 0
+   * @maximum 10
+   */
+  thickness: number;
+  /**
+   * Pictures over the whole tray, the rim included, shown on the border only (shape.setImage or
+   * shape.setImages with 'border'), the bottom one first; empty for none. Their 'src' and 'turn'
+   * count: the views lay them over the tray's outer rectangle as it is now, and 'box' is the
+   * board's rectangle when they were applied.
+   */
+  images: ShapeImage[];
+}
+
 /**
  * How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions,
- * or squashed to it.
+ * squashed to it, or sized and placed by hand (src is then whatever part the user chose).
  */
-export type ImageFit = 'crop' | 'stretch';
+export type ImageFit = 'crop' | 'stretch' | 'manual';
 
 /**
  * [x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner.
+ * The sizes are at least 1; it may reach past the picture's edges (x or y below 0, or past its
+ * width or height: a picture smaller than its box, decision 0047) but always overlaps it.
  * @minItems 4
  * @maxItems 4
  */
 export type PixelRect = [number, number, number, number];
+
+/**
+ * One picture of a stack for shape.setImages (decision 0047): new image bytes or one the puzzle
+ * has, its fit and the part shown.
+ */
+export interface ImageLayer {
+  /** The image file, base64. Give this or 'image'. */
+  data?: string;
+  /**
+   * A picture the puzzle has (ShapeImage.image). Give this or 'data'.
+   * @minimum 0
+   */
+  image?: number;
+  fit: ImageFit;
+  /** The part of the picture shown, in its pixels. */
+  src: PixelRect;
+}
 
 /**
  * A shape's picture (decision 0038). Seen from above, the part 'src' is laid over the cell
@@ -3108,8 +3171,9 @@ export interface Methods {
    * Lays a picture over the shape's bounding box, upright, on a sliding puzzle (decision 0038): on
    * a piece, or on a board (a start/goal shape), whose floor shows it under the pieces; new image
    * bytes (a PNG or JPEG, at most 8192 pixels a side) or one the puzzle has, by its number. The
-   * picture then turns, flips and moves with the cells. Refused (invalid_argument) on other grids,
-   * for a shape without cells, bytes that are not such a picture, or a part outside it.
+   * picture then turns, flips and moves with the cells; it takes the place of the ones the shape
+   * had. Refused (invalid_argument) on other grids, for a shape without cells, bytes that are not
+   * such a picture, or a part that misses it.
    * (shape.json)
    */
   'shape.setImage': {
@@ -3125,18 +3189,78 @@ export interface Methods {
       fit: ImageFit;
       /** The part of the picture shown, in its pixels. */
       src: PixelRect;
+      /**
+       * The picture of the tray's border (decision 0046) instead of the shape's own: laid over the
+       * whole tray and shown on its border. A board only (invalid_argument otherwise). Default
+       * false.
+       */
+      border?: boolean;
     };
     result: Changed;
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Takes the shape's picture off (nothing changes when it has none).
+   * Lays a stack of pictures over the shape's bounding box (decision 0047), the bottom one first,
+   * in place of the ones it has: one undo step, none when nothing differs; an empty list takes
+   * them off. Each is as for shape.setImage; all share the box, and turn, flip and move with the
+   * cells together. Refused (invalid_argument) as shape.setImage is, and for more than 16
+   * pictures.
+   * (shape.json)
+   */
+  'shape.setImages': {
+    params: {
+      shape: ShapeId;
+      /**
+       * The pictures, the bottom one first.
+       * @maxItems 16
+       */
+      layers: ImageLayer[];
+      /**
+       * The pictures of the tray's border (decision 0046) instead of the shape's own. A board
+       * only. Default false.
+       */
+      border?: boolean;
+    };
+    result: Changed;
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Takes the shape's pictures off, or with 'border' the pictures of its tray's border (nothing
+   * changes when it has none).
    * (shape.json)
    */
   'shape.clearImage': {
-    params: ShapeParam;
+    params: {
+      shape: ShapeId;
+      /** The border's picture instead of the shape's own. Default false. */
+      border?: boolean;
+    };
     result: Changed;
     errors: 'not_found' | 'invalid_state';
+  };
+  /**
+   * Changes the border of a sliding puzzle's board (decision 0046): whether its tray shows one,
+   * its corners, its material, its thickness and its color. Only the fields given change; one undo
+   * step. Refused (invalid_argument) for a shape that is no sliding puzzle's board.
+   * (shape.json)
+   */
+  'shape.setBorder': {
+    params: {
+      shape: ShapeId;
+      enabled?: boolean;
+      corners?: BorderCorners;
+      material?: BorderMaterial;
+      /**
+       * 0 for a thin rim, else the rim's width in voxels.
+       * @minimum 0
+       * @maximum 10
+       */
+      thickness?: number;
+      /** The border's own color, or null for none. */
+      color?: Rgb | null;
+    };
+    result: Changed;
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
    * A picture of the puzzle: its file, which the client decodes and keeps by its hash (the
@@ -4929,10 +5053,12 @@ export const METHOD_NAMES = [
   'shape.move',
   'shape.rename',
   'shape.resize',
+  'shape.setBorder',
   'shape.setBox',
   'shape.setCells',
   'shape.setColor',
   'shape.setImage',
+  'shape.setImages',
   'shape.setWeight',
   'shape.table',
   'shape.task',

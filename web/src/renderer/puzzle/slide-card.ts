@@ -25,7 +25,7 @@ import { byId, esc, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { applyLayout, layout } from '../shell/layout.ts';
 import { isTray } from '../shell/piece-colors.ts';
-import { onPieceImage, pieceImage } from '../shell/piece-images.ts';
+import { onPieceImage, stackPicture } from '../shell/piece-images.ts';
 import { pictureToCells } from '../shell/picture-math.ts';
 import { openPop } from '../shell/popover.ts';
 import { flash, reportError, setCursor } from '../shell/status.ts';
@@ -207,12 +207,15 @@ export class SlideCard {
     const board = this.board;
     const shape = snap?.shapes.find((s) => s.id === board);
     const r = this.reply;
-    const image = shape?.image ?? null;
-    const decoded = pieceImage(store.engine, image);
+    const stack = stackPicture(store.engine, shape?.images ?? []);
     const picture =
-      image === null || decoded === null
+      stack === null
         ? null
-        : { picture: decoded, toCells: pictureToCells(image), src: image.src };
+        : {
+            picture: stack.picture,
+            toCells: pictureToCells(stack.image),
+            src: stack.image.src,
+          };
     this.renderValidity(r?.error);
     // Start and Goal are small to work in on a board of 20 or more cells either way: the focus makes them larger
     byId('pzGridTip').hidden = shape === undefined || (shape.size[0] < 20 && shape.size[1] < 20);

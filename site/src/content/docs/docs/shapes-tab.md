@@ -218,11 +218,30 @@ The button opens **Apply image**:
 
 - **Choose image…** picks a PNG, JPEG, WebP or GIF file on your computer.
   A larger picture is shrunk to 2048 pixels on its longer side, and the
-  puzzle file keeps it.
+  puzzle file keeps it. The picture shows as a tile beside the button;
+  the **×** on the tile takes it off.
 - **Crop** cuts the picture to the shape's proportions, keeping its middle,
   so nothing is squashed. **Stretch** squashes the whole picture into the
-  shape's rectangle.
-- The preview shows the shape's cells with the picture on them.
+  shape's rectangle. **Manual** lets you size and place it yourself: the
+  preview shows the whole picture over the shape, faint where it falls off
+  the cells. Drag a dot at a corner to resize it (hold Shift to change its
+  proportions too), a dot at a side to stretch it, and the dot in the
+  middle to move it; the arrow keys move it as well. The picture can be
+  smaller than the shape and lie partly off it: it stops just before it
+  would leave the shape altogether, and the shape's color shows where it
+  does not reach. Manual starts from what the fit chosen before it
+  showed.
+- **Several images** (Manual only): once there is one, the button reads
+  **Additional image…** and puts a new picture on top of the others, at
+  half the shape's size in its middle. Click a picture in the preview, or
+  its tile, to pick it for the dots. Drag the tiles to change the order:
+  the tiles run from the bottom picture on the left to the top one on the
+  right. **Crop** and **Stretch** show one picture, the one picked, and
+  their button, **Choose image…**, replaces it; going back to Manual
+  before you click Apply brings the others back.
+- The preview shows the shape's cells with the picture on them. It is as
+  large as the window leaves room for, so a larger window gives a larger
+  preview.
 - **Remove image** takes the picture off; it is there only when the shape
   has one.
 
@@ -289,7 +308,39 @@ You can also draw straight onto the shape in the 3D view:
 ## Edit shape
 
 Below the shapes list, **Edit shape** changes the selected shape as a whole.
-It has three sections. Click a section's title to open or close it.
+It has three sections, and a fourth, Tray border, for a sliding puzzle's
+board. Click a section's title to open or close it.
+
+### Tray border
+
+On a sliding puzzle, selecting a board shows a **Tray border** section at
+the top of Edit shape, and Transform starts folded (click its header to
+open it). Turn on **Show tray border** to draw the tray's edges round the
+floor, as the [Play tab](/docs/play-tab/) draws them: a rim round the
+board, and the squares that are not floor filled in, so the floor lies
+sunk in the tray. The border then shows in every view of the board: the 3D
+view here, the two trays on the [Puzzle tab](/docs/puzzle-tab/), round the
+pieces on the [Solver tab](/docs/solver-tab/), and on the Play tab. The
+voxel editor's grid shows no border.
+
+While the border is on, you can set how it looks:
+
+- **Corners**: **Rounded** or **Sharp** (square, at 90 degrees) outside
+  corners.
+- **Color**: click the swatch to choose the border's color; **Default**
+  takes it off again. The image button beside it opens
+  [Apply image](#pictures-on-sliding-pieces-and-boards) for the border: the
+  picture covers the whole tray, its rim included, and shows on the border
+  but not on the floor (the board's own picture stays on the floor).
+- **Material**: **Smooth**, **Textured** (a fine grain) or **Wood grain**.
+  Wood is a light brown until you give the border a color or an image of
+  its own, and the grain shows on those too.
+- **Thickness**: **Thin** is the narrow rim the Play tab has always drawn.
+  **Thick** makes the rim one voxel wide, and **Voxels**, below it, sets
+  how many voxels thick it is, from 1 to 10.
+
+The puzzle file keeps the border. With the border off, the Play tab draws
+its tray as it always has, in the board's color.
 
 ### Transform: Flip, Rotate, Nudge
 

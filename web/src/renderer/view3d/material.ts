@@ -106,14 +106,22 @@ void main() {
     c = texture2D(uPalette, vec2((vColor + 0.5) / 256.0, 0.5)).rgb;
   } else if (marker) {
     c = vec3(0.0);
-  } else if (uImageOn > 0.5 && all(greaterThanEqual(vUv, vec2(0.0))) && all(lessThanEqual(vUv, vec2(1.0)))) {
-    // the picture where the piece looks up, over the checker (outside its
-    // box: the color)
-    c = texture2D(uImage, uImageSrc.xy + vUv * uImageSrc.zw).rgb;
-  } else if (uChecker > 0.5 && has(vFlags, 1.0)) {
-    c = 1.0 - 0.9 * (1.0 - uPiece);
   } else {
-    c = 0.9 * uPiece;
+    if (uChecker > 0.5 && has(vFlags, 1.0)) {
+      c = 1.0 - 0.9 * (1.0 - uPiece);
+    } else {
+      c = 0.9 * uPiece;
+    }
+    if (uImageOn > 0.5 && all(greaterThanEqual(vUv, vec2(0.0))) && all(lessThanEqual(vUv, vec2(1.0)))) {
+      // the picture where the piece looks up, over the checker; outside its
+      // box, past a picture smaller than it (decision 0047) and where it is
+      // clear, the color
+      vec2 st = uImageSrc.xy + vUv * uImageSrc.zw;
+      if (all(greaterThanEqual(st, vec2(0.0))) && all(lessThanEqual(st, vec2(1.0)))) {
+        vec4 t = texture2D(uImage, st);
+        c = mix(c, t.rgb, t.a);
+      }
+    }
   }
   if (uDimAxis >= 0 && abs(vCell[uDimAxis] - uLayer) > 0.5) {
     // another layer than the editor's: the original's dimmed piece
@@ -176,7 +184,8 @@ export function setPiece(u: FaceUniforms, c: Rgb3): void {
 /** The textures of the pictures, by their hash: one for every view. */
 const textures = new Map<string, Texture>();
 
-function pictureTexture(p: PiecePicture): Texture {
+/** A picture's texture (its bytes as they are, the picture's top at v 0). */
+export function pictureTexture(p: PiecePicture): Texture {
   const have = textures.get(p.picture.hash);
   if (have !== undefined) {
     return have;

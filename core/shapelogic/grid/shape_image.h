@@ -7,15 +7,31 @@
 /// the shape's cells. It moves, turns and flips with the cells.
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <vector>
 
 namespace bt {
 
 /// How a picture was fitted to the shape's rectangle when it was applied:
-/// cut to the rectangle's proportions, or squashed to fill it. Kept so the
-/// dialog opens with the same choice; `ShapeImage::src` says what is shown.
-enum class ImageFit : std::uint8_t { Crop, Stretch };
+/// cut to the rectangle's proportions, squashed to fill it, or sized and
+/// placed by hand. Kept so the dialog opens with the same choice;
+/// `ShapeImage::src` says what is shown.
+enum class ImageFit : std::uint8_t { Crop, Stretch, Manual };
+
+/// The file's and the API's name of a fit.
+[[nodiscard]] inline const char* imageFitName(ImageFit f) {
+  switch (f) {
+    case ImageFit::Stretch:
+      return "stretch";
+    case ImageFit::Manual:
+      return "manual";
+    case ImageFit::Crop:
+      break;
+  }
+  return "crop";
+}
 
 /// The picture of a shape. Seen from above (+Z), the part `src` of the
 /// picture is laid over the cell rectangle `box`, turned by `turn`:
@@ -29,7 +45,10 @@ struct ShapeImage {
   int id = -1;
   ImageFit fit = ImageFit::Crop;
   /// x, y, width and height of the part shown, in pixels of the picture
-  /// (x to the right and y down from its top left corner).
+  /// (x to the right and y down from its top left corner). With the Manual
+  /// fit it may reach past the picture's edges (decision 0047): the
+  /// picture then covers only part of the box, and the shape's color shows
+  /// round it; it always overlaps the picture.
   std::array<int, 4> src{0, 0, 1, 1};
   /// x, y, width and height of the rectangle covered, in cells of the
   /// shape's own space (may reach outside it after a nudge).
@@ -103,5 +122,27 @@ struct ShapeImage {
             a[2] * b[1] + a[3] * b[3]};
   }
 };
+
+/// The pictures of a shape, the bottom one first (decision 0047): each
+/// lies over the same box with the same turn, the later ones on top. Every
+/// entry is present; an empty stack is no picture.
+using ShapeImages = std::vector<ShapeImage>;
+
+/// The most pictures a shape's stack holds.
+inline constexpr std::size_t kMaxShapeImages = 16;
+
+/// Whether the part `src` shown of a picture `width` by `height` pixels
+/// overlaps it: has a size, and at least one of its pixels inside it.
+[[nodiscard]] inline bool overlapsPicture(const std::array<int, 4>& src, long long width,
+                                          long long height) {
+  const long long x = src[0];
+  const long long y = src[1];
+  return src[2] > 0 && src[3] > 0 && x < width && y < height && x + src[2] > 0 && y + src[3] > 0;
+}
+
+/// The bottom picture of a stack, or none.
+[[nodiscard]] inline ShapeImage bottomImage(const ShapeImages& images) {
+  return images.empty() ? ShapeImage{} : images.front();
+}
 
 }  // namespace bt

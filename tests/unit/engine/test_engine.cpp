@@ -812,6 +812,72 @@ TEST_CASE("engine: an analysis that ends inside a poll is told, with its counts,
   CHECK(st["done"] == total);
 }
 
+TEST_CASE("engine: a fit that ends inside a poll is told once the document is free",
+          "[engine][tilted][parallel]") {
+  // tray.fitPlacements freezes the document. A client that hears
+  // tray.fitEnded changes the tray at once (the Placements dialog's Use), so
+  // the end is told only by the poll that has taken it in.
+  Harness h;
+  const Json snap = h.result("document.new", {{"grid", "bricks"},
+                                              {"tray", {{"size", 8}, {"over", 2}, {"down", 1}}}});
+  const std::string p = snap["problems"][0]["id"];
+  const app::Id id = *parseId(IdKind::Problem, p);
+  // a domino on the first two whole cells side by side, twenty of them:
+  // far too many ways to count in a test
+  const int wide = snap["tray"]["box"][0];
+  const std::string cells = snap["tray"]["cells"];
+  const std::size_t at = cells.find("ww");
+  REQUIRE(at != std::string::npos);
+  const int x = static_cast<int>(at) % wide;
+  const int y = static_cast<int>(at) / wide;
+  REQUIRE(x + 1 < wide);
+  const std::string domino = h.result("shape.create")["shape"];
+  h.result("shape.setCells", {{"shape", domino}, {"tool", "fixed"}, {"cells", {{x, y, 0}, {x + 1, y, 0}}}});
+  h.result("problem.setPieceCount", {{"problem", p}, {"shape", domino}, {"min", 20}, {"max", 20}});
+  REQUIRE(h.result("tray.fitPlacements", {{"problem", p}, {"options", {{"threads", 1}}}})["total"] >= 2);
+  app::Document& d = h.engine.state().document();
+
+  // the fit is stopped and has ended while the engine polls: after the
+  // poll took in what had ended, before it tells
+  const auto ended = [](const Json& m) { return m["method"] == "tray.fitEnded"; };
+  const std::vector<Json> inside = pollWith(h, [&] {
+    REQUIRE(d.fitPlacementsStop(id).has_value());
+    for (int i = 0; i < 60000 && d.fitPlacementsProgress(id)->active; i++) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    REQUIRE_FALSE(d.fitPlacementsProgress(id)->active);
+  });
+  INFO(Json(inside).dump());
+  // not told yet: the document is still frozen, a tray change is refused
+  CHECK(indexOf(inside, ended) < 0);
+  CHECK(d.solving());
+  CHECK(d.fittingPlacements(id));
+
+  // the next poll takes the end in and tells it, before its revision
+  const std::vector<Json> after = pollWith(h, {});
+  INFO(Json(after).dump());
+  const std::ptrdiff_t told = indexOf(after, ended);
+  const std::ptrdiff_t changed =
+      indexOf(after, [](const Json& m) { return m["method"] == "document.changed"; });
+  REQUIRE(told >= 0);
+  REQUIRE(changed >= 0);
+  CHECK(told < changed);
+  const Json& e = after[static_cast<std::size_t>(told)]["params"];
+  CHECK(e["problem"] == p);
+  CHECK(e["stopped"] == true);
+  CHECK(e["failure"].is_null());
+  CHECK(after[static_cast<std::size_t>(changed)]["params"]["what"] == Json::array({"problems"}));
+  // told, the document is free: the tray changes at once
+  CHECK_FALSE(d.solving());
+  const Json board = h.result("tray.placements")["boards"][1];
+  h.result("tray.set", {{"tray", {{"placement", "custom"},
+                                  {"shiftX", board["shiftX"]},
+                                  {"shiftY", board["shiftY"]}}}});
+  CHECK(h.result("tray.placements")["inUse"] == 1);
+  // and it is told once
+  CHECK(indexOf(pollWith(h, {}), ended) < 0);
+}
+
 TEST_CASE("engine: a solve next to an analysis of another problem", "[engine][parallel]") {
   Harness h;
   h.result("document.new", {{"grid", "bricks"}});

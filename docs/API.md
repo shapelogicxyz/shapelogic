@@ -585,7 +585,7 @@ Errors: `not_found`, `invalid_state`
 
 ### `shape.setImage`
 
-Lays a picture over the shape's bounding box, upright, on a sliding puzzle (decision 0038): on a piece, or on a board (a start/goal shape), whose floor shows it under the pieces; new image bytes (a PNG or JPEG, at most 8192 pixels a side) or one the puzzle has, by its number. The picture then turns, flips and moves with the cells. Refused (invalid_argument) on other grids, for a shape without cells, bytes that are not such a picture, or a part outside it.
+Lays a picture over the shape's bounding box, upright, on a sliding puzzle (decision 0038): on a piece, or on a board (a start/goal shape), whose floor shows it under the pieces; new image bytes (a PNG or JPEG, at most 8192 pixels a side) or one the puzzle has, by its number. The picture then turns, flips and moves with the cells; it takes the place of the ones the shape had. Refused (invalid_argument) on other grids, for a shape without cells, bytes that are not such a picture, or a part that misses it.
 
 Params:
 
@@ -594,8 +594,25 @@ Params:
 | `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
 | `data` | string |  | The image file, base64. Give this or 'image'. |
 | `image` | integer |  | A picture the puzzle has (ShapeImage.image). Give this or 'data'. |
-| `fit` | [ImageFit](#imagefit) | required | How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, or squashed to it. |
+| `fit` | [ImageFit](#imagefit) | required | How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, squashed to it, or sized and placed by hand (src is then whatever part the user chose). |
 | `src` | [PixelRect](#pixelrect) | required | The part of the picture shown, in its pixels. |
+| `border` | boolean |  | The picture of the tray's border (decision 0046) instead of the shape's own: laid over the whole tray and shown on its border. A board only (invalid_argument otherwise). Default false. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `shape.setImages`
+
+Lays a stack of pictures over the shape's bounding box (decision 0047), the bottom one first, in place of the ones it has: one undo step, none when nothing differs; an empty list takes them off. Each is as for shape.setImage; all share the box, and turn, flip and move with the cells together. Refused (invalid_argument) as shape.setImage is, and for more than 16 pictures.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `layers` | [ImageLayer](#imagelayer)[] | required | The pictures, the bottom one first. |
+| `border` | boolean |  | The pictures of the tray's border (decision 0046) instead of the shape's own. A board only. Default false. |
 
 Result: [Changed](#changed)
 
@@ -603,17 +620,37 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `shape.clearImage`
 
-Takes the shape's picture off (nothing changes when it has none).
+Takes the shape's pictures off, or with 'border' the pictures of its tray's border (nothing changes when it has none).
 
 Params:
 
 | name | type | | description |
 |---|---|---|---|
 | `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `border` | boolean |  | The border's picture instead of the shape's own. Default false. |
 
 Result: [Changed](#changed)
 
 Errors: `not_found`, `invalid_state`
+
+### `shape.setBorder`
+
+Changes the border of a sliding puzzle's board (decision 0046): whether its tray shows one, its corners, its material, its thickness and its color. Only the fields given change; one undo step. Refused (invalid_argument) for a shape that is no sliding puzzle's board.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `enabled` | boolean |  |  |
+| `corners` | [BorderCorners](#bordercorners) |  | The outer corners of a tray's border: rounded, or square. |
+| `material` | [BorderMaterial](#bordermaterial) |  | The surface of a tray's border: plain, a fine grain, or wood grain (light brown unless the border has a color or a picture of its own). |
+| `thickness` | integer |  | 0 for a thin rim, else the rim's width in voxels. |
+| `color` | [Rgb](#rgb) or null |  | The border's own color, or null for none. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `shape.imageData`
 
@@ -3485,21 +3522,58 @@ Where the rods and the discs of a stacking stand (the original's layoutBoard), i
 | `startGoal` | integer or null | required | A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape. |
 | `disc` | integer or null | required | A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape. |
 | `discColor` | [ColorId](#colorid) or null | required | A stacking puzzle's disc: the palette color of its first colored cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape. |
-| `image` | [ShapeImage](#shapeimage) or null | required | The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none. |
+| `images` | [ShapeImage](#shapeimage)[] | required | The pictures on the shape's top faces (sliding puzzles, shape.setImage and shape.setImages), the bottom one first, the later ones on top (decision 0047); all lie over the same box with the same turn. Empty for none. |
+| `border` | [TrayBorder](#trayborder) or null | required | A sliding puzzle's board: the border of its tray (shape.setBorder, decision 0046); null for any other shape. |
 | `board` | boolean | required | A Tilted Square puzzle's board (its first shape, label B): made from the tray, never edited. False for any other shape. |
 | `fits` | boolean | required | A Tilted Square puzzle's piece: every cell of it lies on a whole cell of the board (a tray change can leave a piece that has no such place). True for the board and off such a puzzle. |
 
+### BorderCorners
+
+The outer corners of a tray's border: rounded, or square.
+
+`"round"` \| `"sharp"`
+
+### BorderMaterial
+
+The surface of a tray's border: plain, a fine grain, or wood grain (light brown unless the border has a color or a picture of its own).
+
+`"smooth"` \| `"textured"` \| `"wood"`
+
+### TrayBorder
+
+The border of a sliding puzzle's tray (decision 0046): the tray's body around its floor, a rim round the board's rectangle and the cells that are no floor. The views draw it when 'enabled'; the look is kept while it is off.
+
+| name | type | | description |
+|---|---|---|---|
+| `enabled` | boolean | required |  |
+| `corners` | [BorderCorners](#bordercorners) | required | The outer corners of a tray's border: rounded, or square. |
+| `material` | [BorderMaterial](#bordermaterial) | required | The surface of a tray's border: plain, a fine grain, or wood grain (light brown unless the border has a color or a picture of its own). |
+| `color` | [Rgb](#rgb) or null | required | The border's own color; null for the board's (the wood's with the wood material). |
+| `thickness` | integer | required | The rim round the board's rectangle: 0 for thin (0.28 of a cell), else its width in voxels. |
+| `images` | [ShapeImage](#shapeimage)[] | required | Pictures over the whole tray, the rim included, shown on the border only (shape.setImage or shape.setImages with 'border'), the bottom one first; empty for none. Their 'src' and 'turn' count: the views lay them over the tray's outer rectangle as it is now, and 'box' is the board's rectangle when they were applied. |
+
 ### ImageFit
 
-How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, or squashed to it.
+How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, squashed to it, or sized and placed by hand (src is then whatever part the user chose).
 
-`"crop"` \| `"stretch"`
+`"crop"` \| `"stretch"` \| `"manual"`
 
 ### PixelRect
 
-[x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner.
+[x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner. The sizes are at least 1; it may reach past the picture's edges (x or y below 0, or past its width or height: a picture smaller than its box, decision 0047) but always overlaps it.
 
 integer[]
+
+### ImageLayer
+
+One picture of a stack for shape.setImages (decision 0047): new image bytes or one the puzzle has, its fit and the part shown.
+
+| name | type | | description |
+|---|---|---|---|
+| `data` | string |  | The image file, base64. Give this or 'image'. |
+| `image` | integer |  | A picture the puzzle has (ShapeImage.image). Give this or 'data'. |
+| `fit` | [ImageFit](#imagefit) | required | How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, squashed to it, or sized and placed by hand (src is then whatever part the user chose). |
+| `src` | [PixelRect](#pixelrect) | required | The part of the picture shown, in its pixels. |
 
 ### ShapeImage
 
@@ -3511,8 +3585,8 @@ A shape's picture (decision 0038). Seen from above, the part 'src' is laid over 
 | `hash` | string | required | Of the picture's file: the same hash, the same picture. |
 | `width` | integer | required |  |
 | `height` | integer | required |  |
-| `fit` | [ImageFit](#imagefit) | required | How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, or squashed to it. |
-| `src` | [PixelRect](#pixelrect) | required | [x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner. |
+| `fit` | [ImageFit](#imagefit) | required | How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, squashed to it, or sized and placed by hand (src is then whatever part the user chose). |
+| `src` | [PixelRect](#pixelrect) | required | [x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner. The sizes are at least 1; it may reach past the picture's edges (x or y below 0, or past its width or height: a picture smaller than its box, decision 0047) but always overlaps it. |
 | `box` | integer[] | required | [x, y, width, height] in cells of the shape's own grid; it may reach outside the grid after a nudge. |
 | `turn` | integer | required |  |
 

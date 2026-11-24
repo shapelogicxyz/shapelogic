@@ -147,6 +147,38 @@ Reply shapeSetColor(State& s, Params& p) {
   return s.changed();
 }
 
+// a picture's fit by its name
+std::optional<ImageFit> fitOf(const Json& j) {
+  if (!j.is_string()) {
+    return std::nullopt;
+  }
+  const std::string f = j.get<std::string>();
+  return f == "crop"      ? std::optional{ImageFit::Crop}
+         : f == "stretch" ? std::optional{ImageFit::Stretch}
+         : f == "manual"  ? std::optional{ImageFit::Manual}
+                          : std::nullopt;
+}
+
+// the part of a picture shown, [x, y, width, height] in pixels: x and y may
+// be below 0 (decision 0047: a picture smaller than its box), the sizes at
+// least 1
+std::optional<std::array<int, 4>> srcOf(const Json& j) {
+  constexpr std::int64_t kMax = 0x7FFFFFFF;
+  if (!j.is_array() || j.size() != 4 ||
+      !std::all_of(j.begin(), j.end(), [](const Json& n) { return n.is_number_integer(); })) {
+    return std::nullopt;
+  }
+  std::array<int, 4> out{};
+  for (std::size_t k = 0; k < 4; k++) {
+    const auto n = j[k].get<std::int64_t>();
+    if (n < (k < 2 ? -kMax : 1) || n > kMax) {
+      return std::nullopt;
+    }
+    out.at(k) = static_cast<int>(n);
+  }
+  return out;
+}
+
 Reply shapeSetImage(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   app::Document::ImageChoice choice;
@@ -159,28 +191,102 @@ Reply shapeSetImage(State& s, Params& p) {
   if (const std::optional<std::int64_t> id = p.maybeInteger("image", 0, 0x7FFFFFFF)) {
     choice.id = static_cast<unsigned int>(*id);
   }
-  choice.fit = p.choice<ImageFit>("fit", {{"crop", ImageFit::Crop}, {"stretch", ImageFit::Stretch}});
-  const Json& src = p.value("src");
-  if (!src.is_array() || src.size() != 4 ||
-      !std::all_of(src.begin(), src.end(), [](const Json& n) {
-        return n.is_number_integer() && n.get<std::int64_t>() >= 0 &&
-               n.get<std::int64_t>() <= 0x7FFFFFFF;
-      })) {
-    p.fail("'src' must be [x, y, width, height] in pixels");
+  choice.fit = p.choice<ImageFit>(
+      "fit", {{"crop", ImageFit::Crop}, {"stretch", ImageFit::Stretch}, {"manual", ImageFit::Manual}});
+  if (const std::optional<std::array<int, 4>> src = srcOf(p.value("src"))) {
+    choice.src = *src;
   } else {
-    for (std::size_t k = 0; k < 4; k++) {
-      choice.src.at(k) = static_cast<int>(src[k].get<std::int64_t>());
-    }
+    p.fail("'src' must be [x, y, width, height] in pixels");
   }
+  choice.border = p.optBoolean("border", false);
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().setShapeImage(shape, choice));
   return s.changed();
 }
 
+Reply shapeSetImages(State& s, Params& p) {
+  const app::Id shape = p.id("shape", IdKind::Shape);
+  std::vector<app::Document::ImageLayer> layers;
+  const Json& list = p.value("layers");
+  if (!list.is_array()) {
+    p.fail("'layers' must be a list of pictures");
+  } else {
+    for (const Json& l : list) {
+      app::Document::ImageLayer layer;
+      const std::optional<ImageFit> fit = l.is_object() && l.contains("fit")
+                                              ? fitOf(l.at("fit"))
+                                              : std::nullopt;
+      const std::optional<std::array<int, 4>> src =
+          l.is_object() && l.contains("src") ? srcOf(l.at("src")) : std::nullopt;
+      if (!fit || !src) {
+        p.fail("each layer needs 'fit' and 'src' ([x, y, width, height] in pixels)");
+        break;
+      }
+      layer.fit = *fit;
+      layer.src = *src;
+      if (l.contains("data")) {
+        layer.bytes = l.at("data").is_string() ? base64Decode(l.at("data").get<std::string>())
+                                               : std::nullopt;
+        if (!layer.bytes) {
+          p.fail("a layer's 'data' is not base64");
+          break;
+        }
+      }
+      if (l.contains("image")) {
+        const Json& id = l.at("image");
+        if (!id.is_number_integer() || id.get<std::int64_t>() < 0 ||
+            id.get<std::int64_t>() > 0x7FFFFFFF) {
+          p.fail("a layer's 'image' must be a picture's number");
+          break;
+        }
+        layer.id = static_cast<unsigned int>(id.get<std::int64_t>());
+      }
+      layers.push_back(std::move(layer));
+    }
+  }
+  const bool border = p.optBoolean("border", false);
+  BTE_CHECK(p.finish());
+  BTE_CHECK(s.document().setShapeImages(shape, layers, border));
+  return s.changed();
+}
+
 Reply shapeClearImage(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
+  const bool border = p.optBoolean("border", false);
   BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().clearShapeImage(shape));
+  BTE_CHECK(s.document().clearShapeImage(shape, border));
+  return s.changed();
+}
+
+Reply shapeSetBorder(State& s, Params& p) {
+  const app::Id shape = p.id("shape", IdKind::Shape);
+  app::Document::BorderChange change;
+  if (p.has("enabled")) {
+    change.enabled = p.boolean("enabled");
+  }
+  change.corners = p.optChoice<BorderCorners>(
+      "corners", {{"round", BorderCorners::Round}, {"sharp", BorderCorners::Sharp}});
+  change.material = p.optChoice<BorderMaterial>("material", {{"smooth", BorderMaterial::Smooth},
+                                                             {"textured", BorderMaterial::Textured},
+                                                             {"wood", BorderMaterial::Wood}});
+  if (p.has("thickness")) {
+    change.thickness = static_cast<unsigned int>(p.integer("thickness", 0, kMaxBorderThickness));
+  }
+  if (p.has("color")) {
+    const Json& rgb = p.value("color");
+    std::optional<std::uint32_t> color;
+    if (!rgb.is_null()) {
+      const std::optional<Rgb> c = rgb.is_string() ? parseRgb(rgb.get<std::string>()) : std::nullopt;
+      if (!c) {
+        p.fail("'color' must be \"#rrggbb\" or null");
+      } else {
+        color = std::uint32_t{c->r} << 16 | std::uint32_t{c->g} << 8 | c->b;
+      }
+    }
+    change.color = color;
+  }
+  BTE_CHECK(p.finish());
+  BTE_CHECK(s.document().setTrayBorder(shape, change));
   return s.changed();
 }
 
@@ -427,7 +533,9 @@ void addShapeMethods(MethodTable& t) {
   t["shape.setWeight"] = shapeSetWeight;
   t["shape.setColor"] = shapeSetColor;
   t["shape.setImage"] = shapeSetImage;
+  t["shape.setImages"] = shapeSetImages;
   t["shape.clearImage"] = shapeClearImage;
+  t["shape.setBorder"] = shapeSetBorder;
   t["shape.imageData"] = shapeImageData;
   t["shape.setCells"] = shapeSetCells;
   t["shape.setBox"] = shapeSetBox;

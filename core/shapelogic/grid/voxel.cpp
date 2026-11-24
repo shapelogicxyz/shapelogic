@@ -313,7 +313,9 @@ void Voxel::translate(int dx, int dy, int dz, VoxelType filler) {
   hx_ += dx;
   hy_ += dy;
   hz_ += dz;
-  image_.translate(dx, dy);
+  for (ShapeImage& im : images_) {
+    im.translate(dx, dy);
+  }
 }
 
 // Union find (https://en.wikipedia.org/wiki/Disjoint-set_data_structure):
