@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Packing Puzzles That Need a Turn</title>
+<meta name="description" content="How designers such as Volker Latussek and Frederic Boucher make packing puzzles whose pieces must be tilted or turned through an opening, how they choose the sizes, how they look for unintended solutions, and why grid solvers such as BurrTools and ShapeLogic cannot check them.">
+<style>
+
+
+:root { color-scheme: light; --surface-1:#fcfcfb; --page:#ffffff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --wash:#eef4fc; --rule:#e1e0d9; --accent:#2a78d6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --surface-1:#1a1a19; --page:#111110; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --wash:#1f2a38; --rule:#2c2c2a; --accent:#3987e5; } }
+:root[data-theme="dark"] { color-scheme: dark; --surface-1:#1a1a19; --page:#111110; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --wash:#1f2a38; --rule:#2c2c2a; --accent:#3987e5; }
+* { box-sizing: border-box; }
+html { background: var(--page); }
+body { margin: 0 auto; max-width: 860px; padding: 32px 16px 64px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.5; color: var(--ink); background: var(--page); }
+h1 { font-size: 30px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--rule); break-after: avoid; }
+h3 { font-size: 16px; margin: 22px 0 6px; break-after: avoid; }
+p { margin: 0 0 10px; }
+.sub { color: var(--ink-2); font-size: 17px; margin-bottom: 4px; }
+.meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+.box { background: var(--wash); border-radius: 8px; padding: 14px 18px; margin: 14px 0 18px; break-inside: avoid; }
+.box h3 { margin-top: 0; }
+ul, ol { margin: 0 0 10px; padding-left: 22px; }
+li { margin-bottom: 4px; }
+figure { margin: 18px 0 20px; break-inside: avoid; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+.row { display: flex; gap: 12px; }
+.row figure { flex: 1; margin: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 10px 0 16px; break-inside: avoid; }
+th, td { padding: 4px 8px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+th { font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--axis); }
+table.num td { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+table.num td:first-child, table.num th:first-child { text-align: left; }
+table.num th { text-align: right; }
+table.small { font-size: 11px; } table.small th, table.small td { padding: 3px 5px; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+.formula { font-family: "Times New Roman", Times, serif; font-size: 17px; text-align: center; margin: 12px 0; }
+.tick, .legend, .note, .csub, .axlabel, .vlabel, .boxtext { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--ink-2); }
+.tick { font-size: 11px; fill: var(--muted); } .axlabel { font-size: 11.5px; fill: var(--muted); }
+.legend, .note, .boxtext { font-size: 11.5px; fill: var(--ink-2); } .vlabel { font-size: 11px; fill: var(--ink-2); }
+.ctitle { font-size: 13.5px; font-weight: 600; fill: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.csub { font-size: 11px; fill: var(--muted); }
+.onfill { font-size: 10px; fill: #ffffff; font-family: system-ui, sans-serif; }
+.grid { stroke: var(--grid); stroke-width: 1; } .axis { stroke: var(--axis); stroke-width: 1; }
+.refs li { font-size: 13px; margin-bottom: 4px; }
+a { color: var(--accent); }
+.toc { columns: 2; font-size: 13.5px; } .toc li { margin-bottom: 2px; }
+@media (max-width: 700px) { .row { display: block; } .row figure { margin: 18px 0; } }
+@page { size: A4; margin: 17mm 15mm 18mm 15mm; @bottom-right { content: counter(page) ' / ' counter(pages); font: 8.5pt system-ui, sans-serif; color: #898781; } }
+@media print {
+  .refs li { font-size: 8.6pt; margin-bottom: 2pt; }
+  html, body { background: #fff; } body { max-width: none; padding: 0; font-size: 10.5pt; line-height: 1.42; }
+  :root { color-scheme: light; --surface-1:#fcfcfb; --page:#ffffff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7; --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --wash:#eef4fc; --rule:#e1e0d9; --accent:#2a78d6; }
+  h1 { font-size: 24pt; } h2 { font-size: 15pt; margin-top: 22pt; } h3 { font-size: 11.5pt; }
+  table { font-size: 8.8pt; } table.small { font-size: 7.6pt; } figcaption { font-size: 9pt; } .meta { font-size: 9pt; } .sub { font-size: 12.5pt; }
+  .row { display: flex; } .pb { break-before: page; } a { color: inherit; text-decoration: none; }
+  .toc { columns: 2; }
+}
+
+
+@media screen {
+:root { --surface-1:#f3f6fb; --page:#ffffff; --ink:#0f1b2d; --ink-2:#55627a; --muted:#55627a; --grid:#dde4ef; --axis:#c5cfdf; --wash:#f3f6fb; --rule:#dde4ef; --accent:#1a73e8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --surface-1:#162033; --page:#0d1420; --ink:#e8eef8; --ink-2:#9aa8c0; --muted:#9aa8c0; --grid:#25324a; --axis:#34445f; --wash:#162033; --rule:#25324a; --accent:#5b9dff; } }
+:root[data-theme="dark"] { --surface-1:#162033; --page:#0d1420; --ink:#e8eef8; --ink-2:#9aa8c0; --muted:#9aa8c0; --grid:#25324a; --axis:#34445f; --wash:#162033; --rule:#25324a; --accent:#5b9dff; }
+html { background: var(--page); }
+body { max-width: none; margin: 0; padding: 0; font-size: 17px; line-height: 1.6; background: var(--page); color: var(--ink); }
+main { max-width: 1060px; margin: 0 auto; padding: 48px 16px 64px; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 0 0 16px; }
+.sub { font-size: 19px; }
+a { color: var(--accent); }
+.banner { background: #fff; border-bottom: 1px solid var(--rule); margin: 0; width: auto; }
+.crumb { margin: 0 0 12px; font-size: 14px; }
+}
+.banner a, .banner img { display: block; } .banner img { width: 100%; max-width: 1000px; height: auto; margin: 0 auto; }
+.crumb a { color: var(--accent); }
+@media print { .banner, .crumb { display: none; } }
+
+.tw { overflow-x: auto; margin: 10px 0 16px; } .tw table { margin: 0; min-width: 540px; }
+table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
+.steps li { margin-bottom: 7px; }
+.lead { font-size: 1.05em; }
+.blk { fill: var(--series-1); fill-opacity: 0.26; } .sml { fill: var(--series-2); fill-opacity: 0.78; }
+.floor { fill: var(--page); } .edge { stroke: var(--ink-2); stroke-width: 1.1; fill: none; }
+.cellline { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
+.unitline { stroke: var(--grid); stroke-width: 0.6; }
+.pl { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 12px; font-weight: 600; fill: var(--ink); }
+
+
+.wall { fill: var(--axis); } .wallx { fill: none; stroke: var(--ink-2); stroke-width: 1.2; }
+.blk1 { fill: var(--series-1); fill-opacity: 0.85; stroke: var(--ink); stroke-width: 1; }
+.ghost { fill: var(--series-1); fill-opacity: 0.10; stroke: var(--series-1); stroke-width: 1; stroke-opacity: 0.75; }
+.ghostx { fill: var(--series-2); fill-opacity: 0.10; stroke: var(--series-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.trail { fill: none; stroke: var(--series-2); stroke-width: 1.6; stroke-dasharray: 5 4; }
+.band0 { fill: var(--grid); } .band1 { fill: var(--series-2); fill-opacity: 0.22; } .band2 { fill: var(--series-3); fill-opacity: 0.22; }
+.l-turn, .l-slide { fill: none; stroke-width: 2.2; stroke-linejoin: round; }
+.l-turn { stroke: var(--series-2); } .l-slide { stroke: var(--series-3); }
+.pt-turn { fill: var(--series-2); } .pt-slide { fill: var(--series-3); }
+.mark { stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.node { fill: var(--surface-1); stroke: var(--axis); stroke-width: 1.2; }
+.node2 { fill: var(--wash); stroke: var(--series-1); stroke-width: 1.4; }
+.node3 { fill: var(--surface-1); stroke: var(--series-2); stroke-width: 1.4; }
+.arrow { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+.arrow2 { stroke: var(--series-2); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
+.ah { fill: var(--ink-2); } .ah2 { fill: var(--series-2); }
+.nt { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+.ns { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 11px; fill: var(--ink-2); }
+.sweep { fill: none; stroke: var(--series-2); stroke-width: 1.4; stroke-dasharray: 5 4; }
+.ceil { stroke: var(--ink); stroke-width: 2.2; }
+.piv { fill: var(--ink); }
+.q { border-left: 3px solid var(--axis); padding: 2px 0 2px 12px; color: var(--ink-2); margin: 10px 0 12px; }
+td.yes { color: var(--series-3); font-weight: 600; } td.no { color: var(--series-2); font-weight: 600; }
+</style></head><body>
+<header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
+<main>
+<nav class="crumb"><a href="/">ShapeLogic</a> › <a href="/research/">Research</a></nav>
+<h1>Packing puzzles that need a turn: how they are designed and checked</h1>
+<p class="sub">How designers such as Volker Latussek and Frederic Boucher make packing puzzles whose pieces must be tilted or turned through an opening, how they choose the sizes, how they look for unintended solutions, and why grid solvers cannot check them</p>
+<p class="meta">24 November 2026</p>
+
+<div class="box">
+<h3>In short</h3>
+<ul>
+<li>Grid solvers such as BurrTools and ShapeLogic move pieces only in straight steps along the grid and never change a piece's orientation during a solve. They can count the ways the pieces fit inside a box, but not whether a piece can be tilted in through the opening.</li>
+<li>No published tool checks those tilts. Latussek's own account is a loop of question, computer model, a 3D-printed prototype that arrives by post a few days later, testers, and the bin when it is too easy. A publisher then makes small batches in wood.</li>
+<li>The sizes follow a rule that Latussek states for his FLOP series: the opening is as large as it can be while the turn is still needed. Larger, and the pieces go in without the turn.</li>
+<li>Unintended solutions are found by people, often after release. The original Euklid turned out to have at least 22 solutions. It was followed by a revised edition and then The Real Euklid.</li>
+<li>A small example worked out exactly for this page shows why the margins are so fine. In it, each 0.01 of a unit of play between block and box raises the smallest workable opening by about 0.04 of a unit. At 7&#160;mm units, 0.07&#160;mm of play costs about 0.29&#160;mm of opening.</li>
+<li>Searches that try angles in steps can miss a tilt that exists. In the same example, any step of 2&#176; or more misses the only way in at an opening where one exists. A missed tilt is exactly a missed shortcut.</li>
+</ul>
+</div>
+
+<h2 id="s1">1. The question</h2>
+<p>Many packing puzzles are cubes or boxes on a grid, and BurrTools or ShapeLogic can search them completely. The search finds every way the pieces fit, and for each one every way to take it apart in straight moves. A growing family of puzzles does not work that way. In Volker Latussek's Euklid, seven rectangular blocks go into a cubic box through a slot in its top, and some of them must be tilted under the edge of the slot on the way in. Latussek's Fermat uses triangular pieces. Frederic Boucher's Minima puzzles have side "windows" where pieces turn. These puzzles depend on exact sizes. Make the opening a little larger and the puzzle may go in straight. Make it a little smaller and it may not go in at all. Change one block and an unintended solution may appear.</p>
+<p>This page collects what is publicly known about how such puzzles are designed and checked. It covers how the designers prototype, how they choose the sizes, how they look for unintended solutions (often called cooks or shortcuts), and why the software stops where these puzzles start. A small example, worked out exactly for this page, puts numbers on the margins.</p>
+
+<h2 id="s2">2. What a grid solver can and cannot check</h2>
+<p>BurrTools places every piece on a fixed grid, in one of the grid's orientations, and takes an assembly apart by sliding pieces in whole steps along the grid's directions. A piece never changes its orientation during a disassembly. When a user asked in 2009 for pieces that pivot, the program's author, Andreas R&#246;ver, answered that "rotation is a most difficult problem". He explained that many places in the program assume the pieces do not change orientation. The request is still open.</p>
+<p>ShapeLogic's assembler and disassembler are ports of BurrTools' and keep the same rule. Its Tilted Square mode turns the grid of a flat tray, but the turn is fixed when the puzzle is made. During a solve the pieces still only slide.</p>
+<p>So the grid solver answers the first half of the question, which packings fit inside the box. Reviewers use it for exactly that. For the original Euklid, a BurrTools count gave 2,444 ways to place the seven blocks in the box. The reviewer then had to sort out by hand which ones could get in through the opening. For Latussek's Fritz-Flop the count was 28. For Osanori Yamamoto's Galette, another reviewer wrote that "the required rotational moves" meant BurrTools could not solve it.</p>
+<p>A puzzle that needs a turn is exactly a puzzle whose answer to the second half differs from the straight-move answer.</p>
+
+<h2 id="s3">3. How Latussek works, in his own words</h2>
+<p>Volker Latussek is a physicist who has worked in the central administration of the University of W&#252;rzburg since 2008. He designs puzzles in his spare time. A university article from January 2019 gives the most detailed public account of his process. By then he had developed and marketed 17 mechanical puzzles in about eight years.</p>
+<p>Every design starts with a question. The article's example is whether a closed loop can be fitted into a 3&#160;&#215;&#160;3&#160;&#215;&#160;3 cube. He proved mathematically that it cannot. If the answer is yes, he builds a model on the computer and sends the data to a 3D printing company. A few days later the first plastic prototype arrives by post. It gets an intensive functional test, and then family and friends try it.</p>
+<p class="q">If it turns out that the solution is too easy, the prototype ends up in the bin. (Latussek, 2019, translated from German)</p>
+<p>Only then does he contact a publisher that specializes in such puzzles, where the first small series are made. For most of his puzzles that is Pelikan in the Czech Republic. Pelikan sends review copies to collectors before a release, and in 2022 it remade a batch after a reviewer found a mistake in a copy.</p>
+<figure><svg viewBox="0 0 860 300" role="img" aria-label="The design loop: question, computer model, printed prototype, testing, small series, release, with returns" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah2" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="node" x="8.0" y="40" width="124" height="70" rx="8"/>
+<text class="nt" x="70.0" y="64" text-anchor="middle">Question</text>
+<text class="ns" x="70.0" y="83" text-anchor="middle">Can it be done?</text>
+<text class="ns" x="70.0" y="97" text-anchor="middle">Sometimes a proof</text>
+<rect class="node2" x="152.0" y="40" width="124" height="70" rx="8"/>
+<text class="nt" x="214.0" y="64" text-anchor="middle">Computer model</text>
+<text class="ns" x="214.0" y="83" text-anchor="middle">Pieces, box and</text>
+<text class="ns" x="214.0" y="97" text-anchor="middle">opening on a grid</text>
+<line class="arrow" x1="134.0" y1="75.0" x2="150.0" y2="75.0" marker-end="url(#ah)"/>
+<rect class="node" x="296.0" y="40" width="124" height="70" rx="8"/>
+<text class="nt" x="358.0" y="64" text-anchor="middle">Printed prototype</text>
+<text class="ns" x="358.0" y="83" text-anchor="middle">Plastic, by a print</text>
+<text class="ns" x="358.0" y="97" text-anchor="middle">service, in days</text>
+<line class="arrow" x1="278.0" y1="75.0" x2="294.0" y2="75.0" marker-end="url(#ah)"/>
+<rect class="node" x="440.0" y="40" width="124" height="70" rx="8"/>
+<text class="nt" x="502.0" y="64" text-anchor="middle">Testing</text>
+<text class="ns" x="502.0" y="83" text-anchor="middle">Functional test,</text>
+<text class="ns" x="502.0" y="97" text-anchor="middle">then family, friends</text>
+<line class="arrow" x1="422.0" y1="75.0" x2="438.0" y2="75.0" marker-end="url(#ah)"/>
+<rect class="node" x="584.0" y="40" width="124" height="70" rx="8"/>
+<text class="nt" x="646.0" y="64" text-anchor="middle">Small series</text>
+<text class="ns" x="646.0" y="83" text-anchor="middle">Made in wood by</text>
+<text class="ns" x="646.0" y="97" text-anchor="middle">a publisher (Pelikan)</text>
+<line class="arrow" x1="566.0" y1="75.0" x2="582.0" y2="75.0" marker-end="url(#ah)"/>
+<rect class="node" x="728.0" y="40" width="124" height="70" rx="8"/>
+<text class="nt" x="790.0" y="64" text-anchor="middle">Release</text>
+<text class="ns" x="790.0" y="83" text-anchor="middle">Review copies,</text>
+<text class="ns" x="790.0" y="97" text-anchor="middle">collectors' blogs</text>
+<line class="arrow" x1="710.0" y1="75.0" x2="726.0" y2="75.0" marker-end="url(#ah)"/>
+<line class="arrow" x1="502.0" y1="110" x2="502.0" y2="140" marker-end="url(#ah)"/>
+<rect class="node" x="468.0" y="142" width="96" height="30" rx="8"/>
+<text class="ns" x="516.0" y="161" text-anchor="middle">Too easy: the bin</text>
+<text class="ctitle" x="8.0" y="26">As Latussek describes it</text>
+<path class="arrow2" d="M454.0,110 L454.0,214 L214.0,214 L214.0,112" marker-end="url(#ah2)"/>
+<text class="ns" x="224.0" y="230">Fermat: friends found what he had missed, twice</text>
+<path class="arrow2" d="M790.0,110 L790.0,268 L214.0,268 L214.0,112" marker-end="url(#ah2)"/>
+<text class="ns" x="224.0" y="284">Euklid: at least 22 solutions found after release, new set of blocks</text>
+</svg><figcaption>Figure 1. The design loop as Latussek describes it (top row). The dashed return arrows below it are what happened to Euklid and Fermat, from his own notes: testers or collectors found solutions he had not intended, and he went back to the pieces.</figcaption></figure>
+<p>His notes for Pelikan show two ways of finding the movement. For the early Euklids he "always focused on the most beautiful sequence of movements possible for seven cuboids". For The Real Euklid he worked the other way round: "I let the possible cuboids sink in and saw which sequence they showed me." He also counts piece sets systematically. For Minima for Frederic he reports that of 924 arrangements, "only 13 filled a 6x4x4 volume in 50 different ways", which is the kind of count a program makes. He has never said which program he uses.</p>
+<p>The print-and-test loop is common to many designers. Oskar van Deventer, who also has every prototype printed by a service, put its cost plainly: "if a prototype fails, I have to do another round". Latussek and van Deventer have co-designed at least one 3D-printed FLOP variant.</p>
+
+<h2 id="s4">4. Choosing the sizes</h2>
+<p>The published sizes show a clear pattern. Everything sits on a grid of whole units, as in an ordinary packing puzzle. The opening, the one size that is not part of the pieces, is then tuned until the turn is needed.</p>
+<h3>The grid</h3>
+<p>Euklid is a 72&#160;mm cube built on a 7&#160;mm unit, with every side of every piece a multiple of 7&#160;mm. The box has a lip on each side, and the blocks go in through a slot. The revised edition states the design in units: a 9&#160;&#215;&#160;9&#160;&#215;&#160;9 box with a centered 5&#160;&#215;&#160;9 opening, and seven blocks.</p>
+<div class="tw"><table><tr><th>Puzzle</th><th>Box and opening</th><th>Pieces</th></tr><tr><td>Euklid</td><td>72&#160;mm cube, 7&#160;mm unit, a lip on each side, a slot to enter by</td><td>Seven rectangular blocks, every side a multiple of 7&#160;mm</td></tr><tr><td>Euklid, 2nd Revised Edition</td><td>9&#160;&#215;&#160;9&#160;&#215;&#160;9 units, centered 5&#160;&#215;&#160;9 opening</td><td>4&#160;&#215;&#160;4&#160;&#215;&#160;4, 3&#160;&#215;&#160;4&#160;&#215;&#160;6, 3&#160;&#215;&#160;5&#160;&#215;&#160;5, 4&#160;&#215;&#160;4&#160;&#215;&#160;5, 4&#160;&#215;&#160;4&#160;&#215;&#160;6, 4&#160;&#215;&#160;5&#160;&#215;&#160;6, 5&#160;&#215;&#160;5&#160;&#215;&#160;5 (632 of the box's 729 cells, 87%)</td></tr><tr><td>The Real Euklid</td><td>73&#160;mm cube</td><td>A new set of seven blocks, found by the opposite method (section 3)</td></tr><tr><td>Fritz-Flop</td><td>Opening "just smaller than 3x2 voxels"</td><td>Two tricubes, three tetracubes</td></tr><tr><td>Soma-Flop</td><td>Opening "not quite two voxels wide"</td><td>Soma pieces</td></tr><tr><td>Fermat</td><td>6.9&#160;&#215;&#160;6.9&#160;&#215;&#160;5.8&#160;cm</td><td>Isosceles 45&#176; triangles</td></tr></table></div><p>Each block of the revised Euklid fits through the 5&#160;&#215;&#160;9 opening on its own, face on, since its two smaller sides are at most 5 and 6 units. What the opening limits is where the blocks can go once others are inside: under the 2-unit lips on either side of the slot. (Computed from the published sizes.)</p>
+<p>Latussek's later designs add finer steps. Thyor uses cells of 1.5&#160;&#215;&#160;1&#160;&#215;&#160;1.5 units, and Minima-Flop has openings 1.5 units wide.</p>
+<h3>The opening</h3>
+<p>Latussek states the rule for the FLOP series. Each box has "the largest possible rectangular opening on one side", and "each of the four FLOPs has a unique kind of rotation". He explained the upper limit for Soma-Flop: with any larger opening the Soma pieces "could effectively be packed as into an unrestricted box". So the opening is pushed up to the largest size at which the turn is still needed. Smaller, and the puzzle cannot be solved at all. Larger, and it no longer needs the turn. Reviewers describe the result in the same terms. Fritz-Flop's opening is "just smaller than 3x2 voxels", and Soma-Flop's is "not quite two voxels wide".</p>
+<p>Fermat shows how long this tuning can take. Latussek writes that he worked on it for more than two years. He first wanted equilateral triangles, then "switched to isosceles triangles, in the end the 45 degree angle imposed itself". He aimed for a single solution path that "could not be shortened".</p>
+
+<h2 id="s5">5. A worked example: what a millimeter does</h2>
+<p>None of these designers has published the geometry behind a tilt. To show why the margins are so fine, this page works out a small example exactly. It is not any real puzzle and does not hint at any puzzle's solution.</p>
+<p>The example is a cross-section. A box is 4 units wide inside and 2 units deep, with a lid 0.5 units thick. The lid leaves an opening of width <i>o</i> against the right wall. A block 1 unit thick and 3 units long must end lying flat in the bottom-left corner, under the lid. The box is shallower than the block is long, so the block can never stand upright inside it. Every surface keeps a clearance of 0.02 units, the play a real puzzle needs. With the 7&#160;mm unit of Euklid, the block is 7&#160;&#215;&#160;21&#160;mm and the play is 0.14&#160;mm.</p>
+<p>A program written for this page searches every position and angle of the block: the center's <i>x</i> and <i>y</i>, and the turn, from 0&#176; to 180&#176;. It lays a grid of steps of 0.01 units and 0.5&#176; over these three, and marks a step free when the block touches no wall. The block is grown by a small safety margin, which covers everything that happens between two neighboring steps. A path found is therefore a real path. The search then looks for a chain of free steps from above the box to the final place.</p>
+<figure><svg viewBox="0 0 860 286.0" role="img" aria-label="The example box at three opening widths: no way in, in only with a turn, and straight in" xmlns="http://www.w3.org/2000/svg">
+<rect class="wall" x="56.30" y="222.20" width="211.60" height="13.80"/>
+<rect class="wall" x="56.30" y="107.20" width="13.80" height="115.00"/>
+<rect class="wall" x="254.10" y="107.20" width="13.80" height="115.00"/>
+<rect class="wall" x="70.10" y="107.20" width="115.00" height="23.00"/>
+<text class="ctitle" x="162.1" y="262.0" text-anchor="middle">Opening 1.5</text>
+<text class="csub" x="162.1" y="278.0" text-anchor="middle">no way in at any angle</text>
+<polygon class="blk1" points="253.18,221.28 253.18,83.28 207.18,83.28 207.18,221.28"/>
+<polygon class="ghostx" points="246.42,186.78 177.42,67.27 137.58,90.27 206.58,209.78"/>
+<rect class="wall" x="324.20" y="222.20" width="211.60" height="13.80"/>
+<rect class="wall" x="324.20" y="107.20" width="13.80" height="115.00"/>
+<rect class="wall" x="522.00" y="107.20" width="13.80" height="115.00"/>
+<rect class="wall" x="338.00" y="107.20" width="82.80" height="23.00"/>
+<text class="ctitle" x="430.0" y="262.0" text-anchor="middle">Opening 2.2</text>
+<text class="csub" x="430.0" y="278.0" text-anchor="middle">in only with a turn</text>
+<polyline class="trail" points="489.80,79.60 489.80,80.52 489.80,81.44 489.80,82.36 489.80,83.28 489.80,84.20 489.80,85.12 489.80,86.04 489.80,86.96 489.80,87.88 489.80,88.80 489.80,89.72 489.80,90.64 489.80,91.56 489.80,92.48 489.80,93.40 489.80,94.32 489.80,95.24 489.80,96.16 489.80,97.08 489.80,98.00 489.80,98.92 489.80,99.84 489.80,100.76 489.80,101.68 489.80,102.60 488.88,102.60 488.88,103.52 487.96,103.52 487.96,104.44 487.04,104.44 486.12,104.44 486.12,105.36 485.20,105.36 485.20,106.28 484.28,106.28 484.28,107.20 483.36,107.20 483.36,108.12 482.44,108.12 482.44,109.04 481.52,109.04 481.52,109.96 480.60,109.96 480.60,110.88 479.68,110.88 479.68,111.80 478.76,111.80 478.76,112.72 477.84,112.72 476.92,112.72 476.92,113.64 476.00,113.64 476.00,114.56 475.08,114.56 475.08,115.48 474.16,115.48 474.16,116.40 473.24,116.40 473.24,117.32 472.32,117.32 472.32,118.24 471.40,118.24 471.40,119.16 470.48,119.16 470.48,120.08 469.56,120.08 469.56,121.00 468.64,121.00 467.72,121.00 467.72,121.92 466.80,121.92 466.80,122.84 465.88,122.84 465.88,123.76 464.96,123.76 464.96,124.68 464.04,124.68 464.04,125.60 463.12,125.60 463.12,126.52 462.20,126.52 462.20,127.44 461.28,127.44 461.28,128.36 460.36,128.36 460.36,129.28 459.44,129.28 458.52,129.28 458.52,130.20 457.60,130.20 457.60,131.12 456.68,131.12 456.68,132.04 455.76,132.04 455.76,132.96 454.84,132.96 454.84,133.88 453.92,133.88 453.92,134.80 453.00,134.80 453.00,135.72 452.08,135.72 452.08,136.64 451.16,136.64 451.16,137.56 450.24,137.56 450.24,138.48 449.32,138.48 448.40,138.48 448.40,139.40 447.48,139.40 447.48,140.32 446.56,140.32 446.56,141.24 445.64,141.24 445.64,142.16 444.72,142.16 444.72,143.08 443.80,143.08 443.80,144.00 442.88,144.00 442.88,144.92 441.96,144.92 441.96,145.84 441.04,145.84 441.04,146.76 440.12,146.76 439.20,146.76 439.20,147.68 438.28,147.68 438.28,148.60 437.36,148.60 437.36,149.52 436.44,149.52 436.44,150.44 435.52,150.44 435.52,151.36 434.60,151.36 434.60,152.28 433.68,152.28 433.68,153.20 432.76,153.20 432.76,154.12 431.84,154.12 431.84,155.04 430.92,155.04 430.00,155.04 430.00,155.96 429.08,155.96 429.08,155.96 429.08,156.88 428.16,156.88 428.16,156.88 427.24,156.88 427.24,157.80 426.32,157.80 426.32,157.80 426.32,157.80 425.40,157.80 425.40,158.72 424.48,158.72 424.48,158.72 424.48,159.64 423.56,159.64 422.64,159.64 422.64,159.64 422.64,160.56 421.72,160.56 420.80,160.56 420.80,160.56 420.80,161.48 419.88,161.48 418.96,161.48 418.96,161.48 418.96,161.48 418.04,161.48 418.04,162.40 417.12,162.40 417.12,162.40 416.20,162.40 416.20,163.32 415.28,163.32 414.36,163.32 414.36,163.32 413.44,163.32 413.44,164.24 413.44,164.24 413.44,165.16 413.44,165.16 413.44,166.08 413.44,166.08 413.44,167.00 413.44,167.00 413.44,167.92 413.44,167.92 413.44,168.84 413.44,168.84 413.44,169.76 413.44,169.76 413.44,170.68 413.44,170.68 413.44,171.60 413.44,171.60 413.44,172.52 413.44,172.52 413.44,173.44 413.44,173.44 413.44,174.36 413.44,174.36 413.44,175.28 413.44,175.28 413.44,176.20 413.44,176.20 413.44,177.12 413.44,178.04 413.44,178.04 413.44,178.96 413.44,178.96 412.52,178.96 412.52,179.88 412.52,179.88 412.52,180.80 412.52,180.80 412.52,181.72 412.52,181.72 412.52,182.64 412.52,182.64 412.52,183.56 412.52,184.48 412.52,184.48 412.52,185.40 412.52,185.40 411.60,185.40 411.60,186.32 411.60,186.32 411.60,187.24 411.60,187.24 411.60,188.16 411.60,189.08 411.60,189.08 411.60,190.00 411.60,190.00 410.68,190.00 410.68,190.92 410.68,190.92 410.68,191.84 410.68,192.76 410.68,192.76 409.76,192.76 409.76,193.68 409.76,193.68 409.76,194.60 409.76,194.60 409.76,195.52 409.76,195.52 408.84,195.52 408.84,196.44 408.84,197.36"/>
+<polygon class="ghost" points="438.27,178.74 540.83,86.40 510.05,52.22 407.49,144.56"/>
+<polygon class="ghost" points="411.59,203.58 514.15,111.24 483.37,77.06 380.81,169.40"/>
+<polygon class="ghost" points="381.38,219.53 491.59,136.48 463.90,99.75 353.69,182.80"/>
+<polygon class="ghost" points="354.92,219.40 486.17,176.75 471.96,133.00 340.71,175.65"/>
+<polygon class="ghost" points="453.91,142.86 556.47,50.52 525.69,16.34 423.13,108.68"/>
+<polygon class="blk1" points="339.84,220.36 477.84,220.36 477.84,174.36 339.84,174.36"/>
+<rect class="wall" x="592.10" y="222.20" width="211.60" height="13.80"/>
+<rect class="wall" x="592.10" y="107.20" width="13.80" height="115.00"/>
+<rect class="wall" x="789.90" y="107.20" width="13.80" height="115.00"/>
+<rect class="wall" x="605.90" y="107.20" width="41.40" height="23.00"/>
+<text class="ctitle" x="697.9" y="262.0" text-anchor="middle">Opening 3.1</text>
+<text class="csub" x="697.9" y="278.0" text-anchor="middle">drops in flat, slides left</text>
+<polyline class="trail" points="719.98,65.80 719.98,198.28 675.82,198.28"/>
+<polygon class="ghost" points="650.98,88.80 788.98,88.80 788.98,42.80 650.98,42.80"/>
+<polygon class="ghost" points="650.98,221.28 788.98,221.28 788.98,175.28 650.98,175.28"/>
+<polygon class="blk1" points="606.82,221.28 744.82,221.28 744.82,175.28 606.82,175.28"/>
+</svg><figcaption>Figure 2. The example at three openings. Left: at 1.5 units the block can stand in the opening, but any tilt toward the lid (dashed) hits it, and there is no way in at any angle. Middle: at 2.2 units the block gets in only by entering at a slant, about 40&#176;, and lying down under the lid. The outlines are poses along the path the search found, and the dashed line is the path of the block's center. Right: at 3.1 units it drops in flat and slides left. A grid solver finds only the right-hand path.</figcaption></figure>
+<p>As the opening grows, the answer falls into three bands:</p>
+<ul>
+<li>Below 1.66 units the block cannot get in at all.</li>
+<li>From 1.66 up to 3.04 units it gets in only with a turn. This is the band a designer aims for.</li>
+<li>From 3.04 units up it drops in flat, and the puzzle no longer needs the turn.</li>
+</ul>
+<p>The bands move with every other size. Figure 3 shows the band as the depth of the box changes. Each tenth of a unit of depth (0.7&#160;mm) moves the smallest workable opening by 0.04 to 0.27 units, more in a shallow box.</p>
+<figure><svg viewBox="0 0 860 340" role="img" aria-label="Opening width bands against the depth of the box" xmlns="http://www.w3.org/2000/svg">
+<line class="grid" x1="64" y1="286.0" x2="820" y2="286.0"/>
+<text class="tick" x="56" y="290.0" text-anchor="end">1</text>
+<line class="grid" x1="64" y1="236.8" x2="820" y2="236.8"/>
+<text class="tick" x="56" y="240.8" text-anchor="end">1.5</text>
+<line class="grid" x1="64" y1="187.6" x2="820" y2="187.6"/>
+<text class="tick" x="56" y="191.6" text-anchor="end">2</text>
+<line class="grid" x1="64" y1="138.4" x2="820" y2="138.4"/>
+<text class="tick" x="56" y="142.4" text-anchor="end">2.5</text>
+<line class="grid" x1="64" y1="89.2" x2="820" y2="89.2"/>
+<text class="tick" x="56" y="93.2" text-anchor="end">3</text>
+<line class="grid" x1="64" y1="40.0" x2="820" y2="40.0"/>
+<text class="tick" x="56" y="44.0" text-anchor="end">3.5</text>
+<text class="tick" x="64.0" y="302" text-anchor="middle">1.1</text>
+<text class="tick" x="148.0" y="302" text-anchor="middle">1.3</text>
+<text class="tick" x="232.0" y="302" text-anchor="middle">1.5</text>
+<text class="tick" x="316.0" y="302" text-anchor="middle">1.7</text>
+<text class="tick" x="400.0" y="302" text-anchor="middle">1.9</text>
+<text class="tick" x="484.0" y="302" text-anchor="middle">2.1</text>
+<text class="tick" x="568.0" y="302" text-anchor="middle">2.3</text>
+<text class="tick" x="652.0" y="302" text-anchor="middle">2.5</text>
+<text class="tick" x="736.0" y="302" text-anchor="middle">2.7</text>
+<text class="tick" x="820.0" y="302" text-anchor="middle">2.9</text>
+<text class="axlabel" x="442.0" y="322" text-anchor="middle">Depth of the box, units</text>
+<text class="axlabel" x="14" y="163.0" text-anchor="middle" transform="rotate(-90 14 163.0)">Opening width, units</text>
+<polygon class="band0" points="64.00,286.00 64.00,88.85 106.00,115.06 148.00,134.12 190.00,150.81 232.00,165.11 274.00,177.61 316.00,189.53 358.00,200.55 400.00,210.08 442.00,218.72 484.00,226.76 526.00,234.52 568.00,241.66 610.00,248.21 652.00,253.87 694.00,259.54 736.00,264.60 778.00,269.07 820.00,272.94 820.00,286.00"/>
+<polygon class="band1" points="64.00,88.85 106.00,115.06 148.00,134.12 190.00,150.81 232.00,165.11 274.00,177.61 316.00,189.53 358.00,200.55 400.00,210.08 442.00,218.72 484.00,226.76 526.00,234.52 568.00,241.66 610.00,248.21 652.00,253.87 694.00,259.54 736.00,264.60 778.00,269.07 820.00,272.94 820.00,85.26 778.00,85.26 736.00,85.26 694.00,85.26 652.00,85.26 610.00,85.26 568.00,85.26 526.00,85.26 484.00,85.26 442.00,85.26 400.00,85.26 358.00,85.26 316.00,85.26 274.00,85.26 232.00,85.26 190.00,85.26 148.00,85.26 106.00,85.26 64.00,85.26"/>
+<polygon class="band2" points="64.00,85.26 106.00,85.26 148.00,85.26 190.00,85.26 232.00,85.26 274.00,85.26 316.00,85.26 358.00,85.26 400.00,85.26 442.00,85.26 484.00,85.26 526.00,85.26 568.00,85.26 610.00,85.26 652.00,85.26 694.00,85.26 736.00,85.26 778.00,85.26 820.00,85.26 820.00,40.00 64.00,40.00"/>
+<line class="axis" x1="64" y1="286" x2="820" y2="286"/>
+<polyline class="l-turn" points="64.00,88.85 106.00,115.06 148.00,134.12 190.00,150.81 232.00,165.11 274.00,177.61 316.00,189.53 358.00,200.55 400.00,210.08 442.00,218.72 484.00,226.76 526.00,234.52 568.00,241.66 610.00,248.21 652.00,253.87 694.00,259.54 736.00,264.60 778.00,269.07 820.00,272.94"/>
+<polyline class="l-slide" points="64.00,85.26 106.00,85.26 148.00,85.26 190.00,85.26 232.00,85.26 274.00,85.26 316.00,85.26 358.00,85.26 400.00,85.26 442.00,85.26 484.00,85.26 526.00,85.26 568.00,85.26 610.00,85.26 652.00,85.26 694.00,85.26 736.00,85.26 778.00,85.26 820.00,85.26"/>
+<line class="mark" x1="442.0" y1="40" x2="442.0" y2="286"/>
+<circle class="pt-turn" cx="64.0" cy="88.8" r="3"/>
+<circle class="pt-slide" cx="64.0" cy="85.3" r="2.4"/>
+<rect x="56.0" y="40" width="16" height="246" fill="transparent"><title>Depth 1.1: with a turn from 3.00, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="106.0" cy="115.1" r="3"/>
+<circle class="pt-slide" cx="106.0" cy="85.3" r="2.4"/>
+<rect x="98.0" y="40" width="16" height="246" fill="transparent"><title>Depth 1.2: with a turn from 2.74, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="148.0" cy="134.1" r="3"/>
+<circle class="pt-slide" cx="148.0" cy="85.3" r="2.4"/>
+<rect x="140.0" y="40" width="16" height="246" fill="transparent"><title>Depth 1.3: with a turn from 2.54, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="190.0" cy="150.8" r="3"/>
+<circle class="pt-slide" cx="190.0" cy="85.3" r="2.4"/>
+<rect x="182.0" y="40" width="16" height="246" fill="transparent"><title>Depth 1.4: with a turn from 2.37, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="232.0" cy="165.1" r="3"/>
+<circle class="pt-slide" cx="232.0" cy="85.3" r="2.4"/>
+<rect x="224.0" y="40" width="16" height="246" fill="transparent"><title>Depth 1.5: with a turn from 2.23, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="274.0" cy="177.6" r="3"/>
+<circle class="pt-slide" cx="274.0" cy="85.3" r="2.4"/>
+<rect x="266.0" y="40" width="16" height="246" fill="transparent"><title>Depth 1.6: with a turn from 2.10, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="316.0" cy="189.5" r="3"/>
+<circle class="pt-slide" cx="316.0" cy="85.3" r="2.4"/>
+<rect x="308.0" y="40" width="16" height="246" fill="transparent"><title>Depth 1.7: with a turn from 1.98, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="358.0" cy="200.5" r="3"/>
+<circle class="pt-slide" cx="358.0" cy="85.3" r="2.4"/>
+<rect x="350.0" y="40" width="16" height="246" fill="transparent"><title>Depth 1.8: with a turn from 1.87, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="400.0" cy="210.1" r="3"/>
+<circle class="pt-slide" cx="400.0" cy="85.3" r="2.4"/>
+<rect x="392.0" y="40" width="16" height="246" fill="transparent"><title>Depth 1.9: with a turn from 1.77, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="442.0" cy="218.7" r="3"/>
+<circle class="pt-slide" cx="442.0" cy="85.3" r="2.4"/>
+<rect x="434.0" y="40" width="16" height="246" fill="transparent"><title>Depth 2: with a turn from 1.68, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="484.0" cy="226.8" r="3"/>
+<circle class="pt-slide" cx="484.0" cy="85.3" r="2.4"/>
+<rect x="476.0" y="40" width="16" height="246" fill="transparent"><title>Depth 2.1: with a turn from 1.60, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="526.0" cy="234.5" r="3"/>
+<circle class="pt-slide" cx="526.0" cy="85.3" r="2.4"/>
+<rect x="518.0" y="40" width="16" height="246" fill="transparent"><title>Depth 2.2: with a turn from 1.52, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="568.0" cy="241.7" r="3"/>
+<circle class="pt-slide" cx="568.0" cy="85.3" r="2.4"/>
+<rect x="560.0" y="40" width="16" height="246" fill="transparent"><title>Depth 2.3: with a turn from 1.45, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="610.0" cy="248.2" r="3"/>
+<circle class="pt-slide" cx="610.0" cy="85.3" r="2.4"/>
+<rect x="602.0" y="40" width="16" height="246" fill="transparent"><title>Depth 2.4: with a turn from 1.38, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="652.0" cy="253.9" r="3"/>
+<circle class="pt-slide" cx="652.0" cy="85.3" r="2.4"/>
+<rect x="644.0" y="40" width="16" height="246" fill="transparent"><title>Depth 2.5: with a turn from 1.33, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="694.0" cy="259.5" r="3"/>
+<circle class="pt-slide" cx="694.0" cy="85.3" r="2.4"/>
+<rect x="686.0" y="40" width="16" height="246" fill="transparent"><title>Depth 2.6: with a turn from 1.27, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="736.0" cy="264.6" r="3"/>
+<circle class="pt-slide" cx="736.0" cy="85.3" r="2.4"/>
+<rect x="728.0" y="40" width="16" height="246" fill="transparent"><title>Depth 2.7: with a turn from 1.22, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="778.0" cy="269.1" r="3"/>
+<circle class="pt-slide" cx="778.0" cy="85.3" r="2.4"/>
+<rect x="770.0" y="40" width="16" height="246" fill="transparent"><title>Depth 2.8: with a turn from 1.17, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="820.0" cy="272.9" r="3"/>
+<circle class="pt-slide" cx="820.0" cy="85.3" r="2.4"/>
+<rect x="812.0" y="40" width="16" height="246" fill="transparent"><title>Depth 2.9: with a turn from 1.13, straight from 3.04</title></rect>
+<text class="legend" x="442.0" y="156.0" text-anchor="middle">in only with a turn</text>
+<text class="legend" x="442.0" y="66.6" text-anchor="middle">straight in (a grid solver's answer)</text>
+<text class="legend" x="736.0" y="279.3" text-anchor="middle">no way in</text>
+</svg><figcaption>Figure 3. The three bands of opening width against the depth of the box, for the 1&#160;&#215;&#160;3 block with 0.02 units of play. Gray: no way in. Orange: in only with a turn. Green: in without turning (a grid solver's answer). Hover for the numbers.</figcaption></figure>
+<p>The play between block and box matters even more. Figure 4 keeps the box and changes the clearance. Each extra 0.01 units of play raises the smallest workable opening by about 0.04 units. The straight limit rises by only twice the play. A block that tips under the lid has to clear the lid's corner and the floor at the same time, at an angle, so the play counts several times over. This fits the makers' experience. Cubicdissection asks buyers to keep its puzzles at 40 to 60&#160;% relative humidity, or they "may cause inoperability or permanent damage". One collector reports a piece of Latussek's TUTU binding at about 21% humidity in winter.</p>
+<figure><svg viewBox="0 0 860 340" role="img" aria-label="Smallest opening against the play between block and box" xmlns="http://www.w3.org/2000/svg">
+<line class="grid" x1="64" y1="286.0" x2="820" y2="286.0"/>
+<text class="tick" x="56" y="290.0" text-anchor="end">1.5</text>
+<line class="grid" x1="64" y1="224.5" x2="820" y2="224.5"/>
+<text class="tick" x="56" y="228.5" text-anchor="end">2</text>
+<line class="grid" x1="64" y1="163.0" x2="820" y2="163.0"/>
+<text class="tick" x="56" y="167.0" text-anchor="end">2.5</text>
+<line class="grid" x1="64" y1="101.5" x2="820" y2="101.5"/>
+<text class="tick" x="56" y="105.5" text-anchor="end">3</text>
+<line class="grid" x1="64" y1="40.0" x2="820" y2="40.0"/>
+<text class="tick" x="56" y="44.0" text-anchor="end">3.5</text>
+<text class="tick" x="64.0" y="302" text-anchor="middle">0</text>
+<text class="tick" x="190.0" y="302" text-anchor="middle">0.025</text>
+<text class="tick" x="316.0" y="302" text-anchor="middle">0.05</text>
+<text class="tick" x="442.0" y="302" text-anchor="middle">0.075</text>
+<text class="tick" x="568.0" y="302" text-anchor="middle">0.1</text>
+<text class="tick" x="694.0" y="302" text-anchor="middle">0.125</text>
+<text class="tick" x="820.0" y="302" text-anchor="middle">0.15</text>
+<text class="tick" x="64.0" y="34" text-anchor="middle">0.00</text>
+<text class="tick" x="190.0" y="34" text-anchor="middle">0.18</text>
+<text class="tick" x="316.0" y="34" text-anchor="middle">0.35</text>
+<text class="tick" x="442.0" y="34" text-anchor="middle">0.53</text>
+<text class="tick" x="568.0" y="34" text-anchor="middle">0.70</text>
+<text class="tick" x="694.0" y="34" text-anchor="middle">0.88</text>
+<text class="tick" x="820.0" y="34" text-anchor="middle">1.05</text>
+<text class="axlabel" x="442.0" y="322" text-anchor="middle">Play on every side, units (top: millimeters at a 7 mm unit)</text>
+<text class="axlabel" x="14" y="163.0" text-anchor="middle" transform="rotate(-90 14 163.0)">Opening width, units</text>
+<polygon class="band0" points="64.00,286.00 64.00,273.08 114.40,268.25 164.80,263.40 215.20,258.19 316.00,248.51 442.00,235.85 568.00,223.20 820.00,196.38 820.00,286.00"/>
+<polygon class="band1" points="64.00,273.08 114.40,268.25 164.80,263.40 215.20,258.19 316.00,248.51 442.00,235.85 568.00,223.20 820.00,196.38 820.00,64.60 568.00,76.90 442.00,83.05 316.00,89.20 215.20,94.12 164.80,96.58 114.40,99.04 64.00,101.50"/>
+<polygon class="band2" points="64.00,101.50 114.40,99.04 164.80,96.58 215.20,94.12 316.00,89.20 442.00,83.05 568.00,76.90 820.00,64.60 820.00,40.00 64.00,40.00"/>
+<line class="axis" x1="64" y1="286" x2="820" y2="286"/>
+<polyline class="l-turn" points="64.00,273.08 114.40,268.25 164.80,263.40 215.20,258.19 316.00,248.51 442.00,235.85 568.00,223.20 820.00,196.38"/>
+<polyline class="l-slide" points="64.00,101.50 114.40,99.04 164.80,96.58 215.20,94.12 316.00,89.20 442.00,83.05 568.00,76.90 820.00,64.60"/>
+<line class="mark" x1="164.8" y1="40" x2="164.8" y2="286"/>
+<circle class="pt-turn" cx="64.0" cy="273.1" r="3"/>
+<circle class="pt-slide" cx="64.0" cy="101.5" r="2.4"/>
+<rect x="56.0" y="40" width="16" height="246" fill="transparent"><title>Play 0 (0.00 mm): with a turn from 1.60, straight from 3.00</title></rect>
+<circle class="pt-turn" cx="114.4" cy="268.3" r="3"/>
+<circle class="pt-slide" cx="114.4" cy="99.0" r="2.4"/>
+<rect x="106.4" y="40" width="16" height="246" fill="transparent"><title>Play 0.01 (0.07 mm): with a turn from 1.64, straight from 3.02</title></rect>
+<circle class="pt-turn" cx="164.8" cy="263.4" r="3"/>
+<circle class="pt-slide" cx="164.8" cy="96.6" r="2.4"/>
+<rect x="156.8" y="40" width="16" height="246" fill="transparent"><title>Play 0.02 (0.14 mm): with a turn from 1.68, straight from 3.04</title></rect>
+<circle class="pt-turn" cx="215.2" cy="258.2" r="3"/>
+<circle class="pt-slide" cx="215.2" cy="94.1" r="2.4"/>
+<rect x="207.2" y="40" width="16" height="246" fill="transparent"><title>Play 0.03 (0.21 mm): with a turn from 1.73, straight from 3.06</title></rect>
+<circle class="pt-turn" cx="316.0" cy="248.5" r="3"/>
+<circle class="pt-slide" cx="316.0" cy="89.2" r="2.4"/>
+<rect x="308.0" y="40" width="16" height="246" fill="transparent"><title>Play 0.05 (0.35 mm): with a turn from 1.80, straight from 3.10</title></rect>
+<circle class="pt-turn" cx="442.0" cy="235.9" r="3"/>
+<circle class="pt-slide" cx="442.0" cy="83.1" r="2.4"/>
+<rect x="434.0" y="40" width="16" height="246" fill="transparent"><title>Play 0.075 (0.53 mm): with a turn from 1.91, straight from 3.15</title></rect>
+<circle class="pt-turn" cx="568.0" cy="223.2" r="3"/>
+<circle class="pt-slide" cx="568.0" cy="76.9" r="2.4"/>
+<rect x="560.0" y="40" width="16" height="246" fill="transparent"><title>Play 0.1 (0.70 mm): with a turn from 2.01, straight from 3.20</title></rect>
+<circle class="pt-turn" cx="820.0" cy="196.4" r="3"/>
+<circle class="pt-slide" cx="820.0" cy="64.6" r="2.4"/>
+<rect x="812.0" y="40" width="16" height="246" fill="transparent"><title>Play 0.15 (1.05 mm): with a turn from 2.23, straight from 3.30</title></rect>
+<text class="legend" x="316.0" y="172.9" text-anchor="middle">in only with a turn</text>
+<text class="legend" x="316.0" y="68.6" text-anchor="middle">straight in (a grid solver's answer)</text>
+<text class="legend" x="442.0" y="264.9" text-anchor="middle">no way in</text>
+</svg><figcaption>Figure 4. The smallest workable opening against the play, for the 4&#160;&#215;&#160;2 box. Orange: with a turn. Green: without one. Hover for the numbers.</figcaption></figure>
+
+<h2 id="s6">6. Corners: bevels and rounding</h2>
+<p>A turning block sweeps a circle around the edge it pivots on, and the largest circle belongs to the corner farthest from that edge. For a square block of side 1 tipping over an edge, the far corner swings up to &#8730;2&#160;&#8776;&#160;1.414 units, so it needs 41% more headroom than its own height. Cut that corner away and the swing shrinks. A rounding of radius <i>r</i> brings it down to &#8730;2&#160;&#8722;&#160;<i>r</i>(&#8730;2&#160;&#8722;&#160;1). With <i>r</i> equal to the whole side, the rounded edge is centered on the pivot, and the block rolls under a ceiling no higher than itself.</p>
+<figure><svg viewBox="0 0 860 300" role="img" aria-label="A square block tipping over its edge under a ceiling: sharp, beveled and rounded" xmlns="http://www.w3.org/2000/svg">
+<polygon points="52.50,230.00 162.50,230.00 162.50,120.00 52.50,120.00" class="ghost"/>
+<polygon points="84.72,152.22 162.50,230.00 240.28,152.22 162.50,74.44" class="ghostx"/>
+<path class="sweep" d="M52.50,120.00 A155.56,155.56 0 0 1 272.50,120.00"/>
+<line class="axis" x1="14.0" y1="230.0" x2="272.5" y2="230.0"/>
+<line class="ceil" x1="14.0" y1="98.0" x2="272.5" y2="98.0"/>
+<text class="note" x="272.5" y="92.0" text-anchor="end">ceiling 1.2</text>
+<circle class="piv" cx="162.5" cy="230.0" r="3.5"/>
+<text class="ctitle" x="152.5" y="260" text-anchor="middle">Sharp corners</text>
+<text class="csub" x="152.5" y="276" text-anchor="middle">far corner swings to 1.414: hits</text>
+<polygon points="330.00,230.00 440.00,230.00 440.00,120.00 341.00,120.00 330.00,131.00" class="ghost"/>
+<polygon points="358.24,156.41 440.00,230.00 513.59,148.24 440.00,82.01 424.47,82.83" class="ghostx"/>
+<path class="sweep" d="M341.00,120.00 A147.99,147.99 0 0 1 550.00,131.00"/>
+<line class="axis" x1="291.5" y1="230.0" x2="550.0" y2="230.0"/>
+<line class="ceil" x1="291.5" y1="98.0" x2="550.0" y2="98.0"/>
+<text class="note" x="550.0" y="92.0" text-anchor="end">ceiling 1.2</text>
+<circle class="piv" cx="440.0" cy="230.0" r="3.5"/>
+<text class="ctitle" x="430.0" y="260" text-anchor="middle">Bevel 0.1</text>
+<text class="csub" x="430.0" y="276" text-anchor="middle">swings to 1.345: hits</text>
+<path d="M717.50,230.00 L717.50,120.00 A110,110 0 0 0 607.50,230.00 Z" class="ghost"/>
+<path d="M717.50,230.00 L795.28,152.22 A110,110 0 0 0 639.72,152.22 Z" class="blk1"/>
+<line class="axis" x1="569.0" y1="230.0" x2="827.5" y2="230.0"/>
+<line class="ceil" x1="569.0" y1="98.0" x2="827.5" y2="98.0"/>
+<text class="note" x="827.5" y="92.0" text-anchor="end">ceiling 1.2</text>
+<circle class="piv" cx="717.5" cy="230.0" r="3.5"/>
+<text class="ctitle" x="707.5" y="260" text-anchor="middle">Rounded, radius 1</text>
+<text class="csub" x="707.5" y="276" text-anchor="middle">swings to 1.000: passes</text>
+</svg><figcaption>Figure 5. A square block tipping over its right edge, seen end-on, under a ceiling 1.2 units high. Left: with sharp corners, the far corner swings to 1.414 and hits the ceiling. Middle: a small bevel of 0.1 lowers the swing only to 1.345. Right: with that edge rounded to the full side, the swing stays at 1 and the block rolls under.</figcaption></figure>
+<p>Latussek uses this on purpose. The notes on Albert and Petit Albert say that "the absence of some edges enables new rotations". In Petit Albert, each of the four tetracubes has a rounded corner whose radius equals the voxel size. One reviewer explains that "this allows an additional rotation that would have been blocked by an intact corner".</p>
+<p>The same geometry runs the other way for makers of burrs and other interlocking puzzles. In a discussion on the BurrTools fork in 2026, a developer noted that "the beveling needed for Burrs is minimal so that rotational 'shortcuts' are not possible", while "almost all TIC problems need certain bare minimum bevels (&gt;= 0.04) to be functional". TIC stands for turning interlocking cubes, puzzles whose pieces must turn. A corner that one puzzle needs is a shortcut in another, so the bevel is part of the design, not just the finish.</p>
+
+<h2 id="s7">7. How unintended solutions are found</h2>
+<p>For these puzzles, the published record shows the check for unintended solutions done by people: the designer, testers and, after release, collectors. It has failed in public, and the designers say so.</p>
+<div class="tw"><table><tr><th>Puzzle</th><th>Designer</th><th>Found by, and when</th><th>What was found</th></tr><tr><td>Euklid</td><td>Latussek</td><td>Nick Baxter, after release</td><td>At least 22 solutions, against one intended. New blocks in the same box: 2nd Revised Edition, then The Real Euklid</td></tr><tr><td>Fermat</td><td>Latussek</td><td>Friends, during design, twice</td><td>Possibilities he had not thought of, in a set of three triangles he was sure of</td></tr><tr><td>Stefka-Flop</td><td>Latussek</td><td>Latussek himself, while playing it</td><td>A second solution, which he called "terrible" because each FLOP should have one</td></tr><tr><td>Euklid for Bernhard</td><td>Latussek</td><td>A reviewer (Kevin Sadler)</td><td>A simpler way that did not need the intended locking mechanism</td></tr><tr><td>Grooved 6 Board Burr #4</td><td>Junichi Yananose</td><td>A reviewer (Kevin Sadler)</td><td>An early turn and tilt that frees the first piece</td></tr><tr><td>Chiasma</td><td>Yavuz Demirhan</td><td>A reviewer (Kevin Sadler)</td><td>A turn that gives a quicker disassembly</td></tr></table></div>
+<p>Euklid is the clearest case. Latussek writes that it was designed "around a very complex solution path", and "shortly after its release we discovered that EUKLID had at least 22 solutions". Nick Baxter, who found them, said: "I found 22, and there could be more!" Neither says whether the 22 were found by hand or by computer. The fix was a new set of blocks in the same box and opening, sold as the 2nd Revised Edition and then as The Real Euklid. Latussek's note for The Real Euklid recalls earlier attempts with "seemingly unique solutions suddenly turning into double-digit numbers of solutions".</p>
+<p>The wider pipeline does not close the gap. Entries in the annual Nob Yoshigahara Puzzle Design Competition (at the International Puzzle Party) are sent as two copies with a one-page solution, and many attendees handle them. The judging criteria are innovation, physical design, solving experience and desirability. None of them is a check for unintended solutions. Reviewers who find a rotational shortcut often present it as "an extra challenge" rather than a defect. Their blogs are where most of the shortcuts listed above were first reported.</p>
+
+<h2 id="s8">8. Boucher and the turning-cube designers</h2>
+<p>Frederic Boucher lives in Japan and has entered the IPP design competition in most years since 2013. No interview or article in his own words about his method was found. His work is known through reviews. The Minima series keeps the box and pieces tiny (Minima 5 fills 12 cells) and puts the difficulty into the entrances and the side windows where pieces turn. Minima 5 shows how a series climbs step by step. It has four windows, two of them "too small for pieces to rotate in them". Two different pieces must turn, and one turn has to be made after other pieces are already inside. A reviewer notes that "in all previous puzzles, rotations were complete before a new piece is added." BonBon, made by Cubicdissection in 2020, packs five tetrominoes into a box by a single path that includes turns, according to the vendor's listing. Boucher's Cubi series with Pelikan (2026) is described as cubic packing with TIC-like turns, and a reviewer reports that Cubi 12 cannot be solved in BurrTools.</p>
+<p>The turning-cube (TIC) designers are close relatives. Bernhard Schweitzer wrote a three-part series on them for the journal <i>Cubism For Fun</i>. Christoph Lohe designed three burr pieces in a 5&#160;&#215;&#160;5&#160;&#215;&#160;5 frame and gave them to Andrew Crowell, who developed them into Chamburr and Cyburr. Chamburr takes 51 moves, one of them a turn. The process notes for these come from makers and reviewers, not from the designers themselves.</p>
+
+<h2 id="s9">9. Why software cannot settle it</h2>
+<p>Outside the puzzle hobby, rotation is routine in robot motion planning, and puzzles are a standard test there. The "alpha puzzle", two interlocked twisted tubes that must be separated, has been a benchmark since around 2000. The planners are good at finding paths and poor at proving that none exists.</p>
+<ul>
+<li><b>Finding.</b> The strongest recent method, "Assemble Them All" (SIGGRAPH Asia 2022), takes assemblies apart by simulated pushes and twists. On its set of rotational puzzles it succeeded 87.5% of the time within 600 seconds. A standard sampling planner (RRT) succeeded 20.8% of the time.</li>
+<li><b>Proving.</b> Sampling planners try random or stepped poses and connect them, and they are known to miss narrow passages, which take up almost none of the space of poses. A puzzle that needs a tilt is designed to be exactly such a passage. A search that finds no tilt has proved nothing.</li>
+</ul>
+<p>The example in section 5 shows the same effect with a plain step search. The table keeps the box and changes only the angle step. With the safety margin, a coarse step cannot thread the corner of the lid and asks for a much larger opening. At an opening of 1.71 units, where a path exists, every step of 2&#176; or more reports none. Without the margin, only the steps themselves are tested. That accepts slightly tighter openings, since the block may pass a corner between two tested poses, but coarse steps still miss the way in. Both columns meet at about 1.66 units only at fine steps.</p>
+<div class="tw"><table class="num"><tr><th>Angle step</th><th>Smallest opening, with the margin</th><th>Smallest opening, steps only</th><th>Path found at opening 1.71?</th></tr><tr><td>15&#176;</td><td>2.86</td><td>1.81</td><td class="no">no (missed)</td></tr><tr><td>10&#176;</td><td>2.37</td><td>1.76</td><td class="no">no (missed)</td></tr><tr><td>5&#176;</td><td>1.98</td><td>1.71</td><td class="no">no (missed)</td></tr><tr><td>2&#176;</td><td>1.78</td><td>1.67</td><td class="no">no (missed)</td></tr><tr><td>1&#176;</td><td>1.71</td><td>1.66</td><td class="yes">yes</td></tr><tr><td>0.5&#176;</td><td>1.68</td><td>1.65</td><td class="yes">yes</td></tr><tr><td>0.25&#176;</td><td>1.67</td><td>1.65</td><td class="yes">yes</td></tr></table></div>
+<p>For a designer, a missed path is the dangerous mistake. A coarse search that misses a tilt reports a puzzle as having one solution when a shortcut exists, and that is how a puzzle like Euklid ships with 22.</p>
+<p>Proving that no path exists needs a different kind of method. Such a method splits the space of poses into cells and shows that each cell is blocked, with bounds checked by computer. The 2025 proof that the "Noperthedron" cannot pass through a copy of itself works this way, over the space of orientations. In general, motion planning in three dimensions is PSPACE-hard (Reif 1979), so no shortcut works for every puzzle. A designer's question is narrower: can this one block, with these pieces already inside, pass this one opening? That question has at most six degrees of freedom and fixed obstacles, which is within reach of exact methods. No paper or tool applies them to recreational packing puzzles.</p>
+<p>What would help these designers is not a new solver. It would be a checker placed after the grid solver. It would take each packing the solver already finds and ask whether the last piece can tilt through the opening, with the clearance and the bevels stated, and a proof when the answer is no. That is the question that had to be answered by hand for each of Euklid's 2,444 packings.</p>
+
+<h2 id="s10">10. What is not known</h2>
+<ul>
+<li>Which software Latussek or Boucher use, for counting piece sets or for modeling. Latussek once credits a collaborator, Peter M&#252;ller, with calculating the sequences for Less is More.</li>
+<li>Whether anyone models the tilt itself before printing a prototype, or only tests it on the print.</li>
+<li>Any clearance or bevel figures in millimeters for a Pelikan or Cubicdissection puzzle that needs a turn.</li>
+<li>How Nick Baxter found Euklid's 22 solutions, and the original Euklid's block sizes.</li>
+<li>Any first-hand account from Boucher. Details of BonBon here come from vendor summaries only.</li>
+<li>The contents of Schweitzer's <i>Cubism For Fun</i> articles on turning cubes, which were not read for this page.</li>
+</ul>
+
+<h2 id="refs">Sources</h2>
+<ul class="refs">
+<li>Latussek's process: "Gro&#223;e Herausforderung in Holz", <i>einBLICK</i>, University of W&#252;rzburg, 22 January 2019. <a href="https://www.uni-wuerzburg.de/en/news-and-events/einblick/single/news/grosse-herausforderung-in-holz/">uni-wuerzburg.de</a></li>
+<li>Euklid, the 2nd Revised Edition and The Real Euklid, with Latussek's notes: Pelikan Puzzles. <a href="https://www.pelikanpuzzles.eu/detail/euklid/">Euklid</a>, <a href="https://www.pelikanpuzzles.eu/detail/euklid-2nd-revised-edition/">2nd Revised Edition</a>, <a href="https://www.pelikanpuzzles.eu/product/the-real-euklid/">The Real Euklid</a>, <a href="https://www.pelikanpuzzles.eu/detail/euklid-meets-fuller/">Euklid Meets Fuller</a></li>
+<li>Nick Baxter and the 22 solutions: "Nick Knack", <i>Boxes and Booze</i>, September 2020. <a href="https://www.boxesandbooze.com/boxesandbooze/2020/09/nick-knack.html">boxesandbooze.com</a></li>
+<li>Fermat, with Latussek's notes: Cubicdissection marketplace listing. <a href="https://market.cubicdissection.com/listing/fermat/117410">market.cubicdissection.com</a></li>
+<li>The FLOP series, its opening rule, and the BurrTools counts for Fritz-Flop and Soma-Flop: Kevin Sadler, "Pelikan Creates Some Flops and New Horizons", <i>PuzzleMad</i>, July 2023. <a href="https://www.puzzlemad.co.uk/2023/07/pelikan-creates-some-flops-and-new.html">puzzlemad.co.uk</a></li>
+<li>Euklid's 2,444 assemblies, Stefka-Flop, Thyor, Albert, Minima for Frederic and Less is More: <i>PuzzleMad</i> posts on Latussek. <a href="https://www.puzzlemad.co.uk/search/label/Latussek">puzzlemad.co.uk/search/label/Latussek</a></li>
+<li>Petit Albert's rounded corners: "Round Bevels &#8211; Petit Albert", <i>ZenPuzzler</i>, 15 October 2025. <a href="https://www.zenpuzzler.com/2025/10/round-bevels-petit-albert.html">zenpuzzler.com</a></li>
+<li>Galette and BurrTools: "Osanori's Packing &#8211; Heaven and Hell", <i>PuzzleMad</i>, May 2019. <a href="http://www.puzzlemad.co.uk/2019/05/osanoris-packing-heaven-and-hell.html">puzzlemad.co.uk</a></li>
+<li>Rotational shortcuts reported as extra challenges: Juno's Grooved 6 Board Burr #4 (<i>PuzzleMad</i>, 2019) and Yavuz Demirhan's Chiasma: "A Puzzle Improved by Being Metal", <i>PuzzleMad</i>, May 2020. <a href="https://www.puzzlemad.co.uk/2020/05/a-puzzle-improved-by-being-metal-yavuz.html">puzzlemad.co.uk</a></li>
+<li>Euklid for Bernhard and the simpler way found by a reviewer: <a href="https://www.pelikanpuzzles.eu/detail/euklid-for-bernhard/">Pelikan</a></li>
+<li>Pelikan remaking a review batch: "Pelikan Summer Release part 1", <i>PuzzleMad</i>, August 2022. <a href="http://www.puzzlemad.co.uk/2022/08/pelikan-summer-release-part-1-how-do.html">puzzlemad.co.uk</a></li>
+<li>Humidity: Cubicdissection, December 2021 update. <a href="https://cubicdissection.com/blogs/news/december-2021-update-preview">cubicdissection.com</a>. TUTU binding in winter: <a href="https://www.robspuzzlepage.com/whatsnew.htm">Rob's Puzzle Page</a>, January 2022</li>
+<li>Bevels for burrs and TIC puzzles: "play and bevel settings", burr-tools issue #220 on GitHub, November 2026. <a href="https://github.com/burr-tools/burr-tools/issues/220">github.com/burr-tools/burr-tools/issues/220</a></li>
+<li>Rotation in BurrTools: feature request #7, "Rotations", with Andreas R&#246;ver's reply of 5 April 2009. <a href="https://sourceforge.net/p/burrtools/feature-requests/7">sourceforge.net</a>. The grids and their limits: <a href="https://burrtools.sourceforge.net/gui-doc/ConceptsandDefinitions.html">BurrTools user guide</a></li>
+<li>Oskar van Deventer on printed prototypes: 3DPrint.com interview. <a href="https://3dprint.com/440/forget-the-rubiks-cube-this-puzzle-designer-has-taken-shapeways-by-storm/">3dprint.com</a></li>
+<li>Minima 5: "Minima 5 &#8211; Frederick Boucher", <i>Puzzle Pusher</i>, 24 January 2025. <a href="https://puzzlepusher.com/2025/01/24/minima-5-frederick-boucher/">puzzlepusher.com</a>. Boucher's Cubi series and background: <a href="https://www.puzzlemad.co.uk/search/label/Boucher"><i>PuzzleMad</i> posts on Boucher</a>, and <a href="https://www.puzzlemad.co.uk/2025/06/is-there-something-about-japan.html">"Is There Something About Japan?"</a>, June 2025. BonBon: <a href="https://cubicdissection.com/products/bonbon-packing-puzzle-2020">Cubicdissection listing</a></li>
+<li>TIC articles and Benedetti's turning puzzles: "Turning Madness", <i>PuzzleMad</i>, January 2017. <a href="http://www.puzzlemad.co.uk/2017/01/turning-madness-probably-best-ever.html">puzzlemad.co.uk</a>. Chamburr: <a href="https://pelikanpuzzles.eu/produkt/chamburr">Pelikan</a></li>
+<li>Competition rules and judging: Nob Yoshigahara Puzzle Design Competition. <a href="https://puzzleworld.org/DesignCompetition/rules.htm">rules</a>, <a href="https://www.puzzleworld.org/DesignCompetition/judging.htm">judging</a></li>
+<li>Y. Tian et al., "Assemble Them All: Physics-Based Planning for Generalizable Assembly by Disassembly", <i>ACM Trans. Graphics</i> 41(6), 2022 (SIGGRAPH Asia). <a href="https://arxiv.org/abs/2211.03977">arXiv:2211.03977</a>. Success rates from its Table 2 (rotational assemblies, 600 s, averaged over six seeds).</li>
+<li>Narrow passages in sampling planners: D. Hsu, J.-C. Latombe and H. Kurniawati, "On the probabilistic foundations of probabilistic roadmap planning", <i>Int. J. Robotics Research</i> 25 (2006). <a href="https://ai.stanford.edu/~latombe/papers/foundation-prm-05/paper.pdf">stanford.edu</a></li>
+<li>Proving that no path exists: J. Basch, L. Guibas, D. Hsu and A. T. Nguyen, "Disconnection proofs for motion planning", ICRA 2001. <a href="https://geometry.stanford.edu/lgl_2024/papers/bghn-dpmp-2001/bghn-dpmp-2001.pdf">stanford.edu</a>. The Noperthedron: <a href="https://arxiv.org/abs/2508.18475">arXiv:2508.18475</a> (2025).</li>
+<li>Complexity: J. H. Reif, "Complexity of the mover's problem and generalizations", FOCS 1979.</li>
+<li>The example in sections 5 and 9 was computed for this page by a step search over position and angle with an exact overlap test at every step, a safety margin covering the movement between steps, and a breadth-first search between free steps.</li>
+</ul>
+<p><a href="/research/">&larr; Back to Research</a></p>
+</main>
+</body></html>

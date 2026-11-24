@@ -4,7 +4,8 @@
 Written on 2026-11-22 from the research page "Tilted Square Geometry"
 (`site/public/research/tilted-square-geometry.html`) and a survey of how
 the Sliding and Stacking modes are built. "Status" below says which
-stages are in the code: all of them, since 2026-11-23.
+stages are in the code: A to G since 2026-11-23; H and I (the other
+tilts, asked for on 2026-11-24) are planned.
 
 **What the mode is.** A 2D tray packing puzzle: a square tray whose
 square cells are turned inside it by arctan(down/over) ("1 down, n
@@ -169,6 +170,8 @@ with **File ▸ New ▸ Tilted Square**.
   count stopped, a board used while counting, Show more),
   `test_engine.cpp` (the end of a fit told once the document is free).
   Gates: see `docs/handoff/tilted-square.md`.
+- [ ] Stage H: the other tilts, core and engine (planned 2026-11-24).
+- [ ] Stage I: the other tilts in the Solver (planned 2026-11-24).
 
 ## Who builds each stage
 
@@ -181,6 +184,8 @@ with **File ▸ New ▸ Tilted Square**.
 | E | Rectangular trays | Medium: the exact search and the file format again, with the walled square as the oracle | Fable 5.2 High | Done |
 | F | Fixture, guide and finish | Low to medium: tests, the Triple Play fixture, the guide page, docs | Opus 5.5 High | Done |
 | G | Every placement | High: every board the sliding grid can make, exactly, and a job that solves each | Fable 5.2 High | Done |
+| H | The other tilts: the job, the kept assemblies, the file, the engine | High: assemblies of many boards made one list without losing or doubling one | Fable 5.2 High | Planned |
+| I | The other tilts in the Solver | Medium: tabs, a second list, the 3D view at another tilt | Opus 5.5 High | Planned |
 
 The rule behind the choice: Fable for the stages where a wrong answer is
 hard to see (counts and boards that tests must pin exactly), Opus for the
@@ -519,8 +524,151 @@ them.
 5. **Gates.** The core's (Stage A's), the contract suite, `just
    app-check`, `just app-test`, and the e2e spec for the list.
 
+## The other tilts (stages H and I)
+
+The user, 2026-11-24: when a tilted problem is solved, also check whether
+the pieces fit at the other tilts, and show in the Solver's Solutions
+card which tilt each assembly belongs to, the tilts that take none
+included ("0 results" at every other tilt is the good news a designer
+wants). The user's answers to the four questions asked that day:
+- **Every placement** at each other tilt (stage G's boards), not the best
+  one alone: a 0 must mean the pieces fit nowhere at that tilt.
+- **The assemblies themselves**, listed and shown in 3D at their own
+  tilt, not counts alone.
+- **After every solve**, by itself, behind a switch of the problem's
+  Search Options that is on at first.
+- **Saved in the file** with the problem, as its solutions are.
+
+**The tilts tried.** Straight (0 down 1 over) and 1 down 1 over to 1
+down 6 over: seven tilts. The tray's own tilt is the ordinary solve and
+is not tried again; a tray at a tilt outside the seven (2 down 3 over)
+has all seven tried. Everything else is the tray's: width, height, walls,
+allowance, and the problem's Pieces may be turned over. Only the slope
+and the shift change.
+
+**One list per tilt.** At one tilt the pieces may fit on several boards,
+and an arrangement small enough fits on more than one of them (the boards
+overlap). Sliding the grid does not change how the pieces lie against
+one another, so such an arrangement is one assembly of that tilt, kept
+once. Two assemblies of a tilt are the same when one is the other moved
+by whole cells or turned by quarter turns in the tray's plane (stage G's
+rule for boards), and also mirrored when the pieces may be turned over.
+The count of a tilt is of these, and each kept assembly remembers the
+board (its shift) it was first found on, which is where it is drawn.
+
+## Stage H: the other tilts, core and engine
+
+1. **The job** (`core/shapelogic/app/tilt_fit.{h,cpp}`, `TiltFit`, on
+   `PlacementFit`'s pattern, sharing its board loop where it can). For
+   each tilt in turn: `tilted::placements()` of the tray at that slope,
+   then an ordinary solve of the problem on each board, on a puzzle of
+   the job's own, its assemblies kept (not `justCount`). The boards'
+   assemblies go into the tilt's one list through a canonical form (the
+   pieces' cells moved to the origin, the least of the four or eight
+   turns), which the tests check against a form written separately. A
+   written limit on the assemblies kept per tilt for the comparison
+   (100,000 to start); past it the count says "at least". The assemblies
+   kept to show follow the problem's own solution limit and drop, as the
+   ordinary solve's do. Progress: the tilt, the board of how many, the
+   solve's fraction. A stop keeps the tilts finished; the one under way
+   and those after it are marked not finished.
+2. **When it runs.** The document starts it when a tilted problem's solve
+   ends finished (not paused, stopped or failed) and the problem's
+   `otherTilts` setting is on (in its solver options, as `flipPieces`
+   is: `"otherTilts"`, absent meaning on). It is an analysis to the
+   document: the document is frozen while it runs (decision 0011), so an
+   edit waits for it or stops it. It can also be started by hand, for a
+   problem solved with the switch off or a run that was stopped. The
+   tilt results go wherever the problem's solutions go (`solve.start`,
+   `solve.reset`, `removeAllSolutions`), and also when the tray's width,
+   height, walls or allowance change.
+3. **The model and the file.** `Problem` holds the results: for each tilt
+   tried, its slope, finished or not, the boards tried of how many, the
+   count (exact, or at least) and the kept assemblies with their shifts.
+   A ShapeLogic-only `<otherTilts>` element of the problem, after its
+   solutions, one `<tilt>` each (`down`, `over`, `boards`, `tried`,
+   `assemblies`, `atLeast`), its assemblies written as the solutions'
+   are, with `shiftX` and `shiftY`. Written only when there are results,
+   so every other file is written as before; the original skips it (it
+   need not read our files).
+4. **The engine** (each addition its own `Engine:` commit):
+   - `SolverSettings.otherTilts` with `flipPieces`;
+   - the problem's summary in the snapshot: `otherTilts`, one entry a
+     tilt (`down`, `over`, `degrees`, `state` waiting, running,
+     finished or stopped, `assemblies`, `atLeast`, `boards`, `tried`);
+   - `tray.tiltsStart`, `tray.tiltsStop`, `tray.tiltsStatus` and the
+     events `tray.tiltsProgress` and `tray.tiltsEnded`, as the fit's;
+   - `solution.page` and `solution.get` take an optional `tilt` (`down`,
+     `over`): that tilt's assemblies (found order and Pcs only), the
+     placements in that tilt's grid, and with `solution.get` the board to
+     draw them in: `degrees`, `box`, `corners`, `wallPolygons`, as
+     `Snapshot.tray` has them;
+   - using another tilt needs no method of its own: `tray.set` with its
+     `down`, `over`, placement custom and the assembly's shift.
+5. **Tests.** Triple Play at 1 down 3 over: every other tilt finished
+   with 0 assemblies and every board tried (the plan's own finding: the
+   pieces fit at 1:3 only). Triple Play set to 1 down 2 over: no assembly
+   there, and the 1:3 entry equals its own solve over every placement
+   with the duplicates removed by the separate form; the same with
+   flipping off ("One face up"). An arrangement that fits on two boards
+   of a tilt counted once. The limit, a stop, the start by hand, the
+   results dropped with the solutions and with a wall changed, the file
+   round trip, a file without results written as before; the contract
+   test `tilted_tilts`, `python3 api/gen_api_md.py`, `just app-gen`,
+   `npm run record`. The time of each fixture measured: the e2e of
+   stage I uses Triple Play, and the eight by eight fixture's run is
+   noted in the handoff.
+6. **Decision record**: the next free number (0049 unless the cell
+   search has taken it), "Other tilts".
+7. **Gates.** Stage G's (`just test-all`, `just test-asan`, `just check`
+   on the changed sources, the contract suite), `just app-test`.
+
+## Stage I: the other tilts in the Solver
+
+1. **The switch.** "Also try other tilts" in the Solver's Search Options
+   under Pieces may be turned over, tilted problems only, on at first.
+2. **The tabs.** Above the Solutions card's list, for a tilted problem, a
+   row of tabs that wraps in a narrow card: the tray's own tilt first
+   ("1:3 · 2", its title "1 down 3 over, this tray's placement"), then
+   the others in the order straight, 1:1 … 1:6, each with its count
+   ("Straight · 0", "1:2 · 0"; the angle in its title). A tilt under way
+   shows its progress, one not tried yet a dash, one stopped "≥ n". A
+   tilt with assemblies stands out; the zeros are quiet but plain.
+3. **Another tilt's tab.** Its assemblies as a list (# and Pcs; no DA
+   column and no Manage menu: a tilted problem is assembled only), a foot
+   such as "2 assemblies · 6 boards tried". Empty, it says so plainly: "No
+   assemblies at 1 down 2 over: the pieces fit no placement of the grid
+   at this tilt." A row is drawn in 3D at its own tilt: the scene's turn
+   and the Solver's tray (outline and walls) from `solution.get`'s board
+   in place of the snapshot's (`View3D.syncTurn` takes the override; back
+   to the tray's own on the first tab). **Use this tilt** sets the tray to
+   it at the assembly's board (`tray.set`, one undo step), after which a
+   solve lists those assemblies as the ordinary solutions.
+4. **The run card.** The job's progress after the solve's ("Other tilts:
+   1:4, board 3 of 6") with its Stop, and Try other tilts on a solved
+   problem that has none.
+5. **Tests.** `tilted.test.ts` (the tab labels, the states);
+   `tilted.e2e.ts`: Triple Play solved, its tabs 2 and six zeros; set to
+   1:2 and solved, 0 on its own tab and the 1:3 tab listing the
+   assembly, drawn at 1:3, Use this tilt, Undo; the switch off runs
+   nothing.
+6. **Documents.** The guide's page `puzzle-types/tilted-square.md` (a
+   section and a screenshot), `docs/webui-spec.md` section 13,
+   `docs/ARCHITECTURE.md`, `docs/handoff/tilted-square.md`,
+   `RELEASE_NOTES.md`; `just site-demo` (the renderer changed).
+7. **Gates.** `just app-check`, `just app-test`, the tilted e2e spec three
+   times, the solver spec once.
+
+**Left for the review of stage I** (asked then, never settled silently):
+whether the tray's own tilt should also try its other placements (stage
+G's Try every placement does it by hand today), and whether the CLI should
+run the other tilts (it solves the tray's own tilt only).
+
 ## Not in this plan
 - A tray body in the Puzzlecad or STL export.
+- Tilts other than straight and 1:1 to 1:6 in the other tilts (2 down 3
+  over and the like), and the exports of another tilt's assembly beyond
+  the view's own image.
 - The Play tab.
 - Turning an existing Brick puzzle into a tilted one.
 - Tilting the other way. The slope turns the grid one way only; the
