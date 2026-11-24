@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "inputs": [
     "CMakeLists.txt",
     "CMakePresets.json",
@@ -12,6 +12,6 @@
     "web/package-lock.json",
     "site/public/examples/demo"
   ],
-  "hash": "583cf61b19a21cc487f7b0336fdf3bc5e66cac58a58e395cb980ba90ef942bfa",
-  "built": "2026-11-23T17:02:06.530Z"
+  "hash": "3b9e61aa69fe2a65d0fa1aa0132afb44d4f7f0e5c029201b7d04b5e6d6865e7b",
+  "built": "2026-11-24T07:19:01.198Z"
 }
