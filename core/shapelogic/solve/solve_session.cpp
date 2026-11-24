@@ -18,6 +18,7 @@
 #include "shapelogic/model/sliding.h"
 #include "shapelogic/model/solution.h"
 #include "shapelogic/model/stacking.h"
+#include "shapelogic/solve/assembler_1.h"
 #include "shapelogic/solve/panex_search.h"
 
 #include <algorithm>
@@ -677,7 +678,20 @@ bool SolveSession::prepareSearch(const Plan& plan) {
   } withdraw{*this};
   publishAssembler(a.get());
 
-  const AssemblerError err = a->createMatrix(o.matrix);
+  // A position saved on a matrix whose variable voxels are hole columns
+  // names that matrix's rows: it is carried on on such a one (decision 0048).
+  MatrixOptions matrix = o.matrix;
+  if (kind == AssemblerKind::Assembler1) {
+    const std::lock_guard<std::mutex> lock(resultsMutex_);
+    if (problem_.getSolveState() == ProblemState::Solving &&
+        !problem_.getAssemblerState().empty()) {
+      matrix.variableHoleColumns =
+          matrix.variableHoleColumns ||
+          Assembler1::positionKeepsHoleColumns(problem_.getAssemblerState());
+    }
+  }
+
+  const AssemblerError err = a->createMatrix(matrix);
   endPhase(prepareMs_);
   if (err != AssemblerError::None) {
     {
@@ -1969,7 +1983,7 @@ SolveProgress SolveSession::progress() const {
   bool rotations = false;
   bool slideRun = false;
   float af = lastFinished_.load(std::memory_order_relaxed);
-  unsigned int piece = 0;
+  PrepareProgress prep;
   {
     const std::lock_guard<std::mutex> lock(runMutex_);
     stopping = isActive(st) && runStop_.stopRequested();
@@ -1980,7 +1994,7 @@ SolveProgress SolveSession::progress() const {
     if (published_ != nullptr) {
       af = published_->finished();
       p.iterations = published_->iterations();
-      piece = published_->reducePiece();
+      prep = published_->prepareProgress();
     }
     // the take-aparts under way
     for (const std::unique_ptr<Disassembler>& d : disassemblers_) {
@@ -2067,7 +2081,8 @@ SolveProgress SolveSession::progress() const {
         p.stage = SolveStage::Prepare;
         p.pieces = parts;
       }
-      p.piece = std::min(piece + 1, p.pieces);
+      p.piece = std::min(prep.piece + 1, p.pieces);
+      p.prepare = prep;
       break;
     case SolveState::Assembling:
       // the slide search and the stacking search report in their own way

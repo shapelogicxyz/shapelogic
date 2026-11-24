@@ -741,6 +741,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     }
     matrix.keepMirrors = sliding;
     matrix.keepRotations = sliding;
+    matrix.variableHoleColumns = o.holeColumns;
     // a sliding piece slides without turning: it starts as drawn, or,
     // unplaced, as --any-orientation allows
     if (sliding) {
@@ -1268,6 +1269,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
   so.matrix.keepMirrors = o.keepMirrors;
   so.matrix.keepRotations = o.keepRotations;
   so.matrix.strictColors = o.strictColors;
+  so.matrix.variableHoleColumns = o.holeColumns;
   so.disassemble = o.disassemble;
   so.checkRotations = o.rotations;
   so.justCount = o.countOnly;
@@ -1316,6 +1318,19 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
         }
         std::fprintf(stderr, "%7.1f s  %5.1f%%  %s", static_cast<double>(pg.elapsedMs) / 1000.0,
                      100.0 * static_cast<double>(pg.overall), pg.activity().c_str());
+        if (pg.stage == bt::SolveStage::Prepare) {
+          std::fprintf(stderr, "  [%llu placements]",
+                       static_cast<unsigned long long>(pg.prepare.placements));
+        }
+        if (pg.stage == bt::SolveStage::Reduce) {
+          const bt::PrepareProgress& r = pg.prepare;
+          std::fprintf(stderr, "  [%s %u: %llu/%llu, %llu removed, %llu left]",
+                       r.pass == 0 ? "sweep" : "pass", r.pass,
+                       static_cast<unsigned long long>(r.done),
+                       static_cast<unsigned long long>(r.total),
+                       static_cast<unsigned long long>(r.removed),
+                       static_cast<unsigned long long>(r.placements));
+        }
         if (pg.stage == bt::SolveStage::Assemble) {
           std::fprintf(stderr, "  [assembly %.1f%%, %llu found]",
                        100.0 * static_cast<double>(pg.assemblyFraction),

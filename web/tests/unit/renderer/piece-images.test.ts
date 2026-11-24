@@ -14,6 +14,7 @@ import {
   invert,
   pictureToCells,
   rectFromSource,
+  snapDrag,
   sourceFromRect,
   sourceRect,
   turnMatrix,
@@ -136,6 +137,32 @@ describe('piece images', () => {
     const s: PictureRect = [0.5, 0.5, 1, 1];
     expect(dragRect(s, 'move', 0.25, 0.25, 2, 2, big, false, limits)).toEqual([0.75, 0.75, 1, 1]);
     expect(dragRect(s, 'move', -9, 9, 2, 2, big, false, limits)).toEqual([-0.75, 1.75, 1, 1]);
+  });
+
+  it('manual: Snap to grid pulls the edges a drag moves onto the lines near them', () => {
+    const r: PictureRect = [0.5, 0.5, 2, 1];
+    const tol = 0.2;
+    const near = (v: [number, number]): [number, number] => [
+      Math.round(v[0] * 1e6) / 1e6 + 0,
+      Math.round(v[1] * 1e6) / 1e6 + 0,
+    ];
+    // the middle: the side nearer a line snaps, in x and in y apart
+    expect(near(snapDrag(r, 'move', 0.4, 0.1, tol))).toEqual([0.5, 0.1]);
+    expect(near(snapDrag(r, 'move', -0.35, 0.45, tol))).toEqual([-0.5, 0.5]);
+    // too far from every line: as it was
+    expect(near(snapDrag(r, 'move', 0, 0, tol))).toEqual([0, 0]);
+    // a side snaps only itself
+    expect(near(snapDrag(r, 'e', 0.4, 0.3, tol))).toEqual([0.5, 0.3]);
+    expect(near(snapDrag(r, 'n', 0.1, -0.6, tol))).toEqual([0.1, -0.5]);
+    // a free corner its two sides
+    expect(near(snapDrag(r, 'se', 0.42, 0.45, tol, true))).toEqual([0.5, 0.5]);
+    // a corner keeping the proportions: the side nearer a line, and the
+    // drag stays along the diagonal, so dragRect gives that side on it
+    const [dx, dy] = snapDrag(r, 'se', 0.45, 0.2, tol);
+    const big: [number, number, number, number] = [-100, -100, 200, 200];
+    const out = dragRect(r, 'se', dx, dy, 3, 2, big, false, { minSide: 0.1, overlap: 0.1 });
+    expect(Math.round((out[0] + out[2]) * 1e6) / 1e6).toBe(3);
+    expect(Math.round((out[2] / out[3]) * 1e6) / 1e6).toBe(2);
   });
 
   it('the cells’ box in x and y', () => {

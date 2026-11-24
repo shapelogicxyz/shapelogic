@@ -20,6 +20,8 @@
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/solution.h"
+#include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/assembler_1.h"
 #include "shapelogic/solve/solve_progress.h"
 #include "shapelogic/solve/solve_session.h"
 #include "shapelogic/solve/solver_type.h"
@@ -1300,4 +1302,48 @@ TEST_CASE("solve session: kept assemblies thin the same however the solve was pa
     CHECK(kept(p.getProblem(0)) == expected);
   }
   CHECK(paused >= 4);
+}
+
+// Decision 0048: a paused solve of assembler 1 saved by a version up to 2.0
+// stands on a matrix whose variable voxels are hole columns, and names rows
+// reduce() no longer leaves when those voxels are built as filled ones. The
+// session builds the matrix the position was saved on, and the solve
+// carries on to what a solve from the start finds.
+TEST_CASE("solve session: a position saved with hole columns is carried on on such a matrix",
+          "[solve][session][resume]") {
+  SolveOptions o;
+  o.threads = 1;
+  std::uint64_t all = 0;
+  {
+    Puzzle p = test::blocksInTray(Voxel::kVariable);
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    all = p.getProblem(0).getNumAssemblies();
+  }
+  REQUIRE(all >= 3);
+
+  for (const bool holeColumns : {true, false}) {
+    INFO((holeColumns ? "saved with hole columns" : "saved with the variable voxels filled"));
+    Puzzle p = test::blocksInTray(Voxel::kVariable);
+    Problem& pr = p.getProblem(0);
+    {
+      // the solve as far as its first assembly, paused there
+      Assembler1 a(p, pr);
+      MatrixOptions mo;
+      mo.variableHoleColumns = holeColumns;
+      REQUIRE(a.createMatrix(mo) == AssemblerError::None);
+      (void)a.reduce(StopToken{});
+      REQUIRE(beginSolving(pr, a) == AssemblerError::None);
+      REQUIRE(test::runOnce(a, test::searchOptions(1, nullptr, false), {}, 1).found.size() == 1);
+      storePosition(pr, a);
+    }
+    CHECK(Assembler1::positionKeepsHoleColumns(pr.getAssemblerState()) == holeColumns);
+
+    Puzzle q = reloaded(p);
+    SolveSession s(q, q.getProblem(0), o);
+    solveToEnd(s);
+    CHECK(q.getProblem(0).getNumAssemblies() == all - 1);
+  }
 }

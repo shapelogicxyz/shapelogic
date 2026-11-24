@@ -124,6 +124,10 @@ void usage(HelpKind kind) {
         "  --no-simd            the plain search and scalar loops only\n"
         "  --no-row-check       check each assembly against its rotations as built, not\n"
         "                       on the rows of the matrix\n"
+        "  --hole-columns       assembler 1: variable voxels stay columns that may be\n"
+        "                       left empty even when the pieces leave no hole (as the\n"
+        "                       versions up to 2.0 built them; reduce then takes far\n"
+        "                       longer on a large variable result)\n"
         "  --no-level-threads   take apart on one thread per assembly\n"
         "  --no-take-apart-pool take the assemblies apart one after another, on the\n"
         "                       thread that found them\n"
@@ -349,6 +353,8 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.noSimd = true;
     } else if (a == "--no-row-check") {
       o.rowRotationCheck = false;
+    } else if (a == "--hole-columns") {
+      o.holeColumns = true;
     } else if (a == "--no-level-threads") {
       o.levelThreads = false;
     } else if (a == "--no-take-apart-pool") {

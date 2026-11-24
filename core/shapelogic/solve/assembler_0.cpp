@@ -62,7 +62,7 @@ AssemblerError Assembler0::createMatrix(const MatrixOptions& options) {
 
   errorsState_ =
       matrix_.build(puzzle_, problem_, strictColors_, startLocks_, freeStarts_, partTransforms_,
-                    filter_, reducePiece_,
+                    filter_, prepare_,
                     errorsParam_);
   if (errorsState_ != AssemblerError::None) {
     return errorsState_;
@@ -81,7 +81,7 @@ void Assembler0::applySolutionFilterFlags(bool keepMirrors, bool keepRotations, 
   filter_.apply(keepMirrors, keepRotations, complete);
 }
 
-ReduceStats Assembler0::reduce(const StopToken& stop) { return matrix_.reduce(stop, reducePiece_); }
+ReduceStats Assembler0::reduce(const StopToken& stop) { return matrix_.reduce(stop, prepare_); }
 
 Assembly Assembler0::currentAssembly() const {
   // nothing placed, or the search is through: an empty assembly

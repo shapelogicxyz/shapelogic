@@ -50,9 +50,7 @@ class Assembler0 final : public Assembler {
   void applySolutionFilterFlags(bool keepMirrors, bool keepRotations, bool complete) override;
   [[nodiscard]] int errorParam() const override { return errorsParam_; }
   ReduceStats reduce(const StopToken& stop) override;
-  [[nodiscard]] unsigned int reducePiece() const override {
-    return reducePiece_.load(std::memory_order_relaxed);
-  }
+  [[nodiscard]] PrepareProgress prepareProgress() const override { return prepare_.read(); }
   RunEnd assemble(const AssemblyCallback& callback, const SearchOptions& options,
                   const StopToken& stop) override;
   [[nodiscard]] float finished() const override;
@@ -156,8 +154,8 @@ class Assembler0 final : public Assembler {
   /// Search steps; written by the searching threads, read by anyone.
   std::atomic<std::uint64_t> iterations_{0};
 
-  /// The piece createMatrix() and reduce() are at.
-  std::atomic<unsigned int> reducePiece_{0};
+  /// The piece createMatrix() and reduce() are at, and how far (any thread).
+  PrepareCounters prepare_;
 
   // the assembler debugger
   bool debug_ = false;

@@ -236,6 +236,167 @@ test('a piece’s image placed by hand: Manual’s corner and middle dots, kept 
   }
 });
 
+test('Manual’s Snap to grid: off until Manual; a side dragged near a line lands on it, unless it is off (a kept setting)', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    await newDocument(page, 'sliding');
+    await page.click('#btnNew');
+    await expect(page.locator(SHAPE_ROWS)).toHaveCount(1);
+    await settled(page);
+    for (const [x, y] of [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [0, 1],
+    ] as const) {
+      await clickCell(page, [x, y, 0]);
+    }
+    const piece = (await shapes(page))[0]?.id ?? '';
+    await page.click('#cImage');
+    const dlg = page.locator('#imageDlg');
+    await dlg.locator('[data-f="file"]').setInputFiles({
+      name: 'red.png',
+      mimeType: 'image/png',
+      buffer: png(60, 40),
+    });
+    const snap = dlg.locator('[data-f="snap"]');
+    await expect(snap).toBeDisabled();
+    await dlg.locator('input[name="imgFit"][value="manual"]').check();
+    await expect(snap).toBeEnabled();
+    await expect(snap).toBeChecked();
+
+    // the picture over the whole 3 x 2 box, ROOM (0.85) of the preview
+    const box = await dlg.locator('[data-f="preview"]').boundingBox();
+    const pw = box?.width ?? 0;
+    const ph = box?.height ?? 0;
+    const k = Math.min((0.85 * pw) / 3, (0.85 * ph) / 2);
+    const at = (x: number, y: number): [number, number] => [(box?.x ?? 0) + x, (box?.y ?? 0) + y];
+    const drag = async (from: [number, number], dx: number): Promise<void> => {
+      await page.mouse.move(...at(...from));
+      await page.mouse.down();
+      await page.mouse.move(...at(from[0] + dx, from[1]), { steps: 5 });
+      await page.mouse.up();
+    };
+    // the right side, dragged in a cell and 5 pixels more, lands on the line 2 cells in
+    await drag([pw / 2 + 1.5 * k, ph / 2], -(k + 5));
+    await dlg.locator('[data-x="apply"]').click();
+    await expect(dlg).toHaveCount(0);
+    await settled(page);
+    expect((await imageOf(page, piece))?.src).toEqual([0, 0, 90, 40]);
+
+    // off, the same side dragged to 6 pixels short of the box's edge stays there
+    await page.click('#cImage');
+    await expect(snap).toBeChecked();
+    await snap.uncheck();
+    await drag([pw / 2 + 0.5 * k, ph / 2], k - 6);
+    await dlg.locator('[data-x="apply"]').click();
+    await expect(dlg).toHaveCount(0);
+    await settled(page);
+    const [, , sw = 0] = (await imageOf(page, piece))?.src ?? [];
+    expect(sw).toBeGreaterThan(60);
+    expect(sw).toBeLessThan(70);
+
+    // and the dialog opens with it off again
+    await page.click('#cImage');
+    await expect(snap).not.toBeChecked();
+  } finally {
+    await a.close();
+  }
+});
+
+test('the image dialog fits the window: its preview sized to the room left, its buttons in view as the window shrinks', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    await newDocument(page, 'sliding');
+    await page.click('#btnNew');
+    await expect(page.locator(SHAPE_ROWS)).toHaveCount(1);
+    await settled(page);
+    await clickCell(page, [0, 0, 0]);
+    await clickCell(page, [1, 0, 0]);
+    await page.click('#cImage');
+    const dlg = page.locator('#imageDlg');
+    await dlg.locator('[data-f="file"]').setInputFiles({
+      name: 'red.png',
+      mimeType: 'image/png',
+      buffer: png(60, 30),
+    });
+    const card = dlg.locator('.cfm');
+    const preview = dlg.locator('[data-f="preview"]');
+    // Crop, Stretch and Manual (whose help is longer) the same size
+    const sizes = async (): Promise<number[]> => {
+      const c = await card.boundingBox();
+      const p = await preview.boundingBox();
+      return [c?.width ?? 0, c?.height ?? 0, p?.width ?? 0, p?.height ?? 0].map(Math.round);
+    };
+    const crop = await sizes();
+    for (const fit of ['stretch', 'manual']) {
+      await dlg.locator(`input[name="imgFit"][value="${fit}"]`).check();
+      await expect.poll(sizes).toEqual(crop);
+    }
+    const apply = dlg.locator('[data-x="apply"]');
+    const inView = async (): Promise<void> => {
+      const h = await page.evaluate(() => window.innerHeight);
+      await expect
+        .poll(async () => {
+          const c = await card.boundingBox();
+          const b = await apply.boundingBox();
+          return c !== null && b !== null && c.y >= 0 && c.y + c.height <= h && b.y + b.height <= h;
+        })
+        .toBe(true);
+    };
+    await inView();
+    const tall = (await preview.boundingBox())?.height ?? 0;
+    const resize = (height: number, width = 1500): Promise<void> =>
+      a.app.evaluate(
+        ({ BrowserWindow }, s) => {
+          BrowserWindow.getAllWindows()[0]?.setContentSize(s.width, s.height);
+        },
+        { width, height },
+      );
+    // the dialog no narrower than Help needs beside Fit: no room left under
+    // Snap to grid (only the Fit box's padding and border) as the window
+    // narrows, the preview shorter instead
+    const roomUnderSnap = async (): Promise<number> => {
+      const f = await dlg.locator('[data-f="fitBox"]').boundingBox();
+      const s = await dlg.locator('.imgdlg-snap').boundingBox();
+      return (f?.y ?? 0) + (f?.height ?? 0) - (s?.y ?? 0) - (s?.height ?? 0);
+    };
+    const wide = async (): Promise<number> => (await card.boundingBox())?.width ?? 0;
+    await resize(900, 1500);
+    await expect.poll(roomUnderSnap).toBeLessThanOrEqual(14);
+    const least = await wide();
+    await resize(900, 1100);
+    await expect.poll(roomUnderSnap).toBeLessThanOrEqual(14);
+    expect(Math.abs((await wide()) - least)).toBeLessThanOrEqual(2);
+    await inView();
+    // a window too narrow for that: the dialog as wide as it allows, in view
+    await resize(900, 950);
+    await expect.poll(wide).toBeLessThan(least);
+    await expect
+      .poll(async () => {
+        const c = await card.boundingBox();
+        return (c?.x ?? -1) >= 0 && (c?.x ?? 0) + (c?.width ?? 0) <= 950;
+      })
+      .toBe(true);
+    await inView();
+    await resize(900);
+
+    // a shorter window: a shorter preview, the whole dialog in view
+    await resize(640);
+    await expect.poll(async () => (await preview.boundingBox())?.height ?? 0).toBeLessThan(tall);
+    await inView();
+    // too short for the smallest preview: the body scrolls, the buttons stay
+    await resize(420);
+    await inView();
+    await apply.click();
+    await expect(dlg).toHaveCount(0);
+  } finally {
+    await a.close();
+  }
+});
+
 test('a board’s image: on its floor in the Shapes grid, the Start grid and the Play tab', async () => {
   const a = await launch();
   const page = a.page;

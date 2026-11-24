@@ -12,6 +12,7 @@
 
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/solve/disassembler.h"
+#include "shapelogic/solve/prepare_progress.h"
 #include "shapelogic/solve/slide_phase.h"
 #include "shapelogic/solve/solver_type.h"
 
@@ -49,6 +50,10 @@ struct SolveProgress {
   /// Preparing and reducing: the piece at work (from 1) of how many.
   unsigned int piece = 0;
   unsigned int pieces = 0;
+  /// Preparing and reducing: how far, finer than the piece (the reduce's
+  /// pass, the placements checked, found, left and removed). All 0 in the
+  /// other stages.
+  PrepareProgress prepare;
 
   /// The assembly search: how far (0..1), search steps, threads.
   float assemblyFraction = 0;

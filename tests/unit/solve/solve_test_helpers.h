@@ -318,4 +318,24 @@ inline Puzzle pentominoPuzzle(unsigned int w, unsigned int h) {
   return puz;
 }
 
+/// A tray of 6 x 8 cells in `state` (Voxel::kFilled or kVariable) and eight
+/// 2 x 3 blocks of one shape that fill it: assembler 1's (a shape with
+/// several pieces), with no hole to spare.
+inline Puzzle blocksInTray(int state) {
+  Puzzle puz{GridType{GridKind::Bricks}};
+  const unsigned int tray = puz.addShape(6, 8, 1);
+  for (unsigned int i = 0; i < puz.getShape(tray).getXYZ(); i++) {
+    puz.getShape(tray).setState(i, state);
+  }
+  const unsigned int block = puz.addShape(2, 3, 1);
+  for (unsigned int i = 0; i < puz.getShape(block).getXYZ(); i++) {
+    puz.getShape(block).setState(i, Voxel::kFilled);
+  }
+  Problem& pr = puz.getProblem(puz.addProblem());
+  pr.setResultId(puz, tray);
+  pr.setShapeMinimum(puz, block, 8);
+  pr.setShapeMaximum(puz, block, 8);
+  return puz;
+}
+
 }  // namespace bt::test

@@ -121,17 +121,17 @@ class DlxMatrix {
   /// the search), each part only in the transformations `partTransforms`
   /// allows (MatrixOptions::partTransforms). Sets the rotation check
   /// `filter` asks for and writes the part being placed to `piece` as it
-  /// goes. On an error `param` says more (the units too many or too few,
+  /// goes, with the placements found so far. On an error `param` says more (the units too many or too few,
   /// the shape that fits nowhere).
   AssemblerError build(const Puzzle& puzzle, const Problem& problem, bool strictColors,
                        bool startLocks, const std::vector<bool>& freeStarts,
                        const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
-                       std::atomic<unsigned int>& piece, int& param);
+                       PrepareCounters& progress, int& param);
 
   /// Removes placements that can never be part of an assembly; polls `stop`
-  /// and leaves a valid (partly reduced) matrix when stopped. Writes the
-  /// piece it is at to `piece`.
-  ReduceStats reduce(const StopToken& stop, std::atomic<unsigned int>& piece);
+  /// and leaves a valid (partly reduced) matrix when stopped. Writes how far
+  /// it is to `progress` (PrepareProgress says what each count means).
+  ReduceStats reduce(const StopToken& stop, PrepareCounters& progress);
 
   /// The placement of the row `node` belongs to, and its index in
   /// `placements`.
@@ -175,8 +175,10 @@ class DlxMatrix {
   int prepare(const Puzzle& puzzle, const Problem& problem, bool strictColors, bool startLocks,
               const std::vector<bool>& freeStarts,
               const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
-              std::atomic<unsigned int>& piece);
+              PrepareCounters& progress);
   unsigned int clumpify();
+  /// The rows of the pieces from `from` on still in the matrix.
+  [[nodiscard]] std::uint64_t rowsFrom(unsigned int from) const;
 
   bool tryCoverRow(unsigned int r, unsigned int* columns);
   void removeRow(unsigned int r);

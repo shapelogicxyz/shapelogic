@@ -52,9 +52,7 @@ class Assembler1 final : public Assembler {
   void applySolutionFilterFlags(bool keepMirrors, bool keepRotations, bool complete) override;
   [[nodiscard]] int errorParam() const override { return errorsParam_; }
   ReduceStats reduce(const StopToken& stop) override;
-  [[nodiscard]] unsigned int reducePiece() const override {
-    return reducePiece_.load(std::memory_order_relaxed);
-  }
+  [[nodiscard]] PrepareProgress prepareProgress() const override { return prepare_.read(); }
   RunEnd assemble(const AssemblyCallback& callback, const SearchOptions& options,
                   const StopToken& stop) override;
   [[nodiscard]] float finished() const override;
@@ -62,8 +60,17 @@ class Assembler1 final : public Assembler {
     return iterations_.load(std::memory_order_relaxed);
   }
   [[nodiscard]] SavedPosition savePosition() const override;
-  /// As the original, the version is not looked at.
+  /// As the original, the version is not looked at. A position saved on a
+  /// matrix of the other kind (variable voxels as hole columns, or as
+  /// filled ones) is refused with CannotRestoreVersion.
   AssemblerError restorePosition(std::string_view text, std::string_view version) override;
+
+  /// True when the saved position `text` was written on a matrix whose
+  /// variable voxels are hole columns whatever the holes allowed: every
+  /// position of the versions up to 2.0 and of the original. A solve that
+  /// carries one on builds its matrix with
+  /// MatrixOptions::variableHoleColumns (decision 0048).
+  [[nodiscard]] static bool positionKeepsHoleColumns(std::string_view text);
 
   [[nodiscard]] bool piecePlacementSupported() const override { return true; }
   [[nodiscard]] unsigned int piecePlacementCount(unsigned int piece) const override;
@@ -261,6 +268,10 @@ class Assembler1 final : public Assembler {
   std::vector<unsigned int> holeWeight_;
   unsigned int holeCells_ = 0;
   unsigned int holes_ = 0;
+  /// The result's variable voxels were built as filled ones: the problem
+  /// has no hole to spare, so none of them can stay empty (decision 0048).
+  /// Positions saved on such a matrix say so in their leading flag.
+  bool variableFilled_ = false;
   /// The column headers, node 0 included.
   unsigned int headerNodes_ = 0;
   unsigned int piecenumber_ = 0;
@@ -287,8 +298,8 @@ class Assembler1 final : public Assembler {
   /// Search steps; written by the searching threads, read by anyone.
   std::atomic<std::uint64_t> iterations_{0};
 
-  /// The part createMatrix() and the placement reduce() are at.
-  std::atomic<unsigned int> reducePiece_{0};
+  /// The part createMatrix() and the placement reduce() are at, and how far (any thread).
+  PrepareCounters prepare_;
 
   // the assembler debugger
   bool debug_ = false;

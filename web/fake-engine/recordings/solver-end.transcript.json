@@ -188,6 +188,15 @@
      "usedMs": 0,
      "piece": 1,
      "pieces": 1,
+     "prepare": {
+      "pass": 0,
+      "done": 0,
+      "total": 0,
+      "placements": 0,
+      "removed": 0,
+      "passMs": 0,
+      "passSecondsLeft": null
+     },
      "assemblyFraction": 0,
      "iterations": 0,
      "assemblerThreads": 1,
@@ -240,10 +249,11 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 54,
+     "elapsedMs": 51,
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,
+     "prepare": null,
      "assemblyFraction": 1,
      "iterations": 265,
      "assemblerThreads": 10,

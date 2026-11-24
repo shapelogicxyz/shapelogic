@@ -454,7 +454,17 @@ positions continue in both programs).
   built node for node as the original: `build`, `reduce`,
   `clumpify`, the placement browser) and `DlxNodes` (the four node arrays
   with the cover operations, which a thread copies to search on its own).
-  `everyPartOnePiece()`, the problems it can describe.
+  `everyPartOnePiece()`, the problems it can describe. `reduce`'s first
+  sweep (a voxel that every row of a column fills is no other row's)
+  also goes through the variable voxels' columns when the problem has no
+  hole to spare, and ends a column as soon as its rows have nothing in
+  common: a 65 x 65 tray of variable cells that nine rectangles fill is
+  reduced in seconds, not minutes a piece. The rows it removes are rows
+  the placement check after it removes too, so the reduced matrix is the
+  original's (decision 0048). Assembler 1 builds such voxels as filled
+  ones instead (`MatrixOptions::variableHoleColumns` keeps them hole
+  columns, for a position saved on that matrix: its leading flag tells,
+  `Assembler1::positionKeepsHoleColumns`).
 - `assembler_0.h`: `Assembler0` (dancing links; every part exactly one
   piece). Three searches: plain on the caller's thread (flag 0 positions),
   split into subtree tasks over threads (flag 2; the tasks split further
@@ -840,6 +850,14 @@ and by pause/continue stress tests.
 - `solve_progress.h`: `SolveProgress` (stage, counts, the take-aparts under
   way, the overall estimate that never goes back, time left, `activity()`
   text) and `SolveStats` (the debug panel's counts and times).
+- `prepare_progress.h`: `PrepareCounters`, the atomics an assembler
+  writes as `createMatrix()` and `reduce()` go (the piece, the reduce's
+  sweep or pass, checked of total, placements found or left, removed,
+  the pass's start), read by any thread as a `PrepareProgress`
+  (`Assembler::prepareProgress()`, with the pass's rough time left), so a
+  piece of the reduce that takes minutes still shows moving counts
+  (`SolveProgress::prepare`). The reduce of assembler 0 polls its stop
+  token per placement, not only per piece.
 - `search_sample.h`: `SearchSample`, the live preview's meeting point (a
   watcher's `request()`; the next search thread past a point where it can
   tell `claim()`s it and `put()`s a `SearchSnapshot`, a `Placement` per

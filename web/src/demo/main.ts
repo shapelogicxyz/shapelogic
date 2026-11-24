@@ -396,6 +396,7 @@ function idleProgress(t: number, o: Original): SolveProgress {
     usedMs: Math.round(t * RUN_MS),
     piece: 0,
     pieces: 0,
+    prepare: null,
     assemblyFraction: 0,
     iterations: 0,
     assemblerThreads: 1,

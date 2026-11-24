@@ -74,6 +74,8 @@ export interface Prefs {
   pieceCompact: boolean;
   /** The Solver's 3D view: while a run searches, the arrangements it is looking at (the run card's Live preview). */
   livePreview: boolean;
+  /** The Apply image dialog's Manual fit: the picture's edges snap to the grid's lines (Snap to grid). */
+  imageSnap: boolean;
   /** Worker threads; 0 until the engine said (its 0 is every hardware thread). */
   threads: number;
   /** The memory a sliding or stacking search may fill, in GB; 0 automatic (the engine's searchMemoryGB). */
@@ -144,6 +146,7 @@ export const DEFAULTS: Readonly<Prefs> = {
   labelCharsPerVoxel: LABEL_LINE_PER_VOXEL,
   pieceCompact: false,
   livePreview: true,
+  imageSnap: true,
   threads: 0,
   memGB: 0,
   slideDiskGB: 0,

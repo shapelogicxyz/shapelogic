@@ -215,7 +215,7 @@ void DlxMatrix::addVoxelNode(unsigned int col, unsigned int piecenode) {
 int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strictColors,
                        bool startLocks, const std::vector<bool>& freeStarts,
                        const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
-                       std::atomic<unsigned int>& piece) {
+                       PrepareCounters& progress) {
   const Voxel& result = problem.resultShape(puzzle);
 
   // the matrix column of every result voxel (a lookup, because computing it
@@ -373,7 +373,7 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
   const long rsy = result.getY();
 
   for (unsigned int pc = 0; pc < problem.getNumberOfParts(); pc++) {
-    piece.store(pc, std::memory_order_relaxed);
+    progress.piece.store(pc, std::memory_order_relaxed);
     const PlacementFinder::StartLock lock{
         static_cast<unsigned char>(problem.getShapeIdOfPart(pc) + 1),
         pc < freeStarts.size() ? freeStarts[pc] : true};
@@ -413,6 +413,8 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
           }
         }
 
+        progress.placements.store(placements.size(), std::memory_order_relaxed);
+
         // for the symmetry breaker also every symmetry of the result
         if (pc == symBreakerShape) {
           for (unsigned int r = 1; r < sym.getNumTransformations(); r++) {
@@ -442,7 +444,7 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
 AssemblerError DlxMatrix::build(const Puzzle& puzzle, const Problem& problem, bool strictColors,
                                 bool startLocks, const std::vector<bool>& freeStarts,
                                 const std::vector<std::uint64_t>& partTransforms,
-                                RotationFilter& filter, std::atomic<unsigned int>& piece,
+                                RotationFilter& filter, PrepareCounters& progress,
                                 int& param) {
   pieces = problem.getNumberOfPieces();
 
@@ -480,7 +482,8 @@ AssemblerError DlxMatrix::build(const Puzzle& puzzle, const Problem& problem, bo
   holes = h;
 
   const int error =
-      prepare(puzzle, problem, strictColors, startLocks, freeStarts, partTransforms, filter, piece);
+      prepare(puzzle, problem, strictColors, startLocks, freeStarts, partTransforms, filter,
+              progress);
 
   // a piece that cannot be placed
   if (error <= 0) {
@@ -558,7 +561,15 @@ bool DlxMatrix::checkmatrix() {
   return false;
 }
 
-ReduceStats DlxMatrix::reduce(const StopToken& stop, std::atomic<unsigned int>& piece) {
+std::uint64_t DlxMatrix::rowsFrom(unsigned int from) const {
+  std::uint64_t rows = 0;
+  for (unsigned int p = from; p < pieces; p++) {
+    rows += nodes.colCount[p + 1];
+  }
+  return rows;
+}
+
+ReduceStats DlxMatrix::reduce(const StopToken& stop, PrepareCounters& progress) {
   // per-column scratch space
   std::vector<unsigned int> columns(varivoxelEnd);
   unsigned int removed = 0;
@@ -568,61 +579,154 @@ ReduceStats DlxMatrix::reduce(const StopToken& stop, std::atomic<unsigned int>& 
   // the rows to remove are collected first and removed after the check
   std::vector<unsigned int> rowsToRemove;
 
-  piece.store(0, std::memory_order_relaxed);
+  // what a progress display shows: the placements left and removed
+  const std::uint64_t startRows = rowsFrom(0);
+  const auto told = [&] {
+    progress.removed.store(removed, std::memory_order_relaxed);
+    progress.placements.store(startRows - removed, std::memory_order_relaxed);
+  };
+
+  progress.piece.store(0, std::memory_order_relaxed);
+  told();
+
+  // With no hole to spare every variable voxel is filled as well, exactly
+  // once, so the sweep holds for those columns too. On a tray of variable
+  // cells that the pieces fill, it takes the placements that would leave a
+  // gap no piece fits in before the check below has to try each of them
+  // against the whole matrix (minutes a piece on a 65x65 tray).
+  const bool variFilled = holes == 0 && varivoxelStart < varivoxelEnd;
+
+  // the rows of the column being swept
+  std::vector<unsigned char> inColumn(placements.size());
+  std::vector<std::size_t> marked;
+
+  // Sweeps `col`, a column that is filled exactly once: a voxel each of its
+  // rows fills is filled by one of them, so the other rows there can go,
+  // variable voxels too. Each of those rows fails the check below as well
+  // (it leaves `col` without a row), and that check runs until nothing more
+  // goes, so the matrix reduce() ends with does not depend on what is swept.
+  const auto sweepColumn = [&](unsigned int col) {
+    std::fill(columns.begin(), columns.end(), 0U);
+
+    // columns[c] == count: c is in each of the `count` rows looked at so
+    // far; `common` says how many such columns there are.
+    unsigned int count = 0;
+    unsigned int common = 0;
+    const auto look = [&](unsigned int r) {
+      const std::size_t row = rowIndexOf(r);
+      inColumn[row] = 1;
+      marked.push_back(row);
+
+      common = 0;
+      for (unsigned int j = nodes.right[r]; j != r; j = nodes.right[j]) {
+        unsigned int& in = columns[nodes.colCount[j]];
+        if (in == count) {
+          in = count + 1;
+          common++;
+        }
+      }
+      count++;
+    };
+
+    // The first and the last row first: away from the walls their
+    // placements share this voxel alone, which ends the column at once.
+    const unsigned int first = nodes.down(col);
+    const unsigned int last = nodes.up(col);
+    if (first != col) {
+      look(first);
+      if (last != first) {
+        look(last);
+        for (unsigned int r = nodes.down(first); r != last && common != 0; r = nodes.down(r)) {
+          look(r);
+        }
+      }
+    }
+
+    // A voxel filled by this column's rows in every one of them: no row of
+    // another column can fill it, so those rows can go. (A column with no
+    // row at all takes every row with it, as in the original.)
+    const auto dropOthers = [&](unsigned int c) {
+      if (columns[c] != count) {
+        return;
+      }
+      rowsToRemove.clear();
+
+      for (unsigned int r = nodes.down(c); r != c; r = nodes.down(r)) {
+        if (inColumn[rowIndexOf(r)] == 0) {
+          rowsToRemove.push_back(r);
+        }
+      }
+
+      for (const unsigned int rem : rowsToRemove) {
+        removeRow(rem);
+      }
+
+      removed += static_cast<unsigned int>(rowsToRemove.size());
+      told();
+    };
+
+    // with rows and nothing common to them, there is nothing to look for
+    if (count == 0 || common != 0) {
+      for (unsigned int c = nodes.right[0]; c; c = nodes.right[c]) {
+        dropOthers(c);
+      }
+      for (unsigned int c = nodes.right[varivoxelEnd]; c != varivoxelEnd; c = nodes.right[c]) {
+        dropOthers(c);
+      }
+    }
+
+    for (const std::size_t row : marked) {
+      inColumn[row] = 0;
+    }
+    marked.clear();
+  };
+
+  unsigned int sweep = 0;
+  for (unsigned int col = nodes.right[0]; col; col = nodes.right[col]) {
+    sweep++;
+  }
+  if (variFilled) {
+    sweep += varivoxelEnd - varivoxelStart;
+  }
+  progress.beginPass(0, sweep);
 
   for (unsigned int col = nodes.right[0]; col; col = nodes.right[col]) {
     if (stop.stopRequested()) {
       break;
     }
-
-    std::fill(columns.begin(), columns.end(), 0U);
-
-    unsigned int count = 0;
-    for (unsigned int r = nodes.down(col); r != col; r = nodes.down(r)) {
-      for (unsigned int j = nodes.right[r]; j != r; j = nodes.right[j]) {
-        columns[nodes.colCount[j]]++;
+    sweepColumn(col);
+    progress.done.fetch_add(1, std::memory_order_relaxed);
+  }
+  if (variFilled) {
+    for (unsigned int col = nodes.right[varivoxelEnd]; col != varivoxelEnd;
+         col = nodes.right[col]) {
+      if (stop.stopRequested()) {
+        break;
       }
-      count++;
-    }
-
-    // A voxel filled by this column's rows in every one of them: no row of
-    // another column can fill it, so those rows can go.
-    for (unsigned int c = nodes.right[0]; c; c = nodes.right[c]) {
-      if (columns[c] == count) {
-        rowsToRemove.clear();
-
-        for (unsigned int r = nodes.down(c); r != c; r = nodes.down(r)) {
-          // find the column col in the row
-          unsigned int c2 = nodes.right[r];
-          while ((nodes.colCount[c2] != col) && (c2 != r)) {
-            c2 = nodes.right[c2];
-          }
-
-          if (c2 == r) {
-            rowsToRemove.push_back(r);
-          }
-        }
-
-        for (const unsigned int rem : rowsToRemove) {
-          removeRow(rem);
-        }
-
-        removed += static_cast<unsigned int>(rowsToRemove.size());
-      }
+      sweepColumn(col);
+      progress.done.fetch_add(1, std::memory_order_relaxed);
     }
   }
 
   remCol += clumpify();
 
+  unsigned int pass = 0;
   do {
     remSth = false;
+    if (stop.stopRequested()) {
+      break;
+    }
+    progress.beginPass(++pass, rowsFrom(0));
+    std::uint64_t checked = 0;
 
     for (unsigned int p = 0; p < pieces; p++) {
       if (stop.stopRequested()) {
         break;
       }
 
-      piece.store(p, std::memory_order_relaxed);
+      progress.piece.store(p, std::memory_order_relaxed);
+      // the rows of the pieces before went while the pass checked them
+      progress.total.store(checked + rowsFrom(p), std::memory_order_relaxed);
 
       // place the piece and see whether that leaves holes that cannot be
       // filled, pieces that cannot be placed, or other dead ends
@@ -631,6 +735,12 @@ ReduceStats DlxMatrix::reduce(const StopToken& stop, std::atomic<unsigned int>& 
       rowsToRemove.clear();
 
       for (unsigned int r = nodes.down(p + 1); r != p + 1; r = nodes.down(r)) {
+        // On a large board one piece's rows take minutes: a stop ends the
+        // piece here. The rows found dead so far are dead in any case.
+        if (stop.stopRequested()) {
+          break;
+        }
+
         // a placement that already fails to cover needs no deeper check
         if (!tryCoverRow(r, columns.data())) {
           rowsToRemove.push_back(r);
@@ -641,6 +751,8 @@ ReduceStats DlxMatrix::reduce(const StopToken& stop, std::atomic<unsigned int>& 
 
           nodes.uncoverRow(r);
         }
+
+        progress.done.store(++checked, std::memory_order_relaxed);
       }
 
       nodes.uncover(p + 1);
@@ -651,6 +763,7 @@ ReduceStats DlxMatrix::reduce(const StopToken& stop, std::atomic<unsigned int>& 
 
       remSth |= !rowsToRemove.empty();
       removed += static_cast<unsigned int>(rowsToRemove.size());
+      told();
 
       // the voxels this piece fills in all its placements: the other pieces'
       // placements there can go
@@ -685,6 +798,7 @@ ReduceStats DlxMatrix::reduce(const StopToken& stop, std::atomic<unsigned int>& 
 
           remSth |= !rowsToRemove.empty();
           removed += static_cast<unsigned int>(rowsToRemove.size());
+          told();
         }
       }
     }

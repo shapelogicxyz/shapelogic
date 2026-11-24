@@ -679,7 +679,7 @@ std::optional<unsigned int> depthZeroRow(const std::string& text) {
 std::size_t pelikanNodes(const Puzzle& p) {
   DlxMatrix m;
   RotationFilter f;
-  std::atomic<unsigned int> piece{0};
+  PrepareCounters piece;
   int param = 0;
   REQUIRE(m.build(p, p.getProblem(0), false, false, {}, {}, f, piece, param) ==
           AssemblerError::None);
@@ -1075,4 +1075,135 @@ TEST_CASE("assemblers: every fixture gives the same layouts on every search and 
     compared++;
   }
   CHECK(compared >= 50);
+}
+
+// The counts a progress display shows while a solve prepares
+// (Assembler::prepareProgress): the placements found, then the reduce's
+// pass, what it has checked of how much, and what it removed and left.
+TEST_CASE("Both assemblers: the preparation's counts add up", "[solve][assembler]") {
+  const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
+  const std::vector<std::unique_ptr<Assembler>> both = [&p] {
+    std::vector<std::unique_ptr<Assembler>> v;
+    v.push_back(std::make_unique<Assembler0>(p, p.getProblem(0)));
+    v.push_back(std::make_unique<Assembler1>(p, p.getProblem(0)));
+    return v;
+  }();
+  for (std::size_t i = 0; i < both.size(); i++) {
+    INFO("assembler " << i);
+    Assembler& a = *both[i];
+    CHECK(a.prepareProgress().placements == 0);
+    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    const PrepareProgress built = a.prepareProgress();
+    CHECK(built.placements > 0);
+    CHECK(built.piece + 1 == p.getProblem(0).getNumberOfParts());
+
+    const ReduceStats removed = a.reduce(StopToken{});
+    const PrepareProgress r = a.prepareProgress();
+    // the last pass removed nothing, so it went through all it had
+    CHECK(r.pass >= 1);
+    CHECK(r.done == r.total);
+    CHECK(r.removed == removed.rows);
+    CHECK(r.placements + r.removed == built.placements);
+    // a pass so short has no pace to tell the time left from
+    CHECK(r.passSecondsLeft < 0);
+  }
+}
+
+TEST_CASE("Assembler 0: a reduce stopped at once leaves its counts as they were",
+          "[solve][assembler]") {
+  const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
+  Assembler0 a(p, p.getProblem(0));
+  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  const std::uint64_t placements = a.prepareProgress().placements;
+  const StopSource stop;
+  stop.request(StopKind::Pause);
+  const ReduceStats removed = a.reduce(stop.token());
+  CHECK(removed.rows == 0);
+  const PrepareProgress r = a.prepareProgress();
+  CHECK(r.pass == 0);
+  CHECK(r.done == 0);
+  CHECK(r.placements == placements);
+}
+
+namespace {
+
+// A tray of `state` cells, `extraColumns` columns wider than the
+// rectangles need: the rectangles are a tray of the widths' and the
+// heights' sums cut along a grid, one piece each.
+Puzzle rectanglesInTray(const std::vector<unsigned int>& widths,
+                        const std::vector<unsigned int>& heights, int state,
+                        unsigned int extraColumns = 0) {
+  Puzzle puz{GridType{GridKind::Bricks}};
+  const auto filled = [&puz](unsigned int id, int cells) {
+    Voxel& v = puz.getShape(id);
+    for (unsigned int i = 0; i < v.getXYZ(); i++) {
+      v.setState(i, cells);
+    }
+  };
+  unsigned int sx = extraColumns;
+  unsigned int sy = 0;
+  for (const unsigned int w : widths) {
+    sx += w;
+  }
+  for (const unsigned int h : heights) {
+    sy += h;
+  }
+  const unsigned int tray = puz.addShape(sx, sy, 1);
+  filled(tray, state);
+  Problem& pr = puz.getProblem(puz.addProblem());
+  pr.setResultId(puz, tray);
+  for (const unsigned int w : widths) {
+    for (const unsigned int h : heights) {
+      const unsigned int piece = puz.addShape(w, h, 1);
+      filled(piece, Voxel::kFilled);
+      pr.setShapeMinimum(puz, piece, 1);
+      pr.setShapeMaximum(puz, piece, 1);
+    }
+  }
+  return puz;
+}
+
+// The rows reduce() removed and the assemblies found after it, or with
+// `reduce` false the assemblies of the matrix as built.
+std::pair<unsigned int, Fingerprints> reducedAssemblies(const Puzzle& p, bool reduce = true) {
+  Assembler0 a(p, p.getProblem(0));
+  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  const unsigned int rows = reduce ? a.reduce(StopToken{}).rows : 0;
+  const test::RunResult r = runOnce(a, searchOptions(1, nullptr, false));
+  REQUIRE(r.end == RunEnd::Finished);
+  return {rows, r.found};
+}
+
+}  // namespace
+
+// A tray drawn with variable cells that the pieces fill has no hole to
+// spare, so each of its cells is filled as a normal cell is. reduce()'s
+// sweep goes through those columns as well (without it, a 65 x 65 tray of
+// nine rectangles took minutes a piece): it has to leave what the same
+// tray of normal cells leaves, and lose no assembly.
+TEST_CASE("Assembler 0: reduce treats a variable result the pieces fill as a filled one",
+          "[solve][assembler]") {
+  const std::vector<unsigned int> widths{3, 4, 5};
+  const std::vector<unsigned int> heights{2, 6};
+  const auto [filledRows, filledFound] =
+      reducedAssemblies(rectanglesInTray(widths, heights, Voxel::kFilled));
+  const Puzzle variable = rectanglesInTray(widths, heights, Voxel::kVariable);
+  const auto [variableRows, variableFound] = reducedAssemblies(variable);
+
+  CHECK(!filledFound.empty());
+  CHECK(variableRows == filledRows);
+  CHECK(variableFound == filledFound);
+  CHECK(reducedAssemblies(variable, false).second == variableFound);
+}
+
+// With a hole to spare a variable cell may stay empty, and the sweep must
+// leave those columns alone. Two bars of two cells in a row of five: each
+// placement on an end cell fills the cell beside it, but a bar on the
+// second and third cells, with the end cell the hole, is an assembly too.
+TEST_CASE("Assembler 0: reduce keeps every assembly of a variable result with holes",
+          "[solve][assembler]") {
+  const Puzzle p = rectanglesInTray({2, 2}, {1}, Voxel::kVariable, 1);
+  const Fingerprints all = reducedAssemblies(p, false).second;
+  CHECK(all.size() >= 2);
+  CHECK(reducedAssemblies(p).second == all);
 }

@@ -10,6 +10,7 @@
 #include "shapelogic/base/stop.h"
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/model/assembly.h"
+#include "shapelogic/solve/prepare_progress.h"
 #include "shapelogic/solve/search_run.h"
 #include "shapelogic/solve/simd_bitset.h"
 
@@ -60,6 +61,15 @@ struct MatrixOptions {
   /// placement the limits leave out has no rotated twin to stand for it. A
   /// sliding solve sets it (sliding::partTransforms).
   std::vector<std::uint64_t> partTransforms;
+  /// Assembler 1: variable voxels stay columns that may be left empty even
+  /// when the problem has no hole to spare. Without it such voxels are
+  /// built as filled ones: the same assemblies, but reduce() removes what
+  /// it removes on a filled result and the search has no holes to count
+  /// (decision 0048). A solve that carries on a position saved on the
+  /// matrix with hole columns sets it
+  /// (Assembler1::positionKeepsHoleColumns): a position names rows of the
+  /// matrix it was saved on. The CLI's --hole-columns sets it to compare.
+  bool variableHoleColumns = false;
 };
 
 /// One past the last transformation the matrix tries a part in: the
@@ -168,8 +178,9 @@ class Assembler {
     return {};
   }
 
-  /// The piece reduce() is working on, for progress displays.
-  [[nodiscard]] virtual unsigned int reducePiece() const { return 0; }
+  /// How far createMatrix() and reduce() are, for progress displays. Any
+  /// thread.
+  [[nodiscard]] virtual PrepareProgress prepareProgress() const { return {}; }
 
   /// Searches, handing each assembly found to `callback`, until the search
   /// is through or `stop` (or the callback) stops it.

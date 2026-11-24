@@ -956,3 +956,109 @@ TEST_CASE("Assembler 1: placements, the debugger and the current assembly",
   }
   CHECK(placed > 0);
 }
+
+namespace {
+
+// What reduce() removed and the assemblies of problem 0 found after it, on
+// one thread with the plain search; with `holeColumns` the matrix is built
+// with MatrixOptions::variableHoleColumns.
+std::pair<unsigned int, Fingerprints> reducedAssemblies(const Puzzle& p, bool holeColumns) {
+  Assembler1 a(p, p.getProblem(0));
+  MatrixOptions mo;
+  mo.variableHoleColumns = holeColumns;
+  REQUIRE(a.createMatrix(mo) == AssemblerError::None);
+  const unsigned int rows = a.reduce(StopToken{}).rows;
+  const test::RunResult r = runOnce(a, searchOptions(1, nullptr, false));
+  REQUIRE(r.end == RunEnd::Finished);
+  return {rows, r.found};
+}
+
+// An assembler for problem 0 of `p`, built with or without the hole
+// columns, reduced.
+std::unique_ptr<Assembler1> reducedA1(const Puzzle& p, bool holeColumns) {
+  auto a = std::make_unique<Assembler1>(p, p.getProblem(0));
+  MatrixOptions mo;
+  mo.variableHoleColumns = holeColumns;
+  REQUIRE(a->createMatrix(mo) == AssemblerError::None);
+  (void)a->reduce(StopToken{});
+  return a;
+}
+
+}  // namespace
+
+// Decision 0048: a variable voxel of a result with no hole to spare cannot
+// stay empty, and is built as a filled voxel. reduce() then removes the
+// placements that leave a cell no piece can fill (with hole columns only
+// the search counts those cells: a 65 x 65 tray of variable cells took
+// minutes to reduce, to no gain), and the assemblies are the same.
+TEST_CASE("Assembler 1: a variable result the pieces fill is built as a filled one",
+          "[solve][assembler]") {
+  const auto [filledRows, filledFound] =
+      reducedAssemblies(test::blocksInTray(Voxel::kFilled), false);
+  const Puzzle variable = test::blocksInTray(Voxel::kVariable);
+  const auto [rows, found] = reducedAssemblies(variable, false);
+  const auto [holeRows, holeFound] = reducedAssemblies(variable, true);
+
+  CHECK(filledFound.size() >= 3);
+  CHECK(rows == filledRows);
+  CHECK(found == filledFound);
+  // the matrix the versions up to 2.0 built: the same assemblies, with
+  // placements left that fill no assembly
+  CHECK(holeFound == filledFound);
+  CHECK(holeRows < rows);
+}
+
+// A position names rows of the matrix it was saved on (the rows it hid
+// among them), and the two matrices are reduced to different rows: the
+// leading flag says which it was, a position is carried on only on its
+// own kind, and one saved before the change is told by its flag.
+TEST_CASE("Assembler 1: a position is carried on on the kind of matrix it was saved on",
+          "[solve][assembler][resume]") {
+  const Puzzle p = test::blocksInTray(Voxel::kVariable);
+  const Fingerprints all = reducedAssemblies(p, false).second;
+  REQUIRE(all.size() >= 3);
+
+  for (const bool holeColumns : {false, true}) {
+    INFO((holeColumns ? "hole columns" : "variable voxels filled"));
+    auto a = reducedA1(p, holeColumns);
+    const test::RunResult first = runOnce(*a, searchOptions(1, nullptr, false), {}, 1);
+    REQUIRE(first.found.size() == 1);
+    const SavedPosition pos = a->savePosition();
+
+    // the plain search's flag is 0, and 8 on the matrix with the voxels filled
+    CHECK(pos.text.starts_with(holeColumns ? "0 " : "8 "));
+    CHECK(Assembler1::positionKeepsHoleColumns(pos.text) == holeColumns);
+
+    auto other = reducedA1(p, !holeColumns);
+    CHECK(other->restorePosition(pos.text, pos.version) == AssemblerError::CannotRestoreVersion);
+
+    auto same = reducedA1(p, holeColumns);
+    REQUIRE(same->restorePosition(pos.text, pos.version) == AssemblerError::None);
+    CHECK(same->savePosition().text == pos.text);
+    const test::RunResult rest = runOnce(*same, searchOptions(1, nullptr, false));
+    CHECK(rest.end == RunEnd::Finished);
+    Fingerprints both = first.found;
+    both.insert(rest.found.begin(), rest.found.end());
+    CHECK(both == all);
+  }
+}
+
+// A result with holes to spare keeps its hole columns, and its positions
+// their flags: nothing changes for it.
+TEST_CASE("Assembler 1: a variable result with holes keeps its hole columns",
+          "[solve][assembler][resume]") {
+  Puzzle p = test::blocksInTray(Voxel::kVariable);
+  Problem& pr = p.getProblem(0);
+  pr.setShapeMinimum(p, pr.getShapeIdOfPart(0), 7);
+  pr.setShapeMaximum(p, pr.getShapeIdOfPart(0), 7);
+
+  const auto [rows, found] = reducedAssemblies(p, false);
+  const auto [holeRows, holeFound] = reducedAssemblies(p, true);
+  CHECK(!found.empty());
+  CHECK(rows == holeRows);
+  CHECK(found == holeFound);
+
+  auto a = reducedA1(p, false);
+  REQUIRE(runOnce(*a, searchOptions(1, nullptr, false), {}, 1).found.size() == 1);
+  CHECK(a->savePosition().text.starts_with("0 "));
+}

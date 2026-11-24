@@ -238,6 +238,74 @@ export function dragRect(
   return [x1, y1, x2 - x1, y2 - y1];
 }
 
+/**
+ * The drag (dx, dy) of `handle` on the picture's rectangle `r`, nudged so
+ * that the edges it moves land on the grid's lines (whole cells) when they
+ * come within `tol` cells of one: what Manual's Snap to grid does before
+ * dragRect applies the drag and its limits. The middle snaps whichever of
+ * the picture's sides in x, and in y, is nearer a line; a side snaps
+ * itself; a corner its two sides (`free`), or, keeping the proportions,
+ * the one of them nearer a line, the other following.
+ */
+export function snapDrag(
+  r: PictureRect,
+  handle: PictureHandle,
+  dx: number,
+  dy: number,
+  tol: number,
+  free = false,
+): [number, number] {
+  const [x0, y0, w0, h0] = r;
+  // the shift that takes the nearest of `edges` onto a line; 0 when none is within tol
+  const nudge = (edges: number[]): number => {
+    let best = 0;
+    let bestOff = Infinity;
+    for (const e of edges) {
+      const off = Math.round(e) - e;
+      if (Math.abs(off) <= tol && Math.abs(off) < Math.abs(bestOff)) {
+        best = off;
+        bestOff = off;
+      }
+    }
+    return best;
+  };
+  if (handle === 'move') {
+    return [dx + nudge([x0 + dx, x0 + w0 + dx]), dy + nudge([y0 + dy, y0 + h0 + dy])];
+  }
+  const corner = handle.length === 2;
+  if (corner && !free) {
+    // dragRect's scale about the opposite corner, and the drag along the
+    // diagonal that gives the scale `s` there
+    const sx = handle.includes('e') ? 1 : -1;
+    const sy = handle.includes('s') ? 1 : -1;
+    const s = 1 + (dx * sx * w0 + dy * sy * h0) / (w0 * w0 + h0 * h0);
+    const ax = sx > 0 ? x0 : x0 + w0;
+    const ay = sy > 0 ? y0 : y0 + h0;
+    const px = ax + sx * w0 * s;
+    const py = ay + sy * h0 * s;
+    const ox = Math.round(px) - px;
+    const oy = Math.round(py) - py;
+    const useX = Math.abs(ox) <= tol && Math.abs(ox) <= Math.abs(oy);
+    const useY = !useX && Math.abs(oy) <= tol;
+    if (!useX && !useY) {
+      return [dx, dy];
+    }
+    const t = useX ? s + (sx * ox) / w0 : s + (sy * oy) / h0;
+    return [sx * w0 * (t - 1), sy * h0 * (t - 1)];
+  }
+  const x = handle.includes('w')
+    ? nudge([x0 + dx])
+    : handle.includes('e')
+      ? nudge([x0 + w0 + dx])
+      : 0;
+  const y = handle.includes('n')
+    ? nudge([y0 + dy])
+    : handle.includes('s')
+      ? nudge([y0 + h0 + dy])
+      : 0;
+  return [dx + x, dy + y];
+}
+
 /** The cells' bounding box in x and y: [x, y, width, height]; null for none. */
 export function cellBox(
   cells: readonly (readonly number[])[],
@@ -261,20 +329,24 @@ export interface PreviewSize {
 /** The smallest preview. */
 export const PREVIEW_MIN: PreviewSize = { w: 300, h: 200 };
 
-/** The room the rest of the Apply image dialog takes in the window's height, in CSS pixels. */
+/**
+ * A first guess at the room the rest of the Apply image dialog takes in
+ * the window's height, in CSS pixels; once the dialog is open it measures
+ * the room it really takes and passes that.
+ */
 const DIALOG_CHROME = 420;
 
 /**
  * The preview's size in a window of `win` CSS pixels, for a box of
  * `ratio` (its width over its height): as tall as the window leaves room
- * for, and as wide as the box needs (at least half again its height), at
+ * for beside the rest of the dialog (`chrome` pixels high), and as wide as the box needs (at least half again its height), at
  * most 55% of the window's width; never under PREVIEW_MIN. A 13 × 9
  * tray in a window of 1400 × 900 is drawn about 620 × 440 pixels.
  */
-export function previewSize(win: PreviewSize, ratio: number): PreviewSize {
+export function previewSize(win: PreviewSize, ratio: number, chrome = DIALOG_CHROME): PreviewSize {
   const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
   const maxW = clamp(Math.round(win.w * 0.55), PREVIEW_MIN.w, 1000);
-  const h = clamp(Math.round(win.h - DIALOG_CHROME), PREVIEW_MIN.h, 700);
+  const h = clamp(Math.round(win.h - chrome), PREVIEW_MIN.h, 700);
   const w = clamp(Math.round(h * Math.max(1.5, ratio * 1.15)), PREVIEW_MIN.w, maxW);
   return { w, h };
 }

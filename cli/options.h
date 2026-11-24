@@ -81,6 +81,7 @@ struct Options {
   bool derivedChecks = false;  ///< --derived-checks
   unsigned int vectorMemoryMb = 256;
   bool rowRotationCheck = true;  ///< --no-row-check
+  bool holeColumns = false;      ///< --hole-columns
   unsigned int splitTasks = 0;  ///< --split-tasks n (0: the assembler's choice)
   unsigned int splitDepth = 0;  ///< --split-depth n (0: the assembler's choice)
   bool originalDrawings = false;  ///< --original-drawings

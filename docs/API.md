@@ -3885,6 +3885,7 @@ One take-apart under way.
 | `usedMs` | integer | required | The problem's time used: this run's and the earlier runs' of a continued solve or a saved search. |
 | `piece` | integer | required |  |
 | `pieces` | integer | required |  |
+| `prepare` | object or null | required | Stages prepare and reduce: how far they are, finer than piece of pieces (the reduce's piece can take minutes on a large board). pass: the reduce's step, 0 while it sweeps the columns (a cell every placement of a column fills belongs to no other column), then the placement check's pass from 1, which goes round again as long as its last pass removed a placement, so how many passes there will be is not known. done of total: what this pass has checked (columns in pass 0, placements after); total can shrink as placements go. placements: the placements found so far (prepare) or still left (reduce); removed: what the reduce has removed so far. passMs: how long the pass under way has run, passSecondsLeft how long it may still take. Null in the other stages. |
 | `assemblyFraction` | number | required |  |
 | `iterations` | integer | required |  |
 | `assemblerThreads` | integer | required |  |

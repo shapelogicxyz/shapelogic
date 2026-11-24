@@ -29,6 +29,10 @@ namespace bt {
 
 namespace {
 
+/// Added to a saved position's leading flag when it was saved on a matrix
+/// with the variable voxels built as filled ones (Assembler1::variableFilled_).
+constexpr unsigned int kFilledVariables = 8;
+
 /// Adds `piece` to the cache unless an identical shape is there. Returns it,
 /// or null when it was a duplicate (and is dropped).
 const Voxel* addToCache(std::vector<std::unique_ptr<Voxel>>& cache,
@@ -229,6 +233,7 @@ unsigned int Assembler1::addPieceNode(unsigned int piece, unsigned int rot, int 
 
   piecePositions_.push_back(
       PiecePosition{x, y, z, static_cast<unsigned char>(rot), piecenode, piece});
+  prepare_.placements.store(piecePositions_.size(), std::memory_order_relaxed);
 
   return piecenode;
 }
@@ -380,7 +385,10 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
     for (unsigned int i = 0; i < result.getXYZ(); i++) {
       switch (result.getState(i)) {
         case Voxel::kVariable:
-          holeColumn(c);
+          // one that cannot stay empty is a filled voxel (createMatrix)
+          if (!variableFilled_) {
+            holeColumn(c);
+          }
           [[fallthrough]];
         case Voxel::kFilled:
           // Sliding does not require the tray to be filled: a normal cell
@@ -556,7 +564,7 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
   const long rsy = result.getY();
 
   for (unsigned int pc = 0; pc < problem_.getNumberOfParts(); pc++) {
-    reducePiece_.store(pc, std::memory_order_relaxed);
+    prepare_.piece.store(pc, std::memory_order_relaxed);
     const PlacementFinder::StartLock lock{
         static_cast<unsigned char>(problem_.getShapeIdOfPart(pc) + 1),
         pc < freeStarts_.size() ? freeStarts_[pc] : true};
@@ -682,6 +690,15 @@ AssemblerError Assembler1::createMatrix(const MatrixOptions& options) {
   } else {
     holes_ = 0xFFFFFF;
   }
+
+  // With no hole to spare every variable voxel is filled, exactly as a
+  // filled one is, and is built as one: a column that needs its row.
+  // reduce() then removes the placements that would leave a cell no piece
+  // can fill (as hole columns such cells are only counted by the search,
+  // and a 65 x 65 tray of variable cells took minutes to reduce, to no
+  // gain), and the search has no holes to count. A position saved on the
+  // matrix with hole columns is carried on on such a matrix (decision 0048).
+  variableFilled_ = holes_ == 0 && resVari != 0 && !options.variableHoleColumns;
 
   if (min > resFilled) {
     errorsState_ = AssemblerError::TooManyUnits;
@@ -872,6 +889,15 @@ ReduceStats Assembler1::reduce(const StopToken& stop) {
   unsigned int rowRem = 0;
   unsigned int colRem = clumpify();
 
+  // what a progress display shows: the placements left and removed
+  const std::uint64_t startRows = piecePositions_.size();
+  const auto told = [&] {
+    prepare_.removed.store(rowRem, std::memory_order_relaxed);
+    prepare_.placements.store(startRows - rowRem, std::memory_order_relaxed);
+  };
+  prepare_.piece.store(0, std::memory_order_relaxed);
+  told();
+
   // A quick removal of rows that are obviously impossible, not as thorough
   // as the one below but much faster. For each column that needs at least
   // one row (min > 0), count for each other column how many of its rows
@@ -881,52 +907,91 @@ ReduceStats Assembler1::reduce(const StopToken& stop) {
   // to columns whose rows fill them at once.)
   std::vector<unsigned int> columns(headerNodes_);
 
+  // the rows of the column being swept
+  std::vector<unsigned char> inColumn(piecePositions_.size());
+  std::vector<std::size_t> marked;
+
+  unsigned int sweep = 0;
+  for (unsigned int col = n.right[0]; col; col = n.right[col]) {
+    sweep++;
+  }
+  prepare_.beginPass(0, sweep);
+
   for (unsigned int col = n.right[0]; col; col = n.right[col]) {
     if (stop.stopRequested()) {
       break;
     }
 
+    prepare_.done.fetch_add(1, std::memory_order_relaxed);
     if (min_[col] == 0) {
       continue;
     }
 
     std::fill(columns.begin(), columns.end(), 0U);
 
+    // columns[c] == placements: each of the `placements` rows looked at so
+    // far fills c; `common` says how many such columns there are.
     unsigned int placements = 0;
-    for (unsigned int r = n.down[col]; r != col; r = n.down[r]) {
+    unsigned int common = 0;
+    const auto look = [&](unsigned int r) {
+      const std::size_t row = rowIndexOf(r);
+      inColumn[row] = 1;
+      marked.push_back(row);
+
+      common = 0;
       for (unsigned int j = n.right[r]; j != r; j = n.right[j]) {
-        if (n.weight[j] == max_[n.colCount[j]]) {
-          columns[n.colCount[j]]++;
+        unsigned int& in = columns[n.colCount[j]];
+        if (n.weight[j] == max_[n.colCount[j]] && in == placements) {
+          in = placements + 1;
+          common++;
         }
       }
       placements++;
-    }
+    };
 
-    // A column that each of these rows fills: no other row can go there,
-    // so those rows can be removed.
-    for (unsigned int c = n.right[0]; c; c = n.right[c]) {
-      if (columns[c] == placements) {
-        toRemove.clear();
-
-        for (unsigned int r = n.down[c]; r != c; r = n.down[r]) {
-          // find the column col in the row
-          unsigned int c2 = n.right[r];
-          while ((n.colCount[c2] != col) && (c2 != r)) {
-            c2 = n.right[c2];
-          }
-
-          if (c2 == r) {
-            toRemove.push_back(r);
-          }
-        }
-
-        rowRem += static_cast<unsigned int>(toRemove.size());
-
-        for (const unsigned int rem : toRemove) {
-          removeRow(rem);
+    // The first and the last row first: away from the walls their
+    // placements fill this voxel alone, which ends the column at once
+    // (the same columns are found whatever the order).
+    const unsigned int first = n.down[col];
+    const unsigned int last = n.up[col];
+    if (first != col) {
+      look(first);
+      if (last != first) {
+        look(last);
+        for (unsigned int r = n.down[first]; r != last && common != 0; r = n.down[r]) {
+          look(r);
         }
       }
     }
+
+    // A column that each of these rows fills: no other row can go there,
+    // so those rows can be removed. With rows and no such column there is
+    // nothing to look for; a column with no row takes every row with it.
+    if (placements == 0 || common != 0) {
+      for (unsigned int c = n.right[0]; c; c = n.right[c]) {
+        if (columns[c] == placements) {
+          toRemove.clear();
+
+          for (unsigned int r = n.down[c]; r != c; r = n.down[r]) {
+            if (inColumn[rowIndexOf(r)] == 0) {
+              toRemove.push_back(r);
+            }
+          }
+
+          rowRem += static_cast<unsigned int>(toRemove.size());
+
+          for (const unsigned int rem : toRemove) {
+            removeRow(rem);
+          }
+          told();
+        }
+      }
+    }
+
+    for (const std::size_t row : marked) {
+      inColumn[row] = 0;
+    }
+    marked.clear();
   }
 
   toRemove.clear();
@@ -934,19 +999,24 @@ ReduceStats Assembler1::reduce(const StopToken& stop) {
   colRem += clumpify();
 
   bool dosth = false;
+  unsigned int pass = 0;
 
   do {
     if (stop.stopRequested()) {
       break;
     }
 
+    // every placement is gone through, the ones already removed at once
+    prepare_.beginPass(++pass, piecePositions_.size());
+
     for (const PiecePosition& pp : piecePositions_) {
       if (stop.stopRequested()) {
         break;
       }
 
+      prepare_.done.fetch_add(1, std::memory_order_relaxed);
       const unsigned int row = pp.row;
-      reducePiece_.store(pp.piece, std::memory_order_relaxed);
+      prepare_.piece.store(pp.piece, std::memory_order_relaxed);
 
       // a row no longer in the matrix
       if (n.up[n.down[row]] != row || n.down[n.up[row]] != row) {
@@ -992,6 +1062,7 @@ ReduceStats Assembler1::reduce(const StopToken& stop) {
 
     dosth = !toRemove.empty();
     rowRem += static_cast<unsigned int>(toRemove.size());
+    told();
 
     while (!toRemove.empty()) {
       removeRow(toRemove.back());
@@ -2669,6 +2740,13 @@ bool Assembler1::validStacks(const SearchStacks& s, bool task) const {
          hiddenPos == s.hiddenRows.size();
 }
 
+bool Assembler1::positionKeepsHoleColumns(std::string_view text) {
+  const std::string str(text);  // NUL-terminated for the number reader
+  unsigned int flag = 0;
+  (void)getInt(str.c_str(), &flag);
+  return flag < kFilledVariables;
+}
+
 AssemblerError Assembler1::restorePosition(std::string_view text, std::string_view version) {
   // As the original, the version is not looked at.
   (void)version;
@@ -2690,6 +2768,17 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
   pos += getInt(string + pos, &interrupted);
   if (pos >= len) {
     return AssemblerError::CannotRestoreSyntax;
+  }
+  // A position names rows of the matrix it was saved on, the rows it hid
+  // among them: one saved with the variable voxels as hole columns does
+  // not fit the matrix with them filled (reduce() left other rows), nor
+  // the other way round. kFilledVariables on the flag says which it was.
+  const bool filledVariables = interrupted >= kFilledVariables;
+  if (filledVariables) {
+    interrupted -= kFilledVariables;
+  }
+  if (filledVariables != variableFilled_) {
+    return AssemblerError::CannotRestoreVersion;
   }
   if (interrupted == 1) {
     return AssemblerError::CannotRestoreInterrupted;
@@ -2826,7 +2915,9 @@ SavedPosition Assembler1::savePosition() const {
                             : basedTasks           ? (rowOrderSignatures_ ? 6 : 5)
                                                    : layout;
 
-  std::string out = std::to_string(flag) + " ";
+  // on a matrix with the variable voxels filled the flag says so, and the
+  // versions before refuse it (they would replay it on another matrix)
+  std::string out = std::to_string(flag + (variableFilled_ ? kFilledVariables : 0)) + " ";
 
   vectorToString(stacks_.rows, out);
   vectorToString(stacks_.taskStack, out);

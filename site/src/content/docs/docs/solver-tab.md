@@ -408,7 +408,16 @@ Below the buttons:
 - **Solutions**: how many of them could be taken apart (with the
   disassembly check);
 - **Details**: how much the search has gone through. While it runs:
-  what it is working on and the search steps scanned, or for a sliding
+  what it is working on and the search steps scanned. Before the search
+  begins the solver prepares it, and on a large board this can take
+  minutes per piece: *Prepare piece N of M* counts the placements found
+  so far, and *Optimize* (which removes placements that can't be part of
+  any assembly) first sweeps the cells, then goes over the placements in
+  passes. Each shows how much it has checked of how much, the placements
+  removed and left, and, once it can tell, about how long is left in
+  that sweep or pass. Optimize goes round again as long as its last pass
+  removed something, so the time left is for the pass under way, not the
+  whole step. For a sliding
   puzzle how many moves deep it is (from the start and from the goal
   together, when it searches from both) and how many arrangements it has
   scanned. For a stacking puzzle, the states (stackings) scanned and the

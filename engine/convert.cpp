@@ -840,6 +840,20 @@ Json progressJson(const SolveProgress& g) {
   j["usedMs"] = g.usedMs;
   j["piece"] = g.piece;
   j["pieces"] = g.pieces;
+  {
+    const PrepareProgress& r = g.prepare;
+    j["prepare"] = g.stage != SolveStage::Prepare && g.stage != SolveStage::Reduce
+                       ? Json(nullptr)
+                       : Json{{"pass", r.pass},
+                              {"done", r.done},
+                              {"total", r.total},
+                              {"placements", r.placements},
+                              {"removed", r.removed},
+                              {"passMs", r.passMs},
+                              {"passSecondsLeft", r.passSecondsLeft < 0
+                                                      ? Json(nullptr)
+                                                      : Json(r.passSecondsLeft)}};
+  }
   j["assemblyFraction"] = g.assemblyFraction;
   j["iterations"] = g.iterations;
   j["assemblerThreads"] = g.assemblerThreads;

@@ -17,16 +17,32 @@
 // preview); the others are kept while the dialog is open, so Manual
 // brings them back, and Apply sends only what the fit shows.
 //
-// The preview draws the piece's cells with the pictures as they will look,
-// as large as the window leaves room for (previewSize). A picture larger
-// than MAX_SIDE pixels, or of a type the file cannot hold, is shrunk or
-// turned into a PNG or JPEG first, here, so the file stays small. The
-// engine lays the stack on the cells (shape.setImages); from then on it
-// turns and moves with them.
+// Snap to grid, under Manual (a setting kept across sessions, off until
+// Manual is chosen), pulls the edges a drag moves onto the cells' lines
+// when they come within SNAP pixels of one, Alt held letting go; the
+// preview then draws the lines faintly over the whole of it.
+//
+// The Fit box is as narrow as its choices; beside it, Help holds the
+// dialog's notes (how Manual's drags work, what the fit shows, where the
+// picture goes), leaving the preview more of the height. The dialog is
+// never narrower than where Help's text, wrapped, grows taller than the
+// Fit box (which would leave room under Snap to grid), with Manual's text
+// in it whatever the fit, so Crop, Stretch and Manual have one size: a
+// narrower window past that only shrinks the preview's height. The preview
+// draws the piece's cells with the pictures as they will look, as large
+// as the window leaves room for beside the rest of the dialog
+// (previewSize, with the height the dialog measures it takes), sized
+// again as the window or the dialog's text changes; in a window too small
+// even for the smallest preview the dialog's body scrolls, its buttons in
+// view. A picture larger than MAX_SIDE pixels, or of a type the file
+// cannot hold, is shrunk or turned into a PNG or JPEG first, here, so the
+// file stays small. The engine lays the stack on the cells
+// (shape.setImages); from then on it turns and moves with them.
 
 import type { ImageFit, ImageLayer, ShapeImage } from '../../engine/api.generated.ts';
 import { closeDialog, openDialog } from '../shell/dialog.ts';
 import { esc } from '../shell/dom.ts';
+import { prefs, setPrefs } from '../shell/prefs.ts';
 import { decodeImage } from '../shell/piece-images.ts';
 import type { PieceImage } from '../shell/piece-images.ts';
 import {
@@ -35,6 +51,7 @@ import {
   previewSize,
   rectFromSource,
   sourceFromRect,
+  snapDrag,
   sourceRect,
 } from '../shell/picture-math.ts';
 import type { PictureHandle, PictureRect, PreviewSize } from '../shell/picture-math.ts';
@@ -53,6 +70,12 @@ const ROOM = 0.85;
 /** In the Manual fit, the smallest side a picture is sized to, and how much of it stays over the box, in CSS pixels. */
 const MIN_SIDE = 12;
 const OVERLAP = 2;
+/** How near a grid line an edge snaps to it with Snap to grid, in CSS pixels. */
+const SNAP = 8;
+/** The room kept above and below the dialog in the window, in CSS pixels. */
+const MARGIN = 32;
+/** The room the dialog's card takes beside its body in the window's width: its margins and padding, in CSS pixels. */
+const SIDES = 84;
 
 /** What the dialog sends: the pictures, the bottom one first, each a new file or one the shape has. */
 export interface ImageApply {
@@ -228,8 +251,8 @@ export interface PreviewInput {
   color: string;
   /** The pictures, the bottom one first. */
   layers: readonly PreviewLayer[];
-  /** The Manual fit: its view and the picture with the dots (an index of `layers`); null for Crop and Stretch. */
-  manual: { view: ManualView; active: number } | null;
+  /** The Manual fit: its view, the picture with the dots (an index of `layers`) and whether the grid's lines show (Snap to grid); null for Crop and Stretch. */
+  manual: { view: ManualView; active: number; grid?: boolean } | null;
   /** A tray's border: the pictures show on the frame's rectangle less the cells, the floor. */
   frame: PictureFrame | null;
   size: PreviewSize;
@@ -313,6 +336,25 @@ export function drawPreview(canvas: HTMLCanvasElement, input: PreviewInput): voi
     const [px, py] = at(x, y);
     g.strokeRect(px + 0.5, py + 0.5, cs - 1, cs - 1);
   }
+  if (manual?.grid === true && cs >= 4) {
+    // the lines a drag snaps to, over the whole preview, faint
+    g.save();
+    g.globalAlpha = 0.45;
+    g.setLineDash([3, 3]);
+    g.beginPath();
+    for (let i = Math.ceil(-ox / cs); ox + i * cs <= pw; i++) {
+      const x = Math.round(ox + i * cs) + 0.5;
+      g.moveTo(x, 0);
+      g.lineTo(x, ph);
+    }
+    for (let i = Math.ceil(-oy / cs); oy + i * cs <= ph; i++) {
+      const y = Math.round(oy + i * cs) + 0.5;
+      g.moveTo(0, y);
+      g.lineTo(pw, y);
+    }
+    g.stroke();
+    g.restore();
+  }
   if (manual !== null && active !== undefined) {
     // the active picture's edge and its dots
     const style = getComputedStyle(canvas);
@@ -357,7 +399,7 @@ export function openImageDialog(o: ImageDialogOptions): void {
   }
   const n = frame !== null ? 'tray border' : o.board === true ? 'board' : 'piece';
   const [, , bw, bh] = box;
-  const size = previewSize({ w: window.innerWidth, h: window.innerHeight }, bw / bh);
+  let size = previewSize({ w: window.innerWidth, h: window.innerHeight }, bw / bh);
   let keys = 0;
   // the pictures, the bottom one first; the active one is the one Crop and
   // Stretch show and the one with the dots in Manual
@@ -401,15 +443,18 @@ export function openImageDialog(o: ImageDialogOptions): void {
     title: `Apply image to ${o.label}${frame === null ? '' : '’s tray border'}`,
     body: `<div class="form imgdlg" style="--imgw:${String(size.w)}px">
 <div class="imgdlg-pick"><button class="btn" data-f="choose"></button><div class="imgdlg-tiles" data-f="tiles" role="list" aria-label="Images, the bottom one first"></div><input type="file" data-f="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>
-<fieldset><legend>Fit</legend>
+<div class="imgdlg-row" data-f="row"><fieldset class="imgdlg-fit" data-f="fitBox"><legend>Fit</legend>
 <label title="Cut the picture to the ${n}’s proportions, keeping its middle: nothing is squashed"><input type="radio" name="imgFit" value="crop" ${fit === 'crop' ? 'checked' : ''}> Crop</label>
 <label title="Squash the whole picture to the ${n}’s rectangle"><input type="radio" name="imgFit" value="stretch" ${fit === 'stretch' ? 'checked' : ''}> Stretch</label>
 <label title="Size and place each picture yourself: drag the dots at its corners and sides in the preview to resize it, and the one in its middle to move it; several pictures can lie one on another"><input type="radio" name="imgFit" value="manual" ${fit === 'manual' ? 'checked' : ''}> Manual</label>
+<label class="imgdlg-snap" title="With Manual: while you drag, a picture's edges snap to the grid's lines when they come close to one (hold Alt to place it freely)"><input type="checkbox" data-f="snap" ${prefs.imageSnap ? 'checked' : ''}${fit === 'manual' ? '' : ' disabled'}> Snap to grid</label>
 </fieldset>
-<canvas class="imgdlg-preview" data-f="preview" style="width:${String(size.w)}px;height:${String(size.h)}px" aria-label="Preview"></canvas>
-<p class="imgdlg-hint" data-f="manualNote"${fit === 'manual' ? '' : ' hidden'}>Drag a corner to resize the picture (Shift: free proportions), a side to stretch it, and the middle to move it; the arrow keys move it too. It can be smaller than the ${n} and lie partly off it. Click a picture, or its tile, to pick it; drag the tiles to change which lies on top (the last one).</p>
-<p class="imgdlg-hint" data-f="singleNote" hidden></p>
+<fieldset class="imgdlg-help" data-f="help"><legend>Help</legend>
 <p class="imgdlg-note">${frame !== null ? 'The image covers the whole tray, its rim included, and shows on the border: the rim and the walls, not the floor. It turns with the board.' : `The image covers the ${n}’s ${esc(`${String(bw)} × ${String(bh)}`)} rectangle and shows only on its cells${o.board === true ? ', under the pieces. It turns with the board.' : '. It turns and moves with the piece.'}`}</p>
+<p class="imgdlg-hint" data-f="manualNote"${fit === 'manual' ? '' : ' hidden'}>Drag a corner to resize the picture (Shift: free proportions), a side to stretch it, and the middle to move it; the arrow keys move it too. With Snap to grid its edges snap to the dashed lines (Alt: no snapping). Picture order can be changed.</p>
+<p class="imgdlg-hint" data-f="singleNote" hidden></p>
+</fieldset></div>
+<canvas class="imgdlg-preview" data-f="preview" style="width:${String(size.w)}px;height:${String(size.h)}px" aria-label="Preview"></canvas>
 <div class="scad-err" data-f="err"></div></div>`,
     buttons: [
       ...(o.current.length === 0
@@ -477,6 +522,7 @@ export function openImageDialog(o: ImageDialogOptions): void {
   const q = <T extends HTMLElement>(f: string): T | null => el.querySelector<T>(`[data-f="${f}"]`);
   const canvas = q<HTMLCanvasElement>('preview');
   const manualNote = q('manualNote');
+  const snapBox = q<HTMLInputElement>('snap');
   const singleNote = q('singleNote');
   const choose = q<HTMLButtonElement>('choose');
   const tiles = q('tiles');
@@ -514,15 +560,101 @@ export function openImageDialog(o: ImageDialogOptions): void {
         : '';
     }
   };
+  // the Manual fit's drags: the dot grabbed, where, and the rectangle then
+  let drag: { handle: PictureHandle; x: number; y: number; start: PictureRect } | null = null;
+  const form = el.querySelector<HTMLElement>('.imgdlg');
+  const card = el.querySelector<HTMLElement>('.cfm');
+  const body = el.querySelector<HTMLElement>('.cb');
+  // the preview sized to what the window leaves beside the rest of the
+  // dialog as it is now laid out (its whole height, scrolled or not); a
+  // second pass when the new width wraps the text again
+  const row = q('row');
+  const fitBox = q('fitBox');
+  const help = q('help');
+  // the narrowest the Fit and Help row may be: where Help's text, wrapped,
+  // is no taller than the Fit box beside it (narrower, it would leave room
+  // under Snap to grid); at most what the window holds. Measured with
+  // Manual's text whatever the fit, so every fit has the same size
+  const narrowest = (): number => {
+    if (row === null || fitBox === null || help === null) {
+      return 0;
+    }
+    const hid = [manualNote?.hidden, singleNote?.hidden];
+    if (manualNote !== null) {
+      manualNote.hidden = false;
+    }
+    if (singleNote !== null) {
+      singleNote.hidden = true;
+    }
+    row.style.alignItems = 'flex-start';
+    const tooTall = (w: number): boolean => {
+      row.style.width = `${String(w)}px`;
+      return help.offsetHeight > fitBox.offsetHeight;
+    };
+    // short enough at the narrowest; too tall even as wide as the window
+    // allows; else the edge between, to the pixel
+    let lo = fitBox.offsetWidth + 110;
+    let hi = Math.max(lo, window.innerWidth - SIDES);
+    if (!tooTall(lo)) {
+      hi = lo;
+    } else if (!tooTall(hi)) {
+      while (hi - lo > 1) {
+        const mid = Math.round((lo + hi) / 2);
+        if (tooTall(mid)) {
+          lo = mid;
+        } else {
+          hi = mid;
+        }
+      }
+    }
+    row.style.width = '';
+    row.style.alignItems = '';
+    if (manualNote !== null) {
+      manualNote.hidden = hid[0] ?? false;
+    }
+    if (singleNote !== null) {
+      singleNote.hidden = hid[1] ?? true;
+    }
+    return hi;
+  };
+  // the preview as large as the window's height leaves room for, and no
+  // narrower than the row above it needs: past that a narrower window
+  // only makes it shorter, the picture in it smaller
+  const layout = (): void => {
+    if (canvas === null || card === null || body === null || form === null) {
+      return;
+    }
+    const least = narrowest();
+    for (let pass = 0; pass < 2; pass++) {
+      const whole = card.offsetHeight + body.scrollHeight - body.clientHeight;
+      const chrome = whole - size.h + MARGIN;
+      const fitted = previewSize({ w: window.innerWidth, h: window.innerHeight }, bw / bh, chrome);
+      const next = { w: Math.max(fitted.w, least), h: fitted.h };
+      if (next.w === size.w && next.h === size.h) {
+        return;
+      }
+      size = next;
+      form.style.setProperty('--imgw', `${String(size.w)}px`);
+      canvas.style.width = `${String(size.w)}px`;
+      canvas.style.height = `${String(size.h)}px`;
+      if (fit === 'manual') {
+        fitView();
+      }
+    }
+  };
   const redraw = (): void => {
     drawTiles();
     if (canvas === null) {
       return;
     }
+    // not while a drag holds the view
+    if (drag === null) {
+      layout();
+    }
     const a = current();
     const manual =
       fit === 'manual' && view !== null && a !== undefined
-        ? { view, active: layers.indexOf(a) }
+        ? { view, active: layers.indexOf(a), grid: snapBox?.checked === true }
         : null;
     canvas.tabIndex = manual === null ? -1 : 0;
     if (manual === null) {
@@ -550,8 +682,6 @@ export function openImageDialog(o: ImageDialogOptions): void {
     minSide: MIN_SIDE / v.k,
     overlap: OVERLAP / v.k,
   });
-  // the Manual fit's drags: the dot grabbed, where, and the rectangle then
-  let drag: { handle: PictureHandle; x: number; y: number; start: PictureRect } | null = null;
   const local = (e: PointerEvent): [number, number] => {
     const b = canvas?.getBoundingClientRect();
     return b === undefined ? [0, 0] : [e.clientX - b.left, e.clientY - b.top];
@@ -594,11 +724,16 @@ export function openImageDialog(o: ImageDialogOptions): void {
         h !== null ? CURSORS[h] : layers.some((l) => onRect(l.rect, v, x, y)) ? 'pointer' : '';
       return;
     }
+    let dx = (x - drag.x) / view.k;
+    let dy = (y - drag.y) / view.k;
+    if (snapBox?.checked === true && !e.altKey) {
+      [dx, dy] = snapDrag(drag.start, drag.handle, dx, dy, SNAP / view.k, e.shiftKey);
+    }
     a.rect = dragRect(
       drag.start,
       drag.handle,
-      (x - drag.x) / view.k,
-      (y - drag.y) / view.k,
+      dx,
+      dy,
       bw,
       bh,
       manualBounds(view),
@@ -757,6 +892,10 @@ export function openImageDialog(o: ImageDialogOptions): void {
   tiles?.addEventListener('dragend', () => {
     dragged = undefined;
   });
+  snapBox?.addEventListener('change', () => {
+    setPrefs({ imageSnap: snapBox.checked });
+    redraw();
+  });
   for (const r of el.querySelectorAll<HTMLInputElement>('input[name="imgFit"]')) {
     r.addEventListener('change', () => {
       const a = current();
@@ -773,8 +912,20 @@ export function openImageDialog(o: ImageDialogOptions): void {
       if (manualNote !== null) {
         manualNote.hidden = fit !== 'manual';
       }
+      if (snapBox !== null) {
+        snapBox.disabled = fit !== 'manual';
+      }
       redraw();
     });
   }
+  // sized again with the window, until the dialog is gone
+  const resized = (): void => {
+    if (!el.isConnected) {
+      window.removeEventListener('resize', resized);
+    } else if (drag === null) {
+      redraw();
+    }
+  };
+  window.addEventListener('resize', resized);
   redraw();
 }

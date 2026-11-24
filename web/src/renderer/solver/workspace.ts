@@ -70,6 +70,7 @@ import {
   defaultsOf,
   familyOf,
   normalize,
+  prepareDetails,
   readOptions,
   sameOptions,
   savedDetails,
@@ -865,6 +866,10 @@ export class SolverWorkspace {
             : `${what} ${part}`;
         }
         return stopping ? `${what} ${stopDetails(g, this.family, this.savingFor(r))}` : what;
+      }
+      // preparing: the piece, and counts that move while one piece takes minutes
+      if (g.stage === 'prepare' || g.stage === 'reduce') {
+        return prepareDetails(g);
       }
       // the engine's words for the stage (solveProgress_c::activity), and the search steps
       const what =

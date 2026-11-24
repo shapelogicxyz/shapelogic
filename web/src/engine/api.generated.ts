@@ -1582,6 +1582,37 @@ export interface SolveProgress {
   piece: number;
   /** @minimum 0 */
   pieces: number;
+  /**
+   * Stages prepare and reduce: how far they are, finer than piece of pieces (the reduce's piece
+   * can take minutes on a large board). pass: the reduce's step, 0 while it sweeps the columns (a
+   * cell every placement of a column fills belongs to no other column), then the placement check's
+   * pass from 1, which goes round again as long as its last pass removed a placement, so how many
+   * passes there will be is not known. done of total: what this pass has checked (columns in pass
+   * 0, placements after); total can shrink as placements go. placements: the placements found so
+   * far (prepare) or still left (reduce); removed: what the reduce has removed so far. passMs: how
+   * long the pass under way has run, passSecondsLeft how long it may still take. Null in the other
+   * stages.
+   */
+  prepare: {
+    /** @minimum 0 */
+    pass: number;
+    /** @minimum 0 */
+    done: number;
+    /** @minimum 0 */
+    total: number;
+    /** @minimum 0 */
+    placements: number;
+    /** @minimum 0 */
+    removed: number;
+    /** @minimum 0 */
+    passMs: number;
+    /**
+     * The seconds the pass under way has still to go, from its pace so far; null in its first
+     * seconds. Rough: some columns and placements cost more than others, and the passes after it
+     * are not counted.
+     */
+    passSecondsLeft: number | null;
+  } | null;
   assemblyFraction: number;
   /** @minimum 0 */
   iterations: number;

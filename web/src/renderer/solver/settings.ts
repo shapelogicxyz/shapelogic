@@ -46,6 +46,7 @@ import type {
 } from '../../engine/api.generated.ts';
 import { prefs } from '../shell/prefs.ts';
 import { sizeText } from '../state/stacking.ts';
+import { formatSpan } from './span.ts';
 
 /** The puzzles whose Solver shows its own options: brick (every assembling grid), sliding, stacking. */
 export type Family = 'brick' | 'sliding' | 'stacking';
@@ -595,6 +596,43 @@ export function stackingDetails(
   return panex && traced > 0
     ? `Tracing the path. Traced ${shortCount(traced)} of ${shortCount(depth)} moves.`
     : stackingSearched(searched, depth);
+}
+
+/**
+ * The Details line while a brick solve prepares its search: the engine's
+ * piece of pieces (`activity`, "prepare piece 6 of 9"), with counts that
+ * move while one piece takes minutes. Preparing: the placements found so
+ * far. Optimizing (the reduce): its first sweep over the cells, then its
+ * passes over the placements, each with how much it has checked, what it
+ * has removed and left, and the engine's rough time left in that pass
+ * (another pass follows while one removes anything, so not of the step).
+ */
+export function prepareDetails(
+  g: Pick<SolveProgress, 'stage' | 'activity' | 'piece' | 'pieces' | 'prepare'>,
+): string {
+  const what =
+    g.activity === '' ? '' : `${g.activity.charAt(0).toUpperCase()}${g.activity.slice(1)}`;
+  const r = g.prepare;
+  if (r === null) {
+    return what === '' ? '' : `${what}.`;
+  }
+  if (g.stage === 'prepare') {
+    return r.placements > 0
+      ? `${what}. ${shortCount(r.placements)} placements so far.`
+      : `${what}.`;
+  }
+  const pct = r.total > 0 ? ` (${String(Math.floor((r.done * 100) / r.total))}%)` : '';
+  const counts = `${shortCount(r.removed)} placements removed, ${shortCount(r.placements)} left.`;
+  const step = r.pass === 0 ? 'the sweep' : 'this pass';
+  const left =
+    r.passSecondsLeft === null
+      ? ''
+      : ` About ${formatSpan(r.passSecondsLeft * 1000)} left in ${step}.`;
+  if (r.pass === 0) {
+    // the sweep goes over the cells, not one piece after another
+    return `Optimize: sweeping the cells, ${shortCount(r.done)} of ${shortCount(r.total)} checked${pct}. ${counts}${left}`;
+  }
+  return `${what}, pass ${String(r.pass)}: ${shortCount(r.done)} of ${shortCount(r.total)} placements checked${pct}. ${counts}${left}`;
 }
 
 /**
