@@ -461,7 +461,7 @@
       "description": "What a solve does (the solve thread's flags); a missing field takes the engine's setting or the default.",
       "properties": {
         "solver": {"$ref": "#/$defs/Solver"},
-        "disassemble": {"type": "boolean", "description": "Take each assembly apart; only those that come apart are solutions."},
+        "disassemble": {"type": "boolean", "description": "Take each assembly apart; only those that come apart are solutions. A solve with it is refused (unsupported) on a grid without a take-apart and on a puzzle with a tilted tray, whose pieces lie flat."},
         "checkRotations": {"type": "boolean", "description": "Try 90 degree turns while taking apart."},
         "justCount": {"type": "boolean", "description": "Count, keep no solutions."},
         "keepAssemblies": {"type": "boolean", "description": "With disassemble: also keep the assemblies that do not come apart, without a disassembly, after every solution."},

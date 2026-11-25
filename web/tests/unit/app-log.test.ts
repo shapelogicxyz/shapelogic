@@ -8,7 +8,16 @@
 // of the newest lines alone) with the sizes it offers, and Clear, in a
 // temporary directory.
 
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
@@ -299,6 +308,22 @@ describe('the log file', () => {
     await log.settled();
     expect(gunzipSync(readFileSync(log.archive)).toString('utf8')).toBe('left over\n');
     expect(existsSync(join(dir, 'shapelogic.log.1'))).toBe(false);
+  });
+
+  it('compresses into a temporary file of its own, never through a link at a name', async () => {
+    // an older version compressed into `<archive>.tmp` and followed a link left there
+    const victim = join(dir, 'victim');
+    writeFileSync(victim, 'mine\n');
+    symlinkSync(victim, join(dir, 'shapelogic.log.1.gz.tmp'));
+    // what a quit in the middle of a compression leaves
+    writeFileSync(join(dir, 'shapelogic.log.1.gz.123.0123456789ab.tmp'), 'half');
+    writeFileSync(join(dir, 'shapelogic.log.1'), 'left over\n');
+    const log = new AppLog(dir);
+    await log.settled();
+    expect(readFileSync(victim, 'utf8')).toBe('mine\n');
+    expect(lstatSync(log.archive).isFile()).toBe(true);
+    expect(gunzipSync(readFileSync(log.archive)).toString('utf8')).toBe('left over\n');
+    expect(readdirSync(dir).filter((n) => n.endsWith('.tmp'))).toEqual([]);
   });
 
   it('exports both files as plain text, the older first, and clears both', async () => {

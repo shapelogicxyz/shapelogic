@@ -2319,6 +2319,10 @@ def main() -> int:
     global RUN_DIR
     if args.work:
         RUN_DIR = args.work.resolve()
+    else:
+        # a folder of this name is what a failed run left, whose process
+        # number is this one's now: its files are not this run's
+        shutil.rmtree(RUN_DIR, ignore_errors=True)
     RUN_DIR.mkdir(parents=True, exist_ok=True)
     code = 1
     try:

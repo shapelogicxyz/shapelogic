@@ -14,27 +14,22 @@ build preset="dev":
     #!/usr/bin/env bash
     set -euo pipefail
     # Sessions side by side share build/<preset>: a second build of the
-    # preset waits for the first (a mkdir lock, as macOS has no flock). A
-    # lock whose holder is gone, or that never got its holder's pid, is
-    # taken over.
+    # preset waits for the first. The lock is the system's on the open file
+    # (flock, taken through python3: macOS has no flock command), held by
+    # this recipe's shell and the build it starts, so it goes with them
+    # however they end: no lock is ever left behind to be taken over. Where
+    # python3 has no fcntl (Windows) the build runs without the lock.
     mkdir -p build
     lock="build/{{preset}}.lock"
-    said=""
-    until mkdir "$lock" 2>/dev/null; do
-      holder=$(cat "$lock/pid" 2>/dev/null || true)
-      if { [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; } ||
-         { [ -z "$holder" ] && [ -n "$(find "$lock" -maxdepth 0 -mmin +1 2>/dev/null)" ]; }; then
-        rm -rf "$lock"
-        continue
+    # (the lock of this recipe's first version was a folder)
+    [ -d "$lock" ] && rm -rf "$lock"
+    if python3 -c 'import fcntl' 2>/dev/null; then
+      exec 9>> "$lock"
+      if ! python3 -c 'import fcntl; fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)' 2>/dev/null; then
+        echo "waiting for another build of {{preset}} ($lock)" >&2
+        python3 -c 'import fcntl; fcntl.flock(9, fcntl.LOCK_EX)'
       fi
-      if [ -z "$said" ]; then
-        echo "waiting for another build of {{preset}} (process ${holder:-?}, $lock)" >&2
-        said=1
-      fi
-      sleep 1
-    done
-    echo $$ > "$lock/pid"
-    trap 'rm -rf "$lock"' EXIT
+    fi
     cmake --preset {{preset}} > /dev/null
     cmake --build --preset {{preset}}
 
@@ -51,9 +46,10 @@ test-all preset="dev": (build preset)
 test-asan: (test-all "asan")
 
 # ThreadSanitizer: the [parallel] cases (see AGENTS.md for why the puzzle choice matters), each a
-# ctest test of its own, side by side; then the contract suite against the TSan-built engine
+# ctest test of its own, side by side (a run that finds none fails); then the contract suite
+# against the TSan-built engine
 test-tsan: (build "tsan")
-    TSAN_OPTIONS=halt_on_error=1 ctest --preset tsan -L parallel -j {{num_cpus()}}
+    TSAN_OPTIONS=halt_on_error=1 ctest --preset tsan -L parallel --no-tests=error -j {{num_cpus()}}
     TSAN_OPTIONS=halt_on_error=1 python3 tests/contract/test_engine.py --engine build/tsan/engine/shapelogic_engine
 
 # Compare the new bt against the original burrTxt (see tests/oracle/README.md)

@@ -379,6 +379,18 @@ def test_tilted() -> None:
         xml = gzip.decompress(data).decode() if data[:2] == b"\x1f\x8b" else data.decode()
         check("--save keeps each problem's setting", [c for c, _ in problems(xml)] == ["1", "2"],
               str(problems(xml)))
+        # a tilted tray has no take-apart (the pieces lie flat in it; the
+        # app's Solver stays on Assemble Only): -d finds the assemblies and
+        # takes none apart, as on a grid without a disassembler, and --save
+        # refuses -d with the reason
+        r = run("--json", "-o", "1", tp)
+        found = json.loads(r.stdout) if r.returncode == 0 else {}
+        check("-d takes nothing apart on a tilted tray",
+              found.get("assemblies") == 2 and found.get("solutions") == 0 and found.get("level") is None,
+              r.stdout + r.stderr)
+        r = run("--save", out, "--restart", "-d", "-q", tp)
+        check("--save -d of a tilted puzzle is refused",
+              r.returncode == 2 and "nothing to take apart" in r.stdout, r.stdout + r.stderr)
 
 
 def main() -> int:

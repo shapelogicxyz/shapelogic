@@ -327,6 +327,10 @@ Result<void> SolveSession::launch(Mode mode) {
   }
   // a sliding puzzle's "take apart" is the slide search
   if (options_.disassemble && !sliding_ && !Disassembler::canDisassemble(puzzle_)) {
+    if (puzzle_.tray()) {
+      return fail(Errc::Unsupported,
+                  std::string(Disassembler::kNoTakeApartOnTray) + " Turn off disassembly.");
+    }
     return fail(Errc::Unsupported,
                 "this space grid doesn't have a disassembler: turn off disassembly");
   }

@@ -1434,11 +1434,14 @@ def sliding_continue_as_it_ran(e):
 
             e.call("solve.abort", {"problem": p})
             check(folders() == [], "thrown away with the solve")
-            # nothing paused in memory: without options the defaults, as solve.start has them
+            # nothing paused in memory: without options the defaults, as solve.start has them.
+            # They search no path (Find Solutions is off), so the run is over at once: its end
+            # is waited for. An abort sent after its first state raced that end, and lost on a
+            # loaded machine ("no solve under way").
             start = len(e.events)
             e.call("solve.continue", {"problem": p})
-            e.wait_event("solve.state", lambda x: x["problem"] == p, timeout=600, start=start)
-            e.call("solve.abort", {"problem": p})
+            check(wait_state(e, p, ["paused", "finished", "error"], start) == "finished",
+                  "the defaults' run ends")
         finally:
             e.call("settings.set", {"slideFolder": was})
 

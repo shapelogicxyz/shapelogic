@@ -198,6 +198,14 @@ jobs:
       - name: Unit tests (x64 is a real x86-64 machine, so the AVX2 kernels run)
         continue-on-error: true # failures show in the log but do not stop the installers
         run: ctest --preset release -LE slow -j 4
+      # The two quick cases that cleanup item 8.1 tagged [slow] (their synced
+      # writes take 16 s each on a Mac's drive): they ran here before, and
+      # are the saved searches' tests on this system. A run that finds
+      # neither fails (a renamed case).
+      - name: Unit tests (the two saved-search cases tagged slow)
+        continue-on-error: true
+        run: |
+          ctest --preset release --no-tests=error -j 2 -R "^slow: sliding: a search (saved by an earlier version is carried on|that cannot write a file is saved)"
       - name: Install the front end's packages
         run: npm ci
         working-directory: web
@@ -254,6 +262,15 @@ jobs:
         continue-on-error: true # failures show in the log but do not stop the installers
         shell: msys2 {0}
         run: ctest --preset release -LE slow -j 4
+      # The two quick cases that cleanup item 8.1 tagged [slow] (their synced
+      # writes take 16 s each on a Mac's drive): they ran here before, and
+      # are the saved searches' tests on this system. A run that finds
+      # neither fails (a renamed case).
+      - name: Unit tests (the two saved-search cases tagged slow)
+        continue-on-error: true
+        shell: msys2 {0}
+        run: |
+          ctest --preset release --no-tests=error -j 2 -R "^slow: sliding: a search (saved by an earlier version is carried on|that cannot write a file is saved)"
       - name: Install the front end's packages
         run: npm ci
         working-directory: web
@@ -296,6 +313,15 @@ jobs:
         continue-on-error: true # failures show in the log but do not stop the installers
         if: matrix.arch == 'arm64'
         run: ctest --preset release -LE slow -j 4
+      # The two quick cases that cleanup item 8.1 tagged [slow] (their synced
+      # writes take 16 s each on a Mac's drive): they ran here before, and
+      # are the saved searches' tests on this system. A run that finds
+      # neither fails (a renamed case).
+      - name: Unit tests (the two saved-search cases tagged slow)
+        continue-on-error: true
+        if: matrix.arch == 'arm64'
+        run: |
+          ctest --preset release --no-tests=error -j 2 -R "^slow: sliding: a search (saved by an earlier version is carried on|that cannot write a file is saved)"
       - name: Install the front end's packages
         run: npm ci
         working-directory: web

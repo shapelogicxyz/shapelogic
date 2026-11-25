@@ -1415,7 +1415,11 @@ export interface FitStats {
  */
 export interface SolveOptions {
   solver?: Solver;
-  /** Take each assembly apart; only those that come apart are solutions. */
+  /**
+   * Take each assembly apart; only those that come apart are solutions. A solve with it is refused
+   * (unsupported) on a grid without a take-apart and on a puzzle with a tilted tray, whose pieces
+   * lie flat.
+   */
   disassemble?: boolean;
   /** Try 90 degree turns while taking apart. */
   checkRotations?: boolean;

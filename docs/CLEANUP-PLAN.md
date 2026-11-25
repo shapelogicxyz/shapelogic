@@ -123,6 +123,14 @@ user's standing instructions.
      fixed file and build `bt_tests` or the module. A test whose check
      sits under a condition (a time, a size) says in its Done line how
      often the condition held.
+   Two things checkpoint D found after stage 8:
+   - **What CI runs.** The release workflow runs `ctest -LE slow` on
+     Linux, Windows and macOS. A case that gets the `[slow]` tag stops
+     running there: keep it quick, or name it in the workflow's second
+     ctest step.
+   - **A run that finds no test fails.** `ctest -L` and `-R` exit 0 when
+     nothing matches: a recipe or a CI step that picks tests so takes
+     `--no-tests=error`.
 9. **Checks.** `just check <regex of the changed C++ files>` stays green; a
    suppression needs its reason on the line
    (`// NOLINTNEXTLINE(check): reason`). The front end: `just app-check`.
@@ -171,7 +179,7 @@ again, and comes last.
 - [x] Stage 6: renderer bugs (6.4 leaves the log menu, with its reason)
 - [x] Stage 7: main-process bugs
 - [x] Stage 8: test and build speed; tests that cannot clash
-- [ ] Checkpoint D (Fable): review of stage 8
+- [x] Checkpoint D (Fable): review of stage 8
 - [ ] Stage 9: CI and release pipeline
 - [ ] Stage 10: front-end speed and memory
 - [ ] Stage 11: one source of truth: core, engine, API, Python, CLI
@@ -2617,6 +2625,24 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
     worktree is this session's); `tilted.e2e.ts` and `sliding.e2e.ts`: no
     `[data-k^="ad"]` (both fail with the old menu); `solver.e2e.ts`: a brick
     puzzle has all three. `just check` on the two C++ files: clean.
+  - Checkpoint D (2026-11-25, Fable): the stage noted that a solve with
+    disassembly still ran on a tilted puzzle through the API, the CLI and
+    Python. It did: `shapelogic_cli --json` gave Triple Play "solutions"
+    with levels (the brick take-apart of flat pieces, the tray's walls
+    not being cells), and `--save -d` stored them. One rule now,
+    `Disassembler::canDisassemble(puzzle)`: false for a puzzle with a
+    tray. `SolveSession` refuses a solve with disassembly (Unsupported,
+    the analysis's words, `Disassembler::kNoTakeApartOnTray`), the
+    movement explorer too; the CLI's plain solve and the Python module
+    assemble only, as on the Spheres grid (`-d`: the assemblies and 0
+    solutions); `--save -d` is refused with the reason. The app is as it
+    was (its Solver never asked). **Users of the CLI or the module see
+    it:** `--json` on a Tilted Square file says `"solutions": 0`.
+    Tests: `test_document_tilted.cpp` (Triple Play: the rule, the
+    refusal, the assemblies kept), `test_cli.py`, `test_alpha.py`; each
+    fails with the old `disassembler.cpp` (run in place in the dev
+    build). api/types.json says so at `disassemble` (docs/API.md and the
+    generated types made again); the guide's command-line page too.
 
 - [x] **6.6 Play: Pause then Play starts a second playback chain; one failed step stops Undo and Redo** (bug; S)
   - *Where:* `web/src/renderer/play/workspace.ts`: pause and play (321-330);
@@ -3047,6 +3073,19 @@ Done (2026-11-25), the whole stage:
     link at the old name (left, not followed) and make the folder
     read-only (EACCES). Nothing here was run on Windows or Linux
     (`FileHandle.sync` and `fsyncSync` are Node's own on both).
+  - Checkpoint D (2026-11-25, Fable): the log's compression, which the
+    item left on its fixed `<archive>.tmp`, wrote through a link left at
+    that name (the file it pointed to got the compressed bytes, and the
+    archive became the link). It now streams into a `tempName` file made
+    exclusively, and first removes the temporary files a quit in the
+    middle of a compression left (and an older version's fixed one): the
+    app is one process and compresses one file at a time. Test
+    (`app-log.test.ts`): a link and a left temporary file planted; fails
+    with the old `app-log.ts`.
+    Left: a crash in the middle of a write leaves the temporary file
+    beside `state.json`, `cache-links.json` or an export. Each is one
+    write's bytes, it needs a crash within that write, and for an export
+    the folder is the user's, so nothing sweeps them.
 
 - [x] **7.5 The demo reports a wrong error code** (bug; S)
   - *Where:* `web/src/demo/engine-bridge.ts:89` sends -32602 (invalid_params)
@@ -3148,6 +3187,46 @@ Done (2026-11-25), the whole stage:
     shape's mesh: 120 s alone, 227 s beside the rest (the case lands on an
     efficiency core). `just test` (quick): 71 s, was 109 to 140 s.
     `just test-asan` and `just test-tsan`: see the stage's Done lines.
+  - Review (2026-11-25, Fable): nothing stopped running here; **two cases
+    stopped running in CI**, and one recipe could pass on nothing.
+    - The lists, before (d628547) and after (ff1af1f):
+      - the `TEST_CASE`s of `tests/unit`, read from the sources: 851 and
+        853. The difference is the two cases of the splits and the two
+        `[slow]` tags; all 65 files were in the old list;
+      - the 24 shards list 815 cases, each once: all of `~[slow]`. The 45
+        `slow:` tests are the 45 `[slow]` cases, and each test's spec
+        runs its one case (the 127 `parallel:` ones too; a comma in a
+        name is escaped);
+      - `ctest -N`: dev and release 75, asan 74 (no Python module), tsan
+        201 (the 127 `parallel:` tests more).
+    - The limits: every test has one. Against this session's times (dev,
+      `-j 10`): a quick shard 69 s of 600, a slow case 220 s of 1200, the
+      contract suite 44 s of 300, the CLI's 11 s of 120; asan's longest
+      505 s of 7200. A discovered test past its limit is stopped (the
+      largest fixture's case under a limit of 3 s: Timeout, exit 8, no
+      process left), and a listing that fails fails ctest (a stand-in
+      program: exit 8).
+    - **CI.** `.github/workflows/release.yml` runs `ctest -LE slow` on
+      Linux, Windows and macOS, so the two sliding cases tagged `[slow]`
+      here no longer ran there: the search saved by an earlier version
+      (the test checkpoint B names for old searches) and the failed
+      write. They are the saved searches' tests on those systems, and
+      their 16 s is the Mac's synced write (13 s of system time), not
+      theirs: on Linux the two take 5 s together. Each job now has a
+      second ctest step that runs the two by name (`--no-tests=error`).
+      The file parses and the pattern picks the two (`ctest -N`); the
+      workflow itself runs at the next release.
+    - **`just test-tsan` could pass on nothing:** `ctest -L parallel`
+      exits 0 when no test has the label ("No tests were found", tried).
+      It has `--no-tests=error` now (exit 8).
+    - The `parallel:` tests had the slow cases' limit, 7200 s under TSan
+      for cases of at most 260 s: now 300 s times the scale (1800 s).
+    - A case that names its fixture passed when the file was renamed
+      (the other case takes the file then, so nothing was lost):
+      `compareDumps` now checks that it compared a file.
+    - Left: the floor of `just test-all`, one shape's mesh (shape 0 of
+      12PieceSeparation: 120 s alone at -O0, 24 s in the release build).
+      It is one call of the mesher, so no split shortens it.
 
 - [x] **8.2 A new tag recompiles every file** (speed; S)
   - *Where:*
@@ -3182,6 +3261,11 @@ Done (2026-11-25), the whole stage:
     after a whole build, `SHAPELOGIC_VERSION=v9.9` reconfigured and the
     build ran 5 steps: `version.cpp`, the library and three links; the
     engine and the CLI then say 9.9.0. ARCHITECTURE.md's base map line.
+  - Review (2026-11-25, Fable): OK. No user of `bt::kVersion` is left
+    (assembler 0's and 1's `kVersion` are their own), and dev's
+    `compile_commands.json` holds the define once. The WebAssembly
+    engine and the Python module build with it (the demo's check, the
+    Python tests).
 
 - [x] **8.3 One scratch-folder helper for the C++ tests** (stability, combine; S)
   - *Where:*
@@ -3235,6 +3319,24 @@ Done (2026-11-25), the whole stage:
     finishes the solve" (`CHECK(landed)`, a timing check of the 8.8 kind:
     20 processes on 10 cores; the case uses no folder): left for a later
     stage, see 8.8.
+  - Review (2026-11-25, Fable): OK, and the failing case fixed.
+    - `grep -rn temp_directory_path tests/unit` matches `scratch_dir.h`
+      alone. On Linux (Docker, the release build) the quick suite left no
+      `bt_test_*` folder in `/tmp`.
+    - "solve session: a save point while draining finishes the solve"
+      and the case above it ("assemblies counted for a take-apart keep
+      the solve open") gave a solve five tries to be caught while it
+      drains. The take-apart they must catch lasts a few milliseconds in
+      the release build, and on a loaded machine the watching thread
+      waits longer than that for its turn. Now 200 tries
+      (`kDrainingAttempts`; a try takes milliseconds). Under 20 busy
+      loops the release build passes 20 of 20; several of those runs
+      needed dozens of tries (up to 203 assertions, 52 when the first
+      try lands), where five fail.
+    - Left: the other checks that a pause landed
+      (`test_solve_session.cpp`'s `CHECK(paused >= …)`, four of them, and
+      `test_document_solving.cpp`'s ten tries). None has been seen to
+      fail, and each needs its own way to make the pause land.
 
 - [x] **8.4 Long test runs use live binaries and folders that other sessions rebuild** (stability; M)
   - *Where:*
@@ -3308,6 +3410,41 @@ Done (2026-11-25), the whole stage:
        both build (a stale lock needs a build killed with SIGKILL).
     Verify: `npm test` (647 of 647) passed while two `just build release`
     ran, one relinking the engine.
+  - Review (2026-11-25, Fable): OK, with the lock made new and one fix
+    in the oracle.
+    - 1. `BT_REQUIRE_ALL=1 BT_ENGINE=/nonexistent npx vitest run
+      tests/engine`: exit 1, with the message; without the variable the
+      tests fail as before; with the engine there, they pass. No copy of
+      the engine is left after a run. Left: a run that is killed leaves
+      its copy (7.5 MB) in the temp folder, which the system empties; and
+      the copy is taken while a build may be linking the engine (the
+      copy's few milliseconds, where it was the whole run).
+    - 2. The e2e specs of this session ran on a build of their own
+      (`BT_OUT_DIR=out-cpd`).
+    - 3. `work/tools` was never exercised (the reference checkout has no
+      build). Tried now with a stand-in library and a driver in a
+      scratch folder: built once, the second call returns the same file
+      untouched, a changed header or library gives a new name, a compile
+      error leaves no file. Fixed: a failed run's `work/run-<pid>` is
+      kept, and a later run that got the same process number began in
+      its files; a run now starts with its folder empty. Left: the
+      drivers of older sources stay in `work/tools` (git-ignored, small).
+    - 4. `GATE_OUT=<scratch> GATE_STEP_TIMEOUT=4 tests/gate.sh check`:
+      the step is stopped, the table says `TIMEOUT`, exit 1, the logs are
+      in the scratch folder, `build/gate` is not made, no process left.
+    - 5. Two `just build release` and `npm test` at once: the second
+      build waited, the tests passed (647 of 647) while the engine was
+      linked again. **The lock is the system's now** (`flock` on
+      `build/<preset>.lock`, taken through python3, held by the recipe's
+      shell and the build under it). The folder lock could be left behind
+      (a build killed with SIGKILL), and its takeover was the race the
+      Done line names: two waiters could both take it. A system lock
+      goes with its processes, so there is nothing to take over. Tried:
+      three builds at once run one after another; with the holder killed
+      by SIGKILL the next goes on when the dead build's last process has
+      gone; a lock folder of the first version is removed; the same on
+      Linux (Docker). Where python3 has no `fcntl` (Windows) the build
+      runs without the lock, as before the stage.
 
 - [x] **8.5 One set of e2e helpers** (stability, combine; S)
   - *Where:*
@@ -3360,6 +3497,18 @@ Done (2026-11-25), the whole stage:
     screenshot `stacking-player.png` differs (3% of pixels, the Solver
     panel's layout), and fails the same way on HEAD's web/ in a scratch
     copy, so it is not this stage's (left as found).
+  - Review (2026-11-25, Fable): OK. Read in the diff: the five filters
+    are `counted`, `settled` is the `>=` form at its four places, and
+    the helpers moved keep their bodies. The web tests are the same 96
+    files with the same 805 tests declared, before and after (vitest,
+    e2e, smoke and docs specs).
+    **The screenshot is retaken.** `stacking-player.png` was last taken
+    on 2026-11-09 and three stages found it failing. The difference is
+    the page around the view (the Play tab, the problem's move count,
+    Solve, Pause and Reset, the folded explorer, the time used); the
+    view, the solutions list and the player are the same in both
+    pictures (looked at, with the diff). `stacking.e2e.ts`: 6 of 6,
+    three times.
 
 - [x] **8.6 Tests and sources registered by hand** (trap; S)
   - *Where:*
@@ -3389,6 +3538,9 @@ Done (2026-11-25), the whole stage:
     case ran; a scratch `core/shapelogic/base/zz_scratch.cpp` stopped the
     configure with "core/shapelogic/base/zz_scratch.cpp is not in btcore's
     source list"; both deleted.
+  - Review (2026-11-25, Fable): OK. `test_cli.py` holds the same eight
+    `test_` functions as before and no other name that begins so; the
+    CLI's tests pass on macOS and Linux.
 
 - [x] **8.7 `just check` skips two folders** (trap; S)
   - *Where:* `justfile:106`, the file pattern (unchanged since stage 0).
@@ -3405,6 +3557,15 @@ Done (2026-11-25), the whole stage:
     reports), `bugprone-unchecked-string-to-number-conversion` (atoi on
     the harness's own arguments) and `performance-*`. `just check`: 206
     files, clean.
+  - Review (2026-11-25, Fable): OK; `just check`: 205 files, clean.
+    That is every `.cpp` of the pattern's folders but
+    `engine/wasm_main.cpp`, which only the wasm preset compiles: no
+    clang-tidy run sees it, before the stage and after (left: the dev
+    build has no compile command for it).
+    The linker's warning of a duplicate `libmanifold.a` came from
+    `bt_tests` naming the library that `btcore` already brings: it now
+    takes manifold's headers only (`$<COMPILE_ONLY:…>`), and links it
+    once.
 
 - [x] **8.8 A sliding pause test asserts on timing** (stability; S; found 2026-11-25)
   - *Where:* `tests/unit/solve/test_sliding_session.cpp`, "sliding
@@ -3428,6 +3589,13 @@ Done (2026-11-25), the whole stage:
     point while draining finishes the solve" (`CHECK(landed)` after five
     attempts) failed once in a release run beside a dev `just test-all`
     (8.3); not changed in this stage.
+  - Review (2026-11-25, Fable): OK. The first stop no longer depends on
+    time. How often a later pause lands in the middle of a search, which
+    the Done line does not say (counted by a temporary line, 5 runs
+    each): in the debug build 10 or 11 times for each thread count, 16
+    to 19 under 20 busy loops; in the release build 3 to 7, and 6 to 9
+    under load. Never none, so the check that every solution is found
+    once still covers pauses in mid-search.
 
 **Gates for stage 8:** `just test-all` (twice, timed), `just app-test`, the
 e2e specs touched one by one, `just check`, the CLI tests, one oracle tier
@@ -3482,6 +3650,104 @@ The procedure is in "Fable checkpoints". What to look at:
   vitest engine run passes while `just build release` runs.
 - **1.2 still works.** `BT_REQUIRE_ALL=1` still fails a run without an
   engine.
+
+Done (2026-11-25): see the Review lines under 8.1 to 8.8, and the
+Checkpoint D lines under 6.5 and 7.4.
+- **The eight changes hold.** Nothing stopped running in the local
+  suites: the lists were compared (8.1, 8.5, 8.6), the limits stop a hang
+  and never a normal run (8.1), two builds of a preset wait for each other
+  and the web tests pass beside them (8.4), and `BT_REQUIRE_ALL=1` still
+  fails a run without an engine (8.4).
+- **What got past the stage:**
+  - **Two cases stopped running in CI** (8.1). The `[slow]` tag took them
+    out of `ctest -LE slow`, which the release workflow runs on three
+    systems. The workflow runs them again, by name.
+  - **A recipe that passed on nothing** (8.1): `just test-tsan` with no
+    `parallel:` test found. Stage 1's own kind.
+  - **A test whose check was dropped without a count** (8.8): how often
+    the pauses still land was not measured. They do (counted).
+  - **The stage ran on macOS only.** On Linux (Docker, GCC 13, the
+    release build as CI makes it) ctest lists the same 75 tests, so the
+    discovery works there, and the quick suite failed one test in the
+    first run: the contract suite's `sliding_continue_as_it_ran` sent an
+    abort after a run that is over at once (its defaults search no path)
+    and lost the race beside the shards ("no solve under way"). The case
+    is from before this plan; it now waits for the run's end. After
+    that: 30 of 30, three times, and the two saved-search cases pass.
+  The first two are bugs that the stage's own checks did not catch: this
+  plan's condition for the optional checkpoints. E was already decided by
+  C, and stage 11's risk is another one (every user of a fact found), so
+  no item moves to Fable. Rule 8 has two more lines for what CI runs and
+  for runs that find no test.
+- **What the stages 6 to 8 reported and left** (the coordinator's list),
+  each looked at:
+  - Fixed here:
+    - a solve with disassembly on a tilted puzzle through the API, the
+      CLI and Python (under 6.5);
+    - the log's compression into a fixed `<archive>.tmp` (under 7.4);
+    - "a save point while draining finishes the solve", which failed
+      once under load, and the case beside it (8.3);
+    - the build lock's takeover race (8.4);
+    - the linker's duplicate `libmanifold.a` warning (8.7);
+    - the stale `stacking-player.png` (8.5).
+  - Passed on, each to where it will be met: the idle view's frame once a
+    second (a note under 10.1, with 6.11's test that it weakens); the
+    log manager's Export menu (a note under 12.5).
+  - Left, with the reason:
+    - Tests never seen failing on the old code. 6.1: the workspaces'
+      wiring needs the page, and the engine stopped between an edit's
+      reply and its reload; read here instead (each load's result, good
+      or bad, releases with its generation; a new document releases the
+      old one's waits). 6.4: the old confirm had other markup, so the
+      new check cannot run on it. 6.9 and the rescue queue (7.4): tests
+      of classes the old code did not have. 6.11: see 10.1.
+    - The native Wait or Reload question (7.1) can come whenever
+      Chromium finds the page not answering, a long task included. It
+      closes when the page answers. Not seen on Windows or Linux: for
+      the user to try there.
+    - Temporary files a crash leaves beside the store's files or an
+      export (under 7.4).
+    - The reference checkout has no build and lacks files (told in 1.1):
+      the oracle ran what this repo holds. The driver cache was tried
+      with a stand-in library (8.4).
+    - `just test-all`'s floor, one mesh (8.1).
+    - `scratch_dir.h` on Windows: compiled with MinGW, never run. CI's
+      Windows job runs the unit tests at the next release; its log shows
+      them.
+- **Gates**, after the review's fixes:
+  - `just test-all` (dev): 75 of 75, twice (227 s and 230 s). The run
+    before them failed `architecture-map`: this session had added six
+    lines of rules to ARCHITECTURE.md, which was at its 500 (now one
+    line). `just test` twice: 30 of 30 (72 s and 74 s);
+  - `just test-asan`: 74 of 74 (744 s);
+  - `just test-tsan`: 127 of 127 `parallel:` tests (260 s), then the
+    contract suite, 0 failed (152 methods called);
+  - `just check`: 205 files, clean (8.7);
+  - the Python module's tests and the CLI's: ctest's `python` and `cli`,
+    in each `just test-all`;
+  - `just app-check`: clean; `just app-test`: 648 of 648 (63 files; the
+    log's new test);
+  - e2e, on a build of their own: `logs` and `tilted`, 10 of 10;
+    `stacking`, 5 of 6 before the screenshot was retaken, 6 of 6 three
+    times after. Not run: the other specs;
+  - `just oracle --tier sliding --allow-missing --work <scratch>`: the 23
+    entries the reference checkout can run match (of 35 in the
+    baseline); `--tier fast --allow-missing` without `--work`: 18 of 19
+    compared, 0 differ, and its `work/run-<pid>` is gone;
+  - `just site-demo --check`, after the last source edit: rebuilt; every
+    puzzle type opens and plays; the site's demo test passes;
+  - Linux (Docker, ubuntu:24.04, GCC 13, `cmake --preset release
+    -DBT_WERROR=OFF` as CI): the whole tree builds; `ctest -N` lists the
+    75 tests; `ctest -LE slow`: 29 of 30 in the first run (the contract
+    case above), 30 of 30 three times after its fix; the two
+    saved-search cases and the CLI's tests pass.
+  - Not run: the oracle commands that need the original's build
+    (`../burr-tools` has none); the benchmarks (no search code changed:
+    the take-apart's rule is asked once for a solve); the whole e2e
+    suite; the release workflow itself; anything on Windows (the review
+    added no system call and no `#ifdef` to the C++).
+- The review's fixes are in the tree, ready for one commit with the next
+  stage or as `Cleanup 8: review fixes`.
 
 ## Stage 9: CI and release pipeline (D4: the agent decides)
 
@@ -3576,6 +3842,12 @@ Rule 7 holds for every renderer item here.
       change.
   - *Order:* do 6.11 (the context restore) first: these needless renders hide
     the blank-after-reset bug.
+  - *From 6.11 (noted by checkpoint D, 2026-11-25):* with no input at all
+    the view still renders about once a second (a probe counted 3 frames
+    in 3 s). Find what asks for that frame and stop it with the others.
+    Then `view.e2e.ts`'s "the view draws again after the GPU reset" can
+    check a frame after the restore without its `data-restored` mark,
+    and be seen failing without the listener for the right reason.
   - *Tests:*
     - the e2e specs `picking`, `entities` (`data-preview`), `view`, and
       `solver` and `explore` (`data-piece-screen`), and the screenshot tests;
@@ -4285,6 +4557,12 @@ The procedure is in "Fable checkpoints". What to look at:
     - one color picker: `color-picker.ts` stays, and the hidden inputs go.
     Move the sites over one card at a time.
   - *Tests:* the entities, puzzle, solver and keys e2e specs.
+  - *From 6.4 (noted by checkpoint D, 2026-11-25):* the log manager's
+    Export menu is still a menu of its own (`shell/log-files.ts`). Moving
+    it to the popover (`#pop`, stacked above an open dialog) needs the
+    popover to take the arrow keys and Tab first (`listKeys` here), and
+    Esc to close a menu before the dialog under it; `logs.e2e.ts` checks
+    the keys.
 
 - [ ] **12.6 Menu commands from one table; the shell's helpers once** (combine; S)
   - *Where:*

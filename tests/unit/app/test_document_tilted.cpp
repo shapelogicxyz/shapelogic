@@ -8,6 +8,7 @@
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/tilted_tray.h"
+#include "shapelogic/solve/disassembler.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -209,6 +210,17 @@ TEST_CASE("tilted document: Triple Play is solved", "[app][document][tilted]") {
   const Result<unsigned int> analysed = d.analyseStart(problem, AnalyseOptions{});
   REQUIRE_FALSE(analysed.has_value());
   CHECK(analysed.error().code == Errc::Unsupported);
+  // nor a solve that takes apart (the cleanup plan's checkpoint D): the one
+  // rule says no, the session refuses with the tray's reason, and what the
+  // problem holds stays
+  CHECK_FALSE(Disassembler::canDisassemble(d.puzzle()));
+  SolveOptions apart;
+  apart.disassemble = true;
+  const Result<void> takenApart = d.solveStart(problem, apart);
+  REQUIRE_FALSE(takenApart.has_value());
+  CHECK(takenApart.error().code == Errc::Unsupported);
+  CHECK(takenApart.error().message.find("nothing to take apart") != std::string::npos);
+  CHECK(d.puzzle().getProblem(0).getNumAssemblies() == 1);
 
   // strict, the pieces have nowhere to go: the tray change refuses nothing
   // (they fit the box) but they no longer fit the board, and no assembly

@@ -233,6 +233,9 @@ MovementExplorer::~MovementExplorer() = default;
 
 Result<MovementExplorer> MovementExplorer::make(const Puzzle& puzzle, unsigned int problemIndex,
                                                 unsigned int solution, bool rotations) {
+  if (puzzle.tray()) {
+    return fail(Errc::Unsupported, Disassembler::kNoTakeApartOnTray);
+  }
   if (!Disassembler::canDisassemble(puzzle)) {
     return fail(Errc::Unsupported, "this space grid doesn't have a disassembler");
   }

@@ -89,7 +89,7 @@ Disassembler::Disassembler(const Puzzle& puzzle, const Problem& problem,
 Disassembler::~Disassembler() = default;
 
 bool Disassembler::canDisassemble(const Puzzle& puzzle) {
-  return (puzzle.getGridType().getCapabilities() & kCapDisassemble) != 0;
+  return (puzzle.getGridType().getCapabilities() & kCapDisassemble) != 0 && !puzzle.tray();
 }
 
 void Disassembler::setCheckRotations(bool enable) {

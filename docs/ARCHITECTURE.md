@@ -239,7 +239,7 @@ Files in `core/shapelogic/solve/`:
 - `assembler_1.{h,cpp}`: `Assembler1`, Wei-Hwa Huang's cover with counts (every other problem): a state machine over explicit stacks (flag 0), tasks (flags 4, 2, 5, 6), vector (flag 3).
 - `CROWELL.md`: Crowell's solver, feature by feature against the Fortran original.
 - `disasm_to_moves.{h,cpp}`: `DisasmToMoves`, piece positions at any step of a tree (turns as angles about a pivot), and `FixedPositions`, behind `PiecePositions`.
-- `disassembler.{h,cpp}`: `Disassembler`, the take-apart of one problem's assemblies; `DisassemblerOptions`; `canDisassemble()`.
+- `disassembler.{h,cpp}`: `Disassembler`, the take-apart of one problem's assemblies; `DisassemblerOptions`; `canDisassemble()`, the one rule for whether a puzzle has a take-apart.
 - `disassembler_node.{h,cpp}`: `DisassemblerNode` (places, orientations, the position it came from, the move) and `NodeRef`, a counted reference.
 - `dlx_matrix.{h,cpp}`: `DlxMatrix`, assembler 0's matrix (`build`, `reduce`, `clumpify`, the placement browser), and `DlxNodes`, the node arrays a thread copies.
 - `grouping.{h,cpp}`: `Grouping`, the groups of pieces that may stay together, keyed by part.
@@ -296,7 +296,7 @@ Rules of the take-apart (decision 0025):
   solution. The rhombic, tetra-octa, hexagonal and cairo grids' take-apart
   is not the original's (it has none): derived from the cells, after
   BurrTools V2, and the same derivation gives the original's answers on
-  cubes and prisms (`--derived-checks`). Spheres are assembled only.
+  cubes and prisms (`--derived-checks`). Spheres are assembled only, and so is a puzzle with a tilted tray (its walls are not cells): `canDisassemble()` is the one rule, for the session, the analysis, the explorer, the CLI and Python.
 - Spread over threads it gives exactly one thread's result: a level's
   positions are expanded on several threads and put together in one
   thread's order. Levels nest inside the assembler's callback without
@@ -559,7 +559,7 @@ Files in `web/src/main/`:
 - `path-grants.ts`: `PathGrants`, the files a window's engine may be given; `settingsRefusal`.
 - `path-owners.ts`: `PathOwners`, which window owns a file (decision 0036).
 - `renderer-watch.ts`: `RendererWatch`: a window's page that crashed reloaded (three times a minute, then asked), one that hangs asked about; `CLOSE_TAKEN_MS`, how long a page may take to take a close.
-- `replace-file.ts`: `replaceFile`, `replaceFileSync`: the one way the main process replaces a file (a temporary file of its own, synced, renamed).
+- `replace-file.ts`: `replaceFile`, `replaceFileSync`: the one way the main process replaces a file (a temporary file of its own, synced, renamed); `tempName`, `isTempOf`: those files' names (the log's compression streams into one).
 - `rescue.ts`: `RescueStore`, `RescueSlots`: the rescue copies.
 - `search-folders.ts`: what both cache modules know of the search folders: the engine's names, `isLockFile`, the walk, `errorCode`.
 - `security.ts`: the Electron security checklist as data and pure functions.

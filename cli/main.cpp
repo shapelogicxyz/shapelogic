@@ -796,8 +796,9 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     search.pool = &pool;
     setSearchSwitches(o, search);
 
-    // The take-apart, on grids that have one (the others report no
-    // solutions, where the original aborted); a sliding "take-apart" is the
+    // The take-apart, on grids that have one (the others, and a puzzle
+    // with a tilted tray, report no solutions, where the original aborted;
+    // Disassembler::canDisassemble); a sliding "take-apart" is the
     // slide search from each start to the goal. The assemblies are taken
     // apart side by side on threads of their own (burrTxt's disassembler
     // pool), the results printed in the order the assemblies were found; on
@@ -1263,10 +1264,18 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
   }
   // a sliding puzzle's -d is the slide search (burrTxt2 refused it, its grid
   // having no take-apart; the solve thread it ran solved it)
-  if (o.disassemble && (caps & bt::kCapDisassemble) == 0 && !bt::sliding::isSliding(puzzle)) {
-    std::printf(
-        "Sorry, this space grid doesn't have a disassembler (yet)\n"
-        "drop -d to just assemble the puzzle\n");
+  if (o.disassemble && !bt::Disassembler::canDisassemble(puzzle) &&
+      !bt::sliding::isSliding(puzzle)) {
+    if (puzzle.tray()) {
+      // a Tilted Square puzzle: the session would refuse it (as the app's
+      // Solver stays on Assemble Only)
+      std::printf("%s\ndrop -d to just assemble the puzzle\n",
+                  bt::Disassembler::kNoTakeApartOnTray);
+    } else {
+      std::printf(
+          "Sorry, this space grid doesn't have a disassembler (yet)\n"
+          "drop -d to just assemble the puzzle\n");
+    }
     return kExitUsage;
   }
   if (!o.quiet) {

@@ -3817,7 +3817,7 @@ What a solve does (the solve thread's flags); a missing field takes the engine's
 | name | type | | description |
 |---|---|---|---|
 | `solver` | [Solver](#solver) |  | Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart. |
-| `disassemble` | boolean |  | Take each assembly apart; only those that come apart are solutions. |
+| `disassemble` | boolean |  | Take each assembly apart; only those that come apart are solutions. A solve with it is refused (unsupported) on a grid without a take-apart and on a puzzle with a tilted tray, whose pieces lie flat. |
 | `checkRotations` | boolean |  | Try 90 degree turns while taking apart. |
 | `justCount` | boolean |  | Count, keep no solutions. |
 | `keepAssemblies` | boolean |  | With disassemble: also keep the assemblies that do not come apart, without a disassembly, after every solution. |

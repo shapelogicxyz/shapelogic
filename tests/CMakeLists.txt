@@ -6,7 +6,11 @@
 file(GLOB_RECURSE bt_test_sources CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cpp)
 add_executable(bt_tests ${bt_test_sources})
 
-target_link_libraries(bt_tests PRIVATE btengine Catch2::Catch2WithMain manifold::manifold)
+# manifold for its headers only (test_stl.cpp, test_stl_dump.cpp): the
+# library itself comes with btcore, and named again here the linker warns
+# of a duplicate.
+target_link_libraries(bt_tests PRIVATE btengine Catch2::Catch2WithMain
+                      $<COMPILE_ONLY:manifold::manifold>)
 bt_set_warnings(bt_tests)
 
 # Run from the source root so fixtures resolve as tests/data/...
@@ -61,9 +65,11 @@ catch_discover_tests(bt_tests TEST_SPEC "[slow]" TEST_PREFIX "slow: "
 # ("parallel: <case>", label parallel), so `just test-tsan` runs them side
 # by side (`ctest -L parallel`) instead of in one process.
 if(BT_SANITIZE MATCHES "thread")
+  # seen: a case up to 246 s beside the others (the tsan preset's scale is 6)
+  math(EXPR parallel_timeout "300 * ${BT_TEST_TIMEOUT_SCALE}")
   catch_discover_tests(bt_tests TEST_SPEC "[parallel]" TEST_PREFIX "parallel: "
                        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} DISCOVERY_MODE PRE_TEST
-                       PROPERTIES LABELS parallel TIMEOUT ${slow_timeout})
+                       PROPERTIES LABELS parallel TIMEOUT ${parallel_timeout})
 endif()
 
 # The engine's contract (decision 0012): the schema checks itself, docs/API.md

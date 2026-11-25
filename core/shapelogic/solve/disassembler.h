@@ -122,9 +122,17 @@ class Disassembler {
   Disassembler(const Disassembler&) = delete;
   Disassembler& operator=(const Disassembler&) = delete;
 
-  /// True when the puzzle's grid has a take-apart (every grid of polyhedra:
-  /// not the spheres, nor the sliding and stacking puzzles).
+  /// True when the puzzle has a take-apart: its grid has one (every grid of
+  /// polyhedra: not the spheres, nor the sliding and stacking puzzles) and
+  /// it has no tilted tray (the pieces lie flat in a tray whose walls the
+  /// cells do not hold: kNoTakeApartOnTray). The one rule for a solve with
+  /// disassembly, the analysis, the movement explorer, the CLI and the
+  /// Python module.
   [[nodiscard]] static bool canDisassemble(const Puzzle& puzzle);
+
+  /// What is said where a take-apart is asked of a puzzle with a tilted tray.
+  static constexpr const char* kNoTakeApartOnTray =
+      "A tilted tray's pieces lie flat and lift straight out: there is nothing to take apart.";
 
   /// Takes `assembly` (one of the problem's) apart. One take-apart at a
   /// time. A stop ends it as soon as it can.

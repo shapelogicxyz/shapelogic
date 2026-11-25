@@ -268,6 +268,15 @@ class TestSolve(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.problem.solve(stacking_solver="hanoi")
 
+    def test_a_tilted_tray_has_no_take_apart(self):
+        # a Tilted Square puzzle's pieces lie flat in its tray: the
+        # assemblies come without a disassembly, as on a grid without a
+        # take-apart (Disassembler::canDisassemble)
+        puzzle = shapelogic.load(puzzle_path("tilted", "TriplePlay.xmpuzzle"))
+        found = list(puzzle.problems[0].solve(disassemble=True))
+        self.assertEqual(len(found), 1)
+        self.assertFalse(found[0].has_disassembly)
+
 
 class TestSliding(unittest.TestCase):
     def test_sliding_solver(self):

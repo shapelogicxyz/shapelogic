@@ -9,8 +9,9 @@
 // Two writes to one target at once both settle, and the target holds one
 // of them whole. The state store and the log's trim use the synchronous
 // twin: the store's last write is made as the app quits, and the trim must
-// not let a line be appended between its read and its rename. Free of
-// Electron.
+// not let a line be appended between its read and its rename. The log's
+// compression streams, so it takes only the names (tempName, isTempOf).
+// Free of Electron.
 
 import { randomBytes } from 'node:crypto';
 import { closeSync, fsyncSync, openSync, renameSync, rmSync, writeSync } from 'node:fs';

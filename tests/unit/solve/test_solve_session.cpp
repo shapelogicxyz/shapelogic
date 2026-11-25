@@ -120,6 +120,14 @@ void untilPrepared(const SolveSession& s) {
   }
 }
 
+// How often a test tries to catch a solve while it drains. The take-apart
+// it must catch lasts a few milliseconds in the release build, and the
+// thread that watches for it may not run for longer than that on a loaded
+// machine: five tries all missed once, in a release run beside a
+// `just test-all` (cleanup item 8.3). A try takes milliseconds, a miss
+// costs nothing else, and the first try lands on a quiet machine.
+constexpr int kDrainingAttempts = 200;
+
 // Starts a solve of `name` and waits until its search is through and the
 // last take-aparts run (Draining), with `stop` called then; true when the
 // run was still draining. For test_rotation_solvers, whose one assembly
@@ -960,7 +968,7 @@ TEST_CASE("solve session: assemblies counted for a take-apart keep the solve ope
   for (const bool viaSave : {false, true}) {
     INFO((viaSave ? "saved and loaded" : "in memory"));
     bool landed = false;
-    for (int attempt = 0; attempt < 5 && !landed; attempt++) {
+    for (int attempt = 0; attempt < kDrainingAttempts && !landed; attempt++) {
       Puzzle p = fresh("test_rotation_solvers.xmpuzzle");
       SolveSession s(p, p.getProblem(0), o);
       REQUIRE(s.start().has_value());
@@ -1018,7 +1026,7 @@ TEST_CASE("solve session: a save point while draining finishes the solve",
   o.checkRotations = true;
   const Totals expected = straight("test_rotation_solvers.xmpuzzle", o);
   bool landed = false;
-  for (int attempt = 0; attempt < 5 && !landed; attempt++) {
+  for (int attempt = 0; attempt < kDrainingAttempts && !landed; attempt++) {
     Puzzle p = fresh("test_rotation_solvers.xmpuzzle");
     SolveState end = SolveState::Idle;
     landed = stoppedWhileDraining(p, o, [&end](SolveSession& s) {

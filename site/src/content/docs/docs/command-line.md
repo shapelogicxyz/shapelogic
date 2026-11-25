@@ -467,6 +467,11 @@ turned over** setting, and the command line follows it, with or without
 says; `--flip off` keeps each piece one face up, turning only in the tray.
 On a puzzle without a tray `--flip` is refused.
 
+A Tilted Square puzzle has nothing to take apart: its pieces lie flat in
+the tray and lift straight out. So `-d` finds its assemblies and reports
+no solutions, as on a grid without a disassembler, and `--save` refuses
+`-d`.
+
 ## Sliding puzzles
 
 A sliding puzzle's solve has two parts. The assembler finds the *start

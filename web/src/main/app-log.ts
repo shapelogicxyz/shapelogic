@@ -48,9 +48,9 @@ import {
 } from 'node:fs';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { statfsSync } from 'node:fs';
-import { readFile, rename, rm } from 'node:fs/promises';
+import { readdir, readFile, rename, rm } from 'node:fs/promises';
 import { arch, cpus, freemem, release, totalmem, type } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
 import { createGzip, gunzip } from 'node:zlib';
@@ -66,7 +66,7 @@ import type { ClientProblem } from '../engine/client.ts';
 import { setOnce } from '../engine/transport.ts';
 import type { Transport } from '../engine/transport.ts';
 import { writeFileSafely } from './export-file.ts';
-import { replaceFileSync } from './replace-file.ts';
+import { isTempOf, replaceFileSync, tempName } from './replace-file.ts';
 
 /** The size at which the log is compressed and a new one begun: 20 MB. */
 export const LOG_MAX_BYTES = 20_000_000;
@@ -439,9 +439,19 @@ export class AppLog {
   }
 
   private async compress(): Promise<void> {
-    const tmp = `${this.archive}.tmp`;
+    // a temporary file of this compression's own, made exclusively
+    // (replace-file.ts's names: a link planted at a name is refused, not
+    // written through); the app is one process and compresses one file at
+    // a time, so any other temporary file of the archive is what a quit or
+    // a crash left (an older version's fixed `<archive>.tmp` too) and goes
+    const tmp = tempName(this.archive);
     try {
-      await pipeline(createReadStream(this.rotated), createGzip(), createWriteStream(tmp));
+      await this.removeLeftTemps();
+      await pipeline(
+        createReadStream(this.rotated),
+        createGzip(),
+        createWriteStream(tmp, { flags: 'wx' }),
+      );
       // the compressed file before goes: there is only ever one
       await rename(tmp, this.archive);
       await rm(this.rotated, { force: true });
@@ -449,6 +459,17 @@ export class AppLog {
       await rm(tmp, { force: true }).catch(() => undefined);
     } finally {
       this.compressing = null;
+    }
+  }
+
+  /** Removes the temporary files of earlier compressions (compress says whose they are). */
+  private async removeLeftTemps(): Promise<void> {
+    const base = basename(this.archive);
+    const dir = dirname(this.archive);
+    for (const name of await readdir(dir)) {
+      if (name === `${base}.tmp` || isTempOf(name, base)) {
+        await rm(join(dir, name), { force: true });
+      }
     }
   }
 

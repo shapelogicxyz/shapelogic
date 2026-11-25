@@ -1123,14 +1123,12 @@ Result<unsigned int> Document::analyseStart(Id problem, const AnalyseOptions& op
   if (grouping_) {
     return fail(Errc::InvalidState, "a group of edits is open");
   }
-  if (!Disassembler::canDisassemble(*puzzle_)) {
-    return fail(Errc::Unsupported, "Sorry, this space grid doesn't have a disassembler (yet)!");
-  }
   // a tilted tray's pieces lie flat in it: the player offers no take-apart either
   if (tilted()) {
-    return fail(Errc::Unsupported,
-                "A tilted tray's pieces lie flat and lift straight out: there is nothing to take "
-                "apart.");
+    return fail(Errc::Unsupported, Disassembler::kNoTakeApartOnTray);
+  }
+  if (!Disassembler::canDisassemble(*puzzle_)) {
+    return fail(Errc::Unsupported, "Sorry, this space grid doesn't have a disassembler (yet)!");
   }
   const Problem& pr = puzzle_->getProblem(*p);
   std::vector<std::pair<std::uint64_t, Assembly>> work;

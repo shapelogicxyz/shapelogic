@@ -385,11 +385,13 @@ std::size_t compareDumps(bool (*keep)(const std::string&)) {
   const auto want = sections(recorded.str());
 
   std::size_t masked = 0;
+  std::size_t compared = 0;
   for (const auto& f : files) {
     const std::string name = f.filename().string();
     if (!keep(name)) {
       continue;
     }
+    compared++;
     INFO(name);
     Result<Puzzle> p = io::loadPuzzle(f);
     REQUIRE(p.has_value());
@@ -417,6 +419,9 @@ std::size_t compareDumps(bool (*keep)(const std::string&)) {
     CHECK(mismatches == 0);
     CHECK(got.size() == w.size());
   }
+  // a case whose fixtures are named (the slowest one's) must not pass on
+  // nothing once a file is renamed
+  CHECK(compared > 0);
   return masked;
 }
 
