@@ -46,7 +46,10 @@ just clean              # remove every build directory
 
 The presets are in `CMakePresets.json`: `base` (shared settings), `dev`,
 `release`, `release-x64`, `release-arm64`, `asan`, `tsan` and `wasm`.
-Warnings are errors in `dev` and `release`. Each preset builds into
+Warnings are errors in `dev` and `release`. On macOS every preset builds
+for macOS 13 (`CMAKE_OSX_DEPLOYMENT_TARGET` in `base`), the lowest the
+app's Electron runs on, so a library call newer than that fails to compile.
+Each preset builds into
 `build/<preset>/`: the test binary at `build/<preset>/tests/bt_tests`, the
 engine at `build/<preset>/engine/shapelogic_engine`, the CLI at
 `build/<preset>/cli/shapelogic_cli`.

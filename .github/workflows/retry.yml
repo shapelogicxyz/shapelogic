@@ -1,0 +1,42 @@
+# Runs a failed Release run's jobs again when they got no runner (GitHub's
+# queue gave up on them, mostly the macOS ones: canceled, no step run),
+# ten minutes later, up to the run's twelfth attempt; the publish job runs
+# again with them. A job that ran and failed is never re-run.
+# .github/scripts/retry.sh has the details.
+#
+# It follows the attempts it starts itself, so it does not rely on the
+# re-run's end starting this workflow again. A second Retry run for the
+# same Release run (if it does) waits for the first, then finds nothing to
+# do. GitHub runs workflow_run workflows from the default branch only.
+
+name: Retry
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+
+permissions:
+  actions: write # re-run the jobs (and read them)
+  contents: read # the script
+
+concurrency:
+  group: retry-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  retry:
+    if: github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt < 12
+    runs-on: ubuntu-24.04
+    # eleven re-runs, each ten minutes' wait and up to fifteen of queue; a
+    # Release attempt whose jobs got a runner ends this job
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - name: Re-run the jobs that got no runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: bash .github/scripts/retry.sh "${RUN_ID}"

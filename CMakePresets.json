@@ -7,7 +7,8 @@
       "hidden": true,
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${presetName}",
-      "cacheVariables": { "CMAKE_EXPORT_COMPILE_COMMANDS": "ON" }
+      "description": "CMAKE_OSX_DEPLOYMENT_TARGET: the lowest macOS that the app's Electron (web/package.json) runs on; Electron 44 needs macOS 13. Every macOS build has it, so a library call newer than that fails to compile in the dev build already. The release workflow checks the engine's and the CLI's minos against it. Other systems ignore it.",
+      "cacheVariables": { "CMAKE_EXPORT_COMPILE_COMMANDS": "ON", "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0" }
     },
     {
       "name": "dev",

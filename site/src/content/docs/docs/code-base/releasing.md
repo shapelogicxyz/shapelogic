@@ -136,7 +136,7 @@ Download button and the app use, keep working.
 
 ## What runs on GitHub
 
-The four release workflows are in `.github/workflows/`, and the scripts
+The five release workflows are in `.github/workflows/`, and the scripts
 they share are in `.github/scripts/`.
 
 - **Release** (`release.yml`) starts when a `v*` tag is pushed.
@@ -145,6 +145,11 @@ they share are in `.github/scripts/`.
   - The Linux (x64 and arm64), Windows (x64) and macOS (Apple silicon and
     Intel) jobs build the engine and the app, and keep the installers as
     workflow artifacts.
+  - The macOS jobs run on a pinned runner image (`macos-26`) with a pinned
+    Xcode (`MACOS_XCODE`), so a new image or Xcode is a change in the
+    repository. The engine and the CLI are built for macOS 13, the lowest
+    the app's Electron runs on (`CMAKE_OSX_DEPLOYMENT_TARGET` in
+    `CMakePresets.json`), and a step checks the packaged ones' `minos`.
   - Each macOS job signs the app with the Developer ID certificate, sends
     the disk image to Apple's notary service and waits for Apple's answer,
     for up to an hour. It then staples the ticket onto the `.dmg` and the
@@ -161,6 +166,11 @@ they share are in `.github/scripts/`.
   anything, it keeps the patch's files and notes as an artifact of its run.
 - **Staple** (`staple.yml`) is run by hand when Apple takes longer than the
   Release workflow waits (below).
+- **Retry** (`retry.yml`, with `retry.sh`) starts when a Release run fails.
+  When every failed job got no runner (GitHub's queue gave up on it: the
+  job is canceled and ran no step, mostly a macOS one), it waits ten
+  minutes and re-runs those jobs, and the `publish` job with them, up to
+  the run's twelfth attempt. A job that ran and failed is never re-run.
 
 Release can also be run by hand from the Actions tab (Release ▸ Run
 workflow) to make test builds of a branch. These builds are workflow
@@ -172,6 +182,7 @@ tag's version.
 | What happened | What to do |
 |---|---|
 | `just release` stops with a message | Fix what it says and run it again. Nothing was pushed: the checks all run before the question. |
+| A macOS job was canceled after about 15 minutes with no step run ("not acquired by Runner") | Nothing: the Retry workflow re-runs it ten minutes later, up to the run's twelfth attempt. After that, choose **Re-run failed jobs**. |
 | A build job failed (a test, a compiler error, a network error) | Open the run on the Actions tab. For a passing problem, choose **Re-run failed jobs**. For a fault in the code, see the last row. |
 | A macOS job says Apple has not finished | Apple took longer than an hour. When `xcrun notarytool info <id>` says **Accepted** (the run's summary gives the id), run `gh workflow run staple.yml -f run_id=<the run's number> -f tag=v1.4`. It staples the builds and attaches all the files to the draft. |
 | A macOS job says Apple refused the submission (Invalid) | The job prints Apple's log of what it found. Fix the signing, then start again (last row). |

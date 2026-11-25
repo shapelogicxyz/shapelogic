@@ -821,10 +821,10 @@ The recipes are AGENTS.md's. ctest runs the unit shards, the `[slow]` cases
 (`docs/API.md` is current), `architecture-map` (this file's map), `contract`,
 `cli` and, when the module is built, `python`. Presets: `CMakePresets.json`;
 strict warnings are errors in `dev` and `release` (and `release-x64`,
-`release-arm64`: macOS's release for one architecture, the packaged app's
-engine for the other kind of Mac). Dependencies (`cmake/Dependencies.cmake`):
-zlib from the system or a pinned release; zstd 1.5.7 (pinned, always built
-from source as a static library, one thread a call); nlohmann/json 3.12.0
-(the engine only); pybind11 3.0.0 (the Python module only); Manifold 3.5.2
-(built optimized, without its cross sections or parallel backend, as the
-original builds it; uninstrumented under ASan, decision 0016); Catch2.
+`release-arm64`: one Mac architecture each, for the packaged app); macOS
+builds target 13.0 (`base`: Electron 44's lowest), so a newer library call
+fails to compile. Dependencies (`cmake/Dependencies.cmake`): zlib from the
+system or a pinned release; zstd 1.5.7 (pinned, built from source as a static
+library, one thread a call); nlohmann/json 3.12.0 (the engine only); pybind11
+3.0.0 (the Python module only); Manifold 3.5.2 (built optimized, without its
+cross sections or parallel backend, as the original builds it; uninstrumented under ASan, decision 0016); Catch2.

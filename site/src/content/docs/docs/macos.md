@@ -3,7 +3,8 @@ title: macOS
 description: Install ShapeLogic on macOS, from the .dmg or the .zip.
 ---
 
-ShapeLogic runs on Macs with Apple silicon and with Intel processors. This page
+ShapeLogic runs on macOS 13 (Ventura) or later, on Macs with Apple silicon
+and with Intel processors. This page
 covers which download to pick, the two ways to install it, and the command
 line tool.
 

@@ -23,6 +23,15 @@
 # out, tick "Notarise" to notarise. A run by hand on a tag with every box
 # ticked publishes as a tag push does.
 #
+# A macOS job that got no runner (GitHub's queue gave up on it: canceled,
+# no step run) is run again by the Retry workflow (retry.yml), ten minutes
+# later, up to the run's twelfth attempt.
+#
+# The macOS jobs run on a pinned image with a pinned Xcode (MACOS_XCODE
+# below): a new image or Xcode is a change in this file. The engine and the
+# CLI are built for the lowest macOS the app's Electron runs on
+# (CMakePresets.json's CMAKE_OSX_DEPLOYMENT_TARGET), which a step checks.
+#
 # When Apple takes longer than the wait, the macOS jobs fail saying so;
 # once `xcrun notarytool info <id>` says Accepted, the Staple workflow
 # (staple.yml) staples that run's builds and, given the tag, publishes.
@@ -77,6 +86,9 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
+  # the macOS jobs' Xcode: the default of the macos runner image below (its
+  # readme in github.com/actions/runner-images); staple.yml has the same
+  MACOS_XCODE: '26.6'
 
 jobs:
   # The version (the tag's, or on a branch the newest tag's), whether the
@@ -286,7 +298,9 @@ jobs:
   macos:
     needs: version
     if: needs.version.outputs.macos != '[]'
-    runs-on: macos-latest # Apple silicon
+    # Apple silicon; pinned (not macos-latest), so a new image is a change
+    # here: the newest stable macOS image (not a beta), with MACOS_XCODE
+    runs-on: macos-26
     timeout-minutes: 150 # the build, and up to an hour waiting for Apple
     strategy:
       fail-fast: false
@@ -298,6 +312,11 @@ jobs:
       NOTARISE: ${{ needs.version.outputs.notarise }}
     steps:
       - uses: actions/checkout@v4
+      - name: Select Xcode ${{ env.MACOS_XCODE }}
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${MACOS_XCODE}.app"
+          xcodebuild -version
+          clang --version
       - name: Build tools
         run: brew install ninja
       - uses: actions/setup-node@v4
@@ -356,6 +375,31 @@ jobs:
       - name: Check the signature
         working-directory: web
         run: codesign --verify --deep --strict --verbose=2 "dist/${{ matrix.dist_dir }}/ShapeLogic.app"
+      # The engine and the CLI as packaged: built for the presets' macOS (a
+      # build without it says the runner's), and never needing a newer macOS
+      # than the app (Electron's LSMinimumSystemVersion).
+      - name: Check the lowest macOS of the engine and the CLI
+        working-directory: web
+        env:
+          APP: dist/${{ matrix.dist_dir }}/ShapeLogic.app
+        run: |
+          target="$(jq -r '.configurePresets[] | select(.name == "base") | .cacheVariables.CMAKE_OSX_DEPLOYMENT_TARGET' ../CMakePresets.json)"
+          app_min="$(plutil -extract LSMinimumSystemVersion raw "${APP}/Contents/Info.plist")"
+          echo "the presets' target: ${target}; the app's lowest macOS: ${app_min}"
+          ok=true
+          for f in shapelogic_engine shapelogic_cli; do
+            minos="$(vtool -show-build "${APP}/Contents/Resources/${f}" | awk '/minos/ { print $2 }')"
+            echo "${f}: minos ${minos}"
+            if [ "${minos}" != "${target}" ]; then
+              echo "::error::${f} is built for macOS ${minos}, not the presets' ${target}"
+              ok=false
+            fi
+            if ! python3 -c 'import sys; v = lambda s: [int(x) for x in s.split(".")]; sys.exit(v(sys.argv[1]) > v(sys.argv[2]))' "${minos}" "${app_min}"; then
+              echo "::error::${f} needs macOS ${minos}, newer than the app's ${app_min}"
+              ok=false
+            fi
+          done
+          "${ok}"
       # Kept before notarising, so a failed submission cannot lose the signed build.
       - uses: actions/upload-artifact@v4
         with:

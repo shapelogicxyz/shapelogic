@@ -180,7 +180,7 @@ again, and comes last.
 - [x] Stage 7: main-process bugs
 - [x] Stage 8: test and build speed; tests that cannot clash
 - [x] Checkpoint D (Fable): review of stage 8
-- [ ] Stage 9: CI and release pipeline
+- [x] Stage 9: CI and release pipeline (v2.1's macOS engine needed macOS 26: now 13.0, checked in CI)
 - [ ] Stage 10: front-end speed and memory
 - [ ] Stage 11: one source of truth: core, engine, API, Python, CLI
 - [ ] Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
@@ -3751,7 +3751,7 @@ Checkpoint D lines under 6.5 and 7.4.
 
 ## Stage 9: CI and release pipeline (D4: the agent decides)
 
-- [ ] **9.1 macOS builds on a pinned image with a deployment target** (stability; S)
+- [x] **9.1 macOS builds on a pinned image with a deployment target** (stability; S)
   - *Where:* `.github/workflows/release.yml:272` and `staple.yml:39`
     (`macos-latest`). `release.yml:291-294` builds macOS with warnings as
     errors, unlike Linux (196) and Windows (251). No
@@ -3780,8 +3780,53 @@ Checkpoint D lines under 6.5 and 7.4.
       (`vtool -show-build` or `otool -l`).
   - *Risk:* library features newer than the target become compile errors,
     which show where the target must be.
+  - Done (2026-11-25):
+    - **What it fixes, seen in v2.1 as released:** in
+      `ShapeLogic-v2.1-macos-arm64.zip` the engine and the CLI have
+      `minos 26.0`, the app 13.0 (its `LSMinimumSystemVersion`). So on
+      macOS 13 to 15 v2.1 opens, but its engine cannot start.
+    - **The image:** `macos-26`, the newest stable macOS image GitHub
+      lists on 2026-11-25 (image 20261117; `macos-latest` points to it;
+      macOS 14's were retired on 2026-11-02; the Xcode 27 image is a
+      preview, not taken). Its default Xcode is 26.6. The workflow
+      selects it with `sudo xcode-select -s
+      /Applications/Xcode_${MACOS_XCODE}.app` in `release.yml` and
+      `staple.yml`. Each file has `MACOS_XCODE: '26.6'`, with a comment
+      that names the other. macOS keeps its warnings as errors: clang, as
+      in the local builds, and a new Xcode is now a change in this repo.
+    - **The target: macOS 13.0.** The app is Electron 44.7.0
+      (`web/package.json`). Electron 44's release notes say "macOS 13
+      (Ventura) or later will be required to run Electron v44.0.0 and
+      higher". It is set in the `base` preset, not only in the macOS
+      release ones, for two reasons. CI's Apple silicon engine is built
+      by `release`, which Linux and Windows use too, and CMake ignores
+      the variable there (checked in Docker with CMake 3.28: no
+      unused-variable warning). And with it in `base`, `dev`, `asan` and
+      `tsan` reject a libc++ call newer than macOS 13 in the quick loop
+      already. The preset's `description` says why. The code builds at
+      13.0 unchanged: `release` (arm64) and `release-x64` with
+      `-Werror`, no availability error. In the scratch builds, `ctest -LE
+      slow` passed 30 of 30 on arm64 and 29 of 29 on x64 under Rosetta.
+      So the next release runs on macOS 13 (Ventura) and later, Apple
+      silicon and Intel, as the app always said.
+    - **The CI step,** "Check the lowest macOS of the engine and the
+      CLI", after the signature check, reads the packaged app. Each
+      program's `minos` (`vtool -show-build`) must equal the preset's
+      target and be no newer than the app's `LSMinimumSystemVersion`.
+      The step's script was run on v2.1's app, where it fails with four
+      errors, and on that app with the scratch 13.0 build's engine and
+      CLI put in, where it passes.
+    - **Docs:** ARCHITECTURE.md's "Build and test" (same line count: its
+      prose is at the test's 500); on the site, `commands.md`,
+      `releasing.md` (the pinned image, the check), and `install.md` and
+      `macos.md` ("macOS 13 or later").
+    - **Gates:** see the stage's end below. Not run: the workflow itself
+      (at the next release). actionlint 1.7.7 (Docker) finds nothing in
+      the new steps. It does not know the `macos-26` label (it is older
+      than the image), and its two old findings (SC2153 in the version
+      step, SC2046 in the keychain step) are unchanged.
 
-- [ ] **9.2 Release jobs that got no runner are run again** (stability; S)
+- [x] **9.2 Release jobs that got no runner are run again** (stability; S)
   - *Where:* `.github/workflows/release.yml` (269-277, 462-471); no workflow
     listens on `workflow_run`.
   - *Problem:* today a macOS job that got no runner is re-run by hand, about
@@ -3796,6 +3841,75 @@ Checkpoint D lines under 6.5 and 7.4.
   - *Risk:* a real build failure has steps, so it is never retried.
   - *After:* once a release has used it, tell the user that the manual
     re-runs are no longer needed.
+  - Done (2026-11-25):
+    - **What a job with no runner looks like.** From the jobs API of
+      v1.8's run (5 attempts), v1.4's (9) and v1.3.1's (3): the job is
+      canceled (the API's value), not failed. It has 0 steps and runner
+      id 0, and ends after about 15 minutes with the annotation "The job
+      was not acquired by Runner of type hosted even after multiple
+      attempts". The run's conclusion is `failure`. So the script counts
+      a failed job as failed, canceled or timed out. `gh run rerun
+      --failed` re-runs canceled jobs: v1.8's fifth attempt re-ran only
+      the arm64 job, and `publish` ran with it.
+    - **`.github/workflows/retry.yml` and `.github/scripts/retry.sh`.**
+      The workflow runs on `workflow_run` (Release, completed) when the
+      run failed below attempt 12, on `ubuntu-24.04`, with `actions:
+      write` and `contents: read` and one concurrency group per run. The
+      script makes the item's checks on the latest attempt. When every
+      failed job ran no steps, it sleeps 600 s, runs `gh run rerun
+      --failed`, then follows the new attempt. Once every re-run job has
+      a runner, it is done. If one got none again, it waits for the
+      attempt's end and checks again.
+    - **Where it differs from the item: it follows its own re-runs.** The
+      item's design needs the re-run's end to start Retry again. Whether
+      a re-run started with `GITHUB_TOKEN` does that is not documented
+      (events from that token start no workflow), so the script does not
+      rely on it. If a second Retry run does start, it waits in the
+      concurrency group and then finds nothing to do. Timeout: 350
+      minutes (eleven re-runs of 10 minutes' wait and 15 of queue).
+    - **Tests.** First, `retry.sh` with a stand-in `gh` (scratch) on the
+      real job lists of those runs, seven cases:
+      - one job canceled, then a runner: one re-run;
+      - canceled twice, then a runner: two re-runs;
+      - two jobs canceled, whose runners come one at a time: it waits
+        for both;
+      - a real failure (v1.8.1's first attempt, 20 steps): not re-run;
+      - attempt 12: a warning, no re-run;
+      - a passed run: nothing;
+      - a run under way: nothing.
+      Then with the real `gh` (re-runs blocked) on three real runs:
+      v1.8 (passed: nothing) and v1.6's two failed runs (Windows ran 13
+      steps: not re-run). shellcheck 0.10.0 passes the script, and
+      actionlint finds nothing in `retry.yml`.
+    - **Docs:** the release workflow's header, and `releasing.md` (the
+      Retry workflow, and a row in "When a step fails").
+    - **Not yet in use.** GitHub runs `workflow_run` workflows only from
+      the default branch, so it works once this branch is on main. No
+      release has used it yet, so the user still has to be told that the
+      manual re-runs are no longer needed after the first release that
+      does.
+
+Gates for the stage (2026-11-25), after its last edit, on macOS with every
+preset now built for 13.0 (each engine's `minos 13.0` checked):
+- `just test-all` (dev): 75 of 75 (227 s, with the dev preset's full
+  rebuild).
+- `just build release`, `asan` and `tsan`: built. As a check that the
+  sanitizer runtimes load: the ASan `bt_tests "[grid]"` passed 30 cases,
+  the TSan `"[parallel]~[slow]"` 113 cases.
+- `just check`: 205 files, clean.
+- `just app-check`: clean. `just app-test`: 648 of 648. The first run
+  failed `spelling.test.ts` on this stage's British spelling of
+  "canceled". The text now says "canceled", and the API's value in
+  `retry.sh` is marked `british-ok`.
+- `just site-demo --check`: `CMakePresets.json` is one of the demo's
+  inputs. The rebuilt demo differs only in `manifest.json`'s hash; every
+  puzzle type opens and plays. `just site-build`: built, the links are
+  valid, and its 8 tests pass.
+- Not run, because no C++ source changed: the oracle, the benchmarks,
+  `just test-asan` and `just test-tsan` in full, and e2e (no web source
+  changed). Also not run: the workflows on GitHub (the next release runs
+  them) and Linux or Windows builds. There the presets' new variable is
+  ignored; the Docker check is under 9.1.
 
 ## Stage 10: front-end speed and memory
 
