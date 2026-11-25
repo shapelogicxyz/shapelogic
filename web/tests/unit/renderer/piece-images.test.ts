@@ -2,7 +2,8 @@
 //
 // The pictures on sliding pieces (decision 0038): the map from a picture's
 // pixels to the cells (api ShapeImage's formula, the one the engine's
-// shape_image.h keeps up to date), and the dialog's crop.
+// shape_image.h keeps up to date), and the dialog's crop; the picture
+// cache keeps only what the document names (cleanup item 10.6).
 
 import { describe, expect, it } from 'vitest';
 
@@ -20,6 +21,9 @@ import {
   turnMatrix,
 } from '../../../src/renderer/shell/picture-math.ts';
 import type { Affine, PictureRect } from '../../../src/renderer/shell/picture-math.ts';
+import { namedPictures, PictureKeep, stackKey } from '../../../src/renderer/shell/picture-keep.ts';
+import type { PictureSource } from '../../../src/renderer/shell/picture-math.ts';
+import { keptTextures, pictureTexture } from '../../../src/renderer/view3d/material.ts';
 
 const image = (over: Partial<ShapeImage>): ShapeImage => ({
   image: 0,
@@ -174,5 +178,82 @@ describe('piece images', () => {
         [1, 4, 1],
       ]),
     ).toEqual([1, 2, 3, 3]);
+  });
+
+  it('the cache lets go of what the document no longer names, never what a dialog holds', () => {
+    const closed: string[] = [];
+    const picture = (hash: string): PictureSource & { bitmap: { close(): void } } => ({
+      hash,
+      width: 4,
+      height: 2,
+      bitmap: {
+        close: () => {
+          closed.push(hash);
+        },
+      },
+    });
+    const cache = new PictureKeep<ReturnType<typeof picture>>();
+    const a = image({ hash: 'k1' });
+    const b = image({ hash: 'k2' });
+    const pa = picture('k1');
+    const pb = picture('k2');
+    cache.ready.set('k1', pa);
+    cache.ready.set('k2', pb);
+    cache.failed.add('k3');
+    const ta = pictureTexture({ image: a, picture: pa });
+    const tb = pictureTexture({ image: b, picture: pb });
+    const textures = keptTextures();
+    // b's texture goes before its bitmap is closed
+    const order: string[] = [];
+    tb.addEventListener('dispose', () => order.push(`dispose:${String(closed.length)}`));
+    // a dialog shows b: it stays while held
+    const release = cache.hold([pb]);
+    cache.keep(namedPictures([{ images: [a], border: null }]));
+    expect(closed).toEqual([]);
+    expect([...cache.ready.keys()]).toEqual(['k1', 'k2']);
+    // the failed picture not named is forgotten (asked for again if named again)
+    expect(cache.failed.size).toBe(0);
+    release();
+    expect(order).toEqual(['dispose:0']);
+    expect(closed).toEqual(['k2']);
+    expect([...cache.ready.keys()]).toEqual(['k1']);
+    expect(keptTextures()).toBe(textures - 1);
+    expect(pictureTexture({ image: a, picture: pa })).toBe(ta);
+    // a second release changes nothing
+    release();
+    expect(closed).toEqual(['k2']);
+  });
+
+  it('a document names its pictures, its stacks and its borders’ pictures', () => {
+    const one = image({ hash: 'p1' });
+    const small = image({ hash: 'p2', src: [-10, 0, 60, 20] });
+    const top = image({ hash: 'p3' });
+    const named = namedPictures([
+      { images: [one], border: null },
+      { images: [small], border: null },
+      { images: [one, top], border: null },
+      {
+        images: [],
+        border: {
+          enabled: true,
+          corners: 'round',
+          material: 'smooth',
+          color: null,
+          thickness: 0,
+          images: [image({ hash: 'p4' })],
+        },
+      },
+    ]);
+    // a picture alone that lies inside its part shown has no stack of its own
+    expect([...named].filter((k) => !k.startsWith('stack:')).sort()).toEqual([
+      'p1',
+      'p2',
+      'p3',
+      'p4',
+    ]);
+    expect([...named].filter((k) => k.startsWith('stack:'))).toEqual([
+      stackKey([small]),
+      stackKey([one, top]),
+    ]);
   });
 });

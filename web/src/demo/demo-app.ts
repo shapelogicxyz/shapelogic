@@ -52,7 +52,7 @@ export function demoApp(version: string): DemoApp {
     saveState: nothing,
     addRecent: nothing,
     removeRecent: nothing,
-    writeRescue: () => Promise.resolve(),
+    writeRescue: () => Promise.resolve({ ok: true }),
     readRescue: () => Promise.resolve(null),
     clearRescue: () => Promise.resolve(),
     // one page, one document: no other window, nothing held read-only
@@ -114,6 +114,7 @@ export function demoApp(version: string): DemoApp {
     // the demo keeps no log
     logPage: () => Promise.resolve(null),
     clearLog: () => Promise.resolve(),
+    logClosed: () => Promise.resolve(),
     logExportSizes: () => Promise.resolve(null),
     exportLog: () => Promise.resolve({ ok: false, error: NOT_HERE }),
     closeWindow: nothing,

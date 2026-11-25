@@ -39,6 +39,7 @@ import { Menus } from './menus.ts';
 import { gridInfo, tiltedInfo } from './new-grids.ts';
 import { isTilted } from '../state/tilted.ts';
 import { keepState } from './persist.ts';
+import { keepPicturesOf } from './piece-images.ts';
 import { prefs, setPrefs, validPrefs } from './prefs.ts';
 import { Rescue } from './rescue.ts';
 import { stepBack } from './escape.ts';
@@ -272,6 +273,8 @@ export function startApp(saved: StoredState = {}): {
       return files.name;
     },
   });
+  // the picture caches keep what the document names; after the views, which let go first
+  keepPicturesOf(store);
   solver.exportStl = (problem, row) => {
     void exports.solutionStl(problem, row);
   };

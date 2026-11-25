@@ -9,6 +9,14 @@
 // native tooltip would show a titled ancestor's (the shape list's on a
 // shape's button). A press hides the tip until the pointer leaves the
 // control, as the native one does.
+//
+// The settings are read here, at the hover, so no page scan keeps titles
+// to them: with "Show tooltips" off the title is still held (no native
+// tip) and nothing is drawn; in Minimal density, which hides captions and
+// helper text, a control that loses them and has no title of its own
+// shows its caption (from docs/mockup/index.html: `svDensityTitles`).
+
+import { prefs } from './prefs.ts';
 
 const DELAY = 600;
 /** A tip shown less than this long ago makes the next one show at once. */
@@ -18,6 +26,10 @@ const GAP = 16;
 let tip: HTMLDivElement | null = null;
 /** The control whose title is held, null when none is. */
 let held: HTMLElement | null = null;
+/** The held control shows its caption, not a title of its own. */
+let heldCaption = false;
+/** The held caption control had a title attribute (an empty one) before. */
+let hadTitle = false;
 /** The pointer pressed on the held control: no tip until it leaves. */
 let pressed = false;
 let timer = 0;
@@ -46,7 +58,7 @@ function hide(): void {
 
 function show(): void {
   timer = 0;
-  if (held === null || pressed || !held.isConnected) {
+  if (held === null || pressed || !held.isConnected || !prefs.tips) {
     return;
   }
   const t = tipEl();
@@ -71,27 +83,74 @@ export function releaseTip(): void {
   held = null;
   const text = h.dataset.hoverTitle;
   delete h.dataset.hoverTitle;
-  if (h.title === '' && text !== undefined) {
-    h.title = text;
+  if (h.title !== '') {
+    return;
   }
+  if (!heldCaption) {
+    if (text !== undefined) {
+      h.title = text;
+    }
+  } else if (!hadTitle) {
+    h.removeAttribute('title');
+  }
+}
+
+/** The controls that lose their captions in Minimal density. */
+const CAPTIONED = '.tbn,.rbtn,.gbtn,.abtn';
+
+/** A control's caption, which Minimal density hides ('' for none). */
+function caption(el: HTMLElement): string {
+  let text: string | null | undefined;
+  if (el.matches('.abtn')) {
+    const sm = el.querySelector('small')?.textContent;
+    text = (el.querySelector('b')?.textContent ?? '') + (sm === undefined ? '' : ' — ' + sm);
+  } else {
+    text = el.querySelector('span')?.textContent;
+  }
+  return (text ?? '').replace(/\s+/g, ' ').trim();
+}
+
+/** Holds a control's tip text: what it shows, and an empty title for the native tooltip. */
+function hold(el: HTMLElement, text: string, isCaption: boolean): void {
+  held = el;
+  heldCaption = isCaption;
+  hadTitle = el.hasAttribute('title');
+  el.dataset.hoverTitle = text;
+  el.setAttribute('title', '');
+}
+
+/** The tip of a control: its title, or in Minimal density its caption ('' for none). */
+function tipOf(el: HTMLElement): { text: string; isCaption: boolean } {
+  if (el.title !== '') {
+    return { text: el.title, isCaption: false };
+  }
+  const minimal = document.documentElement.dataset.density === 'minimal';
+  return { text: minimal && el.matches(CAPTIONED) ? caption(el) : '', isCaption: true };
 }
 
 function over(e: PointerEvent): void {
   x = e.clientX;
   y = e.clientY;
   const target = e.target instanceof Element ? e.target : null;
-  // the nearest title is the one shown, an empty one shows none
-  const el = target?.closest<HTMLElement>('[title],[data-hover-title]') ?? null;
+  // the nearest title is the one shown, an empty one shows none; in
+  // Minimal density a captioned control counts as titled
+  const minimal = document.documentElement.dataset.density === 'minimal';
+  const el =
+    target?.closest<HTMLElement>(
+      minimal ? `[title],[data-hover-title],${CAPTIONED}` : '[title],[data-hover-title]',
+    ) ?? null;
   if (el === held) {
     return;
   }
   releaseTip();
-  if (el === null || el.title === '') {
+  if (el === null) {
     return;
   }
-  held = el;
-  el.dataset.hoverTitle = el.title;
-  el.setAttribute('title', '');
+  const { text, isCaption } = tipOf(el);
+  if (text === '') {
+    return;
+  }
+  hold(el, text, isCaption);
   timer = window.setTimeout(show, performance.now() - lastShown < WARM ? 0 : DELAY);
 }
 
@@ -125,11 +184,12 @@ export function installTooltips(): void {
     () => {
       const h = held;
       releaseTip();
-      if (h !== null && h.title !== '') {
-        held = h;
-        pressed = true;
-        h.dataset.hoverTitle = h.title;
-        h.setAttribute('title', '');
+      if (h !== null) {
+        const { text, isCaption } = tipOf(h);
+        if (text !== '') {
+          hold(h, text, isCaption);
+          pressed = true;
+        }
       }
     },
     true,

@@ -45,13 +45,19 @@ const lastHtml = new WeakMap<Element, string>();
 /**
  * Sets an element's HTML only when it changed: a re-render that would
  * draw the same keeps its elements, so the focus stays and a double-click
- * whose first click re-rendered still finds its element.
+ * whose first click re-rendered still finds its element. The markup is
+ * the card's view model: whatever the card shows is in it, so no field
+ * can be missed, as a key written by hand can. Returns whether it drew.
  */
-export function setHtml(el: HTMLElement, html: string): void {
-  if (lastHtml.get(el) !== html || el.innerHTML === '') {
-    el.innerHTML = html;
-    lastHtml.set(el, html);
+export function setHtml(el: HTMLElement, html: string): boolean {
+  // emptied by other code since (hasChildNodes: reading innerHTML would
+  // serialize the whole element at every call)
+  if (lastHtml.get(el) === html && (html === '' || el.hasChildNodes())) {
+    return false;
   }
+  el.innerHTML = html;
+  lastHtml.set(el, html);
+  return true;
 }
 
 /** Forgets what setHtml last set, so the next call draws again (fields typed into get the engine's values back). */

@@ -6,7 +6,9 @@
 // orthographic camera framed as the mockup's render3d framed its
 // projection (docs/mockup/index.html: `sc`, the 64-unit eye of `pr`, the
 // pan as a shift of the picture), which replaces its canvas drawing.
-// Each render is measured ("view3d:render", performance.measure). The
+// Each render is measured ("view3d:render", performance.measure), and
+// each shape mesh built ("view3d:mesh-build", measureMeshBuild); both kept
+// to the newest few thousand. The
 // view's picture as a PNG at a scale of its size (File ▸ Export ▸ Image,
 // stage 7) is a render at that pixel ratio, read back at once. A stacking
 // puzzle's view is tilted as the original's (`tilt`); a Tilted Square
@@ -14,8 +16,8 @@
 // GPU reset (the context lost, then restored) a render is asked for at
 // once: three.js uploads everything again on the next render, and the view
 // renders only when asked (cleanup item 6.11). The canvas's `data-frames`
-// counts the renders, `data-restored` the count at the last restore (the
-// e2e tests wait on them).
+// counts the renders (the e2e tests wait on it: with no input the view
+// draws nothing, so a frame after the restore is the restore's).
 
 import {
   Group,
@@ -27,6 +29,21 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { Camera as Camera3 } from 'three';
+
+/** How many measures of a kind are kept before they are cleared. */
+const MEASURES_KEPT = 2000;
+let builds = 0;
+
+/**
+ * Measures a shape mesh's build ("view3d:mesh-build", from `start` to now;
+ * the timed e2e test reads it); the timeline is cleared as the renders' is.
+ */
+export function measureMeshBuild(start: number, detail: unknown): void {
+  performance.measure('view3d:mesh-build', { start, end: performance.now(), detail });
+  if (++builds % MEASURES_KEPT === 0) {
+    performance.clearMeasures('view3d:mesh-build');
+  }
+}
 
 import { EYE_DISTANCE, pixelsPerUnit } from './camera.ts';
 import type { Camera } from './camera.ts';
@@ -82,8 +99,6 @@ export class ViewRenderer {
       e.preventDefault();
     });
     canvas.addEventListener('webglcontextrestored', () => {
-      // the frames drawn when it came back (the e2e tests wait for one more)
-      canvas.dataset.restored = String(this.frames);
       this.request();
       for (const f of this.restored) {
         f();
@@ -253,7 +268,7 @@ export class ViewRenderer {
     this.gl.render(this.scene, this.camera);
     performance.measure('view3d:render', { start: t0, end: performance.now() });
     // keep the timeline bounded: the newest renders are what is read
-    if (++this.measured % 2000 === 0) {
+    if (++this.measured % MEASURES_KEPT === 0) {
       performance.clearMeasures('view3d:render');
     }
   }

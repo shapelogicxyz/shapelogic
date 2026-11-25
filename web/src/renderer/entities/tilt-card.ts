@@ -15,7 +15,7 @@
 
 import type { Tray, TraySettings } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
-import { byId, esc } from '../shell/dom.ts';
+import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { flash } from '../shell/status.ts';
 import {
@@ -50,14 +50,6 @@ export function tiltShown(store: Store): boolean {
   return store.snapshot?.tray != null && isTiltBoard(store.shape);
 }
 
-/** What the section shows, as a key: it is drawn again only when this changes. */
-export function tiltKey(store: Store): string {
-  const t = store.snapshot?.tray;
-  return tiltShown(store) && t != null
-    ? `${String(t.width)}x${String(t.height)}/${String(t.over)}/${String(t.down)}/${String(t.allowance)}/${t.placement}/${String(t.shiftX)}/${String(t.shiftY)}/${String(t.walls.length)}/${String(t.whole)}`
-    : '-';
-}
-
 export class TiltCard {
   private readonly host: TiltHost;
   /** The allowance the switch gives when turned on: the last amount used, else 0.05. */
@@ -78,7 +70,10 @@ export class TiltCard {
     return this.host.store.snapshot?.tray ?? null;
   }
 
-  /** Draws the section (hidden unless the board of a tilted puzzle is selected). */
+  /**
+   * Draws the section (hidden unless the board of a tilted puzzle is
+   * selected); its body only when its markup changed (setHtml).
+   */
   render(): void {
     const sec = byId('secTilt');
     const t = this.tray;
@@ -99,7 +94,10 @@ export class TiltCard {
     }
     const linked = this.linked;
     // the header's summary stays one line: the size is in the line under the steppers
-    byId('tiltSum').textContent = `${slopeText(t.down, t.over)} · ${degreesText(t.degrees)}`;
+    const sum = `${slopeText(t.down, t.over)} · ${degreesText(t.degrees)}`;
+    if (byId('tiltSum').textContent !== sum) {
+      byId('tiltSum').textContent = sum;
+    }
     const step = (
       key: 'width' | 'height' | 'down' | 'over',
       value: number,
@@ -114,81 +112,89 @@ export class TiltCard {
     const custom = t.placement === 'custom';
     const shift = (key: 'shiftX' | 'shiftY', v: number): string =>
       `<input class="tsh" data-tf="${key}" value="${v.toFixed(3)}" aria-label="${key === 'shiftX' ? 'Shift along x' : 'Shift along y'}" title="Where grid point (0, 0) lies in the tray, in cells (${key === 'shiftX' ? 'x' : 'y'})">`;
-    byId('tiltBody').innerHTML =
+    setHtml(
+      byId('tiltBody'),
       '<div class="tilt">' +
-      row(
-        'Width',
-        linked ? 'The tray’s sides, in cells' : 'The tray’s side across, in cells',
-        step('width', t.width, 1, TRAY_MAX, 'Width'),
-      ) +
-      row(
-        'Height',
-        linked ? 'As the width: the tray is kept square' : 'The tray’s side up, in cells',
-        step('height', t.height, 1, TRAY_MAX, 'Height'),
-      ) +
-      row(
-        'Keep square',
-        'The width and the height change together',
-        `<div class="switch ${linked ? 'on' : ''}" data-tlink role="switch" tabindex="0" aria-checked="${String(linked)}" title="${linked ? 'Set the width and the height each on its own: a rectangular tray' : 'Make the tray square (the height takes the width) and keep it so'}"><span class="tr"></span></div>`,
-        true,
-      ) +
-      row(
-        'Down',
-        'Cells down for the cells over (0: a straight tray)',
-        step('down', t.down, 0, t.over, 'Down'),
-      ) +
-      row(
-        'Over',
-        'Cells over for the cells down',
-        step('over', t.over, Math.max(1, t.down), TRAY_MAX, 'Over'),
-      ) +
-      `<p class="tline">${esc(sizeText(t.width, t.height))} · ${esc(slopeText(t.down, t.over))} · turned ${esc(degreesText(t.degrees))}</p>` +
-      row(
-        'Allowance',
-        'Let a cell reach a little past the tray’s edge or into a wall, as a real tray’s slack does',
-        `<div class="switch ${on ? 'on' : ''}" data-tallow role="switch" tabindex="0" aria-checked="${String(on)}" title="${on ? 'Strict: every cell wholly inside the tray' : `Allow ${String(this.lastAllowance)} of a cell past the edge`}"><span class="tr"></span></div>`,
-      ) +
-      (on
-        ? row(
-            'Amount',
-            `In cell widths, at most ${String(ALLOWANCE_MAX)}`,
-            `<input class="tsh" data-tf="allowance" value="${String(t.allowance)}" aria-label="Allowance in cell widths" title="How far a cell may reach past the edge or into a wall, in cell widths (0 to ${String(ALLOWANCE_MAX)})">`,
-            true,
-          )
-        : '') +
-      row(
-        'Placement',
-        custom ? 'Where you put the grid' : 'Where the most cells are whole',
-        `<select data-tf="placement" title="Where the turned grid sits in the tray"><option value="best" ${custom ? '' : 'selected'}>Most whole cells</option><option value="custom" ${custom ? 'selected' : ''}>Custom</option></select>`,
-      ) +
-      (custom
-        ? row(
-            'Shift',
-            'Where grid point (0, 0) lies in the tray, in cells',
-            `<span class="tshs">${shift('shiftX', t.shiftX)}${shift('shiftY', t.shiftY)}</span>`,
-            true,
-          )
-        : '') +
-      row(
-        'Every placement',
-        'The boards the grid gives wherever it lies, and which of them take the pieces',
-        '<button class="btn sm" data-tplaces title="List every board the grid can give in this tray, count the assemblies of a problem’s pieces on each, and choose one">Placements…</button>',
-        true,
-      ) +
-      '</div>';
+        row(
+          'Width',
+          linked ? 'The tray’s sides, in cells' : 'The tray’s side across, in cells',
+          step('width', t.width, 1, TRAY_MAX, 'Width'),
+        ) +
+        row(
+          'Height',
+          linked ? 'As the width: the tray is kept square' : 'The tray’s side up, in cells',
+          step('height', t.height, 1, TRAY_MAX, 'Height'),
+        ) +
+        row(
+          'Keep square',
+          'The width and the height change together',
+          `<div class="switch ${linked ? 'on' : ''}" data-tlink role="switch" tabindex="0" aria-checked="${String(linked)}" title="${linked ? 'Set the width and the height each on its own: a rectangular tray' : 'Make the tray square (the height takes the width) and keep it so'}"><span class="tr"></span></div>`,
+          true,
+        ) +
+        row(
+          'Down',
+          'Cells down for the cells over (0: a straight tray)',
+          step('down', t.down, 0, t.over, 'Down'),
+        ) +
+        row(
+          'Over',
+          'Cells over for the cells down',
+          step('over', t.over, Math.max(1, t.down), TRAY_MAX, 'Over'),
+        ) +
+        `<p class="tline">${esc(sizeText(t.width, t.height))} · ${esc(slopeText(t.down, t.over))} · turned ${esc(degreesText(t.degrees))}</p>` +
+        row(
+          'Allowance',
+          'Let a cell reach a little past the tray’s edge or into a wall, as a real tray’s slack does',
+          `<div class="switch ${on ? 'on' : ''}" data-tallow role="switch" tabindex="0" aria-checked="${String(on)}" title="${on ? 'Strict: every cell wholly inside the tray' : `Allow ${String(this.lastAllowance)} of a cell past the edge`}"><span class="tr"></span></div>`,
+        ) +
+        (on
+          ? row(
+              'Amount',
+              `In cell widths, at most ${String(ALLOWANCE_MAX)}`,
+              `<input class="tsh" data-tf="allowance" value="${String(t.allowance)}" aria-label="Allowance in cell widths" title="How far a cell may reach past the edge or into a wall, in cell widths (0 to ${String(ALLOWANCE_MAX)})">`,
+              true,
+            )
+          : '') +
+        row(
+          'Placement',
+          custom ? 'Where you put the grid' : 'Where the most cells are whole',
+          `<select data-tf="placement" title="Where the turned grid sits in the tray"><option value="best" ${custom ? '' : 'selected'}>Most whole cells</option><option value="custom" ${custom ? 'selected' : ''}>Custom</option></select>`,
+        ) +
+        (custom
+          ? row(
+              'Shift',
+              'Where grid point (0, 0) lies in the tray, in cells',
+              `<span class="tshs">${shift('shiftX', t.shiftX)}${shift('shiftY', t.shiftY)}</span>`,
+              true,
+            )
+          : '') +
+        row(
+          'Every placement',
+          'The boards the grid gives wherever it lies, and which of them take the pieces',
+          '<button class="btn sm" data-tplaces title="List every board the grid can give in this tray, count the assemblies of a problem’s pieces on each, and choose one">Placements…</button>',
+          true,
+        ) +
+        '</div>',
+    );
+  }
+
+  /** Draws the section again whatever it drew last: a field typed into gets the engine's value back. */
+  private redraw(): void {
+    forgetHtml(byId('tiltBody'));
+    this.render();
   }
 
   /** Sets fields of the tray (one undo step). */
   private set(change: TraySettings, doing = 'Tilt & tolerance'): void {
     if (this.host.refuse()) {
-      this.render();
+      this.redraw();
       return;
     }
     const unfit = unfitIds(this.host.store.snapshot?.shapes ?? []);
     void this.host
       .mutate(doing, () => this.host.store.engine.call('tray.set', { tray: change }))
       .then((done) => {
-        this.render();
+        this.redraw();
         const note =
           done === null ? null : unfitNote(unfit, this.host.store.snapshot?.shapes ?? []);
         if (note !== null) {
@@ -218,7 +224,7 @@ export class TiltCard {
           flash(
             `${key === 'width' ? 'Width' : key === 'height' ? 'Height' : key === 'down' ? 'Down' : 'Over'}: a whole number from ${String(min)} to ${String(max)}`,
           );
-          this.render();
+          this.redraw();
         } else if (n !== t[key]) {
           this.set(this.change(key, n));
         }
@@ -228,7 +234,7 @@ export class TiltCard {
         const a = parseAllowance(v);
         if (a === null) {
           flash(`The allowance is a number from 0 to ${String(ALLOWANCE_MAX)} of a cell`);
-          this.render();
+          this.redraw();
         } else if (a !== t.allowance) {
           this.set({ allowance: a });
         }
@@ -249,7 +255,7 @@ export class TiltCard {
         const n = Number(v.trim().replace(',', '.'));
         if (v.trim() === '' || !Number.isFinite(n) || Math.abs(n) > 1024) {
           flash('The shift is a number of cells');
-          this.render();
+          this.redraw();
         } else if (n !== t[key]) {
           this.set({ placement: 'custom', [key]: n });
         }
@@ -275,7 +281,7 @@ export class TiltCard {
     if (this.linked && t.width !== t.height) {
       this.set({ size: t.width });
     } else {
-      this.render();
+      this.redraw();
     }
   }
 

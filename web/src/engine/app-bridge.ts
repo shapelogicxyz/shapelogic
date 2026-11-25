@@ -380,6 +380,19 @@ export interface RescueInfo {
   time: number;
 }
 
+/** A rescue copy on disk: its file (document.open's `path`) and its record. */
+export interface RescueCopy {
+  file: string;
+  info: RescueInfo;
+}
+
+/**
+ * How a rescue copy's write ended: written, or why not (the engine's errc:
+ * invalid_state while a solve runs or once another document is open,
+ * disconnected while it restarts; io_error when a file could not be written).
+ */
+export type RescueWritten = { ok: true } | { ok: false; errc: string; message: string };
+
 /** What the renderer stores in the main process's store, by key. */
 export interface StoredState {
   prefs?: Record<string, unknown>;
@@ -516,10 +529,14 @@ export interface BtApp {
   addRecent(path: string): void;
   /** A recent file that could not be opened: out of the list. */
   removeRecent(path: string): void;
-  /** Writes the rescue copy (the file's bytes, base64) with its record. */
-  writeRescue(data: string, info: RescueInfo): Promise<void>;
-  /** The rescue copy, or null when there is none. */
-  readRescue(): Promise<{ data: string; info: RescueInfo } | null>;
+  /**
+   * Writes the rescue copy with its record: the window's engine writes the
+   * document it holds (document.saveRescue at `info.revision`, cleanup item
+   * 10.11), so the document never crosses IPC.
+   */
+  writeRescue(info: RescueInfo): Promise<RescueWritten>;
+  /** The rescue copy (its file, which the window may then open), or null when there is none. */
+  readRescue(): Promise<RescueCopy | null>;
   /** Removes the rescue copy (saved, or its changes given up). */
   clearRescue(): Promise<void>;
   /** File ▸ New Window: the main process opens another window (decision 0036). */
@@ -589,6 +606,8 @@ export interface BtApp {
   logPage(query: LogQuery): Promise<LogPage | null>;
   /** Deletes the app's log (the current file and the compressed one). */
   clearLog(): Promise<void>;
+  /** The Log File Manager closed: the main process drops the lines it read for it. */
+  logClosed(): Promise<void>;
   /** What Export… offers: the lines and bytes of all of the log and of its newest lines; null where there is none (the demo). */
   logExportSizes(): Promise<LogExportSizes | null>;
   /**

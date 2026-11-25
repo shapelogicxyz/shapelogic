@@ -4,7 +4,7 @@
 // log file (main/app-log.ts), newest line on top, a hundred lines at a
 // time with Load more messages… for the next hundred. Errors and warnings
 // shows those alone; the search box keeps the lines with its text in them, any
-// case, as each letter is typed or deleted, the text marked where it is in
+// case, once typing pauses (SEARCH_WAIT_MS), the text marked where it is in
 // each line. Pretty (at the top right) shows the lines as a table: the
 // date, the time to the minute, the level in its color, the source, the
 // event (`Solve continued`) and the rest; Raw shows them as the file has
@@ -14,7 +14,8 @@
 // deletes both files, after asking; Refresh reads the file again. At the
 // bottom left, where to report a problem: GitHub Issues (opened in the
 // browser) or an email. The main process reads the file: the renderer asks
-// for a page by its filters and how many lines it shows.
+// for a page by its filters and how many lines it shows, and tells it when
+// the dialog closes (it drops the lines it read).
 
 import type {
   BtApp,
@@ -35,6 +36,8 @@ import { flash, reportError } from './status.ts';
 const ID = 'logFiles';
 /** The lines a page holds (the main process's LOG_PAGE_LINES). */
 export const PAGE_LINES = 100;
+/** How long typing in the search box pauses before the log is searched (cleanup item 10.9). */
+export const SEARCH_WAIT_MS = 200;
 
 /** The view the dialog opens in: the last one picked while the app runs. */
 let lastView: LogView = 'pretty';
@@ -88,6 +91,8 @@ class LogFilesView {
   private busy = false;
   /** Export…'s sizes are being read (its choices not shown yet). */
   private choosing = false;
+  /** The search waiting for typing to pause. */
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(app: BtApp, el: HTMLElement) {
     this.app = app;
@@ -95,7 +100,11 @@ class LogFilesView {
     const search = this.part<HTMLInputElement>('.lf-search');
     search.addEventListener('input', () => {
       this.query = { ...this.query, search: search.value };
-      void this.load(false);
+      this.stopSearch();
+      this.searchTimer = setTimeout(() => {
+        this.searchTimer = null;
+        void this.load(false);
+      }, SEARCH_WAIT_MS);
     });
     const errors = this.part<HTMLInputElement>('.lf-errors');
     errors.addEventListener('change', () => {
@@ -111,6 +120,14 @@ class LogFilesView {
       });
     }
     this.markView();
+  }
+
+  /** Drops the search waiting for typing to pause (a read now, or the dialog closed). */
+  stopSearch(): void {
+    if (this.searchTimer !== null) {
+      clearTimeout(this.searchTimer);
+      this.searchTimer = null;
+    }
   }
 
   /** Pretty or Raw: the lines shown drawn again in it, the scroll kept. */
@@ -167,6 +184,7 @@ class LogFilesView {
 
   /** Reads the first page again (the filters changed, Refresh), or the next one (`more`). */
   async load(more: boolean): Promise<void> {
+    this.stopSearch();
     const n = ++this.asked;
     const offset = more ? this.shown : 0;
     let page: LogPage | null;
@@ -436,4 +454,6 @@ export async function openLogFiles(app: BtApp): Promise<void> {
   }
   await shown;
   closeChoices?.();
+  view?.stopSearch();
+  void app.logClosed().catch(() => undefined);
 }

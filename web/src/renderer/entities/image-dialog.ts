@@ -43,7 +43,7 @@ import type { ImageFit, ImageLayer, ShapeImage } from '../../engine/api.generate
 import { closeDialog, openDialog } from '../shell/dialog.ts';
 import { esc } from '../shell/dom.ts';
 import { prefs, setPrefs } from '../shell/prefs.ts';
-import { decodeImage } from '../shell/piece-images.ts';
+import { decodeImage, holdPictures } from '../shell/piece-images.ts';
 import type { PieceImage } from '../shell/piece-images.ts';
 import {
   cellBox,
@@ -461,6 +461,8 @@ export function openImageDialog(o: ImageDialogOptions): void {
   const id = 'imageDlg';
   // the pictures chosen here (never the shape's own, which the picture cache serves): closed with the dialog
   const own: ImageBitmap[] = [];
+  // the shape's own pictures stay in the cache while the dialog shows them
+  const release = holdPictures(o.current.map((c) => c.picture));
   let closed = false;
   const shownDialog = openDialog({
     id,
@@ -966,6 +968,7 @@ export function openImageDialog(o: ImageDialogOptions): void {
     for (const b of own) {
       b.close();
     }
+    release();
   });
   redraw();
 }

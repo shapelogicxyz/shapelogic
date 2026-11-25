@@ -3,8 +3,8 @@
 // The files a window's engine may be given (stage 8, the security
 // checklist: file paths only from dialogs and drops). The engine opens and
 // writes whatever path a call names, so the main process checks the calls
-// that name one (document.open, document.openBytes, document.import,
-// document.save, solve.importPaused, solve.exportPaused) against the paths it handed that
+// that name one (document.open, its `as` too, document.openBytes, document.import,
+// document.save, document.saveRescue, solve.importPaused, solve.exportPaused) against the paths it handed that
 // window itself: what its file dialogs gave, a file dropped on the window
 // (the preload's pathOf, which only a real dropped file answers), a file
 // the menus or the system opened with the app (Open Recent, the command
@@ -12,27 +12,34 @@
 // A renderer that names any other path (a page running code it should not)
 // is refused before the engine sees the call. Electron-free.
 
-/** The methods that name a file, and the parameter that does. */
-const PATH_PARAMS: Readonly<Record<string, 'path'>> = {
-  'document.open': 'path',
-  'document.openBytes': 'path',
-  'document.import': 'path',
-  'document.save': 'path',
-  'solve.importPaused': 'path',
-  'solve.exportPaused': 'path',
+/**
+ * The methods that name a file, and the parameters that do (document.open's
+ * `as` is the file a save then writes: a rescue copy's, cleanup item 10.11).
+ * document.saveRescue is the main process's (app-ipc.ts), to the rescue
+ * copy's file; a page that calls it can name only a file it was handed.
+ */
+const PATH_PARAMS: Readonly<Record<string, readonly string[]>> = {
+  'document.open': ['path', 'as'],
+  'document.openBytes': ['path'],
+  'document.import': ['path'],
+  'document.save': ['path'],
+  'document.saveRescue': ['path'],
+  'solve.importPaused': ['path'],
+  'solve.exportPaused': ['path'],
 };
 
-/** The file a call names, or null when it names none. */
-export function callPath(method: string, params: unknown): string | null {
-  const key = PATH_PARAMS[method];
-  if (key === undefined || typeof params !== 'object' || params === null) {
-    return null;
+/** The files a call names (none: an empty list). */
+export function callPaths(method: string, params: unknown): string[] {
+  const keys = PATH_PARAMS[method];
+  if (keys === undefined || typeof params !== 'object' || params === null) {
+    return [];
   }
-  const v = (params as Record<string, unknown>)[key];
-  return typeof v === 'string' ? v : null;
+  return keys
+    .map((k) => (params as Record<string, unknown>)[k])
+    .filter((v): v is string => typeof v === 'string');
 }
 
-/** The methods callPath looks at (for the tests: every schema method with a path). */
+/** The methods callPaths looks at (for the tests: every schema method with a path). */
 export const PATH_METHODS: readonly string[] = Object.keys(PATH_PARAMS);
 
 /**
@@ -81,8 +88,8 @@ export class PathGrants<K extends WeakKey> {
    * handed), or null when it may.
    */
   refusal(key: K, method: string, params: unknown): string | null {
-    const path = callPath(method, params);
-    if (path === null || this.allows(key, path)) {
+    const path = callPaths(method, params).find((p) => !this.allows(key, p));
+    if (path === undefined) {
       return null;
     }
     const name = path.split(/[\\/]/).pop() ?? path;

@@ -10,9 +10,13 @@
 // 0047), or one picture smaller than its box, is drawn once into a single
 // picture over the box (stackPicture), so each view draws one picture as
 // before; transparent where no picture reaches, the shape's color then.
+// The cache keeps what the open document names (picture-keep.ts,
+// keepPicturesOf): at each new snapshot the rest is let go, its textures
+// first, then its bitmap closed, except a picture an open dialog holds.
 
 import type { ShapeImage, TrayBorder } from '../../engine/api.generated.ts';
-import type { EngineLink } from '../state/store.ts';
+import type { EngineLink, Store } from '../state/store.ts';
+import { inside, namedPictures, PictureKeep, stackKey } from './picture-keep.ts';
 import type { PiecePicture } from './picture-math.ts';
 import { borderImage, borderRim } from './tray-border.ts';
 
@@ -27,9 +31,10 @@ export interface PieceImage {
   bitmap: ImageBitmap;
 }
 
-const ready = new Map<string, PieceImage>();
+const cache = new PictureKeep<PieceImage>();
+const ready = cache.ready;
 const loading = new Set<string>();
-const failed = new Set<string>();
+const failed = cache.failed;
 const listeners = new Set<(hash: string) => void>();
 
 /** The bytes of base64 text. */
@@ -111,12 +116,6 @@ export function borderPicture(
     : { image: borderImage(p.image, shape.size, borderRim(shape.border)), picture: p.picture };
 }
 
-/** Whether a picture's part shown lies inside it: it is drawn as it is, alone. */
-function inside(image: ShapeImage): boolean {
-  const [sx, sy, sw, sh] = image.src;
-  return sx >= 0 && sy >= 0 && sx + sw <= image.width && sy + sh <= image.height;
-}
-
 /** The longest side of a stack drawn as one picture, and the fewest pixels a cell. */
 const STACK_MAX = 2048;
 const STACK_MIN_CELL = 32;
@@ -134,12 +133,6 @@ export function stackSize(images: readonly ShapeImage[]): [number, number] {
   }
   const k = Math.min(cell, STACK_MAX / Math.max(bw, bh));
   return [Math.max(1, Math.round(bw * k)), Math.max(1, Math.round(bh * k))];
-}
-
-/** A stack's key: its pictures and parts shown, and its box's size. */
-function stackKey(images: readonly ShapeImage[]): string {
-  const box = images[0]?.box ?? [];
-  return `stack:${String(box[2])}x${String(box[3])}:${images.map((im) => `${im.hash}@${im.src.join(',')}`).join('|')}`;
 }
 
 /** The bytes of a blob as base64. */
@@ -255,6 +248,27 @@ export function loadPieceImage(engine: EngineLink, image: ShapeImage): Promise<P
       }
     }, 5000);
   });
+}
+
+/**
+ * Keeps the cache to what the store's document names, at each new
+ * snapshot. Subscribed after the views, so they have let go of the old
+ * pictures first; returns the unsubscribe.
+ */
+export function keepPicturesOf(store: Store): () => void {
+  return store.subscribe((c) => {
+    if (c.kind === 'document' && store.snapshot !== null) {
+      cache.keep(namedPictures(store.snapshot.shapes));
+    }
+  });
+}
+
+/**
+ * Holds the pictures an open dialog shows, so they are never closed under
+ * it; returns the release.
+ */
+export function holdPictures(pictures: readonly { hash: string }[]): () => void {
+  return cache.hold(pictures);
 }
 
 /** Hears when a picture asked for is ready; returns the unsubscribe. */

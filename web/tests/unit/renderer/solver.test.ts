@@ -7,7 +7,7 @@
 // ignored), and the solve records' state machine on events made up here
 // (the recorded engine's are in ../solver-replay.test.ts).
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { SolutionRow, SolverSettings } from '../../../src/engine/api.generated.ts';
 import type { EngineApi } from '../../../src/engine/client-types.ts';
@@ -17,6 +17,7 @@ import { PAGE, SolutionPager } from '../../../src/renderer/solver/pager.ts';
 import {
   CHUNK,
   ChunkLoads,
+  PlaySteps,
   PoseTrack,
   SAMPLES,
   slerp,
@@ -337,6 +338,55 @@ describe('the chunk loads', () => {
     e.come(0);
     expect(await again).toBe(true);
     expect(await loads.ensure(track, 0.5, e.load)).toBe(false);
+  });
+});
+
+describe('the frames of play (cleanup item 10.8)', () => {
+  it('work the poses out once a frame and ask for chunks only on entering one', () => {
+    const track = new PoseTrack(3, CHUNK * 3);
+    track.add(0, chunkArrays(track, 0));
+    track.add(1, chunkArrays(track, 1));
+    const at = vi.spyOn(track, 'at');
+    const steps = new PlaySteps();
+    const asked: number[] = [];
+    let t = 0;
+    // a frame a tenth of a step, to the middle of chunk 1
+    while (t < CHUNK * 1.5) {
+      const before = at.mock.calls.length;
+      const f = steps.frame(track, t, t + 0.1, false);
+      // one at() a frame
+      expect(at.mock.calls.length - before).toBe(1);
+      expect(f.poses).not.toBeNull();
+      if (f.ensure !== null) {
+        asked.push(PoseTrack.chunkOf(f.ensure));
+      }
+      t = f.t;
+    }
+    at.mockRestore();
+    expect(steps.frame(track, 3.3, 3.4, false).poses).toEqual(track.at(3.4, false));
+    // each chunk asked for once, on entering it (its ensure prefetches the next)
+    expect(asked).toEqual([0, 1]);
+  });
+
+  it('hold the time and ask on every frame while a chunk is missing', () => {
+    const track = new PoseTrack(3, CHUNK * 3);
+    track.add(0, chunkArrays(track, 0));
+    const steps = new PlaySteps();
+    expect(steps.frame(track, 0, 0.5, false).ensure).toBe(0.5);
+    const t = CHUNK + 0.2;
+    for (let i = 0; i < 3; i++) {
+      // chunk 1 not come: the same time, nothing to show, asked again
+      expect(steps.frame(track, CHUNK - 0.1, t, false)).toEqual({
+        t: CHUNK - 0.1,
+        poses: null,
+        ensure: t,
+      });
+    }
+    track.add(1, chunkArrays(track, 1));
+    const f = steps.frame(track, CHUNK - 0.1, t, false);
+    expect(f.t).toBe(t);
+    expect(f.ensure).toBe(t);
+    expect(steps.frame(track, t, t + 0.1, false).ensure).toBeNull();
   });
 });
 

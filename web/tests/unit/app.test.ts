@@ -161,34 +161,59 @@ describe('the store of settings, layouts and recent files', () => {
 
 describe('the rescue copy', () => {
   const info = { path: '/puzzles/a.xmpuzzle', name: 'a.xmpuzzle', revision: 7, time: 1000 };
-  const data = Buffer.from('<puzzle/>').toString('base64');
+  const data = '<puzzle/>';
+  // the window's engine (document.saveRescue): writes the file it is given,
+  // answers the revision the copy holds
+  const saved: string[] = [];
+  const save =
+    (text: string, revision = info.revision) =>
+    (file: string): Promise<number> => {
+      saved.push(file);
+      writeFileSync(file, text);
+      return Promise.resolve(revision);
+    };
 
-  it('is written as the file’s bytes with its record, read back, and removed', async () => {
+  it('is written by the engine with its record, read back as its file, and removed', async () => {
     const d = dir();
     const r = new RescueStore(d);
-    expect(r.read()).toBeNull();
-    await r.write(data, info);
+    expect(await r.read()).toBeNull();
+    await r.write(save(data), info);
+    expect(saved.at(-1)).toBe(join(d, '__rescue.xmpuzzle'));
     expect(readFileSync(join(d, '__rescue.xmpuzzle'), 'utf8')).toBe('<puzzle/>');
-    expect(r.read()).toEqual({ data, info });
+    expect(await r.read()).toEqual({ file: join(d, '__rescue.xmpuzzle'), info });
+    // the record holds the revision the engine wrote
+    await r.write(save(data, 9), info);
+    expect((await r.read())?.info.revision).toBe(9);
     // no temporary file left beside them (replace-file.ts)
     expect(readdirSync(d).sort()).toEqual(['__rescue.json', '__rescue.xmpuzzle']);
     await r.clear();
-    expect(r.read()).toBeNull();
+    expect(await r.read()).toBeNull();
     expect(existsSync(join(d, '__rescue.json'))).toBe(false);
+  });
+
+  it('makes its folder before the engine writes there, and fails as the engine’s write fails', async () => {
+    const d = join(dir(), 'not', 'yet');
+    const r = new RescueStore(d);
+    await r.write(save(data), info);
+    expect((await r.read())?.info).toEqual(info);
+    const refused = new Error('io_error');
+    await expect(r.write(() => Promise.reject(refused), info)).rejects.toBe(refused);
+    // the copy before stays, with its record
+    expect((await r.read())?.info).toEqual(info);
   });
 
   it('offers a copy whose record does not match it as a puzzle without a file', async () => {
     const d = dir();
     const r = new RescueStore(d);
-    await r.write(data, info);
-    // the app died between the record and the copy of a later write
+    await r.write(save(data), info);
+    // the app died between the copy of a later write and its record
     writeFileSync(join(d, '__rescue.xmpuzzle'), '<puzzle version="2"/>');
-    const got = r.read();
+    const got = await r.read();
     expect(got?.info.path).toBeNull();
-    expect(Buffer.from(got?.data ?? '', 'base64').toString()).toBe('<puzzle version="2"/>');
+    expect(got?.file).toBe(join(d, '__rescue.xmpuzzle'));
     // no record at all
     rmSync(join(d, '__rescue.json'));
-    expect(r.read()?.info.path).toBeNull();
+    expect((await r.read())?.info.path).toBeNull();
   });
 
   it('names its slots’ files, slot 0 as the earlier versions’ one copy', () => {
@@ -210,22 +235,22 @@ describe('the rescue copy', () => {
   it('gives each window a slot of its own, a copy left on disk to one window only', async () => {
     const d = dir();
     // a session that died left copies in slots 0 and 2
-    await new RescueStore(d, 0).write(data, info);
-    await new RescueStore(d, 2).write(data, { ...info, name: 'c.xmpuzzle' });
+    await new RescueStore(d, 0).write(save(data), info);
+    await new RescueStore(d, 2).write(save(data), { ...info, name: 'c.xmpuzzle' });
     const slots = new RescueSlots<string>(d);
     expect(slots.of('a').slot).toBe(0);
     expect(slots.of('a').slot).toBe(0);
     // the next window takes the other copy left, not an empty slot before it
     expect(slots.of('b').slot).toBe(2);
-    expect(slots.of('b').read()?.info.name).toBe('c.xmpuzzle');
+    expect((await slots.of('b').read())?.info.name).toBe('c.xmpuzzle');
     // no copy left: the lowest free slot
     expect(slots.of('c').slot).toBe(1);
     expect(slots.all().map((r) => r.slot)).toEqual([0, 1, 2]);
     // a window that closes frees its slot; a copy it left goes to the next window
-    await slots.of('b').write(data, info);
+    await slots.of('b').write(save(data), info);
     slots.release('b');
     expect(slots.of('d').slot).toBe(2);
-    expect(slots.of('d').read()).not.toBeNull();
+    expect(await slots.of('d').read()).not.toBeNull();
     slots.release('c');
     expect(slots.all().map((r) => r.slot)).toEqual([0, 2]);
   });
@@ -233,14 +258,14 @@ describe('the rescue copy', () => {
   it('runs its writes and clears one after the other: a clear is never undone by a write before it', async () => {
     const d = dir();
     const r = new RescueStore(d);
-    const big = Buffer.alloc(4_000_000, 7).toString('base64');
-    const writes = [r.write(big, info), r.write(data, { ...info, revision: 8 })];
+    const big = 'x'.repeat(4_000_000);
+    const writes = [r.write(save(big), info), r.write(save(data, 8), info)];
     const cleared = r.clear();
     await Promise.all([...writes, cleared]);
-    expect(r.read()).toBeNull();
+    expect(await r.read()).toBeNull();
     expect(readdirSync(d)).toEqual([]);
-    await r.write(data, { ...info, revision: 9 });
-    expect(r.read()?.info.revision).toBe(9);
+    await r.write(save(data, 9), info);
+    expect((await r.read())?.info.revision).toBe(9);
   });
 });
 

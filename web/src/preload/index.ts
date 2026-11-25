@@ -24,7 +24,8 @@ import type {
   LogExportResult,
   LogExportSizes,
   LogPage,
-  RescueInfo,
+  RescueCopy,
+  RescueWritten,
   StoredState,
   UpdateResult,
 } from '../engine/app-bridge.ts';
@@ -156,14 +157,11 @@ const btApp: BtApp = {
   removeRecent(path) {
     ipcRenderer.send('bt:recent', 'remove', path);
   },
-  async writeRescue(data, rescueInfo) {
-    await ipcRenderer.invoke('bt:rescue', 'write', data, rescueInfo);
+  writeRescue(rescueInfo) {
+    return ipcRenderer.invoke('bt:rescue', 'write', rescueInfo) as Promise<RescueWritten>;
   },
   readRescue() {
-    return ipcRenderer.invoke('bt:rescue', 'read') as Promise<{
-      data: string;
-      info: RescueInfo;
-    } | null>;
+    return ipcRenderer.invoke('bt:rescue', 'read') as Promise<RescueCopy | null>;
   },
   async clearRescue() {
     await ipcRenderer.invoke('bt:rescue', 'clear');
@@ -264,6 +262,9 @@ const btApp: BtApp = {
   },
   async clearLog() {
     await ipcRenderer.invoke('bt:log', 'clear');
+  },
+  async logClosed() {
+    await ipcRenderer.invoke('bt:log', 'closed');
   },
   logExportSizes() {
     return ipcRenderer.invoke('bt:log', 'sizes') as Promise<LogExportSizes | null>;

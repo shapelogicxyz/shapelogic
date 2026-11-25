@@ -200,8 +200,24 @@ test('settings apply at once: theme, density, font size, tooltips', async () => 
   await expect(html).toHaveAttribute('data-theme', 'dark');
   await page.click('#setPg [data-k="density"][data-o="Minimal"]');
   await expect(html).toHaveAttribute('data-density', 'minimal');
-  // Minimal hides captions: the controls carry them as tooltips
-  await expect(page.locator('.rbtn[data-tab="puzzle"]')).toHaveAttribute('title', /Puzzle/);
+  // Minimal hides captions: a control that loses one and has no title of
+  // its own shows its caption as its tip, read at the hover (no page scan)
+  const tip = page.locator('.hovertip');
+  await page.evaluate(() => {
+    const b = document.createElement('button');
+    b.id = 'capOnly';
+    b.className = 'tbn';
+    b.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:2000';
+    b.innerHTML = '<span>Caption only</span>';
+    document.body.append(b);
+  });
+  const capOnly = page.locator('#capOnly');
+  await capOnly.hover();
+  await expect(tip).toBeVisible();
+  await expect(tip).toHaveText('Caption only');
+  await page.mouse.move(2, 300);
+  await expect(tip).toBeHidden();
+  await expect(capOnly).not.toHaveAttribute('title');
   // the font size steps every text size, the same in every density
   const statusSize = (): Promise<string> =>
     page.locator('#stage > .status').evaluate((el) => getComputedStyle(el).fontSize);
@@ -213,10 +229,16 @@ test('settings apply at once: theme, density, font size, tooltips', async () => 
   await expect(html).toHaveAttribute('data-font', 'large');
   expect(parseFloat(await statusSize())).toBe(parseFloat(medium) + 2);
   await page.click('#setPg [data-k="density"][data-o="Minimal"]');
+  // "Show tooltips" off: no tip, a caption's or a title's
   await page.click('#setPg .switch[data-k="tips"]');
-  await expect(page.locator('#btnSettings')).not.toHaveAttribute('title', /./);
+  await capOnly.hover();
+  await page.waitForTimeout(1000);
+  await expect(tip).toBeHidden();
+  await page.mouse.move(2, 300);
   await page.click('#setPg .switch[data-k="tips"]');
-  await expect(page.locator('#btnSettings')).toHaveAttribute('title', /Settings/);
+  await capOnly.hover();
+  await expect(tip).toHaveText('Caption only');
+  await page.mouse.move(2, 300);
   // undo depth and threads are the engine's
   await page.selectOption('#setPg select[data-k="undo"]', '100');
   await page.click('#setNav [data-p="perf"]');

@@ -21,8 +21,10 @@ import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { BridgeMessage } from '../../src/engine/bridge.ts';
+import { EngineError } from '../../src/engine/errors.ts';
+import type { Errc } from '../../src/engine/api.generated.ts';
 import { serveEngine } from '../../src/main/engine-ipc.ts';
-import { callPath, PATH_METHODS, PathGrants } from '../../src/main/path-grants.ts';
+import { callPaths, PATH_METHODS, PathGrants } from '../../src/main/path-grants.ts';
 import {
   allowedRequest,
   APP_SCHEME,
@@ -389,7 +391,7 @@ describe('the addresses opened outside the app', () => {
 });
 
 describe('the files a window’s engine may be given', () => {
-  it('callPath finds the path of every schema method that takes one', () => {
+  it('callPaths finds the path of every schema method that takes one', () => {
     const withPath: string[] = [];
     for (const f of readdirSync(resolve(ROOT, 'api')).filter((n) => n.endsWith('.json'))) {
       const api = JSON.parse(readFileSync(resolve(ROOT, 'api', f), 'utf8')) as {
@@ -403,12 +405,20 @@ describe('the files a window’s engine may be given', () => {
     }
     expect([...PATH_METHODS].sort()).toEqual(withPath.sort());
     for (const method of PATH_METHODS) {
-      expect(callPath(method, { path: '/x/y.xmpuzzle', problem: 'p1' })).toBe('/x/y.xmpuzzle');
-      expect(callPath(method, {})).toBeNull();
+      expect(callPaths(method, { path: '/x/y.xmpuzzle', problem: 'p1' })).toEqual([
+        '/x/y.xmpuzzle',
+      ]);
+      expect(callPaths(method, {})).toEqual([]);
     }
-    expect(callPath('document.get', { path: '/x' })).toBeNull();
-    expect(callPath('document.open', null)).toBeNull();
-    expect(callPath('document.open', { path: 3 })).toBeNull();
+    expect(callPaths('document.get', { path: '/x' })).toEqual([]);
+    expect(callPaths('document.open', null)).toEqual([]);
+    expect(callPaths('document.open', { path: 3 })).toEqual([]);
+    // the file a rescue copy stands for (cleanup item 10.11): a save writes there
+    expect(callPaths('document.open', { path: '/r.xmpuzzle', as: '/x.xmpuzzle' })).toEqual([
+      '/r.xmpuzzle',
+      '/x.xmpuzzle',
+    ]);
+    expect(callPaths('document.open', { path: '/r.xmpuzzle', as: null })).toEqual(['/r.xmpuzzle']);
   });
 
   it('only what that window was handed', () => {
@@ -425,6 +435,11 @@ describe('the files a window’s engine may be given', () => {
     expect(g.refusal(a, 'document.save', { path: '/docs/a.xmpuzzle' })).toBeNull();
     expect(g.refusal(a, 'document.save', {})).toBeNull();
     expect(g.refusal(a, 'shape.list', {})).toBeNull();
+    // a file opened as another (a rescue copy): both must have been handed
+    expect(g.refusal(a, 'document.open', { path: '/docs/a.xmpuzzle', as: '/etc/x.xmpuzzle' })).toBe(
+      'x.xmpuzzle was not chosen in a file dialog or dropped on the window',
+    );
+    expect(g.refusal(a, 'document.open', { path: '/docs/a.xmpuzzle', as: null })).toBeNull();
     expect(g.refusal(a, 'document.save', { path: '/docs/../docs/a.xmpuzzle' })).toBe(
       'a.xmpuzzle was not chosen in a file dialog or dropped on the window',
     );
@@ -451,11 +466,7 @@ describe('the files a window’s engine may be given', () => {
       (m) => sent.push(m),
       (o) => logged.push(o),
       (method, params) =>
-        callPath(method, params) === '/ok.xmpuzzle'
-          ? null
-          : callPath(method, params) === null
-            ? null
-            : 'no',
+        callPaths(method, params).every((p) => p === '/ok.xmpuzzle') ? null : 'no',
     );
     server.receive({
       kind: 'call',
@@ -524,6 +535,8 @@ describe('the IPC handlers', () => {
   let rescueInfo: { path: string | null } | null = null;
   const recent: string[] = [];
   const rescued: { path: string | null }[] = [];
+  const engineCalls: [string, unknown][] = [];
+  let engineRefuses: Errc | null = null;
   // the windows (decision 0036): files claimed, New Window, settings sent to the others
   const claimed: [number, string][] = [];
   let newWindows = 0;
@@ -560,15 +573,37 @@ describe('the IPC handlers', () => {
       },
       rescue: {
         of: () => ({
+          file: join(dir, '__rescue.xmpuzzle'),
+          record: join(dir, '__rescue.json'),
           read: () =>
-            rescueInfo === null
-              ? null
-              : { data: '', info: { name: 'x', revision: 1, time: 0, path: rescueInfo.path } },
-          write: (_data: string, info: { path: string | null }) => rescued.push(info),
+            Promise.resolve(
+              rescueInfo === null
+                ? null
+                : {
+                    file: join(dir, '__rescue.xmpuzzle'),
+                    info: { name: 'x', revision: 1, time: 0, path: rescueInfo.path },
+                  },
+            ),
+          write: async (save: (file: string) => Promise<number>, info: { path: string | null }) => {
+            await save(join(dir, '__rescue.xmpuzzle'));
+            rescued.push(info);
+          },
           clear: () => undefined,
         }),
         all: () => [],
       },
+      // the window's engine writes the rescue copy (cleanup item 10.11)
+      engine: (sender: object) =>
+        sender === ours
+          ? {
+              call: (method: string, params: { path: string; revision: number }) => {
+                engineCalls.push([method, params]);
+                return engineRefuses === null
+                  ? Promise.resolve({ revision: params.revision })
+                  : Promise.reject(new EngineError(-32010, engineRefuses, 'refused', method));
+              },
+            }
+          : null,
       paths,
       owners: {
         claim: (id: number, path: string) => claimed.push([id, path]),
@@ -712,7 +747,14 @@ describe('the IPC handlers', () => {
     await invoke('bt:rescue', ours, 'read');
     electron.on.get('bt:dropped')?.({ sender: ours }, join(dir, 'd.xmpuzzle'));
     electron.on.get('bt:dropped')?.({ sender: ours }, 42);
-    for (const p of ['a.xmpuzzle', 'p.slsolve', 'b.xmpuzzle', 'r.xmpuzzle', 'd.xmpuzzle']) {
+    for (const p of [
+      'a.xmpuzzle',
+      'p.slsolve',
+      'b.xmpuzzle',
+      'r.xmpuzzle',
+      '__rescue.xmpuzzle',
+      'd.xmpuzzle',
+    ]) {
       expect(paths.allows(ours, join(dir, p)), p).toBe(true);
       expect(paths.allows(foreign, join(dir, p)), p).toBe(false);
     }
@@ -747,11 +789,33 @@ describe('the IPC handlers', () => {
     add?.({ sender: foreign }, 'add', join(dir, 'chosen.xmpuzzle'));
     expect(recent).toEqual([join(dir, 'chosen.xmpuzzle')]);
     const info = (path: string | null): unknown => ({ path, name: 'n', revision: 1, time: 2 });
-    await invoke('bt:rescue', ours, 'write', 'AAAA', info(join(dir, 'chosen.xmpuzzle')));
-    await invoke('bt:rescue', ours, 'write', 'AAAA', info('/etc/elsewhere.xmpuzzle'));
-    await invoke('bt:rescue', ours, 'write', 'AAAA', info(null));
-    await invoke('bt:rescue', foreign, 'write', 'AAAA', info(join(dir, 'chosen.xmpuzzle')));
+    engineCalls.length = 0;
+    expect(await invoke('bt:rescue', ours, 'write', info(join(dir, 'chosen.xmpuzzle')))).toEqual({
+      ok: true,
+    });
+    await invoke('bt:rescue', ours, 'write', info('/etc/elsewhere.xmpuzzle'));
+    await invoke('bt:rescue', ours, 'write', info(null));
+    expect(await invoke('bt:rescue', foreign, 'write', info(join(dir, 'chosen.xmpuzzle')))).toBe(
+      null,
+    );
+    expect(await invoke('bt:rescue', ours, 'write', 'not a record')).toBeNull();
+    // the engine's refusal is the answer (the renderer keeps quiet on invalid_state)
+    engineRefuses = 'invalid_state';
+    expect(await invoke('bt:rescue', ours, 'write', info(null))).toEqual({
+      ok: false,
+      errc: 'invalid_state',
+      message: 'refused',
+    });
+    engineRefuses = null;
     expect(rescued.map((r) => r.path)).toEqual([join(dir, 'chosen.xmpuzzle'), null, null]);
+    engineCalls.splice(3);
+    // the engine writes the copy, at the revision the window saw, to the copy's own file
+    expect(engineCalls).toEqual(
+      Array(3).fill([
+        'document.saveRescue',
+        { path: join(dir, '__rescue.xmpuzzle'), revision: 1 },
+      ]) as unknown,
+    );
   });
 
   it('let a window claim only a file it was handed, ask for a window, and share its settings', async () => {

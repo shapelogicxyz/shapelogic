@@ -443,9 +443,7 @@ export interface LoggedCall {
 
 /**
  * A refusal a test counts against the app: not the client's own superseded
- * reads, nor the rescue copy's read refused because a solve started after
- * it looked (shell/rescue.ts writes the copy again at the next change; on a
- * busy machine the window between the two is wider), nor a playback's read
+ * reads, nor a playback's read
  * that reached the engine after another document had taken its document's
  * place (the engine drops every playback then; the player has not heard of
  * the new document yet and is quiet about it: solver/player.ts's `quiet`).
@@ -456,7 +454,6 @@ export function counted(c: LoggedCall): boolean {
   return (
     c.errc !== null &&
     c.errc !== 'superseded' &&
-    !(c.method === 'document.saveBytes' && c.errc === 'invalid_state') &&
     !(c.method.startsWith('playback.') && c.errc === 'not_found')
   );
 }

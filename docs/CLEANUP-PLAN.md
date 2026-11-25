@@ -181,7 +181,7 @@ again, and comes last.
 - [x] Stage 8: test and build speed; tests that cannot clash
 - [x] Checkpoint D (Fable): review of stage 8
 - [x] Stage 9: CI and release pipeline (v2.1's macOS engine needed macOS 26: now 13.0, checked in CI)
-- [ ] Stage 10: front-end speed and memory
+- [x] Stage 10: front-end speed and memory (10.10 waits until 2.2 has reached users)
 - [ ] Stage 11: one source of truth: core, engine, API, Python, CLI
 - [ ] Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
 - [ ] Stage 12: one source of truth: front end
@@ -3915,7 +3915,7 @@ preset now built for 13.0 (each engine's `minos 13.0` checked):
 
 Rule 7 holds for every renderer item here.
 
-- [ ] **10.1 Every pointer move over the 3D view renders a full frame** (speed, bug; M)
+- [x] **10.1 Every pointer move over the 3D view renders a full frame** (speed, bug; M)
   - *Where:*
     - `web/src/renderer/view3d/view.ts`:
       - the pointer handlers (1590-1606);
@@ -3967,8 +3967,52 @@ Rule 7 holds for every renderer item here.
       `solver` and `explore` (`data-piece-screen`), and the screenshot tests;
     - a unit test: pointer moves with nothing under the pointer ask for no
       render.
+  - Done (2026-11-25): one ray a pointer event: `castAt` reads the canvas's
+    box once, frames once and casts with the view's one `Raycaster`; the
+    face (`pickAt` now takes that raycaster), the space and the layer's
+    cell share the ray, taken into the model's units once (the Solver's
+    piece pick uses the same raycaster). `edit.hover` runs only on the
+    Entities tab (the pointer moves, the drag's start, `modsChanged`), so
+    the Solver's Alt-hover `grab` cursor shows. The comparisons sit in the
+    view's setters, which every caller of `Edit3D.show` (and `hover2d`)
+    goes through, not in `show` itself: `setPreview` and `setTaskGhost`
+    ask for a render only when `Preview.set` made something new (keyed on
+    the ghosts and, for cells and sides, the mesh they are cut from: 10.2),
+    `setCursor` writes only a new cursor, `renderEditButton` redraws the
+    button only when its JSON changed. The ViewCube draws only when its
+    key changed (the camera's quaternion, the projection, dark or light,
+    the pixel ratio, the hover, its visibility; the zoom does not change
+    its picture); a resize, a density change and the GPU restore force a
+    draw (they can crowd it); the axes' colors are read once per theme.
+    `draw()` writes `#vp`'s camera, moving, triangles and projection only
+    when they changed, and the explorer's `data-piece-screen` only when
+    the poses (`SolutionScene.version`) or the camera changed; a piece's
+    bounding box is computed once. **The idle frame (checkpoint D's
+    note):** not seen. A probe that hooked `requestAnimationFrame` and
+    counted `data-frames` over 3 s, on HEAD's renderer and on this tree,
+    in eight states (Entities with and without the mouse over the view,
+    the context lost, restored, Puzzle, Solver, Bermuda on the Solver and
+    on Entities), counted 0 frames in each; on HEAD the only requests were
+    two from a MutationObserver's callback, which drew nothing. The checkpoint's three frames most likely came from a load
+    still settling. So `data-restored` is gone, and `view.e2e.ts`'s "the
+    view draws again after the GPU reset" waits until the frame count is
+    still for a second (`quietFrames`), then expects a frame after the
+    restore: on HEAD's renderer without the restore's `request()` it fails
+    there (16, wanted more than 16). Tests (instead of the item's unit
+    test, which cannot reach the view: the unit tests have no DOM):
+    `view.e2e.ts` "the view draws nothing with no input, nor for pointer
+    moves that change nothing" (idle, moves over empty space, over the
+    shape with 3D edit off, and back: no frame; on HEAD 17 frames became
+    43); `explore.e2e.ts`: with Alt held over a piece the cursor is `grab`
+    (on HEAD `''`); `view3d.test.ts` "the edit preview and the overlays
+    drawn again only on a change" (both fail on HEAD's files). e2e:
+    `view`, `picking`, `entities`, `explore`, `solver`, `exports` 42 of 42;
+    `shapes`, `stacking`, `sliding`, `tilted`, `keys`, `piece-images`,
+    `tray-border`, `keymap`, `puzzle` 57 of 57 (the screenshot tests are in
+    `view`, `exports`, `sliding` and `stacking`: unchanged); `perf.e2e.ts`
+    (timed, alone): passes.
 
-- [ ] **10.2 `lookChanged` runs at least three times per snapshot, and rebuilds the overlays each time** (speed; M)
+- [x] **10.2 `lookChanged` runs at least three times per snapshot, and rebuilds the overlays each time** (speed; M)
   - *Where:*
     - `web/src/renderer/view3d/view.ts`:
       - `reload()` calls it twice (880, 916, 925);
@@ -3994,8 +4038,29 @@ Rule 7 holds for every renderer item here.
     - `setBoard(null)` does nothing when the board is already null.
     - One `lookChanged` per snapshot.
   - *Tests:* the screenshot tests, `entities.e2e.ts`, `view.e2e.ts`.
+  - Done (2026-11-25): `lookChanged` now only asks: it requests a render
+    and queues one `applyLook` (a microtask; `draw()` runs a pending one
+    first, so a capture is never stale). A snapshot reaches the view, its
+    workspaces, their boards and trays in one task, so the look is worked
+    out once for all of it (the reload's call, the Entities'
+    `setBoard(null)`, the trays' and the Solver's). `setBoard(null)` returns
+    when that workspace's board is already null. `Overlays.update` returns
+    when its options (JSON: extent, axes, bounds, slab, colors) are the
+    ones drawn; on a change only the geometries are made again, the line
+    materials are kept by (color, width, dashed) and the slab's by color,
+    so no shader program is dropped and relinked. `Preview.set` returns
+    false for the ghosts shown (a frame's arrays keyed by identity, cells
+    and sides by the mesh too); its materials are kept by (fill, alpha),
+    its lines' by (edge, dashed), and every box shares one unit box and
+    its edges (the dash distances computed once). `ShapeScene.dispose`
+    frees the kept ones (`dispose()`). `floorOfMesh` and `layerSlab` now
+    run once a snapshot with the look. Tests: `view3d.test.ts` (the
+    preview kept for equal ghosts, made again from another mesh, its
+    materials kept; the overlays kept for equal options, new geometry and
+    the same materials for another layer), both failing on HEAD's files;
+    the e2e specs and screenshots under 10.1.
 
-- [ ] **10.3 The shape view fetches its mesh again at every revision** (speed; S)
+- [x] **10.3 The shape view fetches its mesh again at every revision** (speed; S)
   - *Where:* `web/src/renderer/view3d/view.ts`:
     - `reload` (878, 884, 895) keys and asks for the mesh at the document's
       revision;
@@ -4014,8 +4079,18 @@ Rule 7 holds for every renderer item here.
     (`core/shapelogic/app/document_tilted.cpp:402-404`).
   - *Tests:* `perf.e2e.ts` expects exactly one build when a shape is
     selected; also check the SVG export.
+  - Done (2026-11-25): `reload` keys the shown mesh and asks the cache at
+    `shapeRevision(shape.id)`, the revision the shape last changed at, not
+    the document's; the cache then answers an unchanged shape from what it
+    has, and the view builds nothing. `#vp[data-revision]` stays the
+    snapshot's revision and is now set on the early return too. Test:
+    `view.e2e.ts` "an edit that leaves the shape as it is asks for no mesh
+    and builds none" (two `problem.rename`s, counted in the call log and
+    the `view3d:mesh-build` measures; on HEAD 3 `shape.mesh` calls where 1
+    was before); `perf.e2e.ts` passes (one build when a shape is
+    selected); `exports.e2e.ts` (the SVG export) passes.
 
-- [ ] **10.4 Cards re-render whole on every snapshot, keyed by hand-written lists** (speed, trap; M)
+- [x] **10.4 Cards re-render whole on every snapshot, keyed by hand-written lists** (speed, trap; M)
   - *Where:*
     - `web/src/renderer/entities/workspace.ts` (315-357, 385-394);
     - `entities/shapes-list.ts` (109-200);
@@ -4039,8 +4114,38 @@ Rule 7 holds for every renderer item here.
     - call `scrollIntoView` only when the selection changed.
   - *Keep:* the guards for renaming in place and for typing a disc size.
   - *Tests:* the e2e specs `shapes`, `entities`, `keys` and `piece-images`.
+  - Done (2026-11-25): one pattern for every card: `setHtml`
+    (`shell/dom.ts`), the markup as the view model. Each part is drawn only
+    when its markup changed: building the string is cheap, the DOM write
+    is skipped, and no field can be missing from a key (the item's
+    `JSON.stringify(model)` would need a second, hand-kept model).
+    `setHtml` now says whether it drew, and checks for an emptied element
+    with `hasChildNodes()` (reading `innerHTML` serialized it at every
+    call). The shapes lists and the rail, the editor card's tool strip,
+    plane buttons, layer strip, selection bar, colors and rail, the
+    inspector's four parts, Tilt & tolerance and Tray border all go
+    through it. `tiltKey`, `borderKey` and the workspace's `inspectorKey`
+    are gone; no field shown was missing from `tiltKey` (degrees follow
+    down and over), but its hand-written list was the trap. *Keep:* a
+    rename or a disc's size field being typed in drops the cache, and the
+    tilt and border cards' own redraws (a refused or bad value) go through
+    `redraw()`, which drops it too, so a field gets the engine's value
+    back. The Mirror and Span row is redrawn only when it changed, its
+    layer label put back. `scrollIntoView` runs only when the plane, the
+    layer count or the chosen layer changed, and the palette is measured
+    only when it was redrawn or the color changed. `Grid2D` rebuilds the
+    picture's pattern only when its key changed (the hash, size,
+    transform, source, drawing size and color) or the drawing has new
+    defs; `paint` itself still runs as often (the cell loop is cheap).
+    Tests: `entities.e2e.ts` "a stroke draws the cells, not the cards
+    round them" (0 writes in twelve card elements over a four-cell drag;
+    on HEAD's files shapeList 5, lrail 5, toolStrip 5, modRow 28, lstrip
+    13, selbar 18, colFoot 5, rrail 5); `piece-images.e2e.ts`: a cell drawn
+    and erased in the box keeps the pattern's `<image>` (fails on HEAD's
+    files). e2e: `shapes`, `entities`, `keys`, `tilted`, `tray-border`,
+    `piece-images` 36 of 36; `stacking`, `sliding` 27 of 27.
 
-- [ ] **10.5 Hidden tabs reload after every edit** (speed; S to M)
+- [x] **10.5 Hidden tabs reload after every edit** (speed; S to M)
   - *Where:*
     - The Puzzle tab:
       - `web/src/renderer/puzzle/workspace.ts` (133-139, 492-583):
@@ -4070,8 +4175,35 @@ Rule 7 holds for every renderer item here.
     show the tab first, or keep the attribute up to date cheaply. Decide
     which, and say so in the Done line.
   - *Tests:* the puzzle and solver e2e specs.
+  - Done (2026-11-25): out of sight, the Puzzle and the Solver mark an
+    edit of the same document stale and return (no `problem.get`,
+    `problem.fit`, `sliding.tray`, `shape.get`, `stacking.board` or
+    `solve.status`, no cards drawn); their layout listener reads and draws
+    when the tab is shown. Another document, another grid, or cards never
+    loaded are still read at once. The hidden Solver on a stacking puzzle
+    still reads `solve.status` alone: Export ▸ Paused Solver State asks
+    whether its search is saved. *Risk, decided:* the attribute is kept up
+    to date cheaply, not the helpers made to show the tab. Out of sight,
+    `#leftP` and `#leftS[data-revision]` (and `data-problem`) follow the
+    snapshot, the revision waits are released, and `whenShown` counts a
+    stale workspace as shown: 57 `solverSettled` calls, plus `runEnded`
+    and the `#leftS` reads, come from other tabs, and showing the tab
+    would change their flows. Shown again, the attribute is cleared until
+    the load lands. The Solver's notes (`RunCard.foundOf`) read a problem
+    again only when a `document.changed` named it with solutions or
+    problems, or when its counts in the snapshot moved. The live preview
+    asks for pictures only while the Solver is shown. Tests:
+    `puzzle.e2e.ts` "a tab out of sight reads nothing at an edit, and
+    reads it when shown" (three renames on Entities: no reads from the
+    hidden tabs, each reads when shown; on HEAD's files 25 reads where 7
+    were before). e2e on HEAD with only this item's and 10.7's files:
+    `puzzle`, `solver`, `keys`, `tooltips`, `explore`, `files`, `keymap`,
+    `security`, `stacking`, `exports`, `cache`, `tilted`, `tray-border`,
+    `sliding`, `play`, `stack-play`, `frozen`: 97 of 97. Left: the Solver's
+    solution pager still refreshes out of sight when a change names its
+    problem's solutions (the item did not list it).
 
-- [ ] **10.6 The picture caches never let go** (memory; M)
+- [x] **10.6 The picture caches never let go** (memory; M)
   - *Where:*
     - `web/src/renderer/shell/piece-images.ts` (30, 140-143, 186-196):
       `ready` holds an ImageBitmap and a base64 data URL for every hash and
@@ -4091,8 +4223,32 @@ Rule 7 holds for every renderer item here.
       Never close a bitmap an open dialog shows.
     - Clear the mesh-build measures as the render measures are cleared.
   - *Tests:* `piece-images.e2e.ts`, `tray-border.e2e.ts`, the play specs.
+  - Done (2026-11-25): the cache of `piece-images.ts` is a `PictureKeep`
+    (new `shell/picture-keep.ts`, DOM-free so the unit tests reach it;
+    `inside` and `stackKey` moved there). `keepPicturesOf(store)`,
+    subscribed in `app.ts` after the view and the workspaces, keeps at
+    each new snapshot only what `namedPictures` names: each shape's
+    picture hashes, its border's, and the key of every stack drawn as one.
+    For the rest, `onPictureGone` lets `material.ts` dispose the texture
+    (its image dropped, so a material that still holds it draws the
+    color), then the bitmap is closed; a failed hash no longer named is
+    forgotten. With no snapshot (an engine restart) nothing is dropped.
+    The image dialog holds the shape's own pictures (`holdPictures`) until
+    it closes, so none is closed under it. The 2D views draw the data
+    URLs, which outlive the close. `view3d:mesh-build` is measured through
+    `measureMeshBuild` in `renderer.ts` and cleared every 2000 builds, as
+    the renders are (`MEASURES_KEPT`). Tests: `piece-images.test.ts` (what
+    is not named goes, a held picture stays until released, the texture is
+    disposed before the bitmap is closed; what a document names), whose
+    first test fails with HEAD's `material.ts`; `piece-images.e2e.ts` "a
+    picture the document no longer names is let go" (a cleared image's
+    bitmap closed, counted through `ImageBitmap.prototype.close`), which
+    fails on HEAD (0 closes). e2e `piece-images`, `tray-border`, `play`,
+    `stack-play` 16 of 16, and the new test. Left: a picture still loading
+    when its hash stops being named stays until the next snapshot; an undo
+    back to a pruned picture fetches and decodes it again.
 
-- [ ] **10.7 A MutationObserver on the whole page rescans the document** (speed; S)
+- [x] **10.7 A MutationObserver on the whole page rescans the document** (speed; S)
   - *Where:*
     - `web/src/renderer/shell/theme.ts` (103-145, 191-202) watches
       childList, subtree and `title` changes. In Minimal density it runs two
@@ -4105,8 +4261,22 @@ Rule 7 holds for every renderer item here.
     control's caption in Minimal density. Then the observer and `data-tip`
     go.
   - *Tests:* `tooltips.e2e.ts`.
+  - Done (2026-11-25): `tooltip.ts` reads the settings at each hover.
+    With "Show tooltips" off it still holds the title, so no native tip
+    shows, and draws nothing. In Minimal density a `.tbn`, `.rbtn`, `.gbtn`
+    or `.abtn` with no title of its own shows its caption
+    (`svDensityTitles`' text), held only while the pointer is on it, never
+    written as a title. `theme.ts`'s MutationObserver, `densityTitles`,
+    `applyTips` and `data-tip` are gone; a change of density or tips
+    releases the tip shown. The title's move into a data attribute is the
+    hover's hold (into `data-hover-title` and back), kept reversible
+    because code and tests read `title`. Tests: `tooltips.e2e.ts` 2 of 2;
+    `keys.e2e.ts`'s settings test now checks, with an injected captioned
+    button, that the caption shows as the tip in Minimal with no title
+    written, that no tip shows with tips off, and that it shows again with
+    tips on. On HEAD's files it fails: the observer wrote the title.
 
-- [ ] **10.8 Solver playback does needless work every frame** (speed; S)
+- [x] **10.8 Solver playback does needless work every frame** (speed; S)
   - *Where:*
     - `web/src/renderer/solver/player.ts` (608-668):
       - `track.at()` runs twice per frame (623 and 504);
@@ -4122,8 +4292,27 @@ Rule 7 holds for every renderer item here.
       that read poses: if one reads them while playing, let it pause first.
   - *Tests:* `keymap.e2e.ts` (`data-t`), the solver specs' poses helper,
     `explore.e2e.ts`.
+  - Done (2026-11-25): play's frames go through `PlaySteps`
+    (`solver/poses.ts`, DOM-free): one `track.at` per frame (it ran twice,
+    the check's and `pose()`'s), the chunks asked for only when play
+    enters another chunk (that ensure prefetches the next), and while a
+    chunk is missing the time held, nothing posed again and the ask
+    repeated every frame as before (a failed load is asked for again). One
+    `mark()` per frame (it was two). `View3D.poseSolution` takes `marks`
+    (default true): the player's frames pass false, so `#vp[data-poses]`
+    and `data-solution-pieces` are written on a pause (`pause()` poses
+    again after stopping), a seek and the end (the end sets `playing`
+    false before its pose); the explorer and the live preview keep writing
+    them. No spec read the poses while playing (`expectPosesAt` waits for
+    `data-t` after a seek or the end), so none needed a pause. Tests:
+    `solver.test.ts` "the frames of play" (one `at()` a frame; chunks 0
+    and 1 asked once each over 1.5 chunks; held and asked again while
+    missing); `solver.e2e.ts` counts the `data-poses` writes of a play to
+    the end (1 or 2; on HEAD's files 551) and checks that a pause writes
+    its pose. e2e: `solver`, `keymap`, `explore` 13 of 13; `sliding`,
+    `stacking`, `exports`, `tray-border` 30 of 30.
 
-- [ ] **10.9 The app log blocks the main process** (speed; M)
+- [x] **10.9 The app log blocks the main process** (speed; M)
   - *Where:*
     - `web/src/main/app-log.ts`:
       - 376-389: one `appendFileSync` per stderr line of every window's
@@ -4145,6 +4334,30 @@ Rule 7 holds for every renderer item here.
     - Wait 200 ms after typing before searching.
     - Drop the cache when the dialog closes.
   - *Tests:* `app-log.test.ts`, `logs.e2e.ts`.
+  - Done (2026-11-25): the log keeps one handle open (closed before a
+    rename, trim or delete) and writes the lines of a tick together at its
+    end (`setImmediate`, `writeSync`); an ERROR line is written at once
+    with the lines before it, and `flush()` runs before every read and on
+    quit (`will-quit`, `process.on('exit')`). The batch stays synchronous,
+    once a tick: an asynchronous write could land in a file renamed under
+    it. `EngineLines` cuts a line at `ENGINE_LINE_MAX` (64 Ki characters;
+    the engine writes ASCII), writes it marked " (cut)" and drops the rest
+    up to its newline (passed on, the rest would read as a bogus `Engine
+    Error`). The lines read keep their level. `page()` keeps the last
+    matches: a search whose text grows, or that turns errors-only on,
+    looks only at them and the lines added since, and the next page of the
+    same search reuses them. The search box waits 200 ms
+    (`SEARCH_WAIT_MS`). Closing the dialog sends `bt:log` `closed`
+    (`BtApp.logClosed`), which drops the cache (`AppLog.forget`). Tests:
+    `app-log.test.ts`, three new (the tick's writes and the error at once;
+    the cut lines; the narrowing, counted through `toLowerCase` calls),
+    each seen failing on HEAD's `app-log.ts` for its own reason (21 of 21
+    with the fix); `logs.e2e.ts` 3 of 3, `engine-failure.e2e.ts` and
+    `ipc.e2e.ts` (they read the log file) 6 of 6. Left: the log is shared
+    by the windows, so closing the dialog in one drops the cache of
+    another's open one (it reads again on its next page); a log file
+    deleted from outside while the app runs is written into until the next
+    rotate, trim or Clear (before, the next line made a new file).
 
 - [ ] **10.10 Every engine start launches the engine twice** (speed; S; after 2.2)
   - *Where:* `web/src/engine/node-transport.ts` (`engineVersion()` 19-38, and
@@ -4159,8 +4372,12 @@ Rule 7 holds for every renderer item here.
       fails, and this removes the first.
   - *Tests:* `host.test.ts:65-68` (the `/--version/` expectation for a
     missing engine becomes the spawn error).
+  - Waiting (2026-11-25): 2.2 has not reached users. It is on this branch
+    only, and the latest release is v2.1, from before it. Removing the
+    `--version` launch now would lose the reports that say which of the
+    two launches fails. Do it after the first release with 2.2.
 
-- [ ] **10.11 Rescue copies without the document crossing IPC** (speed; M; after 4.5)
+- [x] **10.11 Rescue copies without the document crossing IPC** (speed; M; after 4.5)
   - *Where:* `web/src/renderer/shell/rescue.ts` (32, 207, 224) →
     `web/src/main/app-ipc.ts:440-452` → `web/src/main/rescue.ts:58-67`.
   - *Problem:* at most every 2 s per changed window, the whole document goes
@@ -4178,10 +4395,69 @@ Rule 7 holds for every renderer item here.
       this (check them).
   - *Tests:* the rescue specs in `files.e2e.ts`; a contract test of
     `saveRescue`.
+  - Done (2026-11-25): `bt:rescue` carries only the record; the main
+    process has the window's engine write the copy, through the new method
+    `document.saveRescue {path, revision}` (rule 10: schema, contract call,
+    `docs/API.md`, `just app-gen`). That call is made before the handler
+    awaits, so it goes ahead of the window's later calls. The engine gzips
+    at the fast level, as 4.5 chose, and replaces the file whole with
+    `io::writeFileWhole` (`writeGzipFile`, which the item names, writes at
+    level 9). It does not mark the document clean, and refuses
+    (`invalid_state`) while solving and for a revision that is not the
+    open document's (`[State::documentSince(), revision]`). That stands in
+    for the renderer's old generation check: a `document.open` queued
+    ahead, or a new engine after a crash (revision 0), never overwrites
+    the copy. Main then hashes the copy and writes the record, now after
+    the copy; a crash between still leaves a hash that does not match, so
+    the copy is offered as a puzzle without a file. The reopen is
+    `document.open {path: copy, as: file | null, dirty: true}`: `as` and
+    `dirty` are new and mirror `openBytes`' `path` and `dirty`. `PathGrants`
+    checks `as` (`callPaths`, a list of path params per method;
+    `document.saveRescue` is checked as `document.save`), and main grants
+    the window the copy's own file. The renderer writes again when the
+    snapshot changed meanwhile or became clean. Tests: the contract case
+    (`document_files`: write, reopen, both refusals, `io_error`, `as` null
+    or bad); unit tests of `RescueStore`, the handler, `callPaths` and the
+    store; `files.e2e.ts`: the page never calls `saveBytes` or `openBytes`,
+    seen failing on HEAD's files. Gates: `just build release`, ctest
+    `contract`; `just test-all` 75 of 75; `just check` on
+    `engine/methods_document.cpp`, `engine/app_log.cpp`,
+    `engine/engine.cpp`: clean; e2e `files` 18 of 18 (twice) and the two
+    `solver` rescue tests. Left: `document.saveBytes {gzip}` has no caller
+    in the app now (for stage 14); decision 0013 still lists the path
+    methods as they were (a decision record, left as it is).
 
 **Gates for stage 10:** `just app-check`, `just app-test`, the e2e specs each
 item names, `perf.e2e.ts` through `just app-e2e-timed` (it runs alone), and
 the screenshot tests.
+
+Done (2026-11-25), the whole stage (10.10 waits for 2.2 to reach users):
+- `just app-check`: clean. `just app-test`: 658 of 658 (63 files).
+- e2e, on builds of their own (`BT_OUT_DIR`), after the last renderer
+  edit: `view`, `picking`, `entities`, `explore`, `solver`, `exports` 42 of
+  42; `shapes`, `stacking`, `sliding`, `tilted`, `keys`, `piece-images`,
+  `tray-border`, `keymap`, `puzzle` 57 of 57; `logs`, `files`, `tooltips`,
+  `play`, `stack-play`, `engine-failure`, `ipc`, `layout`, `frozen`,
+  `cache` 44 of 44. The screenshot tests (in `view`, `exports`, `sliding`
+  and `stacking`) pass unchanged. `perf.e2e.ts` alone (the timed project,
+  as `just app-e2e-timed` runs it, on this session's own build): passes
+  (build 5.2 ms, render median 0.3 ms). Not run: `imports`, `rebuild`,
+  `security` and `windows` (no item touches them), and so never the whole
+  suite at once.
+- Each item's new check, run against HEAD's files in a scratch copy (rule
+  7, built with `SHAPELOGIC_VERSION=v2.1`): fails there (see the Done
+  lines).
+- The engine method (10.11): `just test-all` 75 of 75; `just test` 30 of
+  30, twice, after the stage's last C++ edit; `just check` on its three
+  engine files: clean. Not run: the sanitizers, the oracle and the
+  benchmarks (no core change), Linux and Windows builds (no system call,
+  no `#ifdef`).
+- `just site-demo --check`, after the last source edit: rebuilt; every
+  puzzle type opens and plays. `just site-build`: built, its 8 tests pass.
+- `docs/ARCHITECTURE.md`: a map line for `picture-keep.ts`; the lines of
+  `app-log.ts`, `main/rescue.ts`, `piece-images.ts`, `theme.ts`,
+  `tooltip.ts`, `overlays.ts`, `preview.ts`, `view.ts` and `viewcube.ts`;
+  the path rule names the rescue copy.
 
 ## Stage 11: one source of truth: core, engine, API, Python, CLI
 

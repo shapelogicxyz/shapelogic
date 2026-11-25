@@ -540,7 +540,7 @@ Files in `web/src/engine/`:
 
 Files in `web/src/main/`:
 - `app-ipc.ts`: `window.btApp`'s main side: file dialogs, the store, recent files, the rescue copy, help links, menu state, the close, export grants and writes.
-- `app-log.ts`: the app's log file (`logs/shapelogic.log`), its rotation and the Log File Manager's pages; the engines' stderr and protocol problems in it.
+- `app-log.ts`: the app's log file (`logs/shapelogic.log`; one handle, a tick's lines written together), its rotation and the Log File Manager's pages; the engines' stderr and protocol problems in it.
 - `cache-files.ts`: View ▸ Manage Cache and Autosave Files: the items, `CacheLinks`.
 - `cache-folder.ts`: the cache folder (`CacheFolderManager`): the engines' `slideFolder` and `panexFolder`, moves and deletes.
 - `cli-tool.ts`: the command line tool the app ships, and its install.
@@ -560,7 +560,7 @@ Files in `web/src/main/`:
 - `path-owners.ts`: `PathOwners`, which window owns a file (decision 0036).
 - `renderer-watch.ts`: `RendererWatch`: a window's page that crashed reloaded (three times a minute, then asked), one that hangs asked about; `CLOSE_TAKEN_MS`, how long a page may take to take a close.
 - `replace-file.ts`: `replaceFile`, `replaceFileSync`: the one way the main process replaces a file (a temporary file of its own, synced, renamed); `tempName`, `isTempOf`: those files' names (the log's compression streams into one).
-- `rescue.ts`: `RescueStore`, `RescueSlots`: the rescue copies.
+- `rescue.ts`: `RescueStore`, `RescueSlots`: the rescue copies (the window's engine writes and opens each one: `document.saveRescue`, `document.open` with `as`).
 - `search-folders.ts`: what both cache modules know of the search folders: the engine's names, `isLockFile`, the walk, `errorCode`.
 - `security.ts`: the Electron security checklist as data and pure functions.
 - `startup-line.ts`: each window's Startup line.
@@ -623,17 +623,18 @@ Files in `web/src/renderer/shell/`:
 - `new-grids.ts`: what File ▸ New says about each grid (`NewKind`).
 - `panel.ts`: a non-modal window over the workspace (status window, debug statistics).
 - `persist.ts`: the settings and layouts kept across sessions.
+- `picture-keep.ts`: what the picture cache keeps: the hashes and stack keys a snapshot names, the pictures a dialog holds; the rest let go, textures first (DOM-free).
 - `picture-math.ts`: a sliding piece's picture to its cells (DOM-free).
 - `piece-colors.ts`: the original's `pieceColor` table and jitter; board colors.
-- `piece-images.ts`: pictures fetched once per hash and decoded once (decision 0038); `stackPicture`.
+- `piece-images.ts`: pictures fetched once per hash and decoded once (decision 0038); `stackPicture`; only what the document names is kept (`keepPicturesOf`).
 - `popover.ts`: the popover menu.
 - `prefs.ts`: the settings as the client holds them; `validPrefs`.
 - `release-notes.ts`: a release's notes as HTML for the update dialog.
 - `rescue.ts`: `Rescue`: the rescue copy written and offered.
 - `settings.ts`: the settings dialog.
 - `status.ts`: the status bar, flashes, `reportError`.
-- `theme.ts`: theme, density, font size, card widths, tooltips.
-- `tooltip.ts`: tooltips the page draws itself.
+- `theme.ts`: theme, density, font size, card widths.
+- `tooltip.ts`: tooltips the page draws itself, the settings read at each hover ("Show tooltips", Minimal's captions).
 - `topbar.ts`: the file's name, path and dirty mark; the window's title.
 - `tray-border.ts`: a tray's border as the views share it (decision 0046).
 - `updates.ts`: the update check and its dialog.
@@ -647,10 +648,10 @@ Files in `web/src/renderer/view3d/`:
 - `material.ts`: the faces' shader: the original's colors and light.
 - `mesh.ts`: a `MeshFrame` as three.js geometry through `meshArrays()`.
 - `meshcache.ts`: meshes by shape, style and transformation with their revision.
-- `overlays.ts`: axes, bounds, the layer's slab.
+- `overlays.ts`: axes, bounds, the layer's slab, drawn again only when their options change.
 - `picking.ts`: a raycast's triangle to its cell and side.
 - `pieces.ts`: `PiecesScene`, the Puzzle workspace's pieces scene.
-- `preview.ts`: the 3D edit's preview.
+- `preview.ts`: the 3D edit's preview, made again only when its ghosts change.
 - `renderer.ts`: `ViewRenderer`: three.js, the cameras, render on demand, `capture`, `band`, `tilt`, `turn`.
 - `scene.ts`: `ShapeScene`: one shape, its passes, marks, edge lines, overlays.
 - `solution.ts`: `SolutionScene`: a solution's pieces posed, framed on the result.
@@ -659,8 +660,8 @@ Files in `web/src/renderer/view3d/`:
 - `tray-border.ts`: a tray's border in 3D (decision 0046).
 - `tray3d.ts`: `TrayScene`, a tilted tray's outline, walls and cells (decision 0045).
 - `trays.ts`: `TrayView`, a sliding board's START and GOAL trays in the Puzzle view.
-- `view.ts`: `View3D`: the view put together; its state as `#vp`'s `data-*`.
-- `viewcube.ts`: the view cube.
+- `view.ts`: `View3D`: the view put together (one ray a pointer event, the look worked out once a task); its state as `#vp`'s `data-*`.
+- `viewcube.ts`: the view cube, drawn again only when what it shows changed.
 - `walls.ts`: a sliding tray's walls in the Solver's view.
 
 Files in `web/src/renderer/entities/`:
@@ -758,7 +759,7 @@ Rules (AGENTS.md's; decisions 0012, 0013, 0034, 0036, 0043):
   engine's settings (`Store.wantedSettings` on every new engine); the rest
   are the client's. The main process gives each engine its folders before
   the page may call it, and refuses a page's `settings.set` naming one.
-- A path reaches an engine only from a dialog, the rescue record, a drop,
+- A path reaches an engine only from a dialog, the rescue record or copy, a drop,
   Open Recent or the system (`PathGrants`); an export is written by the main process only
   to a path its save dialog gave that window for that kind, once; it replaces any file through `replace-file.ts`.
 - One engine, rescue slot and goal window per window; the first window to

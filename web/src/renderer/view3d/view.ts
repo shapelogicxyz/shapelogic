@@ -20,7 +20,8 @@
 // (instead of the pieces scene), the pegs around the player's discs. It
 // renders only when something changed.
 
-import { Box3, Quaternion, Raycaster, Vector2, Vector3 } from 'three';
+import { Box3, Matrix4, Quaternion, Raycaster, Vector2, Vector3 } from 'three';
+import type { Ray } from 'three';
 
 import type { ShapeSummary, TrayBorder } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
@@ -54,7 +55,7 @@ import { SolutionScene } from './solution.ts';
 import type { ScenePose, SolutionModel } from './solution.ts';
 import type { Pick } from './picking.ts';
 import type { Ghost } from './preview.ts';
-import { ViewRenderer } from './renderer.ts';
+import { measureMeshBuild, ViewRenderer } from './renderer.ts';
 import { ShapeScene } from './scene.ts';
 import { vectorImage } from './svg.ts';
 import { Toolbar } from './toolbar.ts';
@@ -137,6 +138,12 @@ const modsOf = (e: {
   alt: e.altKey || e.metaKey,
 });
 
+/** The ray under the pointer, cast once an event: its point, and the ray in the model's units. */
+interface PointerRay {
+  ndc: Vector2;
+  local: Ray;
+}
+
 interface Drag {
   x: number;
   y: number;
@@ -199,6 +206,15 @@ export class View3D {
   };
   private readonly cube: ViewCube;
   private readonly toolbar: Toolbar;
+  /** The pointer's ray (one for the view) and the model's inverse matrix it is taken into. */
+  private readonly raycaster = new Raycaster();
+  private readonly toModel = new Matrix4();
+  /** Whether lookChanged asked for the look, not yet worked out (applyLook). */
+  private lookPending = false;
+  /** What the pieces' screen positions were worked out for (`data-piece-screen`). */
+  private piecesOnScreen = '';
+  /** What the Edit button shows now (JSON), so a hover that changes nothing leaves it. */
+  private editButtonShown = '';
   private readonly displayListeners = new Set<() => void>();
   private readonly canvas: HTMLCanvasElement;
   private extent: V3 = [1, 1, 1];
@@ -331,7 +347,7 @@ export class View3D {
       },
     });
     this.renderer.onRestored(() => {
-      this.cube.draw();
+      this.cube.draw(true);
     });
     this.toolbar = new Toolbar({
       display: this.display,
@@ -412,6 +428,8 @@ export class View3D {
       }
       if (changed.includes('density')) {
         this.toolbar.reset();
+        // the toolbar's size changed: the cube may be crowded, or no longer
+        this.cube.draw(true);
       }
       if (changed.includes('zAxis')) {
         this.camera.setBase(this.upright(), performance.now());
@@ -550,16 +568,23 @@ export class View3D {
     return this.shownLayer;
   }
 
-  /** Places the solution's pieces (a pose per piece of the layer's model). */
-  poseSolution(poses: readonly ScenePose[], layer: SolutionLayer = 'player'): void {
+  /**
+   * Places the solution's pieces (a pose per piece of the layer's model).
+   * `marks` false leaves the test attributes (`data-poses`,
+   * `data-solution-pieces`) as they were: a frame of play, which writes
+   * them when it pauses or ends.
+   */
+  poseSolution(poses: readonly ScenePose[], layer: SolutionLayer = 'player', marks = true): void {
     this.layers[layer].poses = [...poses];
     if (layer !== this.shownLayer) {
       return;
     }
     this.solution.setPoses(poses);
-    const vp = byId('vp');
-    vp.dataset.poses = this.solution.posesShown();
-    vp.dataset.solutionPieces = this.solution.describe();
+    if (marks) {
+      const vp = byId('vp');
+      vp.dataset.poses = this.solution.posesShown();
+      vp.dataset.solutionPieces = this.solution.describe();
+    }
     this.renderer.request();
   }
 
@@ -700,6 +725,9 @@ export class View3D {
    * rod set shown alone instead of the disc, the Puzzle's start or goal.
    */
   setBoard(model: BoardModel | null, where: 'entities' | 'puzzle'): void {
+    if (model === null && this.boards[where] === null) {
+      return;
+    }
     this.boards[where] = model;
     this.showBoard();
     this.renderTag();
@@ -799,32 +827,41 @@ export class View3D {
 
   /** The 3D edit's preview (empty: none). */
   setPreview(ghosts: readonly Ghost[]): void {
-    this.scene.setPreview(ghosts);
-    byId('vp').dataset.preview = String(this.scene.preview.size);
-    this.renderer.request();
+    // drawn again only when it changed (cleanup item 10.1)
+    if (this.scene.setPreview(ghosts)) {
+      byId('vp').dataset.preview = String(this.scene.preview.size);
+      this.renderer.request();
+    }
   }
 
   /** Shows the shape as a tool tab button would leave it, over the shape (null: none). */
   setTaskGhost(arrays: MeshArrays | null): void {
-    this.scene.setTaskGhost(arrays);
-    byId('vp').dataset.taskGhost = String(this.scene.taskGhost.size);
-    this.renderer.request();
+    if (this.scene.setTaskGhost(arrays)) {
+      byId('vp').dataset.taskGhost = String(this.scene.taskGhost.size);
+      this.renderer.request();
+    }
   }
 
   /** The view's mouse cursor (empty: the navigation's). */
   setCursor(cursor: string): void {
-    this.canvas.style.cursor = cursor;
+    if (this.canvas.style.cursor !== cursor) {
+      this.canvas.style.cursor = cursor;
+    }
   }
 
   /** The Edit button. */
   renderEditButton(e: EditButton): void {
-    this.toolbar.renderEdit(e);
+    const key = JSON.stringify(e);
+    if (key !== this.editButtonShown) {
+      this.editButtonShown = key;
+      this.toolbar.renderEdit(e);
+    }
   }
 
   /** The modifiers held changed (a key): the hover is told again. */
   modsChanged(m: ViewMods): void {
     this.mods = m;
-    if (this.hoverAt !== null && this.drag === null) {
+    if (this.hoverAt !== null && this.drag === null && tab === 'entities') {
       this.edit?.hover(this.lastPick, m, this.overSpace, this.lastLayerCell);
     }
   }
@@ -844,7 +881,7 @@ export class View3D {
     this.board.setResolution(vp.clientWidth, vp.clientHeight);
     this.shapeTray.setResolution(vp.clientWidth, vp.clientHeight);
     this.solutionTray.setResolution(vp.clientWidth, vp.clientHeight);
-    this.cube.draw();
+    this.cube.draw(true);
     this.renderer.request();
   }
 
@@ -878,20 +915,25 @@ export class View3D {
     }
     this.extent = gridExtent(snap.grid, shape.size);
     const style = this.display.style;
-    const key = `${store.generation}:${shape.id}:${style}:${snap.revision}`;
+    // the mesh is asked for at the revision the shape last changed at, not
+    // the document's: a rename, a weight or a solve's end leaves it as it is
+    // (cleanup item 10.3; the engine names every shape whose mesh changed)
+    const revision = this.shapeRevision(shape.id);
+    const key = `${store.generation}:${shape.id}:${style}:${String(revision)}`;
     if (key === this.shownKey) {
+      byId('vp').dataset.revision = String(snap.revision);
       this.lookChanged();
       return;
     }
     const size = shape.size;
-    const revision = snap.revision;
+    const snapRevision = snap.revision;
     // a Tilted Square board is drawn by its tray (syncTurn), its whole
     // cells as checker blocks: its mesh would show variable cells
     if (snap.tray != null && shape.board) {
       this.shownKey = key;
       this.scene.setMesh(null);
       byId('vp').dataset.shown = `${shape.id}:${style}`;
-      byId('vp').dataset.revision = String(revision);
+      byId('vp').dataset.revision = String(snapRevision);
       this.lookChanged();
       return;
     }
@@ -907,15 +949,11 @@ export class View3D {
           revision,
           transformation: 0,
         });
-        performance.measure('view3d:mesh-build', {
-          start: t0,
-          end: performance.now(),
-          detail: { cells: shape.fixed + shape.variable, triangles: reply.triangles },
-        });
+        measureMeshBuild(t0, { cells: shape.fixed + shape.variable, triangles: reply.triangles });
         this.shownKey = key;
         this.scene.setMesh(built);
         byId('vp').dataset.shown = `${shape.id}:${style}`;
-        byId('vp').dataset.revision = String(revision);
+        byId('vp').dataset.revision = String(snapRevision);
         this.lookChanged();
         this.repick();
       },
@@ -1103,8 +1141,27 @@ export class View3D {
     };
   }
 
-  // the look and the overlays from the options, the store and the settings
+  // the look and the overlays changed: worked out again once for everything
+  // a task changed (a snapshot reaches the view, its workspaces and their
+  // boards and trays in one task: cleanup item 10.2), before the next frame
   private lookChanged(): void {
+    this.renderer.request();
+    if (this.lookPending) {
+      return;
+    }
+    this.lookPending = true;
+    queueMicrotask(() => {
+      this.applyLook();
+    });
+  }
+
+  // the look and the overlays from the options, the store and the settings
+  // (when lookChanged asked for them)
+  private applyLook(): void {
+    if (!this.lookPending) {
+      return;
+    }
+    this.lookPending = false;
     // the pictures may have been decoded or changed since the scenes were set
     this.solution.applyPictures();
     this.trays.applyPictures();
@@ -1264,6 +1321,8 @@ export class View3D {
   }
 
   private draw(): void {
+    // a look asked for in this task (a capture draws at once)
+    this.applyLook();
     const moving = this.camera.step(performance.now());
     // the trays' titles (START, GOAL) over the Puzzle view
     let tags = '';
@@ -1282,8 +1341,25 @@ export class View3D {
       r.render();
       // the labels drawn, readable from outside (the e2e tests)
       byId('vp').dataset.pieceLabels = this.solution.labelsShown();
-      if (this.solver?.movesPieces() === true) {
-        // where each piece is on the screen (the e2e tests drag them)
+      // where each piece is on the screen (the e2e tests drag them): worked
+      // out again only when the poses or the camera changed (cleanup item 10.1)
+      const c = this.camera;
+      const at = [
+        this.solution.version,
+        c.q.x,
+        c.q.y,
+        c.q.z,
+        c.q.w,
+        c.zoom,
+        c.px,
+        c.py,
+        r.width,
+        r.height,
+        r.perspective ? 1 : 0,
+        r.turn,
+      ].join(',');
+      if (this.solver?.movesPieces() === true && at !== this.piecesOnScreen) {
+        this.piecesOnScreen = at;
         byId('vp').dataset.pieceScreen = (this.solutionModel?.pieces ?? [])
           .map((p) => {
             const at = this.pieceOnScreen(p.piece);
@@ -1305,15 +1381,24 @@ export class View3D {
     if (moving || this.camera.moving) {
       this.renderer.request();
     }
-    // the view's state, readable from outside (the e2e tests, accessibility tools)
+    // the view's state, readable from outside (the e2e tests, accessibility
+    // tools); written only when it changed
     const a = this.camera.angles;
     const vp = byId('vp');
-    vp.dataset.camera = [a.yaw, a.pitch, a.roll, this.camera.zoom, this.camera.px, this.camera.py]
-      .map((v) => (Math.abs(v) < 5e-4 ? 0 : v).toFixed(3))
-      .join(',');
-    vp.dataset.moving = this.camera.moving ? '1' : '0';
-    vp.dataset.triangles = String(this.renderer.gl.info.render.triangles);
-    vp.dataset.projection = this.display.persp ? 'perspective' : 'orthographic';
+    const mark = (k: 'camera' | 'moving' | 'triangles' | 'projection', v: string): void => {
+      if (vp.dataset[k] !== v) {
+        vp.dataset[k] = v;
+      }
+    };
+    mark(
+      'camera',
+      [a.yaw, a.pitch, a.roll, this.camera.zoom, this.camera.px, this.camera.py]
+        .map((v) => (Math.abs(v) < 5e-4 ? 0 : v).toFixed(3))
+        .join(','),
+    );
+    mark('moving', this.camera.moving ? '1' : '0');
+    mark('triangles', String(this.renderer.gl.info.render.triangles));
+    mark('projection', this.display.persp ? 'perspective' : 'orthographic');
   }
 
   // a sliding board's two trays in the Puzzle view, and their titles: the
@@ -1427,15 +1512,10 @@ export class View3D {
 
   // the piece of the solution shown under a point
   private solutionPieceAt(clientX: number, clientY: number): number | null {
-    const r = this.canvas.getBoundingClientRect();
-    const ndc = new Vector2(
-      ((clientX - r.left) / r.width) * 2 - 1,
-      -(((clientY - r.top) / r.height) * 2 - 1),
-    );
+    const ndc = this.ndcOf(clientX, clientY);
     this.renderer.frame(this.camera, this.solutionModel?.extent ?? [1, 1, 1]);
-    const ray = new Raycaster();
-    ray.setFromCamera(ndc, this.renderer.camera);
-    return this.solution.pick(ray);
+    this.raycaster.setFromCamera(ndc, this.renderer.camera);
+    return this.solution.pick(this.raycaster);
   }
 
   // the piece under a point in the pieces scene (the mockup's puzPick)
@@ -1450,7 +1530,29 @@ export class View3D {
     }
   }
 
-  private pickAtClient(clientX: number, clientY: number): Pick | null {
+  // a point of the canvas in normalized device coordinates
+  private ndcOf(clientX: number, clientY: number): Vector2 {
+    const r = this.canvas.getBoundingClientRect();
+    return new Vector2(
+      ((clientX - r.left) / r.width) * 2 - 1,
+      -(((clientY - r.top) / r.height) * 2 - 1),
+    );
+  }
+
+  // the ray under a point, the shape framed: in the scene (the raycaster's)
+  // and in the model's units (cleanup item 10.1: one ray an event, which
+  // the face, the space and the layer's cell share)
+  private castAt(clientX: number, clientY: number): PointerRay {
+    const ndc = this.ndcOf(clientX, clientY);
+    this.renderer.frame(this.camera, this.extent);
+    this.raycaster.setFromCamera(ndc, this.renderer.camera);
+    const local = this.raycaster.ray
+      .clone()
+      .applyMatrix4(this.toModel.copy(this.renderer.model.matrixWorld).invert());
+    return { ndc, local };
+  }
+
+  private pickOf(c: PointerRay): Pick | null {
     if (this.puzzleMode || this.solverMode) {
       return null;
     }
@@ -1460,7 +1562,8 @@ export class View3D {
       return null;
     }
     return pickAt(
-      this.ndcAt(clientX, clientY),
+      this.raycaster,
+      c.ndc,
       this.renderer.camera,
       target,
       mesh,
@@ -1468,32 +1571,19 @@ export class View3D {
     );
   }
 
-  // a point of the canvas in normalized device coordinates, the shape framed
-  private ndcAt(clientX: number, clientY: number): Vector2 {
-    const r = this.canvas.getBoundingClientRect();
-    this.renderer.frame(this.camera, this.extent);
-    return new Vector2(
-      ((clientX - r.left) / r.width) * 2 - 1,
-      -(((clientY - r.top) / r.height) * 2 - 1),
-    );
-  }
-
   // whether a point is over the shape's space (its grid box), where an
   // empty cell may be: 3D editing's cursor shows there, not only on faces
-  private spaceAtClient(clientX: number, clientY: number): boolean {
+  private spaceOf(c: PointerRay): boolean {
     if (this.puzzleMode || this.solverMode || this.rodSetShown || this.store.shape === null) {
       return false;
     }
-    const ray = new Raycaster();
-    ray.setFromCamera(this.ndcAt(clientX, clientY), this.renderer.camera);
-    ray.ray.applyMatrix4(this.renderer.model.matrixWorld.clone().invert());
-    return ray.ray.intersectsBox(new Box3(new Vector3(0, 0, 0), new Vector3(...this.extent)));
+    return c.local.intersectsBox(new Box3(new Vector3(0, 0, 0), new Vector3(...this.extent)));
   }
 
   // the cell of the editor's layer under a point, on the cube grids (whose
   // mesh units are cells): the middle of the ray's run through the layer's
   // slab, so a shape with no cells there yet can be drawn on in 3D
-  private layerCellAt(clientX: number, clientY: number): V3 | null {
+  private layerCellOf(c: PointerRay): V3 | null {
     const grid = this.store.snapshot?.grid;
     if (
       this.puzzleMode ||
@@ -1513,18 +1603,16 @@ export class View3D {
     lo.setComponent(ai, this.layer);
     hi.setComponent(ai, this.layer + 1);
     const slab = new Box3(lo, hi);
-    const ray = new Raycaster();
-    ray.setFromCamera(this.ndcAt(clientX, clientY), this.renderer.camera);
-    ray.ray.applyMatrix4(this.renderer.model.matrixWorld.clone().invert());
-    const enter = ray.ray.intersectBox(slab, new Vector3());
+    const ray = c.local.clone();
+    const enter = ray.intersectBox(slab, new Vector3());
     if (enter === null) {
       return null;
     }
     // the way out: the same line from beyond the slab, backwards
-    const far = slab.getSize(new Vector3()).length() + enter.distanceTo(ray.ray.origin) + 1;
-    ray.ray.origin.addScaledVector(ray.ray.direction, far);
-    ray.ray.direction.negate();
-    const leave = ray.ray.intersectBox(slab, new Vector3()) ?? enter;
+    const far = slab.getSize(new Vector3()).length() + enter.distanceTo(ray.origin) + 1;
+    ray.origin.addScaledVector(ray.direction, far);
+    ray.direction.negate();
+    const leave = ray.intersectBox(slab, new Vector3()) ?? enter;
     const mid = enter.add(leave).multiplyScalar(0.5);
     const cell = (i: number): number =>
       Math.min(Math.max(Math.floor(mid.getComponent(i)), 0), hi.getComponent(i) - 1);
@@ -1539,16 +1627,17 @@ export class View3D {
     const cube = grid === 'bricks' || grid === 'sliding' || grid === 'stacking';
     setCursor(p === null ? '' : describePick(p, cube));
     byId('vp').dataset.quarter = p?.quarter ?? '';
-    this.edit?.hover(p, this.mods, over, layerCell);
+    // 3D editing is the Entities workspace's: elsewhere its cursor would
+    // replace the view's own (the Solver's Alt-hover grab, cleanup item 10.1)
+    if (tab === 'entities') {
+      this.edit?.hover(p, this.mods, over, layerCell);
+    }
   }
 
   // the face, the space and the layer's cell under a point
   private showPickAt(clientX: number, clientY: number): void {
-    this.showPick(
-      this.pickAtClient(clientX, clientY),
-      this.spaceAtClient(clientX, clientY),
-      this.layerCellAt(clientX, clientY),
-    );
+    const c = this.castAt(clientX, clientY);
+    this.showPick(this.pickOf(c), this.spaceOf(c), this.layerCellOf(c));
   }
 
   private repick(): void {
@@ -1602,8 +1691,12 @@ export class View3D {
         if (this.solverMode && this.solver?.movesPieces() === true) {
           // the piece an Alt-drag would move
           const hp = this.solutionPieceAt(e.clientX, e.clientY);
-          byId('vp').dataset.hoverPiece = hp === null ? '' : String(hp);
-          this.canvas.style.cursor = hp !== null && this.mods.alt ? 'grab' : '';
+          const vp = byId('vp');
+          const shown = hp === null ? '' : String(hp);
+          if (vp.dataset.hoverPiece !== shown) {
+            vp.dataset.hoverPiece = shown;
+          }
+          this.setCursor(hp !== null && this.mods.alt ? 'grab' : '');
         }
         this.showPickAt(e.clientX, e.clientY);
         return;
@@ -1614,7 +1707,9 @@ export class View3D {
         }
         d.moved = true;
         // a drag navigates: no edit preview while it lasts
-        this.edit?.hover(null, this.mods, false, null);
+        if (tab === 'entities') {
+          this.edit?.hover(null, this.mods, false, null);
+        }
         d.x = e.clientX;
         d.y = e.clientY;
         if (d.m === 'orbit' && prefs.rot === 'Free Spin') {
@@ -1658,10 +1753,11 @@ export class View3D {
         }
       } else if (was !== null && was.btn === 0 && !was.moved) {
         // a click: the cell and side under it, edited when the workspace edits
-        const p = this.pickAtClient(e.clientX, e.clientY);
-        const lc = this.layerCellAt(e.clientX, e.clientY);
+        const c = this.castAt(e.clientX, e.clientY);
+        const p = this.pickOf(c);
+        const lc = this.layerCellOf(c);
         this.edit?.click(p, this.mods, lc);
-        this.showPick(p, this.spaceAtClient(e.clientX, e.clientY), lc);
+        this.showPick(p, this.spaceOf(c), lc);
       } else if (was?.moved === true) {
         this.repick();
       }

@@ -42,7 +42,8 @@ import { buildMesh } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
 import type { PieceMode, ScenePose, SolutionModel } from '../view3d/solution.ts';
 import type { View3D } from '../view3d/view.ts';
-import { ChunkLoads, PoseTrack, SAMPLES } from './poses.ts';
+import { ChunkLoads, PlaySteps, PoseTrack, SAMPLES } from './poses.ts';
+import type { Pose } from './poses.ts';
 
 /** A placed piece of the solution shown. */
 export interface PlayerPiece {
@@ -512,8 +513,14 @@ export class Player {
       });
       return;
     }
-    this.host.view.poseSolution(poses);
+    this.placePoses(poses, true);
     this.mark();
+  }
+
+  // the poses in the view; `marks`: also its test attributes (#vp[data-poses]),
+  // which are written on a pause, a seek and the end, not every frame of play
+  private placePoses(poses: readonly Pose[], marks: boolean): void {
+    this.host.view.poseSolution(poses, 'player', marks);
   }
 
   // ---- playing and seeking (the mockup's svTogglePlay, svSeek, svPlayLoop) ----
@@ -594,6 +601,8 @@ export class Player {
       return false;
     }
     this.stop();
+    // the frames wrote no test attributes: the pose paused at, with them
+    this.pose();
     this.mark();
     this.host.changed();
     return true;
@@ -611,6 +620,7 @@ export class Player {
       return;
     }
     let last = performance.now();
+    const steps = new PlaySteps();
     const step = (now: number): void => {
       if (!this.playing) {
         return;
@@ -618,19 +628,28 @@ export class Player {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       const track = this.track;
+      if (track === null || this.shown !== 'playback') {
+        this.raf = requestAnimationFrame(step);
+        return;
+      }
       const next = Math.min(this.steps, this.t + dt * MOVES_PER_SECOND * this.speed);
       // a chunk not come yet holds the time where it is
-      if (track !== null && track.at(next, prefs.fade) !== null) {
-        this.t = next;
-        void this.ensureChunks(this.token, this.t);
-      } else {
-        void this.ensureChunks(this.token, next);
+      const f = steps.frame(track, this.t, next, prefs.fade);
+      if (f.ensure !== null) {
+        void this.ensureChunks(this.token, f.ensure);
       }
-      this.pose();
-      this.syncBar();
-      if (this.t >= this.steps) {
+      if (f.poses === null) {
+        this.raf = requestAnimationFrame(step);
+        return;
+      }
+      this.t = f.t;
+      const end = this.t >= this.steps;
+      if (end) {
         this.playing = false;
-        this.mark();
+      }
+      this.placePoses(f.poses, end);
+      this.syncBar();
+      if (end) {
         this.host.changed();
       } else {
         this.raf = requestAnimationFrame(step);

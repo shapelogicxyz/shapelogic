@@ -301,7 +301,8 @@ test('an engine killed after edits: restarted, the rescue copy offered and reope
   const dir = tmp();
   const file = join(dir, 'Bermuda.xmpuzzle');
   copyFileSync(join(FIXTURES, 'Bermuda.xmpuzzle'), file);
-  const a = await launch();
+  const log = join(dir, 'calls.log');
+  const a = await launch({ callLog: log });
   try {
     const { app, page } = a;
     await answerDialogs(page, { open: file });
@@ -348,6 +349,12 @@ test('an engine killed after edits: restarted, the rescue copy offered and reope
     expect(back.notes).toBe('rescued notes');
     expect(back.shapes.map((s) => s.name)).toEqual(edited.shapes.map((s) => s.name));
     await expect(page.locator('#stage')).toHaveAttribute('data-dirty', '1');
+    // the document never crossed IPC (cleanup item 10.11): the engine wrote
+    // the copy (the main process's call) and opened it by its path
+    const calls = readCallLog(log).map((c) => c.method);
+    expect(calls).not.toContain('document.saveBytes');
+    expect(calls).not.toContain('document.openBytes');
+    expect(calls).toContain('document.open');
 
     // Save writes the puzzle's own file; clean, the copy goes
     await page.keyboard.press('Control+s');

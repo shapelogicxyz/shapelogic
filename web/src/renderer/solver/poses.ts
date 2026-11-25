@@ -201,6 +201,39 @@ export class ChunkLoads {
   }
 }
 
+/** One frame of play: the time and poses to show, and what to load. */
+export interface PlayFrame {
+  /** The time shown after the frame (held where it was while a chunk is missing). */
+  t: number;
+  /** The poses at `t`; null while the frame waits for a chunk (nothing new to show). */
+  poses: Pose[] | null;
+  /** The time whose chunks to ensure (ChunkLoads.ensure), or null: nothing to ask. */
+  ensure: number | null;
+}
+
+/**
+ * The frames of one play: the poses worked out once per frame, and the
+ * chunks asked for only when play enters another chunk (the next one is
+ * prefetched then). While it waits for a chunk, every frame asks again, as
+ * a failed load must be asked for again.
+ */
+export class PlaySteps {
+  private chunk = -1;
+
+  /** The frame that moves play from `t` to `next`. */
+  frame(track: PoseTrack, t: number, next: number, fade: boolean): PlayFrame {
+    const poses = track.at(next, fade);
+    if (poses === null) {
+      this.chunk = -1;
+      return { t, poses: null, ensure: next };
+    }
+    const c = PoseTrack.chunkOf(next);
+    const ensure = c === this.chunk ? null : next;
+    this.chunk = c;
+    return { t: next, poses, ensure };
+  }
+}
+
 function lerp(a: number | undefined, b: number | undefined, f: number): number {
   const x = a ?? 0;
   return x + ((b ?? 0) - x) * f;

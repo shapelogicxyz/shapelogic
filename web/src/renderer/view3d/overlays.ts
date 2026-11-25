@@ -114,24 +114,37 @@ function boxLines(lo: V3, hi: V3): number[] {
   return BOX_EDGES.flatMap(([a, b]) => [...corner(a), ...corner(b)]);
 }
 
-/** The overlays of the view, rebuilt when their options change. */
+/**
+ * The overlays of the view: drawn again only when their options change (an
+ * extent, a slab, a color, cleanup item 10.2); the materials are kept, so
+ * a change makes new geometry, not new shader programs.
+ */
 export class Overlays {
   readonly group = new Group();
   private readonly resolution = new Vector2(1, 1);
-  private readonly materials: LineMaterial[] = [];
-  /** The geometries and materials made, freed by clear(). */
+  /** The lines' materials by (color, width, dashed), and the slab's by color. */
+  private readonly materials = new Map<string, LineMaterial>();
+  private readonly fills = new Map<string, MeshBasicMaterial>();
+  /** The geometries drawn now, freed by clear(). */
   private readonly owned: { dispose(): void }[] = [];
+  /** The options drawn now (JSON). */
+  private shown = '';
 
   /** The viewport's size in pixels (the lines' widths are pixels). */
   setResolution(w: number, h: number): void {
     this.resolution.set(w, h);
-    for (const m of this.materials) {
+    for (const m of this.materials.values()) {
       m.resolution.copy(this.resolution);
     }
   }
 
   update(o: OverlayOptions): void {
+    const key = JSON.stringify(o);
+    if (key === this.shown) {
+      return;
+    }
     this.clear();
+    this.shown = key;
     const [dx, dy, dz] = o.extent;
     if (o.bounds) {
       this.lines(boxLines([0, 0, 0], o.extent), o.colors.line, 1, true);
@@ -145,13 +158,17 @@ export class Overlays {
     if (o.slab !== null) {
       const { lo, hi } = o.slab;
       const geometry = new BoxGeometry(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
-      const material = new MeshBasicMaterial({
-        color: new Color(o.colors.accent),
-        transparent: true,
-        opacity: 0.11,
-        depthWrite: false,
-      });
-      this.owned.push(geometry, material);
+      let material = this.fills.get(o.colors.accent);
+      if (material === undefined) {
+        material = new MeshBasicMaterial({
+          color: new Color(o.colors.accent),
+          transparent: true,
+          opacity: 0.11,
+          depthWrite: false,
+        });
+        this.fills.set(o.colors.accent, material);
+      }
+      this.owned.push(geometry);
       const box = new Mesh(geometry, material);
       box.position.set((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2);
       box.renderOrder = 2;
@@ -162,31 +179,45 @@ export class Overlays {
 
   private lines(points: number[], color: string, width: number, dashed = false): void {
     const g = new LineSegmentsGeometry().setPositions(points);
-    const m = new LineMaterial({
-      color: new Color(color).getHex(),
-      linewidth: width,
-      dashed,
-      dashSize: 0.12,
-      gapSize: 0.12,
-      resolution: this.resolution,
-    });
+    const k = `${color}:${String(width)}:${dashed ? 'dashed' : 'solid'}`;
+    let m = this.materials.get(k);
+    if (m === undefined) {
+      m = new LineMaterial({
+        color: new Color(color).getHex(),
+        linewidth: width,
+        dashed,
+        dashSize: 0.12,
+        gapSize: 0.12,
+        resolution: this.resolution,
+      });
+      this.materials.set(k, m);
+    }
     const line = new LineSegments2(g, m);
     if (dashed) {
       line.computeLineDistances();
     }
     line.renderOrder = 1;
-    this.materials.push(m);
-    this.owned.push(g, m);
+    this.owned.push(g);
     this.group.add(line);
   }
 
-  /** Removes and frees everything drawn. */
+  /** Removes everything drawn and frees its geometries (the materials stay for the next). */
   clear(): void {
     this.group.clear();
     for (const d of this.owned) {
       d.dispose();
     }
     this.owned.length = 0;
-    this.materials.length = 0;
+    this.shown = '';
+  }
+
+  /** Frees everything, the kept materials too. */
+  dispose(): void {
+    this.clear();
+    for (const m of [...this.materials.values(), ...this.fills.values()]) {
+      m.dispose();
+    }
+    this.materials.clear();
+    this.fills.clear();
   }
 }

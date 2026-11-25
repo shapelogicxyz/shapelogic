@@ -58,6 +58,7 @@ import { problemNote } from './problem-note.ts';
 import type { FinishedSolve } from './problem-note.ts';
 import { formatSpan } from './span.ts';
 import type { ProblemSummary } from '../../engine/api.generated.ts';
+import type { StoreChange } from '../state/store.ts';
 import type { SolverWorkspace } from './workspace.ts';
 
 /** The stacking solvers' help (mainwindow_help.cpp, their first lines). */
@@ -72,15 +73,22 @@ const STACKING_SOLVER_TIP: Record<'stacking' | 'panex', string> = {
 const SLIDING_SOLVER_TIP =
   'Each start is searched for the fewest moves to the goal, with no limit: the solver either finds the fewest moves or proves there is no solution, keeping older moves on disk.';
 
+/** A problem's counts in the snapshot: a read of its finished solve is redone when they move. */
+function countsOf(q: ProblemSummary): string {
+  return `${String(q.assemblies)}:${String(q.solutions)}`;
+}
+
 export class RunCard {
   private readonly ws: SolverWorkspace;
   /** What each solved problem's finished solve was read to have found, by the document's generation. */
   private readonly found = new Map<
     string,
-    { generation: number; revision: number; found: FinishedSolve }
+    { generation: number; revision: number; counts: string; found: FinishedSolve }
   >();
   /** The reads of finished solves under way: the revision read, by generation and problem. */
   private readonly reading = new Map<string, number>();
+  /** Problems a document.changed named with solutions or problems since their read: read again. */
+  private readonly changed = new Set<string>();
 
   constructor(ws: SolverWorkspace) {
     this.ws = ws;
@@ -157,8 +165,10 @@ export class RunCard {
 
   /**
    * What a solved problem's finished solve found, as last read; reads it
-   * again (once per revision) when the document changed since. Null before
-   * the first read, and for a problem not solved.
+   * again when a document.changed named the problem with its solutions or
+   * the problems (cleanup item 10.5: not at every revision), or its counts
+   * in the snapshot moved. Null before the first read, and for a problem
+   * not solved.
    */
   private foundOf(q: ProblemSummary, revision: number): FinishedSolve | null {
     const generation = this.ws.store.generation;
@@ -168,14 +178,32 @@ export class RunCard {
       return null;
     }
     const key = `${String(generation)}:${q.id}`;
-    if ((seen === undefined || seen.revision < revision) && this.reading.get(key) !== revision) {
-      this.readFound(q.id, generation, revision);
+    const stale = seen === undefined || this.changed.has(q.id) || seen.counts !== countsOf(q);
+    if (stale && this.reading.get(key) !== revision) {
+      this.changed.delete(q.id);
+      this.readFound(q, generation, revision);
     }
     return seen?.found ?? null;
   }
 
+  // a document.changed comes before the snapshot of its revision: the problems it names are read again
+  private noteChange(c: StoreChange): void {
+    if (c.kind !== 'changed') {
+      return;
+    }
+    const p = c.change;
+    if (!p.what.includes('solutions') && !p.what.includes('problems')) {
+      return;
+    }
+    for (const id of p.problems.length === 0 ? this.found.keys() : p.problems) {
+      this.changed.add(id);
+    }
+  }
+
   /** Reads a problem's mode, and a sliding or stacking one's fewest moves (its first solution by moves). */
-  private readFound(id: string, generation: number, revision: number): void {
+  private readFound(q: ProblemSummary, generation: number, revision: number): void {
+    const id = q.id;
+    const counts = countsOf(q);
     const ws = this.ws;
     const engine = ws.store.engine;
     const family = ws.family;
@@ -213,7 +241,7 @@ export class RunCard {
           ) {
             return;
           }
-          this.found.set(id, { generation, revision, found });
+          this.found.set(id, { generation, revision, counts, found });
           this.renderProblems();
         },
         () => {
@@ -513,6 +541,9 @@ export class RunCard {
 
   private wire(): void {
     const ws = this.ws;
+    ws.store.subscribe((c) => {
+      this.noteChange(c);
+    });
     byId('slvProbs').addEventListener('click', (e) => {
       const id = (e.target as Element).closest<HTMLElement>('.row')?.dataset.id;
       if (id !== undefined) {

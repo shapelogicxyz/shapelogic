@@ -19,7 +19,7 @@
 import { realpathSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
-import { callPath } from './path-grants.ts';
+import { callPaths } from './path-grants.ts';
 
 /** What a window holds: its file's key, and whether it holds it read-only. */
 interface Hold {
@@ -119,7 +119,7 @@ export class PathOwners<K> {
     if (method !== 'document.save') {
       return null;
     }
-    const named = callPath(method, params);
+    const named = callPaths(method, params)[0] ?? null;
     const own = this.holds.get(window);
     if (named === null) {
       // the document's own file

@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The rescue copy (stage 6), as the original's `__rescue.xmpuzzle`: while
-// the document has unsaved changes, its bytes (document.saveBytes, gzip) are
-// written to the app's data directory a moment after each change, at most
-// every two seconds; once the document is clean (saved, or another one
-// opened after the question about the old one), the copy is removed. When
-// the engine dies, the host starts another with an empty document; the
-// copy is then offered (Reopen: the bytes opened as the document they were,
-// with its file and its unsaved changes: document.openBytes {path,
-// dirty}). A copy left by a session that ended without closing (the app
+// the document has unsaved changes, the main process has the window's
+// engine write it (document.saveRescue, gzip; cleanup item 10.11: only the
+// record crosses IPC) to the app's data directory a moment after each
+// change, at most every two seconds; once the document is clean (saved, or
+// another one opened after the question about the old one), the copy is
+// removed. When the engine dies, the host starts another with an empty
+// document; the copy is then offered (Reopen: the engine opens the copy's
+// file as the document it was, with its file and its unsaved changes:
+// document.open {as, dirty}). A copy left by a session that ended without closing (the app
 // died) is offered when the app starts. Nothing is written or removed while
 // an offer waits for its answer (a newer offer, after another death, takes
 // an older one's place: the copy stays for it), and a copy not answered yet
@@ -16,7 +17,8 @@
 // the engine was not running: both are offered at the next start. Nothing
 // is written while a solve or
 // an analysis is active or a call that may start one is under way (the
-// engine refuses saveBytes then). While a solve runs the crash recovery
+// engine refuses saveRescue then, as it does once another document is
+// open than the revision the write names). While a solve runs the crash recovery
 // journal writes the copy instead (solver/autosave.ts, `saveNow`): it
 // pauses the solve at a save point for it, so the copy holds the solve's
 // results and its position, and reopened, the solve is continued. Writes
@@ -74,7 +76,7 @@ export class Rescue {
 
   /**
    * `quiet`: nothing is under way that the engine would refuse
-   * saveBytes beside (an edit or a run's call waiting for its answer, a
+   * saveRescue beside (an edit or a run's call waiting for its answer, a
    * run, an analysis); checked in the same task as the call is made.
    */
   constructor(store: Store, app: BtApp, quiet: () => boolean = () => true) {
@@ -201,35 +203,30 @@ export class Rescue {
       }, AFTER_MS);
       return false;
     }
-    const gen = this.store.generation;
-    let data: string;
-    try {
-      data = await this.store.rescueBytes();
-    } catch {
-      // a run started, or the engine went: the next change writes again
-      return false;
-    }
-    const now = this.store.snapshot;
-    if (this.stopped() || this.store.generation !== gen || now?.dirty !== true) {
-      return false;
-    }
     const info: RescueInfo = {
-      path: now.path,
-      name: now.path === null ? (this.store.displayName ?? 'Untitled') : baseName(now.path),
+      path: snap.path,
+      name: snap.path === null ? (this.store.displayName ?? 'Untitled') : baseName(snap.path),
       revision: snap.revision,
       time: Date.now(),
     };
     let ok = false;
     try {
-      await this.app.writeRescue(data, info);
-      this.copy = true;
-      this.written(snap.revision);
-      ok = true;
+      const r = await this.app.writeRescue(info);
+      if (r.ok) {
+        this.copy = true;
+        this.written(snap.revision);
+        ok = true;
+      } else if (r.errc !== 'invalid_state' && r.errc !== 'disconnected') {
+        reportError(new Error(r.message), 'The rescue copy could not be written');
+      }
+      // invalid_state, disconnected: a run started, another document is
+      // open, or the engine went; the next change writes again
     } catch (e) {
       reportError(e, 'The rescue copy could not be written');
     }
-    // changes that came while it was written
-    if (this.store.snapshot !== null && this.store.snapshot.revision !== snap.revision) {
+    // changes that came while it was written (a save among them: the copy goes)
+    const now = this.store.snapshot;
+    if (now !== null && (now.revision !== snap.revision || !now.dirty)) {
       this.changed();
     }
     return ok;
@@ -269,7 +266,7 @@ export class Rescue {
       );
       if (k === 'open') {
         try {
-          await this.store.openRescue(found.data, info.path, info.name);
+          await this.store.openRescue(found.file, info.path, info.name);
           if (info.path !== null) {
             // held by this window: read-only when another window owns the file
             this.app.claimPath(info.path);

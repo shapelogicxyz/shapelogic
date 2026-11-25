@@ -40,6 +40,7 @@ import {
 import type { IUniform } from 'three';
 
 import type { Rgb3 } from '../shell/piece-colors.ts';
+import { onPictureGone } from '../shell/picture-keep.ts';
 import type { PiecePicture } from '../shell/picture-math.ts';
 
 /** Which faces a material draws, for x-ray's two passes. */
@@ -183,6 +184,23 @@ export function setPiece(u: FaceUniforms, c: Rgb3): void {
 
 /** The textures of the pictures, by their hash: one for every view. */
 const textures = new Map<string, Texture>();
+
+// a picture the document no longer names: its texture goes before its bitmap
+// is closed; its image is dropped too, so a material still holding it draws
+// the color (three.js warns) instead of uploading a closed bitmap
+onPictureGone((hash) => {
+  const t = textures.get(hash);
+  if (t !== undefined) {
+    textures.delete(hash);
+    t.dispose();
+    t.image = null;
+  }
+});
+
+/** How many picture textures are kept (the tests read it). */
+export function keptTextures(): number {
+  return textures.size;
+}
 
 /** A picture's texture (its bytes as they are, the picture's top at v 0). */
 export function pictureTexture(p: PiecePicture): Texture {

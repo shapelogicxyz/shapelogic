@@ -6,7 +6,9 @@
 // one compressed file kept, the manager's pages newest first with the
 // errors-only and search filters, Export of both files as plain text (or
 // of the newest lines alone) with the sizes it offers, and Clear, in a
-// temporary directory.
+// temporary directory; the lines of a tick written together at its end (an
+// error at once), an engine line that never ends cut, and a search whose
+// text grows narrowing the last matches (cleanup item 10.9).
 
 import {
   existsSync,
@@ -22,10 +24,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   AppLog,
+  ENGINE_LINE_MAX,
   EngineLines,
   formatLogLine,
   levelOf,
@@ -113,6 +116,26 @@ describe('the log lines', () => {
     expect(got).toEqual(['one', 'two', 'thr']);
   });
 
+  it('are cut at their longest, the rest of a line that never ends dropped up to its newline', () => {
+    expect(ENGINE_LINE_MAX).toBe(65_536);
+    const got: string[] = [];
+    const lines = new EngineLines((l) => got.push(l), 8);
+    const enc = new TextEncoder();
+    // a whole line too long, in one chunk
+    lines.push(enc.encode('0123456789ab\nok\n'));
+    expect(got).toEqual(['01234567 (cut)', 'ok']);
+    // a line that goes on over chunks: handed on once it passes the limit,
+    // then nothing of it until its newline
+    lines.push(enc.encode('abcdef'));
+    lines.push(enc.encode('ghij'));
+    expect(got.at(-1)).toBe('abcdefgh (cut)');
+    lines.push(enc.encode('x'.repeat(100)));
+    lines.push(enc.encode('yyy\nnext\nla'));
+    expect(got.slice(2)).toEqual(['abcdefgh (cut)', 'next']);
+    lines.end();
+    expect(got.at(-1)).toBe('la');
+  });
+
   it('come from a transport whose stderr the client hears as well', () => {
     let stderr: ((c: Uint8Array) => void) | null = null;
     const t: Transport = {
@@ -141,6 +164,7 @@ describe('the log file', () => {
     log.info('app', 'App Started', 'ShapeLogic');
     log.error('window 1', 'File Open Failed', '"a.xmpuzzle"');
     log.warn('window 1', 'Search Note', 'the disk budget');
+    log.flush();
     expect(readFileSync(log.file, 'utf8').split('\n')).toHaveLength(4);
     const page = log.page(query);
     expect(page.entries.map((e) => e.level)).toEqual(['WARN', 'ERROR', 'INFO']);
@@ -150,6 +174,27 @@ describe('the log file', () => {
     expect(page).toMatchObject({ matches: 3, lines: 3, more: false, archived: false, error: null });
     expect(page.file).toBe(log.file);
     expect(page.bytes).toBe(readFileSync(log.file).length);
+  });
+
+  it('writes the lines of a tick together at its end, an error at once with the lines before it', async () => {
+    const log = new AppLog(dir, { now: () => at });
+    log.info('app', 'Test Line', 'one');
+    log.info('app', 'Test Line', 'two');
+    // nothing written yet: the tick's lines go together at its end
+    expect(existsSync(log.file) ? readFileSync(log.file, 'utf8') : '').toBe('');
+    await new Promise((done) => setImmediate(done));
+    expect(readFileSync(log.file, 'utf8').trimEnd().split('\n')).toHaveLength(2);
+    log.info('app', 'Test Line', 'three');
+    log.error('app', 'Test Error', 'four');
+    // the error, and the line before it, at once
+    expect(readFileSync(log.file, 'utf8')).toMatch(/three\n.*Test Error: four\n$/);
+    log.info('app', 'Test Line', 'five');
+    // a quit's flush
+    log.flush();
+    expect(readFileSync(log.file, 'utf8').trimEnd().split('\n')).toHaveLength(5);
+    // and a page reads what is waiting too
+    log.info('app', 'Test Line', 'six');
+    expect(log.page(query).entries[0]?.line).toMatch(/six$/);
   });
 
   it('gives pages of a hundred lines, then the next, by the lines shown', () => {
@@ -194,6 +239,64 @@ describe('the log file', () => {
     expect(heart).toMatchObject({ matches: 2, lines: 6 });
     expect(log.page({ ...query, search: 'KEYS', errorsOnly: true }).entries).toHaveLength(1);
     expect(log.page({ ...query, search: 'nothing like it' }).entries).toHaveLength(0);
+  });
+
+  it('narrows the last matches as the search text grows, and finds what a new search finds', () => {
+    const log = new AppLog(dir);
+    for (let i = 0; i < 300; i++) {
+      const level = i % 7 === 0 ? 'ERROR' : i % 5 === 0 ? 'WARN' : 'INFO';
+      log.write(level, 'app', 'Test Line', `${i % 3 === 0 ? 'BallRoom' : 'Heart'} ${String(i)}`);
+    }
+    /** What a scan of every line keeps, newest first. */
+    const scan = (search: string, errorsOnly: boolean): string[] => {
+      log.flush();
+      return readFileSync(log.file, 'utf8')
+        .trimEnd()
+        .split('\n')
+        .filter(
+          (l) =>
+            (!errorsOnly || / (ERROR|WARN) /.test(l)) &&
+            l.toLowerCase().includes(search.trim().toLowerCase()),
+        )
+        .reverse();
+    };
+    const got = (search: string, errorsOnly = false): string[] => {
+      const p = log.page({ offset: 0, limit: 1000, errorsOnly, search });
+      expect(p.matches).toBe(p.entries.length);
+      return p.entries.map((e) => e.line);
+    };
+    const lower = vi.spyOn(String.prototype, 'toLowerCase');
+    try {
+      const ba = scan('ba', false);
+      const bal = scan('bal', true);
+      expect(got('b')).toEqual(scan('b', false));
+      // a letter more: only the 100 lines the last search kept are looked at
+      lower.mockClear();
+      expect(got('ba')).toEqual(ba);
+      expect(lower.mock.calls.length).toBeLessThanOrEqual(101);
+      lower.mockClear();
+      expect(got('bal', true)).toEqual(bal);
+      expect(lower.mock.calls.length).toBeLessThanOrEqual(101);
+      // the next page of the same search looks at no line again
+      lower.mockClear();
+      const p = log.page({ offset: 10, limit: 10, errorsOnly: true, search: 'bal' });
+      expect(lower.mock.calls.length).toBeLessThanOrEqual(1);
+      expect(p.entries.map((e) => e.line)).toEqual(bal.slice(10, 20));
+    } finally {
+      lower.mockRestore();
+    }
+    // fewer letters, or errors-only off: every line again
+    expect(got('ba')).toEqual(scan('ba', false));
+    expect(got('heart')).toEqual(scan('heart', false));
+    // lines written since are searched too
+    log.info('app', 'Test Line', 'BallRoom new');
+    expect(got('heart b')).toEqual([]);
+    expect(got('ballroom n')).toEqual(scan('ballroom n', false));
+    expect(got('ballroom ne')[0]).toMatch(/BallRoom new$/);
+    // dropped (the dialog closed): read again, the same
+    log.forget();
+    expect(got('ballroom')).toEqual(scan('ballroom', false));
+    expect(got('')).toEqual(scan('', false));
   });
 
   it('is compressed once it would pass its size, one compressed file kept', async () => {

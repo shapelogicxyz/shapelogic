@@ -101,10 +101,31 @@ export interface ViewCubeHost {
   moved(): void;
 }
 
+// what a hover shows, as text (the cube is drawn again only when it changed)
+function hitKey(h: Hit | null): string {
+  if (h === null) {
+    return '';
+  }
+  switch (h.type) {
+    case 'home':
+      return 'home';
+    case 'arrow':
+      return `arrow:${h.nm}`;
+    case 'roll':
+      return `roll:${String(h.sg)}`;
+    case 'face':
+      return `face:${h.dir.join(',')}`;
+  }
+}
+
 export class ViewCube {
   private readonly canvas: HTMLCanvasElement;
   private readonly host: ViewCubeHost;
   private hover: Hit | null = null;
+  /** What the cube shows now (cleanup item 10.1: a frame of the view that turned nothing draws nothing). */
+  private shown = '';
+  /** The axes' colors, read once per theme (dark or not). */
+  private readonly axisColors = new Map<boolean, readonly [string, string, string]>();
 
   constructor(canvas: HTMLCanvasElement, host: ViewCubeHost) {
     this.canvas = canvas;
@@ -380,14 +401,36 @@ export class ViewCube {
     c.classList.toggle('crowded', crowded);
   }
 
-  /** Draws the cube for the camera now. */
-  draw(): void {
+  /**
+   * Draws the cube for the camera now, when what it shows changed (the
+   * camera's turn, the projection, the theme, the hover, the pixel ratio);
+   * `force`: whatever it shows (the view's size or the density changed,
+   * which can crowd it).
+   */
+  draw(force = false): void {
     const c = this.canvas;
+    const r = window.devicePixelRatio || 1;
+    const dark = this.host.dark();
+    const cq = this.host.camera.q;
+    const key = [
+      c.style.display,
+      cq.x.toFixed(5),
+      cq.y.toFixed(5),
+      cq.z.toFixed(5),
+      cq.w.toFixed(5),
+      this.host.perspective() ? 'p' : 'o',
+      dark ? 'd' : 'l',
+      String(r),
+      hitKey(this.hover),
+    ].join(' ');
+    if (!force && key === this.shown) {
+      return;
+    }
+    this.shown = key;
     this.crowd();
     if (c.style.display === 'none') {
       return;
     }
-    const r = window.devicePixelRatio || 1;
     const bw = Math.round((VC.w + PAD.l) * r);
     const bh = Math.round((VC.h + PAD.b) * r);
     if (c.width !== bw || c.height !== bh) {
@@ -401,7 +444,13 @@ export class ViewCube {
     g.setTransform(r, 0, 0, r, 0, 0);
     g.clearRect(0, 0, VC.w + PAD.l, VC.h + PAD.b);
     g.translate(PAD.l, 0);
-    const dark = this.host.dark();
+    let axes = this.axisColors.get(dark);
+    if (axes === undefined) {
+      axes = [css('--ax'), css('--ay'), css('--az')];
+      if (axes.every((a) => a !== '')) {
+        this.axisColors.set(dark, axes);
+      }
+    }
     const ink = dark ? '#e7eaf0' : '#2a2f3a';
     const faceC = dark ? '#4a5262' : '#d9dde4';
     const edge = dark ? '#aab1bf' : '#3a3f4a';
@@ -427,7 +476,6 @@ export class ViewCube {
     const faces = this.geo()
       .filter((f) => f.vis)
       .sort((a, b) => a.nz - b.nz);
-    const axc = ['--ax', '--ay', '--az'] as const;
     const L = [-0.35, 0.75, 0.55] as const;
     const ln = Math.hypot(...L);
     const hover = this.hover;
@@ -510,7 +558,7 @@ export class ViewCube {
       g.font = '800 .5px system-ui,sans-serif';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillStyle = single ? '#fff' : css(axc[f.k]);
+      g.fillStyle = single ? '#fff' : axes[f.k];
       g.fillText((f.sg > 0 ? '+' : '−') + 'XYZ'.charAt(f.k), 0, 0.04);
       g.restore();
     }
@@ -550,18 +598,18 @@ export class ViewCube {
     g.translate(-PAD.l, 0);
     const q = this.host.camera.q;
     for (const [n, e, cv] of [
-      ['X', [1, 0, 0], '--ax'],
-      ['Y', [0, 1, 0], '--ay'],
-      ['Z', [0, 0, 1], '--az'],
+      ['X', [1, 0, 0], axes[0]],
+      ['Y', [0, 1, 0], axes[1]],
+      ['Z', [0, 0, 1], axes[2]],
     ] as const) {
       const v = toView(q, e);
-      g.strokeStyle = css(cv);
+      g.strokeStyle = cv;
       g.lineWidth = 2;
       g.beginPath();
       g.moveTo(AXES.x, AXES.y);
       g.lineTo(AXES.x + v.x * AXES.len, AXES.y - v.y * AXES.len);
       g.stroke();
-      g.fillStyle = css(cv);
+      g.fillStyle = cv;
       g.font = '700 10px sans-serif';
       g.textAlign = 'center';
       g.textBaseline = 'middle';

@@ -448,6 +448,12 @@ test('Bermuda solved: the movement tree as the contract session grows it', async
           }
           const k = (sign * 60) / len;
           await page.keyboard.down('Alt');
+          // with Alt held the piece shows the grab cursor (cleanup item
+          // 10.1: 3D editing's empty cursor replaced it)
+          await page.mouse.move(cv.x + x + 1, cv.y + y);
+          expect(await page.evaluate(() => document.getElementById('cv')?.style.cursor)).toBe(
+            'grab',
+          );
           await page.mouse.down();
           await page.mouse.move(cv.x + x + (s[0] * k) / 2, cv.y + y + (s[1] * k) / 2);
           await page.mouse.move(cv.x + x + s[0] * k, cv.y + y + s[1] * k);

@@ -15,7 +15,7 @@
 
 import type { ShapeSummary, TrayBorder } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
-import { byId, esc } from '../shell/dom.ts';
+import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { chipColor, hex, isTray } from '../shell/piece-colors.ts';
 import { BORDER_MATERIALS, MAX_BORDER_THICKNESS, borderColor } from '../shell/tray-border.ts';
@@ -39,12 +39,6 @@ export function borderBoard(store: Store): (ShapeSummary & { border: TrayBorder 
     : null;
 }
 
-/** What the section shows, as a key: it is drawn again only when this changes. */
-export function borderKey(store: Store): string {
-  const s = borderBoard(store);
-  return s === null ? '-' : `${s.id}:${JSON.stringify(s.border)}:${String(s.color)}`;
-}
-
 export class BorderCard {
   private readonly host: BorderHost;
 
@@ -53,7 +47,10 @@ export class BorderCard {
     this.install();
   }
 
-  /** Draws the section (hidden unless a sliding puzzle's board is selected). */
+  /**
+   * Draws the section (hidden unless a sliding puzzle's board is
+   * selected); its body only when its markup changed (setHtml).
+   */
   render(): void {
     const sec = byId('secBorder');
     const s = borderBoard(this.host.store);
@@ -63,9 +60,12 @@ export class BorderCard {
     }
     const b = s.border;
     const material = BORDER_MATERIALS.find(([m]) => m === b.material)?.[1] ?? '';
-    byId('borderSum').textContent = b.enabled
+    const sum = b.enabled
       ? `${b.corners === 'round' ? 'Rounded' : 'Sharp'} · ${material}${b.thickness > 0 ? ` · ${String(b.thickness)} voxel${b.thickness === 1 ? '' : 's'}` : ''}`
       : 'Off';
+    if (byId('borderSum').textContent !== sum) {
+      byId('borderSum').textContent = sum;
+    }
     const row = (label: string, small: string, control: string): string =>
       `<div class="row2"><div class="t">${label}<small>${small}</small></div>${control}</div>`;
     let h =
@@ -123,7 +123,13 @@ export class BorderCard {
         ).replace('class="row2"', 'class="row2 sub"');
       }
     }
-    byId('borderBody').innerHTML = h + '</div>';
+    setHtml(byId('borderBody'), h + '</div>');
+  }
+
+  /** Draws the section again whatever it drew last: a field set back to the engine's value. */
+  private redraw(): void {
+    forgetHtml(byId('borderBody'));
+    this.render();
   }
 
   // one change of the border shown: a shape.setBorder
@@ -132,7 +138,7 @@ export class BorderCard {
   ): void {
     const s = borderBoard(this.host.store);
     if (s === null || this.host.refuse()) {
-      this.render();
+      this.redraw();
       return;
     }
     void this.host
@@ -140,7 +146,7 @@ export class BorderCard {
         this.host.store.engine.call('shape.setBorder', { shape: s.id, ...change }),
       )
       .then(() => {
-        this.render();
+        this.redraw();
       });
   }
 

@@ -868,3 +868,61 @@ test('Span alone by default; Mirror & Plane shows Mirror and the planes, < hides
     await a.close();
   }
 });
+
+test('a stroke draws the cells, not the cards round them', async () => {
+  const a: App = await launch();
+  const page = a.page;
+  try {
+    await newDocument(page, 'bricks');
+    await newShape(page);
+    await newShape(page);
+    await tool(page, 'fixed');
+    await clickCell(page, [0, 0, 0]);
+    // the cards' elements: each change of their children is counted
+    await page.evaluate(() => {
+      const w = window as unknown as { cardWrites: Record<string, number> };
+      w.cardWrites = {};
+      for (const id of [
+        'shapeList',
+        'lrail',
+        'toolStrip',
+        'modRow',
+        'lstrip',
+        'selbar',
+        'colFoot',
+        'rrail',
+        'inspHead',
+        'tmat',
+        'fitBody',
+        'toolsBody',
+      ]) {
+        const el = document.getElementById(id);
+        if (el === null) {
+          throw new Error(`no #${id}`);
+        }
+        w.cardWrites[id] = 0;
+        new MutationObserver((records) => {
+          w.cardWrites[id] = (w.cardWrites[id] ?? 0) + records.length;
+        }).observe(el, { childList: true, subtree: true, characterData: true });
+      }
+    });
+    const before = Number(await page.getAttribute('#stage', 'data-revision'));
+    await dragCells(page, [
+      [1, 0, 0],
+      [2, 0, 0],
+      [2, 1, 0],
+      [1, 1, 0],
+    ]);
+    // the cells came, in snapshots of their own
+    expect(Number(await page.getAttribute('#stage', 'data-revision'))).toBeGreaterThan(before);
+    expect(
+      (await shapeGet(page, await selected(page))).cells.filter((c) => c.state === 'fixed'),
+    ).toHaveLength(5);
+    const writes = await page.evaluate(
+      () => (window as unknown as { cardWrites: Record<string, number> }).cardWrites,
+    );
+    expect(writes).toEqual(Object.fromEntries(Object.keys(writes).map((k) => [k, 0])));
+  } finally {
+    await a.close();
+  }
+});

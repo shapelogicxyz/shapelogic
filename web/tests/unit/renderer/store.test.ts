@@ -179,20 +179,22 @@ describe('the store', () => {
     expect(store.selected).toBe('s1');
   });
 
-  it('asks for a rescue copy gzip-compressed, which it reopens with unsaved changes', async () => {
+  it('reopens a rescue copy by its file, as the file it stands for, with unsaved changes', async () => {
     const f = new FakeEngine();
     const store = new Store(f.link);
     await running(f);
-    const bytes = store.rescueBytes();
+    const reopened = store.openRescue('/data/__rescue.xmpuzzle', '/p/x.xmpuzzle', 'x.xmpuzzle');
     expect(f.calls.map((c) => [c.method, c.params])).toEqual([
-      ['document.saveBytes', { gzip: true }],
+      ['document.open', { path: '/data/__rescue.xmpuzzle', as: '/p/x.xmpuzzle', dirty: true }],
     ]);
-    f.answer('document.saveBytes', { data: 'H4sIAAAA' });
-    expect(await bytes).toBe('H4sIAAAA');
-    const reopened = store.openRescue('H4sIAAAA', '/p/x.xmpuzzle', 'x.xmpuzzle');
-    expect(f.calls[0]?.params).toEqual({ data: 'H4sIAAAA', dirty: true, path: '/p/x.xmpuzzle' });
-    f.answer('document.openBytes', snapshot(5, ['s1']));
+    f.answer('document.open', snapshot(5, ['s1']));
     await reopened;
+    expect(store.displayName).toBeNull();
+    const untitled = store.openRescue('/data/__rescue.xmpuzzle', null, 'Untitled');
+    expect(f.calls[0]?.params).toEqual({ path: '/data/__rescue.xmpuzzle', as: null, dirty: true });
+    f.answer('document.open', snapshot(6, ['s1']));
+    await untitled;
+    expect(store.displayName).toBe('Untitled');
   });
 
   it('reports failed calls, except while the engine restarts', async () => {

@@ -13,7 +13,8 @@
 // by the names the engine gives a solution's pieces.
 // From stage 8 the files a window's engine may be given (path-grants.ts)
 // are granted here: what the open and save dialogs gave for a puzzle or a
-// paused solve, the rescue record's file, a file dropped on the window.
+// paused solve, the rescue record's file and the copy's own (the engine
+// writes and opens the copy itself), a file dropped on the window.
 // The update check (updates.ts) asks GitHub here, once at startup and when
 // the menu asks; its Download opens a fixed address, never one the
 // renderer gives. The cache folder (cache-folder.ts) is chosen in this
@@ -59,6 +60,7 @@ import type {
   StoredState,
   UpdateResult,
 } from '../engine/app-bridge.ts';
+import { isEngineError } from '../engine/errors.ts';
 import { writeHint } from '../engine/write-hint.ts';
 import type { AppLog } from './app-log.ts';
 import type { CacheFolderManager } from './cache-folder.ts';
@@ -67,6 +69,7 @@ import type { CacheLinks } from './cache-files.ts';
 import { ExportGrants, FolderGrants, isPieceFileName, writeFileSafely } from './export-file.ts';
 import { GoalWindows } from './goal-window.ts';
 import { cliInfo, installCli, macPrivileged, uninstallCli } from './cli-tool.ts';
+import type { EngineHost } from './engine-host.ts';
 import type { PathGrants } from './path-grants.ts';
 import type { PathOwners } from './path-owners.ts';
 import type { RescueSlots } from './rescue.ts';
@@ -156,6 +159,8 @@ export interface AppIpcHost {
   store: StateStore;
   /** The windows' rescue copies, by the web contents' id. */
   rescue: RescueSlots<number>;
+  /** A window's engine, or null (the main process asks it to write the rescue copy). */
+  engine(sender: WebContents): Pick<EngineHost, 'call'> | null;
   /** The files each window's engine may be given. */
   paths: PathGrants<WebContents>;
   /** Which window owns each file it holds, by the web contents' id. */
@@ -467,24 +472,56 @@ export function installAppIpc(h: AppIpcHost): void {
     }
   });
 
-  ipcMain.handle('bt:rescue', async (e, op: unknown, data: unknown, info: unknown) => {
+  ipcMain.handle('bt:rescue', async (e, op: unknown, info: unknown) => {
     if (ours(e) === null) {
       return null;
     }
     switch (op) {
-      case 'write':
-        if (typeof data === 'string' && isRescueInfo(info)) {
-          // the record's file is handed to the window that reads it: only
-          // one this window was handed itself, else the copy has no file
-          const path = info.path !== null && h.paths.allows(e.sender, info.path) ? info.path : null;
-          await h.rescue.of(e.sender.id).write(data, { ...info, path });
+      case 'write': {
+        if (!isRescueInfo(info)) {
+          return null;
         }
-        return null;
+        const engine = h.engine(e.sender);
+        if (engine === null) {
+          return { ok: false, errc: 'disconnected', message: 'the window has no engine' };
+        }
+        // the record's file is handed to the window that reads it: only
+        // one this window was handed itself, else the copy has no file
+        const path = info.path !== null && h.paths.allows(e.sender, info.path) ? info.path : null;
+        const store = h.rescue.of(e.sender.id);
+        try {
+          // the engine writes the copy itself (cleanup item 10.11). The call
+          // is made before this handler first awaits, so it goes ahead of
+          // the window's later calls: the copy is of the document at the
+          // revision the window saw, or refused (another one is open)
+          await store.write(
+            (file) =>
+              engine
+                .call('document.saveRescue', { path: file, revision: info.revision })
+                .then((r) => r.revision),
+            { ...info, path },
+          );
+          return { ok: true };
+        } catch (err) {
+          if (isEngineError(err)) {
+            if (err.errc === 'io_error') {
+              logRefusedWrite(store.file, err.detail);
+            }
+            return { ok: false, errc: err.errc, message: err.detail };
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          logRefusedWrite(store.record, message);
+          return { ok: false, errc: 'io_error', message };
+        }
+      }
       case 'read': {
-        const copy = h.rescue.of(e.sender.id).read();
-        if (copy?.info.path != null) {
-          // the copy reopens as the document of its file
-          h.paths.grant(e.sender, copy.info.path);
+        const copy = await h.rescue.of(e.sender.id).read();
+        if (copy !== null) {
+          // the engine opens the copy itself, as the document of its file
+          h.paths.grant(e.sender, copy.file);
+          if (copy.info.path !== null) {
+            h.paths.grant(e.sender, copy.info.path);
+          }
         }
         return copy;
       }
@@ -608,7 +645,7 @@ export function installAppIpc(h: AppIpcHost): void {
     }
   });
 
-  // the log manager: a page, Clear, and Export to the file this process's
+  // the log manager: a page, Clear, its close, and Export to the file this process's
   // own save dialog gives (the renderer never names a path)
   ipcMain.handle('bt:log', async (e, op: unknown, arg: unknown) => {
     const win = ours(e);
@@ -620,6 +657,10 @@ export function installAppIpc(h: AppIpcHost): void {
         return isLogQuery(arg) ? h.log.page(arg) : null;
       case 'clear':
         await h.log.clear();
+        return null;
+      case 'closed':
+        // the manager closed: the lines it read go (cleanup item 10.9)
+        h.log.forget();
         return null;
       case 'sizes':
         return h.log.exportSizes();

@@ -106,15 +106,36 @@ export function frameTriangles(arrays: MeshArrays): BufferGeometry | null {
 
 export class Preview {
   readonly group = new Group();
+  /** What the ghosts shown now were made of: this set's geometries. */
   private readonly owned: { dispose(): void }[] = [];
+  /** The materials by (fill, alpha) and the lines' by (edge, dashed), kept across sets. */
+  private readonly materials = new Map<string, MeshBasicMaterial>();
+  private readonly lines = new Map<string, LineBasicMaterial>();
+  /** A cube grid's cell and its edges: every box's. */
+  private unit: { box: BoxGeometry; edges: EdgesGeometry } | null = null;
+  /** What is shown: the ghosts' key and the mesh they were cut from. */
+  private shown = '';
+  private shownMesh: BuiltMesh | null = null;
+  private readonly frames = new WeakMap<MeshArrays, number>();
+  private framesSeen = 0;
 
   constructor() {
     this.group.renderOrder = 10;
   }
 
-  /** Shows these ghosts instead of the ones before. */
-  set(ghosts: readonly Ghost[], mesh: BuiltMesh | null): void {
+  /**
+   * Shows these ghosts instead of the ones before; false when they are the
+   * ones shown, cut from the same mesh (nothing changed: cleanup item 10.2).
+   */
+  set(ghosts: readonly Ghost[], mesh: BuiltMesh | null): boolean {
+    const key = ghosts.map((g) => this.keyOf(g)).join('|');
+    const cut = ghosts.some((g) => g.kind === 'cell' || g.kind === 'face');
+    if (key === this.shown && (!cut || mesh === this.shownMesh)) {
+      return false;
+    }
     this.clear();
+    this.shown = key;
+    this.shownMesh = mesh;
     for (const g of ghosts) {
       if (g.kind === 'box') {
         this.box(g);
@@ -133,6 +154,7 @@ export class Preview {
         }
       }
     }
+    return true;
   }
 
   /** The number of things shown (the view's state for the tests). */
@@ -140,41 +162,66 @@ export class Preview {
     return this.group.children.length;
   }
 
+  // a ghost as text; a frame's arrays by their identity (a whole mesh)
+  private keyOf(g: Ghost): string {
+    if (g.kind !== 'frame') {
+      return JSON.stringify(g);
+    }
+    let n = this.frames.get(g.arrays);
+    if (n === undefined) {
+      n = ++this.framesSeen;
+      this.frames.set(g.arrays, n);
+    }
+    return `frame:${String(n)}:${g.fill}:${String(g.alpha)}`;
+  }
+
   private material(fill: string, alpha: number): MeshBasicMaterial {
-    const m = new MeshBasicMaterial({
-      color: new Color(fill),
-      transparent: true,
-      opacity: alpha,
-      side: DoubleSide,
-      depthTest: false,
-      depthWrite: false,
-    });
-    this.owned.push(m);
+    const k = `${fill}:${String(alpha)}`;
+    let m = this.materials.get(k);
+    if (m === undefined) {
+      m = new MeshBasicMaterial({
+        color: new Color(fill),
+        transparent: true,
+        opacity: alpha,
+        side: DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+      });
+      this.materials.set(k, m);
+    }
+    return m;
+  }
+
+  private lineMaterial(edge: string, dashed: boolean): LineBasicMaterial {
+    const k = `${edge}:${dashed ? 'dashed' : 'solid'}`;
+    let m = this.lines.get(k);
+    if (m === undefined) {
+      m = dashed
+        ? new LineDashedMaterial({
+            color: new Color(edge),
+            dashSize: 0.12,
+            gapSize: 0.09,
+            depthTest: false,
+          })
+        : new LineBasicMaterial({ color: new Color(edge), depthTest: false });
+      this.lines.set(k, m);
+    }
     return m;
   }
 
   private box(g: Extract<Ghost, { kind: 'box' }>): void {
-    const geo = new BoxGeometry(1, 1, 1);
-    this.owned.push(geo);
-    const m = new Mesh(geo, this.material(g.fill, g.alpha));
+    if (this.unit === null) {
+      const box = new BoxGeometry(1, 1, 1);
+      const edges = new EdgesGeometry(box);
+      // the dashes' distances, once: the unit cell's are every box's
+      new LineSegments(edges).computeLineDistances();
+      this.unit = { box, edges };
+    }
+    const m = new Mesh(this.unit.box, this.material(g.fill, g.alpha));
     m.position.set(g.at[0] + 0.5, g.at[1] + 0.5, g.at[2] + 0.5);
     m.renderOrder = 10;
     this.group.add(m);
-    const edges = new EdgesGeometry(geo);
-    this.owned.push(edges);
-    const lm = g.dashed
-      ? new LineDashedMaterial({
-          color: new Color(g.edge),
-          dashSize: 0.12,
-          gapSize: 0.09,
-          depthTest: false,
-        })
-      : new LineBasicMaterial({ color: new Color(g.edge), depthTest: false });
-    this.owned.push(lm);
-    const line = new LineSegments(edges, lm);
-    if (g.dashed) {
-      line.computeLineDistances();
-    }
+    const line = new LineSegments(this.unit.edges, this.lineMaterial(g.edge, g.dashed));
     line.position.copy(m.position);
     line.renderOrder = 11;
     this.group.add(line);
@@ -187,12 +234,27 @@ export class Preview {
     this.group.add(m);
   }
 
-  /** Removes and frees everything shown. */
+  /** Removes what is shown and frees its geometries (the materials stay for the next). */
   clear(): void {
     this.group.clear();
     for (const d of this.owned) {
       d.dispose();
     }
     this.owned.length = 0;
+    this.shown = '';
+    this.shownMesh = null;
+  }
+
+  /** Frees everything, the kept materials too. */
+  dispose(): void {
+    this.clear();
+    for (const m of [...this.materials.values(), ...this.lines.values()]) {
+      m.dispose();
+    }
+    this.materials.clear();
+    this.lines.clear();
+    this.unit?.box.dispose();
+    this.unit?.edges.dispose();
+    this.unit = null;
   }
 }

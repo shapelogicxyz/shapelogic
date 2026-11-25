@@ -9,8 +9,8 @@
 // its side the point is in, as the view shows the side (3D editing does
 // different things in different quarters).
 
-import { Raycaster, Vector2, Vector3 } from 'three';
-import type { Camera, Object3D } from 'three';
+import { Vector3 } from 'three';
+import type { Camera, Object3D, Raycaster, Vector2 } from 'three';
 
 import { cellOf, FLAG } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
@@ -49,20 +49,20 @@ export function pickOf(mesh: BuiltMesh, drawnTriangle: number): Pick | null {
   };
 }
 
-const raycaster = new Raycaster();
-
 /**
- * The face under a point of the view (normalized device coordinates, -1 to
- * 1, y up), nearest first; inside faces are skipped unless they are shown.
+ * The face under a point of the view, nearest first, along `raycaster`'s
+ * ray (set from the camera at `ndc`, normalized device coordinates, -1 to
+ * 1, y up: the view casts one ray per pointer event); inside faces are
+ * skipped unless they are shown.
  */
 export function pickAt(
+  raycaster: Raycaster,
   ndc: Vector2,
   camera: Camera,
   target: Object3D,
   mesh: BuiltMesh,
   insideShown: boolean,
 ): Pick | null {
-  raycaster.setFromCamera(ndc, camera);
   for (const hit of raycaster.intersectObject(target, false)) {
     if (hit.faceIndex === undefined || hit.faceIndex === null) {
       continue;

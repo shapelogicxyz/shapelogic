@@ -19,7 +19,7 @@ import { isEngineError } from '../../engine/errors.ts';
 import { meshArrays } from '../../engine/frames.ts';
 import type { MeshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
-import { $$, byId, esc } from '../shell/dom.ts';
+import { $$, byId, esc, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { flash, reportError } from '../shell/status.ts';
 import type { Axis, EditorState } from './editor-state.ts';
@@ -213,7 +213,10 @@ export class Inspector {
     this.install();
   }
 
-  /** Draws the inspector for the selected shape and the document's task set. */
+  /**
+   * Draws the inspector for the selected shape and the document's task set:
+   * each part only when its markup changed (not at every snapshot).
+   */
   render(): void {
     const store = this.host.store;
     const shape = store.shape;
@@ -221,23 +224,30 @@ export class Inspector {
     const tasks = this.host.tasks();
     const grid = store.snapshot?.grid ?? 'bricks';
     if (shape === null || tasks === null) {
-      head.innerHTML = '';
-      byId('tmat').innerHTML = '';
-      byId('fitBody').innerHTML = '';
-      byId('toolsBody').innerHTML = '';
+      setHtml(head, '');
+      setHtml(byId('tmat'), '');
+      setHtml(byId('fitBody'), '');
+      setHtml(byId('toolsBody'), '');
       return;
     }
     const { bg, fg } = chipColors(shape, store.indexOf(shape.id));
-    head.innerHTML = `<span class="chip" style="background:${bg};color:${fg}">${esc(shape.label)}</span><span>Edit shape</span>`;
+    setHtml(
+      head,
+      `<span class="chip" style="background:${bg};color:${fg}">${esc(shape.label)}</span><span>Edit shape</span>`,
+    );
     const byTask = new Map(tasks.map((t) => [t.task, t]));
     this.placed = new Set();
-    byId('tmat').innerHTML = this.transformHtml(grid, byTask);
-    byId('fitBody').innerHTML = this.fitHtml(byTask, shape.fixed + shape.variable === 0);
-    byId('toolsBody').innerHTML = this.toolsHtml(byTask);
+    const drawn = [
+      setHtml(byId('tmat'), this.transformHtml(grid, byTask)),
+      setHtml(byId('fitBody'), this.fitHtml(byTask, shape.fixed + shape.variable === 0)),
+      setHtml(byId('toolsBody'), this.toolsHtml(byTask)),
+    ].some((d) => d);
     // the buttons were drawn again under the pointer (a click changed the
     // shape): the preview goes on with what the same button would do now
-    const under = byId('tmat').querySelector<HTMLButtonElement>('button[data-task]:hover');
-    this.preview((under?.dataset.task as ShapeTask | undefined) ?? null);
+    if (drawn) {
+      const under = byId('tmat').querySelector<HTMLButtonElement>('button[data-task]:hover');
+      this.preview((under?.dataset.task as ShapeTask | undefined) ?? null);
+    }
   }
 
   /** Previews a Transform button's task in the 3D view (null: ends the preview). */

@@ -13,18 +13,24 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import { SWEEP } from '../helpers/fixtures.ts';
+import { rmSync } from 'node:fs';
+
 import {
   BUILT,
+  docOf,
   display,
   ENGINE,
   engineCall,
   launch,
   openFixture,
+  readCallLog,
   selectShape,
   setting3d,
   settle,
+  settled,
   shapes,
   style,
+  tmpLog,
 } from './app.ts';
 import type { App } from './app.ts';
 
@@ -163,6 +169,22 @@ for (const [name, file, label] of REFERENCES) {
   });
 }
 
+// the frames drawn once the view has settled: the count when two looks a
+// second apart agree (with no input the view draws nothing: cleanup item 10.1)
+async function quietFrames(page: Page): Promise<number> {
+  const frames = async (): Promise<number> => Number(await page.getAttribute('#cv', 'data-frames'));
+  let last = await frames();
+  for (let i = 0; i < 10; i++) {
+    await page.waitForTimeout(1000);
+    const now = await frames();
+    if (now === last) {
+      return now;
+    }
+    last = now;
+  }
+  throw new Error(`the view kept drawing: ${String(last)} frames`);
+}
+
 test('the view draws again after the GPU reset: the context lost and restored', async () => {
   const { page } = a;
   await openFixture(page, fixtures[0] ?? '');
@@ -183,19 +205,74 @@ test('the view draws again after the GPU reset: the context lost and restored', 
     ext?.loseContext();
   });
   await expect.poll(lost).toBe(true);
-  const before = await frames();
+  // nothing else draws now, so a frame after the restore is the restore's
+  // own (cleanup items 6.11 and 10.1)
+  const before = await quietFrames(page);
   await page.evaluate(() => {
     (
       globalThis as unknown as { loseContext: WEBGL_lose_context | null }
     ).loseContext?.restoreContext();
   });
   await expect.poll(lost).toBe(false);
-  // the renderer heard the restore and drew a frame after it (cleanup item
-  // 6.11; other renders, about one a second today, would hide a missing
-  // one, so the frame counted is the restore's)
-  await expect(page.locator('#cv')).toHaveAttribute('data-restored', /^\d+$/);
-  const at = Number(await page.getAttribute('#cv', 'data-restored'));
-  expect(at).toBeGreaterThanOrEqual(before);
-  await expect.poll(frames).toBeGreaterThan(at);
+  await expect.poll(frames).toBeGreaterThan(before);
   expect(await drawn(page)).toBeGreaterThan(0);
+});
+
+test('the view draws nothing with no input, nor for pointer moves that change nothing', async () => {
+  const { page } = a;
+  await openFixture(page, fixtures[0] ?? '');
+  await settle(page);
+  const frames = async (): Promise<number> => Number(await page.getAttribute('#cv', 'data-frames'));
+  const box = await page.locator('#cv').boundingBox();
+  if (box === null) {
+    throw new Error('no view');
+  }
+  // over empty space at the view's left, and over the shape at its center
+  // (3D edit mode off: nothing to preview), then back
+  const empty = { x: box.x + 24, y: box.y + box.height / 2 };
+  const shape = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await page.mouse.move(empty.x, empty.y);
+  await expect(page.locator('#stCursor')).toHaveText('');
+  const before = await quietFrames(page);
+  for (let i = 0; i < 8; i++) {
+    await page.mouse.move(empty.x, empty.y + i * 4);
+  }
+  await page.mouse.move(shape.x, shape.y, { steps: 6 });
+  await expect(page.locator('#stCursor')).toHaveText(/^Cell /);
+  for (let i = 0; i < 6; i++) {
+    await page.mouse.move(shape.x + (i % 2), shape.y);
+  }
+  await page.mouse.move(empty.x, empty.y, { steps: 6 });
+  await page.waitForTimeout(500);
+  expect(await frames()).toBe(before);
+});
+
+test('an edit that leaves the shape as it is asks for no mesh and builds none', async () => {
+  const { dir, log } = tmpLog();
+  const b = await launch({ callLog: log });
+  try {
+    const { page } = b;
+    await openFixture(page, fixtures[0] ?? '');
+    await settle(page);
+    const meshes = (): number => readCallLog(log).filter((c) => c.method === 'shape.mesh').length;
+    const builds = (): Promise<number> =>
+      page.evaluate(() => performance.getEntriesByName('view3d:mesh-build').length);
+    const before = { meshes: meshes(), builds: await builds() };
+    const problem = (await docOf(page)).problems[0]?.id ?? '';
+    // a problem's name: the document's revision moves, the shape's does not
+    // (cleanup item 10.3: the mesh was asked for and built at every revision)
+    for (const name of ['Renamed 1', 'Renamed 2']) {
+      await engineCall(page, 'problem.rename', { problem, name });
+      await settled(page);
+      await expect(page.locator('#vp')).toHaveAttribute(
+        'data-revision',
+        String((await docOf(page)).revision),
+      );
+    }
+    expect(meshes()).toBe(before.meshes);
+    expect(await builds()).toBe(before.builds);
+  } finally {
+    await b.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

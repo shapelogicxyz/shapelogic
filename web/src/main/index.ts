@@ -1155,6 +1155,14 @@ app.on('will-quit', () => {
   if (primary && started) {
     store.flush();
   }
+  // the log's lines of this tick (app-log.ts writes them at its end); a
+  // second start quits before it has a log
+  (appLog as AppLog | undefined)?.flush();
+});
+
+// app.exit and the end of the process: the log's last lines
+process.on('exit', () => {
+  (appLog as AppLog | undefined)?.flush();
 });
 
 /** True while the hidden WebGL2 probe's window is the only one (its close does not quit). */
@@ -1352,6 +1360,7 @@ void app.whenReady().then(async () => {
   installAppIpc({
     store,
     rescue,
+    engine: (sender) => hosts.get(sender.id) ?? null,
     paths,
     owners,
     version: VERSION,

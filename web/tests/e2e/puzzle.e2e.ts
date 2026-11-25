@@ -20,9 +20,11 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import {
+  attr,
   BUILT,
   camera,
   counted,
+  docOf,
   ENGINE,
   engineCall,
   launch,
@@ -30,10 +32,13 @@ import {
   openFixture,
   readCallLog,
   settle,
+  settled,
   style,
+  tmpLog,
 } from './app.ts';
 import type { LoggedCall } from './app.ts';
 import { checkShown, currentProblem, definition, problemGet, pzSettled } from './puzzle.ts';
+import { solverSettled, toSolver } from './solver.ts';
 import type { Problem } from './puzzle.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
@@ -554,6 +559,57 @@ test('problems, color rules, the frozen problem, sliding and stacking puzzles', 
     await expect(page.locator('#pzBoard')).toBeHidden();
     await expect(page.locator('#pzUsed')).toBeVisible();
     await checkShown(page);
+    expect(refusals(readCallLog(log))).toEqual([]);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a tab out of sight reads nothing at an edit, and reads it when shown', async () => {
+  const { dir, log } = tmpLog();
+  const a = await launch({ callLog: log });
+  try {
+    const { page } = a;
+    // a puzzle with solved problems: the Solver's notes read what each solve found
+    await openFixture(page, 'BallRoom_solved.xmpuzzle');
+    await toPuzzle(page);
+    await toSolver(page);
+    await page.keyboard.press('Control+1');
+    await expect(page.locator('#stage')).toHaveAttribute('data-tab', 'entities');
+    await settled(page);
+    // what the Puzzle and the Solver read for their cards
+    const reads = new Set([
+      'problem.get',
+      'problem.fit',
+      'solve.status',
+      'sliding.tray',
+      'stacking.board',
+      'solution.page',
+    ]);
+    const count = (): number => readCallLog(log).filter((c) => reads.has(c.method)).length;
+    const before = count();
+    const shape = (await docOf(page)).shapes[0]?.id ?? '';
+    for (const name of ['Renamed 1', 'Renamed 2', 'Renamed 3']) {
+      await engineCall(page, 'shape.rename', { shape, name });
+      await settled(page);
+      // the hidden cards say they are at the engine's revision (the helpers wait on it)
+      const revision = String((await docOf(page)).revision);
+      await expect(page.locator('#leftP')).toHaveAttribute('data-revision', revision);
+      await expect(page.locator('#leftS')).toHaveAttribute('data-revision', revision);
+    }
+    await solverSettled(page);
+    expect(count()).toBe(before);
+    // shown, each tab reads the document as it is now
+    const gets = (): number => readCallLog(log).filter((c) => c.method === 'problem.get').length;
+    const atPuzzle = gets();
+    await toPuzzle(page);
+    expect(gets()).toBeGreaterThan(atPuzzle);
+    await checkShown(page);
+    const atSolver = gets();
+    await toSolver(page);
+    expect(gets()).toBeGreaterThan(atSolver);
+    expect(Number(await attr(page, '#leftS', 'data-revision'))).toBe((await docOf(page)).revision);
     expect(refusals(readCallLog(log))).toEqual([]);
   } finally {
     await a.close();

@@ -37,7 +37,10 @@ import {
   shrinkQuadrilateral,
   shrinkTriangle,
 } from '../../../src/renderer/view3d/mesh.ts';
-import { layerSlab } from '../../../src/renderer/view3d/overlays.ts';
+import { layerSlab, Overlays } from '../../../src/renderer/view3d/overlays.ts';
+import type { OverlayOptions } from '../../../src/renderer/view3d/overlays.ts';
+import { Preview } from '../../../src/renderer/view3d/preview.ts';
+import type { Ghost } from '../../../src/renderer/view3d/preview.ts';
 import { describePick, pickOf } from '../../../src/renderer/view3d/picking.ts';
 import { labelSpot, pieceText, SolutionScene } from '../../../src/renderer/view3d/solution.ts';
 
@@ -655,5 +658,66 @@ describe('the pieces scene’s edge lines (cleanup item 6.9)', () => {
     // a mesh without edges (the drawing style) has none
     expect(lines.for(buildMesh(frame([]), [1, 1, 1], 'drawing'))).toBeNull();
     lines.dispose();
+  });
+});
+
+describe('the edit preview and the overlays drawn again only on a change (cleanup items 10.1, 10.2)', () => {
+  it('keeps the preview for the same ghosts, and its materials for others', () => {
+    const mesh = () =>
+      buildMesh(frame([{ corners: square(0), voxel: 0, face: 0, flags: 0 }]), [1, 1, 1], 'flat');
+    const m1 = mesh();
+    const p = new Preview();
+    const box = (alpha: number): Ghost => ({
+      kind: 'box',
+      at: [0, 0, 0],
+      fill: '#ff0000',
+      edge: '#0000ff',
+      alpha,
+      dashed: true,
+    });
+    const cell: Ghost = { kind: 'cell', voxel: 0, fill: '#00ff00', alpha: 0.4 };
+    expect(p.set([box(0.5), cell], m1)).toBe(true);
+    const shown = [...p.group.children];
+    expect(shown.length).toBe(3);
+    // the same ghosts (another array, equal): nothing made again
+    expect(p.set([box(0.5), cell], m1)).toBe(false);
+    expect(p.group.children).toEqual(shown);
+    // the same ghosts cut from another mesh: made again
+    expect(p.set([box(0.5), cell], mesh())).toBe(true);
+    const again = p.group.children;
+    expect(again[0]).not.toBe(shown[0]);
+    // the materials are kept: the same fill and alpha, the same material
+    const mat = (o: unknown): unknown => (o as { material: unknown }).material;
+    expect(mat(again[0])).toBe(mat(shown[0]));
+    expect(mat(again[1])).toBe(mat(shown[1]));
+    // another alpha is another material; none shown is none
+    expect(p.set([box(0.25)], m1)).toBe(true);
+    expect(mat(p.group.children[0])).not.toBe(mat(shown[0]));
+    expect(p.set([], m1)).toBe(true);
+    expect(p.size).toBe(0);
+    expect(p.set([], m1)).toBe(false);
+    p.dispose();
+  });
+
+  it('keeps the overlays for the same options', () => {
+    const o = new Overlays();
+    const opts = (layer: number): OverlayOptions => ({
+      extent: [3, 3, 3],
+      axes: true,
+      bounds: true,
+      slab: { lo: [0, 0, layer], hi: [3, 3, layer + 1] },
+      colors: { ax: '#ff0000', ay: '#00ff00', az: '#0000ff', line: '#888888', accent: '#2f6df6' },
+    });
+    o.update(opts(0));
+    const shown = [...o.group.children];
+    expect(shown.length).toBe(6);
+    o.update(opts(0));
+    expect(o.group.children).toEqual(shown);
+    // another layer: new geometry, the same materials
+    o.update(opts(1));
+    const mat = (x: unknown): unknown => (x as { material: unknown }).material;
+    expect(o.group.children[0]).not.toBe(shown[0]);
+    expect(o.group.children.map(mat)).toEqual(shown.map(mat));
+    o.dispose();
   });
 });

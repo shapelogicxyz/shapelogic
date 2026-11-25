@@ -177,6 +177,7 @@ export class SolutionScene {
     palette: [],
   };
   private poses: ScenePose[] = [];
+  private versions = 0;
   private labels: LabelShow = { label: false, name: false, chars: LABEL_LINE_PER_VOXEL, up: 1 };
   /** Pixels per mesh unit at the scene's plane (the labels' size). */
   private pixelsPerUnit = 1;
@@ -240,8 +241,14 @@ export class SolutionScene {
     }
   }
 
+  /** Counts the models and poses shown: what is drawn where changed when it moved. */
+  get version(): number {
+    return this.versions;
+  }
+
   /** Shows a model (null: nothing); the meshes belong to the caller. */
   set(model: SolutionModel | null): void {
+    this.versions++;
     this.clear();
     if (model === null) {
       return;
@@ -328,6 +335,7 @@ export class SolutionScene {
 
   /** Places the pieces (a pose per piece of the model, in its order). */
   setPoses(poses: readonly ScenePose[]): void {
+    this.versions++;
     this.poses = [...poses];
     const q = new Quaternion();
     this.draws.forEach((d, i) => {
@@ -374,7 +382,10 @@ export class SolutionScene {
     if (d?.faces == null || !d.group.visible) {
       return null;
     }
-    d.faces.geometry.computeBoundingBox();
+    // a piece's geometry does not change: its box is worked out once
+    if (d.faces.geometry.boundingBox === null) {
+      d.faces.geometry.computeBoundingBox();
+    }
     const box = d.faces.geometry.boundingBox ?? new Box3();
     d.group.updateWorldMatrix(true, false);
     return box.getCenter(new Vector3()).applyMatrix4(d.group.matrixWorld);

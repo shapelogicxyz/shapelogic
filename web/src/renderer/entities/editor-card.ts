@@ -42,6 +42,13 @@ import { TOOLS } from './editor-state.ts';
 import { G } from './glyphs.ts';
 import type { Plane } from '../view3d/overlays.ts';
 
+/** Sets an element's text only when it changed. */
+function setText(el: HTMLElement, text: string): void {
+  if (el.textContent !== text) {
+    el.textContent = text;
+  }
+}
+
 /** What the card asks of the workspace. */
 export interface CardHost {
   store: Store;
@@ -125,6 +132,10 @@ export class EditorCard {
   /** The document generation the large-grid prompt was shown for (-1: none). */
   private bigTipFor = -1;
   private palSeen: { color: string | null; generation: number } | null = null;
+  /** The layer strip's plane, layer count and layer last scrolled to. */
+  private layerShown = '';
+  /** What the Mirror and Span row last drew (its layer label kept out of it). */
+  private modHtml = '';
 
   constructor(host: CardHost) {
     this.host = host;
@@ -208,13 +219,15 @@ export class EditorCard {
     const toggle = st.boxMode
       ? `<button class="gbtn cyc" data-box="1" title="Box selection — drag a rectangle in the grid, then Fill it with the chosen tool or Clear it (Esc deselects). Click to go back to drawing" aria-pressed="true">${G.select(30)}<span>Select</span></button>`
       : `<button class="gbtn cyc" data-box="1" title="Drawing: a click or a drag in the grid uses the chosen tool. Click for box selection" aria-pressed="false">${G.tool('paint', 30)}<span>Paint</span></button>`;
-    byId('toolStrip').innerHTML =
+    setHtml(
+      byId('toolStrip'),
       tools
         .map(
           (t) =>
             `<button class="gbtn ${st.voxel === t.id ? 'on' : ''}" data-t="${t.id}" title="${tray ? (WALL_TIP[t.id] ?? t.tip) : t.tip}  (${t.k})" aria-pressed="${st.voxel === t.id}">${G.tool(t.id, 30)}<span>${t.short}</span><i class="kb">${t.k}</i></button>`,
         )
-        .join('') + toggle;
+        .join('') + toggle,
+    );
   }
 
   renderMod(): void {
@@ -242,21 +255,22 @@ export class EditorCard {
       (a) => `Span: fill the whole grid along ${a} on each click`,
       (a, sz) => G.span(a, sz),
     );
-    // the layer label moves between the rows: kept out of the HTML replaced
+    // the layer label moves between the rows: kept out of the HTML compared,
+    // and put back where it belongs when the row was drawn again
     const lbl = byId('layerLbl');
-    lbl.remove();
     const row = byId('modRow');
     row.classList.toggle('short', !this.mpOpen);
-    if (this.mpOpen) {
-      row.innerHTML = mirror + span;
-      byId('planeSub').append(lbl);
-    } else {
-      // Span alone, then the button that shows Mirror and the planes (marked while either is in use)
-      const used = st.mirror.size > 0 || st.plane !== 'XY';
-      row.innerHTML =
-        span +
+    // Span alone, then the button that shows Mirror and the planes (marked while either is in use)
+    const used = st.mirror.size > 0 || st.plane !== 'XY';
+    const html = this.mpOpen
+      ? mirror + span
+      : span +
         `<div class="mpr"><button class="gbtn mpbtn ${used ? 'used' : ''}" data-mp="1" title="Show the Mirror and Plane icons${used ? ' (a mirror or another plane is in use)' : ''}" aria-expanded="false"><b>Mirror<br>&amp; Plane</b></button></div>`;
-      row.querySelector('.mpr')?.append(lbl);
+    if (html !== this.modHtml || !lbl.isConnected) {
+      lbl.remove();
+      row.innerHTML = html;
+      this.modHtml = html;
+      (this.mpOpen ? byId('planeSub') : row.querySelector('.mpr'))?.append(lbl);
     }
     byId('planeSub').classList.toggle('off', !this.mpOpen);
   }
@@ -264,14 +278,16 @@ export class EditorCard {
   renderPlane(): void {
     const st = this.host.state;
     const all = this.host.allPlanes();
-    byId('planeSeg').innerHTML =
+    setHtml(
+      byId('planeSeg'),
       (['XY', 'XZ', 'YZ'] as const)
         .map((p) => {
           const off = !all && p !== 'XY';
           return `<button class="gbtn ${st.plane === p ? 'on' : ''}" data-p="${p}" ${off ? 'disabled' : ''} title="${off ? 'Only the XY layer plane on this grid (as the original’s grid editor)' : `Edit the ${p} plane`}" aria-pressed="${st.plane === p}">${G.plane(p, 30)}<span>${p}</span></button>`;
         })
         .join('') +
-      '<button class="gbtn mpx" data-mp="0" title="Hide Mirror and Plane icons" aria-expanded="true"><b>&lt;</b></button>';
+        '<button class="gbtn mpx" data-mp="0" title="Hide Mirror and Plane icons" aria-expanded="true"><b>&lt;</b></button>',
+    );
   }
 
   renderLayers(): void {
@@ -279,8 +295,9 @@ export class EditorCard {
     const p = this.host.plane();
     const el = byId('lstrip');
     if (p === null) {
-      el.innerHTML = '';
-      byId('layerLbl').textContent = '';
+      setHtml(el, '');
+      setText(byId('layerLbl'), '');
+      this.layerShown = '';
       return;
     }
     const has = this.host.layersWithCells();
@@ -289,9 +306,14 @@ export class EditorCard {
     for (let l = p.layers - 1; l >= 0; l--) {
       h += `<button class="lchip ${l === st.layer ? 'on' : ''} ${has.has(l) ? 'has' : ''}" data-l="${l}" title="Layer ${l + 1}">${l + 1}</button>`;
     }
-    el.innerHTML = h + '</div>';
-    byId('layerLbl').textContent = `Layer ${st.layer + 1} of ${p.layers}`;
-    el.querySelector('.lchip.on')?.scrollIntoView({ block: 'nearest' });
+    const drawn = setHtml(el, h + '</div>');
+    setText(byId('layerLbl'), `Layer ${st.layer + 1} of ${p.layers}`);
+    // scrolled to only when the layer chosen changed (scrollIntoView lays the page out)
+    const shown = `${p.la}:${String(p.layers)}:${String(st.layer)}`;
+    if (drawn && shown !== this.layerShown) {
+      this.layerShown = shown;
+      el.querySelector('.lchip.on')?.scrollIntoView({ block: 'nearest' });
+    }
   }
 
   renderSelbar(): void {
@@ -308,8 +330,11 @@ export class EditorCard {
       st.voxel === 'erase'
         ? ''
         : `<button class="btn sm" data-x="fill" title="Fill the box with ${st.voxel} voxels in the drawing color (mirror and span apply)" ${off}>Fill</button>`;
-    b.innerHTML = `<span><b>${n}</b> cell${n === 1 ? '' : 's'} selected</span><span class="sp"></span>
-  ${fill}<button class="btn sm" data-x="clear" title="Erase the voxels of the box (mirror and span apply)" ${off}>Clear</button><button class="ib" data-x="x" title="Deselect (Esc)" ${box === null ? 'disabled' : ''}>${ic('close', 14)}</button>`;
+    setHtml(
+      b,
+      `<span><b>${n}</b> cell${n === 1 ? '' : 's'} selected</span><span class="sp"></span>
+  ${fill}<button class="btn sm" data-x="clear" title="Erase the voxels of the box (mirror and span apply)" ${off}>Clear</button><button class="ib" data-x="x" title="Deselect (Esc)" ${box === null ? 'disabled' : ''}>${ic('close', 14)}</button>`,
+    );
   }
 
   renderSize(): void {
@@ -413,10 +438,14 @@ export class EditorCard {
             .join(
               '',
             )}</div></div><div class="palnav" id="palNav"><button class="ib" data-pr="-1" title="Previous row of colors">${ic('chevU', 12)}</button><button class="ib" data-pr="1" title="Next row of colors">${ic('chevD', 12)}</button></div></div>`;
-    byId('colFoot').innerHTML =
-      `<div class="colhead"><div class="bigsw" style="background:${chex}"></div><div class="colmeta"><small>${what}</small><b>${esc(name)}</b></div><div class="colbtns">${btns}</div></div>${rows}`;
-    byId('rrail').innerHTML =
-      `<button class="ib" id="btnRE" title="Expand Voxel editor">${ic('panelR')}</button><div class="bigsw" style="background:${chex};width:28px;height:28px;border-radius:8px"></div><span class="vt2">Voxel editor</span>`;
+    const drawn = setHtml(
+      byId('colFoot'),
+      `<div class="colhead"><div class="bigsw" style="background:${chex}"></div><div class="colmeta"><small>${what}</small><b>${esc(name)}</b></div><div class="colbtns">${btns}</div></div>${rows}`,
+    );
+    setHtml(
+      byId('rrail'),
+      `<button class="ib" id="btnRE" title="Expand Voxel editor">${ic('panelR')}</button><div class="bigsw" style="background:${chex};width:28px;height:28px;border-radius:8px"></div><span class="vt2">Voxel editor</span>`,
+    );
     // another document starts on the first row; a color chosen (or added) shows its own
     const gen = this.host.store.generation;
     const seen = this.palSeen;
@@ -424,7 +453,8 @@ export class EditorCard {
     if (seen?.generation !== gen) {
       this.palRow = 0;
       this.showPalRow(false);
-    } else {
+    } else if (drawn || seen.color !== st.color) {
+      // the rows are measured (a layout) only when the palette was drawn again
       this.showPalRow(seen.color !== st.color && st.color !== null);
     }
   }

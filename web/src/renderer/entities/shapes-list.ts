@@ -22,7 +22,7 @@
 
 import type { ShapeSummary } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
-import { $$, byId, esc } from '../shell/dom.ts';
+import { $$, byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
@@ -173,22 +173,32 @@ export class ShapesList {
    <button class="ib del" data-a="del" title="${isTray(s) ? 'Delete this board: the problems on it are left without a result' : 'Delete'}">${ic('trash', 17)}</button>
   </span></div>`;
       });
-      this.boards.innerHTML = rows.slice(0, boards).join('');
-      this.list.innerHTML = rows.slice(boards).join('');
+      // drawn again only when a row would change (not at every cell drawn)
+      setHtml(this.boards, rows.slice(0, boards).join(''));
+      setHtml(this.list, rows.slice(boards).join(''));
     }
-    byId('lrail').innerHTML =
+    setHtml(
+      byId('lrail'),
       `<button class="ib" id="btnLE" title="Expand Shapes">${ic('panelL')}</button>` +
-      shapes
-        .map((s, i) => {
-          const { bg, fg } = chipColors(s, i);
-          const ring =
-            s.id === store.selected
-              ? 'box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent);'
-              : '';
-          return `<button class="chip" data-id="${s.id}" title="${esc(s.label)} ${esc(shownName(s))}" style="background:${bg};color:${fg};border:0;cursor:pointer;min-width:34px;${ring}">${esc(s.label)}</button>`;
-        })
-        .join('') +
-      `<button class="ib" id="btnLN" title="New shape">${ic('plus')}</button>`;
+        shapes
+          .map((s, i) => {
+            const { bg, fg } = chipColors(s, i);
+            const ring =
+              s.id === store.selected
+                ? 'box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent);'
+                : '';
+            return `<button class="chip" data-id="${s.id}" title="${esc(s.label)} ${esc(shownName(s))}" style="background:${bg};color:${fg};border:0;cursor:pointer;min-width:34px;${ring}">${esc(s.label)}</button>`;
+          })
+          .join('') +
+        `<button class="ib" id="btnLN" title="New shape">${ic('plus')}</button>`,
+    );
+  }
+
+  // a row typed into (a rename, a disc's size): drawn again after it
+  // whatever the markup, so the field gives way to the engine's value
+  private forgetRows(): void {
+    forgetHtml(this.boards);
+    forgetHtml(this.list);
   }
 
   /**
@@ -428,6 +438,7 @@ export class ShapesList {
       return;
     }
     this.renaming = { id, input, canceled: false };
+    this.forgetRows();
     input.focus();
     input.select();
     input.addEventListener('keydown', (e) => {
@@ -581,6 +592,7 @@ export class ShapesList {
       const t = e.target as Element;
       if (t instanceof HTMLInputElement && t.dataset.dsize !== undefined) {
         this.sizing = t.closest<HTMLElement>('.row')?.dataset.id ?? null;
+        this.forgetRows();
       }
     });
     list.addEventListener('keydown', (e) => {

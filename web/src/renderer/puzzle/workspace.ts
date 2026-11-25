@@ -113,6 +113,13 @@ export class PuzzleWorkspace {
   private generation = -1;
   private loads = 0;
   private readonly waits = new RevisionWaits();
+  /**
+   * The document changed while the tab was out of sight: nothing was read
+   * or drawn for it (cleanup item 10.5); the tab reads it when shown.
+   */
+  private stale = false;
+  /** The grid the cards were last drawn for: another one is drawn at once, shown or not. */
+  private drawnGrid: string | null = null;
 
   constructor(store: Store, view: View3D, edits: Edits) {
     this.store = store;
@@ -139,7 +146,16 @@ export class PuzzleWorkspace {
       }
     });
     onLayout(() => {
-      if (tab === 'puzzle') {
+      if (tab !== 'puzzle') {
+        return;
+      }
+      if (this.stale) {
+        // what the cards show is older than the document: read it now
+        this.stale = false;
+        byId('leftP').dataset.revision = '';
+        this.load();
+        this.render();
+      } else {
         this.renderScene();
       }
     });
@@ -259,6 +275,7 @@ export class PuzzleWorkspace {
 
   /** Draws the cards, the scene, the tag and the status. */
   render(): void {
+    this.drawnGrid = this.store.snapshot?.grid ?? null;
     const stage = byId('stage');
     const frozen = this.problemFrozen;
     stage.classList.toggle('pzfrozen', frozen);
@@ -527,8 +544,37 @@ export class PuzzleWorkspace {
         this.sel = null;
       }
     }
+    // out of sight, an edit of the same document is read when the tab is
+    // shown; another document, or another grid, is read and drawn at once
+    if (
+      tab !== 'puzzle' &&
+      snap !== null &&
+      store.running &&
+      this.shown >= 0 &&
+      snap.grid === this.drawnGrid
+    ) {
+      this.stale = true;
+      this.keepRevision();
+      return;
+    }
+    this.stale = false;
     this.load();
     this.render();
+  }
+
+  /**
+   * Out of sight: the page says the cards are at the snapshot's revision
+   * (`#leftP[data-revision]`, which the e2e tests wait on), and the edits
+   * waiting for it go on: nothing is drawn for them until the tab is shown.
+   */
+  private keepRevision(): void {
+    const snap = this.store.snapshot;
+    if (snap === null) {
+      return;
+    }
+    byId('leftP').dataset.problem = this.current ?? '';
+    byId('leftP').dataset.revision = String(snap.revision);
+    this.waits.release(snap.revision, this.store.generation);
   }
 
   /**
@@ -624,11 +670,21 @@ export class PuzzleWorkspace {
     byId('leftP').dataset.revision = String(revision);
     this.render();
     this.waits.release(revision, generation);
+    // a load that was under way when the tab was left: the page stays at the snapshot's revision
+    if (this.stale) {
+      this.keepRevision();
+    }
   }
 
   /** Resolves when the cards show a revision at least this one (or another document came). */
   private whenShown(revision: number): Promise<void> {
-    return whenShown(this.store, this.waits, () => this.shown, revision);
+    // out of sight, nothing is drawn for an edit: it waits for the snapshot only
+    return whenShown(
+      this.store,
+      this.waits,
+      () => (this.stale ? Number.POSITIVE_INFINITY : this.shown),
+      revision,
+    );
   }
 
   // ---- actions (each a call awaited until the cards show its revision) ----

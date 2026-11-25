@@ -137,13 +137,13 @@ export class ShapeScene {
   }
 
   /** Shows the 3D edit's preview (empty: none). */
-  setPreview(ghosts: readonly Ghost[]): void {
-    this.preview.set(ghosts, this.built);
+  setPreview(ghosts: readonly Ghost[]): boolean {
+    return this.preview.set(ghosts, this.built);
   }
 
   /** Shows the shape as a tool tab button would leave it (null: none). */
-  setTaskGhost(arrays: MeshArrays | null): void {
-    this.taskGhost.set(
+  setTaskGhost(arrays: MeshArrays | null): boolean {
+    return this.taskGhost.set(
       arrays === null ? [] : [{ kind: 'frame', arrays, fill: '#2f9bff', alpha: 0.5 }],
       null,
     );
@@ -178,9 +178,9 @@ export class ShapeScene {
 
   dispose(): void {
     this.clearMesh();
-    this.overlays.clear();
-    this.preview.clear();
-    this.taskGhost.clear();
+    this.overlays.dispose();
+    this.preview.dispose();
+    this.taskGhost.dispose();
     for (const m of [
       this.mNormal,
       this.mInside,

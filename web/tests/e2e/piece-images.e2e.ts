@@ -102,6 +102,17 @@ test('a piece’s image: applied cropped or stretched, drawn on its cells, turne
     // drawn on the four filled cells only
     await expect(page.locator(PATTERNED)).toHaveCount(4);
     await expect(page.locator('#cImage')).toHaveClass(/\bon\b/);
+    // a cell drawn and erased in the box: the picture's pattern is kept, not
+    // made again from its data URL at each snapshot
+    const pattern = page.locator('#garea svg .pdefs image');
+    await pattern.evaluate((el) => {
+      (el as Element & { kept?: boolean }).kept = true;
+    });
+    await clickCell(page, [1, 1, 0]);
+    await expect(page.locator(PATTERNED)).toHaveCount(5);
+    await clickCell(page, [1, 1, 0], { button: 'right' });
+    await expect(page.locator(PATTERNED)).toHaveCount(4);
+    expect(await pattern.evaluate((el) => (el as Element & { kept?: boolean }).kept)).toBe(true);
 
     // Stretch, the same picture: the dialog opens with the piece's image
     await page.click('#cImage');
@@ -134,6 +145,54 @@ test('a piece’s image: applied cropped or stretched, drawn on its cells, turne
     expect(await imageOf(page, piece)).toBeNull();
     await expect(page.locator(PATTERNED)).toHaveCount(0);
     await expect(page.locator('#cImage')).not.toHaveClass(/\bon\b/);
+  } finally {
+    await a.close();
+  }
+});
+
+test('a picture the document no longer names is let go: its bitmap closed (cleanup item 10.6)', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    await newDocument(page, 'sliding');
+    await page.click('#btnNew');
+    await expect(page.locator(SHAPE_ROWS)).toHaveCount(1);
+    await settled(page);
+    await clickCell(page, [0, 0, 0]);
+    await clickCell(page, [1, 0, 0]);
+    const piece = (await shapes(page))[0]?.id ?? '';
+    await page.click('#cImage');
+    const dlg = page.locator('#imageDlg');
+    await dlg.locator('[data-f="file"]').setInputFiles({
+      name: 'red.png',
+      mimeType: 'image/png',
+      buffer: png(4, 2),
+    });
+    await expect(dlg.locator('[data-f="tiles"]')).toContainText('red.png (4 × 2)');
+    await dlg.locator('[data-x="apply"]').click();
+    await expect(dlg).toHaveCount(0);
+    await settled(page);
+    // drawn: the cache has decoded the engine's copy
+    await expect(page.locator(PATTERNED)).toHaveCount(2);
+    // the dialog has closed its own bitmaps; count the closes from here
+    await page.evaluate(() => {
+      const w = window as unknown as { closes: number };
+      w.closes = 0;
+      const proto = ImageBitmap.prototype;
+      const close = Object.getOwnPropertyDescriptor(proto, 'close')?.value as (
+        this: ImageBitmap,
+      ) => void;
+      proto.close = function (this: ImageBitmap) {
+        w.closes++;
+        close.call(this);
+      };
+    });
+    await engineCall(page, 'shape.clearImage', { shape: piece });
+    await settled(page);
+    await expect(page.locator(PATTERNED)).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { closes: number }).closes))
+      .toBe(1);
   } finally {
     await a.close();
   }

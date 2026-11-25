@@ -142,6 +142,9 @@ export class Grid2D {
   private readonly area: HTMLElement;
   /** This grid's picture pattern id: several grids are on the page at once. */
   private readonly patternId = `pimg${String(++grids)}`;
+  /** What the picture pattern was last drawn from, and the defs it is in. */
+  private patternKey = '';
+  private patternDefs: Element | null = null;
   private readonly host: GridHost;
   /** The space round the grid, in pixels. */
   private readonly margin: number;
@@ -507,7 +510,10 @@ export class Grid2D {
       return null;
     }
     if (im === null || input.plane.ca !== 'X' || input.plane.ra !== 'Y') {
-      defs.innerHTML = '';
+      if (defs.hasChildNodes()) {
+        defs.innerHTML = '';
+      }
+      this.patternKey = '';
       return null;
     }
     const { width: ex, height: ey } = input.geo;
@@ -527,6 +533,14 @@ export class Grid2D {
     const [sx = 0, sy = 0, sw = 0, sh = 0] = im.src;
     const w = this.svg?.getAttribute('width') ?? '0';
     const h = this.svg?.getAttribute('height') ?? '0';
+    // the pattern again only when the picture or its place changed: its
+    // data URL can be megabytes (the drawing built again has new defs)
+    const k = `${im.picture.hash}:${String(im.picture.width)}x${String(im.picture.height)}:${t}:${im.src.join(',')}:${w}x${h}:${input.shapeColor}`;
+    if (k === this.patternKey && defs === this.patternDefs && defs.hasChildNodes()) {
+      return `url(#${this.patternId})`;
+    }
+    this.patternKey = k;
+    this.patternDefs = defs;
     defs.innerHTML = `<clipPath id="${this.patternId}Clip"><rect x="${sx}" y="${sy}" width="${sw}" height="${sh}"/></clipPath><pattern id="${this.patternId}" patternUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${input.shapeColor}"/><g transform="matrix(${t})"><image href="${im.picture.dataUrl}" width="${im.picture.width}" height="${im.picture.height}" preserveAspectRatio="none" clip-path="url(#${this.patternId}Clip)"/></g></pattern>`;
     return `url(#${this.patternId})`;
   }

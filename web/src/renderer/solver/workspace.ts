@@ -180,6 +180,11 @@ export class SolverWorkspace {
   private pickTimer: number | null = null;
   private loads = 0;
   private readonly waits = new RevisionWaits();
+  /**
+   * The document changed while the tab was out of sight: nothing was read
+   * or drawn for it (cleanup item 10.5); the tab reads it when shown.
+   */
+  private stale = false;
   /** The problem the engine sends live preview pictures of (solve.preview), in a document's generation. */
   private previewFor: { generation: number; problem: string | null } = {
     generation: -1,
@@ -357,11 +362,19 @@ export class SolverWorkspace {
     });
     onLayout(() => {
       if (tab === 'solver') {
+        if (this.stale) {
+          // what the cards show is older than the document: read it now
+          this.stale = false;
+          byId('leftS').dataset.revision = '';
+          this.load();
+        }
         this.render();
+        this.showPreview();
         this.showSelected();
       } else {
-        // out of sight: the playback stops
+        // out of sight: the playback stops, and so do the live preview's pictures
         this.player.pause();
+        this.syncPreview();
       }
     });
     onPrefs((changed) => {
@@ -626,6 +639,9 @@ export class SolverWorkspace {
 
   // the newest picture of the problem shown's run, while the preview is on
   private showPreview(): void {
+    if (tab !== 'solver') {
+      return;
+    }
     const shot = this.current === null ? null : (this.solves.peek(this.current)?.preview ?? null);
     this.preview.show(prefs.livePreview && shot?.problem === this.current ? shot : null);
   }
@@ -636,7 +652,8 @@ export class SolverWorkspace {
     if (!store.running) {
       return;
     }
-    const want = prefs.livePreview ? this.current : null;
+    // only while the Solver is shown: elsewhere no picture is drawn
+    const want = prefs.livePreview && tab === 'solver' ? this.current : null;
     const generation = store.generation;
     const was = this.previewFor.generation === generation ? this.previewFor.problem : null;
     if (this.previewFor.generation === generation && was === want) {
@@ -939,8 +956,36 @@ export class SolverWorkspace {
         this.newPager(true);
       }
     }
+    // out of sight, an edit of the same document is read when the tab is
+    // shown (another document is read at once)
+    if (tab !== 'solver' && snap !== null && store.running && this.shown >= 0) {
+      this.stale = true;
+      this.keepRevision();
+      // the menus ask whether a stacking problem's search is saved (Export ▸ Paused Solver State)
+      if (snap.grid === 'stacking') {
+        this.readSavedState();
+      }
+      return;
+    }
+    this.stale = false;
     this.load();
     this.render();
+  }
+
+  /**
+   * Out of sight: the page says the cards are at the snapshot's revision
+   * (`#leftS[data-revision]`, which the e2e tests wait on), and the edits
+   * waiting for it go on: nothing is drawn for them until the tab is shown.
+   */
+  private keepRevision(): void {
+    const snap = this.store.snapshot;
+    if (snap === null) {
+      return;
+    }
+    const left = byId('leftS');
+    left.dataset.problem = this.current ?? '';
+    left.dataset.revision = String(snap.revision);
+    this.waits.release(snap.revision, this.store.generation);
   }
 
   /**
@@ -1098,11 +1143,21 @@ export class SolverWorkspace {
     }
     this.render();
     this.waits.release(revision, generation);
+    // a load that was under way when the tab was left: the page stays at the snapshot's revision
+    if (this.stale) {
+      this.keepRevision();
+    }
   }
 
   /** Resolves when the cards show a revision at least this one (or another document came). */
   whenShown(revision: number): Promise<void> {
-    return whenShown(this.store, this.waits, () => this.shown, revision);
+    // out of sight, nothing is drawn for an edit: it waits for the snapshot only
+    return whenShown(
+      this.store,
+      this.waits,
+      () => (this.stale ? Number.POSITIVE_INFINITY : this.shown),
+      revision,
+    );
   }
 
   // ---- the solutions list ----

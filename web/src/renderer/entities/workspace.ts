@@ -56,8 +56,8 @@ import { RodsCard } from './rods-card.ts';
 import { rodSetText } from '../state/stacking.ts';
 import { ShapesList } from './shapes-list.ts';
 import { openPlacements } from './placements-dialog.ts';
-import { TiltCard, tiltKey } from './tilt-card.ts';
-import { BorderCard, borderBoard, borderKey } from './border-card.ts';
+import { TiltCard } from './tilt-card.ts';
+import { BorderCard, borderBoard } from './border-card.ts';
 import { borderRim, trayBox } from '../shell/tray-border.ts';
 import { TrayViewCard } from './tray-view.ts';
 import { cellState, isTiltBoard, isTilted } from '../state/tilted.ts';
@@ -96,7 +96,6 @@ export class EntitiesWorkspace {
   /** A stroke whose group is closing, until the engine answered its edit.end. */
   private closing: Promise<unknown> | null = null;
   private closingStroke: Stroke | null = null;
-  private inspectorKey = '';
   /** Edits under way (a stroke open or closing, a call waiting for its revision): `data-busy`. */
   private readonly edits: Edits;
   /** A stacking puzzle's rod sets (the right card). */
@@ -383,16 +382,13 @@ export class EntitiesWorkspace {
     this.edit3d.show();
   }
 
-  // the inspector again only when what it shows changed (not every cell drawn)
+  // the inspector's sections: each draws again only when its markup changed
+  // (not at every cell drawn; setHtml)
   private renderInspector(): void {
     const s = this.store.shape;
-    const k = `${String(this.tasks?.length)}:${this.tasksFor}:${s?.id}:${s?.label}:${s?.color}:${(s?.fixed ?? 0) + (s?.variable ?? 0) === 0}:${this.state.applyAll}:${this.store.indexOf(s?.id ?? '')}:${tiltKey(this.store)}:${borderKey(this.store)}`;
-    if (k !== this.inspectorKey) {
-      this.inspectorKey = k;
-      this.inspector.render();
-      this.tilt.render();
-      this.border.render();
-    }
+    this.inspector.render();
+    this.tilt.render();
+    this.border.render();
     // a sliding board: Tray border above Transform, which is folded for it
     // at first (and open again for a piece); the user's own folding stays
     // while the same kind of shape is shown
@@ -437,7 +433,6 @@ export class EntitiesWorkspace {
       (r) => {
         if (this.tasksFor === k) {
           this.tasks = r.tasks;
-          this.inspectorKey = '';
           this.renderInspector();
         }
       },

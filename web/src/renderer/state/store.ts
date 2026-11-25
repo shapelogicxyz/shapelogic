@@ -170,24 +170,11 @@ export class Store {
   }
 
   /**
-   * The bytes of a rescue copy (base64): the file gzip-compressed, since a
-   * large document's plain XML, in base64, would be too long a line for the
-   * engine to open again (cleanup item 4.5). openRescue takes them back.
+   * Reopens a rescue copy (its file, which the engine wrote: document.saveRescue):
+   * the document stands for its file (`path`, or none) and has unsaved changes.
    */
-  async rescueBytes(): Promise<string> {
-    return (await this.engine.call('document.saveBytes', { gzip: true })).data;
-  }
-
-  /**
-   * Reopens a rescue copy (the file's bytes, base64): the document stands
-   * for its file (`path`, or none) and has unsaved changes.
-   */
-  async openRescue(data: string, path: string | null, name: string): Promise<void> {
-    const snap = await this.engine.call('document.openBytes', {
-      data,
-      dirty: true,
-      ...(path === null ? {} : { path }),
-    });
+  async openRescue(file: string, path: string | null, name: string): Promise<void> {
+    const snap = await this.engine.call('document.open', { path: file, as: path, dirty: true });
     this.replaced(snap, path === null ? name : null);
   }
 

@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The rescue copies (stage 6), as the original's `__rescue.xmpuzzle`: the
-// document's bytes as the engine writes them (document.saveBytes, gzip as
-// in a saved .xmpuzzle; plain XML from earlier versions, which opens as
-// well), kept in the app's data directory while the document has unsaved
-// changes, with a record of what
-// it stands for (`__rescue.json`: the document's file, its name, the
-// revision, the time, and a hash of the bytes). After an engine's death,
-// or at the next start after the app itself died, the renderer offers it.
-// Each file is replaced through replace-file.ts (a temporary file of its
-// own, synced, renamed), the record first: a crash between the two leaves
-// a record whose hash does not match the copy, and such a copy is offered
-// as a puzzle without a file (its record may name another document's
-// file, which a save must never overwrite). A store's writes and clears
-// run one after the other, so a clear is never undone by a write before it.
+// document's file, written by the window's engine itself
+// (document.saveRescue, gzip; cleanup item 10.11: the document never
+// crosses IPC; plain XML from earlier versions, which opens as well), kept
+// in the app's data directory while the document has unsaved changes,
+// with a record of what it stands for (`__rescue.json`: the document's
+// file, its name, the revision, the time, and a hash of the copy). After
+// an engine's death, or at the next start after the app itself died, the
+// renderer offers it, and the engine opens the copy by its path
+// (document.open with `as` and `dirty`). The engine replaces the copy
+// whole (a temporary file beside it, synced, renamed), then the record is
+// replaced through replace-file.ts: a crash between the two leaves a
+// record whose hash does not match the copy, and such a copy is offered as
+// a puzzle without a file (its record may name another document's file,
+// which a save must never overwrite). A store's writes and clears run one
+// after the other, so a clear is never undone by a write before it.
 //
 // One copy per window (decision 0036): each window takes a slot as it
 // opens and keeps it while it lives (slot 0 is `__rescue.xmpuzzle`, the
@@ -25,12 +27,12 @@
 // directory is given).
 
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync } from 'node:fs';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdirSync, readdirSync } from 'node:fs';
+import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { isRescueInfo } from '../engine/app-bridge.ts';
-import type { RescueInfo } from '../engine/app-bridge.ts';
+import type { RescueCopy, RescueInfo } from '../engine/app-bridge.ts';
 import { replaceFile } from './replace-file.ts';
 
 const sha = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
@@ -68,27 +70,37 @@ export class RescueStore {
     this.record = join(dir, `${stem(slot)}.json`);
   }
 
-  /** Writes the copy (the file's bytes, base64) and its record. */
-  write(data: string, info: RescueInfo): Promise<void> {
+  /**
+   * Writes the copy and its record: `save` has the engine write the copy to
+   * the file it is given (document.saveRescue) and answers the revision it
+   * holds. `save` is called at once, before this returns (the caller's
+   * engine call then goes ahead of any later call of the window); the
+   * record follows once the copy is whole.
+   */
+  write(save: (file: string) => Promise<number>, info: RescueInfo): Promise<void> {
+    // the engine writes into the folder, which must be there first
+    mkdirSync(this.dir, { recursive: true });
+    const saved = save(this.file);
+    // a failure is this call's, never the chain's (nor unhandled)
+    saved.catch(() => undefined);
     return this.then(async () => {
-      const bytes = Buffer.from(data, 'base64');
-      await mkdir(this.dir, { recursive: true });
-      await replaceFile(this.record, JSON.stringify({ ...info, sha256: sha(bytes) }));
-      await replaceFile(this.file, bytes);
+      const revision = await saved;
+      const bytes = await readFile(this.file);
+      await replaceFile(this.record, JSON.stringify({ ...info, revision, sha256: sha(bytes) }));
     });
   }
 
-  /** The copy and its record, or null when there is no copy. */
-  read(): { data: string; info: RescueInfo } | null {
+  /** The copy (its file, which the engine opens) and its record, or null when there is none. */
+  async read(): Promise<RescueCopy | null> {
     let bytes: Buffer;
     try {
-      bytes = readFileSync(this.file);
+      bytes = await readFile(this.file);
     } catch {
       return null;
     }
     let info: RescueInfo = { path: null, name: 'Rescued puzzle', revision: 0, time: 0 };
     try {
-      const v: unknown = JSON.parse(readFileSync(this.record, 'utf8'));
+      const v: unknown = JSON.parse(await readFile(this.record, 'utf8'));
       if (
         isRescueInfo(v) &&
         (v as unknown as Record<string, unknown>).sha256 === sha(new Uint8Array(bytes))
@@ -98,7 +110,7 @@ export class RescueStore {
     } catch {
       // no record, or not ours: a copy of an unknown puzzle
     }
-    return { data: bytes.toString('base64'), info };
+    return { file: this.file, info };
   }
 
   /** Removes the copy and its record. */

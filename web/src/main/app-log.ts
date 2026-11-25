@@ -14,7 +14,9 @@
 // when it ends (teeStderr). The main process adds its own: the start, an
 // engine that stopped, its protocol problems (logEngineProblems), a page
 // that crashed or hung (renderer-watch.ts), settings that could not be
-// stored.
+// stored. The lines of a tick are written together, on one handle kept
+// open, at its end (an error at once; everything waiting on quit), not one
+// open and write per line on the main process's thread (cleanup item 10.9).
 //
 // Each line is `YYYY-MM-DD HH:MM:SS.mmm LEVEL [source] Event: text`, local
 // time, on one line: the event what happened in a few capitalised words
@@ -35,7 +37,6 @@
 // folder).
 
 import {
-  appendFileSync,
   closeSync,
   existsSync,
   mkdirSync,
@@ -45,6 +46,7 @@ import {
   rmSync,
   statSync,
   writeFileSync,
+  writeSync,
 } from 'node:fs';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { statfsSync } from 'node:fs';
@@ -82,6 +84,13 @@ export const LOG_NAME = 'shapelogic.log';
 export const LOG_PAGE_LINES = 100;
 /** The newest lines Export… offers on their own (Last 100 lines). */
 export const LOG_EXPORT_TAIL = 100;
+/**
+ * The longest line taken from an engine's stderr, in characters (the
+ * engine writes ASCII: 64 KiB); the rest of a longer one is dropped and
+ * the line marked ` (cut)`, so a line that never ends cannot grow without
+ * limit (cleanup item 10.9).
+ */
+export const ENGINE_LINE_MAX = 64 * 1024;
 
 const gunzipAsync = promisify(gunzip);
 
@@ -154,22 +163,44 @@ export function parseEngineLine(line: string): EngineLine | null {
     : { level: m[1] as LogLevel, event: 'Engine', text: rest };
 }
 
-/** Splits the engine's stderr chunks into lines (a line may span chunks). */
+/**
+ * Splits the engine's stderr chunks into lines (a line may span chunks).
+ * A line longer than `max` characters is handed on cut there, marked
+ * ` (cut)`, and the rest of it, up to its newline, is dropped.
+ */
 export class EngineLines {
   private carry = '';
+  /** A line was handed on cut: its rest is dropped up to the next newline. */
+  private cutting = false;
   private readonly decoder = new TextDecoder('utf-8');
   private readonly onLine: (line: string) => void;
+  private readonly max: number;
 
-  constructor(onLine: (line: string) => void) {
+  constructor(onLine: (line: string) => void, max = ENGINE_LINE_MAX) {
     this.onLine = onLine;
+    this.max = max;
   }
 
   push(chunk: Uint8Array): void {
-    const text = this.carry + this.decoder.decode(chunk, { stream: true });
+    let text = this.carry + this.decoder.decode(chunk, { stream: true });
+    if (this.cutting) {
+      const nl = text.indexOf('\n');
+      if (nl < 0) {
+        this.carry = '';
+        return;
+      }
+      this.cutting = false;
+      text = text.slice(nl + 1);
+    }
     const lines = text.split('\n');
     this.carry = lines.pop() ?? '';
     for (const l of lines) {
-      this.onLine(l);
+      this.onLine(l.length > this.max ? `${l.slice(0, this.max)} (cut)` : l);
+    }
+    if (this.carry.length > this.max) {
+      this.onLine(`${this.carry.slice(0, this.max)} (cut)`);
+      this.carry = '';
+      this.cutting = true;
     }
   }
 
@@ -179,6 +210,7 @@ export class EngineLines {
       this.onLine(this.carry);
       this.carry = '';
     }
+    this.cutting = false;
   }
 }
 
@@ -242,12 +274,28 @@ export function logEngineProblems(
   });
 }
 
-/** The current file's lines, read once and then only what was added. */
+/** The current file's lines, read once and then only what was added, each with its level. */
 interface LineCache {
   bytes: number;
-  lines: string[];
+  lines: LogEntry[];
   /** A line cut short at the end of what was read. */
   partial: string;
+}
+
+/**
+ * The lines the last page's filters kept (their indices, oldest first), so
+ * that a search whose text grows narrows them instead of reading every line
+ * again, and the next page of the same filters takes them as they are.
+ */
+interface Matches {
+  /** The cache they index (a new one makes them stale). */
+  of: LineCache;
+  /** The lines there were then: the ones after are not looked at yet. */
+  lines: number;
+  needle: string;
+  errorsOnly: boolean;
+  /** Null: every line (no filter). */
+  at: number[] | null;
 }
 
 export interface AppLogOptions {
@@ -277,6 +325,18 @@ export class AppLog {
   private readonly now: () => Date;
   private bytes: number;
   private cache: LineCache | null = null;
+  /** The last page's matches (page). */
+  private matches: Matches | null = null;
+  /**
+   * The file, open for appending, while lines are written to it: one open
+   * for the log, not one per line (cleanup item 10.9); closed before the
+   * file is renamed, replaced or deleted.
+   */
+  private fd: number | null = null;
+  /** Lines not written yet: written together, once per tick of the event loop (flush). */
+  private pending: string[] = [];
+  private pendingBytes = 0;
+  private flushQueued = false;
   /** The compression under way, when there is one. */
   private compressing: Promise<void> | null = null;
   /** Writing failed (the folder gone, the disk full): the error, kept to tell once. */
@@ -303,8 +363,9 @@ export class AppLog {
     }
   }
 
-  /** Waits for the compressions under way (the tests, Export, Debug logging turned off). */
+  /** Writes the lines waiting, then waits for the compressions under way (the tests, Export, Debug logging turned off). */
   async settled(): Promise<void> {
+    this.flush();
     while (this.compressing !== null) {
       await this.compressing;
     }
@@ -343,6 +404,8 @@ export class AppLog {
 
   /** Keeps the newest lines and the bytes before them (setDebug's off). */
   private trim(): void {
+    this.flush();
+    this.closeFile();
     rmSync(this.archive, { force: true });
     rmSync(this.rotated, { force: true });
     const size = sizeOf(this.file);
@@ -378,7 +441,7 @@ export class AppLog {
     // synchronously: a line appended between the read and the rename would be lost
     replaceFileSync(this.file, kept);
     this.bytes = kept.length;
-    this.cache = null;
+    this.forget();
     if (from < keepFrom) {
       writeFileSync(this.rotated, buf.subarray(from, keepFrom));
       this.compressing = this.compress();
@@ -405,20 +468,68 @@ export class AppLog {
   /**
    * Appends a line, `event` what happened in a few capitalised words
    * (EVENT_NAME); once the file would pass the limit, it is compressed and
-   * a new one begun.
+   * a new one begun. The line waits for the end of the tick, with the
+   * others written in it, and is then written with them (flush); an error
+   * is written at once, with the lines before it (a crash may follow).
    */
   write(level: LogLevel, source: string, event: string, text: string): void {
     const line = formatLogLine(this.now(), level, source, event, text);
     const size = Buffer.byteLength(line);
-    if (this.bytes > 0 && this.bytes + size > this.limit) {
+    const total = this.bytes + this.pendingBytes;
+    if (total > 0 && total + size > this.limit) {
+      this.flush();
       this.rotate();
     }
+    this.pending.push(line);
+    this.pendingBytes += size;
+    if (level === 'ERROR') {
+      this.flush();
+    } else if (!this.flushQueued) {
+      this.flushQueued = true;
+      setImmediate(() => {
+        this.flushQueued = false;
+        this.flush();
+      });
+    }
+  }
+
+  /**
+   * Writes the lines waiting, synchronously: at the end of each tick, and
+   * before the file is read, renamed or deleted, and on quit (index.ts's
+   * will-quit and exit).
+   */
+  flush(): void {
+    if (this.pending.length === 0) {
+      return;
+    }
+    const text = this.pending.join('');
+    const size = this.pendingBytes;
+    this.pending = [];
+    this.pendingBytes = 0;
     try {
-      appendFileSync(this.file, line);
+      this.fd ??= openSync(this.file, 'a');
+      const buf = Buffer.from(text, 'utf8');
+      for (let at = 0; at < buf.length;) {
+        at += writeSync(this.fd, buf, at, buf.length - at);
+      }
       this.bytes += size;
       this.failure = null;
     } catch (e) {
+      // the lines are lost, as one line was before; the next write opens the file again
       this.failure = e instanceof Error ? e.message : String(e);
+      this.closeFile();
+    }
+  }
+
+  /** Closes the file (written lines are on it; a later write opens it again). */
+  private closeFile(): void {
+    if (this.fd !== null) {
+      try {
+        closeSync(this.fd);
+      } catch {
+        // closed already
+      }
+      this.fd = null;
     }
   }
 
@@ -428,14 +539,25 @@ export class AppLog {
       // the one before is still being compressed: this one waits behind it
       return;
     }
+    // a handle open on it would go on writing into the renamed file
+    this.closeFile();
     try {
       renameSync(this.file, this.rotated);
     } catch {
       return;
     }
     this.bytes = 0;
-    this.cache = null;
+    this.forget();
     this.compressing = this.compress();
+  }
+
+  /**
+   * Drops the lines read for the manager and its last matches (the dialog
+   * closed: a log of 100 MB keeps them otherwise; the file changed).
+   */
+  forget(): void {
+    this.cache = null;
+    this.matches = null;
   }
 
   private async compress(): Promise<void> {
@@ -474,7 +596,8 @@ export class AppLog {
   }
 
   /** The current file's lines, oldest first. */
-  private lines(): string[] {
+  private lines(): LineCache {
+    this.flush();
     const now = sizeOf(this.file);
     if (this.cache === null || now < this.cache.bytes) {
       this.cache = { bytes: 0, lines: [], partial: '' };
@@ -490,7 +613,7 @@ export class AppLog {
         c.partial = parts.pop() ?? '';
         for (const p of parts) {
           if (p !== '') {
-            c.lines.push(p);
+            c.lines.push({ line: p, level: levelOf(p) });
           }
         }
         c.bytes += got;
@@ -498,7 +621,7 @@ export class AppLog {
         closeSync(fd);
       }
     }
-    return c.lines;
+    return c;
   }
 
   /**
@@ -506,9 +629,10 @@ export class AppLog {
    * errors and warnings only, and with the text, any case), from `offset` matches in.
    */
   page(query: LogQuery): LogPage {
-    let all: string[];
+    let cache: LineCache | null;
     try {
-      all = existsSync(this.file) ? this.lines() : [];
+      this.flush();
+      cache = existsSync(this.file) ? this.lines() : null;
     } catch (e) {
       return {
         entries: [],
@@ -524,25 +648,20 @@ export class AppLog {
         error: e instanceof Error ? e.message : String(e),
       };
     }
-    const needle = query.search.trim().toLowerCase();
+    const all = cache?.lines ?? [];
     const limit = Math.max(1, Math.min(query.limit ?? LOG_PAGE_LINES, 1000));
     const offset = Math.max(0, query.offset);
+    const at = cache === null ? [] : this.match(cache, query);
+    const count = at === null ? all.length : at.length;
     const entries: LogEntry[] = [];
-    let matches = 0;
-    for (let i = all.length - 1; i >= 0; i--) {
-      const line = all[i] ?? '';
-      const level = levelOf(line);
-      if (query.errorsOnly && level !== 'ERROR' && level !== 'WARN') {
-        continue;
+    // newest first: from the end of the matches
+    for (let k = count - 1 - offset; k >= 0 && entries.length < limit; k--) {
+      const e = all[at === null ? k : (at[k] ?? 0)];
+      if (e !== undefined) {
+        entries.push(e);
       }
-      if (needle !== '' && !line.toLowerCase().includes(needle)) {
-        continue;
-      }
-      if (matches >= offset && entries.length < limit) {
-        entries.push({ line, level });
-      }
-      matches++;
     }
+    const matches = count;
     return {
       entries,
       offset,
@@ -558,14 +677,74 @@ export class AppLog {
     };
   }
 
+  /**
+   * The indices of the lines that `query` keeps, oldest first (null: every
+   * line). A query that keeps no more than the last one did (its text holds
+   * the last text, its errors-only is on or as it was) looks only at the
+   * last matches and the lines added since: typing a letter more reads only
+   * what the letters before kept.
+   */
+  private match(cache: LineCache, query: LogQuery): number[] | null {
+    const all = cache.lines;
+    const needle = query.search.trim().toLowerCase();
+    const errorsOnly = query.errorsOnly;
+    const keep = (i: number): boolean => {
+      const e = all[i];
+      if (e === undefined) {
+        return false;
+      }
+      if (errorsOnly && e.level !== 'ERROR' && e.level !== 'WARN') {
+        return false;
+      }
+      return needle === '' || e.line.toLowerCase().includes(needle);
+    };
+    const last = this.matches;
+    const narrows =
+      last !== null &&
+      last.of === cache &&
+      last.lines <= all.length &&
+      needle.includes(last.needle) &&
+      (errorsOnly || !last.errorsOnly);
+    let at: number[] | null;
+    if (needle === '' && !errorsOnly) {
+      at = null;
+    } else {
+      at = [];
+      if (narrows) {
+        const same = needle === last.needle && errorsOnly === last.errorsOnly;
+        if (last.at === null) {
+          for (let i = 0; i < last.lines; i++) {
+            if (keep(i)) {
+              at.push(i);
+            }
+          }
+        } else {
+          for (const i of last.at) {
+            if (same || keep(i)) {
+              at.push(i);
+            }
+          }
+        }
+      }
+      for (let i = narrows ? last.lines : 0; i < all.length; i++) {
+        if (keep(i)) {
+          at.push(i);
+        }
+      }
+    }
+    this.matches = { of: cache, lines: all.length, needle, errorsOnly, at };
+    return at;
+  }
+
   /** Deletes the log and its compressed predecessor. */
   async clear(): Promise<void> {
     await this.settled();
+    this.closeFile();
     await rm(this.file, { force: true });
     await rm(this.archive, { force: true });
     await rm(this.rotated, { force: true });
     this.bytes = 0;
-    this.cache = null;
+    this.forget();
   }
 
   /** All of the log as plain text, oldest first: the compressed file's lines, then the current file's. */

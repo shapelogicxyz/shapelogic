@@ -116,12 +116,32 @@ test('Bermuda: solved with take-apart as bt counts it, played, stepped, jumped, 
     expect(engine.steps).toBe(11);
     await expectPosesAt(page, engine, 0);
 
-    // played to the end
+    // played to the end; the frames of play leave the poses' test attribute
+    // alone, the end writes it (cleanup item 10.8: about nine seconds of
+    // frames wrote it at each one)
+    await page.evaluate(() => {
+      const w = window as unknown as { posesWrites?: number; posesSeen?: MutationObserver };
+      w.posesWrites = 0;
+      w.posesSeen = new MutationObserver((records) => {
+        w.posesWrites = (w.posesWrites ?? 0) + records.length;
+      });
+      const vp = document.getElementById('vp');
+      if (vp !== null) {
+        w.posesSeen.observe(vp, { attributes: true, attributeFilter: ['data-poses'] });
+      }
+    });
     await page.click('#splayer [data-t="play"]');
     await expect(page.locator('#splayer')).toHaveAttribute('data-playing', '1');
     await expect(page.locator('#splayer')).toHaveAttribute('data-playing', '0', {
       timeout: 30_000,
     });
+    const writes = await page.evaluate(() => {
+      const w = window as unknown as { posesWrites?: number; posesSeen?: MutationObserver };
+      w.posesSeen?.disconnect();
+      return w.posesWrites ?? -1;
+    });
+    expect(writes).toBeGreaterThanOrEqual(1);
+    expect(writes).toBeLessThanOrEqual(2);
     await expectPosesAt(page, engine, engine.steps);
 
     // the keys on the list: one move back and forward, the jumps
@@ -140,11 +160,15 @@ test('Bermuda: solved with take-apart as bt counts it, played, stepped, jumped, 
     await page.keyboard.press('Shift+ArrowLeft');
     await page.keyboard.press('Shift+ArrowRight');
     await expectPosesAt(page, engine, engine.steps);
-    // Space plays from the start (it was at the end), Esc pauses
+    // Space plays from the start (it was at the end), Esc pauses, and the
+    // pause writes the poses it stopped at
+    const atEnd = await attr(page, '#vp', 'data-poses');
     await page.keyboard.press(' ');
     await expect(page.locator('#splayer')).toHaveAttribute('data-playing', '1');
     await page.keyboard.press('Escape');
     await expect(page.locator('#splayer')).toHaveAttribute('data-playing', '0');
+    expect(Number(await attr(page, '#splayer', 'data-t'))).toBeLessThan(engine.steps);
+    expect(await attr(page, '#vp', 'data-poses')).not.toBe(atEnd);
     // the seek bar: Home and End are its start and end
     await page.focus('#slvMove');
     await page.keyboard.press('Home');
