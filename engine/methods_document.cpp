@@ -165,14 +165,9 @@ Reply documentSave(State& s, Params& p) {
 }
 
 Reply documentSaveBytes(State& s, Params& p) {
-  const bool gzip = p.optBoolean("gzip", false);
   BTE_CHECK(p.finish());
   BTE_TRY(const std::string bytes, s.document().saveBytes());
-  // the rescue copy's (cleanup item 4.5): plain XML over about 48 MiB came
-  // back in base64 longer than the 64 MiB line the engine reads. Compressed
-  // fast: the copy is made after every change, on the thread that answers
-  // the edits, and level 9 took about as long again as writing the XML
-  return Json{{"data", base64Encode(gzip ? io::gzipCompress(bytes, io::kGzipFast) : bytes)}};
+  return Json{{"data", base64Encode(bytes)}};
 }
 
 Reply documentSaveRescue(State& s, Params& p) {
@@ -186,8 +181,11 @@ Reply documentSaveRescue(State& s, Params& p) {
     return coreError(Errc::InvalidState, "the document is not the one of that revision");
   }
   BTE_TRY(const std::string bytes, s.document().saveBytes());
-  // the fast level, as saveBytes's gzip (cleanup item 4.5): the copy is
-  // written after every change, on the thread that answers the edits
+  // compressed (cleanup item 4.5: plain XML over about 48 MiB came back
+  // from saveBytes in base64 longer than the 64 MiB line the engine reads),
+  // at the fast level: the copy is written after every change, on the
+  // thread that answers the edits, and level 9 took about as long again as
+  // writing the XML
   BTE_CHECK(io::writeFileWhole(path, io::gzipCompress(bytes, io::kGzipFast)));
   return Json{{"revision", s.revision()}};
 }

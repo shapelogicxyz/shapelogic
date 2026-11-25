@@ -333,13 +333,11 @@ Errors: `invalid_state`, `io_error`, `invalid_argument`
 
 ### `document.saveBytes`
 
-The file's bytes (plain XML, or with gzip compressed as a .xmpuzzle file is), base64, without marking the document clean. document.openBytes takes either.
+The file's bytes as plain XML, base64, without marking the document clean. document.openBytes takes them (or gzip-compressed bytes, as a .xmpuzzle file is).
 
 Params:
 
-| name | type | | description |
-|---|---|---|---|
-| `gzip` | boolean |  | Gzip-compressed (default false; at the fastest level, not a save's level 9, so the bytes differ from a saved file's): far smaller, so that the base64 of a large document stays within the longest line the engine reads (64 MiB) when it is opened again. |
+(none)
 
 Result:
 
@@ -351,7 +349,7 @@ Errors: `invalid_state`
 
 ### `document.saveRescue`
 
-Writes the rescue copy (the app's crash copy of a document with unsaved changes, as the original's __rescue.xmpuzzle) to the path given: the file's bytes gzip-compressed at the fastest level, as saveBytes's gzip, replacing the file only once the new one is whole (a temporary file beside it, synced and renamed over it); the document is not marked clean. document.open with `as` and `dirty` reopens it. `revision` is the revision the caller last saw: when it is not of the open document (another was opened since, or a new engine runs after a crash), the copy would hold another puzzle and is refused (invalid_state). Refused while a solve runs, as saveBytes: write it at a save point.
+Writes the rescue copy (the app's crash copy of a document with unsaved changes, as the original's __rescue.xmpuzzle) to the path given: the file's bytes gzip-compressed at the fastest level (not a save's level 9, so the bytes differ from a saved file's), replacing the file only once the new one is whole (a temporary file beside it, synced and renamed over it); the document is not marked clean. document.open with `as` and `dirty` reopens it. `revision` is the revision the caller last saw: when it is not of the open document (another was opened since, or a new engine runs after a crash), the copy would hold another puzzle and is refused (invalid_state). Refused while a solve runs, as saveBytes: write it at a save point.
 
 Params:
 

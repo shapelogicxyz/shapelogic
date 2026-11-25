@@ -381,21 +381,16 @@ def document_files(e):
         check(again["path"] is None and again["notes"] == "changed notes", "openBytes")
         check([s["name"] for s in again["shapes"]] == [s["name"] for s in snap["shapes"]], "shapes")
         check(again["revision"] > r["revision"], "revisions go on across documents")
-        # gzip (the rescue copy's, cleanup item 4.5): the same file compressed,
-        # and opened as it is
-        zipped = e.call("document.saveBytes", {"gzip": True})["data"]
-        raw = base64.b64decode(zipped)
-        check(raw[:2] == b"\x1f\x8b", "gzip bytes")
-        check(gzip.decompress(raw) == base64.b64decode(e.call("document.saveBytes")["data"]),
-              "the plain bytes, compressed")
-        check(len(zipped) < len(data), "smaller")
+        # plain XML; openBytes takes gzip bytes too, opened as they are
+        check(base64.b64decode(data)[:1] == b"<", "plain XML")
+        zipped = base64.b64encode(gzip.compress(base64.b64decode(data))).decode()
         unzipped = e.call("document.openBytes", {"data": zipped})
         check(unzipped["notes"] == "changed notes"
               and [s["name"] for s in unzipped["shapes"]] == [s["name"] for s in snap["shapes"]],
               "openBytes of the gzip bytes")
-        check(base64.b64decode(e.call("document.saveBytes", {"gzip": False})["data"])[:1] == b"<",
-              "gzip false: plain XML")
-        e.fails("document.saveBytes", {"gzip": "yes"}, "invalid_params")
+        # (saveBytes's gzip, which the rescue copy took before the engine
+        # wrote it, is gone: cleanup item 14.1)
+        e.fails("document.saveBytes", {"gzip": True}, "invalid_params")
         # a rescue copy: the bytes standing for a file, with unsaved changes
         rescued = e.call(
             "document.openBytes", {"data": data, "path": str(path), "dirty": True}
@@ -417,6 +412,8 @@ def document_files(e):
         check(e.call("document.saveRescue", {"path": str(copy), "revision": rev})["revision"] == rev,
               "saveRescue: the revision it holds")
         check(copy.read_bytes()[:2] == b"\x1f\x8b", "the copy is gzip")
+        check(gzip.decompress(copy.read_bytes()) == base64.b64decode(e.call("document.saveBytes")["data"]),
+              "the copy: the file's bytes, compressed")
         check(e.call("document.get")["dirty"], "still dirty after the copy")
         check(not any(n.name.endswith(".tmp") for n in pathlib.Path(tmp).iterdir()),
               "no temporary file left")
@@ -893,8 +890,9 @@ def solving_session(e):
     child = children[0]
     check(e.call("explore.node", {"handle": mx["handle"], "node": root["node"]})["children"], "the root's children")
     check(e.call("explore.node", {"handle": mx["handle"], "node": child["node"]}) == child, "explore.node")
-    moved = e.call("explore.addMove", {"handle": mx["handle"], "node": root["node"],
-                                       "pieces": [root["pieces"][0]["piece"]], "direction": 0})
+    by_hand = {"handle": mx["handle"], "node": root["node"], "pieces": [root["pieces"][0]["piece"]],
+               "direction": 0}
+    moved = e.call("explore.addMove", by_hand)
     check(moved["parent"] == root["node"], "a move by hand")
     # a piece dragged one step: some piece can move some way
     found = []
