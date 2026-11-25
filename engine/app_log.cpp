@@ -165,7 +165,12 @@ void logCall(State& s, std::string_view method, const Json& params, const Reply&
   }
   const Json given = params.is_object() && params.contains("options") ? params["options"] : Json();
   if (method == "document.open") {
-    logLine(s, LogLevel::Info, "File Opened", fileOf(s, params));
+    std::string text = "\"" + stringParam(params, "path") + "\"";
+    if (params.is_object() && params.contains("as")) {
+      // a rescue copy reopened (cleanup item 10.11): the file it stands for
+      text += s.path ? ", as \"" + s.path->string() + "\"" : std::string(", as an untitled puzzle");
+    }
+    logLine(s, LogLevel::Info, "File Opened", text);
   } else if (method == "document.openBytes") {
     const std::string path = stringParam(params, "path");
     logLine(s, LogLevel::Info, "File Opened",

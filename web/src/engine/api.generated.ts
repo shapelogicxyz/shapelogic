@@ -2001,14 +2001,24 @@ export interface Methods {
   };
   /**
    * Opens a .xmpuzzle file (gzip or plain XML; one that inflates to more than 256 MiB is refused
-   * as parse_error); what this version does not model is kept. The open document goes as with
-   * document.new.
+   * as parse_error); what this version does not model is kept. The document's path is the file
+   * read, unless `as` says otherwise (a rescue copy, document.saveRescue). The open document goes
+   * as with document.new.
    * (document.json)
    */
   'document.open': {
     params: {
       /** @minLength 1 */
       path: string;
+      /**
+       * The file the document stands for instead of `path`: the document's path, where
+       * document.save writes (a rescue copy of a puzzle that has a file); null for none (a rescue
+       * copy of an untitled puzzle).
+       * @minLength 1
+       */
+      as?: string | null;
+      /** The document starts with unsaved changes (a rescue copy): dirty until saved. */
+      dirty?: boolean;
     };
     result: Snapshot;
     errors: 'io_error' | 'parse_error';
@@ -2165,8 +2175,7 @@ export interface Methods {
       /**
        * Gzip-compressed (default false; at the fastest level, not a save's level 9, so the bytes
        * differ from a saved file's): far smaller, so that the base64 of a large document stays
-       * within the longest line the engine reads (64 MiB) when it is opened again (the rescue
-       * copy).
+       * within the longest line the engine reads (64 MiB) when it is opened again.
        */
       gzip?: boolean;
     };
@@ -2174,6 +2183,32 @@ export interface Methods {
       data: string;
     };
     errors: 'invalid_state';
+  };
+  /**
+   * Writes the rescue copy (the app's crash copy of a document with unsaved changes, as the
+   * original's __rescue.xmpuzzle) to the path given: the file's bytes gzip-compressed at the
+   * fastest level, as saveBytes's gzip, replacing the file only once the new one is whole (a
+   * temporary file beside it, synced and renamed over it); the document is not marked clean.
+   * document.open with `as` and `dirty` reopens it. `revision` is the revision the caller last
+   * saw: when it is not of the open document (another was opened since, or a new engine runs after
+   * a crash), the copy would hold another puzzle and is refused (invalid_state). Refused while a
+   * solve runs, as saveBytes: write it at a save point.
+   * (document.json)
+   */
+  'document.saveRescue': {
+    params: {
+      /**
+       * The copy's file (the app's, in its data folder).
+       * @minLength 1
+       */
+      path: string;
+      revision: Revision;
+    };
+    result: {
+      /** The revision the copy holds. */
+      revision: Revision;
+    };
+    errors: 'invalid_state' | 'io_error';
   };
   /**
    * The document's lists and state.
@@ -5041,6 +5076,7 @@ export const METHOD_NAMES = [
   'document.openBytes',
   'document.save',
   'document.saveBytes',
+  'document.saveRescue',
   'document.setNotes',
   'edit.begin',
   'edit.end',

@@ -7,6 +7,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -46,10 +48,27 @@ Reply documentNew(State& s, Params& p) {
 
 Reply documentOpen(State& s, Params& p) {
   const std::string path = p.string("path");
+  // the file the document stands for: the one read, unless `as` names
+  // another or (null) none, as a rescue copy reopens (cleanup item 10.11)
+  std::optional<std::filesystem::path> file = std::filesystem::path(path);
+  if (p.has("as")) {
+    const Json& as = p.value("as");
+    if (as.is_null()) {
+      file = std::nullopt;
+    } else if (as.is_string() && !as.get<std::string>().empty()) {
+      file = std::filesystem::path(as.get<std::string>());
+    } else {
+      p.fail("'as' must be a file's path or null");
+    }
+  }
+  const bool dirty = p.optBoolean("dirty", false);
   BTE_CHECK(p.finish());
   BTE_TRY(app::Document d,
           app::Document::open(path, app::DocumentSettings{s.settings.undoDepth}));
-  s.replaceDocument(std::move(d), std::filesystem::path(path));
+  if (dirty) {
+    d.markUnsaved();
+  }
+  s.replaceDocument(std::move(d), std::move(file));
   return openedSnapshot(s);
 }
 
@@ -182,6 +201,23 @@ Reply documentSaveBytes(State& s, Params& p) {
   return Json{{"data", base64Encode(gzip ? io::gzipCompress(bytes, io::kGzipFast) : bytes)}};
 }
 
+Reply documentSaveRescue(State& s, Params& p) {
+  const std::string path = p.string("path");
+  const auto revision =
+      static_cast<std::uint64_t>(p.integer("revision", 0, std::numeric_limits<std::int64_t>::max()));
+  BTE_CHECK(p.finish());
+  // the copy is of the document the caller saw: one opened since (a call
+  // ahead of this one, or a new engine after a crash) is not its puzzle
+  if (revision < s.documentSince() || revision > s.revision()) {
+    return coreError(Errc::InvalidState, "the document is not the one of that revision");
+  }
+  BTE_TRY(const std::string bytes, s.document().saveBytes());
+  // the fast level, as saveBytes's gzip (cleanup item 4.5): the copy is
+  // written after every change, on the thread that answers the edits
+  BTE_CHECK(io::writeFileWhole(path, io::gzipCompress(bytes, io::kGzipFast)));
+  return Json{{"revision", s.revision()}};
+}
+
 Reply documentGet(State& s, Params& p) {
   BTE_CHECK(p.finish());
   return snapshot(s);
@@ -236,6 +272,7 @@ void addDocumentMethods(MethodTable& t) {
   t["document.convertGrid"] = documentConvertGrid;
   t["document.save"] = documentSave;
   t["document.saveBytes"] = documentSaveBytes;
+  t["document.saveRescue"] = documentSaveRescue;
   t["document.get"] = documentGet;
   t["document.setNotes"] = documentSetNotes;
   t["edit.undo"] = editUndo;

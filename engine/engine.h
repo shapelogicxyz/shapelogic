@@ -156,6 +156,9 @@ struct State {
   /// documents before it, so that it never goes back.
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): the engine always holds a document
   [[nodiscard]] std::uint64_t revision() const { return revisionBase_ + doc->revision(); }
+  /// The open document's first revision: every revision before it was
+  /// another document's (a rescue copy is refused for one of those).
+  [[nodiscard]] std::uint64_t documentSince() const { return revisionBase_; }
   /// {revision}: the result of a mutating method.
   [[nodiscard]] Json changed() const { return Json{{"revision", revision()}}; }
   /// Replaces the document; drops the handles and what the events told,

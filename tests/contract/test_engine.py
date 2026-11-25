@@ -400,6 +400,35 @@ def document_files(e):
         e.fails("document.openBytes", {"data": data, "path": ""}, "invalid_argument")
         reopened = e.call("document.open", {"path": str(path)})
         check(reopened["notes"] == "changed notes", "the saved file")
+        # the rescue copy written by the engine (cleanup item 10.11), and
+        # reopened as the file it stands for, with unsaved changes
+        e.call("document.setNotes", {"text": "copied notes"})
+        rev = e.call("document.get")["revision"]
+        copy = pathlib.Path(tmp) / "__rescue.xmpuzzle"
+        check(e.call("document.saveRescue", {"path": str(copy), "revision": rev})["revision"] == rev,
+              "saveRescue: the revision it holds")
+        check(copy.read_bytes()[:2] == b"\x1f\x8b", "the copy is gzip")
+        check(e.call("document.get")["dirty"], "still dirty after the copy")
+        check(not any(n.name.endswith(".tmp") for n in pathlib.Path(tmp).iterdir()),
+              "no temporary file left")
+        back = e.call("document.open", {"path": str(copy), "as": str(path), "dirty": True})
+        check(back["path"] == str(path) and back["dirty"] and back["notes"] == "copied notes",
+              "open as the file it stands for, dirty")
+        # a revision of the document before: refused, nothing written
+        copy.unlink()
+        e.fails("document.saveRescue", {"path": str(copy), "revision": rev}, "invalid_state")
+        e.fails("document.saveRescue", {"path": str(copy), "revision": back["revision"] + 1},
+                "invalid_state")
+        check(not copy.exists(), "a refused copy is not written")
+        e.fails("document.saveRescue",
+                {"path": str(pathlib.Path(tmp) / "no" / "such.xmpuzzle"),
+                 "revision": back["revision"]}, "io_error")
+        e.call("document.saveRescue", {"path": str(copy), "revision": back["revision"]})
+        untitled = e.call("document.open", {"path": str(copy), "as": None})
+        check(untitled["path"] is None and not untitled["dirty"], "open as an untitled puzzle")
+        check(e.call("document.open", {"path": str(copy)})["path"] == str(copy), "no as: the file")
+        e.fails("document.open", {"path": str(copy), "as": ""}, "invalid_params")
+        e.fails("document.open", {"path": str(copy), "as": 3}, "invalid_params")
 
     e.fails("document.open", {"path": str(FIXTURES / "no such file.xmpuzzle")}, "io_error")
     e.fails("document.open", {"path": str(ROOT / "api" / "types.json")}, "parse_error")
