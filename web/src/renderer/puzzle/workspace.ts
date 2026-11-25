@@ -35,8 +35,9 @@ import type {
   ProblemDetail,
   ProblemSummary,
 } from '../../engine/api.generated.ts';
-import { EngineError } from '../../engine/errors.ts';
+import { EngineError, isQuietError } from '../../engine/errors.ts';
 import type { Edits } from '../state/edits.ts';
+import { RevisionWaits, whenShown } from '../state/revision-waits.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc, forgetHtml } from '../shell/dom.ts';
 import { onKey } from '../shell/keyboard.ts';
@@ -111,7 +112,7 @@ export class PuzzleWorkspace {
   private readonly kinds = new Map<string, Promise<ProblemKind>>();
   private generation = -1;
   private loads = 0;
-  private waiting: { revision: number; done: () => void }[] = [];
+  private readonly waits = new RevisionWaits();
 
   constructor(store: Store, view: View3D, edits: Edits) {
     this.store = store;
@@ -494,6 +495,9 @@ export class PuzzleWorkspace {
     const snap = store.snapshot;
     if (store.generation !== this.generation) {
       this.generation = store.generation;
+      // the old document's edits wait no more; its revisions are not this one's
+      this.waits.release(-1, store.generation);
+      this.shown = -1;
       this.current = null;
       this.sel = null;
       this.ranges.clear();
@@ -539,9 +543,10 @@ export class PuzzleWorkspace {
     }
     const n = ++this.loads;
     const revision = snap.revision;
+    const generation = store.generation;
     const id = this.current;
     if (id === null) {
-      this.loaded(n, revision, null, null, null);
+      this.loaded(n, revision, generation, null, null, null);
       return;
     }
     const e = store.engine;
@@ -549,35 +554,35 @@ export class PuzzleWorkspace {
     const stacking = snap.grid === 'stacking';
     const goal = this.goal;
     Promise.all([
-      e.call('problem.get', { problem: id }, { coalesce: 'problem.get' }),
+      e.call('problem.get', { problem: id }, { coalesce: 'puzzle:problem.get' }),
       stacking
         ? Promise.resolve(null)
-        : e.call('problem.fit', { problem: id }, { coalesce: 'problem.fit' }),
+        : e.call('problem.fit', { problem: id }, { coalesce: 'puzzle:problem.fit' }),
       this.kindOf(id),
       stacking
-        ? e.call('stacking.board', { problem: id, goal }, { coalesce: 'stacking.board' })
+        ? e.call('stacking.board', { problem: id, goal }, { coalesce: 'puzzle:stacking.board' })
         : Promise.resolve(null),
     ]).then(
       ([d, f, k, b]) => {
         if (id === this.current) {
           this.board = b;
           this.boardGoal = goal;
-          this.loaded(n, revision, d, f, k);
+          this.loaded(n, revision, generation, d, f, k);
         }
       },
       (err: unknown) => {
-        // a newer load took its place, or the problem went meanwhile
-        if (
-          err instanceof EngineError &&
-          (err.errc === 'superseded' || err.errc === 'not_found' || err.errc === 'disconnected')
-        ) {
+        // a newer load answers for the edits waiting (it was asked for a later revision)
+        if (n !== this.loads) {
           return;
         }
-        if (n === this.loads) {
+        // the problem went meanwhile, or the engine stopped: no news; any
+        // other failure is said; either way the edits waiting for this
+        // revision go on, rather than staying busy (a restarted engine
+        // never comes back to it)
+        if (!isQuietError(err)) {
           reportError(err, 'The problem could not be read');
-          // the edits waiting for it go on (said), rather than staying busy
-          this.release(revision);
         }
+        this.waits.release(revision, generation);
       },
     );
   }
@@ -598,6 +603,7 @@ export class PuzzleWorkspace {
   private loaded(
     n: number,
     revision: number,
+    generation: number,
     d: ProblemDetail | null,
     f: FitStats | null,
     k: ProblemKind | null,
@@ -617,28 +623,12 @@ export class PuzzleWorkspace {
     byId('leftP').dataset.problem = this.current ?? '';
     byId('leftP').dataset.revision = String(revision);
     this.render();
-    this.release(revision);
-  }
-
-  private release(revision: number): void {
-    const ready = this.waiting.filter((w) => w.revision <= revision);
-    this.waiting = this.waiting.filter((w) => w.revision > revision);
-    for (const w of ready) {
-      w.done();
-    }
+    this.waits.release(revision, generation);
   }
 
   /** Resolves when the cards show a revision at least this one (or another document came). */
   private whenShown(revision: number): Promise<void> {
-    const gen = this.store.generation;
-    return this.store.whenRevision(revision).then(() => {
-      if (this.shown >= revision || this.store.generation !== gen) {
-        return;
-      }
-      return new Promise<void>((done) => {
-        this.waiting.push({ revision, done });
-      });
-    });
+    return whenShown(this.store, this.waits, () => this.shown, revision);
   }
 
   // ---- actions (each a call awaited until the cards show its revision) ----

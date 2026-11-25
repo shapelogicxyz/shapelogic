@@ -29,6 +29,7 @@ import { SWEEP } from '../helpers/fixtures.ts';
 import {
   BUILT,
   counted,
+  display,
   ENGINE,
   engineCall,
   launch,
@@ -37,6 +38,7 @@ import {
   readCallLog,
 } from './app.ts';
 import {
+  openExplorerFold,
   runButton,
   runEnded,
   shownPoses,
@@ -159,6 +161,7 @@ test('Bermuda: every placement listed and drawn, the assembler stepped, the debu
     // Placements: every piece's count, each piece's first and last placement drawn
     const { grid, extent } = await resultExtent(page, p);
     const shapes = await pieceShapes(page, p);
+    await openExplorerFold(page);
     await page.click('#slvAdv [data-x="placements"]');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'placements');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-handle', /^ax/);
@@ -197,6 +200,13 @@ test('Bermuda: every placement listed and drawn, the assembler stepped, the debu
         );
       }
     }
+    // the piece's name on it, as the player draws it (cleanup item 6.13:
+    // Bermuda's shapes have one-letter names)
+    await display(page, 'solvedLabels');
+    await expect(page.locator('#vp')).toHaveAttribute('data-piece-labels', /^\d+:[A-Z]$/);
+    await display(page, 'solvedLabels');
+    await expect(page.locator('#vp')).toHaveAttribute('data-piece-labels', '');
+    await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'placements');
     // the keys: ← → the piece, ↑ ↓ the placement
     await page.click('#sdrawer .dl [data-exr="0"]');
     await page.keyboard.press('ArrowDown');
@@ -324,6 +334,7 @@ test('Bermuda solved: the movement tree as the contract session grows it', async
     });
     // Placements open on a solved problem too; Movements has a solution with its moves
     await expect(page.locator('#slvAdv [data-x="placements"]')).toBeEnabled();
+    await openExplorerFold(page);
     await page.click('#slvAdv [data-x="movements"]');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'movements');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-handle', /^mx/);

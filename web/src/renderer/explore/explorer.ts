@@ -39,7 +39,7 @@ import type {
   SolutionRow,
   SolveOptions,
 } from '../../engine/api.generated.ts';
-import { EngineError } from '../../engine/errors.ts';
+import { EngineError, isQuietError } from '../../engine/errors.ts';
 import { meshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
@@ -48,7 +48,7 @@ import { ic } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
 import type { KeyAction } from '../shell/keys.ts';
 import { tab } from '../shell/layout.ts';
-import { pieceSubColor, shapeColor } from '../shell/piece-colors.ts';
+import { shapeColor } from '../shell/piece-colors.ts';
 import type { Rgb3 } from '../shell/piece-colors.ts';
 import { flash, reportError } from '../shell/status.ts';
 import { cellToMesh, gridExtent, placedAt } from '../view3d/extent.ts';
@@ -56,6 +56,9 @@ import { buildMesh } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
 import type { PieceMode, ScenePose, SolutionModel } from '../view3d/solution.ts';
 import type { View3D } from '../view3d/view.ts';
+import { problemPieces } from '../solver/player.ts';
+import type { ProblemPiece } from '../solver/player.ts';
+import { HandleSlot } from './handle-slot.ts';
 import { dragDirection, MovementTree } from './tree.ts';
 
 /** Which explorer the drawer shows. */
@@ -63,14 +66,6 @@ export type ExplorerMode = 'placements' | 'step' | 'movements';
 
 type V3 = [number, number, number];
 type ExplorePlacement = Methods['explore.placements']['result']['placements'][number];
-
-/** A piece of the problem: its number, shape, label (S1, S1.2) and color. */
-export interface ProblemPiece {
-  piece: number;
-  shape: string;
-  label: string;
-  color: Rgb3;
-}
 
 /** What the explorer needs of the Solver workspace. */
 export interface ExplorerHost {
@@ -103,27 +98,6 @@ interface DrawItem {
   at: V3;
 }
 
-/** The pieces of a problem, numbered part by part, labeled and colored as the original's. */
-export function problemPieces(detail: ProblemDetail | null, store: Store): ProblemPiece[] {
-  const snap = store.snapshot;
-  const out: ProblemPiece[] = [];
-  let n = 0;
-  for (const part of detail?.parts ?? []) {
-    const i = store.indexOf(part.shape);
-    const s = snap?.shapes[i];
-    const base = shapeColor(s?.color ?? null, i);
-    for (let q = 0; q < part.max; q++) {
-      out.push({
-        piece: n++,
-        shape: part.shape,
-        label: (s?.label ?? part.shape) + (part.max > 1 ? `.${String(q + 1)}` : ''),
-        color: pieceSubColor(i, q, base),
-      });
-    }
-  }
-  return out;
-}
-
 export class Explorer {
   mode: ExplorerMode | null = null;
   private readonly host: ExplorerHost;
@@ -134,16 +108,18 @@ export class Explorer {
   private pieces: ProblemPiece[] = [];
 
   // Placements
-  private ax: string | null = null;
-  private axOpening: Promise<string | null> | null = null;
+  private readonly ax = new HandleSlot((h) => {
+    this.closeHandle(h);
+  });
   private placementsSupported = true;
   private readonly lists = new Map<number, ExplorePlacement[]>();
   private selPiece = 0;
   private selPlacement = 0;
 
   // Step
-  private axStep: string | null = null;
-  private stepOpening: Promise<string | null> | null = null;
+  private readonly axStep = new HandleSlot((h) => {
+    this.closeHandle(h);
+  });
   private finished = 0;
   private stepPlaced: Placement[] = [];
   private stepsTaken = 0;
@@ -320,7 +296,12 @@ export class Explorer {
 
   /** Closes the drawer and every handle. */
   close(): void {
-    if (this.mode === null && this.ax === null && this.axStep === null && this.mx === null) {
+    if (
+      this.mode === null &&
+      this.ax.handle === null &&
+      this.axStep.handle === null &&
+      this.mx === null
+    ) {
       return;
     }
     this.mode = null;
@@ -340,22 +321,15 @@ export class Explorer {
 
   // the handles of another document are gone already: nothing to close
   private forget(): void {
-    this.ax = null;
-    this.axStep = null;
+    this.ax.drop(false);
+    this.axStep.drop(false);
     this.mx = null;
-    this.axOpening = null;
-    this.stepOpening = null;
   }
 
   private closeHandles(): void {
-    for (const h of [this.ax, this.axStep]) {
-      this.closeHandle(h);
-    }
-    this.ax = null;
-    this.axOpening = null;
+    this.ax.drop();
     this.lists.clear();
-    this.axStep = null;
-    this.stepOpening = null;
+    this.axStep.drop();
     this.finished = 0;
     this.stepPlaced = [];
     this.stepsTaken = 0;
@@ -405,7 +379,7 @@ export class Explorer {
       this.placementsSupported = r.placementsSupported;
       return r.handle;
     } catch (e) {
-      if (!quiet(e)) {
+      if (!isQuietError(e)) {
         reportError(e, 'The assembler could not be prepared');
       }
       return null;
@@ -417,14 +391,7 @@ export class Explorer {
   // ---- Placements ----
 
   private async ensurePlacements(): Promise<string | null> {
-    if (this.ax !== null) {
-      return this.ax;
-    }
-    this.axOpening ??= this.openAssembly().then((h) => {
-      this.ax = h;
-      return h;
-    });
-    return this.axOpening;
+    return this.ax.ensure(() => this.openAssembly());
   }
 
   private async showPlacements(): Promise<void> {
@@ -446,12 +413,12 @@ export class Explorer {
       if (!this.lists.has(piece)) {
         try {
           const r = await this.host.store.engine.call('explore.placements', { handle: h, piece });
-          if (h !== this.ax) {
+          if (h !== this.ax.handle) {
             return;
           }
           this.lists.set(piece, r.placements);
         } catch (e) {
-          if (!quiet(e)) {
+          if (!isQuietError(e)) {
             reportError(e, 'The placements could not be read');
           }
           return;
@@ -492,14 +459,7 @@ export class Explorer {
   // ---- Step ----
 
   private async ensureStep(): Promise<string | null> {
-    if (this.axStep !== null) {
-      return this.axStep;
-    }
-    this.stepOpening ??= this.openAssembly().then((h) => {
-      this.axStep = h;
-      return h;
-    });
-    return this.stepOpening;
+    return this.axStep.ensure(() => this.openAssembly());
   }
 
   /** The Step button: the assembler `n` steps on (the drawer's Step view opened). */
@@ -518,14 +478,14 @@ export class Explorer {
     this.render();
     try {
       const r = await this.host.store.engine.call('explore.step', { handle: h, steps: n });
-      if (h !== this.axStep) {
+      if (h !== this.axStep.handle) {
         return;
       }
       this.finished = r.finished;
       this.stepPlaced = r.placements;
       this.stepsTaken += n;
     } catch (e) {
-      if (!quiet(e)) {
+      if (!isQuietError(e)) {
         reportError(e, 'Step');
       }
     } finally {
@@ -539,9 +499,7 @@ export class Explorer {
 
   // Reset: the search from the start again (a new assembler)
   private resetStep(): void {
-    this.closeHandle(this.axStep);
-    this.axStep = null;
-    this.stepOpening = null;
+    this.axStep.drop();
     this.finished = 0;
     this.stepPlaced = [];
     this.stepsTaken = 0;
@@ -581,7 +539,7 @@ export class Explorer {
       this.vectors = mx.vectors.map((v) => [v[0], v[1], v[2]]);
       this.transformations = new Map(got.placements.map((p) => [p.piece, p.transformation]));
     } catch (e) {
-      if (!quiet(e)) {
+      if (!isQuietError(e)) {
         reportError(e, 'The movements could not be opened');
       }
     } finally {
@@ -630,7 +588,7 @@ export class Explorer {
     } catch (e) {
       if (e instanceof EngineError && e.errc === 'not_found' && doing === 'Find a move') {
         flash('No move of that piece that way');
-      } else if (!quiet(e)) {
+      } else if (!isQuietError(e)) {
         reportError(e, doing);
       }
     } finally {
@@ -720,7 +678,7 @@ export class Explorer {
         tree.prune(this.sel);
       }
     } catch (e) {
-      if (!quiet(e)) {
+      if (!isQuietError(e)) {
         reportError(e, 'Prune');
       }
     } finally {
@@ -837,6 +795,11 @@ export class Explorer {
     return this.pieces.find((p) => p.piece === piece)?.label ?? `#${String(piece)}`;
   }
 
+  // a piece's shape's name as it shows (empty for none): the 3D labels show it as the player's do
+  private nameOf(piece: number): string {
+    return this.pieces.find((p) => p.piece === piece)?.name ?? '';
+  }
+
   /** The drawer's contents (the mockup's renderSolverDrawer). */
   render(): void {
     const d = byId('sdrawer');
@@ -874,7 +837,8 @@ export class Explorer {
     setHtml(d.querySelector<HTMLElement>('.dl') ?? d, list);
     setHtml(d.querySelector<HTMLElement>('.dr') ?? d, right);
     d.dataset.mode = m;
-    d.dataset.handle = (m === 'placements' ? this.ax : m === 'step' ? this.axStep : this.mx) ?? '';
+    d.dataset.handle =
+      (m === 'placements' ? this.ax.handle : m === 'step' ? this.axStep.handle : this.mx) ?? '';
     d.dataset.busy = String(this.busy);
     d.dataset.piece = String(this.selPiece);
     d.dataset.placement = String(this.selPlacement);
@@ -925,7 +889,7 @@ export class Explorer {
           `<div data-piece="${String(p.piece)}" class="${placed.has(p.piece) ? 'on' : ''}">${esc(p.label)}<span>${placed.has(p.piece) ? 'placed' : '—'}</span></div>`,
       )
       .join('');
-    const busy = this.busy > 0 || this.axStep === null;
+    const busy = this.busy > 0 || this.axStep.handle === null;
     const dis = busy ? 'disabled' : '';
     const right =
       `<div class="ctl"><button class="btn sm pri" data-exa="step" data-n="1" ${dis} title="Advance the assembler one step">Step ▶</button><button class="btn sm" data-exa="step" data-n="10" ${dis} title="Advance the assembler ten steps">10 ▶</button><button class="btn sm" data-exa="step" data-n="100" ${dis} title="Advance the assembler a hundred steps">100 ▶</button><button class="btn sm" data-exa="step" data-n="1000" ${dis} title="Advance the assembler a thousand steps">Run ▶▶</button><button class="btn sm" data-exa="reset" ${dis} title="Take the assembler back to its start">Reset</button></div>` +
@@ -1094,7 +1058,7 @@ export class Explorer {
             mode: it.mode,
             built: built[i] ?? null,
             // the result drawn around the pieces (piece -1) has none
-            ...(it.piece < 0 ? {} : { label: this.labelOf(it.piece) }),
+            ...(it.piece < 0 ? {} : { label: this.labelOf(it.piece), name: this.nameOf(it.piece) }),
           })),
         };
         this.modelKey = modelKey;
@@ -1125,7 +1089,7 @@ export class Explorer {
       }
       this.host.changed();
     } catch (e) {
-      if (t === this.token && !quiet(e)) {
+      if (t === this.token && !isQuietError(e)) {
         reportError(e, 'The pieces could not be drawn');
       }
     }
@@ -1251,13 +1215,4 @@ export class Explorer {
       return false;
     });
   }
-}
-
-// a failure nobody needs to hear of: a newer read took its place, the
-// handle or the engine went
-function quiet(e: unknown): boolean {
-  return (
-    e instanceof EngineError &&
-    (e.errc === 'superseded' || e.errc === 'not_found' || e.errc === 'disconnected')
-  );
 }

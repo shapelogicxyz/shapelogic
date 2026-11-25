@@ -122,3 +122,49 @@ export async function clickRod(page: Page, rod: number): Promise<void> {
 export async function expectStacks(page: Page, stacks: string): Promise<void> {
   await expect(page.locator(STACK)).toHaveAttribute('data-stacks', stacks);
 }
+
+/**
+ * Presses Space three times at once (play, pause, play) on a game of `n`
+ * moves at its start, and checks that one playback ran to the end: each
+ * move drawn once and in order, and a step asked for each (cleanup item
+ * 6.6: the paused playback went on beside the new one, asking steps of its
+ * own). Counts and order, never time.
+ */
+export async function spaceThrice(page: Page, n: number): Promise<void> {
+  await page.evaluate(() => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    const seen: string[] = [];
+    (globalThis as unknown as { seen: string[] }).seen = seen;
+    new MutationObserver((records) => {
+      for (const r of records) {
+        const el = r.target as HTMLElement;
+        if (r.attributeName === 'data-at' && el.id === 'playStage') {
+          seen.push(`at ${el.dataset.at ?? ''}`);
+        } else if (r.attributeName === 'data-anim' && el.dataset.anim !== undefined) {
+          seen.push('drawn');
+        }
+      }
+    }).observe(document.getElementById('playStage') ?? document.body, {
+      attributes: true,
+      attributeFilter: ['data-at', 'data-anim'],
+      subtree: true,
+    });
+  });
+  const stage = page.locator(STAGE);
+  const steps = Number((await stage.getAttribute('data-play-steps')) ?? '0');
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Space');
+  await expect(stage).toHaveAttribute('data-at', String(n));
+  await expect(stage).toHaveAttribute('data-playing', 'false');
+  await expect(page.locator('.pl-board[data-anim]')).toHaveCount(0);
+  const seen = await page.evaluate(() => (globalThis as unknown as { seen: string[] }).seen);
+  // data-at is written on every render (the start's 0 too): the moves as they came, each once
+  const ats = ['at 0', ...seen.filter((x) => x.startsWith('at'))];
+  expect(ats.filter((x, i) => x !== ats[i - 1]).slice(1)).toEqual(
+    Array.from({ length: n }, (_, i) => `at ${String(i + 1)}`),
+  );
+  expect(seen.filter((x) => x === 'drawn')).toHaveLength(n);
+  // a step asked for each move: none by the paused playback going on beside the new one
+  expect(Number(await stage.getAttribute('data-play-steps')) - steps).toBe(n);
+}

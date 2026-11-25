@@ -14,6 +14,7 @@
 import { $$, byId } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
 import { ic } from './icons.ts';
+import { closePop } from './popover.ts';
 import type { IconName } from './icons.ts';
 
 /** A workspace of the rail. */
@@ -117,6 +118,8 @@ export function setTab(t: Workspace): void {
     return;
   }
   remembered[tab] = { lc: layout.lc, rc: layout.rc };
+  // a menu of the workspace left (a right-click's) must not act on the next one's
+  closePop();
   tab = t;
   byId('stage').dataset.tab = t;
   renderRail();

@@ -381,6 +381,23 @@ test('the list: sorted every way as solution.page, paged, its keys; every Remove
     expect(now).toEqual(ids.filter((_, i) => i !== 3));
     await page.click('#slvList .lrow[data-i="3"]');
     await manage(page, 'before');
+    // behind the question the keys do not act (cleanup item 6.4): Ctrl+Z
+    // undoes nothing, Del asks nothing more, and Tab stays in it
+    await expect(page.locator('#confirm h3')).toHaveText(/^Delete 3 solutions\?$/);
+    const revision = await page.locator('#stage').getAttribute('data-revision');
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('Delete');
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press('Tab');
+    }
+    expect(
+      await page.evaluate(() =>
+        document.getElementById('confirm')?.contains(document.activeElement),
+      ),
+    ).toBe(true);
+    await solverSettled(page);
+    await expect(page.locator('#stage')).toHaveAttribute('data-revision', revision ?? '');
+    expect(await pageIds(page, p)).toEqual(ids.filter((_, i) => i !== 3));
     await confirm(page, /^Delete 3 solutions\?$/, true);
     await solverSettled(page);
     now = await pageIds(page, p);
@@ -429,6 +446,10 @@ test('Analyse: what does not come apart is marked, the rest removed; a stop keep
       12,
     );
     await expect(page.locator('#splayer .msg')).toContainText('Disassembly was not checked');
+    // a brick puzzle's Manage menu has the three analyses (cleanup item 6.5)
+    await page.click('#slvAct [data-a="manage"]');
+    await expect(page.locator('#pop [data-k^="ad"]')).toHaveCount(3);
+    await page.keyboard.press('Escape');
     await manage(page, 'ada');
     await expect(page.locator('#slvList .lrow .c5.ok')).toHaveCount(bt.solutions, {
       timeout: 60_000,

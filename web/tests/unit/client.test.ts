@@ -7,7 +7,12 @@ import { describe, expect, it } from 'vitest';
 
 import { EngineClient } from '../../src/engine/client.ts';
 import type { ClientProblem } from '../../src/engine/client.ts';
-import { EngineError, isSuperseded } from '../../src/engine/errors.ts';
+import {
+  CLIENT_ERROR_CODE,
+  EngineError,
+  isQuietError,
+  isSuperseded,
+} from '../../src/engine/errors.ts';
 import { settle, ScriptedTransport } from '../helpers/scripted-transport.ts';
 
 async function ready(options?: ConstructorParameters<typeof EngineClient>[1]): Promise<{
@@ -501,5 +506,19 @@ describe('the end of the engine', () => {
     const other = await ready();
     other.client.kill();
     expect(other.t.killed).toBe(true);
+  });
+});
+
+describe('the quiet errors (cleanup item 6.13)', () => {
+  it('are a superseded call, something gone meanwhile and a stopped engine; nothing else', () => {
+    const e = (code: number, errc: EngineError['errc']): EngineError =>
+      new EngineError(code, errc, 'x');
+    expect(isQuietError(e(CLIENT_ERROR_CODE, 'superseded'))).toBe(true);
+    expect(isQuietError(e(CLIENT_ERROR_CODE, 'disconnected'))).toBe(true);
+    expect(isQuietError(e(-32001, 'not_found'))).toBe(true);
+    expect(isQuietError(e(CLIENT_ERROR_CODE, 'protocol'))).toBe(false);
+    expect(isQuietError(e(-32002, 'invalid_state'))).toBe(false);
+    expect(isQuietError(new Error('not_found'))).toBe(false);
+    expect(isQuietError(null)).toBe(false);
   });
 });

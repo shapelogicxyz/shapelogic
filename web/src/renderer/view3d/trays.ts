@@ -148,10 +148,11 @@ export class TrayView {
     const shapes = [tray.id, ...pieces];
     // (the board's color with none of its own follows the theme)
     const key = `${hex(boardColor())}:${String(gen)}:${style}:${shapes.map((s) => `${s}@${String(this.host.shapeRevision(s))}`).join(',')}:${JSON.stringify(model.starts)}:${JSON.stringify(model.goals)}`;
+    // a load in flight for another key is stale now, even when this one is shown already
+    const n = ++this.loads;
     if (key === this.shownKey) {
       return;
     }
-    const n = ++this.loads;
     const size = tray.size;
     Promise.all(
       shapes.map(async (s): Promise<[string, BuiltMesh, readonly number[]]> => {

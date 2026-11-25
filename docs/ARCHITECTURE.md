@@ -583,6 +583,7 @@ Files in `web/src/renderer/`:
 Files in `web/src/renderer/state/`:
 - `edits.ts`: `Edits`: a mutating call awaited until the page shows its revision; `refuse`, `refuseList`; `#stage[data-busy]`.
 - `placements.ts`: the words of a tray's Placements dialog.
+- `revision-waits.ts`: `RevisionWaits` and `whenShown`: calls waiting for a view to show a revision, released by a newer document too (DOM-free).
 - `solves.ts`: `Solves`, the solve records, one per problem (DOM-free).
 - `stacking.ts`: what the stacking screens work out (DOM-free).
 - `store.ts`: `Store`, the mirror of the engine: status, info, settings, `Snapshot`, `generation`, `whenRevision`, the documents' replacements, `save`, `wantedSettings`.
@@ -596,10 +597,10 @@ Files in `web/src/renderer/shell/`:
 - `cache-text.ts`: the cache files' words (DOM-free).
 - `cli-tool.ts`: the Command Line Tool dialog.
 - `color-picker.ts`: the color picker in the popover.
-- `command-gate.ts`: document commands held for the first document, or dropped once the engine failed.
+- `command-gate.ts`: document commands held for the first document or while a dialog is open, or dropped once the engine failed.
 - `confirm.ts`: a question before an action that cannot be taken back.
 - `cursors.ts`: the editing tools' pictures and data-URL cursors.
-- `dialog.ts`: modal dialogs (`askChoice`, `tell`, `VIEW_LOGS`).
+- `dialog.ts`: modal dialogs (`askChoice`, `tell`, `VIEW_LOGS`, `onDialogsClosed`, `trapTab`); the confirmations and the bulk range dialog are of them.
 - `dom.ts`: the DOM helpers (`setHtml`, `markSelected`).
 - `engine-failure.ts`: the dialog when the engine cannot start.
 - `escape.ts`: Esc's step-back order.
@@ -713,6 +714,7 @@ Files in `web/src/renderer/solver/`:
 Files in `web/src/renderer/explore/`:
 - `debug-stats.ts`: the debug panel's report (DOM-free).
 - `explorer.ts`: `Explorer`: the drawer with Placements, Step and Movements.
+- `handle-slot.ts`: `HandleSlot`: an assembler handle opened once, closed when its reply comes after the drawer closed (DOM-free).
 - `tree.ts`: `MovementTree`, `dragDirection` (DOM-free).
 
 Files in `web/src/renderer/export/`:
@@ -740,7 +742,8 @@ Rules (AGENTS.md's; decisions 0012, 0013, 0034, 0036, 0043):
   be asked for in time (the cube planes' squares, the cube's faces, the
   preview's mirror and span cells, a space's size and its cells' spacing:
   `view3d/extent.ts`), each checked against the engine by a test. Every
-  mutating call waits for its revision.
+  mutating call waits for its revision (a new document releases the waits);
+  an id kept across an await checks `Store.generation` again (ids repeat).
 - `src/engine/` is platform-free (Node only in `node-transport.ts`). The
   renderer is sandboxed and reaches only `window.bt` and `window.btApp`.
 - Decision 0011's frozen parts are refused before any call ("Pause the

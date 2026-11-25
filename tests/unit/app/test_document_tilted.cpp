@@ -204,6 +204,11 @@ TEST_CASE("tilted document: Triple Play is solved", "[app][document][tilted]") {
   // (one turned half round) are one assembly, the board being the same
   // turned half round.
   CHECK(d.puzzle().getProblem(0).getNumAssemblies() == 1);
+  // its pieces lie flat in the tray: no analysis of a take-apart (cleanup item 6.5)
+  REQUIRE(d.puzzle().getProblem(0).getNumberOfSavedSolutions() > 0);
+  const Result<unsigned int> analysed = d.analyseStart(problem, AnalyseOptions{});
+  REQUIRE_FALSE(analysed.has_value());
+  CHECK(analysed.error().code == Errc::Unsupported);
 
   // strict, the pieces have nowhere to go: the tray change refuses nothing
   // (they fit the box) but they no longer fit the board, and no assembly

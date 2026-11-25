@@ -71,6 +71,48 @@ interface Open {
 
 const stack: Open[] = [];
 
+/** What waits for the last dialog to close (onDialogsClosed). */
+const whenClosed: (() => void)[] = [];
+
+/**
+ * Runs `cb` once no dialog is open: at once when none is, else when the
+ * last one closes (a command that replaces the document waits so, cleanup
+ * item 6.2: the dialog would act on the new document's ids).
+ */
+export function onDialogsClosed(cb: () => void): void {
+  if (stack.length === 0) {
+    cb();
+  } else {
+    whenClosed.push(cb);
+  }
+}
+
+// the last dialog closed: what waited for it runs, after the code that
+// awaited the dialog's answer went on (it may open another: then it waits
+// for that one too)
+function closed(): void {
+  if (stack.length > 0 || whenClosed.length === 0) {
+    return;
+  }
+  window.setTimeout(() => {
+    if (stack.length > 0) {
+      return;
+    }
+    // one at a time: one that opens a dialog leaves the rest waiting for it
+    while (stack.length === 0) {
+      const cb = whenClosed.shift();
+      if (cb === undefined) {
+        break;
+      }
+      try {
+        cb();
+      } catch (e) {
+        console.error('dialog: a callback for the dialogs closed threw', e);
+      }
+    }
+  }, 0);
+}
+
 /**
  * The button of a warning or an error that opens View ▸ Log File Manager…
  * over it; the dialog stays open, to be answered once the log is read.
@@ -128,6 +170,7 @@ function close(o: Open, key: string | null): void {
     r.focus({ preventScroll: true });
   }
   o.done(key);
+  closed();
 }
 
 /**
@@ -198,6 +241,7 @@ export function closeDialog(id: string): void {
     stack.splice(stack.indexOf(o), 1);
     o.el.remove();
     o.done(null);
+    closed();
   }
 }
 
@@ -230,7 +274,8 @@ export function askChoice(
   });
 }
 
-function trapTab(root: HTMLElement, e: KeyboardEvent): void {
+/** Keeps Tab inside `root` (a dialog): from the last control to the first, and back with Shift. */
+export function trapTab(root: HTMLElement, e: KeyboardEvent): void {
   const all = [
     ...root.querySelectorAll<HTMLElement>(
       'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea,[tabindex="0"]',

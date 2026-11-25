@@ -240,7 +240,8 @@ export class EntitiesWorkspace {
       drawingHex: () => this.card.drawingHex(),
       colorHex: (c) => this.card.colorHex(c),
       badge: () => this.badge(),
-      apply: (tool, cell, color) => this.apply3d(tool, cell, color),
+      apply: (shape, generation, tool, cell, color) =>
+        this.apply3d(shape, generation, tool, cell, color),
       track: (p) => this.track(p),
     });
     view.edit = this.edit3d;
@@ -447,12 +448,25 @@ export class EntitiesWorkspace {
     );
   }
 
+  /**
+   * Whether another document took the place of the one of `generation`
+   * (ids repeat in each: cleanup item 6.3); says that nothing was applied.
+   */
+  private changedSince(generation: number): boolean {
+    if (this.store.generation === generation) {
+      return false;
+    }
+    flash('The document changed; nothing was applied', 5000);
+    return true;
+  }
+
   // the Apply image dialog for the piece or board shown (decision 0038)
   private editImage(): void {
     const shape = this.store.shape;
     if (shape === null || this.refuse()) {
       return;
     }
+    const generation = this.store.generation;
     const cells = [...this.cells.all.values()].map((v) => v.at);
     if (cells.length === 0) {
       flash(
@@ -460,13 +474,19 @@ export class EntitiesWorkspace {
       );
       return;
     }
+    const color = hex(chipColor(shape, this.store.indexOf(shape.id)));
     void this.decoded(shape.images).then((current) => {
+      // the pictures can take seconds: another document may have come
+      if (this.changedSince(generation)) {
+        return;
+      }
       openImageDialog({
         label: shape.label,
         board: isTray(shape),
         cells,
-        color: hex(chipColor(shape, this.store.indexOf(shape.id))),
+        color,
         current,
+        stale: () => this.changedSince(generation),
         apply: (a) =>
           this.mutate('Image', () =>
             this.store.engine.call('shape.setImages', { shape: shape.id, layers: a.layers }),
@@ -498,16 +518,24 @@ export class EntitiesWorkspace {
       return;
     }
     const border = shape.border;
+    const generation = this.store.generation;
+    const cells = [...this.cells.all.values()].map((v) => v.at);
+    const color = hex(chipColor(shape, this.store.indexOf(shape.id)));
     void this.decoded(border.images).then((current) => {
+      // the pictures can take seconds: another document may have come
+      if (this.changedSince(generation)) {
+        return;
+      }
       openImageDialog({
         label: shape.label,
         frame: {
           box: trayBox(shape.size, borderRim(border)),
           round: border.corners === 'round',
         },
-        cells: [...this.cells.all.values()].map((v) => v.at),
-        color: hex(chipColor(shape, this.store.indexOf(shape.id))),
+        cells,
+        color,
         current,
+        stale: () => this.changedSince(generation),
         apply: (a) =>
           this.mutate('Image', () =>
             this.store.engine.call('shape.setImages', {
@@ -717,9 +745,15 @@ export class EntitiesWorkspace {
     this.closing = done;
   }
 
-  private async apply3d(tool: CellTool, cell: Cell, color?: string | null): Promise<void> {
-    const shape = this.store.selected;
-    if (shape === null) {
+  private async apply3d(
+    shape: string,
+    generation: number,
+    tool: CellTool,
+    cell: Cell,
+    color?: string | null,
+  ): Promise<void> {
+    // the cell was worked out on this shape of that document (ids repeat in each)
+    if (shape === '' || this.changedSince(generation)) {
       return;
     }
     const st = this.state;

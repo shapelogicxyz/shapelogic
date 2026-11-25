@@ -25,7 +25,7 @@ import { NEW_TRAY, trayPicture } from '../state/tilted.ts';
 import { sizeText } from '../state/stacking.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Store } from '../state/store.ts';
-import { askChoice, dialogOpen, openDialog } from './dialog.ts';
+import { askChoice, dialogOpen, onDialogsClosed, openDialog } from './dialog.ts';
 import { byId } from './dom.ts';
 import { onKey } from './keyboard.ts';
 import { flash, reportError } from './status.ts';
@@ -551,11 +551,14 @@ export class Files {
       }
       e.preventDefault();
       const path = this.app.pathOf(f);
-      if (path !== '') {
-        void this.openPath(path, false);
-      } else {
-        void this.openDropped(f);
-      }
+      // under an open dialog, once it closes: it would act on the new document's ids (cleanup item 6.2)
+      onDialogsClosed(() => {
+        if (path !== '') {
+          void this.openPath(path, false);
+        } else {
+          void this.openDropped(f);
+        }
+      });
     });
   }
 

@@ -14,7 +14,7 @@
 
 import type { SolutionRow } from '../../engine/api.generated.ts';
 import type { EngineApi } from '../../engine/client-types.ts';
-import { EngineError } from '../../engine/errors.ts';
+import { isQuietError } from '../../engine/errors.ts';
 
 /** The rows a page holds. */
 export const PAGE = 100;
@@ -198,10 +198,8 @@ export class SolutionPager {
           if (this.loading.get(n) === ticket) {
             this.loading.delete(n);
           }
-          if (
-            this.closed ||
-            (e instanceof EngineError && (e.errc === 'superseded' || e.errc === 'not_found'))
-          ) {
+          // an engine restarting is no news either: the page is read again when it runs
+          if (this.closed || isQuietError(e)) {
             return;
           }
           this.failed?.(e);

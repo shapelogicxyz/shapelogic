@@ -26,7 +26,6 @@ import { Solves } from '../state/solves.ts';
 import { Store } from '../state/store.ts';
 import { View3D } from '../view3d/view.ts';
 import type { StoredState } from '../../engine/app-bridge.ts';
-import { installConfirm } from './confirm.ts';
 import { dialogOpen, installDialogs, setLogViewer, tell } from './dialog.ts';
 import { Files } from './files.ts';
 import { Imports } from './imports.ts';
@@ -55,7 +54,7 @@ import {
 } from './layout.ts';
 import { installPanels } from './panel.ts';
 import { autoCheck, checkNow } from './updates.ts';
-import { installPopover } from './popover.ts';
+import { closePop, installPopover } from './popover.ts';
 import { installSettings, openSettings, settingsOpen } from './settings.ts';
 import { flash, reportError, setHintTeller, setStatusProvider, updateStatus } from './status.ts';
 import { installTheme } from './theme.ts';
@@ -184,7 +183,6 @@ export function startApp(saved: StoredState = {}): {
 
   installTheme();
   installPopover();
-  installConfirm();
   installDialogs();
   // a failed write Windows may have blocked: a message with the hint (cleanup item 2.5)
   setHintTeller((text) => {
@@ -398,6 +396,10 @@ export function startApp(saved: StoredState = {}): {
       renderGridChip(store);
     }
     if (c.kind === 'document') {
+      if (byId('stage').dataset.generation !== String(store.generation)) {
+        // another document: a menu open on the old one's shape or problem (ids repeat) closes
+        closePop();
+      }
       // which document and revision the page shows (the e2e tests wait on them)
       byId('stage').dataset.generation = String(store.generation);
       byId('stage').dataset.revision = String(store.snapshot?.revision ?? '');

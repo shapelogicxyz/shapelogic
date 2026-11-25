@@ -328,6 +328,11 @@ test('Triple Play opened and solved: turned over, and one face up', async () => 
     await page.click('#slvList .lrow[data-i="0"]');
     await expect(page.locator('#splayer')).toContainText('there is nothing to take apart');
     await expect(page.locator('#splayer [data-a="analyse"]')).toHaveCount(0);
+    // nor in the Manage menu (cleanup item 6.5; the engine refuses it too)
+    await page.click('#slvAct [data-a="manage"]');
+    await expect(page.locator('#pop [data-k="at"]')).toBeVisible();
+    await expect(page.locator('#pop [data-k^="ad"]')).toHaveCount(0);
+    await page.keyboard.press('Escape');
   } finally {
     await a.close();
   }

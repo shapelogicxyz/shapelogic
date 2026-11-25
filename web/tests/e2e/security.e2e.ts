@@ -18,7 +18,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import { BUILT, command, ENGINE, launch, menu } from './app.ts';
-import { runButton, runEnded, toSolver } from './solver.ts';
+import { openExplorerFold, runButton, runEnded, toSolver } from './solver.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
 
@@ -145,6 +145,7 @@ test('a puzzle file whose names hold markup shows them as text everywhere', asyn
     await expect(page.locator('.cfm select[data-f="problem"]')).toContainText(probe('p1'));
     await nothingInjected(page, 'the convert dialog');
     await page.keyboard.press('Escape');
+    await openExplorerFold(page);
     await page.click('#slvAdv [data-x="movements"]');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'movements');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-handle', /^mx/);

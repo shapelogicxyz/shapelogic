@@ -6,12 +6,15 @@
 // direction an Alt-drag asks for (the closest of the directions as they
 // look on the screen, forward or reversed, within 45 degrees), and the
 // debug panel's report (the original's rows, durations and notes); the
-// placement of a piece (placedAt) as the assembled view's.
+// placement of a piece (placedAt) as the assembled view's; an assembler
+// handle opened once, and closed when its reply comes after the drawer
+// closed (handle-slot.ts).
 
 import { describe, expect, it } from 'vitest';
 
 import type { MovementNode, SolveStats } from '../../../src/engine/api.generated.ts';
 import { formatDuration, hasData, statsReport } from '../../../src/renderer/explore/debug-stats.ts';
+import { HandleSlot } from '../../../src/renderer/explore/handle-slot.ts';
 import { dragDirection, MovementTree } from '../../../src/renderer/explore/tree.ts';
 import { placedAt } from '../../../src/renderer/view3d/extent.ts';
 
@@ -221,5 +224,59 @@ describe('the debug statistics report', () => {
     expect(live.find((x) => x.label === 'Disassembly 1 running:')?.value).toBe(
       '2.0 s, level 2: 10 of 40 positions (next level 7 so far), 500 positions in all (250 a second), 1 of 5 separations, searching 4 of 6 pieces, 1 thread',
     );
+  });
+});
+
+describe('an explorer handle', () => {
+  const later = (): { p: Promise<string | null>; resolve: (h: string | null) => void } => {
+    let resolve: (h: string | null) => void = () => undefined;
+    const p = new Promise<string | null>((r) => {
+      resolve = r;
+    });
+    return { p, resolve };
+  };
+
+  it('is opened once however often it is asked for, and closed when dropped', async () => {
+    const closed: string[] = [];
+    const slot = new HandleSlot((h) => closed.push(h));
+    let opens = 0;
+    const open = later();
+    const a = slot.ensure(() => {
+      opens++;
+      return open.p;
+    });
+    const b = slot.ensure(() => {
+      opens++;
+      return open.p;
+    });
+    open.resolve('h1');
+    expect(await a).toBe('h1');
+    expect(await b).toBe('h1');
+    expect(await slot.ensure(() => Promise.resolve('h2'))).toBe('h1');
+    expect(opens).toBe(1);
+    slot.drop();
+    expect(closed).toEqual(['h1']);
+    expect(slot.handle).toBeNull();
+  });
+
+  it('that comes after the drawer closed is closed, not kept (cleanup item 6.7)', async () => {
+    const closed: string[] = [];
+    const slot = new HandleSlot((h) => closed.push(h));
+    const open = later();
+    const late = slot.ensure(() => open.p);
+    slot.drop();
+    open.resolve('h1');
+    expect(await late).toBeNull();
+    expect(slot.handle).toBeNull();
+    expect(closed).toEqual(['h1']);
+    // forgotten (the engine dropped the open one with its document): a late
+    // one is still given back (the explorer's close then sends nothing for
+    // another document)
+    const again = later();
+    const gone = slot.ensure(() => again.p);
+    slot.drop(false);
+    again.resolve('h2');
+    expect(await gone).toBeNull();
+    expect(closed).toEqual(['h1', 'h2']);
   });
 });

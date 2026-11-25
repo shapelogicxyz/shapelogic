@@ -43,6 +43,7 @@ import {
   answerDialogs,
   appOf,
   BUILT,
+  command,
   counted,
   ENGINE,
   engineCall,
@@ -789,7 +790,7 @@ test('a save while solving at a save point; the paused solver state exported and
       timeout: 30_000,
     });
     await runButton(page, 'abort');
-    await page.locator('.cfm [data-x="1"]').click();
+    await page.locator('#confirm [data-x="ok"]').click();
     await runEnded(page, 'idle');
     // refusals the app asks for and shows nothing of: a hover preview of a
     // task the shape cannot take (the mouse rests on the Shapes tab's tools
@@ -1258,5 +1259,33 @@ test('a file given on the command line opens at the start', async () => {
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a file opened under an open dialog waits until it closes (ids repeat in each document)', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    await openFixture(page, 'CubeInCage.xmpuzzle');
+    const generation = await page.locator('#stage').getAttribute('data-generation');
+    await menu(page, 'export.stl');
+    const dlg = page.locator('#exportStl');
+    await expect(dlg).toBeVisible();
+    // Open Recent, as the menu sends it, then a command that shows when it
+    // was read: the two come in order, so the open was heard first
+    await command(page, { cmd: 'openPath', path: join(FIXTURES, 'Bermuda.xmpuzzle') });
+    await command(page, { cmd: 'theme', theme: 'Dark' });
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    // held: the dialog still exports the shapes of the document it opened on
+    await expect(dlg).toBeVisible();
+    await expect(page.locator('#stage')).toHaveAttribute('data-generation', generation ?? '');
+    await expect(page.locator('#fname')).toHaveText('CubeInCage.xmpuzzle');
+    // closed: the open goes on
+    await dlg.locator('[data-x="close"]').click();
+    await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', generation ?? '');
+    await expect(page.locator('#fname')).toHaveText('Bermuda.xmpuzzle');
+    await command(page, { cmd: 'theme', theme: 'System' });
+  } finally {
+    await a.close();
   }
 });

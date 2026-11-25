@@ -78,15 +78,27 @@ export interface Edit3DHost {
   /** The drawing color for a cursor's badge (null: Default). */
   badge(): string | null;
   /**
-   * Applies a tool to a cell with mirror and span: one undo step; with the
-   * drawing color, or `color` when it is given (null: none).
+   * Applies a tool to a cell of a shape with mirror and span: one undo
+   * step; with the drawing color, or `color` when it is given (null:
+   * none). Refused when the document is no longer the one of `generation`
+   * (the store's, when the cell was worked out): ids repeat in each
+   * document (cleanup item 6.3).
    */
-  apply(tool: CellTool, cell: Cell, color?: string | null): Promise<void>;
+  apply(
+    shape: string,
+    generation: number,
+    tool: CellTool,
+    cell: Cell,
+    color?: string | null,
+  ): Promise<void>;
   /** Counts work as an edit under way until it settles. */
   track<T>(p: Promise<T>): Promise<T>;
 }
 
 interface Target {
+  /** The shape the cell was worked out on, and the store's generation then. */
+  shape: string;
+  generation: number;
   tool: Tool;
   /** The cell the tool goes to, or null when refused. */
   cell: Cell | null;
@@ -160,7 +172,7 @@ export class Edit3D implements EditHost {
     void host.track(
       (pick === null ? Promise.resolve(empty) : this.target(act, pick)).then((t) => {
         if (t !== null && t.cell !== null) {
-          return host.apply(t.tool, t.cell, t.color);
+          return host.apply(t.shape, t.generation, t.tool, t.cell, t.color);
         }
         return undefined;
       }),
@@ -206,12 +218,16 @@ export class Edit3D implements EditHost {
     } else if (empty !== null) {
       host.view.setPreview(this.ghosts(empty));
     } else if (this.from2d !== null && host.canEdit() && tab === 'entities') {
-      host.view.setPreview(
-        this.ghosts({ tool: this.from2d.tool, cell: this.from2d.cell, pick: null }),
-      );
+      host.view.setPreview(this.ghosts({ ...this.from2d, ...this.of(), pick: null }));
     } else {
       host.view.setPreview([]);
     }
+  }
+
+  // the shape shown and the document it is of
+  private of(): { shape: string; generation: number } {
+    const store = this.host.store;
+    return { shape: store.selected ?? '', generation: store.generation };
   }
 
   // where a tool goes for a picked face
@@ -222,31 +238,32 @@ export class Edit3D implements EditHost {
     if (shape === null || grid === undefined) {
       return null;
     }
+    const of = { shape: shape.id, generation: store.generation };
     if (tool === 'erase' || tool === 'paint') {
-      return { tool, cell: pick.cell, pick };
+      return { ...of, tool, cell: pick.cell, pick };
     }
     // the right half of a side works on its own cell: the top quarter
     // gives it the tool's state (nothing when it has it), the bottom erases
     const own = this.host.cells.at(pick.cell);
     if (own !== undefined && (pick.quarter === 'tr' || pick.quarter === 'br')) {
       if (pick.quarter === 'br') {
-        return { tool: 'erase', cell: pick.cell, pick, quarter: 'erase' };
+        return { ...of, tool: 'erase', cell: pick.cell, pick, quarter: 'erase' };
       }
       return own.state === tool
         ? null
-        : { tool, cell: pick.cell, pick, quarter: 'state', color: own.color };
+        : { ...of, tool, cell: pick.cell, pick, quarter: 'state', color: own.color };
     }
     // a bevel or gap has no side; nor have the faces of a ball of the sphere
     // grid that are not its clickable caps (the original drew them lighter,
     // or black on a variable ball: sphere_mesh.cpp), whose number is the
     // cap's drawn before them
     if (pick.face < 0 || (grid === 'spheres' && (pick.flags & SPHERE_FILL) !== 0)) {
-      return { tool, cell: null, pick };
+      return { ...of, tool, cell: null, pick };
     }
     if (isCube(grid)) {
-      return { tool, cell: brickNeighbor(pick.cell, pick.face, shape.size), pick };
+      return { ...of, tool, cell: brickNeighbor(pick.cell, pick.face, shape.size), pick };
     }
-    return { tool, cell: await this.neighbor(shape.size, pick.cell, pick.face), pick };
+    return { ...of, tool, cell: await this.neighbor(shape.size, pick.cell, pick.face), pick };
   }
 
   // where fixed or variable goes for a click on no face: the layer's empty cell
@@ -254,7 +271,9 @@ export class Edit3D implements EditHost {
     if (cell === null || (act !== 'fixed' && act !== 'variable')) {
       return null;
     }
-    return this.host.cells.at(cell) === undefined ? { tool: act, cell, pick: null } : null;
+    return this.host.cells.at(cell) === undefined
+      ? { ...this.of(), tool: act, cell, pick: null }
+      : null;
   }
 
   private neighbor(size: Size, cell: Cell, face: number): Promise<Cell | null> {

@@ -26,7 +26,7 @@ import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
 import { openColorPicker } from './color-picker.ts';
-import { askChoice, closeDialog, openDialog, tell } from './dialog.ts';
+import { askChoice, closeDialog, openDialog, tell, trapTab } from './dialog.ts';
 import { ic } from './icons.ts';
 import { keyGroups } from './keys.ts';
 import { closePop } from './popover.ts';
@@ -1150,25 +1150,8 @@ export function installSettings(s: Store): void {
   });
   // the dialog keeps the keyboard: Tab cycles inside it
   byId('scrim').addEventListener('keydown', (e) => {
-    if (e.key !== 'Tab') {
-      return;
-    }
-    const all = [
-      ...byId('scrim').querySelectorAll<HTMLElement>(
-        'button:not(:disabled),input,select,[tabindex="0"]',
-      ),
-    ].filter((el) => el.offsetParent !== null);
-    const first = all[0];
-    const last = all.at(-1);
-    if (first === undefined || last === undefined) {
-      return;
-    }
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
+    if (e.key === 'Tab') {
+      trapTab(byId('scrim'), e);
     }
   });
   addEscapeStep(ESC_ORDER.dialog, () => {

@@ -665,7 +665,7 @@ test('rod sets: new, copy, label, order, delete; frozen while solving; Abort of 
     await page.click('#notice [data-x="ok"]');
     // Abort throws the saved search away, asked first
     await runButton(page, 'abort');
-    await page.click('.cfm-scrim [data-x="1"]');
+    await page.click('#confirm [data-x="ok"]');
     await solverSettled(page);
     await expect(page.locator('#slvActivity')).toHaveText('Ready to Solve');
     await expect(page.locator('#slvRun [data-r="continue"]')).toHaveCount(0);

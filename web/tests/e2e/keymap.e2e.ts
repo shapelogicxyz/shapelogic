@@ -32,7 +32,14 @@ import {
 } from './app.ts';
 import type { App } from './app.ts';
 import { drag, expectGame, STAGE, toPlay } from './play.ts';
-import { confirm, runButton, runEnded, solverSettled, toSolver } from './solver.ts';
+import {
+  confirm,
+  openExplorerFold,
+  runButton,
+  runEnded,
+  solverSettled,
+  toSolver,
+} from './solver.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
 
@@ -649,6 +656,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
   'Explorers|↑ / ↓ · ← / →': async (c) => {
     await use(c, 'bermuda-solver');
     const { page } = c;
+    await openExplorerFold(page);
     await page.click('#slvAdv [data-x="placements"]');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'placements');
     // the placements read (a handle, every piece's count) before a key
@@ -675,6 +683,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
   },
   'Explorers|Space / Enter': async (c) => {
     const { page } = c;
+    await openExplorerFold(page);
     await page.click('#slvAdv [data-x="step"]');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'step');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-steps', '1');
@@ -691,6 +700,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
     await use(c, 'bermuda-solved');
     const { page } = c;
     await page.click('#slvList .lrow[data-i="0"]');
+    await openExplorerFold(page);
     await page.click('#slvAdv [data-x="movements"]');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'movements');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-handle', /^mx/);

@@ -21,6 +21,7 @@ import type {
 import type { EngineApi, EngineStatus, EventParams } from '../../engine/client-types.ts';
 import { EngineError } from '../../engine/errors.ts';
 import { setBoardCount, isTray } from '../shell/piece-colors.ts';
+import { RevisionWaits } from './revision-waits.ts';
 
 /** The engine as the store needs it: the proxy (engine-proxy.ts) or a test's stand-in. */
 export interface EngineLink extends EngineApi {
@@ -70,7 +71,7 @@ export class Store {
   private infoLoads = 0;
   private snapshotLoads = 0;
   /** Calls waiting for the snapshot to reach a revision. */
-  private waiting: { revision: number; generation: number; done: () => void }[] = [];
+  private readonly waits = new RevisionWaits();
 
   constructor(engine: EngineLink) {
     this.engine = engine;
@@ -140,9 +141,7 @@ export class Store {
     if (this.snapshot !== null && this.snapshot.revision >= revision) {
       return Promise.resolve();
     }
-    return new Promise((done) => {
-      this.waiting.push({ revision, generation: this.generation, done });
-    });
+    return this.waits.wait(revision, this.generation);
   }
 
   /** The place of a shape in the list (its default color's number), or -1. */
@@ -328,13 +327,7 @@ export class Store {
       this.selected = snap.shapes[0]?.id ?? null;
     }
     this.emit({ kind: 'document', restarted });
-    const ready = this.waiting.filter(
-      (w) => w.generation !== this.generation || w.revision <= snap.revision,
-    );
-    this.waiting = this.waiting.filter((w) => !ready.includes(w));
-    for (const w of ready) {
-      w.done();
-    }
+    this.waits.release(snap.revision, this.generation);
   }
 
   private fail(e: unknown): void {

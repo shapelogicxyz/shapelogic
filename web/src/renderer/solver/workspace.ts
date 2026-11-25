@@ -34,8 +34,9 @@ import type {
   SolveState,
   Solver,
 } from '../../engine/api.generated.ts';
-import { EngineError } from '../../engine/errors.ts';
+import { EngineError, isQuietError } from '../../engine/errors.ts';
 import type { Edits } from '../state/edits.ts';
+import { RevisionWaits, whenShown } from '../state/revision-waits.ts';
 import { isActive } from '../state/solves.ts';
 import type { SolveRecord, Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
@@ -178,7 +179,7 @@ export class SolverWorkspace {
   private pickSeen: { progress: SolveProgress; at: number } | null = null;
   private pickTimer: number | null = null;
   private loads = 0;
-  private waiting: { revision: number; done: () => void }[] = [];
+  private readonly waits = new RevisionWaits();
   /** The problem the engine sends live preview pictures of (solve.preview), in a document's generation. */
   private previewFor: { generation: number; problem: string | null } = {
     generation: -1,
@@ -907,6 +908,9 @@ export class SolverWorkspace {
     const snap = store.snapshot;
     if (store.generation !== this.generation) {
       this.generation = store.generation;
+      // the old document's edits wait no more; its revisions are not this one's
+      this.waits.release(-1, store.generation);
+      this.shown = -1;
       this.current = null;
       this.detail = null;
       this.kind = null;
@@ -967,10 +971,7 @@ export class SolverWorkspace {
           }
         },
         (err: unknown) => {
-          if (
-            !(err instanceof EngineError) ||
-            (err.errc !== 'superseded' && err.errc !== 'not_found' && err.errc !== 'disconnected')
-          ) {
+          if (!isQuietError(err)) {
             reportError(err, 'The solve’s state could not be read');
           }
         },
@@ -986,9 +987,10 @@ export class SolverWorkspace {
     }
     const n = ++this.loads;
     const revision = snap.revision;
+    const generation = store.generation;
     const id = this.current;
     if (id === null) {
-      this.loaded(n, revision, null, null);
+      this.loaded(n, revision, generation, null, null);
       return;
     }
     // a sliding problem's start/goal shape: whether Solve can start (its validity bar)
@@ -1024,6 +1026,10 @@ export class SolverWorkspace {
         : Promise.resolve(null),
     ]).then(
       ([d, k, t, b, st]) => {
+        // only the newest load of this document writes what it read (cleanup item 6.7)
+        if (n !== this.loads || generation !== store.generation) {
+          return;
+        }
         if (id === this.current) {
           this.slideError = t?.error ?? null;
           // a solution shown before the board came is placed again around its middle
@@ -1034,20 +1040,21 @@ export class SolverWorkspace {
           }
           this.savedSearch = st?.savedSearch ?? null;
           this.continueStartsOver = st?.continueStartsOver ?? false;
-          this.loaded(n, revision, d, k);
+          this.loaded(n, revision, generation, d, k);
         }
       },
       (err: unknown) => {
-        if (
-          err instanceof EngineError &&
-          (err.errc === 'superseded' || err.errc === 'not_found' || err.errc === 'disconnected')
-        ) {
+        // a newer load answers for the edits waiting (it was asked for a later revision)
+        if (n !== this.loads) {
           return;
         }
-        if (n === this.loads) {
+        // the problem went meanwhile, or the engine stopped: no news; any
+        // other failure is said; either way the edits waiting for this
+        // revision go on (a restarted engine never comes back to it)
+        if (!isQuietError(err)) {
           reportError(err, 'The problem could not be read');
-          this.release(revision);
         }
+        this.waits.release(revision, generation);
       },
     );
   }
@@ -1068,6 +1075,7 @@ export class SolverWorkspace {
   private loaded(
     n: number,
     revision: number,
+    generation: number,
     d: ProblemDetail | null,
     k: ProblemKind | null,
   ): void {
@@ -1089,28 +1097,12 @@ export class SolverWorkspace {
       this.newPager(false);
     }
     this.render();
-    this.release(revision);
-  }
-
-  private release(revision: number): void {
-    const ready = this.waiting.filter((w) => w.revision <= revision);
-    this.waiting = this.waiting.filter((w) => w.revision > revision);
-    for (const w of ready) {
-      w.done();
-    }
+    this.waits.release(revision, generation);
   }
 
   /** Resolves when the cards show a revision at least this one (or another document came). */
   whenShown(revision: number): Promise<void> {
-    const gen = this.store.generation;
-    return this.store.whenRevision(revision).then(() => {
-      if (this.shown >= revision || this.store.generation !== gen) {
-        return;
-      }
-      return new Promise<void>((done) => {
-        this.waiting.push({ revision, done });
-      });
-    });
+    return whenShown(this.store, this.waits, () => this.shown, revision);
   }
 
   // ---- the solutions list ----

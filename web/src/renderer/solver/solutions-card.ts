@@ -23,6 +23,7 @@ import { hex } from '../shell/piece-colors.ts';
 import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
 import { isActive } from '../state/solves.ts';
 import type { SortKey } from './pager.ts';
+import type { Family } from './settings.ts';
 import type { SlideForecast } from '../../engine/api.generated.ts';
 import { liveCells, performanceHtml, PICKING_UP_NOTE, pickingUpText } from './performance.ts';
 import type { FileExport, RemoveWhich, SolverWorkspace } from './workspace.ts';
@@ -40,9 +41,99 @@ const SORTS: readonly [SortKey, string, string, string][] = [
   ['pieces', 'Pcs', 'Pieces', 'Number of pieces used by the assembly'],
 ];
 
-/** The Manage menu (the mockup's SVMENU). */
-const MENU =
-  '<div class="ph">Remove assemblies</div><button data-k="at" title="Remove the chosen solution">This solution only<span class="kb">At</span></button><button data-k="before" title="Remove every solution listed before the chosen one">All before this one<span class="kb">Before</span></button><button data-k="after" title="Remove every solution listed after the chosen one">All after this one<span class="kb">After</span></button><button data-k="nda" title="Remove every solution that has no stored disassembly">All without a disassembly<span class="kb">w/o DA</span></button><button data-k="all" title="Remove all the solutions of this problem">All solutions<span class="kb">All</span></button><hr><div class="ph">Disassemblies</div><button data-k="ddc" title="Throw away the stored moves of the chosen solution, keeping the solution">Delete the disassembly of this solution<span class="kb">D DA</span></button><button data-k="dda" title="Throw away the stored moves of every solution, keeping the solutions">Delete all disassemblies<span class="kb">D A DA</span></button><button data-k="adc" title="Work out how the chosen assembly comes apart, and keep its disassembly">Analyse this assembly’s disassembly<span class="kb">A DA</span></button><button data-k="ada" title="Work out the disassembly of every assembly again">Analyse the disassembly of every assembly<span class="kb">A A DA</span></button><button data-k="adm" title="Work out the disassembly of the assemblies that have none stored">Analyse only the missing disassemblies<span class="kb">A M DA</span></button>';
+/** An item of the Manage menu: its key, label, tooltip and key text; a heading; a rule. */
+type MenuEntry =
+  | { k: string; label: string; title: string; kb: string; needsTakeApart?: true }
+  | { head: string }
+  | 'hr';
+
+/** The Manage menu (the mockup's SVMENU), as a table (cleanup item 6.5). */
+const MENU: readonly MenuEntry[] = [
+  { head: 'Remove assemblies' },
+  { k: 'at', label: 'This solution only', title: 'Remove the chosen solution', kb: 'At' },
+  {
+    k: 'before',
+    label: 'All before this one',
+    title: 'Remove every solution listed before the chosen one',
+    kb: 'Before',
+  },
+  {
+    k: 'after',
+    label: 'All after this one',
+    title: 'Remove every solution listed after the chosen one',
+    kb: 'After',
+  },
+  {
+    k: 'nda',
+    label: 'All without a disassembly',
+    title: 'Remove every solution that has no stored disassembly',
+    kb: 'w/o DA',
+  },
+  {
+    k: 'all',
+    label: 'All solutions',
+    title: 'Remove all the solutions of this problem',
+    kb: 'All',
+  },
+  'hr',
+  { head: 'Disassemblies' },
+  {
+    k: 'ddc',
+    label: 'Delete the disassembly of this solution',
+    title: 'Throw away the stored moves of the chosen solution, keeping the solution',
+    kb: 'D DA',
+  },
+  {
+    k: 'dda',
+    label: 'Delete all disassemblies',
+    title: 'Throw away the stored moves of every solution, keeping the solutions',
+    kb: 'D A DA',
+  },
+  {
+    k: 'adc',
+    label: 'Analyse this assembly’s disassembly',
+    title: 'Work out how the chosen assembly comes apart, and keep its disassembly',
+    kb: 'A DA',
+    needsTakeApart: true,
+  },
+  {
+    k: 'ada',
+    label: 'Analyse the disassembly of every assembly',
+    title: 'Work out the disassembly of every assembly again',
+    kb: 'A A DA',
+    needsTakeApart: true,
+  },
+  {
+    k: 'adm',
+    label: 'Analyse only the missing disassemblies',
+    title: 'Work out the disassembly of the assemblies that have none stored',
+    kb: 'A M DA',
+    needsTakeApart: true,
+  },
+];
+
+/**
+ * Whether the puzzle's assemblies can be taken apart, so analysed: a
+ * brick puzzle on a grid with a take-apart, not a tilted tray (whose
+ * pieces lie flat). A sliding or stacking puzzle's paths are its search's.
+ * The Manage menu and the player both ask it.
+ */
+export function canTakeApart(ws: { family: Family; canDisassemble: boolean }): boolean {
+  return ws.family === 'brick' && ws.canDisassemble;
+}
+
+/** The Manage menu's HTML; without the analyses where nothing can be taken apart. */
+export function manageMenu(takeApart: boolean): string {
+  return MENU.filter((e) => takeApart || typeof e !== 'object' || !('needsTakeApart' in e))
+    .map((e) =>
+      e === 'hr'
+        ? '<hr>'
+        : 'head' in e
+          ? `<div class="ph">${esc(e.head)}</div>`
+          : `<button data-k="${e.k}" title="${esc(e.title)}">${esc(e.label)}<span class="kb">${esc(e.kb)}</span></button>`,
+    )
+    .join('');
+}
 
 /** The player's buttons (the mockup's TG). */
 const TG = {
@@ -557,7 +648,7 @@ export class SolutionsCard {
       const insep = ws.inseparable(row.id);
       // a grid without a take-apart (Spheres) and a tilted tray, whose
       // pieces lie flat, offer no analysis
-      const apart = ws.family === 'brick' && ws.canDisassemble;
+      const apart = canTakeApart(ws);
       const txt =
         ws.family !== 'brick'
           ? // a start layout kept without its path to the goal (Find Solutions off)
@@ -783,8 +874,7 @@ export class SolutionsCard {
       this.menuOpen = true;
       openPop(
         b,
-        // a sliding or stacking puzzle has no take-apart to analyse (its paths are its search's)
-        ws.family !== 'brick' ? MENU.replace(/<button data-k="ad[cam]">.*?<\/button>/g, '') : MENU,
+        manageMenu(canTakeApart(ws)),
         (k) => {
           this.menuOpen = false;
           this.preview(null);

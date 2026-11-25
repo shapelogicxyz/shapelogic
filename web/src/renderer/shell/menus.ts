@@ -11,12 +11,14 @@
 // (a file given on the command line, the engine still starting) waits for
 // it (stage 8); once the engine has failed it is not held but shows the
 // engine's dialog, as do the commands still waiting then (cleanup item
-// 2.3). The log hears of each one held or dropped.
+// 2.3). The log hears of each one held or dropped. One that comes while a
+// dialog is open waits for it to close (cleanup item 6.2).
 
 import type { AppCommand, AppCommandName, BtApp, MenuState } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import type { View3D } from '../view3d/view.ts';
 import { CommandGate } from './command-gate.ts';
+import { dialogOpen, onDialogsClosed } from './dialog.ts';
 import { runAction } from './keyboard.ts';
 import { accelerator } from './keys.ts';
 import type { KeyAction } from './keys.ts';
@@ -124,6 +126,8 @@ export class Menus {
       showFailure: () => {
         handlers.showEngineFailure();
       },
+      dialogOpen,
+      whenDialogsClosed: onDialogsClosed,
     });
     app.onCommand((c) => {
       this.gate.command(c);

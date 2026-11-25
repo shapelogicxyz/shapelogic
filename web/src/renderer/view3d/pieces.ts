@@ -40,7 +40,7 @@ import type { Rgb3 } from '../shell/piece-colors.ts';
 import { faceMaterial, faceUniforms, setPalette, setPicture, setPiece } from './material.ts';
 import type { PiecePicture } from '../shell/picture-math.ts';
 import type { FaceUniforms } from './material.ts';
-import { hasChecker } from './mesh.ts';
+import { EdgeLines, hasChecker } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
 
 /** What the scene shows; `key` names it (the e2e tests wait for it). */
@@ -101,7 +101,8 @@ interface ShapeDraw {
   uniforms: FaceUniforms;
   normal: ReturnType<typeof faceMaterial>;
   faded: ReturnType<typeof faceMaterial>;
-  edges: LineSegmentsGeometry | null;
+  /** Its edge lines, made once for all its copies (cleanup item 6.9). */
+  edges: EdgeLines;
 }
 
 interface ItemDraw {
@@ -249,7 +250,8 @@ export class PiecesScene {
       if (m === undefined) {
         continue;
       }
-      const d = this.shapeDraw(item.shape, m);
+      const d = this.shapeDraw(item.shape);
+      const edges = d.edges.for(m.built);
       const group = new Group();
       const inner = new Group();
       inner.position.set(-m.center[0], -m.center[1], -m.center[2]);
@@ -273,8 +275,8 @@ export class PiecesScene {
           marks.renderOrder = item.optional ? 2 : 0;
           inner.add(marks);
         }
-        if (d.edges !== null) {
-          inner.add(new LineSegments2(d.edges, item.optional ? this.edgeFaded : this.edgeMaterial));
+        if (edges !== null) {
+          inner.add(new LineSegments2(edges, item.optional ? this.edgeFaded : this.edgeMaterial));
         }
       }
       const at = new Vector3();
@@ -561,13 +563,9 @@ export class PiecesScene {
     }
   }
 
-  private shapeDraw(shape: string, m: PieceMesh): ShapeDraw {
+  private shapeDraw(shape: string): ShapeDraw {
     const have = this.shapes.get(shape);
     if (have !== undefined) {
-      if (have.edges !== null) {
-        have.edges.dispose();
-      }
-      have.edges = edgeGeometry(m.built);
       return have;
     }
     // the shared uniforms (palette, light, view) with a color of its own
@@ -582,7 +580,7 @@ export class PiecesScene {
     const faded = faceMaterial({ ...uniforms, uAlpha: { value: FADED } }, 'normal');
     faded.transparent = true;
     faded.depthWrite = false;
-    const d: ShapeDraw = { uniforms, normal, faded, edges: edgeGeometry(m.built) };
+    const d: ShapeDraw = { uniforms, normal, faded, edges: new EdgeLines() };
     this.shapes.set(shape, d);
     return d;
   }
@@ -590,7 +588,7 @@ export class PiecesScene {
   private disposeShape(d: ShapeDraw): void {
     d.normal.dispose();
     d.faded.dispose();
-    d.edges?.dispose();
+    d.edges.dispose();
   }
 
   private clearItems(): void {
@@ -685,8 +683,4 @@ const PAD_X = 1.5;
 // a sliding board's trays keeps less
 function padY(tight: boolean): number {
   return tight ? 1 : 3;
-}
-
-function edgeGeometry(built: BuiltMesh): LineSegmentsGeometry | null {
-  return built.edges === null ? null : new LineSegmentsGeometry().setPositions(built.edges);
 }

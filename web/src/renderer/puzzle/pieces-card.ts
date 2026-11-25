@@ -19,7 +19,7 @@
 
 import type { Part, ShapeSummary } from '../../engine/api.generated.ts';
 import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
-import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
+import { openDialog } from '../shell/dialog.ts';
 import { ic } from '../shell/icons.ts';
 import { openPop, openPopAt } from '../shell/popover.ts';
 import { isTray, shownName } from '../shell/piece-colors.ts';
@@ -44,7 +44,6 @@ function placedTip(p: Part): string {
 export class PiecesCard {
   private readonly ws: PuzzleWorkspace;
   private drag: { u: string; from: 'lib' | 'used' } | null = null;
-  private bulk: HTMLElement | null = null;
 
   constructor(ws: PuzzleWorkspace) {
     this.ws = ws;
@@ -279,14 +278,9 @@ export class PiecesCard {
     }
     let mn = 0;
     let mx = 1;
-    const d = document.createElement('div');
-    d.className = 'cfm-scrim';
-    d.id = 'pzBulk';
     const step = (k: 'mn' | 'mx', label: string, v: number): string =>
       `<div class="step sz inl"><button data-r="${k}-" title="Decrease">${ic('minus', 12)}</button><span class="il">${label}</span><input class="v" value="${String(v)}" data-r="${k}" aria-label="${label}"><button data-r="${k}+" title="Increase">${ic('plus', 12)}</button></div>`;
-    const draw = (): void => {
-      d.innerHTML = `<div class="cfm" role="dialog" aria-modal="true"><h3>Set range for all pieces</h3><p>Every piece in this puzzle gets the same minimum and maximum count (${String(n)} pieces).</p><div class="rngs">${step('mn', 'Min', mn)}${step('mx', 'Max', mx)}</div><div class="bt"><button class="btn" data-x="0">Cancel</button><button class="btn pri" data-x="1">Apply</button></div></div>`;
-    };
+    const rngs = (): string => `${step('mn', 'Min', mn)}${step('mx', 'Max', mx)}`;
     const fix = (): void => {
       mn = Math.max(0, mn);
       mx = Math.max(1, mx);
@@ -294,33 +288,42 @@ export class PiecesCard {
         mx = mn;
       }
     };
-    draw();
-    byId('stage').appendChild(d);
-    this.bulk = d;
-    const close = (): void => {
-      d.remove();
-      this.bulk = null;
+    // what the fields hold now (Enter in one answers before its change event)
+    const read = (el: HTMLElement): void => {
+      const v = (r: string): number =>
+        Math.round(Number(el.querySelector<HTMLInputElement>(`input[data-r="${r}"]`)?.value));
+      mn = v('mn') || 0;
+      mx = v('mx') || 1;
+      fix();
     };
-    d.addEventListener('click', (e) => {
-      const t = e.target as Element;
-      if (t === d) {
-        close();
-        return;
-      }
-      const b = t.closest<HTMLElement>('[data-r],[data-x]');
-      if (b === null) {
-        return;
-      }
-      if (b.dataset.x === '0') {
-        close();
-        return;
-      }
-      if (b.dataset.x === '1') {
-        close();
-        void ws.setRangeAll(mn, mx);
-        return;
-      }
-      const r = b.dataset.r;
+    // a dialog of dialog.ts (cleanup item 6.4): the keyboard map waits, the focus is in it, Esc cancels
+    void openDialog({
+      id: 'pzBulk',
+      title: 'Set range for all pieces',
+      body: `<p>Every piece in this puzzle gets the same minimum and maximum count (${String(n)} pieces).</p><div class="rngs">${rngs()}</div>`,
+      buttons: [
+        { key: 'cancel', label: 'Cancel' },
+        { key: 'apply', label: 'Apply', kind: 'pri', default: true },
+      ],
+      onAnswer: (k, el) => {
+        if (k === 'apply') {
+          read(el);
+          void ws.setRangeAll(mn, mx);
+        }
+        return true;
+      },
+    });
+    const d = document.getElementById('pzBulk');
+    const box = d?.querySelector<HTMLElement>('.rngs');
+    if (d === null || box === null || box === undefined) {
+      return;
+    }
+    const draw = (): void => {
+      box.innerHTML = rngs();
+    };
+    // the steppers keep the dialog open: they are no answer
+    box.addEventListener('click', (e) => {
+      const r = (e.target as Element).closest<HTMLElement>('[data-r]')?.dataset.r;
       if (r === 'mn-') {
         mn--;
       } else if (r === 'mn+') {
@@ -335,14 +338,8 @@ export class PiecesCard {
       fix();
       draw();
     });
-    d.addEventListener('change', (e) => {
-      const i = e.target as HTMLInputElement;
-      if (i.dataset.r === 'mn') {
-        mn = Math.round(Number(i.value)) || 0;
-      } else if (i.dataset.r === 'mx') {
-        mx = Math.round(Number(i.value)) || 1;
-      }
-      fix();
+    box.addEventListener('change', () => {
+      read(d);
       draw();
     });
   }
@@ -537,13 +534,5 @@ export class PiecesCard {
         void ws.remove(d.u);
       });
     }
-    addEscapeStep(ESC_ORDER.dialog - 1, () => {
-      if (this.bulk === null) {
-        return false;
-      }
-      this.bulk.remove();
-      this.bulk = null;
-      return true;
-    });
   }
 }

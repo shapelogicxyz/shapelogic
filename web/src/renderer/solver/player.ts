@@ -28,7 +28,7 @@ import type {
   ProblemDetail,
   SolutionRow,
 } from '../../engine/api.generated.ts';
-import { EngineError } from '../../engine/errors.ts';
+import { isQuietError } from '../../engine/errors.ts';
 import { meshArrays, poseArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { byId } from '../shell/dom.ts';
@@ -322,7 +322,7 @@ export class Player {
         void this.openPlayback(n, problem, row.id);
       }, OPEN_AFTER_MS);
     } catch (e) {
-      if (n === this.token && !quiet(e)) {
+      if (n === this.token && !isQuietError(e)) {
         reportError(e, 'The solution could not be shown');
       }
     }
@@ -344,7 +344,7 @@ export class Player {
       this.t = Math.min(this.t, pb.steps);
       await this.showPlayback(n);
     } catch (e) {
-      if (n === this.token && !quiet(e)) {
+      if (n === this.token && !isQuietError(e)) {
         reportError(e, 'The disassembly could not be opened');
       }
     } finally {
@@ -399,7 +399,7 @@ export class Player {
         return b;
       }),
     ).catch((e: unknown) => {
-      if (n === this.token && !quiet(e)) {
+      if (n === this.token && !isQuietError(e)) {
         reportError(e, 'The pieces could not be drawn');
       }
       return null;
@@ -489,7 +489,7 @@ export class Player {
         track.add(c, poseArrays(r, 'step'));
       }
     } catch (e) {
-      if (n === this.token && !quiet(e)) {
+      if (n === this.token && !isQuietError(e)) {
         reportError(e, 'The moves could not be read');
       }
     }
@@ -762,13 +762,4 @@ function piecesOf(
     }
   }
   return out;
-}
-
-// a failure nobody needs to hear of: a newer read took its place, the
-// solution or the engine went
-function quiet(e: unknown): boolean {
-  return (
-    e instanceof EngineError &&
-    (e.errc === 'superseded' || e.errc === 'not_found' || e.errc === 'disconnected')
-  );
 }

@@ -5,9 +5,12 @@
 // Open Recent, the imports) and comes before the first document is shown
 // waits for it, while the engine starts; once the engine has failed no
 // document will come, so the command is not held but the engine's dialog
-// is shown instead, and the commands still waiting are dropped. The log
-// hears of each one held or dropped. Free of the page (the unit tests
-// drive it); menus.ts uses it.
+// is shown instead, and the commands still waiting are dropped. While a
+// dialog is open such a command waits for it to close (cleanup item 6.2):
+// ids restart in each document, so the dialog would act on the new
+// document's shape or problem of the same id. The log hears of each one
+// held for the engine or dropped. Free of the page (the unit tests drive it); menus.ts
+// uses it.
 
 import type { AppCommand, AppCommandName } from '../../engine/app-bridge.ts';
 
@@ -32,12 +35,18 @@ export interface GateHost {
   held(command: AppCommandName, dropped: boolean): void;
   /** The engine's dialog (a command came while it has failed). */
   showFailure(): void;
+  /** A dialog is open (dialog.ts: `dialogOpen`). */
+  dialogOpen(): boolean;
+  /** Calls `cb` once no dialog is open (dialog.ts: `onDialogsClosed`). */
+  whenDialogsClosed(cb: () => void): void;
 }
 
 /** Holds, runs or drops the document commands that come before the first document. */
 export class CommandGate {
   private readonly h: GateHost;
   private readonly waiting: AppCommand[] = [];
+  /** Waiting for the dialogs to close (asked once). */
+  private watching = false;
 
   constructor(host: GateHost) {
     this.h = host;
@@ -45,8 +54,19 @@ export class CommandGate {
 
   /** A menu command: run, held, or (the engine failed) dropped with the dialog shown. */
   command(c: AppCommand): void {
-    if (this.h.hasDocument() || !DOCUMENT_COMMANDS.has(c.cmd)) {
+    if (!DOCUMENT_COMMANDS.has(c.cmd)) {
       this.h.run(c);
+      return;
+    }
+    if (this.h.hasDocument()) {
+      if (this.waiting.length === 0 && !this.h.dialogOpen()) {
+        this.h.run(c);
+        return;
+      }
+      // a dialog is open (or commands wait for one to close): after them
+      // (the log's "held" is for the engine's start, so it is not told)
+      this.waiting.push(c);
+      this.watchDialogs();
       return;
     }
     if (this.h.engineFailed()) {
@@ -63,8 +83,16 @@ export class CommandGate {
   /** The document or the engine's status changed: run what waited, or drop it. */
   changed(): void {
     if (this.h.hasDocument()) {
-      for (const w of this.waiting.splice(0)) {
-        this.h.run(w);
+      // one at a time: one that opens a dialog (unsaved changes?) leaves the rest waiting for it
+      while (this.waiting.length > 0) {
+        if (this.h.dialogOpen()) {
+          this.watchDialogs();
+          return;
+        }
+        const w = this.waiting.shift();
+        if (w !== undefined) {
+          this.h.run(w);
+        }
       }
     } else if (this.h.engineFailed()) {
       // the commands held for an engine that failed: the dialog says why
@@ -72,5 +100,16 @@ export class CommandGate {
         this.h.held(w.cmd, true);
       }
     }
+  }
+
+  private watchDialogs(): void {
+    if (this.watching) {
+      return;
+    }
+    this.watching = true;
+    this.h.whenDialogsClosed(() => {
+      this.watching = false;
+      this.changed();
+    });
   }
 }

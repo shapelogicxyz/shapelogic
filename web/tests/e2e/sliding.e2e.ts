@@ -479,6 +479,7 @@ test('the nested fixture with and without nested slides, as bt; partially nested
       [NESTED, [[], ['--nested-slides']]],
       [resolve(FIXTURES, 'sliding/slide_pocket_partial.xmpuzzle'), [[], ['--partial-nested']]],
     ];
+    let managed = false;
     for (const [file, flags] of cases) {
       await openPath(page, file);
       await toSolver(page);
@@ -520,8 +521,17 @@ test('the nested fixture with and without nested slides, as bt; partially nested
         await expect(page.locator('#notice')).toHaveCount(0);
         const sp = await shownProblem(page);
         expect((await pageIds(page, sp)).length).toBe(bt.solutions);
+        // the Manage menu offers no analysis of a take-apart (cleanup item 6.5)
+        if (bt.solutions > 0 && !managed) {
+          await page.click('#slvAct [data-a="manage"]');
+          await expect(page.locator('#pop [data-k="at"]')).toBeVisible();
+          await expect(page.locator('#pop [data-k^="ad"]')).toHaveCount(0);
+          await page.keyboard.press('Escape');
+          managed = true;
+        }
       }
     }
+    expect(managed).toBe(true);
   } finally {
     await a.close();
   }
@@ -811,7 +821,7 @@ test('More options: Start cloned to Goal and back, asked first when the target h
     // an empty Goal: cloned without a question
     await stamp(page, one, [0, 0]);
     await clone('goal');
-    await expect(page.locator('.cfm')).toHaveCount(0);
+    await expect(page.locator('#confirm')).toHaveCount(0);
     await expect.poll(async () => (await tr()).goals).toEqual((await tr()).starts);
     expect((await tr()).goals.filter((g) => g === one)).toHaveLength(1);
 
@@ -819,13 +829,13 @@ test('More options: Start cloned to Goal and back, asked first when the target h
     await stamp(page, one, [2, 0], true);
     const before = (await tr()).starts;
     await clone('start');
-    await expect(page.locator('.cfm')).toContainText('Pieces were found on the start board');
-    await page.click('.cfm [data-x="0"]');
-    await expect(page.locator('.cfm')).toHaveCount(0);
+    await expect(page.locator('#confirm')).toContainText('Pieces were found on the start board');
+    await page.click('#confirm [data-x="cancel"]');
+    await expect(page.locator('#confirm')).toHaveCount(0);
     expect((await tr()).starts).toEqual(before);
     // the action: Start is the Goal now; one undo step puts it back
     await clone('start');
-    await page.click('.cfm [data-x="1"]');
+    await page.click('#confirm [data-x="ok"]');
     await pzSettled(page);
     await expect.poll(async () => (await tr()).starts).toEqual((await tr()).goals);
     await page.keyboard.press('Control+z');
@@ -834,10 +844,10 @@ test('More options: Start cloned to Goal and back, asked first when the target h
 
     // Clear Goal position board: asked, the goals off, the starts kept; then off
     await clone('clearGoal');
-    await expect(page.locator('.cfm')).toContainText(
+    await expect(page.locator('#confirm')).toContainText(
       'Every piece will be taken off the goal board',
     );
-    await page.click('.cfm [data-x="1"]');
+    await page.click('#confirm [data-x="ok"]');
     await pzSettled(page);
     await expect.poll(async () => (await tr()).goals.every((g) => g === null)).toBe(true);
     expect((await tr()).starts).toEqual(before);
@@ -1685,7 +1695,7 @@ test('Performance Analysis: the moves’ times and the estimates while a sliding
 
     // thrown away with the solve
     await runButton(page, 'abort');
-    await page.locator('.cfm [data-x="1"]').click();
+    await page.locator('#confirm [data-x="ok"]').click();
     await runEnded(page, 'idle');
     await expect(perf).toHaveCount(0);
     const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');

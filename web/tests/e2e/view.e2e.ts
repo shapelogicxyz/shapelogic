@@ -162,3 +162,40 @@ for (const [name, file, label] of REFERENCES) {
     await shot('colors');
   });
 }
+
+test('the view draws again after the GPU reset: the context lost and restored', async () => {
+  const { page } = a;
+  await openFixture(page, fixtures[0] ?? '');
+  await settle(page);
+  const frames = async (): Promise<number> => Number(await page.getAttribute('#cv', 'data-frames'));
+  const lost = (): Promise<boolean> =>
+    page.evaluate(
+      () =>
+        (document.getElementById('cv') as HTMLCanvasElement)
+          .getContext('webgl2')
+          ?.isContextLost() ?? false,
+    );
+  // WEBGL_lose_context: the loss and the restore of a GPU reset
+  await page.evaluate(() => {
+    const gl = (document.getElementById('cv') as HTMLCanvasElement).getContext('webgl2');
+    const ext = gl?.getExtension('WEBGL_lose_context') ?? null;
+    (globalThis as unknown as { loseContext: WEBGL_lose_context | null }).loseContext = ext;
+    ext?.loseContext();
+  });
+  await expect.poll(lost).toBe(true);
+  const before = await frames();
+  await page.evaluate(() => {
+    (
+      globalThis as unknown as { loseContext: WEBGL_lose_context | null }
+    ).loseContext?.restoreContext();
+  });
+  await expect.poll(lost).toBe(false);
+  // the renderer heard the restore and drew a frame after it (cleanup item
+  // 6.11; other renders, about one a second today, would hide a missing
+  // one, so the frame counted is the restore's)
+  await expect(page.locator('#cv')).toHaveAttribute('data-restored', /^\d+$/);
+  const at = Number(await page.getAttribute('#cv', 'data-restored'));
+  expect(at).toBeGreaterThanOrEqual(before);
+  await expect.poll(frames).toBeGreaterThan(at);
+  expect(await drawn(page)).toBeGreaterThan(0);
+});

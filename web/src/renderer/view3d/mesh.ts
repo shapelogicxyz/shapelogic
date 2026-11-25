@@ -15,6 +15,7 @@
 // hand-projected cubes is left.
 
 import { BufferAttribute, BufferGeometry } from 'three';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
 import type { MeshStyle, Size } from '../../engine/api.generated.ts';
 import type { MeshArrays } from '../../engine/frames.ts';
@@ -303,4 +304,33 @@ function variableMarks(arrays: MeshArrays, drawn: Uint32Array): BufferGeometry |
   g.setAttribute('position', new BufferAttribute(pos, 3));
   g.setAttribute('normal', new BufferAttribute(nor, 3));
   return g;
+}
+
+/**
+ * A shape's edge lines for LineSegments2 (the flat style's `edges`), kept
+ * while its mesh is the same: every copy of the shape draws the one
+ * geometry, and another mesh disposes the old one first (cleanup item 6.9:
+ * a geometry built per copy disposed the one the copy before drew).
+ */
+export class EdgeLines {
+  private of: BuiltMesh | null = null;
+  private lines: LineSegmentsGeometry | null = null;
+
+  /** The lines of `built` (null: it has none): those made for it already, else new ones. */
+  for(built: BuiltMesh): LineSegmentsGeometry | null {
+    if (built !== this.of) {
+      this.lines?.dispose();
+      this.lines =
+        built.edges === null ? null : new LineSegmentsGeometry().setPositions(built.edges);
+      this.of = built;
+    }
+    return this.lines;
+  }
+
+  /** Frees the lines' GPU buffers. */
+  dispose(): void {
+    this.lines?.dispose();
+    this.lines = null;
+    this.of = null;
+  }
 }

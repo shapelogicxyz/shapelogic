@@ -15,7 +15,7 @@
 // debug-stats.ts's).
 
 import type { SolveStats } from '../../engine/api.generated.ts';
-import { EngineError } from '../../engine/errors.ts';
+import { isQuietError } from '../../engine/errors.ts';
 import { isActive } from '../state/solves.ts';
 import type { Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
@@ -124,10 +124,7 @@ export class StatsPanel {
         this.render();
       },
       (e: unknown) => {
-        if (
-          e instanceof EngineError &&
-          (e.errc === 'superseded' || e.errc === 'not_found' || e.errc === 'disconnected')
-        ) {
+        if (isQuietError(e)) {
           return;
         }
         reportError(e, 'The statistics could not be read');

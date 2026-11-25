@@ -112,6 +112,9 @@ export class StlPreview {
     this.mOutside.dispose();
     this.uniforms.uPalette.value.dispose();
     this.gl.dispose();
+    // the context goes now, not at garbage collection: Chromium keeps about
+    // 16 and drops the oldest, the main view's (cleanup item 6.11)
+    this.gl.forceContextLoss();
   }
 
   private clear(): void {

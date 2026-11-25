@@ -47,3 +47,17 @@ export function isEngineError(e: unknown, errc?: Errc | ClientErrc): e is Engine
 export function isSuperseded(e: unknown): boolean {
   return isEngineError(e, 'superseded');
 }
+
+/**
+ * Whether a failed read is no news to the user (cleanup item 6.13): a
+ * newer call of its coalescing key took its place (`superseded`), what it
+ * read went meanwhile (`not_found`: another document, a problem or a
+ * solution removed), or the engine stopped (`disconnected`: the status
+ * says so, and everything is read again when it runs).
+ */
+export function isQuietError(e: unknown): boolean {
+  return (
+    e instanceof EngineError &&
+    (e.errc === 'superseded' || e.errc === 'not_found' || e.errc === 'disconnected')
+  );
+}

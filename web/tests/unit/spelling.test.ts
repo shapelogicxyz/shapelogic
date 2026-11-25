@@ -3,6 +3,8 @@
 // Keeps the project in American spelling: fails on any British spelling in a file we write.
 // The BurrTools reference files, the read-only mockup, built output and licence text are left out.
 // A line that must keep a British spelling (a name an older version saved) ends with "british-ok".
+// The ARIA attribute aria-labelledby is a name no one can rename: "labelled" followed at once by
+// "by" passes (cleanup item 6.8).
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -127,12 +129,41 @@ function isBreak(text: string, at: number): boolean {
   return PREFIXES.some((p) => before.endsWith(p));
 }
 
+// the ARIA attribute's name (aria-labelledby), which the standard spells so
+function isAriaName(text: string, at: number, word: string): boolean {
+  return (
+    word.toLowerCase() === 'labelled' && text.slice(at + word.length, at + word.length + 2) === 'by'
+  );
+}
+
+/** The British spellings in a text, at a break, on lines without british-ok. */
+function britishIn(text: string): string[] {
+  const found: string[] = [];
+  for (const m of [...text.matchAll(rx)]) {
+    if (
+      isBreak(text, m.index) &&
+      !isAriaName(text, m.index, m[0]) &&
+      !lineAt(text, m.index).includes('british-ok')
+    ) {
+      found.push(m[0]);
+    }
+  }
+  return found;
+}
+
 function lineAt(text: string, at: number): string {
   const end = text.indexOf('\n', at);
   return text.slice(text.lastIndexOf('\n', at) + 1, end < 0 ? text.length : end);
 }
 
 describe('spelling', () => {
+  it('lets the ARIA attribute aria-labelledby through, and nothing else of its word', () => {
+    expect(britishIn('<div aria-labelledby="x">')).toEqual([]);
+    expect(britishIn('el.setAttribute("aria-labelledby", id)')).toEqual([]);
+    expect(britishIn('the button is lab' + 'elled')).toEqual(['labelled']);
+    expect(britishIn('lab' + 'elled' + ' by its title')).toEqual(['labelled']);
+  });
+
   it('uses American spelling in every file we write', () => {
     const files = execFileSync(
       'git',
@@ -157,10 +188,8 @@ describe('spelling', () => {
       if (text.includes('\0')) {
         continue;
       }
-      for (const m of [...text.matchAll(rx)]) {
-        if (isBreak(text, m.index) && !lineAt(text, m.index).includes('british-ok')) {
-          found.push(`${f}: ${m[0]}`);
-        }
+      for (const w of britishIn(text)) {
+        found.push(`${f}: ${w}`);
       }
       for (const m of [...f.matchAll(rx)]) {
         if (isBreak(f, m.index)) {

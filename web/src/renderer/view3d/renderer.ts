@@ -10,7 +10,12 @@
 // view's picture as a PNG at a scale of its size (File ▸ Export ▸ Image,
 // stage 7) is a render at that pixel ratio, read back at once. A stacking
 // puzzle's view is tilted as the original's (`tilt`); a Tilted Square
-// puzzle's grid is turned in its tray (`turn`, decision 0045).
+// puzzle's grid is turned in its tray (`turn`, decision 0045). After the
+// GPU reset (the context lost, then restored) a render is asked for at
+// once: three.js uploads everything again on the next render, and the view
+// renders only when asked (cleanup item 6.11). The canvas's `data-frames`
+// counts the renders, `data-restored` the count at the last restore (the
+// e2e tests wait on them).
 
 import {
   Group,
@@ -64,10 +69,26 @@ export class ViewRenderer {
   private pending = 0;
   private measured = 0;
   private draw: (() => void) | null = null;
+  private readonly restored: (() => void)[] = [];
+  private readonly canvas: HTMLCanvasElement;
+  private frames = 0;
 
   constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
     this.gl = new WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: false });
     this.gl.setPixelRatio(window.devicePixelRatio || 1);
+    // the context may come back only if its loss is not taken as final
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+    });
+    canvas.addEventListener('webglcontextrestored', () => {
+      // the frames drawn when it came back (the e2e tests wait for one more)
+      canvas.dataset.restored = String(this.frames);
+      this.request();
+      for (const f of this.restored) {
+        f();
+      }
+    });
     this.root.add(this.model);
     this.scene.add(this.root);
   }
@@ -179,6 +200,17 @@ export class ViewRenderer {
     this.draw = draw;
   }
 
+  /** Runs `f` when the context came back after a GPU reset (a render is asked for already). */
+  onRestored(f: () => void): void {
+    this.restored.push(f);
+  }
+
+  // what a render does, counted
+  private drawCounted(): void {
+    this.draw?.();
+    this.canvas.dataset.frames = String(++this.frames);
+  }
+
   /** Asks for a render at the next animation frame. */
   request(): void {
     if (this.pending !== 0) {
@@ -186,13 +218,13 @@ export class ViewRenderer {
     }
     this.pending = requestAnimationFrame(() => {
       this.pending = 0;
-      this.draw?.();
+      this.drawCounted();
     });
   }
 
   /** Frames and renders now, as an animation frame would. */
   drawNow(): void {
-    this.draw?.();
+    this.drawCounted();
   }
 
   /**

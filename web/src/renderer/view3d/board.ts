@@ -188,7 +188,13 @@ export class BoardScene {
     for (const m of this.meshes) {
       this.group.remove(m);
       m.geometry.dispose();
-      (m.material as { dispose(): void }).dispose();
+      // each color's material has a palette texture of its own (faceUniforms): it goes too
+      const mat = m.material as {
+        dispose(): void;
+        uniforms?: { uPalette?: { value: { dispose(): void } | null } };
+      };
+      mat.uniforms?.uPalette?.value?.dispose();
+      mat.dispose();
     }
     this.meshes = [];
   }
@@ -282,10 +288,11 @@ export class BoardView {
     const style = this.host.style();
     const shapes = [...new Set(model.discs.map((d) => d.shape))];
     const key = `${String(store.generation)}:${style}:${model.key}:${shapes.map((s) => `${s}@${String(this.host.shapeRevision(s))}`).join(',')}`;
+    // a load in flight for another key is stale now, even when this one is shown already
+    const n = ++this.loads;
     if (key === this.shownKey) {
       return;
     }
-    const n = ++this.loads;
     Promise.all(
       shapes.map(async (s): Promise<[string, BuiltMesh]> => {
         const rev = this.host.shapeRevision(s);

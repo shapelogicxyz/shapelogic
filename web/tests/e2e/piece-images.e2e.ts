@@ -7,14 +7,25 @@
 // only, turned with the piece, kept by the file, and removed again; a
 // board's on its floor in the Shapes grid, the Start grid and Play; and in
 // Manual a stack of several (decision 0047): Additional image…, the tiles
-// reordered and taken off, a picture smaller than the piece.
+// reordered and taken off, a picture smaller than the piece. A dialog
+// open while another document came applies nothing to it (cleanup item 6.3).
 
 import { crc32, deflateSync } from 'node:zlib';
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { BUILT, ENGINE, engineCall, launch, newDocument, SHAPE_ROWS, shapes } from './app.ts';
+import {
+  appOf,
+  BUILT,
+  ENGINE,
+  engineCall,
+  engines,
+  launch,
+  newDocument,
+  SHAPE_ROWS,
+  shapes,
+} from './app.ts';
 import { clickCell, settled } from './editor.ts';
 import { toPlay } from './play.ts';
 
@@ -554,6 +565,54 @@ test('several images in Manual: Additional image…, the tiles reordered and tak
     await settled(page);
     expect(await stackOf(page, piece)).toHaveLength(1);
     expect((await imageOf(page, piece))?.src).toEqual([bx, by, bw, bh]);
+  } finally {
+    await a.close();
+  }
+});
+
+test('the image dialog open while another document came: Apply changes nothing of it', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    await newDocument(page, 'sliding');
+    await page.click('#btnNew');
+    await expect(page.locator(SHAPE_ROWS)).toHaveCount(1);
+    await settled(page);
+    await clickCell(page, [0, 0, 0]);
+    await clickCell(page, [1, 0, 0]);
+    await settled(page);
+    const piece = (await shapes(page))[0]?.id ?? '';
+    // the rescue copy is written, so the restart offers it (answered below)
+    const rev = (await engineCall<{ revision: number }>(page, 'document.get')).revision;
+    await expect(page.locator('#stage')).toHaveAttribute('data-rescued', String(rev), {
+      timeout: 10_000,
+    });
+    await page.click('#cImage');
+    const dlg = page.locator('#imageDlg');
+    await dlg.locator('[data-f="file"]').setInputFiles({
+      name: 'red.png',
+      mimeType: 'image/png',
+      buffer: png(2, 1),
+    });
+    await expect(dlg.locator('[data-f="tiles"]')).toContainText('red.png');
+    // the engine dies under the dialog: a new document, whose first shape has the same id
+    const generation = await page.locator('#stage').getAttribute('data-generation');
+    const main = appOf(page).process().pid ?? 0;
+    const [pid] = engines(main);
+    process.kill(pid ?? 0, 'SIGKILL');
+    await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', generation ?? '', {
+      timeout: 15_000,
+    });
+    await page.locator('#rescueAsk [data-x="drop"]').click();
+    const made = await engineCall<{ shape: string }>(page, 'shape.create', { size: [2, 1, 1] });
+    expect(made.shape).toBe(piece);
+    await expect(dlg).toBeVisible();
+    await dlg.locator('[data-x="apply"]').click();
+    await expect(dlg).toHaveCount(0);
+    await expect(page.locator('#stText')).toContainText(
+      'The document changed; nothing was applied',
+    );
+    expect(await stackOf(page, piece)).toEqual([]);
   } finally {
     await a.close();
   }

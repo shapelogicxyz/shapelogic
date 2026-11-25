@@ -9,6 +9,7 @@
 // and when the layer moves; the reads are coalesced, so a drag asks for at
 // most two of each. Never edited here: the editor calls the engine.
 
+import { isQuietError } from '../../engine/errors.ts';
 import type { CellState } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { reportError } from '../shell/status.ts';
@@ -173,11 +174,7 @@ export class ShapeCells {
   private failed(e: unknown): void {
     // a shape deleted meanwhile, a newer read, an engine restarting: the
     // next snapshot says what there is
-    if (
-      e instanceof Error &&
-      'errc' in e &&
-      (e.errc === 'not_found' || e.errc === 'superseded' || e.errc === 'disconnected')
-    ) {
+    if (isQuietError(e)) {
       return;
     }
     reportError(e, 'The cells could not be read');

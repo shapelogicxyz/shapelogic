@@ -310,7 +310,7 @@ test('DemoPieceGenerator’s piece range built through the UI', async () => {
     await expect(page.locator('#pzBulk [data-r="mx"]')).toHaveValue('10');
     await page.click('#pzBulk [data-r="mn+"]');
     await page.click('#pzBulk [data-r="mn-"]');
-    await page.click('#pzBulk [data-x="1"]');
+    await page.click('#pzBulk [data-x="apply"]');
     p = await checkShown(page);
     expect(p.parts.map((x) => [x.shape, x.min, x.max])).toEqual([
       ['s1', 0, 10],

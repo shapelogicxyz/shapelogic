@@ -237,10 +237,21 @@ export async function manage(page: Page, k: string): Promise<void> {
   await page.click(`#pop [data-k="${k}"]`);
 }
 
+/**
+ * Opens the Solver's step-by-step explorer fold (closed at first since
+ * 678c328), so its buttons (#slvAdv) can be clicked.
+ */
+export async function openExplorerFold(page: Page): Promise<void> {
+  if (await page.locator('#slvAdvSec.closed').isVisible()) {
+    await page.click('#slvAdvHead');
+  }
+  await expect(page.locator('#slvAdv')).toBeVisible();
+}
+
 /** Answers the confirmation: its title, and Cancel or the action. */
 export async function confirm(page: Page, title: RegExp, ok: boolean): Promise<void> {
-  const d = page.locator('.cfm');
+  const d = page.locator('#confirm');
   await expect(d.locator('h3')).toHaveText(title);
-  await d.locator(`[data-x="${ok ? '1' : '0'}"]`).click();
+  await d.locator(`[data-x="${ok ? 'ok' : 'cancel'}"]`).click();
   await expect(d).toHaveCount(0);
 }

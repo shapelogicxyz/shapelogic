@@ -168,7 +168,7 @@ again, and comes last.
 - [x] Checkpoint B (Fable): review of stage 4
 - [x] Stage 5: smaller bugs: core, engine, Python, CLI (its three new findings are 15.6, 15.7 and 16.6)
 - [x] Checkpoint C (Fable; needed, decided by checkpoint B): review of stage 5
-- [ ] Stage 6: renderer bugs
+- [x] Stage 6: renderer bugs (6.4 leaves the log menu, with its reason)
 - [ ] Stage 7: main-process bugs
 - [ ] Stage 8: test and build speed; tests that cannot clash
 - [ ] Checkpoint D (Fable): review of stage 8
@@ -2390,7 +2390,7 @@ Done (2026-11-24): see the Review lines under 5.1 to 5.12.
 
 Every item here edits `web/src/renderer/`: follow rule 7 before saving.
 
-- [ ] **6.1 Revision waits that ignore a new document or a restarted engine** (bug; S to M) ✓
+- [x] **6.1 Revision waits that ignore a new document or a restarted engine** (bug; S to M) ✓
   - *Where:*
     - `web/src/renderer/puzzle/workspace.ts`:
       - `waiting` (114) is `{ revision, done }[]`, with no generation;
@@ -2435,8 +2435,26 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
     comes, then the engine restarts before the reload's reply (`disconnected`).
     The edit's promise resolves and `edits.idle` becomes true. Then the e2e
     specs `puzzle.e2e.ts` and `solver.e2e.ts`.
+  - Done (2026-11-25): confirmed (a load that failed with `disconnected` returned
+    before releasing, and the restarted engine's revisions start at 0). New
+    `state/revision-waits.ts`: `RevisionWaits` (`wait`, `release`: the waits
+    at or below a revision and every wait of another generation) and
+    `whenShown` (the store's revision, then the view's load); Store, Puzzle
+    and the Solver use them. Each workspace releases on every load's result,
+    success or failure (the newest load only: an older one's revision is
+    covered by the newer), with the load's generation, and on every new
+    generation; it also sets `shown` back to -1 then (an old document's
+    revision could have let a wait through early). Puzzle's keys are
+    `puzzle:`-prefixed. `clear()` was left out: nothing needed it.
+    Tests (`tests/unit/renderer/revision-waits.test.ts`): the waits'
+    rules; an edit whose reload fails with `disconnected` as the engine
+    restarts settles and the edits under way go back to 0 (the Store and the
+    helpers are the real ones, the workspace's load is the test's stand-in:
+    Puzzle and the Solver need the page, so their wiring was read, not seen
+    failing); no coalesce key in two files (literals and template prefixes).
+    `puzzle.e2e.ts` and `solver.e2e.ts` pass.
 
-- [ ] **6.2 Commands that replace the document run under open dialogs and popovers** (bug; S)
+- [x] **6.2 Commands that replace the document run under open dialogs and popovers** (bug; S)
   - *Where:*
     - `web/src/renderer/shell/menus.ts`: the constructor (112-128:
       `app.onCommand`, then `this.run(c)`); `run()` (228-305: `runAction`
@@ -2465,8 +2483,24 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
     app's command channel (see how the existing specs drive menus), and
     check that the open waits until the dialog closes; a unit test of the
     queue.
+  - Done (2026-11-25): `dialog.ts` has `onDialogsClosed(cb)` (run after the code
+    that awaited the dialog's answer, one at a time: one that opens a dialog
+    leaves the rest waiting). `CommandGate` holds a document command while a
+    dialog is open (or others wait) and runs them one at a time when the
+    last closes; the log's "Command Held" stays the engine start's (its
+    words say so), so a dialog's hold is not logged. The drop handler waits
+    the same way. Popovers: closed rather than waited for: `closePop()` runs
+    in `setTab` and on every new generation (`shell/app.ts`). Holding a
+    command behind a popover would leave Open Recent doing nothing until the
+    user clicks somewhere; closing it keeps its menu off the new document,
+    which was the bug. Tests: `menus.test.ts` (held under a dialog, run in
+    order on close, one that opens a dialog leaves the next waiting; both
+    fail with the old gate); `files.e2e.ts` "a file opened under an open
+    dialog waits until it closes" (Export STL open, Open Recent sent, then a
+    theme command that shows the open was read; the generation stays until
+    Close; it fails with the old gate).
 
-- [ ] **6.3 Dialogs and edits that keep a shape id across a change of document** (bug; S)
+- [x] **6.3 Dialogs and edits that keep a shape id across a change of document** (bug; S)
   - *Where:*
     - `web/src/renderer/entities/workspace.ts`:
       - `editImage` (451-480) waits up to 5 s for the pictures, then uses the
@@ -2490,8 +2524,21 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
   - *Tests:* `piece-images.e2e.ts`: open the image dialog, open another
     document through the command channel, press Apply; the new document is
     unchanged.
+  - Done (2026-11-25): the Entities workspace keeps `store.generation` with the
+    shape when Apply image (piece or border) starts; after the pictures'
+    wait it opens nothing if the document changed, and the dialog's new
+    `stale` option makes Apply and Remove close it, saying "The document
+    changed; nothing was applied". The border dialog's cells are read before
+    the wait. Edit3D's Target carries the shape and the generation it was
+    worked out on; `apply3d` uses them, not `store.selected`. With 6.2 a
+    File ▸ Open waits for the dialog, so the change that still reaches an
+    open dialog is an engine restart. Test: `piece-images.e2e.ts` "the image
+    dialog open while another document came": a picture chosen, the engine
+    killed, the new document's first shape made (same id), Apply; the dialog
+    closes with the message and the shape has no image (fails without the
+    fix: the dialog stays open).
 
-- [ ] **6.4 One modal system: the confirm dialogs and the bulk range dialog** (bug, combine; S)
+- [x] **6.4 One modal system: the confirm dialogs and the bulk range dialog** (bug, combine; S)
   - *Where:*
     - `web/src/renderer/shell/confirm.ts` (`askConfirm`), called from
       `puzzle/slide-card.ts:422`, 436, `solver/workspace.ts:1730`, 1753, 1843
@@ -2523,8 +2570,23 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
     `stacking.e2e.ts:668` match the confirm's markup; move them to
     openDialog's markup. Add an e2e test: with "Delete 3 solutions?" open,
     Ctrl+Z changes nothing.
+  - Done (2026-11-25): `askConfirm` is an `openDialog` (id `confirm`, buttons
+    `cancel` and `ok`), so `modal()` sees it, Tab stays in it and Esc cancels
+    (its own escape step and `installConfirm` are gone). The bulk range
+    dialog is an `openDialog` (`pzBulk`, `cancel` and `apply`); the steppers
+    are no answer, and Apply reads the fields (Enter answers before their
+    change event). `trapTab` is exported and used by Settings. The e2e
+    specs (`solver.ts`'s `confirm`, `files`, `play`, `stack-play`,
+    `stacking`, `sliding`, `puzzle`) use the new markup. New check in
+    `solver.e2e.ts`: with "Delete 3 solutions?" open, Ctrl+Z and Del change
+    no revision and Tab stays in the dialog.
+    Not done: the log manager's Export menu stays its own. `#pop` has no
+    arrow keys or Tab handling, which the log menu has and `logs.e2e.ts`
+    checks, and Esc's order closes a dialog before a menu, so the move needs
+    both added to the popover first; that belongs with stage 12's single
+    sources.
 
-- [ ] **6.5 The Manage menu offers Analyse on sliding and stacking puzzles** (bug; S) ✓
+- [x] **6.5 The Manage menu offers Analyse on sliding and stacking puzzles** (bug; S) ✓
   - *Where:* `web/src/renderer/solver/solutions-card.ts`: `MENU` (44-45, one
     HTML string); the filter at 787,
     `MENU.replace(/<button data-k="ad[cam]">.*?<\/button>/g, '')`; the
@@ -2544,8 +2606,19 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
       as the player does.
   - *Tests:* `sliding.e2e.ts` and `tilted.e2e.ts`: open Manage and expect no
     `[data-k^="ad"]`. On a brick puzzle all three are there.
+  - Done (2026-11-25): confirmed (the regex matched nothing). The Manage menu is
+    a table (`k`, label, title, key text, `needsTakeApart`) built by
+    `manageMenu()`; `canTakeApart(ws)` (brick family and a grid with a
+    take-apart, not a tilted tray) decides it and the player's Analyse
+    button. Spheres lose the three items too. In the core,
+    `Document::analyseStart` refuses a tilted puzzle (Unsupported, the
+    player's words). Tests: `test_document_tilted.cpp` (Triple Play solved,
+    then refused; fails with the old `document.cpp`, run in place: the
+    worktree is this session's); `tilted.e2e.ts` and `sliding.e2e.ts`: no
+    `[data-k^="ad"]` (both fail with the old menu); `solver.e2e.ts`: a brick
+    puzzle has all three. `just check` on the two C++ files: clean.
 
-- [ ] **6.6 Play: Pause then Play starts a second playback chain; one failed step stops Undo and Redo** (bug; S)
+- [x] **6.6 Play: Pause then Play starts a second playback chain; one failed step stops Undo and Redo** (bug; S)
   - *Where:* `web/src/renderer/play/workspace.ts`: pause and play (321-330);
     the step chain (345-382: `stepping = stepping.then(step).finally(...)`).
   - *Problem:*
@@ -2563,8 +2636,18 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
   - *Tests:* `play.e2e.ts` and `stack-play.e2e.ts`: press Space three times
     quickly. Each move is drawn once and in order. Check order and count,
     not time: only the timed project may assert on time.
+  - Done (2026-11-25): a playback counter (`play` bumps and captures it, `pause`
+    bumps it, both checks in the chain compare it) and `.catch` before
+    `.finally` reporting "The move could not be made". `#playStage` counts
+    the steps playbacks ask for (`data-play-steps`). Tests: `play.ts`'s
+    `spaceThrice`, used by `play.e2e.ts` and `stack-play.e2e.ts` on a game of
+    eight moves: Space three times, then the moves in order, each drawn
+    once, and eight steps asked. With the old chain the order and the
+    drawing still held (the bug shows as speed, which only the timed project
+    may check); the count of steps fails (9 for 8), twice in a row on both
+    specs.
 
-- [ ] **6.7 Late replies applied after the drawer closed or after a newer load** (bug; S)
+- [x] **6.7 Late replies applied after the drawer closed or after a newer load** (bug; S)
   - *Where:*
     - `web/src/renderer/explore/explorer.ts` (383-428, 494-503): an
       assembler handle that arrives after the drawer was closed is stored,
@@ -2580,8 +2663,18 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
       any state.
   - *Tests:* a unit test: close the drawer before the open's reply comes;
     the handle is closed. `explore.e2e.ts` as before.
+  - Done (2026-11-25): the assembler handles are `HandleSlot`s (new
+    `explore/handle-slot.ts`): opened once, and a reply that comes after the
+    slot was dropped (the drawer closed, Reset) is closed at once; a failed
+    open stays failed until dropped, as before. The Solver's load checks
+    `n === this.loads` and the generation before it writes anything. Tests:
+    `explore.test.ts` (a handle closed when it comes after the drop; one
+    opening for many asks); `explore.e2e.ts` passes. It had failed at the
+    `#slvAdv` buttons since 678c328 (stage 2's note); `solver.ts` has
+    `openExplorerFold`, used there, in `keymap.e2e.ts` and
+    `security.e2e.ts`, which pass again.
 
-- [ ] **6.8 The ARIA label attribute was misspelled by the spelling commit** (bug; S) ✓
+- [x] **6.8 The ARIA label attribute was misspelled by the spelling commit** (bug; S) ✓
   - *Where:* `web/src/renderer/index.html:529` (`aria-labeledby="bigTipMsg"`,
     from 0bd5a36); `web/tests/unit/spelling.test.ts` (`WORDS`, line 47, and
     the matcher, `isBreak()` at 117-128).
@@ -2590,8 +2683,12 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
     spelling.
   - *Change:* restore the ARIA spelling, `aria-labelledby`, and teach the spelling test that `labelled` followed at once by `by` (the ARIA attribute's name, which no one can rename) is allowed. british-ok
   - *Tests:* `spelling.test.ts`, with a case for the attribute.
+  - Done (2026-11-25): `aria-labelledby` restored in `index.html`; the spelling
+    test lets the word through when `by` follows it at once
+    (`isAriaName`), and its matcher is `britishIn(text)`, with a case for
+    the attribute and for the word alone (still flagged).
 
-- [ ] **6.9 The Flat style leaks edge geometries on every refresh** (bug; S) ✓
+- [x] **6.9 The Flat style leaks edge geometries on every refresh** (bug; S) ✓
   - *Where:* `web/src/renderer/view3d/pieces.ts`:
     - `set()` (245-282) calls `shapeDraw()` for each laid item and adds
       `new LineSegments2(d.edges, …)`;
@@ -2617,8 +2714,17 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
     disposals and live geometries across two `set()` calls with a repeated
     shape (three.js geometry objects work without WebGL); `puzzle.e2e.ts`
     (`data-scene`) and the Flat screenshots.
+  - Done (2026-11-25): confirmed. A shape's edges are an `EdgeLines` (new class in
+    `view3d/mesh.ts`): built once per mesh object for all the shape's copies,
+    the old ones disposed only when another mesh comes (after `set()` took
+    the items off). `BoardScene.clear` disposes each color's palette
+    texture. Test (`view3d.test.ts`): eight copies draw one live geometry;
+    another mesh disposes it once. It tests the new class: `PiecesScene`
+    needs the page's types, which the unit tests' build has not, so the old
+    code could not be run against it. `puzzle.e2e.ts` and `view.e2e.ts`
+    (with the Flat screenshots) pass.
 
-- [ ] **6.10 Two mesh loaders let a stale mesh land** (bug; S)
+- [x] **6.10 Two mesh loaders let a stale mesh land** (bug; S)
   - *Where:* `web/src/renderer/view3d/trays.ts:151` and
     `web/src/renderer/view3d/board.ts:285` return when the key equals the one
     shown, before they bump `loads` (154, 288). `view3d/view.ts:865-868` and
@@ -2629,8 +2735,11 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
   - *Change:* bump `loads` before the early return in both, so a reply in
     flight is stale. The shared loader of 12.9 later replaces all four.
   - *Tests:* `sliding.e2e.ts` (`data-tray`), `stacking.e2e.ts` (`data-board`).
+  - Done (2026-11-25): both loaders bump `loads` before the early return.
+    `sliding.e2e.ts` and `stacking.e2e.ts` pass (but for
+    `stacking-player.png`, below).
 
-- [ ] **6.11 The 3D view stays blank after the GPU resets; Export STL previews keep WebGL contexts** (bug; S)
+- [x] **6.11 The 3D view stays blank after the GPU resets; Export STL previews keep WebGL contexts** (bug; S)
   - *Where:*
     - `web/src/renderer/view3d/renderer.ts` (63-68, 186-194): there is no
       `webglcontextlost` or `webglcontextrestored` listener anywhere in
@@ -2655,8 +2764,19 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
     then `restoreContext()`) on the main canvas and checks that a frame was
     drawn afterward (a data attribute the renderer sets per frame; add one
     if there is none).
+  - Done (2026-11-25): the main canvas's `webglcontextlost` calls
+    `preventDefault()`, `webglcontextrestored` asks for a render and redraws
+    the ViewCube (`ViewRenderer.onRestored`). The canvas counts renders
+    (`data-frames`) and the count at the last restore (`data-restored`). The
+    STL preview calls `forceContextLoss()` after `dispose()`. Test:
+    `view.e2e.ts` "the view draws again after the GPU reset": the context
+    lost and restored by `WEBGL_lose_context`, then a frame after the
+    restore's. Found: the idle view renders about once a second (a probe
+    counted 3 frames in 3 s with no input), which hides a missing restore
+    render today; so the test waits for the restore's own mark, and without
+    the listener it fails only for that missing mark. For 10.1.
 
-- [ ] **6.12 The image dialog keeps its pictures after it closes** (bug, memory; S)
+- [x] **6.12 The image dialog keeps its pictures after it closes** (bug, memory; S)
   - *Where:* `web/src/renderer/entities/image-dialog.ts`:
     - 924-929: the resize listener is removed only when a later resize finds
       the dialog gone;
@@ -2672,8 +2792,15 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
     - Decode each file once.
     - Set the canvas size only when it changes.
   - *Tests:* `piece-images.e2e.ts`.
+  - Done (2026-11-25): the dialog's `openDialog(...).finally` removes the resize
+    listener and closes the bitmaps of the files chosen in it (never the
+    shape's own, which the cache serves); a file read after the dialog
+    closed is closed at once. A PNG or JPEG that fits is decoded once (its
+    bitmap is the picture's); one drawn smaller closes its first bitmap. The
+    preview canvas is sized only when its size changes.
+    `piece-images.e2e.ts` passes (7 of 7).
 
-- [ ] **6.13 The explorer drops piece names; an engine restart flashes an error** (bug, combine; S)
+- [x] **6.13 The explorer drops piece names; an engine restart flashes an error** (bug, combine; S)
   - *Where:*
     - `web/src/renderer/explore/explorer.ts:67-125` has a copy of
       `problemPieces` without `name`, so the explorer's 3D labels lose the
@@ -2691,9 +2818,40 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
       used at the eight sites, the pager included.
   - *Tests:* `explore.e2e.ts`: the labels show the names; a unit test of
     `isQuietError`.
+  - Done (2026-11-25): the explorer uses the player's `problemPieces` (its own copy
+    is gone) and gives the 3D labels the names. `isQuietError(e)` is in
+    `engine/errors.ts`, beside `isSuperseded` (the errors' home, already
+    used by the renderer; no new file), used at the eight sites; the pager
+    now keeps quiet on `disconnected` too. Tests: `client.test.ts` (the
+    three quiet errors, and others not); `explore.e2e.ts`: Show Piece Labels
+    in Placements shows the piece's one-letter name.
 
 **Gates for stage 6:** `just app-check`, `just app-test`, and the e2e specs
 the items name, one file at a time.
+
+Done (2026-11-25), the whole stage:
+- `just app-check`: clean; `just app-test`: 629 of 629 (62 files).
+- e2e, one file at a time: `files` 18, `piece-images` 7, `solver` 9,
+  `puzzle` 3, `sliding` 21, `tilted` 7, `play` 4, `stack-play` 4,
+  `explore` 3, `view` 14, `keymap` 1, `security` 1, `exports` 2: all pass;
+  the first seven and `play`, `stack-play` twice. `stacking` 5 of 6: the
+  `stacking-player.png` screenshot differs only in the page around the
+  view (the Play tab, the run buttons, the explorer fold), as stage 5
+  found; its 3D view is the same. Not run: the rest of the e2e suite.
+- The new e2e checks, run against the old renderer files in a scratch
+  copy (rule 7; built with `SHAPELOGIC_VERSION=v2.1`): 6.2, 6.3, 6.5
+  (tilted, sliding) and 6.6 fail there.
+- The core change (6.5): `just test-all` 22 of 22 (293 s); `just test`
+  twice, 14 of 14; `just check` on its two files: clean. Not run: the
+  sanitizers and the oracle (one refusal for tilted puzzles, which the
+  original has not), the benchmarks, Linux and Windows builds (no system
+  call, no `#ifdef`).
+- `just site-demo --check`: rebuilt; every puzzle type opens and plays.
+- `docs/ARCHITECTURE.md`: map lines for `revision-waits.ts` and
+  `handle-slot.ts`; `command-gate.ts`'s and `dialog.ts`'s lines; the web
+  rule on revisions now says that a new document releases the waits and
+  that an id kept across an await checks the generation (the file is at
+  its 500-line limit).
 
 ## Stage 7: main-process bugs
 

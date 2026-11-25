@@ -106,6 +106,12 @@ export interface ImageDialogOptions {
   color: string;
   /** The piece's pictures now, the bottom one first, decoded. */
   current: readonly { image: ShapeImage; picture: PieceImage }[];
+  /**
+   * Whether the document changed since the dialog opened (it then says
+   * so): Apply and Remove close the dialog without doing anything, since
+   * the new document's shape of the same id is another (cleanup item 6.3).
+   */
+  stale?: () => boolean;
   /** Apply: resolves true when the engine took it (the dialog then closes). */
   apply(a: ImageApply): Promise<boolean>;
   /** Remove the piece's pictures. */
@@ -130,11 +136,19 @@ function toBase64(bytes: Uint8Array): string {
 export async function preparePicture(
   file: Blob,
 ): Promise<{ type: string; data: string; picture: PieceImage }> {
+  // the file is decoded once (cleanup item 6.12)
   const bitmap = await createImageBitmap(file);
   const fits = bitmap.width <= MAX_SIDE && bitmap.height <= MAX_SIDE;
   if (fits && (file.type === 'image/png' || file.type === 'image/jpeg')) {
     const data = toBase64(new Uint8Array(await file.arrayBuffer()));
-    return { type: file.type, data, picture: await decodeImage('', file.type, data) };
+    const picture: PieceImage = {
+      hash: '',
+      width: bitmap.width,
+      height: bitmap.height,
+      dataUrl: `data:${file.type};base64,${data}`,
+      bitmap,
+    };
+    return { type: file.type, data, picture };
   }
   const k = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
   const w = Math.max(1, Math.round(bitmap.width * k));
@@ -146,6 +160,8 @@ export async function preparePicture(
   }
   g.imageSmoothingQuality = 'high';
   g.drawImage(bitmap, 0, 0, w, h);
+  // drawn smaller: the preview shows the bytes saved, decoded from them
+  bitmap.close();
   const type = file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';
   const blob = await canvas.convertToBlob(
     type === 'image/jpeg' ? { type, quality: 0.9 } : { type },
@@ -269,8 +285,13 @@ export function drawPreview(canvas: HTMLCanvasElement, input: PreviewInput): voi
   const box = frame?.box ?? cellBox(cells);
   const ratio = window.devicePixelRatio || 1;
   const { w: pw, h: ph } = size;
-  canvas.width = Math.round(pw * ratio);
-  canvas.height = Math.round(ph * ratio);
+  // a size set again reallocates the canvas: only when it changed (each move of a Manual drag draws)
+  const cw = Math.round(pw * ratio);
+  const ch = Math.round(ph * ratio);
+  if (canvas.width !== cw || canvas.height !== ch) {
+    canvas.width = cw;
+    canvas.height = ch;
+  }
   const g = canvas.getContext('2d');
   if (g === null || box === null) {
     return;
@@ -438,7 +459,10 @@ export function openImageDialog(o: ImageDialogOptions): void {
     fitView();
   }
   const id = 'imageDlg';
-  void openDialog({
+  // the pictures chosen here (never the shape's own, which the picture cache serves): closed with the dialog
+  const own: ImageBitmap[] = [];
+  let closed = false;
+  const shownDialog = openDialog({
     id,
     title: `Apply image to ${o.label}${frame === null ? '' : '’s tray border'}`,
     body: `<div class="form imgdlg" style="--imgw:${String(size.w)}px">
@@ -477,6 +501,9 @@ export function openImageDialog(o: ImageDialogOptions): void {
       },
     ],
     onAnswer: (k, el) => {
+      if ((k === 'remove' || k === 'apply') && o.stale?.() === true) {
+        return true;
+      }
       if (k === 'remove') {
         o.remove();
         return true;
@@ -792,6 +819,12 @@ export function openImageDialog(o: ImageDialogOptions): void {
     file.value = '';
     preparePicture(f).then(
       (p) => {
+        if (closed) {
+          // the dialog went while the file was read
+          p.picture.bitmap.close();
+          return;
+        }
+        own.push(p.picture.bitmap);
         const { width: w, height: h } = p.picture;
         // over the whole box, as Crop lays it
         const rect = rectFromSource(sourceRect('crop', w, h, bw, bh), w, h, bw, bh);
@@ -920,12 +953,19 @@ export function openImageDialog(o: ImageDialogOptions): void {
   }
   // sized again with the window, until the dialog is gone
   const resized = (): void => {
-    if (!el.isConnected) {
-      window.removeEventListener('resize', resized);
-    } else if (drag === null) {
+    if (drag === null) {
       redraw();
     }
   };
   window.addEventListener('resize', resized);
+  // however it closes (Apply, Cancel, Esc, another dialog of its id), the
+  // listener goes and the pictures chosen here are let go
+  void shownDialog.finally(() => {
+    closed = true;
+    window.removeEventListener('resize', resized);
+    for (const b of own) {
+      b.close();
+    }
+  });
   redraw();
 }

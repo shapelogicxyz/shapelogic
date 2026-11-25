@@ -31,6 +31,7 @@ import { gridExtent } from '../../../src/renderer/view3d/extent.ts';
 import {
   buildMesh,
   cellOf,
+  EdgeLines,
   FLAG,
   markedPolygons,
   shrinkQuadrilateral,
@@ -630,5 +631,29 @@ describe('a sliding tray’s walls on the Solver tab', () => {
     scene.setDark(false);
     expect(scene.wallColor).toBe('#000000');
     scene.dispose();
+  });
+});
+
+describe('the pieces scene’s edge lines (cleanup item 6.9)', () => {
+  it('are built once a mesh for all the copies of a shape, the old ones disposed for another', () => {
+    const mesh = () =>
+      buildMesh(frame([{ corners: square(0), voxel: 0, face: 0, flags: 0 }]), [1, 1, 1], 'flat');
+    const disposed: unknown[] = [];
+    const lines = new EdgeLines();
+    const first = mesh();
+    // the selected piece and three copies, drawn in one set() and the next
+    const drawn = [1, 2, 3, 4, 5, 6, 7, 8].map(() => lines.for(first));
+    const one = drawn[0];
+    expect(one).not.toBeNull();
+    one?.addEventListener('dispose', () => disposed.push(one));
+    expect(new Set(drawn).size).toBe(1);
+    expect(disposed).toEqual([]);
+    // another mesh of the shape: its lines, the old ones disposed once
+    const two = lines.for(mesh());
+    expect(two).not.toBe(one);
+    expect(disposed).toEqual([one]);
+    // a mesh without edges (the drawing style) has none
+    expect(lines.for(buildMesh(frame([]), [1, 1, 1], 'drawing'))).toBeNull();
+    lines.dispose();
   });
 });

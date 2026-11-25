@@ -79,6 +79,8 @@ export class PlayWorkspace {
   /** The document changed while the tab was out of sight. */
   private stale = true;
   private playing = false;
+  /** Counts the playbacks: a chain whose count is not the newest stops (Pause then Play). */
+  private playback = 0;
   /** Counts the seeks: one under way gives up when another began. */
   private seeks = 0;
   /** The steps asked for run one after another: the last of them, and how many wait. */
@@ -321,8 +323,13 @@ export class PlayWorkspace {
   private queue(dir: 1 | -1): Promise<boolean> {
     const drawn = this.queued < 2;
     this.queued++;
+    // a step that fails is said, and the next ones still run
     this.stepping = this.stepping
       .then(() => this.step(dir, drawn))
+      .catch((e: unknown) => {
+        reportError(e, 'The move could not be made');
+        return false;
+      })
       .finally(() => {
         this.queued--;
       });
@@ -351,13 +358,18 @@ export class PlayWorkspace {
       this.seekTo(0);
     }
     this.playing = true;
+    // a chain of an earlier playback (its timer, a step under way) stops: one at a time
+    const run = ++this.playback;
     this.render();
     const next = (): void => {
-      if (!this.playing) {
+      if (run !== this.playback) {
         return;
       }
+      // the steps playbacks asked for, readable from outside (the e2e tests: one playback's, never a stale one's)
+      const stage = byId('playStage');
+      stage.dataset.playSteps = String(Number(stage.dataset.playSteps ?? '0') + 1);
       void this.queue(1).then((went) => {
-        if (!this.playing) {
+        if (run !== this.playback) {
           return;
         }
         const now = this.game;
@@ -377,6 +389,7 @@ export class PlayWorkspace {
       return false;
     }
     this.playing = false;
+    this.playback++;
     this.render();
     return true;
   }

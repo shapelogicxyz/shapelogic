@@ -17,7 +17,16 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 
 import { answerDialogs, BUILT, ENGINE, engineCall, launch, openFixture } from './app.ts';
-import { carry, clickRod, expectGame, expectStacks, STACK, STAGE, toStackPlay } from './play.ts';
+import {
+  carry,
+  clickRod,
+  expectGame,
+  expectStacks,
+  spaceThrice,
+  STACK,
+  STAGE,
+  toStackPlay,
+} from './play.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
 
@@ -177,7 +186,7 @@ test('the transfers of a game are exported, imported and played back; the positi
 
     // the game begun again, then the file read back: its transfers, from the start
     await page.click('#plRestart');
-    await page.click('.cfm [data-x="1"]');
+    await page.click('#confirm [data-x="ok"]');
     await expectGame(page, 0, 0, false);
     await page.setInputFiles('#plFile', path);
     await expect(page.locator(STAGE)).toHaveAttribute('data-imported', '1');
@@ -188,6 +197,33 @@ test('the transfers of a game are exported, imported and played back; the positi
     await expectGame(page, 2, 2, false);
     await expect(page.locator(STAGE)).toHaveAttribute('data-playing', 'false');
     await expectStacks(page, '0|1|2');
+    // Space three times at once: one playback, each transfer drawn once and
+    // in order (cleanup item 6.6); a game of eight, the top disc there and back
+    const there = join(dir, 'there.slmoves');
+    writeFileSync(
+      there,
+      JSON.stringify({
+        ...file,
+        moves: [0, 1, 2, 3, 4, 5, 6, 7].map((i) =>
+          i % 2 === 0 ? { from: 0, to: 2 } : { from: 2, to: 0 },
+        ),
+      }),
+    );
+    await page.setInputFiles('#plFile', there);
+    // the moves made here are replaced, asked first
+    await page.click('#confirm [data-x="ok"]');
+    await expect(page.locator(STAGE)).toHaveAttribute('data-imported', '2');
+    await expectGame(page, 8, 0, false);
+    await spaceThrice(page, 8);
+    await expectStacks(page, '0,1,2||');
+    // the game of two again
+    await page.setInputFiles('#plFile', path);
+    // the moves made here are replaced, asked first
+    await page.click('#confirm [data-x="ok"]');
+    await expect(page.locator(STAGE)).toHaveAttribute('data-imported', '3');
+    await expectGame(page, 2, 0, false);
+    await page.click('#plTransport [data-t="end"]');
+    await expectGame(page, 2, 2, false);
     // the seekbar goes to any move
     await page.locator('#plSeek').fill('1');
     await expectGame(page, 2, 1, false);

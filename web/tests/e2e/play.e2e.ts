@@ -26,7 +26,7 @@ import {
   newDocument,
   openFixture,
 } from './app.ts';
-import { drag, expectGame, STAGE, toPlay } from './play.ts';
+import { drag, expectGame, spaceThrice, STAGE, toPlay } from './play.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
 
@@ -258,7 +258,7 @@ test('the moves of a game are exported, imported and played back; the position i
 
     // the game begun again, then the file read back: its moves, from the start
     await page.click('#plRestart');
-    await page.click('.cfm [data-x="1"]');
+    await page.click('#confirm [data-x="ok"]');
     await expectGame(page, 0, 0, false);
     await page.setInputFiles('#plFile', path);
     await expect(page.locator(STAGE)).toHaveAttribute('data-imported', '1');
@@ -273,6 +273,34 @@ test('the moves of a game are exported, imported and played back; the position i
     await page.locator('#plSeek').fill('1');
     await expectGame(page, 2, 1, true);
     await page.click('#plTransport [data-t="start"]');
+    await expectGame(page, 2, 0, false);
+
+    // Space three times at once (play, pause, play): one playback, each move
+    // drawn once and in order (cleanup item 6.6: the paused one went on beside
+    // the new); a game of eight moves, the first one there and back
+    const first = file.moves[0];
+    const there = join(dir, 'there.slmoves');
+    writeFileSync(
+      there,
+      JSON.stringify({
+        ...file,
+        moves: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({
+          movers: first?.movers,
+          by: i % 2 === 0 ? [2, 0, 0] : [-2, 0, 0],
+        })),
+      }),
+    );
+    await page.setInputFiles('#plFile', there);
+    // the moves made here are replaced, asked first
+    await page.click('#confirm [data-x="ok"]');
+    await expect(page.locator(STAGE)).toHaveAttribute('data-imported', '2');
+    await expectGame(page, 8, 0, false);
+    await spaceThrice(page, 8);
+    // the game of two moves again
+    await page.setInputFiles('#plFile', path);
+    // the moves made here are replaced, asked first
+    await page.click('#confirm [data-x="ok"]');
+    await expect(page.locator(STAGE)).toHaveAttribute('data-imported', '3');
     await expectGame(page, 2, 0, false);
 
     // a file of another board, and one whose move cannot be made, are refused

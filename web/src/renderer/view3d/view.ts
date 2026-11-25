@@ -330,6 +330,9 @@ export class View3D {
         this.renderer.request();
       },
     });
+    this.renderer.onRestored(() => {
+      this.cube.draw();
+    });
     this.toolbar = new Toolbar({
       display: this.display,
       mode: () => this.mode,
