@@ -385,6 +385,11 @@ export async function openLogFiles(app: BtApp): Promise<void> {
         label: 'Export…',
         tip: 'Save the last 100 lines or all of the log as a text file',
       },
+      {
+        key: 'copy',
+        label: 'Copy Details',
+        tip: 'Put a report for a question on the clipboard: the system, the engine, the newest lines of the log (Help ▸ Copy Diagnostics)',
+      },
       { key: 'refresh', label: 'Refresh', tip: 'Read the log again' },
       { key: 'close', label: 'Close', kind: 'pri', default: true },
     ],
@@ -403,6 +408,18 @@ export async function openLogFiles(app: BtApp): Promise<void> {
       }
       if (key === 'clear') {
         void view?.clearAll();
+        return false;
+      }
+      if (key === 'copy') {
+        // cleanup item 2.4: the same report as Help ▸ Copy Diagnostics
+        void app.copyDiagnostics().then((r) => {
+          flash(
+            r.ok
+              ? 'The details are on the clipboard: paste them into an email or a GitHub issue'
+              : `The details could not be copied: ${r.error}`,
+            5000,
+          );
+        });
         return false;
       }
       return true;

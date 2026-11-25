@@ -527,6 +527,8 @@ describe('the IPC handlers', () => {
   // the windows (decision 0036): files claimed, New Window, settings sent to the others
   const claimed: [number, string][] = [];
   let newWindows = 0;
+  const startOps: string[] = [];
+  const updateOutcomes: string[] = [];
   const toOthers: [string, unknown][] = [];
   const prefsStored: unknown[] = [];
   // the update check: GitHub's latest release, and what Skip This Version stored
@@ -589,6 +591,13 @@ describe('the IPC handlers', () => {
       closeTaken: () => undefined,
       closeWindow: () => undefined,
       cancelQuit: () => undefined,
+      updateChecked: (text: string) => updateOutcomes.push(text),
+      ready: () => startOps.push('ready'),
+      retryEngine: () => startOps.push('retry'),
+      commandHeld: (_s: object, c: string, dropped: boolean) =>
+        startOps.push(`${dropped ? 'dropped' : 'held'} ${c}`),
+      copyDiagnostics: () => Promise.resolve({ ok: true, bytes: 10 }),
+      saveDiagnostics: () => Promise.resolve({ ok: false, canceled: true }),
       prefsChanged: (prefs: unknown) => prefsStored.push(prefs),
     } as unknown as Parameters<typeof installAppIpc>[0]);
   });
@@ -657,6 +666,10 @@ describe('the IPC handlers', () => {
     expect(await invoke('bt:check-updates', ours, false)).toMatchObject({ status: 'newer' });
     latestTag = 'v1.3';
     expect(await invoke('bt:check-updates', ours, false)).toMatchObject({ status: 'current' });
+    // each check's outcome goes to the log (cleanup item 2.8)
+    expect(updateOutcomes.at(-1)).toBe('HTTP 200; the latest release is v1.3');
+    // the startup check and the two asked for (the second startup ask ran none)
+    expect(updateOutcomes).toHaveLength(3);
     // Download opens the releases page, whatever the page passes
     electron.on.get('bt:open-releases')?.({ sender: ours }, 'https://example.com/');
     expect(electron.opened).toEqual([
@@ -756,6 +769,21 @@ describe('the IPC handlers', () => {
     electron.on.get('bt:new-window')?.({ sender: foreign });
     electron.on.get('bt:new-window')?.({ sender: ours });
     expect(newWindows).toBe(1);
+    // the start's messages and the diagnostics (cleanup items 2.3, 2.4, 2.7)
+    const start = electron.on.get('bt:engine-start');
+    start?.({ sender: foreign }, 'retry');
+    start?.({ sender: ours }, 'ready');
+    start?.({ sender: ours }, 'retry');
+    start?.({ sender: ours }, 'something else');
+    start?.({ sender: ours }, 'held', 'open');
+    start?.({ sender: ours }, 'dropped', 'new');
+    start?.({ sender: ours }, 'held', 'not a command');
+    start?.({ sender: foreign }, 'held', 'open');
+    expect(startOps).toEqual(['ready', 'retry', 'held open', 'dropped new']);
+    expect(await invoke('bt:diagnostics', foreign, 'copy')).toBeNull();
+    expect(await invoke('bt:diagnostics', ours, 'copy')).toEqual({ ok: true, bytes: 10 });
+    expect(await invoke('bt:diagnostics', ours, 'save')).toEqual({ ok: false, canceled: true });
+    expect(await invoke('bt:diagnostics', ours, 'other')).toBeNull();
     const save = electron.on.get('bt:save-state');
     save?.({ sender: ours }, 'prefs', { theme: 'Dark' });
     // a layout is the window's own

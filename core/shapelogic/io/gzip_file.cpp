@@ -11,12 +11,20 @@
 #ifdef _WIN32
 #include <io.h>
 #include <sys/stat.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #else
 #include <unistd.h>
 #endif
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <fstream>
 #include <memory>
 #include <ostream>
@@ -47,6 +55,42 @@ gzFile openGz(const std::filesystem::path& path, const char* mode) {
 
 std::string describe(const std::filesystem::path& path) { return path.string(); }
 
+/// The system's reason for the call that just failed, taken at once (the
+/// next call may change it): errno, and on Windows GetLastError's code,
+/// which tells "Access is denied (5)" (Controlled Folder Access refuses a
+/// write so) from the C library's coarser errno (cleanup item 2.5).
+struct SystemError {
+  int err = errno;
+#ifdef _WIN32
+  unsigned long win = GetLastError();
+#endif
+};
+
+/// Clears the system's last error before a call whose reason is read after it.
+void clearSystemError() {
+  errno = 0;
+#ifdef _WIN32
+  SetLastError(0);
+#endif
+}
+
+/// ": <the system's words> (<its code>)"; empty when it gave no reason.
+std::string reasonOf(const SystemError& e) {
+#ifdef _WIN32
+  if (e.win != 0) {
+    std::string words = std::system_category().message(static_cast<int>(e.win));
+    while (!words.empty() && (words.back() == '\n' || words.back() == '\r' || words.back() == '.')) {
+      words.pop_back();
+    }
+    return ": " + words + " (" + std::to_string(e.win) + ")";
+  }
+#endif
+  if (e.err == 0) {
+    return {};
+  }
+  return ": " + std::generic_category().message(e.err) + " (errno " + std::to_string(e.err) + ")";
+}
+
 /// Whether this process may write the file at `path` (which exists).
 bool writable(const std::filesystem::path& path) {
 #ifdef _WIN32
@@ -71,6 +115,7 @@ int openTemporary(const std::filesystem::path& tmp) {
   if (!ec && (std::filesystem::is_symlink(old) || std::filesystem::is_regular_file(old))) {
     std::filesystem::remove(tmp, ec);
   }
+  clearSystemError();
 #ifdef _WIN32
   return ::_wopen(tmp.c_str(), _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY | _O_NOINHERIT,
                   _S_IREAD | _S_IWRITE);
@@ -114,9 +159,11 @@ Error tooLarge(std::size_t maxBytes) {
 
 Result<std::string> readMaybeGzipFile(const std::filesystem::path& path, std::size_t maxBytes) {
   // zlib reads data that is not gzip as it is ("transparent" reading)
+  clearSystemError();
   GzHandle f(openGz(path, "rb"));
   if (!f) {
-    return fail(Errc::IoError, "could not open " + describe(path));
+    const SystemError why;
+    return fail(Errc::IoError, "could not open " + describe(path) + reasonOf(why));
   }
 
   std::string data;
@@ -140,9 +187,11 @@ Result<std::string> readMaybeGzipFile(const std::filesystem::path& path, std::si
 }
 
 Result<std::string> readPlainFile(const std::filesystem::path& path, std::size_t maxBytes) {
+  clearSystemError();
   std::ifstream in(path, std::ios::binary);
   if (!in) {
-    return fail(Errc::IoError, "could not open " + describe(path));
+    const SystemError why;
+    return fail(Errc::IoError, "could not open " + describe(path) + reasonOf(why));
   }
   std::string data;
   std::array<char, 65536> buf{};
@@ -177,7 +226,8 @@ Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view d
   {
     const int fd = openTemporary(tmp);
     if (fd < 0) {
-      return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing");
+      const SystemError why;
+      return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing" + reasonOf(why));
     }
     GzHandle f(gzdopen(fd, "wb9"));
     if (!f) {
@@ -187,16 +237,18 @@ Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view d
     while (!data.empty()) {
       const auto chunk = static_cast<unsigned int>(std::min<std::size_t>(data.size(), 1u << 30));
       if (gzwrite(f.get(), data.data(), chunk) != static_cast<int>(chunk)) {
+        const SystemError why;
         f.reset();
         std::filesystem::remove(tmp, ec);
-        return fail(Errc::IoError, "could not write " + describe(path));
+        return fail(Errc::IoError, "could not write " + describe(path) + reasonOf(why));
       }
       data.remove_prefix(chunk);
     }
     // closing writes the end of the compressed data; it can fail too
     if (gzclose(f.release()) != Z_OK) {
+      const SystemError why;
       std::filesystem::remove(tmp, ec);
-      return fail(Errc::IoError, "could not write " + describe(path));
+      return fail(Errc::IoError, "could not write " + describe(path) + reasonOf(why));
     }
   }
   return replaceWith(tmp, *target);
@@ -211,14 +263,17 @@ Result<void> writeFileWhole(const std::filesystem::path& path, std::string_view 
   tmp += ".tmp";
   const int fd = openTemporary(tmp);
   if (fd < 0) {
-    return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing");
+    const SystemError why;
+    return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing" + reasonOf(why));
   }
+  clearSystemError();
   const bool written = writeAll(fd, data);
+  const SystemError why;
   closeFd(fd);
   if (!written) {
     std::error_code ec;
     std::filesystem::remove(tmp, ec);
-    return fail(Errc::IoError, "could not write " + describe(path));
+    return fail(Errc::IoError, "could not write " + describe(path) + reasonOf(why));
   }
   return replaceWith(tmp, *target);
 }
@@ -293,19 +348,23 @@ Result<void> writeFileStreamed(const std::filesystem::path& path,
   tmp += ".tmp";
   const int fd = openTemporary(tmp);
   if (fd < 0) {
-    return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing");
+    const SystemError why;
+    return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing" + reasonOf(why));
   }
   bool ok = false;
+  clearSystemError();
   {
     FdOutBuf buf(fd);
     std::ostream out(&buf);
     ok = write(out) && static_cast<bool>(out.flush()) && buf.flushBuffer();
   }
+  // a writer that failed on its own (not the file) leaves errno 0: no reason then
+  const SystemError why;
   closeFd(fd);
   if (!ok) {
     std::error_code ec;
     std::filesystem::remove(tmp, ec);
-    return fail(Errc::IoError, "could not write " + describe(path));
+    return fail(Errc::IoError, "could not write " + describe(path) + reasonOf(why));
   }
   return replaceWith(tmp, *target);
 }

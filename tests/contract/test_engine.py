@@ -230,6 +230,28 @@ def engine_info_and_settings(e):
     check(len(told) == 1 and "/no/such/puzzle.xmpuzzle" in told[0], f"the log's line {e.stderr}")
     check(any(line.startswith("shapelogic_engine: INFO: Settings Changed: ") for line in e.stderr),
           f"the settings are logged {e.stderr}")
+    # the first line says which engine runs, whatever the log setting
+    # (cleanup item 2.6): the app's log parses it as an info line
+    first = re.match(r"shapelogic_engine: INFO: Engine Started: version (\S+), (release|debug) build, "
+                     r"vectors (AVX-512|AVX2|scalar \(no AVX2\)|NEON|scalar), open files (\d+|unlimited|unknown)$",
+                     e.stderr[0].rstrip("\n") if e.stderr else "")
+    check(first is not None and first.group(1) == hello["version"], f"the engine's first line {e.stderr[:1]}")
+    check(any(line.rstrip("\n") == "shapelogic_engine: INFO: Engine Folders: sliding none, Panex none"
+              for line in e.stderr), f"the folders are logged {e.stderr}")
+    # a folder that is there, and one not made yet
+    with tempfile.TemporaryDirectory() as there:
+        missing = os.path.join(there, "not-yet")
+        e.call("settings.set", {"slideFolder": there, "panexFolder": missing})
+        e.call("settings.get")
+        want = (f'shapelogic_engine: INFO: Engine Folders: sliding "{there}" (exists, writable), '
+                f'Panex "{missing}" (not made yet)')
+        for _ in range(200):
+            if any(line.rstrip("\n") == want for line in e.stderr):
+                break
+            time.sleep(0.01)
+        check(any(line.rstrip("\n") == want for line in e.stderr), f"the folders' line {e.stderr[-3:]}")
+        check(os.listdir(there) == [], "the write probe is removed")
+        e.call("settings.set", {"slideFolder": "", "panexFolder": ""})
     # a solve started: the problem by its label, the solver, and the threads
     # automatic stands for
     p, _, _ = domino_box(e, 2, 2, 1)

@@ -20,6 +20,7 @@ import type {
   CacheItem,
   CacheResult,
   CliToolResult,
+  DiagnosticsResult,
   LogExportResult,
   LogExportSizes,
   LogPage,
@@ -280,6 +281,31 @@ const btApp: BtApp = {
   },
   closeTaken() {
     ipcRenderer.send('bt:close', 'taken');
+  },
+  ready() {
+    ipcRenderer.send('bt:engine-start', 'ready');
+  },
+  retryEngine() {
+    ipcRenderer.send('bt:engine-start', 'retry');
+  },
+  commandHeld(command, dropped) {
+    ipcRenderer.send('bt:engine-start', dropped ? 'dropped' : 'held', command);
+  },
+  async copyDiagnostics() {
+    return (
+      ((await ipcRenderer.invoke('bt:diagnostics', 'copy')) as DiagnosticsResult | null) ?? {
+        ok: false,
+        error: 'not available',
+      }
+    );
+  },
+  async saveDiagnostics() {
+    return (
+      ((await ipcRenderer.invoke('bt:diagnostics', 'save')) as LogExportResult | null) ?? {
+        ok: false,
+        error: 'not available',
+      }
+    );
   },
   closeCanceled() {
     ipcRenderer.send('bt:close', 'canceled');

@@ -6,6 +6,9 @@
 // body: release/notes/vX.Y.md, Markdown) for the dialog's Details. The main process asks (app-ipc.ts,
 // on a session of its own: the window's session lets nothing remote
 // through); the renderer shows the answer (renderer/shell/updates.ts).
+// Each check's outcome is told in words for the log (cleanup item 2.8):
+// the HTTP status, or the error's name and code, which tell a firewall or
+// a proxy that rewrites TLS (the engine uses no network).
 // Free of Electron (the fetch is given), so the unit tests stub it.
 
 import type { UpdateResult } from '../engine/app-bridge.ts';
@@ -42,8 +45,35 @@ export function compareVersions(a: readonly number[], b: readonly number[]): num
   return 0;
 }
 
+/**
+ * A failed fetch in words: the error's name, its code and its cause's
+ * (Node's fetch puts the system's code, `ENOTFOUND`, `ECONNRESET`,
+ * `ETIMEDOUT`, `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`, on its cause; Chromium's
+ * says `net::ERR_…` in its message).
+ */
+export function fetchErrorText(e: unknown): string {
+  if (!(e instanceof Error)) {
+    return String(e);
+  }
+  const codes: string[] = [];
+  for (let at: unknown = e, depth = 0; at instanceof Error && depth < 4; depth++) {
+    const code = (at as { code?: unknown }).code;
+    if (typeof code === 'string' || typeof code === 'number') {
+      codes.push(String(code));
+    }
+    at = (at as { cause?: unknown }).cause;
+  }
+  const cause = (e as { cause?: unknown }).cause;
+  const causeText =
+    cause instanceof Error && cause.message !== e.message ? `; ${cause.message}` : '';
+  return `${e.name}: ${e.message}${codes.length > 0 ? ` (${[...new Set(codes)].join(', ')})` : ''}${causeText}`;
+}
+
 /** The latest release: its tag (`v1.4`) and notes ('' when it has none); throws when GitHub does not say a tag. */
-export async function fetchLatest(fetchFn: FetchFn): Promise<{ tag: string; notes: string }> {
+export async function fetchLatest(
+  fetchFn: FetchFn,
+  said?: (status: number) => void,
+): Promise<{ tag: string; notes: string }> {
   const r = await fetchFn(RELEASES_API, {
     headers: {
       Accept: 'application/vnd.github+json',
@@ -51,6 +81,7 @@ export async function fetchLatest(fetchFn: FetchFn): Promise<{ tag: string; note
     },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
+  said?.(r.status);
   if (!r.ok) {
     throw new Error(`GitHub answered ${String(r.status)}`);
   }
@@ -70,19 +101,41 @@ export async function fetchLatest(fetchFn: FetchFn): Promise<{ tag: string; note
   return { tag: tag.trim(), notes };
 }
 
-/** Whether the latest release is newer than `current`; an error (offline, GitHub) is a result too. */
-export async function checkForUpdate(current: string, fetchFn: FetchFn): Promise<UpdateResult> {
+/**
+ * Whether the latest release is newer than `current`; an error (offline,
+ * GitHub) is a result too. `outcome` hears the check's outcome in words,
+ * once: the HTTP status and what it found, or why the request failed.
+ */
+export async function checkForUpdate(
+  current: string,
+  fetchFn: FetchFn,
+  outcome?: (text: string) => void,
+): Promise<UpdateResult> {
   const mine = parseVersion(current);
+  // set by fetchLatest's callback (a variable would read as never set here)
+  const seen: { status: number | null } = { status: null };
   try {
-    const { tag: latest, notes } = await fetchLatest(fetchFn);
+    const { tag: latest, notes } = await fetchLatest(fetchFn, (s) => {
+      seen.status = s;
+    });
     const theirs = parseVersion(latest);
     if (mine === null || theirs === null) {
+      outcome?.(`HTTP ${String(seen.status)}; cannot compare ${current} with ${latest}`);
       return { status: 'error', current, error: `cannot compare ${current} with ${latest}` };
     }
-    return compareVersions(theirs, mine) > 0
+    const newer = compareVersions(theirs, mine) > 0;
+    outcome?.(
+      `HTTP ${String(seen.status)}; the latest release is ${latest}${newer ? ', newer' : ''}`,
+    );
+    return newer
       ? { status: 'newer', current, latest, notes }
       : { status: 'current', current, latest };
   } catch (e) {
+    outcome?.(
+      seen.status !== null
+        ? `HTTP ${String(seen.status)}; ${e instanceof Error ? e.message : String(e)}`
+        : `the request failed: ${fetchErrorText(e)}`,
+    );
     return { status: 'error', current, error: e instanceof Error ? e.message : String(e) };
   }
 }

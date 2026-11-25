@@ -566,6 +566,36 @@ TEST_CASE("puzzle file: a save refuses a read-only file and leaves it as it was"
   std::filesystem::remove_all(dir);
 }
 
+TEST_CASE("puzzle file: a write the system refuses says the system's reason", "[io][file]") {
+#ifdef _WIN32
+  SKIP("a folder Windows refuses to write needs its access control list set up");
+#else
+  if (geteuid() == 0) {
+    SKIP("root may write any folder");
+  }
+  // cleanup item 2.5: "could not open … for writing: Permission denied (errno 13)",
+  // as Windows says "Access is denied (5)" when Controlled Folder Access blocks it
+  using std::filesystem::perms;
+  const std::filesystem::path dir = freshDir("bt_test_save_refused");
+  std::filesystem::permissions(dir, perms::owner_read | perms::owner_exec);
+  const Puzzle a = parse(withProblem("", ""));
+  const Result<void> r = io::savePuzzle(a, dir / "p.xmpuzzle");
+  const Result<void> w = io::writeFileWhole(dir / "x.txt", "x");
+  const Result<std::string> missing = io::readPlainFile(dir / "none.txt", 100);
+  std::filesystem::permissions(dir, perms::owner_all);
+  REQUIRE_FALSE(r.has_value());
+  CHECK(r.error().code == Errc::IoError);
+  CHECK_THAT(r.error().message, ContainsSubstring("for writing: "));
+  CHECK_THAT(r.error().message, ContainsSubstring("(errno 13)"));
+  // the plain file writer and the reader the same way
+  REQUIRE_FALSE(w.has_value());
+  CHECK_THAT(w.error().message, ContainsSubstring("(errno 13)"));
+  REQUIRE_FALSE(missing.has_value());
+  CHECK_THAT(missing.error().message, ContainsSubstring("(errno 2)"));
+  std::filesystem::remove_all(dir);
+#endif
+}
+
 TEST_CASE("puzzle file: a save keeps the file's permissions", "[io][file]") {
 #ifdef _WIN32
   SKIP("Windows keeps only a read-only flag");

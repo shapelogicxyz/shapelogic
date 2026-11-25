@@ -139,7 +139,7 @@ of them (the checkpoints). Stages 15 to 20 need Fable. Stage 21 is Opus
 again, and comes last.
 
 - [x] Stage 1: checks that cannot pass on nothing, and that end
-- [ ] Stage 2: startup health: logs and messages that tell why the app cannot work
+- [x] Stage 2: startup health: logs and messages that tell why the app cannot work
 - [ ] Stage 3: the agent docs: trimmed, and true (decided: D2)
 - [ ] Checkpoint A (Fable): review of stage 3
 - [ ] Stage 4: bugs that lose work: the small fixes
@@ -535,7 +535,7 @@ Design rules for this stage:
   and the security products' names and states. Copied text shortens the
   home folder to `~`.
 
-- [ ] **2.1 A health report in the log at every start** (health; M)
+- [x] **2.1 A health report in the log at every start** (health; M)
   - *Where:* `web/src/main/index.ts` (777-781, the "App Started" line; the
     window and engine start at 388, 420-470), `web/src/main/app-log.ts`
     (`machineText()` 585-610, logged only with Debug logging), a new
@@ -575,8 +575,29 @@ Design rules for this stage:
     and `os` (an engine missing, a path with non-ASCII characters, a Mark
     of the Web, an unwritable folder) gives the expected lines; the start
     path calls it once.
+  - Done (2026-11-24): `web/src/main/health.ts` (Electron-free; the system
+    and the file system passed in) gives the "App Health" lines, which
+    `index.ts` logs once after "App Started", when the cache folders are
+    known, whether or not the folder could be used:
+    - versions, the system (`os.version()`, arch, translation, locale,
+      `machineText`'s cores and memory), the install (per-user or
+      per-machine; warnings for non-ASCII, over 200 characters, a temporary
+      or Downloads folder, macOS translocation);
+    - the engine and the CLI (size, mtime, readable, PE, ELF or Mach-O
+      header, on Windows the Mark of the Web's ZoneId only);
+    - the user data, logs, cache, sliding, Panex and temp folders (made if
+      missing, a probe file, free space);
+    - the GPU's webgl, webgl2 and gpu_compositing.
+    The engine's SHA-256 is checked against `engine.sha256` after the first
+    window's `ready-to-show` (a packaged app only).
+    `machineText` also stays in the Debug Logging On line, which tools may
+    read.
+    Tests: `web/tests/unit/health.test.ts` (11: a missing engine, non-ASCII,
+    long, temporary and Downloads paths, the Mark of the Web without its
+    URLs, an unwritable folder, a non-program, the hash line); `logs once`
+    by `engine-failure.e2e.ts` (one "App Health: versions" line).
 
-- [ ] **2.2 A failed engine start keeps every detail and says the likely cause** (health; M)
+- [x] **2.2 A failed engine start keeps every detail and says the likely cause** (health; M)
   - *Where:* `web/src/engine/node-transport.ts` (`engineVersion()` 19-38:
     `reject(new Error(`${enginePath} --version: ${error.message}`))`; the
     constructor's `'error'` handler 81-87: `this.spawnError = e.message`;
@@ -636,8 +657,37 @@ Design rules for this stage:
     `web/tests/unit/host.test.ts`: a fake start that rejects with
     `{code: 'UNKNOWN', errno: -4094, syscall: 'spawn'}` gives a failed status
     whose `failure` has those fields and `which`.
+  - Done (2026-11-24):
+    - `web/src/engine/spawn-failure.ts` (`SpawnFailure`, `EngineStartError`,
+      `failureOf`, `systemFields`). `node-transport.ts` keeps code, errno,
+      syscall, path, which launch and ms since the start. It also catches
+      the spawn errors Node throws at once. Those are every error but
+      EACCES, EAGAIN, EMFILE, ENFILE and ENOENT, so Windows' `UNKNOWN`
+      among them. Before, they reached `reject` through the Promise
+      executor with the bare message "spawn UNKNOWN": the first report's
+      log line is exactly that, so **that user's failure was the version
+      check**.
+    - A timeout is `TIMEOUT`, a non-zero exit `EXITED` with its status and
+      stderr, a version mismatch or another program `VERSION`, an app
+      without an engine `NO_ENGINE`.
+    - `ExitInfo.system` carries a late spawn error's fields.
+      `EngineHost` turns an engine that ended before its hello into an
+      `EXITED` (or system-coded) failure with its exit code and stderr. It
+      keeps the last quick death's failure for the give-up status, and has
+      `retry()` (2.3).
+    - `EngineStatus` failed gets `failure?`.
+    - The cause table and the Windows exit-code decoder are
+      `web/src/engine/start-diagnosis.ts`, not `main/`, because the
+      renderer's dialog (2.3) uses them too.
+    - The log line is `failureText()`'s, as in the item, plus "the engine's
+      last words" when there are any.
+    Tests: `web/tests/unit/start-diagnosis.test.ts` (12: the table, the eight
+    exit codes, signed and unsigned, the log text, and real launches giving
+    ENOENT, EACCES, VERSION and EXITED); `host.test.ts` (+4: the UNKNOWN
+    fields kept with `which`, an engine ending 0xC0000135 before hello, a
+    late EACCES, the give-up's failure and `retry()`).
 
-- [ ] **2.3 The window says when the engine cannot start; held commands are not lost silently** (health, bug; M)
+- [x] **2.3 The window says when the engine cannot start; held commands are not lost silently** (health, bug; M)
   - *Where:* `web/src/renderer/shell/app.ts` (`statusLine()` 80-106: the only
     place a failed engine shows); `web/src/renderer/shell/menus.ts`
     (118-127: document commands held until the first document); the
@@ -671,8 +721,32 @@ Design rules for this stage:
       Open shows the dialog again instead of nothing.
     - Unit: the menus drop, rather than hold, a document command once the
       status is failed.
+  - Done (2026-11-24):
+    - `web/src/renderer/shell/engine-failure.ts` opens "The engine could
+      not start" on a failed status, or when no document has come 15 s
+      after the page loaded. It shows once per failure, again after Try
+      Again or a document command. It has the cause (`likelyCause`), the
+      detail (code and message), what to try by platform, and a link to
+      the guide page (2.9).
+    - Buttons: Try Again (`btApp.retryEngine` → `EngineHost.retry`, which
+      forgets the quick deaths), Copy Details (2.4), View Logs (the app's
+      existing button for Show Log, kept for its wording) and Close.
+    - `command-gate.ts` (DOM-free, used by `menus.ts`): a document command
+      while the engine has failed is dropped and shows the dialog; the
+      ones held when it fails are dropped. Each held or dropped one is
+      logged ("Command Held", "Command Dropped") through
+      `btApp.commandHeld`.
+    - The status line adds "(see Help ▸ Copy Diagnostics)".
+    - `launch()` in `tests/e2e/app.ts` takes `engine` and `waitForEngine`.
+    Tests: `web/tests/e2e/engine-failure.e2e.ts` (a missing engine: the
+    dialog with the ENOENT cause, File ▸ Open and New show it again, Try
+    Again fails again and says so, and the log has the line and the
+    dropped command; passed 10 runs in a row);
+    `web/tests/unit/renderer/menus.test.ts` (held, then run; dropped with
+    the dialog once failed); `security.test.ts` (the IPC refuses other
+    senders and unknown commands).
 
-- [ ] **2.4 Help ▸ Copy Diagnostics, and the Windows security checks behind it** (health; M)
+- [x] **2.4 Help ▸ Copy Diagnostics, and the Windows security checks behind it** (health; M)
   - *Where:* a new menu item in `web/src/main/menu.ts` and its command
     (`web/src/engine/app-bridge.ts` COMMANDS, the menus' handlers); a new
     `web/src/main/diagnostics.ts`; the Log File Manager
@@ -727,8 +801,32 @@ Design rules for this stage:
     and without ShapeLogic's files), of the home-folder shortening, and
     that nothing runs a system tool before the user asks (spy on
     `execFile`).
+  - Done (2026-11-24):
+    - `web/src/main/diagnostics.ts` holds the report, the event filter,
+      `shortenHome`, the Windows and macOS checks, and `runChecks`. Each
+      check gets 5 s. A denied log is recorded as such. The system's own
+      tools failing with UNKNOWN, EPERM or EACCES add the "restricted"
+      line.
+    - `index.ts` builds the report: the health lines and the hash line,
+      each window's failure in words, the last update check, the crash
+      dumps' dates, the checks, and the log's newest 200 lines.
+    - Help ▸ Copy Diagnostics is on every platform. It is handled in main,
+      so it works without a working page, and offers Save Diagnostics….
+    - `btApp.copyDiagnostics` and `saveDiagnostics` serve the engine's
+      dialog and a new Copy Details button in the Log File Manager.
+    Tests: `web/tests/unit/diagnostics.test.ts` (10):
+    - fake wevtutil output with and without ShapeLogic's files, in any case;
+    - `~` for the home folder, a whole folder name only;
+    - no bypass and no encoded command;
+    - the 5 s limit, access denied, and the restricted line;
+    - the report's sections;
+    - `execFile` and `spawn` spied while the start's reports run: none
+      called. A source check keeps `runChecks` inside
+      `diagnosticsReport`, called only by Copy and Save.
+    Also `app.test.ts` (the menu item on all three platforms, with no
+    document).
 
-- [ ] **2.5 Writes that Windows refuses say why** (health; S to M)
+- [x] **2.5 Writes that Windows refuses say why** (health; S to M)
   - *Where:* the engine's file errors (`core/shapelogic/io/gzip_file.cpp`:
     "could not open … for writing" and the other `fail(Errc::IoError, …)`
     texts); the main process's writes (`web/src/main/export-file.ts`,
@@ -755,8 +853,31 @@ Design rules for this stage:
   - *Tests:* core: a write into a read-only folder gives a message with the
     system's reason (POSIX: chmod; skip on Windows CI if it cannot be set
     up); web unit: the Windows hint is added for an access-denied failure.
+  - Done (2026-11-24):
+    - `core/shapelogic/io/gzip_file.cpp`: each open, write and close failure
+      of the readers and writers adds the system's reason, taken at once:
+      ": <words> (errno N)", and on Windows `GetLastError`'s words and code
+      ("Access is denied (5)"). `clearSystemError()` runs before each such
+      call, so a stale code is never reported.
+    - `web/src/engine/write-hint.ts` (`writeHint`, `accessDenied`) gives the
+      Controlled Folder Access hint for EACCES or EPERM, "Access is denied",
+      "(5)" and "(errno 1|13)" on Windows. The renderer's `reportError`
+      shows such a failure in a message with the hint and View Logs, not in
+      a flash. `status.ts` gets `tell` through `setHintTeller`, because it
+      is also compiled without the DOM.
+    - Main logs "Write Refused" with the folder for a refused export.
+    - The engine's own failed saves are logged by the engine as before,
+      now with the reason.
+    - The state store, rescue copy and cache files' writes were not
+      changed. Their failures are not shown as a save's, and they write
+      under the app's data folder, which Controlled Folder Access does not
+      guard.
+    Tests: `test_puzzle_file.cpp` "a write the system refuses says the
+    system's reason" (a folder without write permission: errno 13 for the
+    save and the plain writer, errno 2 for a missing file; skipped on
+    Windows and as root); `web/tests/unit/write-hint.test.ts` (3).
 
-- [ ] **2.6 The release records the engine's hash, and the engine says hello in the log** (health; S)
+- [x] **2.6 The release records the engine's hash, and the engine says hello in the log** (health; S)
   - *Where:* `web/tools/dist.ts` (packaging); `engine/main.cpp` (start);
     `engine/app_log.cpp` (the engine's log line format that
     `parseEngineLine`, `web/src/main/app-log.ts:130`, reads);
@@ -777,8 +898,27 @@ Design rules for this stage:
   - *Tests:* `web/tests/unit/dist.test.ts` (the hash file is written and
     matches); a contract test that the first stderr line parses as an info
     line with the version.
+  - Done (2026-11-24):
+    - `web/src/main/engine-hash.ts` holds `ENGINE_HASH_FILE`,
+      `sha256File`, `hashFileText` and `parseHashFile`, in sha256sum's
+      format. `tools/dist.ts` writes `engine.sha256`, the engine's line and
+      the CLI's, with `writeEngineHashes` into a temporary folder and packs
+      it beside the engine.
+    - `engine/main.cpp` writes `app_log.cpp`'s `startLine()` before
+      anything else, whatever the log setting: `shapelogic_engine: INFO:
+      Engine Started: version X, release build, vectors AVX-512|AVX2|scalar
+      (no AVX2)|NEON|scalar, open files N`.
+    - A `settings.set` that names the folders logs "Engine Folders" with
+      `folderText()` (exists and writable through a probe file, not made
+      yet, none).
+    - Main logs "Engine Ready: version X, N ms from its start to its
+      hello (spawned at M ms)" from the host's new `timings`.
+    Tests: `dist.test.ts` (+2: the hash file written, matching, and packed;
+    the parser); `tests/contract/test_engine.py` `engine_info_and_settings`
+    (the first stderr line parses as the info line with hello's version;
+    the folders lines; the probe removed).
 
-- [ ] **2.7 Crash dumps kept locally, and the startup's phases timed** (health; S)
+- [x] **2.7 Crash dumps kept locally, and the startup's phases timed** (health; S)
   - *Where:* `web/src/main/index.ts` (startup, window creation 388 and 688,
     `win.on('closed')` 512); the renderer's first-document moment (Store's
     first snapshot).
@@ -795,8 +935,21 @@ Design rules for this stage:
        `bt:ready` message).
   - *Tests:* unit test of the line's format; the e2e start (any spec) shows
     a Startup line in its log (the e2e apps log to `BT_USER_DATA`).
+  - Done (2026-11-24):
+    - `crashReporter.start({ uploadToServer: false })` runs right after
+      the data folder is set. The diagnostics count the `.dmp` files under
+      `crashDumps` and give their dates.
+    - `web/src/main/startup-line.ts` writes one "Startup" line per window:
+      window shown, page loaded, engine spawned, engine hello and first
+      document shown, in ms from the process start (`process.uptime()`).
+      It is written when the renderer says `btApp.ready()` (its first
+      document painted), or after 30 s with "not yet" for what was not
+      reached.
+    Tests: the line's format in `health.test.ts`; `engine-failure.e2e.ts`'s
+    second test reads the Startup line in the e2e app's log, and the engine's
+    first line and Engine Ready too.
 
-- [ ] **2.8 The update check logs why it failed** (health; S)
+- [x] **2.8 The update check logs why it failed** (health; S)
   - *Where:* `web/src/main/updates.ts` (88 lines; the fetch is given:
     Electron's `session.fetch`).
   - *Problem:* a firewall or a proxy that inspects TLS shows here, not in
@@ -808,8 +961,18 @@ Design rules for this stage:
     rewrites TLS). The diagnostics (2.4) include the last one.
   - *Tests:* `web/tests/unit/updates.test.ts` with a stubbed fetch that
     rejects with each kind.
+  - Done (2026-11-24): `updates.ts`'s `checkForUpdate` takes an `outcome`
+    callback: "HTTP 200; the latest release is v2.2[, newer]", "HTTP 403;
+    …", or "the request failed: TypeError: fetch failed (ENOTFOUND); …"
+    (`fetchErrorText`: the error's name, the codes down its causes,
+    Chromium's `net::ERR_…` messages). `app-ipc.ts` passes it to the host's
+    `updateChecked`; main logs each outcome that differs from the last
+    ("Update Check") and the diagnostics give the last.
+    Tests: `updates.test.ts` (+2: the status lines, ENOTFOUND, ECONNRESET,
+    ETIMEDOUT, UNABLE_TO_GET_ISSUER_CERT_LOCALLY, a net:: error, the
+    timeout); `security.test.ts` (three checks told).
 
-- [ ] **2.9 A troubleshooting page in the guide, and a checklist for the user to try on Windows** (health; S)
+- [x] **2.9 A troubleshooting page in the guide, and a checklist for the user to try on Windows** (health; S)
   - *Where:* the user guide in `site/` (Astro; `just site-build` checks
     links and Help URLs); the help-link table (today in four places:
     `web/src/engine/app-bridge.ts:316`, `web/src/main/security.ts:33-42`,
@@ -833,11 +996,61 @@ Design rules for this stage:
          a rule (a policy block: expect `UNKNOWN` or `EPERM`);
        - each time, check the dialog, the log lines and Copy Diagnostics.
   - *Tests:* `just site-build`.
+  - Done (2026-11-24):
+    - `site/src/content/docs/docs/windows-troubleshooting.md`, "When
+      ShapeLogic does not start on Windows": the messages, Protection
+      history, other antivirus programs, Smart App Control, Controlled
+      Folder Access, and Copy Diagnostics.
+    - It is in the sidebar under Install ▸ Windows, linked from
+      `windows.md`, and the help link `troubleshooting` points to it. That
+      link is in the four places, as 12.3 will make it one:
+      `app-bridge.ts`'s `HelpLink`, `security.ts`'s `HELP_URLS`,
+      `app-ipc.ts`'s check, and `demo-app.ts`.
+    - The engine's dialog links it.
+    - `just site-demo` rebuilt `site/public/demo/`, since the app's sources
+      changed.
+    Test: `just site-build` passes (8 of 8, the new page's Help URL and
+    the demo's hash among them).
+    **Checklist for the user, in the Windows virtual machine** (agents
+    cannot), with a build of this stage (`just app-dist`):
+    1. Install it, start it, open a puzzle. View ▸ Log File Manager: one
+       "App Health" block, "Engine Started", "Engine Ready", "Startup".
+       Help ▸ Copy Diagnostics: paste the report, and check that the
+       Windows checks ran and the home folder is `~`.
+    2. Quit. Rename `resources\shapelogic_engine.exe`, start: the dialog
+       says the file is missing (ENOENT); File ▸ Open shows it again; Copy
+       Details and View Logs work; rename it back, Try Again: the window
+       works.
+    3. Deny execution: `icacls "<install>\resources\shapelogic_engine.exe"
+       /deny *S-1-1-0:(X)`, start: expect EACCES or EPERM ("Windows denied
+       running the engine"). Undo with `icacls … /remove:d *S-1-1-0`.
+    4. On Windows Pro: an AppLocker rule that blocks the engine's path,
+       start: expect UNKNOWN or EPERM, and Copy Diagnostics' AppLocker
+       section names the block (as administrator).
+    5. Each time, check the dialog, the log lines ("Engine Start Failed:
+       … the version check / the session …") and Copy Diagnostics.
+    6. With Controlled Folder Access on, save a puzzle into Documents:
+       the message names Controlled Folder Access.
 
 **Gates for stage 2:** `just app-check`, `just app-test`, the e2e specs
 touched (engine-failure.e2e.ts and the specs whose files changed), the
 contract test of 2.6, `just test` (for 2.5's core texts), `just check` on
 the changed C++ files, `just site-build`.
+
+Gates run on 2026-11-24 (Opus), in the cleanup worktree:
+- `just app-check` passes; `just app-test` 617 of 617; `just test` 13 of
+  13; `just test-all` 21 of 21 (300 s); `just site-build` 8 of 8.
+- `just check` on `engine/app_log.cpp`, `engine/main.cpp`,
+  `core/shapelogic/io/gzip_file.cpp` and `test_puzzle_file.cpp`: clean.
+- e2e: `engine-failure.e2e.ts` (10 of 10 repeated), with `logs`, `files`,
+  `windows` and `ipc` (31 of 31 together).
+- Not run: the whole e2e suite, the sanitizers, the oracle (no core answer
+  changed; only error texts).
+- `security.e2e.ts`'s "names hold markup" and `keymap.e2e.ts`'s "every
+  row" fail at `#slvAdv` buttons: since 678c328 the Solver's Advanced
+  section is a fold that starts closed, and no spec opens it
+  (`explore.e2e.ts` and `stacking.e2e.ts` use the same buttons). This is
+  not caused by this stage; it is left for a fix of its own.
 
 ## Stage 3: the agent docs: trimmed, and true (D2, decided)
 

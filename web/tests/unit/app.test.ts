@@ -323,9 +323,25 @@ describe('the menus', () => {
       focusWindow: (id) => {
         focused.push(id);
       },
+      copyDiagnostics: () => {
+        diagnostics.push(platform);
+      },
     });
     return { template, sent };
   };
+  const diagnostics: string[] = [];
+
+  it('has Help ▸ Copy Diagnostics on every platform, with or without a document (cleanup item 2.4)', () => {
+    for (const platform of ['darwin', 'win32', 'linux']) {
+      const items = commandItems(build(NO_STATE, platform).template);
+      const copy = items.get('copyDiagnostics');
+      expect(copy?.label).toBe('Copy Diagnostics');
+      expect(copy?.enabled).not.toBe(false);
+      (copy?.click as () => void)();
+    }
+    // the main process makes the report: no command goes to a page that may not work
+    expect(diagnostics).toEqual(['darwin', 'win32', 'linux']);
+  });
 
   it('has the original’s menus on each platform: About and Settings in the app menu on macOS', () => {
     const mac = build(state, 'darwin').template.map((m) => m.id);
@@ -478,6 +494,7 @@ describe('the menus', () => {
         clearRecent: () => undefined,
         windows: [],
         focusWindow: () => undefined,
+        copyDiagnostics: () => undefined,
       });
       return template.find((m) => m.id === 'view')?.submenu as MenuItemConstructorOptions[];
     };

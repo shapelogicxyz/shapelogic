@@ -11,6 +11,8 @@ export interface ExitInfo {
   signal: string | null;
   /** Why it could not be started or talked to, when that is how it ended. */
   error?: string;
+  /** The system's fields of a spawn error (Node's `code`, `errno`, `syscall`, `path`). */
+  system?: { code?: string; errno?: number; syscall?: string; path?: string };
 }
 
 /**

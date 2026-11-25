@@ -54,6 +54,8 @@
 import {
   app,
   BrowserWindow,
+  clipboard,
+  crashReporter,
   dialog,
   ipcMain,
   Menu,
@@ -64,12 +66,38 @@ import {
   shell,
 } from 'electron';
 import type { WebContents } from 'electron';
-import { appendFileSync, existsSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { execFile } from 'node:child_process';
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  rmSync,
+  statfsSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import {
+  arch as osArch,
+  release as osRelease,
+  type as osType,
+  version as osVersion,
+} from 'node:os';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import type { AppCommand, MenuState } from '../engine/app-bridge.ts';
+import type {
+  AppCommand,
+  DiagnosticsResult,
+  LogExportResult,
+  MenuState,
+} from '../engine/app-bridge.ts';
 import { NodeTransport } from '../engine/node-transport.ts';
+import { EngineStartError } from '../engine/spawn-failure.ts';
 import { installAppIpc, openHelp } from './app-ipc.ts';
 import {
   AppLog,
@@ -80,17 +108,30 @@ import {
   LOG_MAX_BYTES,
   machineText,
   parseEngineLine,
+  tailOf,
   teeStderr,
 } from './app-log.ts';
 import { appDataDir, CacheFolderManager, systemCacheDir } from './cache-folder.ts';
 import { CacheLinks, sweepOther } from './cache-files.ts';
 import { cliLink, findCli } from './cli-tool.ts';
-import { findEngine } from './engine-path.ts';
+import {
+  DIAGNOSTICS_LOG_LINES,
+  diagnosticsText,
+  macChecks,
+  runChecks,
+  windowsChecks,
+} from './diagnostics.ts';
+import type { RunTool } from './diagnostics.ts';
+import { ENGINE_HASH_FILE, sha256File } from './engine-hash.ts';
+import { engineFile, findEngine } from './engine-path.ts';
+import { writeFileSafely } from './export-file.ts';
 import { EngineHost } from './engine-host.ts';
 import { serveEngine } from './engine-ipc.ts';
 import type { CallOutcome } from './engine-ipc.ts';
 import { menuTemplate, NO_STATE } from './menu.ts';
 import { gpuAction, probeFailure, retryArgs, WEBGL2_PROBE } from './gpu-check.ts';
+import { engineHashLine, healthReport } from './health.ts';
+import type { HealthFs, HealthLine } from './health.ts';
 import { PathGrants, settingsRefusal } from './path-grants.ts';
 import { PathOwners } from './path-owners.ts';
 import { RescueSlots } from './rescue.ts';
@@ -105,6 +146,9 @@ import {
   SYSTEM_URLS,
   windowOptions,
 } from './security.ts';
+import { failureText, stderrLine } from '../engine/start-diagnosis.ts';
+import { STARTUP_LINE_WAIT_MS, startupText } from './startup-line.ts';
+import type { StartupTimes } from './startup-line.ts';
 import { StateStore } from './state-store.ts';
 
 const APP_NAME = 'ShapeLogic';
@@ -122,6 +166,12 @@ if (env.background === true && process.platform === 'darwin') {
 if (env.userData !== undefined) {
   app.setPath('userData', resolve(env.userData));
 }
+/** When the app's process started (the Startup lines count from it). */
+const APP_START = Date.now() - Math.round(process.uptime() * 1000);
+// crashes of the main, renderer and GPU processes leave minidumps in
+// app.getPath('crashDumps'), sent nowhere: Copy Diagnostics counts them
+// (cleanup item 2.7); the engine's crashes show by its exit code
+crashReporter.start({ uploadToServer: false });
 
 const callLog = env.callLog;
 const logCall =
@@ -152,7 +202,15 @@ interface WindowState {
   allowClose: boolean;
   /** A close was sent and not yet taken. */
   closeTimer: ReturnType<typeof setTimeout> | null;
+  /** Its start's moments, until its Startup line is written (then null). */
+  startup: StartupTimes | null;
+  startupTimer: ReturnType<typeof setTimeout> | null;
 }
+
+/** The last update check's outcome, in words (updates.ts), for the diagnostics. */
+let lastUpdateCheck: string | null = null;
+/** The engine hash check's line, once it ran (the diagnostics repeat it). */
+let engineHashText: string | null = null;
 
 const servers = new Map<number, ReturnType<typeof serveEngine>>();
 const windows = new Map<number, WindowState>();
@@ -236,6 +294,125 @@ function cacheDefaults(): { dataDir: string; legacy?: { slide: string; panex: st
   };
 }
 
+/** The file system as the health report uses it (health.ts). */
+const HEALTH_FS: HealthFs = {
+  existsSync,
+  statSync,
+  statfsSync,
+  readHead: (path, bytes) => {
+    const fd = openSync(path, 'r');
+    try {
+      const buf = Buffer.alloc(bytes);
+      const n = readSync(fd, buf, 0, bytes, 0);
+      return buf.subarray(0, n);
+    } finally {
+      closeSync(fd);
+    }
+  },
+  readFileSync: (path, encoding) => readFileSync(path, encoding),
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+};
+
+function logHealth(lines: readonly HealthLine[]): void {
+  for (const l of lines) {
+    appLog.write(l.level === 'warn' ? 'WARN' : 'INFO', 'app', 'App Health', l.text);
+  }
+}
+
+/** The engine the app runs (the windows' engines are the same file). */
+function appEngine(): string | null {
+  return findEngine({
+    packaged: app.isPackaged,
+    resources: process.resourcesPath,
+    webDir: WEB_DIR,
+    engine: env.engine,
+  });
+}
+
+/** The health report's lines now (health.ts). */
+function healthLines(): HealthLine[] {
+  const f = cache.folders;
+  const userData = app.getPath('userData');
+  return healthReport({
+    platform: process.platform,
+    version: VERSION,
+    versions: process.versions,
+    os: { type: osType(), release: osRelease(), version: osVersion(), arch: osArch() },
+    arch: process.arch,
+    translated: app.runningUnderARM64Translation,
+    locale: app.getSystemLocale(),
+    machine: machineText([]),
+    execPath: process.execPath,
+    resourcesPath: process.resourcesPath,
+    packaged: app.isPackaged,
+    env: {
+      LOCALAPPDATA: process.env.LOCALAPPDATA,
+      ProgramFiles: process.env.ProgramFiles,
+      'ProgramFiles(x86)': process.env['ProgramFiles(x86)'],
+      TEMP: process.env.TEMP,
+      TMP: process.env.TMP,
+      USERPROFILE: process.env.USERPROFILE,
+      HOME: process.env.HOME,
+      APPIMAGE: process.env.APPIMAGE,
+    },
+    engine: appEngine(),
+    cli: findCli({ packaged: app.isPackaged, resources: process.resourcesPath, webDir: WEB_DIR }),
+    folders: [
+      { name: 'user data', path: userData },
+      { name: 'logs', path: dirname(appLog.file) },
+      { name: 'cache', path: f.slide === '' ? '' : dirname(f.slide) },
+      { name: 'sliding', path: f.slide },
+      { name: 'Panex', path: f.panex },
+      { name: 'temp', path: app.getPath('temp') },
+    ],
+    gpu: app.getGPUFeatureStatus() as unknown as Record<string, string>,
+    fs: HEALTH_FS,
+  });
+}
+
+/** The "App Health" block: once, at the start, after "App Started" (cleanup item 2.1). */
+function writeHealthReport(): void {
+  logHealth(healthLines());
+}
+
+let engineHashChecked = false;
+
+/**
+ * The engine's SHA-256 against the release's record, once, after the first
+ * window shows (the file is tens of MB): a development build has no record.
+ */
+function checkEngineHash(): void {
+  if (engineHashChecked) {
+    return;
+  }
+  engineHashChecked = true;
+  const engine = appEngine();
+  if (engine === null) {
+    return;
+  }
+  const record = join(process.resourcesPath, ENGINE_HASH_FILE);
+  const recorded = app.isPackaged && existsSync(record) ? readFileSync(record, 'utf8') : null;
+  if (recorded === null) {
+    return;
+  }
+  sha256File(engine).then(
+    (hex) => {
+      const line = engineHashLine(basename(engine), hex, recorded);
+      if (line !== null) {
+        engineHashText = line.text;
+        logHealth([line]);
+      }
+    },
+    (e: unknown) => {
+      logHealth([
+        { level: 'warn', text: `engine: ${engine} cannot be read to check it: ${String(e)}` },
+      ]);
+    },
+  );
+}
+
 /** Files the system asked to open before a window could take them. */
 const pendingOpen: string[] = [];
 /**
@@ -301,6 +478,9 @@ function updateMenu(): void {
     openHelp,
     clearRecent: () => {
       store.clearRecent();
+    },
+    copyDiagnostics: () => {
+      void copyDiagnosticsFromMenu();
     },
     windows: [...windows.entries()]
       .filter(([, x]) => !x.win.isDestroyed())
@@ -376,6 +556,213 @@ function cascaded(width: number, height: number): { x: number; y: number } | nul
   return { x, y };
 }
 
+/** A window's Startup line, once: when its first document shows, or when the wait is over. */
+function writeStartupLine(w: WindowState, host: EngineHost, source: string): void {
+  const t = w.startup;
+  if (t === null) {
+    return;
+  }
+  w.startup = null;
+  if (w.startupTimer !== null) {
+    clearTimeout(w.startupTimer);
+    w.startupTimer = null;
+  }
+  const launch = host.timings;
+  appLog.info(
+    source,
+    'Startup',
+    startupText(APP_START, {
+      ...t,
+      spawned: launch?.spawnedAt ?? null,
+      hello: launch?.helloAt ?? null,
+    }),
+  );
+}
+
+/** How a system tool is run for the diagnostics (only when the user asks). */
+const runTool: RunTool = (file, args, timeoutMs) =>
+  new Promise((done) => {
+    try {
+      execFile(
+        file,
+        [...args],
+        { timeout: timeoutMs, windowsHide: true, maxBuffer: 4 * 1024 * 1024 },
+        (error, stdout, stderr) => {
+          if (error === null) {
+            done({ ok: true, stdout });
+            return;
+          }
+          const code =
+            error.killed === true
+              ? 'TIMEOUT'
+              : typeof error.code === 'string'
+                ? error.code
+                : `exit ${String(error.code ?? '?')}`;
+          done({ ok: false, code, message: stderr.trim() !== '' ? stderr : error.message });
+        },
+      );
+    } catch (e) {
+      // spawn errors Node throws at once (Windows: UNKNOWN, EPERM)
+      const code = (e as { code?: unknown }).code;
+      done({
+        ok: false,
+        code: typeof code === 'string' ? code : 'UNKNOWN',
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  });
+
+/** The crash dumps Electron kept: their modification times. */
+function crashDumpTimes(): Date[] {
+  const out: Date[] = [];
+  const walk = (dir: string, depth: number): void => {
+    let names: string[];
+    try {
+      names = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const n of names) {
+      const p = join(dir, n);
+      try {
+        const st = statSync(p);
+        if (st.isDirectory() && depth < 3) {
+          walk(p, depth + 1);
+        } else if (n.endsWith('.dmp')) {
+          out.push(st.mtime);
+        }
+      } catch {
+        // gone meanwhile
+      }
+    }
+  };
+  walk(app.getPath('crashDumps'), 0);
+  return out;
+}
+
+/** The Copy Diagnostics report: built now, the system's own checks run now. */
+async function diagnosticsReport(): Promise<string> {
+  const engine = appEngine();
+  const installDir = dirname(process.execPath);
+  const needles = ['shapelogic', installDir, ...(engine !== null ? [engine] : [])];
+  // the app's bundle on macOS: …/ShapeLogic.app/Contents/MacOS/ShapeLogic
+  const bundle = resolve(process.execPath, '..', '..', '..');
+  const system =
+    process.platform === 'win32'
+      ? await runChecks(windowsChecks(), runTool, needles)
+      : process.platform === 'darwin' && app.isPackaged
+        ? await runChecks(macChecks(bundle), runTool, needles)
+        : null;
+  const engines = [...windows.entries()].flatMap(([id, x]) => {
+    const h = hosts.get(id);
+    const s = h?.status;
+    if (s === undefined || s.state === 'running') {
+      return [];
+    }
+    const title = x.win.isDestroyed()
+      ? `window ${String(id)}`
+      : `window ${String(id)} (${x.win.getTitle()})`;
+    if (s.state === 'exited') {
+      return [
+        `${title}: the engine stopped (exit ${String(s.code)}, signal ${String(s.signal)}); it is started again`,
+      ];
+    }
+    const said = stderrLine(s.failure);
+    return [
+      `${title}: ${failureText(s.reason, s.failure, process.platform)}` +
+        (said !== null ? `\n  the engine's last words: ${said}` : ''),
+    ];
+  });
+  const health = (() => {
+    try {
+      return healthLines().map((l) => (l.level === 'warn' ? `WARN ${l.text}` : l.text));
+    } catch (e) {
+      return [`the health report failed: ${String(e)}`];
+    }
+  })();
+  const log = await appLog.text().then(
+    (all) => tailOf(all, DIAGNOSTICS_LOG_LINES).toString('utf8'),
+    () => '',
+  );
+  return diagnosticsText({
+    version: VERSION,
+    platform: process.platform,
+    time: new Date(),
+    home: app.getPath('home'),
+    health: [...health, ...(engineHashText !== null ? [engineHashText] : [])],
+    engines,
+    update: lastUpdateCheck,
+    crashDumps: crashDumpTimes(),
+    system,
+    log,
+  });
+}
+
+/** Copy Diagnostics: the report on the clipboard. */
+async function copyDiagnostics(): Promise<DiagnosticsResult> {
+  try {
+    const text = await diagnosticsReport();
+    await clipboard.writeText(text);
+    appLog.info('app', 'Diagnostics Copied', `${String(text.length)} characters`);
+    return { ok: true, bytes: Buffer.byteLength(text) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Save Diagnostics…: the report in a text file the save dialog gives. */
+async function saveDiagnostics(win: BrowserWindow | null): Promise<LogExportResult> {
+  const options = {
+    title: 'Save Diagnostics',
+    defaultPath: join(
+      store.lastDir ?? app.getPath('documents'),
+      `shapelogic-diagnostics-${new Date().toISOString().slice(0, 10)}.txt`,
+    ),
+    filters: [{ name: 'Text Files', extensions: ['txt'] }],
+    properties: ['showOverwriteConfirmation' as const, 'createDirectory' as const],
+  };
+  const r =
+    win === null ? await dialog.showSaveDialog(options) : await dialog.showSaveDialog(win, options);
+  if (r.canceled || r.filePath === '') {
+    return { ok: false, canceled: true };
+  }
+  try {
+    await writeFileSafely(r.filePath, Buffer.from(await diagnosticsReport(), 'utf8'));
+    return { ok: true, path: r.filePath };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Help ▸ Copy Diagnostics from the menu: works with or without a working page. */
+async function copyDiagnosticsFromMenu(): Promise<void> {
+  const r = await copyDiagnostics();
+  const win = BrowserWindow.getFocusedWindow();
+  const options = r.ok
+    ? {
+        type: 'info' as const,
+        title: APP_NAME,
+        message: 'The diagnostics are on the clipboard.',
+        detail:
+          'Paste them into an email or a GitHub issue. They name ShapeLogic’s own files, the system’s version and its security software, and hold the newest lines of the log; your home folder is written as ~.',
+        buttons: ['OK', 'Save Diagnostics…'],
+        defaultId: 0,
+        cancelId: 0,
+      }
+    : {
+        type: 'error' as const,
+        title: APP_NAME,
+        message: 'The diagnostics could not be made.',
+        detail: r.error,
+        buttons: ['OK'],
+      };
+  const { response } =
+    win === null ? await dialog.showMessageBox(options) : await dialog.showMessageBox(win, options);
+  if (r.ok && response === 1) {
+    await saveDiagnostics(win);
+  }
+}
+
 function createWindow(first?: AppCommand): void {
   const bounds = store.bounds;
   const icon = join(WEB_DIR, 'packaging', 'icon.png');
@@ -401,26 +788,28 @@ function createWindow(first?: AppCommand): void {
     menu: NO_STATE,
     allowClose: false,
     closeTimer: null,
+    startup: { shown: null, loaded: null, spawned: null, hello: null, document: null },
+    startupTimer: null,
   };
   windows.set(id, w);
   // its rescue copy's slot, kept while it lives (a reload, an engine restarted)
   rescue.of(id);
   // the log names a window's lines by its number
   const source = `window ${String(id)}`;
-  const engine = findEngine({
-    packaged: app.isPackaged,
-    resources: process.resourcesPath,
-    webDir: WEB_DIR,
-    engine: env.engine,
-  });
+  const engine = appEngine();
   const host = new EngineHost({
     start: () => {
       if (engine === null) {
-        throw new Error(
-          app.isPackaged
-            ? 'no shapelogic_engine in the app'
-            : 'no shapelogic_engine: build one (just build) or set BT_ENGINE',
-        );
+        const message = app.isPackaged
+          ? 'no shapelogic_engine in the app'
+          : 'no shapelogic_engine: build one (just build) or set BT_ENGINE';
+        throw new EngineStartError(message, {
+          which: 'version',
+          code: 'NO_ENGINE',
+          message,
+          path: join(process.resourcesPath, engineFile(process.platform)),
+          afterMs: 0,
+        });
       }
       // one version for the app and the engine (CMakeLists.txt's); its
       // stderr is the log's too, line by line
@@ -458,9 +847,28 @@ function createWindow(first?: AppCommand): void {
         `exit code ${String(status.code)}, signal ${String(status.signal)}; it is started again`,
       );
     } else if (status.state === 'failed') {
-      appLog.error(source, 'Engine Start Failed', status.reason);
-    } else if (status.restarts > 0) {
-      appLog.info(source, 'Engine Restarted', `restart ${String(status.restarts)}`);
+      appLog.error(
+        source,
+        'Engine Start Failed',
+        failureText(status.reason, status.failure, process.platform),
+      );
+      const said = stderrLine(status.failure);
+      if (said !== null) {
+        appLog.error(source, 'Engine Start Failed', `the engine's last words: ${said}`);
+      }
+    } else {
+      const t = host.timings;
+      if (t?.helloAt != null) {
+        appLog.info(
+          source,
+          'Engine Ready',
+          `version ${status.version}, ${String(t.helloAt - t.startedAt)} ms from its start to its hello` +
+            (t.spawnedAt !== null ? ` (spawned at ${String(t.spawnedAt - t.startedAt)} ms)` : ''),
+        );
+      }
+      if (status.restarts > 0) {
+        appLog.info(source, 'Engine Restarted', `restart ${String(status.restarts)}`);
+      }
     }
   });
   const serve = (): ReturnType<typeof serveEngine> =>
@@ -513,6 +921,9 @@ function createWindow(first?: AppCommand): void {
     if (w.closeTimer !== null) {
       clearTimeout(w.closeTimer);
     }
+    if (w.startupTimer !== null) {
+      clearTimeout(w.startupTimer);
+    }
     windows.delete(id);
     servers.get(id)?.dispose();
     servers.delete(id);
@@ -542,7 +953,15 @@ function createWindow(first?: AppCommand): void {
   });
   win.once('ready-to-show', () => {
     showWindow(win, env.background === true);
+    if (w.startup !== null) {
+      w.startup.shown = Date.now();
+    }
+    checkEngineHash();
   });
+  // the Startup line waits for the first document, but not for ever
+  w.startupTimer = setTimeout(() => {
+    writeStartupLine(w, host, source);
+  }, STARTUP_LINE_WAIT_MS);
   contents.on('did-finish-load', () => {
     // a reload: the page is told again that its file is read-only
     if (owners.readOnly(id)) {
@@ -550,6 +969,9 @@ function createWindow(first?: AppCommand): void {
     }
   });
   contents.once('did-finish-load', () => {
+    if (w.startup !== null) {
+      w.startup.loaded = Date.now();
+    }
     for (const path of pendingOpen.splice(0)) {
       send(w, { cmd: 'openPath', path });
     }
@@ -814,7 +1236,14 @@ void app.whenReady().then(async () => {
   // the stray files of the search folders a week old go, unasked
   void cache
     .start()
+    // the health report goes to the log whether or not the folder could be used
+    .catch(() => undefined)
     .then(() => {
+      try {
+        writeHealthReport();
+      } catch (e) {
+        appLog.write('WARN', 'app', 'App Health', `the report failed: ${String(e)}`);
+      }
       if (logDebug) {
         appLog.info(
           'app',
@@ -904,6 +1333,40 @@ void app.whenReady().then(async () => {
         quitting = false;
       }
     },
+    updateChecked: (text) => {
+      if (text !== lastUpdateCheck) {
+        appLog.info('app', 'Update Check', text);
+      }
+      lastUpdateCheck = text;
+    },
+    ready: (sender) => {
+      const w = windows.get(sender.id);
+      const host = hosts.get(sender.id);
+      if (w?.startup != null && host !== undefined) {
+        w.startup.document = Date.now();
+        writeStartupLine(w, host, `window ${String(sender.id)}`);
+      }
+    },
+    retryEngine: (sender) => {
+      const host = hosts.get(sender.id);
+      if (host !== undefined) {
+        appLog.info(`window ${String(sender.id)}`, 'Engine Try Again', 'the window asked');
+        host.retry().catch(() => {
+          // its failed status says why, and the log has it
+        });
+      }
+    },
+    commandHeld: (sender, command, dropped) => {
+      appLog.info(
+        `window ${String(sender.id)}`,
+        dropped ? 'Command Dropped' : 'Command Held',
+        dropped
+          ? `${command}: the engine could not start; the window says so`
+          : `${command}: waits for the first document (the engine is starting)`,
+      );
+    },
+    copyDiagnostics: () => copyDiagnostics(),
+    saveDiagnostics: (sender) => saveDiagnostics(windows.get(sender.id)?.win ?? null),
   });
   store.onRecent(updateMenu);
   updateMenu();

@@ -1433,8 +1433,20 @@ What exists after stage 8:
   state, the file dialogs, the stored state, the recent files, the rescue
   copy, the help links, the window's close, from stage 7 the exports'
   writes (`writeExport`) and the kinds of file (`FileKind`, `ExportKind`);
-  `window.btApp`'s interface and the checks of what crosses).
-- `src/main/`: `engine-host.ts` (`EngineHost`: one engine per window,
+  `window.btApp`'s interface and the checks of what crosses);
+  `spawn-failure.ts` (`SpawnFailure`, `EngineStartError`: a failed engine
+  start with every field the system gave, which of the two launches, the
+  time, an exit code; it crosses in the failed status), `start-diagnosis.ts`
+  (the likely cause of a failed start by code, the Windows exit codes, the
+  log's text of it), `write-hint.ts` (the Controlled Folder Access hint of a
+  write Windows refused).
+- `src/main/`: `health.ts` (the "App Health" block logged at every start:
+  versions, system, install and its risky paths, the engine file and its
+  Mark of the Web, the folders, the GPU; the engine's hash against
+  `engine.sha256`, `engine-hash.ts`, after the first window shows),
+  `diagnostics.ts` (Help ▸ Copy Diagnostics: the report, and the system
+  tools' checks run only on request), `startup-line.ts` (each window's
+  Startup line), `engine-host.ts` (`EngineHost`: one engine per window,
   restarted when it dies, its status told; calls fail while none is
   running; `stop()` ends an engine being started too), `engine-ipc.ts`
   (`serveEngine`: the host's side of the bridge; it answers the proxy's
@@ -1693,6 +1705,10 @@ What exists after stage 8:
     status window's and the debug statistics'; Esc closes the newest),
     `topbar.ts` (the file's name, path and dirty mark, the window's
     title; `#stage[data-dirty]`, `[data-path]`), and from stage 6:
+    `engine-failure.ts` (the dialog when the engine cannot start: the
+    cause, what to try, Try Again, Copy Details), `command-gate.ts`
+    (document commands held for the first document, or dropped with that
+    dialog once the engine failed),
     `menus.ts` (`Menus`: the menu state sent when it changes (the
     document, dirty, path, Undo and Redo labeled from `edit.history`, the
     Solver's problem paused, solutions saved, the display mode and style,

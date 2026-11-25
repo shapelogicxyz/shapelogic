@@ -35,6 +35,7 @@ import { noticeCacheAtStart } from './cache-notice.ts';
 import { openLogFiles } from './log-files.ts';
 import { openCliTool } from './cli-tool.ts';
 import { openAbout, openKeys, openNotes } from './help.ts';
+import { EngineFailure } from './engine-failure.ts';
 import { Menus } from './menus.ts';
 import { gridInfo, tiltedInfo } from './new-grids.ts';
 import { isTilted } from '../state/tilted.ts';
@@ -56,7 +57,7 @@ import { installPanels } from './panel.ts';
 import { autoCheck, checkNow } from './updates.ts';
 import { installPopover } from './popover.ts';
 import { installSettings, openSettings, settingsOpen } from './settings.ts';
-import { flash, reportError, setStatusProvider, updateStatus } from './status.ts';
+import { flash, reportError, setHintTeller, setStatusProvider, updateStatus } from './status.ts';
 import { installTheme } from './theme.ts';
 import { installTopBar } from './topbar.ts';
 import { byId, esc } from './dom.ts';
@@ -92,7 +93,7 @@ function statusLine(
     return `The engine stopped${s.signal !== null ? ` (${esc(s.signal)})` : s.code !== null ? ` (exit ${s.code})` : ''}; starting it again…`;
   }
   if (s.state === 'failed') {
-    return `The engine could not be kept running: ${esc(s.reason)}`;
+    return `The engine could not be kept running: ${esc(s.reason)} (see Help ▸ Copy Diagnostics)`;
   }
   if (store.snapshot === null) {
     return '';
@@ -185,6 +186,10 @@ export function startApp(saved: StoredState = {}): {
   installPopover();
   installConfirm();
   installDialogs();
+  // a failed write Windows may have blocked: a message with the hint (cleanup item 2.5)
+  setHintTeller((text) => {
+    tell(text, true);
+  });
   installPanels();
   installLayout();
   if (saved.layout !== undefined) {
@@ -285,6 +290,8 @@ export function startApp(saved: StoredState = {}): {
       void exports.animation();
     }
   };
+  // the window says when its engine cannot start (cleanup item 2.3)
+  const engineFailure = new EngineFailure(store, app);
   const menus = new Menus(store, app, view, {
     openPath: (path) => {
       void files.openPath(path);
@@ -359,6 +366,19 @@ export function startApp(saved: StoredState = {}): {
           };
     },
     playHistory: () => play.history(),
+    engineFailed: () => engineFailure.failed,
+    showEngineFailure: () => {
+      engineFailure.show();
+    },
+  });
+  // the log's Startup line: the first document shown (cleanup item 2.7)
+  const told = store.subscribe((c) => {
+    if (c.kind === 'document' && store.snapshot !== null) {
+      told();
+      requestAnimationFrame(() => {
+        app.ready();
+      });
+    }
   });
   // the Solver's problem and its solve change the menus too: look now and then
   window.setInterval(() => {

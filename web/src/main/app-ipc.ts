@@ -36,6 +36,7 @@ import { existsSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 
 import {
+  isAppCommandName,
   isCacheAction,
   isCacheLink,
   isLogQuery,
@@ -47,7 +48,9 @@ import {
   isRescueInfo,
 } from '../engine/app-bridge.ts';
 import type {
+  AppCommandName,
   CliToolResult,
+  DiagnosticsResult,
   FileKind,
   HelpLink,
   LogExportResult,
@@ -56,6 +59,7 @@ import type {
   StoredState,
   UpdateResult,
 } from '../engine/app-bridge.ts';
+import { writeHint } from '../engine/write-hint.ts';
 import type { AppLog } from './app-log.ts';
 import type { CacheFolderManager } from './cache-folder.ts';
 import { deleteItem, listItems } from './cache-files.ts';
@@ -183,12 +187,32 @@ export interface AppIpcHost {
   closeTaken(sender: WebContents): void;
   closeWindow(sender: WebContents): void;
   cancelQuit(sender: WebContents): void;
+  /** An update check's outcome in words (updates.ts), for the log and the diagnostics. */
+  updateChecked(text: string): void;
+  /** The page showed its first document (the Startup line). */
+  ready(sender: WebContents): void;
+  /** Try Again: the window's engine is started again. */
+  retryEngine(sender: WebContents): void;
+  /** A document command was held for the first document, or dropped (the engine failed). */
+  commandHeld(sender: WebContents, command: AppCommandName, dropped: boolean): void;
+  /** Copy Diagnostics (diagnostics.ts): the report on the clipboard. */
+  copyDiagnostics(sender: WebContents): Promise<DiagnosticsResult>;
+  /** The report saved where the save dialog says. */
+  saveDiagnostics(sender: WebContents): Promise<LogExportResult>;
   /** Whether windows are kept hidden (security.ts's BT_BACKGROUND). */
   background: boolean;
 }
 
 /** Installs the handlers. */
 export function installAppIpc(h: AppIpcHost): void {
+  // a write Windows refused as access denied: the log says where, and that
+  // Controlled Folder Access may be why (cleanup item 2.5)
+  const logRefusedWrite = (path: string, message: string): void => {
+    const hint = writeHint(process.platform, message);
+    if (hint !== null) {
+      h.log.warn('app', 'Write Refused', `${message} in the folder ${dirname(path)}. ${hint}`);
+    }
+  };
   const ours = (e: IpcMainEvent | IpcMainInvokeEvent): BrowserWindow | null => h.window(e.sender);
   // where a dialog starts: the folder a dialog gave last, kept across runs
   // (the store), unless it is gone since; else the documents folder
@@ -209,7 +233,9 @@ export function installAppIpc(h: AppIpcHost): void {
       }
       autoChecked = true;
     }
-    const r = await checkForUpdate(h.version, h.fetch);
+    const r = await checkForUpdate(h.version, h.fetch, (text) => {
+      h.updateChecked(text);
+    });
     if (auto && (r.status !== 'newer' || r.latest === h.store.skipVersion)) {
       return null;
     }
@@ -307,7 +333,9 @@ export function installAppIpc(h: AppIpcHost): void {
       await writeFileSafely(path, data);
       return { ok: true };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : String(err) };
+      const message = err instanceof Error ? err.message : String(err);
+      logRefusedWrite(path, message);
+      return { error: message };
     }
   });
 
@@ -371,7 +399,9 @@ export function installAppIpc(h: AppIpcHost): void {
         await writeFileSafely(join(folder, name), data);
         return { ok: true };
       } catch (err) {
-        return { error: err instanceof Error ? err.message : String(err) };
+        const message = err instanceof Error ? err.message : String(err);
+        logRefusedWrite(join(folder, name), message);
+        return { error: message };
       }
     },
   );
@@ -490,7 +520,8 @@ export function installAppIpc(h: AppIpcHost): void {
         link === 'guide' ||
         link === 'author' ||
         link === 'issues' ||
-        link === 'tilted')
+        link === 'tilted' ||
+        link === 'troubleshooting')
     ) {
       openHelp(link);
     }
@@ -658,6 +689,29 @@ export function installAppIpc(h: AppIpcHost): void {
     } else if (op === 'canceled') {
       h.cancelQuit(e.sender);
     }
+  });
+
+  ipcMain.on('bt:engine-start', (e, op: unknown, command: unknown) => {
+    if (ours(e) === null) {
+      return;
+    }
+    if (op === 'ready') {
+      h.ready(e.sender);
+    } else if (op === 'retry') {
+      h.retryEngine(e.sender);
+    } else if ((op === 'held' || op === 'dropped') && isAppCommandName(command)) {
+      h.commandHeld(e.sender, command, op === 'dropped');
+    }
+  });
+
+  ipcMain.handle('bt:diagnostics', (e, op: unknown) => {
+    if (ours(e) === null) {
+      return null;
+    }
+    if (op === 'copy') {
+      return h.copyDiagnostics(e.sender);
+    }
+    return op === 'save' ? h.saveDiagnostics(e.sender) : null;
   });
 }
 

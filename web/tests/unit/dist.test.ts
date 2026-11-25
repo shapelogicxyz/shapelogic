@@ -8,6 +8,7 @@
 // (packaged: its own copy only; in development BT_ENGINE, then the builds).
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
@@ -18,12 +19,19 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { engineFile, findEngine } from '../../src/main/engine-path.ts';
-import { binaryArch, distConfig, releaseCli, releaseEngine } from '../../tools/dist.ts';
+import { ENGINE_HASH_FILE, parseHashFile, sha256File } from '../../src/main/engine-hash.ts';
+import {
+  binaryArch,
+  distConfig,
+  releaseCli,
+  releaseEngine,
+  writeEngineHashes,
+} from '../../tools/dist.ts';
 import { projectVersion, REPO_ROOT, versionFromTag } from '../../tools/project-version.ts';
 
 const WEB = resolve(import.meta.dirname, '../..');
@@ -198,6 +206,42 @@ describe('the configuration', () => {
     expect(c.fileAssociations).toEqual([
       expect.objectContaining({ ext: 'xmpuzzle', rank: 'Owner' }),
       expect.objectContaining({ ext: 'slsolve', rank: 'Owner' }),
+    ]);
+  });
+});
+
+describe('the engine’s hash file (cleanup item 2.6)', () => {
+  it('records the engine’s and the tool’s SHA-256, and is packed beside them', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sl-hash-'));
+    try {
+      const engine = join(dir, 'shapelogic_engine');
+      const cli = join(dir, 'shapelogic_cli');
+      writeFileSync(engine, 'the engine');
+      writeFileSync(cli, 'the tool');
+      const file = await writeEngineHashes(engine, cli);
+      expect(file.endsWith(ENGINE_HASH_FILE)).toBe(true);
+      const hashes = parseHashFile(readFileSync(file, 'utf8'));
+      // sha256("the engine"), as sha256sum writes it
+      expect(hashes.get('shapelogic_engine')).toBe(
+        createHash('sha256').update('the engine').digest('hex'),
+      );
+      expect(hashes.get('shapelogic_engine')).toBe(await sha256File(engine));
+      expect(hashes.get('shapelogic_cli')).toBe(await sha256File(cli));
+      expect(distConfig('1.2.3', engine, 'darwin', cli, file).extraResources).toContainEqual({
+        from: file,
+        to: ENGINE_HASH_FILE,
+      });
+      rmSync(dirname(file), { recursive: true, force: true });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('reads sha256sum’s lines and skips the rest', () => {
+    const hex = 'ab'.repeat(32);
+    expect([...parseHashFile(`${hex}  a.exe\r\n${hex.toUpperCase()} *b\nnot a line\n`)]).toEqual([
+      ['a.exe', hex],
+      ['b', hex],
     ]);
   });
 });

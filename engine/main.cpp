@@ -3,11 +3,13 @@
 // shapelogic_engine: the process the web front end talks to, JSON-RPC 2.0 over
 // stdio (decisions 0003 and 0012; the methods are api/*.json, documented
 // in docs/API.md).
+#include "app_log.h"
 #include "engine.h"
 
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/version.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
@@ -42,7 +44,10 @@ int main(int argc, char** argv) {
   // thread flushes std::cout.
   std::cin.tie(nullptr);
   // a slide search reads many level files at once
-  (void)bt::raiseOpenFileLimit(4096);
+  const std::uint64_t openFiles = bt::raiseOpenFileLimit(4096);
+  // the app's log learns at once which engine runs, whatever the log setting
+  std::cerr << bt::engine::startLine(openFiles) << '\n';
+  std::cerr.flush();
   {
     bt::engine::Engine engine(std::cout, std::cerr);
     (void)engine.run(std::cin);

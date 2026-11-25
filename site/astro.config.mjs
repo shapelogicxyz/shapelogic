@@ -67,6 +67,7 @@ export default defineConfig({
               items: [
                 { label: 'Overview', slug: 'docs/install' },
                 { label: 'Windows', slug: 'docs/windows' },
+                { label: 'When it does not start', slug: 'docs/windows-troubleshooting' },
                 { label: 'macOS', slug: 'docs/macos' },
                 { label: 'Linux', slug: 'docs/linux' },
               ],

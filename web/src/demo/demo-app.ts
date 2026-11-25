@@ -73,7 +73,9 @@ export function demoApp(version: string): DemoApp {
               ? '/docs/getting-started/'
               : link === 'tilted'
                 ? '/research/tilted-square-geometry.html'
-                : '/docs/';
+                : link === 'troubleshooting'
+                  ? '/docs/windows-troubleshooting/'
+                  : '/docs/';
       window.open(page, '_blank', 'noopener');
     },
     goalWindow(picture, raise) {
@@ -117,5 +119,11 @@ export function demoApp(version: string): DemoApp {
     closeWindow: nothing,
     closeTaken: nothing,
     closeCanceled: nothing,
+    // the demo's engine runs in the page: nothing to start again or diagnose
+    ready: nothing,
+    retryEngine: nothing,
+    commandHeld: nothing,
+    copyDiagnostics: () => Promise.resolve({ ok: false, error: NOT_HERE }),
+    saveDiagnostics: () => Promise.resolve({ ok: false, error: NOT_HERE }),
   };
 }

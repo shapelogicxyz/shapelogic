@@ -15,7 +15,9 @@
 // installer, Linux an AppImage and a .deb. Before packing it checks that the
 // engine is there, built for that architecture, and says the project's
 // version (`shapelogic_engine --version`); electron-builder takes the
-// version from here (extraMetadata), not from package.json.
+// version from here (extraMetadata), not from package.json. Beside the
+// engine goes engine.sha256, the engine's and the tool's SHA-256, which the
+// app checks its engine against (src/main/engine-hash.ts).
 //
 // Signing (docs/handoff/web-8.md, "Signing and notarisation"): on macOS the
 // app is signed ad hoc unless CSC_NAME or CSC_LINK names a Developer ID
@@ -25,13 +27,15 @@
 // names a certificate.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, openSync, readSync, closeSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdtempSync, openSync, readSync, closeSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { Arch, build, Platform } from 'electron-builder';
 import type { Configuration } from 'electron-builder';
 
+import { ENGINE_HASH_FILE, hashFileText, sha256File } from '../src/main/engine-hash.ts';
 import { projectVersion, REPO_ROOT } from './project-version.ts';
 
 const WEB = resolve(import.meta.dirname, '..');
@@ -103,12 +107,27 @@ function checkEngine(
   }
 }
 
-/** electron-builder's configuration for this version and engine. */
+/**
+ * Writes engine.sha256 for an engine and its command line tool into a new
+ * folder of the temporary directory; returns its path (distConfig packs it).
+ */
+export async function writeEngineHashes(engine: string, cli: string): Promise<string> {
+  const text = hashFileText([
+    { file: basename(engine), hex: await sha256File(engine) },
+    { file: basename(cli), hex: await sha256File(cli) },
+  ]);
+  const path = join(mkdtempSync(join(tmpdir(), 'sl-dist-')), ENGINE_HASH_FILE);
+  writeFileSync(path, text);
+  return path;
+}
+
+/** electron-builder's configuration for this version and engine (and its hash file, when given). */
 export function distConfig(
   version: string,
   engine: string,
   platform: NodeJS.Platform,
   cli: string = releaseCli(engine),
+  hashes?: string,
 ): Configuration {
   const exe = platform === 'win32' ? 'shapelogic_engine.exe' : 'shapelogic_engine';
   const cliExe = platform === 'win32' ? 'shapelogic_cli.exe' : 'shapelogic_cli';
@@ -138,6 +157,7 @@ export function distConfig(
     extraResources: [
       { from: engine, to: exe },
       { from: cli, to: cliExe },
+      ...(hashes !== undefined ? [{ from: hashes, to: ENGINE_HASH_FILE }] : []),
     ],
     // rank Owner (macOS's LSHandlerRank): an older app that claimed .xmpuzzle
     // as Owner (BurrTools) beats the default rank, and the newer install loses
@@ -219,7 +239,8 @@ async function main(): Promise<void> {
   checkEngine(releaseCli(engine), arch, version, 'shapelogic_cli');
   const target =
     platform === 'darwin' ? Platform.MAC : platform === 'win32' ? Platform.WINDOWS : Platform.LINUX;
-  const config = distConfig(version, engine, platform);
+  const cli = releaseCli(engine);
+  const config = distConfig(version, engine, platform, cli, await writeEngineHashes(engine, cli));
   console.log(`dist: ShapeLogic ${version} for ${platform} ${arch}, with ${engine}`);
   await build({
     projectDir: WEB,

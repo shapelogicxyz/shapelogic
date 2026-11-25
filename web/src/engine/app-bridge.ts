@@ -305,15 +305,19 @@ export interface LogExportSizes {
   tailBytes: number;
 }
 
+/** The answer to Copy Diagnostics: the report's size on the clipboard, or why not. */
+export type DiagnosticsResult = { ok: true; bytes: number } | { ok: false; error: string };
+
 /** The answer to exporting the log: where it went, or why not. */
 export type LogExportResult =
   { ok: true; path: string } | { ok: false; canceled: true } | { ok: false; error: string };
 
 /**
- * The links of the Help menu (the main process holds the addresses), and
- * the research page on tilted trays (the Tilt & tolerance section's link).
+ * The links of the Help menu (the main process holds the addresses), the
+ * research page on tilted trays (the Tilt & tolerance section's link), and
+ * the guide's page on an engine that does not start (the engine's dialog).
  */
-export type HelpLink = 'tutorial' | 'guide' | 'author' | 'issues' | 'tilted';
+export type HelpLink = 'tutorial' | 'guide' | 'author' | 'issues' | 'tilted' | 'troubleshooting';
 
 /**
  * What the update check found (main/updates.ts): the latest release
@@ -592,6 +596,28 @@ export interface BtApp {
    * all of it, or only its newest `lines` lines.
    */
   exportLog(lines?: number): Promise<LogExportResult>;
+  /**
+   * The page showed its first document (the log's Startup line, cleanup
+   * item 2.7); a reload says it again, which the main process ignores.
+   */
+  ready(): void;
+  /** The engine could not start: Try Again (the host forgets its quick deaths and starts one). */
+  retryEngine(): void;
+  /**
+   * The log hears of a document command that came before the first
+   * document: held until it comes, or dropped because the engine could not
+   * start (the window says so instead).
+   */
+  commandHeld(command: AppCommandName, dropped: boolean): void;
+  /**
+   * Help ▸ Copy Diagnostics: the main process builds the report (the
+   * health report, the engine's last failure, the log's newest lines, the
+   * crash dumps; on Windows the security checks, run now) and puts it on
+   * the clipboard.
+   */
+  copyDiagnostics(): Promise<DiagnosticsResult>;
+  /** The same report saved to a text file the save dialog gives. */
+  saveDiagnostics(): Promise<LogExportResult>;
   /** Closes the window: the renderer answered a `close` command (nothing to save, or saved or given up). */
   closeWindow(): void;
   /** The `close` command was taken: the renderer asks (a close not taken soon is asked natively). */
@@ -635,6 +661,11 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'checkUpdates',
   'about',
 ]);
+
+/** Whether a value is the name of a menu command. */
+export function isAppCommandName(v: unknown): v is AppCommandName {
+  return typeof v === 'string' && COMMANDS.has(v);
+}
 
 /** Whether a value is one of the Theme setting's choices. */
 function isTheme(v: unknown): v is MenuState['theme'] {

@@ -18,6 +18,8 @@ import type {
   Reply,
 } from '../engine/client-types.ts';
 import { CLIENT_ERROR_CODE, EngineError } from '../engine/errors.ts';
+import { EngineStartError, failureOf } from '../engine/spawn-failure.ts';
+import type { SpawnFailure } from '../engine/spawn-failure.ts';
 import type { ExitInfo, Transport } from '../engine/transport.ts';
 
 export interface EngineHostOptions {
@@ -41,6 +43,13 @@ export interface EngineHostOptions {
 const defaultDelay = (attempt: number): number =>
   attempt <= 1 ? 0 : Math.min(5000, 250 * 2 ** (attempt - 2));
 
+/** When the latest launch began, its engine was spawned and said hello (Date.now() times). */
+export interface LaunchTimings {
+  startedAt: number;
+  spawnedAt: number | null;
+  helloAt: number | null;
+}
+
 /** One engine for one window, restarted when it dies. */
 export class EngineHost implements EngineApi {
   private readonly options: EngineHostOptions;
@@ -49,6 +58,9 @@ export class EngineHost implements EngineApi {
   private restarts = 0;
   private quickDeaths = 0;
   private startedAt = 0;
+  /** Why the last launch failed, or how the last engine ended soon after it started. */
+  private lastFailure: SpawnFailure | undefined;
+  private timings_: LaunchTimings | null = null;
   private stopping = false;
   private restartTimer: ReturnType<typeof setTimeout> | null = null;
   /** The launch under way, while one is (start() joins it, stop() waits for it). */
@@ -71,6 +83,11 @@ export class EngineHost implements EngineApi {
     return this.status_;
   }
 
+  /** The latest launch's times, once one began. */
+  get timings(): LaunchTimings | null {
+    return this.timings_;
+  }
+
   /**
    * Starts the first engine; fails when it cannot be started or refuses the
    * protocol. A second call while the first is under way joins it.
@@ -91,9 +108,28 @@ export class EngineHost implements EngineApi {
         // stop() came first and ended it: nothing to report
         return;
       }
-      this.setStatus({ state: 'failed', reason: e instanceof Error ? e.message : String(e) });
+      this.failed(e instanceof Error ? e.message : String(e), failureOf(e));
       throw e;
     }
+  }
+
+  /**
+   * Starts again after the host gave up (the window's Try Again): the
+   * quick deaths are forgotten. Nothing to do while an engine runs or one
+   * is being started.
+   */
+  async retry(): Promise<void> {
+    if (this.status_.state !== 'failed' || this.launching !== null) {
+      return;
+    }
+    if (this.restartTimer !== null) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
+    this.quickDeaths = 0;
+    this.lastFailure = undefined;
+    this.restarts++;
+    await this.start();
   }
 
   /**
@@ -199,6 +235,17 @@ export class EngineHost implements EngineApi {
     }
   }
 
+  private failed(reason: string, failure: SpawnFailure | undefined): void {
+    if (failure !== undefined) {
+      this.lastFailure = failure;
+    }
+    this.setStatus({
+      state: 'failed',
+      reason,
+      ...(failure !== undefined ? { failure } : {}),
+    });
+  }
+
   // A handler that throws must not stop the host (a restart hangs on it).
   private setStatus(status: EngineStatus): void {
     this.status_ = status;
@@ -223,7 +270,10 @@ export class EngineHost implements EngineApi {
 
   private async doLaunch(): Promise<void> {
     this.startedAt = Date.now();
+    const timings: LaunchTimings = { startedAt: this.startedAt, spawnedAt: null, helloAt: null };
+    this.timings_ = timings;
     const transport = await this.options.start();
+    timings.spawnedAt = Date.now();
     if (this.stopped()) {
       transport.kill();
       throw new Error('the host was stopped while its engine started');
@@ -247,12 +297,13 @@ export class EngineHost implements EngineApi {
     let hello;
     try {
       hello = await client.hello();
+      timings.helloAt = Date.now();
     } catch (e) {
       client.kill();
       if (this.client_ === client) {
         this.client_ = null;
       }
-      throw e;
+      throw this.endedBeforeHello(client, e);
     }
     if (this.stopped()) {
       // stop() waits for this launch, then ends the engine as it would a running one
@@ -275,6 +326,33 @@ export class EngineHost implements EngineApi {
     this.setStatus({ state: 'running', version: hello.version, restarts: this.restarts });
   }
 
+  /**
+   * The error of a hello that failed: an engine that ended before it (it
+   * started, or the system refused it after all) as an EngineStartError
+   * with its exit and stderr; any other (a refused protocol) as it is.
+   */
+  private endedBeforeHello(client: EngineClient, e: unknown): unknown {
+    const exit = client.exit;
+    if (exit === null) {
+      return e;
+    }
+    const message = e instanceof Error ? e.message : String(e);
+    const stderr = client.stderrTail(5);
+    const sys = exit.system;
+    return new EngineStartError(message, {
+      which: 'session',
+      code: sys?.code ?? 'EXITED',
+      message: exit.error ?? message,
+      ...(sys?.errno !== undefined ? { errno: sys.errno } : {}),
+      ...(sys?.syscall !== undefined ? { syscall: sys.syscall } : {}),
+      ...(sys?.path !== undefined ? { path: sys.path } : {}),
+      afterMs: Date.now() - this.startedAt,
+      exitCode: exit.code,
+      signal: exit.signal,
+      ...(stderr !== '' ? { stderr } : {}),
+    });
+  }
+
   private died(client: EngineClient, info: ExitInfo): void {
     if (this.client_ !== client) {
       return;
@@ -284,6 +362,8 @@ export class EngineHost implements EngineApi {
       // it never agreed to the protocol: launch() fails and its caller reports
       return;
     }
+    const stderr = client.stderrTail(5);
+    const lived = Date.now() - this.startedAt;
     this.setStatus({
       state: 'exited',
       code: info.code,
@@ -293,19 +373,29 @@ export class EngineHost implements EngineApi {
     if (this.stopping) {
       return;
     }
-    this.quickDeaths =
-      Date.now() - this.startedAt < (this.options.quickDeathMs ?? 10_000)
-        ? this.quickDeaths + 1
-        : 1;
+    const quick = lived < (this.options.quickDeathMs ?? 10_000);
+    this.quickDeaths = quick ? this.quickDeaths + 1 : 1;
+    if (quick) {
+      // an engine that keeps dying soon after its start: the host may give up with this
+      this.lastFailure = {
+        which: 'session',
+        code: 'EXITED',
+        message: `the engine ended ${String(lived)} ms after it started`,
+        afterMs: lived,
+        exitCode: info.code,
+        signal: info.signal,
+        ...(stderr !== '' ? { stderr } : {}),
+      };
+    }
     this.scheduleRestart();
   }
 
   private scheduleRestart(): void {
     if (this.quickDeaths >= (this.options.maxQuickDeaths ?? 5)) {
-      this.setStatus({
-        state: 'failed',
-        reason: `the engine died ${this.quickDeaths} times in a row soon after starting`,
-      });
+      this.failed(
+        `the engine died ${String(this.quickDeaths)} times in a row soon after starting`,
+        this.lastFailure,
+      );
       return;
     }
     const delay = (this.options.restartDelayMs ?? defaultDelay)(this.quickDeaths);
@@ -321,6 +411,10 @@ export class EngineHost implements EngineApi {
         }
         // could not start, or refused the protocol: a quick death too
         this.quickDeaths++;
+        const failure = failureOf(e);
+        if (failure !== undefined) {
+          this.lastFailure = failure;
+        }
         this.setStatus({ state: 'exited', code: null, signal: null, stderr: String(e) });
         this.scheduleRestart();
       });

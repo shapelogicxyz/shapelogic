@@ -6,6 +6,7 @@
 
 import type { Events, Frame, FrameMethod, Methods } from './api.generated.ts';
 import type { FrameView } from './frames.ts';
+import type { SpawnFailure } from './spawn-failure.ts';
 
 export type MethodName = keyof Methods;
 /** The events a front end subscribes to (`frame` is the client's own business). */
@@ -41,7 +42,7 @@ export type CallArgs<M extends MethodName> =
 export type EngineStatus =
   | { state: 'running'; version: string; restarts: number }
   | { state: 'exited'; code: number | null; signal: string | null; stderr: string }
-  | { state: 'failed'; reason: string };
+  | { state: 'failed'; reason: string; failure?: SpawnFailure };
 
 /** The engine as the front end uses it: the client in Node, the proxy in the renderer. */
 export interface EngineApi {

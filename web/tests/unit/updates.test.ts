@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   checkForUpdate,
   compareVersions,
+  fetchErrorText,
   NOTES_MAX,
   parseVersion,
   RELEASES_API,
@@ -114,5 +115,54 @@ describe('the check', () => {
     expect(await checkForUpdate('1.3.0', answer({ tag_name: 'v1.4', draft: true }))).toMatchObject({
       status: 'error',
     });
+  });
+});
+
+describe('the outcome told to the log (cleanup item 2.8)', () => {
+  const told = async (fetchFn: FetchFn): Promise<string[]> => {
+    const out: string[] = [];
+    await checkForUpdate('1.3.0', fetchFn, (t) => out.push(t));
+    return out;
+  };
+  /** A fetch that fails as Node's does: a TypeError with the system's error as its cause. */
+  const failing =
+    (code: string, message = `${code} api.github.com`): FetchFn =>
+    () =>
+      Promise.reject(
+        new TypeError('fetch failed', { cause: Object.assign(new Error(message), { code }) }),
+      );
+
+  it('says the HTTP status and what it found, once', async () => {
+    expect(await told(answer({ tag_name: 'v1.4' }))).toEqual([
+      'HTTP 200; the latest release is v1.4, newer',
+    ]);
+    expect(await told(answer({ tag_name: 'v1.3' }))).toEqual([
+      'HTTP 200; the latest release is v1.3',
+    ]);
+    expect(await told(answer({ message: 'rate limit' }, 403))).toEqual([
+      'HTTP 403; GitHub answered 403',
+    ]);
+  });
+
+  it("says each kind of failure by its error's name and code", async () => {
+    for (const code of [
+      'ENOTFOUND',
+      'ECONNRESET',
+      'ETIMEDOUT',
+      'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+    ]) {
+      const [line] = await told(failing(code));
+      expect(line).toBe(
+        `the request failed: TypeError: fetch failed (${code}); ${code} api.github.com`,
+      );
+    }
+    // Chromium's net errors (Electron's session.fetch) are in the message
+    expect(await told(() => Promise.reject(new Error('net::ERR_NAME_NOT_RESOLVED')))).toEqual([
+      'the request failed: Error: net::ERR_NAME_NOT_RESOLVED',
+    ]);
+    // the time limit
+    expect(fetchErrorText(new DOMException('The operation timed out.', 'TimeoutError'))).toMatch(
+      /^TimeoutError: The operation timed out\./,
+    );
   });
 });

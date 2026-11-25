@@ -71,7 +71,9 @@ const NO_SCROLLBARS = '::-webkit-scrollbar{display:none}';
  * its settings in the one given), `args` the app's command line after its
  * main script (a file to open), `scale` the device pixel ratio to draw at
  * whatever the display's (1 without: the guide's screenshots are taken at
- * 2, so a non-Retina monitor does not halve them).
+ * 2, so a non-Retina monitor does not halve them), `engine` the engine to
+ * run instead of the release build's (BT_ENGINE: one that cannot start),
+ * `waitForEngine` false to return as soon as the window is there.
  */
 export async function launch(
   opts: {
@@ -80,6 +82,8 @@ export async function launch(
     userData?: string;
     args?: string[];
     scale?: number;
+    engine?: string;
+    waitForEngine?: boolean;
   } = {},
 ): Promise<App> {
   // an editor's terminal may set ELECTRON_RUN_AS_NODE, which turns Electron into Node
@@ -88,7 +92,7 @@ export async function launch(
       (e): e is [string, string] => e[0] !== 'ELECTRON_RUN_AS_NODE' && e[1] !== undefined,
     ),
   );
-  env.BT_ENGINE = ENGINE ?? '';
+  env.BT_ENGINE = opts.engine ?? ENGINE ?? '';
   if (opts.callLog !== undefined) {
     env.BT_CALL_LOG = opts.callLog;
   }
@@ -161,9 +165,11 @@ export async function launch(
       });
     });
   }, NO_SCROLLBARS);
-  await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'running');
-  // the first document shown
-  await expect(page.locator('#stage')).toHaveAttribute('data-revision', /\d/);
+  if (opts.waitForEngine !== false) {
+    await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'running');
+    // the first document shown
+    await expect(page.locator('#stage')).toHaveAttribute('data-revision', /\d/);
+  }
   return {
     app,
     page,

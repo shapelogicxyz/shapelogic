@@ -39,6 +39,8 @@ export const HELP_URLS: Readonly<Record<HelpLink, string>> = {
   issues: 'https://github.com/shapelogicxyz/shapelogic/issues',
   // the Tilt & tolerance section's link: the research page on tilted trays
   tilted: 'https://shapelogic.xyz/research/tilted-square-geometry.html',
+  // the engine's dialog when it cannot start (cleanup item 2.9)
+  troubleshooting: 'https://shapelogic.xyz/docs/windows-troubleshooting/',
 };
 
 /**

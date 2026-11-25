@@ -9,11 +9,14 @@
 // `runAction`), so a menu item and its key do the same thing. A command
 // that replaces the document and comes before the first document is shown
 // (a file given on the command line, the engine still starting) waits for
-// it (stage 8).
+// it (stage 8); once the engine has failed it is not held but shows the
+// engine's dialog, as do the commands still waiting then (cleanup item
+// 2.3). The log hears of each one held or dropped.
 
 import type { AppCommand, AppCommandName, BtApp, MenuState } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import type { View3D } from '../view3d/view.ts';
+import { CommandGate } from './command-gate.ts';
 import { runAction } from './keyboard.ts';
 import { accelerator } from './keys.ts';
 import type { KeyAction } from './keys.ts';
@@ -33,16 +36,6 @@ const AS_KEY: Partial<Record<AppCommandName, KeyAction>> = {
   keys: 'help.keys',
   focus3d: 'focus3d',
 };
-
-/** The commands that replace the document: before the first one is shown, they wait for it. */
-const DOCUMENT_COMMANDS: ReadonlySet<AppCommandName> = new Set([
-  'new',
-  'open',
-  'openPath',
-  'importPaused',
-  'importPs3d',
-  'importScad',
-]);
 
 /** The keys the menus show: the table's, for the commands that have one. */
 export function menuKeys(): MenuState['keys'] {
@@ -95,6 +88,10 @@ export interface MenuHandlers {
   solverProblem(): { paused: boolean } | null;
   /** The Play workspace's Undo and Redo, as Edit names them there (null: nothing to undo or redo). */
   playHistory(): { undo: string | null; redo: string | null };
+  /** The engine could not start (engine-failure.ts): no document will come. */
+  engineFailed(): boolean;
+  /** Shows the engine's dialog (a document command came while it has failed). */
+  showEngineFailure(): void;
 }
 
 export class Menus {
@@ -107,27 +104,33 @@ export class Menus {
   private historyLoads = 0;
   private sent = '';
   private timer: number | null = null;
-  /** Commands that came before the first document, run once it is shown. */
-  private readonly waiting: AppCommand[] = [];
+  /** Commands that came before the first document (command-gate.ts). */
+  private readonly gate: CommandGate;
 
   constructor(store: Store, app: BtApp, view: View3D, handlers: MenuHandlers) {
     this.store = store;
     this.app = app;
     this.view = view;
     this.h = handlers;
+    this.gate = new CommandGate({
+      hasDocument: () => store.snapshot !== null,
+      engineFailed: () => handlers.engineFailed(),
+      run: (c) => {
+        this.run(c);
+      },
+      held: (cmd, dropped) => {
+        app.commandHeld(cmd, dropped);
+      },
+      showFailure: () => {
+        handlers.showEngineFailure();
+      },
+    });
     app.onCommand((c) => {
-      if (store.snapshot === null && DOCUMENT_COMMANDS.has(c.cmd)) {
-        // the first document is not shown yet: the engine is starting
-        this.waiting.push(c);
-        return;
-      }
-      this.run(c);
+      this.gate.command(c);
     });
     store.subscribe((c) => {
-      if (c.kind === 'document' && store.snapshot !== null && this.waiting.length > 0) {
-        for (const w of this.waiting.splice(0)) {
-          this.run(w);
-        }
+      if (c.kind === 'document' || c.kind === 'status') {
+        this.gate.changed();
       }
       if (c.kind === 'document' || c.kind === 'status') {
         this.loadHistory();

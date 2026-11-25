@@ -36,6 +36,8 @@ export interface MenuHost {
   windows: readonly { id: number; title: string; focused: boolean }[];
   /** Brings a window of the list to the front. */
   focusWindow(id: number): void;
+  /** Help ▸ Copy Diagnostics: the main process makes the report (it needs no working page). */
+  copyDiagnostics(): void;
 }
 
 /** The state before the renderer has sent one: nothing open. */
@@ -320,6 +322,14 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         label: 'ShapeLogic User Guide',
         click: () => {
           h.openHelp('guide');
+        },
+      },
+      SEP,
+      {
+        id: 'copyDiagnostics',
+        label: 'Copy Diagnostics',
+        click: () => {
+          h.copyDiagnostics();
         },
       },
       ...(mac

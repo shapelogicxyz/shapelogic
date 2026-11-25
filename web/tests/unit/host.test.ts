@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import type { ClientProblem } from '../../src/engine/client.ts';
 import type { EngineStatus } from '../../src/engine/client-types.ts';
 import { EngineError } from '../../src/engine/errors.ts';
+import { EngineStartError } from '../../src/engine/spawn-failure.ts';
 import { EngineHost } from '../../src/main/engine-host.ts';
 import { settle, ScriptedTransport } from '../helpers/scripted-transport.ts';
 
@@ -129,9 +130,11 @@ describe('the engine host', () => {
     // two quick deaths with a limit of two: no third engine
     await settle(5);
     expect(engines).toHaveLength(2);
-    expect(statuses.at(-1)).toEqual({
+    // with how the last one ended (cleanup item 2.2)
+    expect(statuses.at(-1)).toMatchObject({
       state: 'failed',
       reason: 'the engine died 2 times in a row soon after starting',
+      failure: { which: 'session', code: 'EXITED', exitCode: 1, signal: null },
     });
   });
 
@@ -342,5 +345,129 @@ describe('the engine host', () => {
     expect(engines).toHaveLength(1);
     expect(engines[0]?.killed).toBe(true);
     expect(h.status.state).toBe('failed');
+  });
+  it('keeps every detail of a start the system refused (Windows: spawn UNKNOWN)', async () => {
+    const h = new EngineHost({
+      start: () => {
+        // as NodeTransport.start rejects when execFile throws at once
+        throw new EngineStartError('spawn UNKNOWN', {
+          which: 'version',
+          code: 'UNKNOWN',
+          message: 'spawn UNKNOWN',
+          errno: -4094,
+          syscall: 'spawn',
+          path: 'C:\\ShapeLogic\\resources\\shapelogic_engine.exe',
+          afterMs: 12,
+        });
+      },
+      restartDelayMs: () => 0,
+    });
+    await expect(h.start()).rejects.toThrow('spawn UNKNOWN');
+    expect(h.status).toEqual({
+      state: 'failed',
+      reason: 'spawn UNKNOWN',
+      failure: {
+        which: 'version',
+        code: 'UNKNOWN',
+        message: 'spawn UNKNOWN',
+        errno: -4094,
+        syscall: 'spawn',
+        path: 'C:\\ShapeLogic\\resources\\shapelogic_engine.exe',
+        afterMs: 12,
+      },
+    });
+  });
+
+  it('says how an engine that ended before its hello ended', async () => {
+    const h = new EngineHost({
+      start: () => {
+        const t = new ScriptedTransport();
+        setImmediate(() => {
+          t.stderr('a library is missing\n');
+          // STATUS_DLL_NOT_FOUND, as Node gives it
+          t.exit({ code: 3221225781, signal: null });
+        });
+        return t;
+      },
+      restartDelayMs: () => 0,
+    });
+    await expect(h.start()).rejects.toThrow();
+    const s = h.status;
+    expect(s.state).toBe('failed');
+    expect(s.state === 'failed' ? s.failure : undefined).toMatchObject({
+      which: 'session',
+      code: 'EXITED',
+      exitCode: 3221225781,
+      signal: null,
+      stderr: 'a library is missing',
+    });
+  });
+
+  it('keeps the system fields of a spawn error the engine reported late', async () => {
+    const h = new EngineHost({
+      start: () => {
+        const t = new ScriptedTransport();
+        setImmediate(() => {
+          t.exit({
+            code: null,
+            signal: null,
+            error: 'spawn /x/engine EACCES',
+            system: { code: 'EACCES', errno: -13, syscall: 'spawn /x/engine', path: '/x/engine' },
+          });
+        });
+        return t;
+      },
+      restartDelayMs: () => 0,
+    });
+    await expect(h.start()).rejects.toThrow();
+    const s = h.status;
+    expect(s.state === 'failed' ? s.failure : undefined).toMatchObject({
+      which: 'session',
+      code: 'EACCES',
+      errno: -13,
+      path: '/x/engine',
+      message: 'spawn /x/engine EACCES',
+    });
+  });
+
+  it('gives up with how the last engine ended, and starts again when asked', async () => {
+    let quick = true;
+    const engines: ScriptedTransport[] = [];
+    const h = new EngineHost({
+      start: () => {
+        const t = new ScriptedTransport();
+        engines.push(t);
+        setImmediate(() => {
+          t.greet();
+          if (quick) {
+            setImmediate(() => {
+              t.exit({ code: 3221225477, signal: null });
+            });
+          }
+        });
+        return t;
+      },
+      restartDelayMs: () => 0,
+      maxQuickDeaths: 2,
+    });
+    const statuses: EngineStatus[] = [];
+    h.onStatus((x) => statuses.push(x));
+    await h.start();
+    await until(() => statuses.at(-1)?.state === 'failed');
+    const s = h.status;
+    expect(s.state === 'failed' ? s.failure : undefined).toMatchObject({
+      which: 'session',
+      code: 'EXITED',
+      exitCode: 3221225477,
+    });
+    const started = engines.length;
+    // Try Again: the quick deaths are forgotten
+    quick = false;
+    await h.retry();
+    expect(engines).toHaveLength(started + 1);
+    expect(h.status).toMatchObject({ state: 'running' });
+    // nothing to do while one runs
+    await h.retry();
+    expect(engines).toHaveLength(started + 1);
   });
 });

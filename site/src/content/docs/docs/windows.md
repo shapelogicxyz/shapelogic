@@ -18,6 +18,10 @@ protected your PC. Choose **More info**, then **Run anyway**.
 The installer asks whether to install for you only or for everyone on the
 computer, and lets you choose the folder.
 
+If the window opens but cannot open or make a puzzle, security software may
+be blocking ShapeLogic's engine: see
+[When ShapeLogic does not start on Windows](/docs/windows-troubleshooting/).
+
 ## Puzzle files
 
 ShapeLogic registers itself for `.xmpuzzle` puzzle files and `.slsolve` paused

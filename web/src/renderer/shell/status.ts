@@ -5,6 +5,7 @@
 // `flash`, `updateStatus`, `#stCursor`.
 
 import { EngineError } from '../../engine/errors.ts';
+import { writeHint } from '../../engine/write-hint.ts';
 import { byId } from './dom.ts';
 
 let provider: () => string = () => '';
@@ -44,6 +45,34 @@ export function setCursor(text: string): void {
   byId('stCursor').textContent = text;
 }
 
+/** The platform the page runs on (`btApp.platform`; '' without the app's bridge). */
+function platform(): string {
+  return (globalThis as { btApp?: { platform?: string } }).btApp?.platform ?? '';
+}
+
+// the message box of dialog.ts (`tell`), given by the app: this file is
+// also compiled without the page's DOM
+let teller: ((text: string) => void) | null = null;
+
+/** Where a failed write's message with its hint goes (dialog.ts's tell, with View Logs). */
+export function setHintTeller(tell: (text: string) => void): void {
+  teller = tell;
+}
+
+/**
+ * A failed write that Windows may have blocked (Controlled Folder Access,
+ * cleanup item 2.5) is told in a message with the hint, not in a flash;
+ * true when it was.
+ */
+function toldWithHint(text: string): boolean {
+  const hint = writeHint(platform(), text);
+  if (hint === null || teller === null) {
+    return false;
+  }
+  teller(`${text}\n\n${hint}`);
+  return true;
+}
+
 /**
  * Tells the user a call failed: the engine's own message; `invalid_state`
  * as "pause first" (decision 0011), never retried.
@@ -57,9 +86,15 @@ export function reportError(e: unknown, doing?: string): void {
       flash('Pause the solve first', 4000);
       return;
     }
-    flash(`${doing === undefined ? '' : doing + ': '}${e.detail}`, 5000);
+    const text = `${doing === undefined ? '' : doing + ': '}${e.detail}`;
+    if (!toldWithHint(text)) {
+      flash(text, 5000);
+    }
     return;
   }
   console.error(e);
-  flash(`${doing ?? 'Something went wrong'}: ${String(e)}`, 5000);
+  const text = `${doing ?? 'Something went wrong'}: ${e instanceof Error ? e.message : String(e)}`;
+  if (!toldWithHint(text)) {
+    flash(text, 5000);
+  }
 }

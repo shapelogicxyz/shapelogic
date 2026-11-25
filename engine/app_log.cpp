@@ -6,12 +6,17 @@
 #include "shapelogic/app/queries.h"
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
+#include "shapelogic/base/version.h"
 #include "shapelogic/model/problem.h"
+#include "shapelogic/solve/simd_bitset.h"
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <optional>
 #include <string>
+#include <system_error>
 
 namespace bt::engine {
 
@@ -203,7 +208,57 @@ void logCall(State& s, std::string_view method, const Json& params, const Reply&
             problemOf(s, params) + " as \"" + stringParam(params, "path") + "\"");
   } else if (method == "settings.set") {
     logLine(s, LogLevel::Info, "Settings Changed", params.dump());
+    if (params.is_object() && (params.contains("slideFolder") || params.contains("panexFolder")) &&
+        logs(s, LogLevel::Info)) {
+      logLine(s, LogLevel::Info, "Engine Folders",
+              "sliding " + folderText(s.settings.slideFolder) + ", Panex " +
+                  folderText(s.settings.panexFolder));
+    }
   }
+}
+
+std::string startLine(std::uint64_t openFiles) {
+#if defined(NDEBUG)
+  const char* build = "release build";
+#else
+  const char* build = "debug build";
+#endif
+  // the vector paths the covers choose (each behind runtime detection)
+#if defined(BT_SIMD_X86)
+  const char* vectors = cpuHasAvx512() ? "AVX-512" : cpuHasAvx2() ? "AVX2" : "scalar (no AVX2)";
+#elif defined(BT_SIMD_NEON)
+  const char* vectors = "NEON";
+#else
+  const char* vectors = "scalar";
+#endif
+  const std::string files = openFiles == UINT64_MAX ? "unlimited"
+                            : openFiles == 0        ? "unknown"
+                                                    : std::to_string(openFiles);
+  return "shapelogic_engine: " + std::string(logLevelName(LogLevel::Info)) +
+         ": Engine Started: version " + std::string(kVersion) + ", " + build + ", vectors " +
+         vectors + ", open files " + files;
+}
+
+std::string folderText(const std::string& folder) {
+  if (folder.empty()) {
+    return "none";
+  }
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  // as the searches make their paths from the setting (sliding_search.cpp)
+  const fs::path dir(folder);
+  const std::string quoted = "\"" + folder + "\"";
+  if (!fs::is_directory(dir, ec)) {
+    return quoted + (fs::exists(dir, ec) ? " (not a folder)" : " (not made yet)");
+  }
+  const fs::path probe = dir / ".shapelogic-write-probe";
+  bool writable = false;
+  {
+    std::ofstream out(probe, std::ios::binary | std::ios::trunc);
+    writable = out.good() && static_cast<bool>(out << 'x');
+  }
+  fs::remove(probe, ec);
+  return quoted + (writable ? " (exists, writable)" : " (exists, not writable)");
 }
 
 }  // namespace bt::engine

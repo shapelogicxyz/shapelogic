@@ -20,6 +20,7 @@
 
 #include "shapelogic/base/log_line.h"
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -41,5 +42,17 @@ void logLine(State& s, LogLevel level, std::string_view event, std::string_view 
 
 /// The line of a call, when it is one the log tells or it failed.
 void logCall(State& s, std::string_view method, const Json& params, const Reply& reply);
+
+/// The engine's first line on its log stream, written at every start
+/// whatever the `log` setting (the app logs it, cleanup item 2.6):
+/// `shapelogic_engine: INFO: Engine Started: version 2.1.0, release build,
+/// vectors AVX2, open files 4096`. `openFiles` is what raiseOpenFileLimit
+/// got (0: unknown).
+[[nodiscard]] std::string startLine(std::uint64_t openFiles);
+
+/// What a search folder is like, for the log: `"<folder>" (exists,
+/// writable)`, `(not made yet)`, `(not writable)`; `none` for no folder.
+/// Writable is tried with a small file made and removed at once.
+[[nodiscard]] std::string folderText(const std::string& folder);
 
 }  // namespace bt::engine
