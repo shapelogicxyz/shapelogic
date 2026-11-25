@@ -5,7 +5,8 @@
 // (run-card.ts), the solutions as a list or a slider, the player, the
 // sort, the actions and the piece chips in the right (solutions-card.ts),
 // the solution in the view (player.ts over view3d/solution.ts), the keys,
-// the status bar and the view's tag. The problem shown is read from the
+// the status bar and the view's tag (their words are run-text.ts', the
+// questions around a run run-questions.ts'). The problem shown is read from the
 // engine (problem.get; problem.kind once) after every change; its solve
 // is the solve record's (state/solves.ts: the events', a run's end its
 // revision); its solutions are paged by the engine (pager.ts) and read
@@ -43,14 +44,13 @@ import type { SolveRecord, Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
 import { CACHE_DELETED } from '../shell/cache-events.ts';
 import { askConfirm } from '../shell/confirm.ts';
-import { askChoice, tell, VIEW_LOGS } from '../shell/dialog.ts';
-import { byId, esc } from '../shell/dom.ts';
+import { tell } from '../shell/dialog.ts';
+import { byId } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onLayout, tab } from '../shell/layout.ts';
 import { isTray } from '../shell/piece-colors.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
-import { chooseCacheFolder } from '../shell/settings.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
 import type { View3D } from '../view3d/view.ts';
 import { problemChipStyle } from '../puzzle/counts.ts';
@@ -59,12 +59,11 @@ import { Autosave } from './autosave.ts';
 import { LivePreview } from './live-preview.ts';
 import { SolutionPager } from './pager.ts';
 import type { SortKey } from './pager.ts';
-import { LABEL } from './option-text.ts';
 import { Player } from './player.ts';
-import { phaseTag, phaseText, PICKING_UP_NOTE, pickingUpText } from './performance.ts';
 import type { SlidePhase } from './performance.ts';
-import { noteIsTrouble } from './problem-note.ts';
 import { RunCard } from './run-card.ts';
+import { RunQuestions } from './run-questions.ts';
+import { emptyText, statusLine, tagHtml } from './run-text.ts';
 import { openPlacements } from '../entities/placements-dialog.ts';
 import {
   defaultLimits,
@@ -72,18 +71,10 @@ import {
   defaultsOf,
   familyOf,
   normalize,
-  prepareDetails,
   readOptions,
   sameOptions,
-  savedDetails,
-  searchActive,
-  shortCount,
-  slidingDetails,
-  solverLabel,
   solveOptions,
-  stackingDetails,
   stackingSolverOf,
-  stopDetails,
   withOptimizedPaths,
   writeOptions,
 } from './settings.ts';
@@ -166,6 +157,7 @@ export class SolverWorkspace {
   private readonly view3d: View3D;
   private readonly runCard: RunCard;
   private readonly solCard: SolutionsCard;
+  private readonly questions: RunQuestions;
   private readonly kinds = new Map<string, Promise<ProblemKind>>();
   /** Solutions found not to come apart by an analysis, per problem (the client remembers). */
   private readonly inseparables = new Map<string, Set<string>>();
@@ -228,10 +220,20 @@ export class SolverWorkspace {
     });
     this.runCard = new RunCard(this);
     this.solCard = new SolutionsCard(this);
+    this.questions = new RunQuestions({
+      store,
+      whenEnded: (p) => solves.whenEnded(p),
+      carriesOn: (p) => this.autosave.carriesOn(p),
+      family: () => this.family,
+      calling: () => this.calling,
+      searchFully: (p) => this.searchFully(p),
+      carryOn: (p) => this.launchRun(p, 'continue', this.launchOptions(p)),
+      abortSolve: (p) => this.abortSolve(p),
+    });
     this.autosave = new Autosave(store, solves, (p) => {
       // a sliding run carried on after an autosave tells its note at its end too
       if (this.family !== 'brick') {
-        void this.tellNote(p);
+        void this.questions.tellNote(p);
       }
     });
     this.explorer = new Explorer({
@@ -269,8 +271,8 @@ export class SolverWorkspace {
       this.stats.open();
     });
     view.solver = {
-      tag: () => this.tagHtml(),
-      empty: () => this.emptyText(),
+      tag: () => tagHtml(this),
+      empty: () => emptyText(this),
       styleChanged: () => {
         this.player.restyle();
         this.explorer.restyle();
@@ -343,7 +345,7 @@ export class SolverWorkspace {
         this.pageChanged();
       }
       if (c.kind === 'ended' && c.problem !== null && this.family !== 'brick') {
-        void this.askFolder(c.problem);
+        void this.questions.askFolder(c.problem);
       }
       if (c.problem === null || c.problem === this.current) {
         this.runCard.render();
@@ -671,229 +673,14 @@ export class SolverWorkspace {
     return problemChipStyle(this.store.snapshot?.problems.findIndex((q) => q.id === id) ?? 0);
   }
 
-  // the mockup's svTag: the problem's chip and name, and the solution shown
-  private tagHtml(): string {
-    const p = this.problem;
-    if (p === null) {
-      return '';
-    }
-    const n = this.pager?.total ?? 0;
-    const cur = this.player.row !== null && this.sel >= 0 && n > 0;
-    const ex = this.explorer.tag();
-    // the picture stands still while the search visits nothing: why
-    const phase = this.slidePhase;
-    const live = this.previewShown
-      ? `<span class="mute">· Live preview${phase === null ? '' : ` (on hold: ${phaseTag(phase)})`}</span>`
-      : '';
-    return `<span class="chip" style="${this.probChip()}">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${ex !== '' ? ex : cur ? `<span class="mute">· Solution ${String(this.sel + 1)} of ${String(n)}</span>` : live}`;
-  }
-
-  // the mockup's renderSolverScene's message over an empty scene
-  private emptyText(): string {
-    const snap = this.store.snapshot;
-    if (snap === null) {
-      return '';
-    }
-    if (snap.problems.length === 0) {
-      return 'No problems — make one in the Puzzle workspace';
-    }
-    if (this.player.row !== null || this.explorer.mode !== null || this.previewShown) {
-      return '';
-    }
-    if ((this.pager?.total ?? 0) > 0) {
-      return 'Choose a solution in the list to see it here';
-    }
-    const state = this.current === null ? 'idle' : this.stateOf(this.current);
-    if (isActive(state)) {
-      const picking = this.pickingUpMs;
-      if (picking !== null) {
-        return `${pickingUpText(picking)}\n${PICKING_UP_NOTE}`;
-      }
-      const phase = this.slidePhase;
-      const depth = this.record?.progress?.searchDepth ?? 0;
-      return phase === null ? 'Searching…' : `Searching…\n${phaseText(phase, depth + 1)}`;
-    }
-    const p = this.problem;
-    if (p !== null && (p.assemblies ?? 0) > 0 && p.saved === 0 && this.options.disassemble) {
-      return 'No assembly can be taken apart — nothing to show';
-    }
-    return 'Run the solver to see solutions here';
-  }
-
-  /** The status bar in the Solver workspace (HTML): the mockup's svStatus. */
+  /** The status bar in the Solver workspace (HTML): run-text.ts'. */
   statusLine(): string {
-    const snap = this.store.snapshot;
-    if (snap !== null && snap.problems.length === 0) {
-      return 'No problems — make one in the <b>Puzzle</b> workspace';
-    }
-    const p = this.problem;
-    if (p === null) {
-      return '';
-    }
-    const c = this.counts();
-    const dis = this.options.disassemble;
-    return `Problem <b>${esc(p.label)}</b> — ${String(c.assemblies ?? 0)} assemblies found${dis ? `, ${String(c.solutions ?? 0)} can be disassembled` : ''} · Activity: ${esc(this.activity())}`;
-  }
-
-  /** The counters: a run's from its progress, else the problem's. */
-  counts(): {
-    assemblies: number | null;
-    solutions: number | null;
-    /** The problem's time used, earlier runs of a continued solve included. */
-    timeMs: number | null;
-    secondsLeft: number | null;
-    overall: number;
-  } {
-    const p = this.problem;
-    const r = this.record;
-    const g = r?.progress ?? null;
-    // a run's counters until the snapshot shows its end
-    const shownRev = this.store.snapshot?.revision ?? -1;
-    if (g !== null && r !== null && (r.phase !== 'none' || shownRev < r.endRevision)) {
-      return {
-        assemblies: g.assemblies,
-        solutions: g.solutions,
-        timeMs: g.usedMs,
-        secondsLeft: g.secondsLeft,
-        overall: g.overall,
-      };
-    }
-    const done = p?.state === 'solved';
-    return {
-      assemblies: p?.assemblies ?? null,
-      solutions: p?.solutions ?? null,
-      timeMs: p?.timeMs ?? null,
-      secondsLeft: null,
-      overall: done ? 1 : (g?.overall ?? 0),
-    };
-  }
-
-  /** Whether the run shown is paused by a save that carries it on (not by Pause, not aborted). */
-  savingFor(r: SolveRecord | null): boolean {
-    if (r === null || !this.autosave.carriesOn(r.problem)) {
-      return false;
-    }
-    // a sliding search asked for a save point searches on to its level's
-    // end, and is shown searching until its run ends
-    if (r.phase === 'active' && isActive(r.state) && this.autosave.worksOn(r.problem)) {
-      return false;
-    }
-    const g = r.progress;
-    return g?.stage !== 'stopping' || g.stopKind !== 'abort';
+    return statusLine(this);
   }
 
   /** Whether this problem's Abort is under way (the user said yes, the snapshot does not show it yet). */
   isAborting(problem: string): boolean {
     return this.aborting === problem;
-  }
-
-  /** The Activity text: the solver's state (what it has found and gone through is details()). */
-  activity(): string {
-    const r = this.record;
-    const p = this.problem;
-    if (this.analysing) {
-      return 'Analysing disassemblies';
-    }
-    if (this.current !== null && this.isAborting(this.current)) {
-      return 'Aborting the search…';
-    }
-    // paused for a save (the crash recovery copy, File ▸ Save), to carry on
-    if (this.savingFor(r)) {
-      return 'Saving the search, then carrying on…';
-    }
-    if (r !== null && r.phase !== 'none' && r.progress !== null) {
-      switch (r.progress.stage) {
-        case 'stopping':
-          return r.progress.stopKind === 'abort' ? 'Aborting the search…' : 'Pausing the search…';
-        case 'paused':
-          return 'Search paused';
-        case 'done':
-          return 'Search finished';
-        case 'error':
-          return 'Search failed';
-        case 'idle':
-          break;
-        default:
-          return searchActive(this.solverLabel);
-      }
-    }
-    // a run started whose first progress has not come yet
-    if (this.current !== null && isActive(this.stateOf(this.current))) {
-      return searchActive(this.solverLabel);
-    }
-    // a stacking problem's search saved on disk (updateInterface)
-    if (this.savedSearch !== null) {
-      return 'Search paused and saved';
-    }
-    if (r?.failure !== null && r?.failure !== undefined && this.stateOf(r.problem) === 'error') {
-      return 'Search failed';
-    }
-    if (p === null) {
-      return 'No problem to solve';
-    }
-    switch (p.state) {
-      case 'solved':
-        return 'Search finished';
-      case 'solving':
-        return this.continueStartsOver ? 'Search paused, its saved search gone' : 'Search paused';
-      default: {
-        // what Solve's tooltip says when it is grayed (run-card.ts)
-        if (!this.readyToSolve) {
-          return 'Not ready to solve';
-        }
-        return p.state === 'unknown' ? 'Ready to Solve (the puzzle changed)' : 'Ready to Solve';
-      }
-    }
-  }
-
-  /**
-   * The Details text: how much the search has gone through while it runs
-   * (the original's Activity line), else what the problem's solves went
-   * through, as kept in the file; empty when nothing is known.
-   */
-  details(): string {
-    const r = this.record;
-    const g = r?.progress ?? null;
-    const running =
-      r !== null &&
-      r.phase !== 'none' &&
-      g !== null &&
-      g.stage !== 'idle' &&
-      g.stage !== 'paused' &&
-      g.stage !== 'done' &&
-      g.stage !== 'error';
-    if (running) {
-      // a sliding or stacking search being stopped keeps its line, and says
-      // what keeps it from stopping at once
-      const stopping = g.stage === 'stopping';
-      if (g.stage === 'search' || (stopping && this.family !== 'brick')) {
-        const what = this.stacking
-          ? stackingDetails(g.panexSearch, g.searched, g.searchDepth, g.searchTraced)
-          : slidingDetails(g.searched, g.searchDepth);
-        // between moves: what the search does that visits nothing
-        const part =
-          this.sliding && g.slidePhase !== null ? phaseText(g.slidePhase, g.searchDepth + 1) : '';
-        if (part !== '') {
-          return stopping
-            ? `${what} ${part} ${stopDetails(g, this.family, this.savingFor(r))}`
-            : `${what} ${part}`;
-        }
-        return stopping ? `${what} ${stopDetails(g, this.family, this.savingFor(r))}` : what;
-      }
-      // preparing: the piece, and counts that move while one piece takes minutes
-      if (g.stage === 'prepare' || g.stage === 'reduce') {
-        return prepareDetails(g);
-      }
-      // the engine's words for the stage (solveProgress_c::activity), and the search steps
-      const what =
-        g.activity === '' ? '' : `${g.activity.charAt(0).toUpperCase()}${g.activity.slice(1)}.`;
-      const steps = g.iterations > 0 ? `Scanned ${shortCount(g.iterations)} search steps.` : '';
-      return [what, steps].filter((x) => x !== '').join(' ');
-    }
-    const p = this.problem;
-    return p === null
-      ? ''
-      : savedDetails(this.family, p.searched, p.searchDepth, p.triedApart, p.state === 'solving');
   }
 
   /**
@@ -905,11 +692,6 @@ export class SolverWorkspace {
     const p = this.problem;
     const board = this.stacking ? p?.rodSet != null : p?.result != null;
     return p !== null && board && (this.slideError ?? this.stackError) === null;
-  }
-
-  /** The name of the solver the options choose, from the engine's list. */
-  private get solverLabel(): string {
-    return solverLabel(this.store.info, this.family, this.options, this.stackingSolver);
   }
 
   // ---- loading ----
@@ -1331,69 +1113,6 @@ export class SolverWorkspace {
     this.render();
   }
 
-  /**
-   * A sliding or stacking run's note when it ends (the original's
-   * bt_message of the solver note): whether a missing solution is proven,
-   * the search gave up at a limit, or (a stacking search paused) where it
-   * was saved. Not for a pause to autosave, which carries on (a pause the
-   * user asked for meanwhile is told).
-   */
-  private async tellNote(problem: string): Promise<void> {
-    const gen = this.store.generation;
-    await this.solves.whenEnded(problem);
-    if (gen !== this.store.generation || this.autosave.carriesOn(problem)) {
-      return;
-    }
-    try {
-      const st = await this.store.engine.call('solve.status', { problem });
-      if (st.note === null || gen !== this.store.generation) {
-        return;
-      }
-      if (this.family === 'sliding') {
-        const p = await this.store.engine.call('problem.get', { problem });
-        if (gen !== this.store.generation) {
-          return;
-        }
-        if (p.slideGrid > 0 && p.solutions === 0 && p.state === 'solved') {
-          await this.offerFullSearch(problem, st.note);
-          return;
-        }
-      }
-      tell(st.note, noteIsTrouble(st.note));
-    } catch (e) {
-      if (!(e instanceof EngineError) || e.errc !== 'not_found') {
-        reportError(e, 'The solver’s note could not be read');
-      }
-    }
-  }
-
-  /**
-   * Optimized paths found no solution (decision 0029): the note, and a
-   * full search of every stop offered in its place.
-   */
-  private async offerFullSearch(problem: string, note: string): Promise<void> {
-    const gen = this.store.generation;
-    const k = await askChoice('optimizedNoPath', 'No Solution with Optimized Paths', note, [
-      { key: 'ok', label: 'OK' },
-      {
-        key: 'full',
-        label: 'Full Search',
-        kind: 'pri',
-        default: true,
-        tip: 'Solve again, searching every stop',
-      },
-    ]);
-    if (k !== 'full' || gen !== this.store.generation || this.calling) {
-      return;
-    }
-    if (problem === this.current) {
-      this.sel = -1;
-      this.selId = null;
-      this.player.show(null, null);
-    }
-    await this.launchRun(problem, 'start', withOptimizedPaths(this.launchOptions(problem), false));
-  }
-
   /** Keep at most / keep every n-th (not stored, as the original's). */
   setLimits(change: Partial<Limits>): void {
     this.limitsSet = true;
@@ -1457,7 +1176,7 @@ export class SolverWorkspace {
           options = withOptimizedPaths(options, true);
         }
       } else {
-        const use = await this.askOptimizedPaths(problem);
+        const use = await this.questions.askOptimizedPaths(problem);
         if (use === null || problem !== this.current || this.busyNow()) {
           return;
         }
@@ -1467,7 +1186,7 @@ export class SolverWorkspace {
       }
     }
     if (this.sliding && kind === 'continue') {
-      const go = await this.askFromStartAlone(problem, options);
+      const go = await this.questions.askFromStartAlone(problem, options);
       if (!go || problem !== this.current || this.busyNow()) {
         return;
       }
@@ -1481,89 +1200,14 @@ export class SolverWorkspace {
     await this.launchRun(problem, kind, options);
   }
 
-  /**
-   * Continue on a sliding puzzle whose paused search an earlier version
-   * saved from the start alone, where a new search would go from both ends
-   * (decision 0033, sliding.resumeAdvice): whether to carry the saved one
-   * on, the question saying that Abort, then Solve, uses the far faster
-   * search. True without a question for every other paused search; false
-   * when the question was canceled or dismissed (the solve stays paused).
-   */
-  private async askFromStartAlone(
-    problem: string,
-    options: ReturnType<typeof solveOptions>,
-  ): Promise<boolean> {
-    let advice;
-    try {
-      advice = await this.store.engine.call('sliding.resumeAdvice', { problem, options });
-    } catch (e) {
-      reportError(e, 'The saved search could not be looked at');
-      return true;
+  /** Full Search after optimized paths found no solution: a new run of every stop. */
+  private async searchFully(problem: string): Promise<void> {
+    if (problem === this.current) {
+      this.sel = -1;
+      this.selId = null;
+      this.player.show(null, null);
     }
-    if (!advice.fromStartAlone) {
-      return true;
-    }
-    const k = await askChoice(
-      'fromStartAlone',
-      'Carry On the Slower Search?',
-      'This solve was paused in an earlier version, which searched from the start only. This version searches from the start and from the goal until the two meet, which is far faster: a solve of hours can take seconds.\n\nThe saved search can only be carried on as it began, from the start alone. To use the faster search instead, press Cancel, then Abort and Solve: Abort throws the saved search away, and Solve begins a new search from both ends.\n\nCarrying on is only reasonable when the search has already run for a long time and is likely very close to its end.',
-      [
-        {
-          key: 'cancel',
-          label: 'Cancel',
-          kind: 'pri',
-          default: true,
-          tip: 'Leave the solve paused (Abort, then Solve, searches again from both ends)',
-        },
-        {
-          key: 'continue',
-          label: 'Continue',
-          tip: 'Carry on the saved search to its end, from the start alone',
-        },
-      ],
-    );
-    return k === 'continue';
-  }
-
-  /**
-   * Solve on a sliding puzzle whose Automatically use optimized paths is
-   * off (decision 0029): when the board fits a grid (sliding.gridAdvice),
-   * whether this solve should hold the stops to it. True to use it, false
-   * for the full search (and when the board fits none), null when the
-   * question was canceled.
-   */
-  private async askOptimizedPaths(problem: string): Promise<boolean | null> {
-    let advice;
-    try {
-      advice = await this.store.engine.call('sliding.gridAdvice', { problem });
-    } catch (e) {
-      reportError(e, 'The board could not be looked at for optimized paths');
-      return false;
-    }
-    if (advice.grid === 0) {
-      return false;
-    }
-    const k = await askChoice(
-      'optimizedPaths',
-      'Use Optimized Paths?',
-      `This board fits a ${String(advice.grid)}-cell grid. With optimized paths every piece stops only on it: blocks on its lines, smaller pieces where they fit in a block’s hole or where they start or end. The pieces can then stop in ${advice.gridStops.toLocaleString('en-US')} places instead of ${advice.stops.toLocaleString('en-US')}.\n\nThe search is far smaller and faster, but a solution it finds may have more moves than the fewest, and if it finds none a full search may still find one.\n\nTo use optimized paths without being asked, turn on ${LABEL.optimizedPaths} in the Search Options.`,
-      [
-        { key: 'cancel', label: 'Cancel', tip: 'Solve nothing' },
-        {
-          key: 'full',
-          label: 'Full Search',
-          tip: 'Search every stop: the fewest moves, or proof that there is no solution',
-        },
-        {
-          key: 'optimized',
-          label: 'Use Optimized Paths',
-          kind: 'pri',
-          default: true,
-          tip: 'Search only the stops on the grid, for this solve',
-        },
-      ],
-    );
-    return k === null || k === 'cancel' ? null : k === 'optimized';
+    await this.launchRun(problem, 'start', withOptimizedPaths(this.launchOptions(problem), false));
   }
 
   /** The call of Solve or Continue for a problem, shown or not. */
@@ -1583,7 +1227,7 @@ export class SolverWorkspace {
           this.solves.launch(problem, solver);
           this.launched.set(problem, options);
           if (this.family !== 'brick') {
-            void this.tellNote(problem);
+            void this.questions.tellNote(problem);
           }
           return r;
         }),
@@ -1599,90 +1243,6 @@ export class SolverWorkspace {
     } finally {
       this.calling = false;
       this.render();
-    }
-  }
-
-  /** Problems whose cache folder question is open (askFolder): asked once at a time. */
-  private readonly askingFolder = new Set<string>();
-
-  /**
-   * A sliding or stacking run that paused before its search began because
-   * its cache folder could not be written (decision 0028; a drive that is
-   * gone, a folder without write access): whether to choose another cache
-   * folder, try again with the folder as it is, or abort the solve. Asked
-   * after any run's end (a run of another problem, one the autosave carried
-   * on); Escape leaves the solve paused for Continue.
-   */
-  private async askFolder(problem: string): Promise<void> {
-    const gen = this.store.generation;
-    if (this.askingFolder.has(problem)) {
-      return;
-    }
-    this.askingFolder.add(problem);
-    try {
-      let st;
-      try {
-        st = await this.store.engine.call('solve.status', { problem });
-      } catch (e) {
-        if (!(e instanceof EngineError) || e.errc !== 'not_found') {
-          reportError(e, 'The solve’s state could not be read');
-        }
-        return;
-      }
-      const f = st.folderFailure;
-      if (f === null || st.state !== 'paused') {
-        return;
-      }
-      const p = this.store.snapshot?.problems.find((q) => q.id === problem);
-      const name = p === undefined ? 'the problem' : p.name !== '' ? p.name : `problem ${p.label}`;
-      for (;;) {
-        if (gen !== this.store.generation) {
-          return;
-        }
-        const k = await askChoice(
-          'cacheUnwritable',
-          'Cache Folder Can’t Be Written',
-          `The solve of ${name} is paused before its search began: the search can’t write its files in the cache folder.\n\n${f.folder}: ${f.reason}.\n\nChoose another cache folder, try again with the cache folder as it is (once its drive is back, say), or abort the solve.`,
-          [
-            VIEW_LOGS,
-            {
-              key: 'abort',
-              label: 'Abort Solve',
-              kind: 'danger',
-              tip: 'Throw the solve away: its solutions and its paused state',
-            },
-            {
-              key: 'retry',
-              label: 'Try Again',
-              tip: 'Continue the solve with the cache folder as it is',
-            },
-            {
-              key: 'choose',
-              label: 'Choose Folder…',
-              kind: 'pri',
-              default: true,
-              tip: 'Choose another cache folder in Settings, then continue the solve',
-            },
-          ],
-        );
-        if (gen !== this.store.generation) {
-          return;
-        }
-        if (k === 'choose' && !(await chooseCacheFolder())) {
-          // not changed (canceled, or refused): asked again
-          continue;
-        }
-        if (k === 'choose' || k === 'retry') {
-          await this.launchRun(problem, 'continue', this.launchOptions(problem));
-        } else if (k === 'abort') {
-          await this.abortSolve(problem);
-        } else {
-          flash('The solve stays paused: Continue tries again');
-        }
-        return;
-      }
-    } finally {
-      this.askingFolder.delete(problem);
     }
   }
 

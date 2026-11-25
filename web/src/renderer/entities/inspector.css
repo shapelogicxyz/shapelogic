@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* inspector.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.sub2{font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin:10px 0 6px}
+.sub2:first-child{margin-top:2px}
+.surf .sl b{display:block;font-weight:600}
+.surf .sl small{color:var(--muted);font-size:calc(11px + var(--fs))}
+.npad{display:grid;grid-template-columns:62px repeat(4,1fr);gap:4px;align-items:center;margin-top:4px}
+.npad .rl{font-size:calc(10.5px + var(--fs));font-weight:600;color:var(--muted);letter-spacing:.3px}
+.npad .nb{height:32px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;font-size:calc(15px + var(--fs));font-weight:700;color:var(--text);cursor:pointer}
+.npad .nb:hover{border-color:var(--accent);background:var(--accentSoft)}
+.npad.two6{grid-template-columns:62px repeat(2,1fr)}
+html[data-density=compact] .sub2{margin:6px 0 4px}
+html[data-density=compact] .surf .sl small{display:none}
+html[data-density=minimal] .surf .sl small{display:none}
+.xtasks{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}

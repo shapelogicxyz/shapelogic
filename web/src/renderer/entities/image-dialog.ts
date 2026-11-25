@@ -39,6 +39,7 @@
 // file stays small. The engine lays the stack on the cells
 // (shape.setImages); from then on it turns and moves with them.
 
+import './image-dialog.css';
 import type { ImageFit, ImageLayer, ShapeImage } from '../../engine/api.generated.ts';
 import { toBase64 } from '../../engine/base64.ts';
 import { closeDialog, openDialog } from '../shell/dialog.ts';

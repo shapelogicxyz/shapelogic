@@ -27,6 +27,7 @@
 // corridor, wall); its starts and goals are placed on the Puzzle
 // workspace (puzzle/slide-card.ts).
 
+import './editor-card.css';
 import type { Color, ShapeSummary } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';

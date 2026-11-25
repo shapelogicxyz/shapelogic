@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* shape-picker.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.pick-h{font-weight:600;margin-top:4px}
+.pick-cap{font-size:calc(12px + var(--fs));color:var(--muted)}
+.pick-cap-r{grid-column:3}
+.cfm .form .pick-list{min-width:0;width:100%;height:calc(6 * var(--stlb) + 3 * var(--stlg));font:inherit;font-size:calc(13px + var(--fs));border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);padding:2px}
+.pick-arrows{display:flex;flex-direction:column;justify-content:center;gap:var(--stlg);height:calc(6 * var(--stlb) + 3 * var(--stlg))}
+.cfm .pick-arrows .btn{height:var(--stlb);width:var(--stlb);padding:0;justify-content:center}

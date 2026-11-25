@@ -1,0 +1,3 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* workspace.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.pl-why{font-weight:600;font-size:calc(14px + var(--fs))}

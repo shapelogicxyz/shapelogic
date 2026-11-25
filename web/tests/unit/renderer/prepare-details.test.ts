@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SolveProgress } from '../../../src/engine/api.generated.ts';
-import { prepareDetails } from '../../../src/renderer/solver/settings.ts';
+import { prepareDetails } from '../../../src/renderer/solver/run-text.ts';
 
 type Prepare = NonNullable<SolveProgress['prepare']>;
 

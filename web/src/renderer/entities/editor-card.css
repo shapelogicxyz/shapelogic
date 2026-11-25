@@ -1,0 +1,44 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* editor-card.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+#lstrip .lchips{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;align-items:center;gap:inherit;overflow-y:auto;scrollbar-width:none}
+.colhead{display:flex;align-items:center;gap:12px}
+.colbtns{display:flex;align-items:center;gap:2px}
+.colbtns .ib{width:34px;height:34px;border-radius:8px}
+.bigsw{width:40px;height:40px;border-radius:10px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line2);flex:none}
+.colmeta{min-width:78px}
+.colmeta small{display:block;color:var(--muted);font-size:calc(11px + var(--fs));text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+/* the constraint colors, one row shown at a time (the 4px pad leaves room for the chosen ring) */
+.colrow{display:flex;align-items:center;gap:4px;margin-left:-4px}
+.palv{position:relative;flex:1;min-width:0;height:34px;overflow:hidden}
+.pal{display:flex;gap:8px 6px;flex-wrap:wrap;align-items:center;padding:4px}
+.palnav{display:none;flex-direction:column;gap:2px;flex:none}
+.palnav.show{display:flex}
+.palnav .ib{width:22px;height:15px;border-radius:4px}
+.gbtn.cyc::before,.gbtn.cyc::after{content:"";position:absolute;top:50%;margin-top:-4px;border:4px solid transparent}
+.gbtn.cyc::before{left:3px;border-left:none;border-right:5px solid var(--text)}
+.gbtn.cyc::after{right:3px;border-right:none;border-left:5px solid var(--text)}
+html:is([data-density=standard],[data-density=compact]) .bigsw{width:32px;height:32px;border-radius:8px}
+html:is([data-density=standard],[data-density=compact]) .colhead{gap:10px}
+html:is([data-density=standard],[data-density=compact]) .colmeta{flex:none;min-width:0}
+html:is([data-density=standard],[data-density=compact]) .colmeta small{white-space:nowrap}
+html[data-density=compact] .bigsw{width:26px;height:26px;border-radius:6px}
+html[data-density=minimal] .colhead{gap:8px}
+html[data-density=minimal] .bigsw{width:26px;height:26px;border-radius:6px}
+#stage.f2d:not(.stk) .edctl .gbtn.cyc{padding:2px 12px}
+#stage.f2d:not(.stk) .colrow{flex:1;min-width:0}
+#stage.f2d:not(.stk) .edctl .bigsw{width:30px;height:30px;border-radius:8px}
+#stage.f2d:not(.stk) .colbtns .ib{width:30px;height:30px}
+/* the voxel editor's Span row: by default Span alone, then Mirror & Plane (which opens Mirror and the
+   planes) and the layer label; the < after the planes hides them again */
+.mrow .mpr{display:flex;align-items:center;gap:10px;min-width:0}
+.mrow .mpbtn{flex:none;height:54px;padding:2px 8px}
+.mpbtn b,.mpx b{font-weight:600;text-align:center}
+.mpbtn.used::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.pseg .gbtn.mpx{width:31px}
+html:is([data-density=standard],[data-density=compact]) .mrow .mpbtn{height:44px}
+html:is([data-density=standard],[data-density=compact]) .pseg .gbtn.mpx{width:27px}
+html[data-density=compact] .mrow .mpbtn{height:30px;padding:1px 6px;border-radius:6px}
+html[data-density=compact] .pseg .gbtn.mpx{width:auto;padding:2px 8px}
+html[data-density=minimal] .mrow .mpbtn{height:32px;padding:1px 6px}
+html[data-density=minimal] .pseg .gbtn.mpx{width:22px}
+#stage.f2d:not(.stk) .edctl .gbtn.mpx{padding:2px 8px}

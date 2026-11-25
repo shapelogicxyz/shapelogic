@@ -13,6 +13,7 @@
 // where, never over the source); a converted one keeps the document's, as
 // the original kept its file name.
 
+import './imports.css';
 import { baseName, puzzleStem } from './paths.ts';
 import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Grid } from '../../engine/api.generated.ts';

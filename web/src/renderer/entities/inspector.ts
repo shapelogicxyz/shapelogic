@@ -14,6 +14,7 @@
 // "Blocked", `doFill`'s "Filled n interior voxels", the surface's "n inner
 // voxels updated", `doMin`'s "Already at minimum resolution").
 
+import './inspector.css';
 import type { Grid, Methods, ShapeTask } from '../../engine/api.generated.ts';
 import { isEngineError } from '../../engine/errors.ts';
 import { meshArrays } from '../../engine/frames.ts';

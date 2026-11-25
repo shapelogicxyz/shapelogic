@@ -11,6 +11,7 @@
 // which starts the count at once). The engine does the work; the words are
 // state/placements.ts.
 
+import './placements-dialog.css';
 import type { PlacedBoard, SolveOptions, Tray } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Store } from '../state/store.ts';

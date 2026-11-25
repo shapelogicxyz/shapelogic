@@ -19,6 +19,7 @@
 // document's. A position saved as the Start or the Goal is a change of the
 // document, one undo step there, refused while a solve runs.
 
+import './workspace.css';
 import { puzzleStem } from '../shell/paths.ts';
 import type { ProblemSummary } from '../../engine/api.generated.ts';
 import type { BtApp } from '../../engine/app-bridge.ts';

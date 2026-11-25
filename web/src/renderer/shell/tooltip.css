@@ -1,0 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tooltip.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+/* ---- the tooltips the page draws (shell/tooltip.ts; macOS stopped showing the native ones) ---- */
+.hovertip{position:fixed;z-index:1000;max-width:320px;padding:4px 8px;border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);box-shadow:var(--shadow);font-size:calc(12px + var(--fs));line-height:1.35;white-space:pre-line;overflow-wrap:anywhere;pointer-events:none}
+.hovertip[hidden]{display:none}

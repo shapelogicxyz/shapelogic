@@ -14,6 +14,7 @@
 // (Snapshot.rodSets). The rod history of the original is the document's
 // undo. Frozen while anything solves (the original grayed the fields).
 
+import './rods-card.css';
 import { LIMITS } from '../../engine/api.generated.ts';
 import type { RodSet } from '../../engine/api.generated.ts';
 import { rodFieldsOff } from '../state/stacking.ts';

@@ -1,0 +1,26 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* board.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.pl-svg{display:block;overflow:visible}
+.pl-cell{stroke:none}
+.pl-grid{fill:none;stroke:var(--pl-grid);stroke-width:1;pointer-events:none}
+.pl-tray{filter:drop-shadow(0 3px 5px rgba(0,0,0,.3))}
+.pl-trayfoot{stroke:rgba(0,0,0,.45);stroke-width:1}
+.pl-trayline{fill:none;stroke:rgba(0,0,0,.55);stroke-width:1}
+.pl-trayedge{fill:none;stroke:#fff;stroke-width:2}
+.pl-wood{opacity:.42;pointer-events:none}
+.pl-sunk{pointer-events:none}
+.pl-shadow{fill:none;stroke:rgba(0,0,0,.4)}
+.pl-wall{fill:rgba(0,0,0,.3)}
+.pl-hollow{fill:none;stroke:rgba(0,0,0,.35);stroke-width:1;pointer-events:none}
+.pl-cell.var{fill-opacity:.5;stroke:var(--text);stroke-width:1.6;stroke-dasharray:4 3}
+.pl-goal{fill-opacity:.3;pointer-events:none}
+/* Simple Pieces: flat, no sheen or shadows */
+.pl-board.simple .pl-face{fill:none;stroke:rgba(0,0,0,.35)}
+.pl-board.simple .pl-body,.pl-board.simple .pl-tray{filter:none}
+.pl-mark{fill:none;stroke-width:1.5;stroke-linejoin:round}
+.pl-mark.under{stroke:rgba(0,0,0,.6);stroke-width:3}
+.pl-labels{pointer-events:none}
+.pl-body{filter:drop-shadow(1px 1px 1.5px rgba(0,0,0,.55));pointer-events:none}
+.pl-face{fill:url(#pl-sheen);stroke:rgba(0,0,0,.28);stroke-width:1}
+.pl-piece.drag .pl-body{filter:drop-shadow(2px 4px 5px rgba(0,0,0,.45))}
+.pl-name{text-anchor:middle;font-weight:600;pointer-events:none}

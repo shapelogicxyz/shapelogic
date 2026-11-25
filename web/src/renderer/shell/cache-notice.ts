@@ -10,6 +10,7 @@
 // process's `start` list); Ignore leaves the files, and the next start
 // names them again.
 
+import './cache-notice.css';
 import type { BtApp, CacheItem } from '../../engine/app-bridge.ts';
 import { noticeHtml, noticeItems, totalText } from './cache-text.ts';
 import { cacheDeleted } from './cache-events.ts';

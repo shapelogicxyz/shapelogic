@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* stack-board.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+/* a stacking puzzle's board (decision 0042): the rods from the front, each disc a bar */
+.sk-svg{display:block;overflow:visible}
+.sk-peg,.sk-base{fill:#8c8c94}
+.sk-step{fill:var(--text);fill-opacity:.07}
+.sk-bridge{fill:var(--text);fill-opacity:.05;stroke:var(--line2);stroke-width:1;stroke-dasharray:5 4}
+.sk-channel{fill:none;stroke:var(--text);stroke-opacity:.22;stroke-linecap:round}
+.sk-bar{stroke:rgba(0,0,0,.4);stroke-width:1}
+.sk-sheen{fill:url(#sk-sheen);pointer-events:none}
+.sk-disc.drag .sk-bar,.sk-disc.held .sk-bar{filter:drop-shadow(1px 4px 4px rgba(0,0,0,.4))}
+.sk-name{text-anchor:middle;dominant-baseline:central;font-weight:600;pointer-events:none}
+.pl-board.nolabels .sk-name{display:none}

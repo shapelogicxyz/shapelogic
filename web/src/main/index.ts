@@ -43,7 +43,7 @@
 // system's application data folder for ShapeLogic)
 // on every engine before the page may call it, and again on every engine
 // when Settings ▸ General changes the cache folder; exports written only
-// where the dialog said (app-ipc.ts).
+// where the dialog said (ipc/files.ts).
 //
 // For the e2e tests: BT_USER_DATA puts the app's data (the store, the default cache
 // folder's saved searches, the rescue copy) in a directory of the test's own; with BT_CALL_LOG set
@@ -99,7 +99,9 @@ import type {
 } from '../engine/app-bridge.ts';
 import { NodeTransport } from '../engine/node-transport.ts';
 import { EngineStartError } from '../engine/spawn-failure.ts';
-import { installAppIpc, openHelp, post } from './app-ipc.ts';
+import { installAppIpc } from './app-ipc.ts';
+import { post } from './ipc/register.ts';
+import { openHelp } from './ipc/window.ts';
 import {
   AppLog,
   EngineLines,

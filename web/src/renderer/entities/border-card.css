@@ -1,0 +1,6 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* border-card.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.tborder .seg{flex:none}
+.tborder .tbcolor{display:flex;align-items:center;gap:6px;flex:none}
+.tborder .tbsw{width:26px;height:26px;border-radius:6px;border:1px solid var(--line2);cursor:pointer;padding:0;flex:none}
+.tborder .tbsw:hover{border-color:var(--accent)}

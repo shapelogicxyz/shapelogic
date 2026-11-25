@@ -12,6 +12,7 @@
 // out no move of its own. A move made again (Undo, Redo, the playback) is
 // drawn along its route.
 
+import './board.css';
 import type { BorderMaterial, ShapeImage } from '../../engine/api.generated.ts';
 import { esc } from '../shell/dom.ts';
 import { compose, pictureToCells } from '../shell/picture-math.ts';

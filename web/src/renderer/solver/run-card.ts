@@ -30,6 +30,7 @@
 // stacks ("Fix the puzzle on the Puzzle tab first"), Continue in Solve's
 // place for a saved search ("Carry on …").
 
+import './run-card.css';
 import { isActive } from '../state/solves.ts';
 import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
@@ -55,13 +56,13 @@ import {
   kindOf,
   normalize,
   readOptions,
-  shortCount,
   slidingSolver,
   SORT_CHOICES,
   stackingSolverLabel,
 } from './settings.ts';
 import type { BoxName, SearchOptions } from './settings.ts';
 import { problemNote } from './problem-note.ts';
+import { activity, counts, details, savingFor, shortCount } from './run-text.ts';
 import type { FinishedSolve } from './problem-note.ts';
 import { formatSpan } from './span.ts';
 import type { ProblemSummary } from '../../engine/api.generated.ts';
@@ -157,7 +158,7 @@ export class RunCard {
             shown && ws.stacking && ws.savedSearch !== null,
             ws.isAborting(q.id)
               ? 'abort'
-              : ws.savingFor(r ?? null)
+              : savingFor(ws, r ?? null)
                 ? 'save'
                 : g?.stage === 'stopping'
                   ? (g.stopKind ?? 'pause')
@@ -499,7 +500,7 @@ export class RunCard {
               'Throw away this problem’s solve: its solutions and what its search went through (Undo brings them back)',
             )),
     );
-    const c = ws.counts();
+    const c = counts(ws);
     const pct = Math.max(0, Math.min(1, c.overall)) * 100;
     byId('slvBar').style.width = `${pct.toFixed(1)}%`;
     byId('slvPct').textContent = `${pct.toFixed(1)}%`;
@@ -521,7 +522,7 @@ export class RunCard {
         : `<span class="k">Moves</span><span class="v" id="slvMoves" style="grid-column:span 3">${moves === null ? '—' : shortCount(moves)}</span>`;
     setHtml(
       byId('slvStat'),
-      `<span class="k">Activity</span><span class="v" id="slvActivity" style="grid-column:span 3">${esc(ws.activity())}</span>${movesLine}<span class="k">Details</span><span class="v" id="slvDetails" style="grid-column:span 3">${esc(ws.details()) || '—'}</span><span class="k">Assemblies</span><span class="v" id="slvAsm">${c.assemblies === null ? '—' : String(c.assemblies)}</span><span class="k">Solutions</span><span class="v" id="slvSols">${ws.options.disassemble || (c.solutions ?? 0) > 0 ? (c.solutions === null ? '—' : String(c.solutions)) : '—'}</span><span class="k">Time used</span><span class="v">${c.timeMs === null ? '—' : formatSpan(c.timeMs)}</span><span class="k">Time left</span><span class="v">${leftText}</span>` +
+      `<span class="k">Activity</span><span class="v" id="slvActivity" style="grid-column:span 3">${esc(activity(ws))}</span>${movesLine}<span class="k">Details</span><span class="v" id="slvDetails" style="grid-column:span 3">${esc(details(ws)) || '—'}</span><span class="k">Assemblies</span><span class="v" id="slvAsm">${c.assemblies === null ? '—' : String(c.assemblies)}</span><span class="k">Solutions</span><span class="v" id="slvSols">${ws.options.disassemble || (c.solutions ?? 0) > 0 ? (c.solutions === null ? '—' : String(c.solutions)) : '—'}</span><span class="k">Time used</span><span class="v">${c.timeMs === null ? '—' : formatSpan(c.timeMs)}</span><span class="k">Time left</span><span class="v">${leftText}</span>` +
         (fail === null
           ? ''
           : `<span class="slv-fail" id="slvFail" style="grid-column:1 / -1">${ic('warn', 14)}<span>The solve failed: ${esc(fail.message)}</span></span>`),

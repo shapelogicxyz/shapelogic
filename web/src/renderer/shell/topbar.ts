@@ -8,6 +8,7 @@
 // (files.ts, menus.ts). A file another window owns is marked read-only,
 // in the bar and the title (decision 0036).
 
+import './topbar.css';
 import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';

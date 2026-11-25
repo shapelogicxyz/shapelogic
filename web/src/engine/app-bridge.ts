@@ -532,7 +532,7 @@ export type AppInfo = { platform: string; version: string } | null;
  * - `sync`: renderer to main, answered at once (sendSync);
  * - `invoke`: renderer to main, answered (ipcRenderer.invoke,
  *   ipcMain.handle); `result` is what main answers, a window that is not
- *   the app's too (main/app-ipc.ts's `handle` gives each channel's refusal);
+ *   the app's too (main/ipc/register.ts's `handle` gives each channel's refusal);
  * - `event`: main to renderer (webContents.send, ipcRenderer.on).
  * The preload sends only through these types and main registers through
  * them; `APP_CHANNELS` is the same table as data, which the unit tests

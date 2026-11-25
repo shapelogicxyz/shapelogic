@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* status-window.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.stt{border-collapse:collapse;font-size:calc(12px + var(--fs));font-variant-numeric:tabular-nums}
+.stt th{font-weight:600;color:var(--muted);padding:3px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.stt td{padding:3px 6px;text-align:center;white-space:nowrap}
+.stt td:nth-child(2){text-align:left}
+.stt tbody tr:nth-child(even){background:var(--panel2)}
+.stt td i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:middle}
+.stt .chip{height:18px}

@@ -1,0 +1,7 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* workspace.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+#stage.tltb .ghelp{display:none}
+#stage.tltb #trayArea{flex:1;min-width:0;min-height:0;display:grid;place-items:center;overflow:hidden;touch-action:none}
+#stage.tltb :is(#garea,#selbar,#lstrip,#toolStrip,#modRow,#planeSub,#colFoot,#gridSize){display:none}
+#stage.tlt :is(#gridSize,#lstrip){display:none}
+#stage.tltb .bviews{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 10px}

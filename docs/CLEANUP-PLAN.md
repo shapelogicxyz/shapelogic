@@ -196,7 +196,7 @@ again, and comes last.
 - [x] Stage 11: one source of truth: core, engine, API, Python, CLI (11.3's engine.info matrices handed to 12.8; 11.9's finding fixed by checkpoint E)
 - [x] Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
 - [x] Stage 12: one source of truth: front end (12.8's engine.info grid rules are an `Engine:` commit of their own; a contract flake seen there is noted under 12.8)
-- [ ] Stage 13: splits: front end
+- [x] Stage 13: splits: front end (13.1 moved the module-owned rules, 553 of them, and two sections' markup; the cards' static skeletons stay in index.html, with their reason)
 - [ ] Stage 14: dead code and the last traps
 - [ ] Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (decided: D1)
 - [ ] Stage 16: damaged and hostile files (16.6 done on 2026-11-25)
@@ -6008,7 +6008,7 @@ items name, the screenshot tests, `just site-build` (12.11's demo hash).
 
 ## Stage 13: splits: front end
 
-- [ ] **13.1 CSS and markup with their modules** (separate; M per area; D3: decided)
+- [x] **13.1 CSS and markup with their modules** (separate; M per area; D3: decided)
   - *Where:* `web/src/renderer/styles.css` (51 commits since September, the
     most of any hand-written file) and `index.html` (30). For example,
     ff4fce7 (the tray border) added `#secBorder` and `#borderColorPick` to
@@ -6043,8 +6043,73 @@ items name, the screenshot tests, `just site-build` (12.11's demo hash).
       dialogs.
     - `security.test.ts:336` reads only `styles.css`; extend it to every
       `.css` file.
+  - Done (2026-11-25):
+    - The rules moved by a script over the sheet (postcss): a rule goes
+      to a module when every selector of it names a class or id that
+      exactly one TS module writes and index.html does not (591 such
+      rules, the review's "about 600"). DOM-free writers go to the module
+      that shows their markup (`performance.ts` to `solutions-card`,
+      `new-grids.ts` to `files`, `cache-text.ts` to `cache-notice`,
+      `stack-look.ts` to `stack-board`, `log-rows.ts` and `log-export.ts`
+      to `log-files`); the shared controls (`widgets.ts`' steppers,
+      switches and key rows), the dialogs' frame (`dialog.ts`) and the
+      tray picture (`state/tilted.ts`, which several views show) stay in
+      `styles.css`. So 553 rules, with their density overrides and their
+      `@media`/`@container` wrappers, in their order, moved into 40
+      sheets beside their modules (`<module>.css`, compact like
+      `styles.css`; `.prettierignore` now names `src/renderer/**/*.css`),
+      each imported as its module's first import (`assets.d.ts` declares
+      `*.css`). `styles.css` went from 1,558 to 1,035 lines: the tokens,
+      the shared controls, the layout, the densities and the rules of
+      the static markup (244 rules whose tokens only index.html has);
+      its header says where a new rule goes. The page still links
+      `styles.css` before its script, so the modules' sheets come after
+      it in the bundle (one CSS file; the demo's too), as the rules sat
+      at the sheet's end before.
+    - The cascade, checked three ways. (1) The computed style of every
+      element and its `::before`/`::after`, in 187 states (BallRoom
+      solved, a Klotski, a Hanoi stacking and Triple Play, each tab they
+      have, in eleven looks: the three densities in both themes, Small
+      and Large fonts, the tabs at the left with the boring top bar;
+      then eleven dialogs in three looks), before and after the move in two runs
+      each: no difference beyond what two runs of the same build differ
+      in, but the pieces scene's labels on the hidden Puzzle view, left
+      where its last draw put them (their live positions agree). (2) A
+      static check of every pair of rules whose order the move changed,
+      with equal specificity, a property in common and subjects that
+      could be one element (class, tag and id co-occurrence from the
+      markup): 373 pairs, none of which ever matched one element in any
+      of those states; the rest need two containers nested that the
+      markup never nests. (3) D3's screenshots, below. Scratch scripts,
+      not kept.
+    - Markup: the two sections of ff4fce7's example, the inspector's Tilt
+      & tolerance and Tray border, are drawn by `tilt-card.ts` and
+      `border-card.ts` into empty mount points (`#secTilt`, `#secBorder`).
+      Decided: the cards' other static skeletons (the eight cards, the
+      Settings window) stay in index.html with their 244 rules in
+      `styles.css`: several modules find their parts by id before or
+      while the owner is built (layout, the workspaces, the cards), and
+      moving them changes the whitespace text the e2e specs and the
+      tooltips read; a section with one owner can follow these two.
+    - Tests: `tests/e2e/dialogs.e2e.ts` (D3): the Settings window, File ▸
+      New and Export ▸ STL (the preview masked), light at Standard and
+      dark at Minimal, recorded on the old sheet, passing on the new;
+      seen failing with one rule of `settings.css` changed. The
+      security test's "names nothing remote" reads every sheet
+      (`sources(dir, '.css')`). New `tests/unit/renderer/sheets.test.ts`:
+      each sheet is its module's first import and no other module's, and
+      the page links `styles.css` before its script; seen failing with
+      `topbar.ts`' import removed. `css-tokens.test.ts` already walks
+      every `.css` file. Dev injection: the CSP's `style-src` has
+      `'unsafe-inline'`, which Vite's injected `<style>` needs (read, not
+      run: `just app-dev` opens a window).
+    - Branch (rule 11): `feature/v2-idea-3-cutting-plane-editor` adds
+      `.cutbar`/`.cutpos` rules to `styles.css` (written only by its
+      `entities/cut-plane.ts`): at its merge they go to
+      `entities/cut-plane.css`, imported first by that module. Its one
+      index.html line stays in index.html.
 
-- [ ] **13.2 `solver/workspace.ts` split by concern** (separate; M)
+- [x] **13.2 `solver/workspace.ts` split by concern** (separate; M)
   - *Where:* `web/src/renderer/solver/workspace.ts` (2,154 lines; 37 commits
     since September).
     - Its commits' changed lines, by method: the constructor in 15 commits,
@@ -6067,8 +6132,34 @@ items name, the screenshot tests, `just site-build` (12.11's demo hash).
   - *Tests:* the solver, sliding, stacking, prepare-details and performance
     unit tests; the Activity and Details checks in the solver, sliding and
     stacking e2e specs.
+  - Done (2026-11-25):
+    - `solver/run-text.ts` (DOM-free): `tagHtml`, `emptyText`,
+      `statusLine`, `counts`, `savingFor`, `activity`, `details` (the
+      solver's name inside) over `RunView`, a narrow read-only view that
+      `SolverWorkspace` satisfies (checked where it passes itself), and
+      the status wording from `solver/settings.ts` (`shortCount`,
+      `stackingDetails`, `prepareDetails`, `slidingDetails`,
+      `stopDetails`, `savedDetails`, `searchActive`). The bodies moved
+      unchanged (`this.` to `v.`). The run card calls them with the
+      workspace; the workspace keeps `statusLine()` for the status bar.
+      `settings.ts` keeps the options and the solvers' names (12.7's).
+    - `solver/run-questions.ts`: `RunQuestions` with `tellNote` (and the
+      Full Search offer), `askFromStartAlone`, `askOptimizedPaths`,
+      `askFolder` (its open-question set) over `RunQuestionsHost`; what an
+      answer does stays the workspace's (`searchFully`, `carryOn`,
+      `abortSolve`), so no run is started outside it.
+    - `workspace.ts` 2,198 to 1,758 lines (it had grown since the
+      review's 2,154); the analysis part was left in place.
+    - Tests: new `tests/unit/renderer/run-text.test.ts` (5 cases: the
+      Activity line's states, a save that carries on, the counters, the
+      status bar and Details, the tag and the empty scene) over a view
+      made by hand, possible now that the module is DOM-free; seen
+      failing with `activity`'s saving branch removed. The sliding,
+      stacking and prepare-details tests import the wording from
+      `run-text.ts`. The solver, sliding, stacking, explore and tilted
+      e2e specs pass.
 
-- [ ] **13.3 `view.ts`: one layer per puzzle kind** (separate; L; after 10.1 to 10.3)
+- [x] **13.3 `view.ts`: one layer per puzzle kind** (separate; L; after 10.1 to 10.3)
   - *Where:* `web/src/renderer/view3d/view.ts` (1,712 lines; 27 commits).
     - Each puzzle-kind commit (4cb6e2b, 18945de, c201e81, dc30490, 26857b5,
       ff4fce7) adds:
@@ -6091,8 +6182,46 @@ items name, the screenshot tests, `just site-build` (12.11's demo hash).
     - The mesh loaders become 12.9's.
     - One keyed `refresh()` over all the cards in `entities/workspace.ts`.
   - *Tests:* all the view e2e specs and the screenshot tests.
+  - Done (2026-11-25):
+    - `view3d/layer.ts`: `ViewLayer` {`reload`, `themed`,
+      `setResolution`, `sync`, `drawPuzzle`} and `LayerHost` (the store,
+      renderer, camera, shared meshes, display, `shapeRevision`, the
+      solution shown). One file per puzzle kind: `sliding-layer.ts` (the
+      Puzzle view's START and GOAL trays drawn over the pieces scene's
+      band, `homeFootprint`, the walls round the Solver's solution, both
+      tray borders), `stacking-layer.ts` (the board: the Entities' rod
+      set, the Puzzle's stacking, the player's pegs; `renderer.tilt`; the
+      rod set's tag and extent), `tilted-layer.ts` (the turn, both
+      trays, the home view straight down, the board's checker blocks for
+      the pieces scene). `resized`, `reload`, `themeChanged`, the look
+      (`applyLook`, which calls each layer's `sync` where `syncTurn` was)
+      and the Puzzle view's drawing (the first layer whose `drawPuzzle`
+      draws it, else the pieces scene) walk the layers. Decided: in place
+      of a `describe()`, each layer writes its own `#vp` marks where what
+      it shows changes, as before; the code moved unchanged.
+    - `view3d/pointer.ts`: `ViewPointer`, the navigation and picking (one
+      ray an event, the edit host's hover and click, Alt-drags of the
+      Solver's pieces, a click on a piece of the pieces scene) over
+      `PointerHost`; `ViewMods` and `EditHost` live there (re-exported by
+      `view.ts`). `view.ts` 1,778 to 1,140 lines.
+    - The mesh loaders were 12.9's already (`MeshSlot`).
+    - `entities/workspace.ts`: the document, selection and editor-state
+      paths call one `refresh(why)` over an ordered table of the cards
+      and views, each row naming the changes that draw it (the same calls
+      in the same order as the three lists were).
+    - Tests: every view, picking, entities, puzzle, sliding, stacking,
+      tilted, tray-border, solver, explore, shapes and exports spec
+      passes, with the reference screenshots (light only; there are no
+      dark references), and `perf.e2e.ts` alone; no new test (the
+      layers' behavior is the view specs').
+    - Branch (rule 11): `feature/v2-idea-3-cutting-plane-editor` edits
+      `view.ts` (292 lines): its `CutHost`, the `'cut'` drag and the
+      pointer handlers' cut branches go to `pointer.ts` (`PointerHost`
+      gains the cut host), `setCut`, the section and its animation stay
+      in `view.ts`; its `entities/workspace.ts` lines are unaffected but
+      for the refresh table if it adds a card there.
 
-- [ ] **13.4 `app-ipc.ts` split by its groups** (separate; M; after 12.2)
+- [x] **13.4 `app-ipc.ts` split by its groups** (separate; M; after 12.2)
   - *Where:* `web/src/main/app-ipc.ts` (670 lines; 22 commits) and `index.ts`
     (931; 24 commits).
   - *Change:* one module per group, each with its own small dependency
@@ -6104,9 +6233,45 @@ items name, the screenshot tests, `just site-build` (12.11's demo hash).
     - the log;
     - the CLI;
     - the window: close, goal and help.
+  - Done (2026-11-25): `web/src/main/ipc/`, one module per group, each
+    with its own small dependency interface: `files.ts` (`FilesIpc`, 3:
+    the open, save and folder dialogs, `KINDS`, the export grants and
+    writes, a dropped file), `store.ts` (`StoreIpc`, 8: the stored
+    settings and layouts, recent files, the app's info, the update
+    check), `rescue.ts` (`RescueIpc`, 4), `cache.ts` (`CacheIpc`, 4: the
+    cache folder and the cache manager), `log.ts` (`LogIpc`, 2), `cli.ts`
+    (`CliIpc`, 2), `window.ts` (`WindowIpc`, 8: the menus' state, the
+    close, New Window, a file's owner, the goal window, the help links,
+    `openHelp`) and, decided as an eighth group so the window's stays
+    small, `engine.ts` (`EngineIpc`, 6: `bt:call`, the first document,
+    Try Again, held commands, Copy and Save Diagnostics). `register.ts`
+    holds 12.2's `handle`, `on` and `sync` (`registrar(window)`: the
+    sender checked once), `post`, and what several groups share:
+    `startDir` (where a dialog starts) and `logRefusedWrite`.
+    `app-ipc.ts` (736 to 59 lines) is `installAppIpc`, which installs the
+    eight; `AppIpcHost` is their interfaces joined (`IpcWindows &
+    FilesIpc & …`), so `index.ts`' one call stays and a group's new need
+    is a member of its own interface. The handlers moved unchanged.
+    Tests: `security.test.ts` finds the help and releases `openExternal`
+    calls in `ipc/window.ts` and `ipc/store.ts`; its check that main
+    registers exactly the table's channels passes unchanged through
+    `installAppIpc`. The `security`, `preload`, `cli-tool` and `app` unit
+    tests pass; the files, logs, ipc, cache, windows, engine-failure,
+    security, exports and piece-images e2e specs pass. Decisions 0036 and
+    0039 still name `app-ipc.ts` for `bt:claim-path` and `KINDS.moves`
+    (history, left as written).
 
 **Gates for stage 13:** `just app-check`, `just app-test`, the e2e specs of
 each moved area, the screenshot tests (light and dark).
+Run (2026-11-25): `just app-check` passes; `just app-test` 682 of 682 (68
+files, the release engine's tests among them); on a build of its own
+(`BT_OUT_DIR`) every e2e spec file passed after the last source edit, in
+two runs of the files the moves touch (87 and 73 tests; 13.1 moved every
+area's rules, so that is all of them) and `perf.e2e.ts` alone; the view's
+reference screenshots are light only, the new dialog ones light and dark.
+`just site-demo --check` rebuilt the demo after the last source edit and
+`just site-build` passes (8 of 8). No C++ changed: `just test-all` and
+`just check` were not run.
 
 ## Stage 14: dead code and the last traps
 

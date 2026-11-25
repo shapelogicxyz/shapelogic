@@ -14,6 +14,7 @@
 // docs/mockup/index.html: `renderPzSel`, `renderPzGroups`,
 // `renderPzRules`, and the #pzSel, #pzGroups and #pzRules handlers.
 
+import './piece-card.css';
 import type { Color } from '../../engine/api.generated.ts';
 import { byId, esc } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';

@@ -21,10 +21,10 @@ import {
   normalize,
   readOptions,
   solveOptions,
-  stackingDetails,
   stackingSolverOf,
   writeOptions,
 } from '../../../src/renderer/solver/settings.ts';
+import { stackingDetails } from '../../../src/renderer/solver/run-text.ts';
 import {
   discSizeOf,
   rodAt,

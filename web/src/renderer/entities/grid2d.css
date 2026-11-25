@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* grid2d.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+#garea svg .rul{font-family:system-ui,sans-serif}
+/* a tilted puzzle's piece: the cells the tray cuts are gray and take no pointer */
+#garea .cell.tcut{pointer-events:none}
+/* a tilted puzzle's piece: the grid turned in its tray, the tray's walls and outline over the cells */
+#garea .twalls polygon{fill:var(--twall)}
+#garea .tedge{fill:none;stroke:var(--text);stroke-width:2.5}

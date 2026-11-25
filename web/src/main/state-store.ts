@@ -137,7 +137,7 @@ export class StateStore {
     return this.data.bounds;
   }
 
-  /** The folder a file dialog gave last (app-ipc.ts starts the next dialog there). */
+  /** The folder a file dialog gave last (ipc/register.ts's startDir starts the next dialog there). */
   get lastDir(): string | undefined {
     return this.data.lastDir;
   }

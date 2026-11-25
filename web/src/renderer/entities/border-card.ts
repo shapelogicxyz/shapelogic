@@ -13,6 +13,7 @@
 // chosen (1 when Thick is picked). Each change is one shape.setBorder
 // (one undo step); the section shows what the engine then says.
 
+import './border-card.css';
 import type { ShapeSummary, TrayBorder } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
@@ -46,6 +47,9 @@ export class BorderCard {
 
   constructor(host: BorderHost) {
     this.host = host;
+    // the section's frame, into its place in the inspector (index.html)
+    byId('secBorder').innerHTML =
+      '<button class="sh" title="Show or hide the tray border’s settings: whether the tray shows its border, and its corners, color, image and material"><span class="chev"></span>Tray border<span class="sum" id="borderSum"></span></button><div class="sb" id="borderBody"></div>';
     this.install();
   }
 

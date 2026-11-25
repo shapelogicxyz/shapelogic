@@ -42,15 +42,15 @@ import {
 const WEB = resolve(import.meta.dirname, '../..');
 const ROOT = resolve(WEB, '..');
 
-/** Every .ts file under a directory of web/src, with its text. */
-function sources(dir: string): { file: string; text: string }[] {
+/** Every .ts file (or every file of another ending) under a directory of web/src, with its text. */
+function sources(dir: string, ext = '.ts'): { file: string; text: string }[] {
   const out: { file: string; text: string }[] = [];
   const walk = (d: string): void => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       const p = join(d, e.name);
       if (e.isDirectory()) {
         walk(p);
-      } else if (e.name.endsWith('.ts')) {
+      } else if (e.name.endsWith(ext)) {
         out.push({
           file: p.slice(WEB.length + 1).replaceAll('\\', '/'),
           text: readFileSync(p, 'utf8'),
@@ -336,8 +336,10 @@ describe('the page', () => {
   it('names nothing remote', () => {
     const renderer = sources('src/renderer').map((s) => s.text);
     const html = readFileSync(resolve(WEB, 'src/renderer/index.html'), 'utf8');
-    const css = readFileSync(resolve(WEB, 'src/renderer/styles.css'), 'utf8');
-    for (const text of [...renderer, html, css]) {
+    // every sheet: styles.css and the modules' own (cleanup item 13.1)
+    const sheets = sources('src/renderer', '.css');
+    expect(sheets.map((s) => s.file)).toContain('src/renderer/styles.css');
+    for (const text of [...renderer, html, ...sheets.map((s) => s.text)]) {
       const urls = [...text.matchAll(/https?:\/\/[^\s'"`)]+/g)].map((m) => m[0]);
       // only XML namespaces, which nothing loads
       expect(urls.filter((u) => !u.startsWith('http://www.w3.org/'))).toEqual([]);
@@ -380,13 +382,13 @@ describe('the addresses opened outside the app', () => {
     // the renderer's links and the update dialog's Download, and the start-up
     // page about WebGL2 (gpu-check.ts)
     expect(occurrences(/openExternal\(/g)).toEqual([
-      'src/main/app-ipc.ts',
-      'src/main/app-ipc.ts',
       'src/main/index.ts',
+      'src/main/ipc/store.ts',
+      'src/main/ipc/window.ts',
     ]);
-    const ipc = SRC.find((s) => s.file === 'src/main/app-ipc.ts')?.text ?? '';
-    expect(ipc).toContain('shell.openExternal(helpUrl(link))');
-    expect(ipc).toContain('shell.openExternal(SYSTEM_URLS.releases)');
+    const text = (file: string): string => SRC.find((s) => s.file === file)?.text ?? '';
+    expect(text('src/main/ipc/window.ts')).toContain('shell.openExternal(helpUrl(link))');
+    expect(text('src/main/ipc/store.ts')).toContain('shell.openExternal(SYSTEM_URLS.releases)');
     const main = SRC.find((s) => s.file === 'src/main/index.ts')?.text ?? '';
     expect(main).toContain('shell.openExternal(SYSTEM_URLS.linuxGraphics)');
   });
@@ -564,7 +566,7 @@ describe('the IPC handlers', () => {
         set: () => undefined,
         addRecent: (p: string) => recent.push(p),
         removeRecent: () => undefined,
-        // where the next file dialog starts (app-ipc.ts)
+        // where the next file dialog starts (ipc/register.ts)
         lastDir: undefined,
         setLastDir: () => undefined,
         get skipVersion() {

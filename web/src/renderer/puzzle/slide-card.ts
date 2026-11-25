@@ -18,6 +18,7 @@
 // (`drawStampPreview`) and mainwindow_rods.cpp (`refreshSlideValid`), which
 // the original had on the Entities tab.
 
+import './slide-card.css';
 import type { Methods } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import { askConfirm } from '../shell/confirm.ts';

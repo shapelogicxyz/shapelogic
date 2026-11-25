@@ -12,6 +12,7 @@
 // change names the shapes. Ported from src/gui/statuswindow.cpp (the
 // layout of its columns and its buttons); the mockup has no status window.
 
+import './status-window.css';
 import type { ShapeInfo } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Edits } from '../state/edits.ts';

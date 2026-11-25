@@ -1,0 +1,6 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* imports.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.scad-pick{margin-left:24px;display:flex;flex-direction:column;gap:4px}
+.scad-problem{margin-left:24px}
+.scad-lip{display:flex;flex-direction:column;gap:6px;margin-left:24px}
+.scad-lip .fl input{width:64px}

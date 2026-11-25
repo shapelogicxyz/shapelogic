@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* toolbar.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+#pop .ck{width:14px;display:grid;place-items:center;color:var(--accent)}
+.dd2{margin-left:auto;font-size:calc(11px + var(--fs));color:var(--muted)}
+.vthandle{display:none}
+html[data-density=minimal] .vthandle{display:block;position:absolute;top:5px;left:14px;width:40px;height:4px;border-radius:2px;background:var(--muted);opacity:.45;z-index:3;transition:opacity .16s ease;pointer-events:none}
+html[data-density=minimal] .vthandle.off{opacity:0}
+#stage.frozen #bEdit{pointer-events:none;opacity:.4}

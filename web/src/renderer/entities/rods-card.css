@@ -1,0 +1,14 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* rods-card.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.rodbtns{display:flex;flex-wrap:wrap;gap:4px;padding:10px 10px 8px;flex:none}
+.rodbtns .btn{flex:1 1 auto;min-width:0}
+.rodf{display:flex;flex-direction:column;gap:6px;padding:10px 12px;flex:none}
+/* every line as tall as one with a number box, so the lines space evenly */
+.rodf>*{min-height:calc(26px + var(--fh))}
+.rodline{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rodck{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:calc(12.5px + var(--fs))}
+.rodck input{margin:0;flex:none}
+.rodck:has(input:disabled){opacity:.5;cursor:default}
+.rodnum{width:58px;height:calc(26px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);text-align:center;font:inherit;font-weight:600}
+.rodnum:disabled{opacity:.5}
+.rodnote{padding:4px 12px 12px;font-size:calc(11.5px + var(--fs));line-height:1.45}

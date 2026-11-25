@@ -16,6 +16,7 @@
 // grids, on the Solver tab the pieces' labels on the solution (a setting
 // of the app, kept across sessions). The Edit button shows the voxel editor's tool (stage 2).
 
+import './toolbar.css';
 import type { MeshStyle } from '../../engine/api.generated.ts';
 import { toolIcon } from '../shell/cursors.ts';
 import type { Tool } from '../shell/cursors.ts';

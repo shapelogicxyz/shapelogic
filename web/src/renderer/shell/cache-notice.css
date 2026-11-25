@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* cache-notice.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+/* Export…'s choices, over its button */
+/* the notice of the cache files at the start (cache-notice.ts) */
+#cacheAtStart .cfm{width:min(560px,calc(100% - 48px))}
+#cacheAtStart .bt [data-x="manage"]{margin-right:auto}
+.cn-list{list-style:none;margin:0 0 12px;padding:2px;max-height:min(240px,40vh);overflow:auto;border:1px solid var(--line2);border-radius:8px;background:var(--panel2)}
+.cn-list li{display:flex;flex-direction:column;gap:1px;padding:4px 10px}
+.cn-list li+li{border-top:1px solid var(--line)}
+.cn-t{font-size:calc(13px + var(--fs));font-weight:600;overflow-wrap:anywhere}
+.cn-m{font-size:calc(11.5px + var(--fs));color:var(--muted)}
+.cfm .cb p.cn-tip{margin:0 0 4px;font-size:calc(12px + var(--fs))}

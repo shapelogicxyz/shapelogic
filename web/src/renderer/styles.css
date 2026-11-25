@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
  * The look of the shell, from docs/mockup/index.html (Girish Sharma, GPL-3.0):
- * its <style> block (tokens for light and dark, density, cards, rails, chips,
+ * its \3c style> block (tokens for light and dark, density, cards, rails, chips,
  * strips) taken over as it is, in its compact form so it can be compared with
  * the mockup line by line (Prettier leaves this file alone). Changed: the
  * stage fills the window instead of a 1600 x 1000 board scaled to fit; the
@@ -9,6 +9,11 @@
  * rules (.lc) are scoped to the library (.pz-lib .lc), since the stage's own
  * "left collapsed" class is lc too and the full-window stage took their
  * height; the rules stage 1b and 2 add are at the end.
+ * Since cleanup item 13.1 this sheet keeps the tokens, the shared controls,
+ * the layout, the density variables and the rules of the static markup in
+ * index.html; a rule whose selector names what one module writes sits in
+ * that module's sheet beside it (`<module>.css`, imported by the module),
+ * which comes after this one: a rule a module writes goes there.
  */
 :root{
   --outer:#dde1e8; --bg:#eceff4; --panel:#ffffff; --panel2:#f3f5f8; --line:#dde1e8; --line2:#c6ccd7;
@@ -123,7 +128,6 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 /* ---------- workspace ---------- */
 .body{grid-column:2;grid-row:2;align-self:stretch;display:grid;grid-template-rows:minmax(0,1fr);grid-template-columns:var(--lw) var(--cw) var(--rw);gap:8px;padding:8px;min-height:0;transition:grid-template-columns .2s ease}
 #stage.lc{--lw:var(--railw)} #stage.rc{--rw:var(--railw)}
-#stage.f3d{--lw:var(--railw);--rw:var(--railw)}
 #stage.f2d{--lw:var(--railw);--cw:360px;--rw:1fr}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;position:relative}
 .ch{height:calc(44px + var(--fh));flex:none;display:flex;align-items:center;gap:8px;padding:0 8px 0 14px;border-bottom:1px solid var(--line);font-weight:600}
@@ -165,8 +169,6 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 .sec .sum{margin-left:auto;font-weight:400;color:var(--muted);font-size:calc(12px + var(--fs))}
 .sec .sb{padding:2px 14px 14px}
 .sec.closed .sb{display:none}
-.sub2{font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin:10px 0 6px}
-.sub2:first-child{margin-top:2px}
 .step{display:flex;align-items:center;border:1px solid var(--line2);border-radius:8px;height:calc(30px + var(--fh));background:var(--panel)}
 .step b{width:18px;text-align:center;font-weight:700;padding-left:4px}
 .step .v{flex:1;text-align:center;font-weight:600}
@@ -186,8 +188,6 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 .tmat .ib{width:100%;height:28px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
 .tmat .ib:hover{border-color:var(--accent);background:var(--accentSoft)}
 .tmat .al{font-weight:700;text-align:center}
-.btnrow{display:flex;gap:6px;flex-wrap:wrap}
-.btnrow .btn{flex:1 1 auto;justify-content:center}
 .cmat{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .cmat .ib{width:100%;height:30px;border:1px solid var(--line);background:var(--panel2)}
 .cmat .ib:hover{border-color:var(--accent);background:var(--accentSoft)}
@@ -214,7 +214,6 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 /* the editor's layers: the label stays, only the numbers scroll */
 #lstrip{overflow:hidden}
 #lstrip .lh{flex:none}
-#lstrip .lchips{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;align-items:center;gap:inherit;overflow-y:auto;scrollbar-width:none}
 .lchip{width:calc(36px + var(--fs));height:calc(28px + var(--fh));border-radius:7px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font-weight:600;color:var(--muted);flex:none}
 .lchip:hover{border-color:var(--accent);color:var(--text)}
 .lchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -223,7 +222,6 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 #garea{flex:1;min-width:0;min-height:0;display:grid;place-items:center;overflow:hidden}
 /* the grid's mouse help: top right, in the flow so it never covers a cell */
 .ghelp{flex:none;align-self:flex-end;box-sizing:border-box;max-width:min(calc(100% - 16px),360px);margin:8px 8px 0;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);font-size:calc(11px + var(--fs));line-height:1.35}
-#stage.tltb .ghelp{display:none}
 .gwrap{display:grid;user-select:none}
 .rrul,.crul{display:flex;font-size:calc(11px + var(--fs));color:var(--muted)}
 .rrul{flex-direction:column;border-right:3px solid;padding-right:4px;margin-right:2px}
@@ -241,19 +239,6 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 .ftip p{margin:0 0 10px;line-height:1.4}
 .ftipb{display:flex;justify-content:flex-end;gap:6px}
 .colfoot{flex:none;border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:4px}
-.colhead{display:flex;align-items:center;gap:12px}
-.colbtns{display:flex;align-items:center;gap:2px}
-.colbtns .ib{width:34px;height:34px;border-radius:8px}
-.bigsw{width:40px;height:40px;border-radius:10px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line2);flex:none}
-.colmeta{min-width:78px}
-.colmeta small{display:block;color:var(--muted);font-size:calc(11px + var(--fs));text-transform:uppercase;letter-spacing:.4px;font-weight:600}
-/* the constraint colors, one row shown at a time (the 4px pad leaves room for the chosen ring) */
-.colrow{display:flex;align-items:center;gap:4px;margin-left:-4px}
-.palv{position:relative;flex:1;min-width:0;height:34px;overflow:hidden}
-.pal{display:flex;gap:8px 6px;flex-wrap:wrap;align-items:center;padding:4px}
-.palnav{display:none;flex-direction:column;gap:2px;flex:none}
-.palnav.show{display:flex}
-.palnav .ib{width:22px;height:15px;border-radius:4px}
 .sw{width:26px;height:26px;border-radius:7px;border:1px solid rgba(0,0,0,.25);cursor:pointer;position:relative}
 .sw.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
 .sw.c{display:grid;place-items:center;padding:0;font-family:inherit;font-size:calc(10px + var(--fs));font-weight:700;line-height:1}
@@ -270,20 +255,9 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 #pop button{display:flex;width:100%;align-items:center;gap:10px;height:30px;padding:0 10px;border:0;background:transparent;border-radius:6px;cursor:pointer;text-align:left}
 #pop button:hover{background:var(--panel2)}
 #pop button:disabled{opacity:.4;cursor:default}
-#pop .ck{width:14px;display:grid;place-items:center;color:var(--accent)}
 #pop hr{border:0;border-top:1px solid var(--line);margin:4px 0}
 #pop .ph{font-size:calc(11px + var(--fs));font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:4px 10px}
 #pop .kb{margin-left:auto;color:var(--muted);font-size:calc(11px + var(--fs))}
-/* the color picker (shell/color-picker.ts) */
-.cpk{display:flex;flex-direction:column;gap:8px;padding:4px;width:200px}
-.cpk-sv{position:relative;height:130px;border-radius:6px;background-image:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,rgba(255,255,255,0));cursor:crosshair;touch-action:none}
-.cpk-knob{position:absolute;width:12px;height:12px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5);transform:translate(-50%,-50%);pointer-events:none}
-.cpk-hue{-webkit-appearance:none;appearance:none;width:100%;height:12px;border-radius:6px;background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);margin:0;cursor:pointer}
-.cpk-hue::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;border:1px solid rgba(0,0,0,.4);box-shadow:0 1px 2px rgba(0,0,0,.3)}
-.cpk-row{display:flex;gap:8px;align-items:center}
-.cpk-prev{width:28px;height:28px;border-radius:6px;border:1px solid var(--line2);flex:none}
-.cpk-hex{flex:1;min-width:0;height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);padding:0 8px;font:calc(12px + var(--fs)) ui-monospace,Menlo,Consolas,monospace}
-
 
 .btn:disabled{opacity:.4;cursor:default}
 .mrow{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);flex:none}
@@ -307,31 +281,6 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .dlg .nav button.on{background:var(--panel);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .dlg .pg{overflow:auto;padding:4px 26px 16px}
 .pg h3{margin:16px 0 2px;font-size:calc(12px + var(--fs));letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
-.pgh{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
-.setrow{display:flex;gap:28px;padding:14px 0;border-bottom:1px solid var(--line);align-items:flex-start}
-.setrow:last-child{border-bottom:0}
-.setgrp{margin:22px 0 0;font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
-.setrow.under{flex-direction:column;gap:10px}
-.setrow .t{flex:1}.setrow .t b{display:block;font-weight:600;margin-bottom:2px}.setrow .t span{color:var(--muted);font-size:calc(12px + var(--fs));line-height:1.45;display:block}
-.setrow .t span.def{margin-top:2px;font-weight:600}
-.setrow .t em.only{display:block;font-style:normal;font-size:calc(12px + var(--fs));color:var(--muted);margin:-1px 0 3px}
-.setrow>.step{flex:none}.setrow>.step .v{width:64px}
-.setrow .switch{margin:0;flex:none}
-/* a stacked slider (Search memory): the value over a taller slider, its tick marks under it set in by half the
-   18px thumb so each sits under the thumb's center at its stop, the automatic stop's bold; the warning under them */
-.setrow .rangebox{width:260px;flex:none;display:flex;flex-direction:column}
-.rangebox>b{white-space:nowrap;margin-bottom:4px}
-.rangebox input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;margin:0;background:transparent;cursor:pointer}
-.rangebox input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(to right,var(--accent) var(--pct,0%),var(--line2) var(--pct,0%))}
-.rangebox input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:linear-gradient(to right,var(--accent) var(--pct,0%),var(--line2) var(--pct,0%))}
-.rangebox input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-6px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 1px 3px rgba(16,24,40,.3)}
-.rangebox input[type=range]::-moz-range-thumb{box-sizing:border-box;width:18px;height:18px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 1px 3px rgba(16,24,40,.3)}
-.rangebox .ticks{position:relative;height:9px;margin:0 9px}
-.rangebox .ticks i{position:absolute;top:0;width:1px;height:5px;background:var(--muted);transform:translateX(-50%)}
-.rangebox .ticks i.auto{width:3px;height:9px;border-radius:1px;background:var(--text)}
-.rangebox .rangewarn{margin-top:8px;color:var(--danger);font-size:calc(12px + var(--fs));line-height:1.45}
-.setrow .cachefolder{display:flex;flex-direction:column;gap:10px}.setrow .cachepaths{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:baseline}.setrow .cachepaths small{color:var(--muted);font-size:calc(11px + var(--fs));font-weight:600;white-space:nowrap}.setrow .cachepaths code{font-size:calc(12px + var(--fs));overflow-wrap:anywhere}.setrow .cachebt{display:flex;gap:8px}
-.setrow .xyzsets{width:260px;flex:none;display:flex;flex-direction:column;gap:6px}.setrow .xyzsets small{color:var(--muted);font-size:calc(11px + var(--fs));font-weight:600;margin-bottom:-2px}.setrow .xyzsets small:not(:first-child){margin-top:6px}
 .kbrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
 .kbrow .k{display:flex;gap:4px}
 .dlg .df{grid-column:1/3;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 16px}
@@ -349,9 +298,6 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .gbtn.on{border-color:var(--accent);background:var(--accentSoft);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}
 .gbtn:disabled{opacity:.4;cursor:default;background:var(--panel2);border-color:var(--line)}
 .gbtn .kb{position:absolute;top:2px;right:4px;font-size:calc(9.5px + var(--fs));font-weight:700;font-style:normal;color:var(--muted);opacity:.85}
-.gbtn.cyc::before,.gbtn.cyc::after{content:"";position:absolute;top:50%;margin-top:-4px;border:4px solid transparent}
-.gbtn.cyc::before{left:3px;border-left:none;border-right:5px solid var(--text)}
-.gbtn.cyc::after{right:3px;border-right:none;border-left:5px solid var(--text)}
 .abtn{display:flex;align-items:center;gap:10px;text-align:left;min-height:48px;padding:4px 10px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;cursor:pointer;color:var(--text);width:100%}
 .abtn:hover{border-color:var(--accent);background:var(--accentSoft)}
 .abtn:disabled{opacity:.4;cursor:default}
@@ -369,7 +315,6 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .pseg .gbtn{width:62px;height:56px}
 .tmat .gbtn{height:50px;padding:3px 1px 2px}
 .surf .gbtn{height:56px}
-.surf .sl b{display:block;font-weight:600}.surf .sl small{color:var(--muted);font-size:calc(11px + var(--fs))}
 .two .gbtn{height:56px}
 .tbn{width:54px;height:52px;border:0;background:transparent;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:calc(10.5px + var(--fs));font-weight:600;cursor:pointer;flex:none}
 .tbn:hover{background:var(--panel2);color:var(--text)}
@@ -392,16 +337,10 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .tbn.tmp{background:var(--accentSoft);color:var(--accent);outline:1.5px dashed var(--accent);outline-offset:-3px}
 .tbn.tmp .kb{color:var(--accent)}
 #garea{cursor:crosshair}
-.dd2{margin-left:auto;font-size:calc(11px + var(--fs));color:var(--muted)}
 #vcube{position:absolute;right:2px;top:-11px;width:172px;height:186px;z-index:3;touch-action:none}
 #stage.f2d #vcube{display:none}
 #vcube.crowded{visibility:hidden;pointer-events:none}
 .vtchip{display:inline-flex;align-items:center;gap:5px;height:calc(22px + var(--fh));padding:0 8px;border-radius:11px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);font-size:calc(11px + var(--fs));font-weight:600;margin-left:8px;white-space:nowrap}
-.npad{display:grid;grid-template-columns:62px repeat(4,1fr);gap:4px;align-items:center;margin-top:4px}
-.npad .rl{font-size:calc(10.5px + var(--fs));font-weight:600;color:var(--muted);letter-spacing:.3px}
-.npad .nb{height:32px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;font-size:calc(15px + var(--fs));font-weight:700;color:var(--text);cursor:pointer}
-.npad .nb:hover{border-color:var(--accent);background:var(--accentSoft)}
-.npad.two6{grid-template-columns:62px repeat(2,1fr)}
 .mnote{margin-top:8px;font-size:calc(11px + var(--fs));color:var(--muted);line-height:1.4}
 .prev{width:100%;height:100%;display:block}
 .cell.sp{cursor:inherit}
@@ -417,8 +356,6 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 #stage[data-tab=puzzle].f2d,#stage[data-tab=solver].f2d{--lw:var(--lwx);--rw:var(--rwx);--cw:1fr}
 /* the 3D focus: on Puzzle both cards at 70% of their width, on Solver the Solutions card alone at 70% */
 #stage[data-tab=solver].f3d #leftS,#stage[data-tab=solver] .ent,#stage[data-tab=solver] .puz{display:none}
-#stage[data-tab=puzzle].f3d .body{grid-template-columns:calc(var(--lwx) * .7) 1fr calc(var(--rwx) * .7)}
-#stage[data-tab=solver].f3d .body{grid-template-columns:1fr calc(var(--rwx) * .7)}
 #stage:not([data-tab=solver]) .slv{display:none}
 #stage[data-tab=puzzle] .ent,#stage[data-tab=puzzle] .ent-only,#stage[data-tab=solver] .ent-only{display:none}
 #stage:not([data-tab=puzzle]) .puz-only{display:none}
@@ -437,47 +374,19 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .pz-result .meta{flex:1;min-width:0}.pz-result .meta b{display:block;font-weight:600}.pz-result .meta span{color:var(--muted);font-size:calc(12px + var(--fs))}
 .pz-result .meta b .req{color:var(--danger);font-size:inherit}
 .pz-pieces{padding:10px;flex:1;min-height:90px;overflow:auto;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
-.ptile{display:inline-flex;align-items:center;gap:6px;height:calc(30px + var(--fh));padding:0 4px 0 8px;border-radius:8px;color:#fff;font-size:calc(11.5px + var(--fs));cursor:pointer;position:relative;text-shadow:0 1px 1px rgba(0,0,0,.28);outline:2px solid transparent;outline-offset:2px;user-select:none}
-.ptile.off{opacity:.36}
-.ptile.sel{outline-color:var(--accent)}
-.ptile .pl{opacity:.9;font-size:calc(10.5px + var(--fs));max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ptile .pb{background:rgba(0,0,0,.3);border-radius:5px;padding:0 5px;min-width:24px;text-align:center;font-weight:700;font-size:calc(10.5px + var(--fs));line-height:18px}
-.ptile .pm{display:none;gap:2px}
-.ptile:hover .pb{display:none}.ptile:hover .pm{display:inline-flex}
-.ptile .pm button{width:18px;height:18px;border:0;border-radius:5px;background:rgba(0,0,0,.38);color:#fff;font-weight:800;line-height:16px;cursor:pointer;padding:0}
-.ptile .pm button:hover{background:rgba(0,0,0,.6)}
 .pz-sum{flex:none;border-top:1px solid var(--line);padding:10px 14px;display:flex;gap:10px;align-items:flex-start;font-size:calc(12px + var(--fs))}
 .pz-sum b{display:block;font-size:calc(12.5px + var(--fs))}.pz-sum span{color:var(--muted)}
 .pz-sum.ok svg{color:var(--ok)}.pz-sum.warn svg,.pz-sum.warn b{color:var(--warn)}
-.pzt{width:100%;border-collapse:collapse;font-size:calc(12px + var(--fs))}
-.pzt th{position:sticky;top:0;background:var(--panel);text-align:center;font-size:calc(11px + var(--fs));font-weight:600;color:var(--muted);padding:4px 2px;text-transform:uppercase;letter-spacing:.3px}
-.pzt td{padding:2px;text-align:center}
-.pzt td.sh{text-align:left;color:#fff;font-weight:600;padding:5px 8px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
-.pzt input{width:46px;height:calc(26px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);text-align:center;font:inherit}
-.pzt tr.sel td.sh{outline:2px solid var(--accent);outline-offset:-2px}
 .pzt-wrap{padding:6px 8px;overflow:auto;flex:1}
 .pzs{padding:12px 14px 14px;flex:none}
 .pzs .hd{display:flex;align-items:center;gap:10px;margin-bottom:10px}.pzs .hd b{display:block;font-weight:600}.pzs .hd span.m{color:var(--muted);font-size:calc(12px + var(--fs))}
 .pzs .lab{font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin:10px 0 6px}
 .pzs .rng{display:flex;gap:8px;align-items:center}
 .pzs .rng .f{flex:1 1 0;min-width:0}.pzs .rng .step.sz{min-width:0}.pzs .rng .step input.v{min-width:0}.pzs .rng .f small{display:block;color:var(--muted);font-size:calc(11px + var(--fs));margin-bottom:3px}
-.pzs .gw{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
-.pzs .gw .step{width:112px}
 .pz-empty{color:var(--muted);font-size:calc(12px + var(--fs));line-height:1.5;padding:14px}
-.pzg{margin:0 12px 10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--panel2)}
-.pzg .gh{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:6px}.pzg .gh .sp{flex:1}
-.pzg .mem{display:flex;flex-wrap:wrap;gap:5px}
-.pzg .mem .ptile{height:calc(24px + var(--fh));font-size:calc(10.5px + var(--fs));cursor:default}
 .pzr{padding:8px 14px 12px;flex:none}
 .pzr .cap{color:var(--muted);font-size:calc(11px + var(--fs));margin-bottom:6px;line-height:1.4}
 .mx{display:grid;gap:4px;width:max-content}
-.mxr{display:grid;grid-template-columns:30px repeat(5,34px);gap:4px;align-items:center}
-.sw2{width:24px;height:24px;border-radius:7px;border:1px solid rgba(0,0,0,.25);justify-self:center}
-.mxc{width:34px;height:28px;border:1px solid var(--line2);background:var(--panel);border-radius:7px;cursor:pointer;padding:0;position:relative}
-.mxc:hover{border-color:var(--accent)}
-.mxc.on{background:var(--accent);border-color:var(--accent)}
-.mxc.on::after{content:"";position:absolute;left:11px;top:5px;width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
-.pzr .btnrow{margin-top:8px}
 .pzo{padding:10px 14px 14px;flex:none}
 .pzo input{width:100%;height:calc(30px + var(--fh));border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--text);padding:0 10px;font:inherit}
 .pzo small{display:block;color:var(--muted);margin-top:4px;font-size:calc(11px + var(--fs))}
@@ -485,47 +394,17 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .pz-lib{padding:8px 10px 10px;max-height:210px;overflow:auto;display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start;flex:0 1 auto;min-height:48px;border-radius:10px;outline:2px dashed transparent;outline-offset:-4px}
 .pz-lib.closed{display:none}
 .pz-grp{padding:8px 10px 10px;max-height:260px;overflow:auto;flex:0 1 auto}.pz-grp.closed{display:none}.pz-grp #pzRangeAll{margin-bottom:8px}
-.drop-ok{outline-color:var(--accent)!important;background:var(--accentSoft)}
-.ut{position:relative;display:flex;width:114px;height:54px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);cursor:grab;overflow:hidden;user-select:none}
-.ut:hover{border-color:var(--accent)}
-.ut.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accentSoft)}
-.ut .uc{width:6px;flex:none}
-.ut .gripd{color:var(--line2);display:inline-flex;margin-left:-3px;flex:none}
-.ut .ub{flex:1;min-width:0;padding:5px 6px 5px 7px;display:flex;flex-direction:column;justify-content:space-between}
-.ut .t1{display:flex;align-items:center;gap:4px;font-size:calc(13px + var(--fs));height:calc(18px + var(--fh));overflow:hidden}
-.ut .t1 b{font-weight:700}.ut .t1 .pl{color:var(--muted);font-size:calc(12px + var(--fs));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ut .gb{margin-left:auto;font-size:calc(9.5px + var(--fs));font-weight:700;background:var(--accent);color:#fff;border-radius:5px;padding:0 4px;line-height:14px}
-.ut .t2{display:flex;align-items:center;justify-content:space-between;height:22px}
-.ut .t2 button{width:22px;height:22px;border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);font-weight:700;line-height:18px;cursor:pointer;padding:0}
-.ut .t2 button:hover{border-color:var(--accent);background:var(--accentSoft)}
-.ut .t2 .cnt{font-weight:700;font-size:calc(12px + var(--fs));min-width:34px;text-align:center}
-.pz-used .ut.wt{height:auto}.ut.wt .t2{margin-top:2px}
-.ut .t3{font-size:calc(10.5px + var(--fs));font-weight:600;color:var(--muted);line-height:14px;margin-top:3px}
 .pz-lib .lc{max-width:100%;display:inline-flex;align-items:center;height:calc(28px + var(--fh));gap:6px;padding:0 4px 0 4px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);cursor:grab;font-size:calc(13px + var(--fs));user-select:none}
 .pz-lib .lc:hover{border-color:var(--accent);background:var(--accentSoft)}
 .pz-lib .lc.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.pz-lib .lc .gripd{color:var(--line2);display:inline-flex}
 .pz-lib .lc .sq{width:10px;height:10px;border-radius:3px;flex:none}
 .pz-lib .lc b{font-weight:700}.pz-lib .lc .pl{color:var(--muted);font-size:calc(12px + var(--fs));max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pz-lib .lc .la{min-width:34px;height:calc(20px + var(--fh));border:0;border-radius:6px;background:transparent;color:var(--muted);font-weight:700;font-size:calc(11px + var(--fs));cursor:pointer;padding:0}
 .pz-lib .lc .la:hover{background:var(--accent);color:#fff}
 .pz-lib .lc.in .la{color:var(--text)}
 .pz-lib .lc.in{background:var(--panel)}
-.pzs .cnt1{display:flex;align-items:center;justify-content:space-between}
-.pzs .cnt1 .step.sz{width:150px;flex:none;min-width:0}.pzs .cnt1 .step.sz input.v{min-width:0;width:100%}
-.pzs .gseg{display:flex;flex-wrap:wrap;gap:6px}
-.pzs .gseg button{height:28px;min-width:44px;padding:0 10px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);cursor:pointer;font-weight:600}
-.pzs .gseg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-.pzs .gseg button:hover:not(.on){border-color:var(--accent)}
 .step.sz.inl .il{font-size:calc(12px + var(--fs));font-weight:600;color:var(--muted);padding-left:4px;flex:none}
 .step.sz.inl input.v{text-align:right;padding-right:8px;border:0;outline:0;background:transparent;box-shadow:none}
-.pzt td.cn{white-space:nowrap}.pzt td.cn input{width:40px}.pzt td.cn .dash{color:var(--muted);padding:0 2px}
-.pzt input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
-.pzt select{height:calc(26px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);font:inherit;font-size:calc(12px + var(--fs));max-width:74px}
-.pzt th.l{text-align:left}
-.pzt td.wt{white-space:nowrap}.pzt td.wt .v{display:inline-block;min-width:18px;font-weight:700}
-.pzt td.wt button{height:calc(22px + var(--fh));padding:0 4px;border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);font-size:calc(10.5px + var(--fs));font-weight:700;cursor:pointer}
-.pzt td.wt button:hover:not(:disabled){border-color:var(--accent);background:var(--accentSoft)}.pzt td.wt button:disabled{opacity:.4;cursor:default}
 /* ---- Solver tab ---- */
 .slv-sec{padding:12px 14px;border-top:1px solid var(--line);flex:none}.slv-sec:first-child{border-top:0}
 .slv-lab{font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px}
@@ -538,8 +417,6 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .mcard{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;text-align:left;font:inherit;color:var(--text)}
 .mcard:hover{border-color:var(--accent)}
 .mcard.on{border-color:var(--accent);background:var(--accentSoft);box-shadow:0 0 0 1px var(--accent)}
-.mcard .rd{width:16px;height:16px;border-radius:50%;border:2px solid var(--line2);flex:none;margin-top:2px;position:relative}
-.mcard.on .rd{border-color:var(--accent)}.mcard.on .rd::after{content:"";position:absolute;inset:2px;border-radius:50%;background:var(--accent)}
 .mcard b{display:block;font-weight:600;font-size:calc(12px + var(--fs))}.mcard span.d{color:var(--muted);font-size:calc(11px + var(--fs));line-height:1.35}
 .slv-opts{display:flex;flex-direction:column;gap:12px}
 .slv-opts .row2{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px}
@@ -560,24 +437,10 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .advnote{color:var(--muted);font-size:calc(11px + var(--fs));margin:8px 0 0;padding-left:16px;line-height:1.4}
 .slv-opts .step input.v{min-width:0;width:100%}.slv-opts .row2.wrap{flex-wrap:wrap}.slv-opts .row2.wrap select{max-width:none;width:100%}
 .slv-sum{color:var(--muted);font-size:calc(12px + var(--fs));margin-top:-2px}
-.slv-nav{padding:12px 14px}
-.slv-nav .big{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.slv-nav .big b{font-size:calc(15px + var(--fs))}.slv-nav .big span{color:var(--muted);font-size:calc(12px + var(--fs))}
-.slv-nav .ctl{display:flex;align-items:center;gap:8px}
 .slv-nav input[type=range],.splayer input[type=range]{flex:1;accent-color:var(--accent);height:22px}
 .splayer input[type=range]{min-width:140px}
 .slv-nav .nb,.splayer .tb{width:30px;height:30px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--text);cursor:pointer;display:grid;place-items:center;padding:0}
 .slv-nav .nb:hover:not(:disabled),.splayer .tb:hover:not(:disabled){border-color:var(--accent)}.slv-nav .nb:disabled,.splayer .tb:disabled{opacity:.35;cursor:default}
-.slv-meta{padding:0 14px 12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.slv-meta div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 8px}.slv-meta small{display:block;color:var(--muted);font-size:calc(10.5px + var(--fs));text-transform:uppercase;letter-spacing:.3px}.slv-meta b{font-size:calc(13px + var(--fs));font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
-.slv-empty{margin:4px 14px 14px;padding:14px;border:1px dashed var(--line2);border-radius:10px;color:var(--muted);font-size:calc(12.5px + var(--fs));line-height:1.5}
-.slv-empty b{color:var(--text);display:block;margin-bottom:4px;font-size:calc(13px + var(--fs))}.slv-empty .btn{margin-top:8px}
-.slv-perf{margin:10px 0 0}
-.slv-sel>.slv-nav:has(.slv-perf){overflow-y:auto;min-height:0}
-.slv-perf-t{width:100%;margin-top:8px;border-collapse:collapse;font-variant-numeric:tabular-nums}
-.slv-perf-t th,.slv-perf-t td{white-space:nowrap}
-.slv-perf-t th{text-align:left;font-weight:600;color:var(--text);padding:2px 6px 4px 0;border-bottom:1px solid var(--line2)}
-.slv-perf-t td{padding:2px 6px 2px 0}.slv-perf-t tr.slv-perf-now td{color:var(--text);font-weight:600;padding-bottom:4px;border-bottom:1px solid var(--line2)}.slv-perf-t tr.slv-perf-now.over td:last-child{color:var(--danger)}.slv-perf-t tr.slv-perf-now+tr td{padding-top:4px}.slv-perf-t tr.slv-perf-now.phased td{border-bottom:0;padding-bottom:0}.slv-perf-t tr.slv-perf-now.phased+tr.slv-perf-phase td{padding-top:0}.slv-perf-t tr.slv-perf-phase td{white-space:normal;color:var(--muted);padding-bottom:4px;border-bottom:1px solid var(--line2);cursor:help}.slv-perf-t th:first-child,.slv-perf-t td:first-child{text-align:right;padding-right:14px;width:1%;white-space:nowrap}
 .slv-sort,.slv-act{padding:0 14px 12px}
 .slv-sort .seg{display:flex}.slv-sort .seg button{flex:1}
 .slv-act{display:flex;gap:8px}.slv-act .btn{flex:1}
@@ -591,7 +454,6 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .pvc small{font-weight:500;color:var(--muted);font-size:calc(10.5px + var(--fs))}
 .splayer{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;width:min(700px,calc(100% - 40px));z-index:4;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 12px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 24px rgba(15,20,30,.14)}
 .splayer .lbl{min-width:112px;text-align:right;font-variant-numeric:tabular-nums;font-size:calc(12.5px + var(--fs));font-weight:600}
-.splayer .msg{flex:1;font-size:calc(12.5px + var(--fs));color:var(--muted);display:flex;align-items:center;gap:10px}.splayer .msg .btn{flex:none}
 .splayer select{height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:7px;background:var(--panel);color:var(--text);font:inherit;font-size:calc(12px + var(--fs))}
 #stage:not([data-tab=solver]) .splayer,#stage:not([data-tab=solver]) .sdrawer{display:none}
 .sdrawer{position:absolute;left:12px;right:12px;bottom:12px;height:250px;z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(15,20,30,.2);display:none;flex-direction:column;overflow:hidden}
@@ -614,32 +476,11 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
 .slv-sel{flex:1 1 200px;min-height:150px;display:flex;flex-direction:column;overflow:hidden}
 .slv-player{flex:none;border-top:1px solid var(--line);padding:10px 14px 12px}
-.slv-player .tr1{display:flex;align-items:center;gap:6px}.slv-player .tr1 .sp{flex:1}
 .slv-player .tb{width:30px;height:30px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--text);cursor:pointer;display:grid;place-items:center;padding:0}
 .slv-player .tb:hover:not(:disabled){border-color:var(--accent)}.slv-player .tb.pri{background:var(--accent);border-color:var(--accent);color:#fff}
-.slv-player .tr2{display:flex;align-items:center;gap:10px;margin-top:8px}.slv-player .tr2 input[type=range]{flex:1;accent-color:var(--accent);height:22px;min-width:0}
 .slv-player .lbl{min-width:96px;text-align:right;font-variant-numeric:tabular-nums;font-size:calc(12.5px + var(--fs));font-weight:600}
-.slv-player .msg{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:calc(12.5px + var(--fs));min-height:46px}.slv-player .msg span{flex:1}
 .slv-player select{height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:7px;background:var(--panel);color:var(--text);font:inherit;font-size:calc(12px + var(--fs))}
-.slv-player .ttl{font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--text);margin-bottom:8px}
-.lhead{display:grid;grid-template-columns:44px 1fr 96px 40px 30px;gap:4px;padding:6px 10px 6px 12px;border-bottom:1px solid var(--line);flex:none;font-size:calc(11px + var(--fs));font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;align-items:center}
-.lhead button{border:0;background:transparent;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;text-align:left;padding:2px 0;border-radius:5px}
-.lhead button:hover:not(:disabled){color:var(--text)}.lhead button.on{color:var(--accent)}.lhead button:disabled{opacity:.4;cursor:default}
-.lbody{flex:1;overflow:auto;outline:0;padding:4px 6px 6px}
-.lrow{display:grid;grid-template-columns:44px 1fr 96px 40px 30px;gap:4px;align-items:center;height:calc(32px + var(--fh));padding:0 4px 0 6px;border-radius:8px;cursor:pointer;font-size:calc(12.5px + var(--fs));border:1px solid transparent;font-variant-numeric:tabular-nums}
-.lrow:hover{background:var(--panel2)}
-.lrow.sel{background:var(--accentSoft);border-color:var(--accent)}
-.lrow.will-del{background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.55);text-decoration:line-through;text-decoration-color:rgba(220,38,38,.6)}
-.lrow .c1{font-weight:700}.lrow .c2{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:calc(11.5px + var(--fs));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lrow .c3{position:relative;height:calc(20px + var(--fh));display:flex;align-items:center;border-radius:5px;overflow:hidden}.lrow .c3 i{position:absolute;left:0;top:3px;bottom:3px;background:var(--accentSoft);border-radius:4px}.lrow.sel .c3 i{background:var(--accent);opacity:.28}.lrow .c3 b{position:relative;padding-left:6px;font-weight:600}
-.lrow .c5{display:grid;place-items:center;color:var(--muted)}.lrow .c5.ok{color:var(--ok)}.lrow .c5.bad{color:var(--error)}
-.lrow .mut{color:var(--muted)}
-.lfoot{flex:none;padding:6px 14px;border-top:1px solid var(--line);font-size:calc(11px + var(--fs));color:var(--muted);display:flex;justify-content:space-between}
 .slv-player{height:calc(124px + var(--fh) * 4);box-sizing:border-box;overflow:hidden}
-.slv-player .ttlrow{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}.slv-player .ttlrow .ttl{margin:0}
-.slv-player .ttlrow .lbl{min-width:0;font-size:calc(13px + var(--fs));text-align:right}
-.slv-player .tr2{margin-top:10px}.slv-player .tr2 input[type=range]{width:100%;flex:none;display:block}
-.slv-player .msg{min-height:0;height:calc(60px + var(--fh) * 3)}
 .slv-pcs{height:112px;box-sizing:border-box;overflow:auto;align-content:flex-start}
 .pvc{padding:0 10px 0 6px;border-width:1.5px}
 .pvc.wire{border-style:dotted;border-color:var(--c);background:transparent}
@@ -647,7 +488,6 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .pvc.hid .sq{background:transparent;border-style:dashed;opacity:1}.pvc.hid .sq::after{display:none}
 .pvc.wire .sq{background:transparent;border-style:dotted}
 .slv-sort .seg button{display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;padding:0 4px}
-.slv-sort .seg button .arr{font-style:normal;font-size:calc(8px + var(--fs));line-height:1;opacity:.85}
 .crail{display:none;flex-direction:column;align-items:center;gap:8px;padding:8px 0;flex:1}
 .crail .vt2{writing-mode:vertical-rl;color:var(--muted);font-weight:600;letter-spacing:.5px;margin-top:6px}
 #stage.lc #leftP>*:not(.crail),#stage.lc #leftS>*:not(.crail),#stage.rc #rightP>*:not(.crail),#stage.rc #rightS>*:not(.crail){display:none}
@@ -677,10 +517,6 @@ html:is([data-density=standard],[data-density=compact]) .surf .gbtn,html:is([dat
 html:is([data-density=standard],[data-density=compact]) .abtn{min-height:40px;padding:3px 8px}
 html:is([data-density=standard],[data-density=compact]) .subbar{padding:6px 10px}
 html:is([data-density=standard],[data-density=compact]) .colfoot{padding:7px 10px}
-html:is([data-density=standard],[data-density=compact]) .bigsw{width:32px;height:32px;border-radius:8px}
-html:is([data-density=standard],[data-density=compact]) .colhead{gap:10px}
-html:is([data-density=standard],[data-density=compact]) .colmeta{flex:none;min-width:0}
-html:is([data-density=standard],[data-density=compact]) .colmeta small{white-space:nowrap}
 html:is([data-density=standard],[data-density=compact]) .lstrip{min-width:calc(48px + var(--fs));padding:6px 6px}
 html:is([data-density=standard],[data-density=compact]) .lchip{width:calc(32px + var(--fs));height:calc(24px + var(--fh));border-radius:6px}
 html:is([data-density=standard],[data-density=compact]) .tbn{width:48px;height:44px;border-radius:8px}
@@ -697,15 +533,11 @@ html:is([data-density=standard],[data-density=compact]) .mcard{padding:7px 9px;b
 html:is([data-density=standard],[data-density=compact]) .slv-opts .row2{min-height:28px}
 html:is([data-density=standard],[data-density=compact]) .slv-run button{height:calc(30px + var(--fh));border-radius:7px}
 html:is([data-density=standard],[data-density=compact]) .slv-adv button{height:calc(26px + var(--fh));border-radius:6px}
-html:is([data-density=standard],[data-density=compact]) .slv-nav{padding:9px 12px}
 html:is([data-density=standard],[data-density=compact]) .slv-player{height:calc(112px + var(--fh) * 4);padding:8px 12px 10px}
 html:is([data-density=standard],[data-density=compact]) .slv-pcs{height:104px;padding:8px 10px 10px}
 html:is([data-density=standard],[data-density=compact]) .pvc{height:calc(26px + var(--fh));border-radius:6px}
-html:is([data-density=standard],[data-density=compact]) .lrow{height:calc(28px + var(--fh));border-radius:6px}
 html:is([data-density=standard],[data-density=compact]) .pz-result{padding:8px 10px}
 html:is([data-density=standard],[data-density=compact]) .pz-sum{padding:8px 12px}
-html:is([data-density=standard],[data-density=compact]) .ut{width:96px;height:50px;border-radius:8px}
-html[data-density=standard] .ut{width:168px;height:58px}
 html:is([data-density=standard],[data-density=compact]) .pz-used{padding:8px;gap:5px}
 html:is([data-density=standard],[data-density=compact]) .pzh{white-space:nowrap;gap:6px}
 html:is([data-density=standard],[data-density=compact]) .pz-lib{padding:6px 8px 8px}
@@ -720,24 +552,9 @@ html:is([data-density=compact],[data-density=minimal]) .row .grip svg{width:12px
 html:is([data-density=compact],[data-density=minimal]) .row .acts .ib,html:is([data-density=compact],[data-density=minimal]) .row.disc .dsz .ib{width:20px;height:16px;border-radius:4px}
 html:is([data-density=compact],[data-density=minimal]) .row .acts .ib svg{width:13px;height:13px}
 html:is([data-density=compact],[data-density=minimal]) .row .lbl input,html:is([data-density=compact],[data-density=minimal]) .row.disc .dsz input.v{height:calc(16px + var(--fh));border-radius:4px}
-html:is([data-density=compact],[data-density=minimal]) .lrow{height:calc(16px + var(--fh));border-radius:4px}
-html:is([data-density=compact],[data-density=minimal]) .lrow .c3{height:calc(14px + var(--fh))}
-html:is([data-density=compact],[data-density=minimal]) .lrow .c3 i{top:2px;bottom:2px}
 /* "In this puzzle": tiles 2 wide (3 where they were 5), grown to fill the frame, so labels read */
 html[data-density=compact] .pz-used{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 html[data-density=compact] .pz-used>.pz-empty{grid-column:1/-1}
-html[data-density=compact] .pz-used .ut{width:auto;min-width:0}
-/* ... and each one line: the label and name (the name gives way), the group, the weight (W2), then the count and its buttons */
-html[data-density=compact] .pz-used .ut{height:calc(26px + var(--fh))}
-html[data-density=compact] .ut .ub{flex-direction:row;align-items:center;justify-content:flex-start;gap:6px;padding:0 4px 0 6px}
-html[data-density=compact] .ut .t1{flex:1;height:auto}
-html[data-density=compact] .ut .t1>:not(.pl){flex:none}
-html[data-density=compact] .ut .t3{order:1;flex:none;margin:0;white-space:nowrap}
-html[data-density=compact] .ut .t3 .wl{display:none}
-html[data-density=compact] .ut .t3::before{content:"W"}
-html[data-density=compact] .ut .t2,html[data-density=compact] .ut.wt .t2{order:2;flex:none;height:auto;margin:0;gap:2px}
-html[data-density=compact] .ut .t2 button{width:18px;height:18px;line-height:14px;border-radius:5px}
-html[data-density=compact] .ut .t2 .cnt{min-width:24px}
 html[data-density=compact] .pz-lib{gap:3px}
 html[data-density=compact] .pz-lib .lc{height:calc(18px + var(--fh));border-radius:4px}
 html[data-density=compact] .pz-lib .lc .la{height:calc(16px + var(--fh));border-radius:4px}
@@ -746,7 +563,6 @@ html[data-density=compact] .pz-lib .lc .la{height:calc(16px + var(--fh));border-
    the action cards' descriptions go to their tooltips */
 html[data-density=compact] .sec>button.sh{height:calc(28px + var(--fh));padding:0 8px}
 html[data-density=compact] .sec .sb{padding:2px 8px 8px}
-html[data-density=compact] .sub2{margin:6px 0 4px}
 html[data-density=compact] .abtn{min-height:30px;gap:6px;padding:2px 8px 2px 4px;border-radius:6px}
 html[data-density=compact] .abtn small{display:none}
 html[data-density=compact] :is(.abtn,.tmat .gbtn,.mrow .grp .gbtn,.pseg .gbtn,#secFit .gbtn,.surf .gbtn) svg.gx{width:22px;height:22px}
@@ -755,7 +571,6 @@ html[data-density=compact] .sb .two{margin-top:4px!important}
 html[data-density=compact] :is(.tmat,.mrow .grp,.pseg,#secFit,.surf) .gbtn{flex-direction:row;gap:4px;height:30px;padding:2px 4px;border-radius:6px}
 html[data-density=compact] .tmat{gap:3px}
 html[data-density=compact] .surf{grid-template-columns:1fr 74px 74px;gap:4px}
-html[data-density=compact] .surf .sl small{display:none}
 html[data-density=compact] .tools{gap:4px;padding:5px 8px}
 html[data-density=compact] .tools .gbtn{height:calc(38px + var(--fh));padding:2px;border-radius:6px}
 html[data-density=compact] .tools .gbtn svg.gx{width:20px;height:20px}
@@ -769,7 +584,6 @@ html[data-density=compact] .lchip{height:calc(20px + var(--fh));border-radius:5p
 html[data-density=compact] .gsize{padding:6px 8px 8px}
 html[data-density=compact] .gsh{margin-bottom:4px}
 html[data-density=compact] .colfoot{padding:5px 8px}
-html[data-density=compact] .bigsw{width:26px;height:26px;border-radius:6px}
 
 /* ===================== Interface density: Minimal ===================== */
 html[data-density=minimal]{--lwx:320px;--rwx:352px;--wrail:44px;--toph:calc(30px + var(--fh) * 4 / 3);--stath:22px;--railw:40px}
@@ -793,7 +607,6 @@ html[data-density=minimal] .mcard .d,html[data-density=minimal] .slv-opts .row2 
 html[data-density=minimal] .lstrip .lh,html[data-density=minimal] .colmeta,html[data-density=minimal] .slv-player .ttl,
 html[data-density=minimal] .slv-pmeta,html[data-density=minimal] .pz-result .meta span,html[data-density=minimal] .dhelp,html[data-density=minimal] .pzr .cap{display:none}
 html[data-density=minimal] .pz-used{padding:8px;gap:5px}
-html[data-density=minimal] .ut{width:84px}
 html[data-density=minimal] .pz-lib{padding:6px 8px 8px;gap:4px}
 /* compact icon geometry */
 html[data-density=minimal] .tbn{width:34px;height:32px;border-radius:7px;gap:0}
@@ -816,8 +629,6 @@ html[data-density=minimal] .abtn{min-height:32px;width:36px;padding:2px;justify-
 html[data-density=minimal] .two{display:inline-flex;gap:0;margin:0!important}
 html[data-density=minimal] .subbar{padding:4px 8px;gap:6px}
 html[data-density=minimal] .colfoot{padding:5px 8px}
-html[data-density=minimal] .colhead{gap:8px}
-html[data-density=minimal] .bigsw{width:26px;height:26px;border-radius:6px}
 html[data-density=minimal] .lstrip{width:calc(40px + var(--fs));min-width:0;padding:4px 0;gap:3px}
 html[data-density=minimal] .lchip{width:calc(30px + var(--fs));height:calc(22px + var(--fh));border-radius:5px}
 html[data-density=minimal] .menu button{height:calc(24px + var(--fh));padding:0 7px}
@@ -827,36 +638,23 @@ html[data-density=minimal] .vtag{left:10px;top:8px}
 /* Puzzle */
 html[data-density=minimal] .pz-result{padding:6px 8px;gap:8px}
 html[data-density=minimal] .pz-sum{padding:6px 10px}
-html[data-density=minimal] .ut{width:88px;height:46px;border-radius:6px}
-html[data-density=minimal] .ut .t1 .pl{display:none}
 html[data-density=minimal] .pz-lib .lc{height:calc(24px + var(--fh));border-radius:5px;gap:4px}
 /* Solver */
 html[data-density=minimal] .slv-sec{padding:7px 10px}
 html[data-density=minimal] .slv-lab{margin-bottom:5px}
 html[data-density=minimal] .mcard{padding:5px 8px;border-radius:6px;align-items:center}
-html[data-density=minimal] .mcard .rd{margin-top:0}
 html[data-density=minimal] .slv-opts .row2{min-height:26px}
 html[data-density=minimal] .slv-run{gap:4px}
 html[data-density=minimal] .slv-run button{height:calc(28px + var(--fh));border-radius:6px}
 html[data-density=minimal] .slv-adv button{height:calc(24px + var(--fh));border-radius:5px}
-html[data-density=minimal] .slv-nav{padding:7px 10px}
-html[data-density=minimal] .slv-meta{padding:0 10px 8px;gap:4px}
-html[data-density=minimal] .slv-meta div{padding:3px 6px;border-radius:6px}
 html[data-density=minimal] .slv-player{height:calc(84px + var(--fh) * 4);padding:6px 10px}
-html[data-density=minimal] .slv-player .ttlrow{margin-bottom:4px;justify-content:flex-end}
 html[data-density=minimal] .slv-player .tb{width:26px;height:26px;border-radius:6px}
-html[data-density=minimal] .slv-player .tr2{margin-top:6px}
 html[data-density=minimal] .slv-sort,html[data-density=minimal] .slv-act{padding:0 10px 8px}
 html[data-density=minimal] .slv-pcs{height:76px;padding:6px 8px 8px;gap:4px}
 html[data-density=minimal] .pvc{height:calc(24px + var(--fh));padding:0 7px 0 5px;gap:5px;border-radius:5px}
-html[data-density=minimal] .lhead,html[data-density=minimal] .lrow{grid-template-columns:34px 1fr 76px calc(30px + var(--fs)) 24px}
-html[data-density=minimal] .lhead{padding:4px 8px 4px 10px}
 /* Minimal: the viewport toolbar auto-hides (shown near the bottom edge of the 3D view, on focus, while its menu is open, briefly after a mode key) */
 html[data-density=minimal] .vt{opacity:0;transform:translateY(-10px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}
 html[data-density=minimal] .vt.show{opacity:1;transform:none;pointer-events:auto}
-.vthandle{display:none}
-html[data-density=minimal] .vthandle{display:block;position:absolute;top:5px;left:14px;width:40px;height:4px;border-radius:2px;background:var(--muted);opacity:.45;z-index:3;transition:opacity .16s ease;pointer-events:none}
-html[data-density=minimal] .vthandle.off{opacity:0}
 .abtn .sh{display:none;font-style:normal;font-size:calc(12.5px + var(--fs))}
 /* ---- Minimal refinements ---- */
 /* action buttons: icon + short inline label, no description, no stray gap */
@@ -872,7 +670,6 @@ html[data-density=minimal] .abtn svg.gx,html[data-density=minimal] #secFit .gbtn
 html[data-density=minimal] #secFit .gbtn{padding:2px 7px 2px 3px;gap:4px}
 html[data-density=minimal] #secFit .two .abtn,html[data-density=minimal] #secFit .two .gbtn{margin:0}
 /* Surface voxels / Repair: keep the first line, drop the second */
-html[data-density=minimal] .surf .sl small{display:none}
 html[data-density=minimal] .surf{grid-template-columns:1fr 52px 52px;gap:4px}
 /* workspace rail: icon + caption rotated 90° (vertical space is plentiful) */
 html[data-density=minimal] .rail{gap:4px;padding:6px 0}
@@ -881,14 +678,12 @@ html[data-density=minimal] .rail .rbtn span{display:block;writing-mode:vertical-
 html[data-density=minimal] .rail .rbtn.on::before{top:8px;bottom:8px}
 /* narrower left card: tighter Puzzle tiles, Solver run row */
 html[data-density=minimal] .pz-used{padding:6px;gap:5px}
-html[data-density=minimal] .ut{width:78px}
 html[data-density=minimal] .slv-run button{font-weight:400;padding:0 2px}
 html[data-density=minimal] .slv-adv button{font-weight:400;padding:0 2px}
 html[data-density=minimal] .slv-stat{gap:3px 8px}
 html[data-density=minimal] .pzh{white-space:nowrap;gap:6px}
 html[data-density=minimal] .pzh .seg button{padding:0 6px}
 #slvList:focus{box-shadow:inset 0 0 0 2px var(--accentSoft)}
-#slvList:focus .lrow.sel{box-shadow:0 0 0 1px var(--accent)}
 #slvSlider:focus-visible,#slvMove:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 .pvc:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 #shapeList:focus,#boardList:focus{outline:none;box-shadow:inset 0 0 0 2px var(--accentSoft)}
@@ -903,7 +698,6 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 
 /* ---- stage 1b: what the mockup did not have ---- */
 .fname .dirty{color:var(--accent);margin-left:6px}
-.fname .ro{color:var(--muted);margin-left:6px;font-size:.85em}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .later{flex:1;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:calc(12px + var(--fs));padding:24px;line-height:1.5}
 .empty.show{display:grid}
@@ -913,12 +707,9 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 
 /* ---- stage 2: what the mockup did not have ---- */
 #layerLbl{white-space:nowrap}
-.xtasks{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-#garea svg .rul{font-family:system-ui,sans-serif}
 #fitBody>.switch{margin:2px 0 4px;font-size:calc(12px + var(--fs));color:var(--muted);gap:8px}
 #stage.frozen #insp,#stage.frozen #btnNew,#stage.frozen #btnNewBoard,#stage.frozen #shapeList .acts,#stage.frozen #boardList .acts,#stage.frozen #lrail #btnLN,
 #stage.frozen #right .rfull>:not(.ch):not(.edctl),#stage.frozen #edCtl>*{pointer-events:none;opacity:.5}
-#stage.frozen #bEdit{pointer-events:none;opacity:.4}
 /* the voxel editor's controls: the tools, mirror and span and the planes above the grid, its size and the color below;
    in the focus all of them in one strip above it, at their compact size, wrapping, so the grid gets the room */
 .edctl{display:contents}
@@ -928,7 +719,6 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 #stage.f2d:not(.stk) .edctl .gbtn{flex:none;flex-direction:row;gap:4px;width:auto;height:calc(30px + var(--fh));padding:2px 7px 2px 4px;white-space:nowrap}
 #stage.f2d:not(.stk) .edctl .gbtn svg.gx{width:22px;height:22px}
 #stage.f2d:not(.stk) .edctl .gbtn .kb{position:static;margin-left:1px}
-#stage.f2d:not(.stk) .edctl .gbtn.cyc{padding:2px 12px}
 #stage.f2d:not(.stk) .tools{grid-template-columns:repeat(4,auto);gap:4px}
 #stage.f2d:not(.stk) .mrow{grid-template-columns:auto auto;gap:14px}
 #stage.f2d:not(.stk) .mrow .grp .gbtn{flex:none}
@@ -938,26 +728,13 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 #stage.f2d:not(.stk) .gsh{margin-bottom:4px;gap:12px}
 #stage.f2d:not(.stk) .size3 .step{flex:none;width:calc(92px + 2 * var(--fs))}
 #stage.f2d:not(.stk) #colFoot{flex:1 1 260px;min-width:0;flex-direction:row;align-items:center;gap:12px}
-#stage.f2d:not(.stk) .colrow{flex:1;min-width:0}
-#stage.f2d:not(.stk) .edctl .bigsw{width:30px;height:30px;border-radius:8px}
-#stage.f2d:not(.stk) .colbtns .ib{width:30px;height:30px}
 
 /* ---- stage 3: what the mockup did not have ---- */
 .pzscene{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:1}
 #stage:not([data-tab=puzzle]) .pzscene{display:none}
-.pzbox{position:absolute;border-radius:10px;border:1.6px solid transparent;box-sizing:border-box}
-.pzbox.sel{border-color:var(--accent)}
-.pzbox.selected.sel{border-width:2px}
-.pzbox.hov{border:1.6px dashed var(--accent)}
-.pzlab{position:absolute;left:50%;transform:translateX(-50%);white-space:pre;font:700 calc(10.5px + var(--fs)) system-ui,sans-serif;color:var(--accent)}
-.pzbox.result .pzlab,.pzbox.selected .pzlab{bottom:100%;margin-bottom:5px}
-.pzbox.piece .pzlab{top:100%;margin-top:3px;color:var(--text);font:600 calc(11px + var(--fs)) system-ui,sans-serif;text-align:center}
-.pzbox.opt .pzlab{color:var(--muted)}
 #stage[data-tab=puzzle] .vtag{max-width:calc(50% - 140px)}
 #stage[data-tab=puzzle] .vtag>span{flex:none;white-space:nowrap}
 #stage[data-tab=puzzle] .vtag>.nm{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.pzs .gw .step.sz{width:150px;flex:none;min-width:0}.pzs .gw .step.sz input.v{min-width:0;width:100%}
-.pzs .gseg button .gc{font-weight:500;opacity:.8;margin-left:3px}
 #stage.pzfrozen #pzResult .btn,#stage.pzfrozen #pzUsed .t2,#stage.pzfrozen #pzGrpTable td input,#stage.pzfrozen #pzGrpTable td select,
 #stage.pzfrozen #pzLib .la,#stage.pzfrozen #pzAll,#stage.pzfrozen #pzClear,#stage.pzfrozen #pzRangeAll,#stage.pzfrozen #pzSel>:not(.hd),#stage.pzfrozen #pzGroups .ib,
 #stage.pzfrozen #pzRules{pointer-events:none;opacity:.5}
@@ -967,21 +744,17 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 .slv-run{grid-template-columns:repeat(4,minmax(0,1fr))}
 .slv-run button{padding:0 2px;font-size:calc(13px + var(--fs));font-weight:400}
 .slv-run button.pri:disabled{background:var(--panel);border-color:var(--line2);color:var(--text)}
-.slv-stat .slv-fail{display:flex;gap:6px;align-items:flex-start;color:var(--error);font-weight:600;margin-top:4px;line-height:1.35}
-.slv-stat .slv-fail svg{flex:none;margin-top:1px}
 .slv-opts .switch{margin-top:0}
 .switch.off{opacity:.4;cursor:default}
 .mcard:disabled{opacity:.45;cursor:default}
-.mcard.optcard{margin-bottom:8px}.mcard.optcard .chg{display:block;margin-top:6px;color:var(--text);font-size:calc(11px + var(--fs))}.mcard.optcard .chl{display:block;margin:2px 0 0;padding-left:16px;color:var(--muted);font-size:calc(11px + var(--fs));line-height:1.35}.mcard.optcard .chl>span{display:list-item;list-style:disc}.mcard.optcard .gi{width:16px;height:16px;flex:none;margin-top:2px;color:var(--muted);display:inline-grid;place-items:center}
-.mcard.optcard .sp{flex:1}.mcard.optcard #slvOptTog{color:var(--muted);flex:none;margin-top:1px}
+.mcard.optcard{margin-bottom:8px}.mcard.optcard .gi{width:16px;height:16px;flex:none;margin-top:2px;color:var(--muted);display:inline-grid;place-items:center}
+.mcard.optcard .sp{flex:1}
 html[data-density=minimal] .mcard.optcard .gi{margin-top:0}
-.lbody .lgrp{position:absolute;left:0;right:0;display:flex;align-items:flex-end;gap:4px;padding:0 6px 4px;font-weight:600;font-size:calc(12px + var(--fs))}.lbody .lgrp span{color:var(--muted);font-weight:400}
 /* All pieces and In this puzzle: one grid of the same tile width, as many columns as the left card fits (two at its narrowest), each stretched to fill the row */
 #pzLib,#pzUsed{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tilew),1fr));--tilew:150px;column-gap:5px;padding-left:8px;padding-right:8px}
 html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 #pzLib.closed{display:none}
 #pzUsed>.pz-empty{grid-column:1/-1}
-#pzUsed .ut{width:auto;min-width:0}
 /* the Puzzle tab's left card narrow (the 3D focus, or a narrow Sidebar width): Minimal's tiles, two a row; the library's hint left out (as Minimal does); In this puzzle's buttons on a row of their own, sharing it */
 #leftP{container:pzleft/inline-size}
 @container pzleft (max-width:299px){
@@ -994,12 +767,6 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 #pzLib .lc{min-width:0}#pzLib .lc .pl{min-width:0;flex:0 1 auto}#pzLib .lc .la{margin-left:auto;flex:none}
 #slvOpts{margin-left:12px;padding-left:14px;border-left:2px solid var(--line)}
 #boardsSec:not([hidden]) ~ #shapesHead [data-collapse]{display:none}
-#leftS.slvfrozen .slv-optsec{pointer-events:none;opacity:.5}
-#leftS.slvfrozen #slvOptSec{pointer-events:auto;opacity:1}
-#leftS.slvfrozen #slvOptSec .slv-opts>:not(.live){pointer-events:none;opacity:.5}
-.lbody .lspace{position:relative}
-.lbody .lrow{position:absolute;left:0;right:0}
-.lrow.ph{cursor:default}
 .slv-ana{display:none;flex:none;padding:8px 14px 10px;border-top:1px solid var(--line);font-size:calc(12px + var(--fs))}
 .slv-ana.show{display:block}
 .slv-ana .t{display:flex;justify-content:space-between;gap:8px;color:var(--muted)}
@@ -1017,24 +784,8 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .sdrawer .dl:focus{outline:none}.sdrawer .dl:focus-visible{box-shadow:inset 0 0 0 2px var(--accentSoft)}
 .sdrawer .dl div{cursor:pointer;white-space:nowrap}
 .sdrawer .dr .ctl input[type=range]{flex:1;min-width:120px;accent-color:var(--accent)}
-.sdrawer .exadd{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:calc(12px + var(--fs))}
-.sdrawer .exadd select{height:calc(26px + var(--fh));border:1px solid var(--line2);border-radius:7px;background:var(--panel);color:var(--text);font:inherit;margin-left:6px}
-.sdrawer .exadd .pcs{display:flex;flex-wrap:wrap;gap:4px 12px}
-.sdrawer .exadd .pcs label{display:flex;align-items:center;gap:4px}
 .slv-dbg{margin-top:8px;width:100%}
-.fpanel{position:absolute;top:64px;right:24px;z-index:60;max-width:calc(100% - 48px);max-height:calc(100% - 120px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line2);border-radius:14px;box-shadow:0 18px 50px rgba(15,20,30,.3);overflow:hidden}
-.fpanel .fh{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 16px;border-bottom:1px solid var(--line);font-weight:700}
-.fpanel .fh .sp,.fpanel .ff .sp{flex:1}
-.fpanel .fb{overflow:auto;padding:10px 16px;min-height:0}
-.fpanel .ff{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 12px;border-top:1px solid var(--line)}
 .fpanel.stw{width:980px}.fpanel.dbg{width:560px;left:auto}
-.stt{border-collapse:collapse;font-size:calc(12px + var(--fs));font-variant-numeric:tabular-nums}
-.stt th{font-weight:600;color:var(--muted);padding:3px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
-.stt td{padding:3px 6px;text-align:center;white-space:nowrap}
-.stt td:nth-child(2){text-align:left}
-.stt tbody tr:nth-child(even){background:var(--panel2)}
-.stt td i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:middle}
-.stt .chip{height:18px}
 .fpanel.dbg h4{margin:10px 0 4px;font-size:calc(12.5px + var(--fs))}
 .fpanel.dbg .kv{border-collapse:collapse;font-size:calc(12px + var(--fs));width:100%}
 .fpanel.dbg .kv th{text-align:left;font-weight:500;color:var(--muted);padding:2px 12px 2px 0;white-space:nowrap;vertical-align:top}
@@ -1051,84 +802,15 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 /* View ▸ Manage Cache and Autosave Files (shell/cache-files.ts): the list on top, the selected item's details in the room below it */
 #cacheFiles .cfm.wide{width:min(780px,calc(100% - 48px))}
 #cacheFiles .bt [data-x="refresh"]{margin-right:auto}
-.cfm .cf-list{height:calc(5 * (40px + 2 * var(--fs)) + 6px);flex:none;overflow:auto;border:1px solid var(--line2);border-radius:8px;background:var(--panel2);padding:2px}
-.cfm .cf-list:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.cf-row{display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:calc(40px + 2 * var(--fs));box-sizing:border-box;padding:3px 10px;border-radius:6px;cursor:pointer;user-select:none}
-.cf-row:hover{background:var(--accentSoft)}
-.cf-row[aria-selected="true"]{background:var(--accent);color:#fff}
-.cf-row .cf-t{font-size:calc(13px + var(--fs));font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cf-row .cf-m{font-size:calc(11.5px + var(--fs));color:var(--muted)}
-.cf-row[aria-selected="true"] .cf-m{color:rgba(255,255,255,.85)}
-.cf-empty,.cf-none{padding:18px 12px;color:var(--muted);text-align:center}
-.cfm .cf-total{margin:4px 2px 8px;font-size:calc(11.5px + var(--fs));min-height:1.2em}
-.cfm .cb p.cf-err{color:var(--danger);margin:0 0 8px}
-.cf-detail{min-height:300px;border-top:1px solid var(--line);padding-top:10px}
-.cf-head{display:flex;align-items:flex-start;gap:12px;margin:0 0 4px}
-.cf-head h4{flex:1;min-width:0;margin:3px 0 0;font-size:calc(14px + var(--fs));overflow-wrap:anywhere}
-.cf-dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:5px 14px;margin:0 0 10px;font-size:calc(13px + var(--fs))}
-.cf-dl dt{color:var(--muted);font-weight:600}
-.cf-dl dd{margin:0;min-width:0;overflow-wrap:anywhere;user-select:text}
-.cf-dl code{font:calc(12px + var(--fs)) ui-monospace,Menlo,monospace}
-.cf-files{max-height:132px;overflow:auto;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font:calc(11.5px + var(--fs)) ui-monospace,Menlo,monospace;line-height:1.5;user-select:text}
-.cf-files>div{padding-left:2em;text-indent:-2em;overflow-wrap:anywhere}
-/* View ▸ Log File Manager… (log-files.ts) */
-.lf-bar{display:flex;align-items:center;gap:12px;margin:0 0 6px}
-.lf-bar .lf-search{flex:1;min-width:0}
-.lf-filter{display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer}
-.cfm .lf-sum{margin:0 2px 8px;font-size:calc(11.5px + var(--fs));min-height:1.2em;overflow-wrap:anywhere}
-.lf-sum code{font:calc(11px + var(--fs)) ui-monospace,Menlo,monospace}
-.cfm .cb p.lf-err{color:var(--danger);margin:0 0 8px}
-.lf-list{height:420px;overflow:auto;border:1px solid var(--line2);border-radius:8px;background:var(--bg);padding:4px 0;font:calc(11.5px + var(--fs)) ui-monospace,Menlo,monospace;line-height:1.45;user-select:text}
-.lf-list:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.lf-row{padding:1px 10px 1px calc(10px + 2em);text-indent:-2em;white-space:pre-wrap;overflow-wrap:anywhere}
-.lf-row.lf-debug{color:var(--muted)}
-.lf-row.lf-warn{background:color-mix(in srgb,var(--warn) 12%,transparent)}
-.lf-row.lf-error{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
-.lf-empty{padding:18px 12px;color:var(--muted);text-align:center;font-family:inherit}
 #logFiles .cfm.wide{width:min(1180px,calc(100% - 48px))}
-#logFiles .lf-list{height:min(520px,calc(100vh - 320px));min-height:240px}
-.cfm .cb p.lf-intro{margin:0 0 18px}
 #logFiles .cfm{position:relative}
-.lf-mail{color:var(--text);white-space:nowrap}
-/* Export…'s choices, over its button */
-/* the notice of the cache files at the start (cache-notice.ts) */
-#cacheAtStart .cfm{width:min(560px,calc(100% - 48px))}
-#cacheAtStart .bt [data-x="manage"]{margin-right:auto}
-.cn-list{list-style:none;margin:0 0 12px;padding:2px;max-height:min(240px,40vh);overflow:auto;border:1px solid var(--line2);border-radius:8px;background:var(--panel2)}
-.cn-list li{display:flex;flex-direction:column;gap:1px;padding:4px 10px}
-.cn-list li+li{border-top:1px solid var(--line)}
-.cn-t{font-size:calc(13px + var(--fs));font-weight:600;overflow-wrap:anywhere}
-.cn-m{font-size:calc(11.5px + var(--fs));color:var(--muted)}
 .cfm .cb p.cn-err{color:var(--danger);margin:0 0 10px}
-.cfm .cb p.cn-tip{margin:0 0 4px;font-size:calc(12px + var(--fs))}
 .cfm-head{display:flex;align-items:flex-start;gap:12px;margin:0 0 6px}.cfm-head h3{flex:1;min-width:0;margin:3px 0 0}
-.lf-list mark{background:color-mix(in srgb,#f5c400 55%,transparent);color:inherit;border-radius:2px}
-.lf-list.pretty{padding:0}
-.lf-table{width:100%;border-collapse:collapse}
-.lf-table th{position:sticky;top:0;z-index:1;background:var(--panel2);color:var(--muted);text-align:left;font:600 calc(11px + var(--fs)) system-ui,sans-serif;letter-spacing:.3px;padding:5px 8px;border-bottom:1px solid var(--line2)}
-.lf-table td{padding:2px 8px;vertical-align:top;border-bottom:1px solid var(--line)}
-.lf-table tr.lf-row{padding:0;text-indent:0}
-.lf-table .lf-date,.lf-table .lf-time,.lf-table .lf-lv,.lf-table .lf-src{white-space:nowrap;color:var(--muted)}
-.lf-table .lf-ev{white-space:nowrap;font-weight:600}
-.lf-table .lf-msg{width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
-.lf-table .lf-lv span{font-weight:700}
 .lf-lv-info{color:var(--ay)}.lf-lv-warn{color:var(--warn)}.lf-lv-error{color:var(--danger)}.lf-lv-debug{color:var(--muted)}
-.lf-table tr.lf-debug td{color:var(--muted)}
-.lf-table tr.lf-error .lf-msg{color:var(--danger)}
-.cfm .lf-more{margin:8px auto 0;display:block}
-.cfm .lf-more[hidden]{display:none}
-/* the bulk range dialog: Min above Max, each as wide as the card */
-#pzBulk .rngs{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}#pzBulk .step.sz input.v{flex:1;min-width:0;width:100%}
 /* the update dialog: Details on the left, the release notes it opens in a box that scrolls */
 #update .bt [data-x="details"]{margin-right:auto}
 #update .cfm{width:min(480px,calc(100% - 48px))}#update .cfm.notes{width:min(640px,calc(100% - 48px))}
-#update .relnotes{max-height:min(46vh,440px);overflow:auto;margin:0 0 14px;padding:4px 14px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);line-height:1.5;user-select:text}
-#update .relnotes h4,#update .relnotes h5,#update .relnotes h6{margin:12px 0 6px;font-size:calc(13px + var(--fs))}
-#update .relnotes p{margin:8px 0;color:var(--text)}
-#update .relnotes ul{margin:6px 0 10px;padding-left:20px}#update .relnotes li{margin:0 0 6px}
-#update .relnotes code{font:calc(12px + var(--fs)) ui-monospace,Menlo,monospace;white-space:nowrap}
 .cfm .kbsearch,.cfm .form input:not([type]),.cfm .form select{height:30px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--text);padding:0 10px;font:inherit}
-.cfm .kbsearch{width:100%;margin:4px 0 4px}
 .cfm textarea.notes{width:100%;box-sizing:border-box;min-height:220px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--text);padding:8px 10px;font:inherit;resize:vertical}
 .cfm .form{display:flex;flex-direction:column;gap:10px;font-size:calc(13px + var(--fs))}
 .cfm .form fieldset{border:1px solid var(--line);border-radius:10px;padding:8px 12px 10px;display:flex;flex-direction:column;gap:6px;margin:0}
@@ -1138,10 +820,6 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .cfm .form .fl input{width:110px}
 .cfm .form select{min-width:200px}
 .cfm .bt{flex-wrap:wrap}
-
-/* ---- deferred part 2: sliding puzzles (docs/webui-spec.md, section 8) ---- */
-.row .sgtag{font-weight:600;color:var(--muted);font-size:calc(11px + var(--fs))}
-.row .tnofit{flex:none;font-weight:600;color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent);border-radius:5px;padding:1px 6px;font-size:calc(10px + var(--fs));white-space:nowrap}
 #btnNewBoard[hidden]{display:none}
 /* + New Piece and + New Board together: tighter, so the header still holds the collapse button */
 .ch:has(#btnNewBoard:not([hidden])){gap:4px}
@@ -1152,35 +830,18 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .traytags{position:absolute;inset:0;pointer-events:none;z-index:1}
 .traytags span{position:absolute;transform:translate(-50%,-100%);font-weight:700;font-size:calc(13px + var(--fs));letter-spacing:.6px;color:var(--text);text-shadow:0 1px 2px var(--canvas)}
 #stage[data-tab=puzzle] #vp:has(.slidevalid.show) #vhint{display:none}
-
-/* stacking puzzles (deferred part 4, docs/webui-spec.md section 9): the disc list, the Rods card, the stacks, the validity bar */
-.row.disc .dsz{display:flex;align-items:center;gap:3px;flex:none;font-size:calc(11.5px + var(--fs))}
-.row.disc .dsz input.v{width:40px;height:calc(24px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);text-align:center;font:inherit;font-weight:600;padding:0 2px}
-.row.disc .dsz .ib{width:22px;height:24px;font-weight:700}
 #stage.stk #inspHead,#stage.stk #insp{display:none}
 #stage.stk .shapes{max-height:none;flex:1}
 #stage.stk #right .rfull>:not(.ch):not(#rodsPanel):not(.edctl),#stage.stk #edCtl>:not(#colFoot){display:none}
 #stage.stk #vhint .ent-only{display:none}
 .rods{display:none}
 #stage.stk .rods{display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto}
-.rodbtns{display:flex;flex-wrap:wrap;gap:4px;padding:10px 10px 8px;flex:none}
-.rodbtns .btn{flex:1 1 auto;min-width:0}
 .rodlist{display:flex;flex-direction:column;gap:2px;padding:4px 6px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);max-height:170px;overflow:auto;flex:none}
 .rodrow{height:34px;display:flex;align-items:center;gap:8px;padding:0 6px;border-radius:8px;cursor:pointer;border:1px solid transparent}
 .rodrow:hover{background:var(--panel2)}
 .rodrow.sel{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
 .rodrow .chip{min-width:34px}
 .rodrow .mute{font-size:calc(11.5px + var(--fs));flex:none}
-.rodf{display:flex;flex-direction:column;gap:6px;padding:10px 12px;flex:none}
-/* every line as tall as one with a number box, so the lines space evenly */
-.rodf>*{min-height:calc(26px + var(--fh))}
-.rodline{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.rodck{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:calc(12.5px + var(--fs))}
-.rodck input{margin:0;flex:none}
-.rodck:has(input:disabled){opacity:.5;cursor:default}
-.rodnum{width:58px;height:calc(26px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);text-align:center;font:inherit;font-weight:600}
-.rodnum:disabled{opacity:.5}
-.rodnote{padding:4px 12px 12px;font-size:calc(11.5px + var(--fs));line-height:1.45}
 #stage.stk #pzResult,#stage.stk #pzUsedHead,#stage.stk #pzUsed,#stage.stk #pzGrpHead,#stage.stk #pzGrpBody,#stage.stk #pzSummary{display:none}
 #stage.stk #pzSel,#stage.stk #pzGroupsSec,#stage.stk #pzRulesHead,#stage.stk #pzRules{display:none}
 .pzboard,.pzstacks{display:none}
@@ -1199,10 +860,6 @@ html:is([data-density=compact],[data-density=minimal]) #boardList{max-height:cal
 .sgpane{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
 .sgpane+.sgpane{border-top:1px solid var(--line)}
 .sgparts{display:flex;flex-wrap:wrap;gap:4px;padding:6px 12px 0;flex:none}
-.sgpart{display:flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:2px 6px 2px 2px;color:var(--text);cursor:pointer;font:inherit;font-size:calc(11.5px + var(--fs))}
-.sgpart.on{border-color:var(--accent);background:var(--accentSoft)}
-.sgpart .chip{height:18px;min-width:28px;font-size:calc(10.5px + var(--fs))}
-.sgpart.all .n{color:var(--ok);font-weight:600}
 .sghint{padding:4px 12px;font-size:calc(11.5px + var(--fs));line-height:1.4;flex:none;min-height:calc(2 * 1.4em + 8px);box-sizing:border-box}
 .sgbody{flex:1;min-height:0;display:flex;gap:4px;padding:0 6px 6px}
 .sglayers{display:flex;flex-direction:column;flex-wrap:nowrap;align-items:center;align-self:stretch;border:1px solid var(--line);border-radius:6px}
@@ -1224,97 +881,17 @@ html:is([data-density=compact],[data-density=minimal]) #boardList{max-height:cal
 #stage.stk .pzboard,#stage.stk .pzstacks{display:flex;flex-direction:column;flex:none}
 .pzboard .rodlist{border-bottom:0;max-height:120px}
 .pzstacks{padding:10px 0 0;gap:8px}
-.pzstacks .stackmode{margin:0 12px}
-.pzstacks .stackmode button{flex:1}
 .pzstacks .pzh{border-top:1px solid var(--line);height:calc(36px + var(--fh))}
-.rodbar{display:flex;align-items:center;gap:10px;padding:0 12px}
-.rodbar .cap{flex:none;min-width:52px;font-weight:600;font-size:calc(12.5px + var(--fs))}
-.rodtrack{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
-.rodtrack input{width:100%;margin:0}
-.rodtrack .ticks{display:flex;justify-content:space-between;padding:0 6px;height:5px}
-.rodtrack .ticks i{width:2px;height:5px;background:var(--line2)}
-.stackbtns{display:flex;flex-wrap:wrap;gap:4px;padding:0 12px}
-.stackbtns .btn{flex:1 1 auto;min-width:0}
-.stackvalid{margin:0 12px;padding:7px 10px;border-radius:8px;background:var(--okFill);color:#fff;font-weight:600;font-size:calc(12.5px + var(--fs));line-height:1.35}
-.stackvalid.bad{background:var(--errorFill)}
-.stacklist{display:flex;flex-direction:column;gap:2px;padding:4px 6px 10px;min-height:60px}
-.stackrow{height:32px;display:flex;align-items:center;gap:8px;padding:0 6px;border-radius:8px;cursor:pointer;border:1px solid transparent}
-.stackrow:hover{background:var(--panel2)}
-.stackrow.sel{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
-.stackrow .chip{min-width:34px}
-.stackrow .mute{font-size:calc(11.5px + var(--fs))}
 #pzLib .lc .mute{font-size:calc(11px + var(--fs));margin-left:4px}
 
 /* ---- deferred part 5: the STL dialogs (docs/webui-spec.md, section 10) ---- */
 #exportStl .cfm.wide{width:min(880px,calc(100% - 48px))}
-/* File ▸ New: the grids in a list, what the selected one is on the right */
-#newPuzzle .cfm.wide{width:min(840px,calc(100% - 48px))}
-.ng{display:grid;grid-template-columns:200px 1fr;gap:16px;height:440px;max-height:100%}
-.ng-list{display:flex;flex-direction:column;gap:2px;overflow:auto;border-right:1px solid var(--line);padding-right:12px}
-.ng-item{font:inherit;font-size:calc(14px + var(--fs));text-align:left;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:var(--text);cursor:pointer}
-.ng-item:hover{background:var(--panel2)}
-.ng-item[aria-selected="true"]{background:var(--accentSoft);color:var(--accent);font-weight:600}
-/* the dialog focuses the first item as it opens, which the browser rings until the first click; the selected item's highlight is its focus mark */
-.ng-item[aria-selected="true"]:focus-visible{outline:none}
-.ng-info{display:flex;flex-direction:column;min-height:0;overflow:auto;padding-right:4px}
-.ng-info p{margin:0 0 12px;flex:none}
-.cfm .ng-info p.ng-desc b{color:#2e8b2e}.cfm .ng-info p.ng-warn b{color:var(--warn)}.cfm .ng-info p.ng-ex b{color:#2f6fd0}
-.ng-pic{display:block;flex:1 1 0;min-height:120px;width:100%;object-fit:contain}
-
-.stl-dlg{display:grid;grid-template-columns:minmax(320px,380px) minmax(0,1fr);gap:16px;min-height:360px}
-.stl-side{min-width:0}
-.pick-h{font-weight:600;margin-top:4px}
 /* the two lists are six arrow buttons high, the four arrows centerd with a button's space above and below */
 .pick{--stlb:calc(28px + var(--fh));--stlg:4px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:4px 6px;align-items:start}
-.pick-cap{font-size:calc(12px + var(--fs));color:var(--muted)}
-.pick-cap-r{grid-column:3}
-.cfm .form .pick-list{min-width:0;width:100%;height:calc(6 * var(--stlb) + 3 * var(--stlg));font:inherit;font-size:calc(13px + var(--fs));border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);padding:2px}
 #exportScad .cfm{width:min(520px,calc(100% - 48px))}
-.scad-pick{margin-left:24px;display:flex;flex-direction:column;gap:4px}
 .scad-pick .pick-h{display:none}
-.scad-problem{margin-left:24px}
-.scad-lip{display:flex;flex-direction:column;gap:6px;margin-left:24px}
-.scad-lip .fl input{width:64px}
 .scad-err{color:var(--danger);font-size:calc(12.5px + var(--fs));min-height:16px}
-#imageDlg .cfm{width:auto;max-width:calc(100% - 48px);max-height:calc(100vh - 16px);box-sizing:border-box;display:flex;flex-direction:column}
-#imageDlg .cfm .cb{overflow:auto;min-height:0}
-.imgdlg{min-width:320px}
-.imgdlg .imgdlg-pick{display:flex;align-items:center;gap:10px}
-.imgdlg .imgdlg-pick{align-items:flex-start}
-.imgdlg .imgdlg-pick > .btn{flex:none}
-.imgdlg .imgdlg-tiles{display:flex;flex-wrap:wrap;gap:6px;min-width:0;flex:1;max-width:calc(var(--imgw,320px) - 150px)}
-.imgdlg .imgdlg-none{color:var(--muted);line-height:calc(28px + var(--fh))}
-.imgdlg .imgtile{display:inline-flex;align-items:center;gap:4px;height:calc(28px + var(--fh));padding:0 2px 0 10px;border:1px solid var(--line2);border-radius:7px;background:var(--panel2);color:var(--text);cursor:pointer;max-width:240px;user-select:none}
-.imgdlg .imgtile[draggable="true"]{cursor:grab}
-.imgdlg .imgtile.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-.imgdlg .imgtile .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.imgdlg .imgtile .x{flex:none;width:22px;height:22px;border:0;border-radius:5px;background:transparent;color:var(--muted);font:inherit;font-size:16px;line-height:1;cursor:pointer;padding:0}
-.imgdlg .imgtile .x:hover{background:var(--line);color:var(--text)}
-.imgdlg .imgdlg-preview{align-self:center;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
-.imgdlg .imgdlg-note,.imgdlg .imgdlg-hint{margin:0;color:var(--muted);font-size:calc(12px + var(--fs));max-width:max(320px,var(--imgw,320px))}
-.imgdlg .imgdlg-hint[hidden]{display:none}
-.imgdlg .imgdlg-row{display:flex;align-items:stretch;gap:10px}
-.imgdlg .imgdlg-fit{flex:none}
-.imgdlg .imgdlg-snap{margin-left:24px}
-/* the help's text wraps to the room the preview leaves, never widening the dialog */
-.imgdlg .imgdlg-help{flex:1 1 0;min-width:0;contain:inline-size}
-.imgdlg .imgdlg-snap:has(input:disabled){color:var(--muted)}
-.pick-arrows{display:flex;flex-direction:column;justify-content:center;gap:var(--stlg);height:calc(6 * var(--stlb) + 3 * var(--stlg))}
-.cfm .pick-arrows .btn{height:var(--stlb);width:var(--stlb);padding:0;justify-content:center}
 .pick.off{opacity:.5}
-.stl-params{display:flex;flex-direction:column;gap:6px}
-.stl-look{display:flex;flex-direction:column;gap:8px;min-width:0}
-.stl-view{flex:1;width:100%;min-height:320px;border:1px solid var(--line);border-radius:10px;background:var(--canvas);display:block;cursor:grab;touch-action:none}
-.stl-view:active{cursor:grabbing}
-.stl-bar{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.stl-status{font-size:calc(12.5px + var(--fs));color:var(--muted);min-height:18px;font-variant-numeric:tabular-nums}
-.stl-status.err{color:var(--danger)}
-.stl-folder{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);text-align:right;margin:0 8px}
-.stl-pieces{margin:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font:calc(12px + var(--fs))/1.5 ui-monospace,Menlo,monospace;color:var(--text);max-height:180px;overflow:auto;white-space:pre}
-
-/* ---- the tooltips the page draws (shell/tooltip.ts; macOS stopped showing the native ones) ---- */
-.hovertip{position:fixed;z-index:1000;max-width:320px;padding:4px 8px;border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);box-shadow:var(--shadow);font-size:calc(12px + var(--fs));line-height:1.35;white-space:pre-line;overflow-wrap:anywhere;pointer-events:none}
-.hovertip[hidden]{display:none}
 
 /* ---- the larger font sizes: the Solver's button rows wrap rather than cut their captions; the library's hint gives way ---- */
 :root:is([data-font=medium],[data-font=large]) :is(.slv-run,.slv-adv){display:flex;flex-wrap:wrap}
@@ -1356,40 +933,16 @@ html[data-topbar=colorful] .rbtn[data-tab=play]{--tc:var(--accent)}
 .pl-mid{flex:1;min-height:0;display:flex;align-items:center;justify-content:flex-start;gap:18px;padding:10px 18px}
 .pl-board{flex:none;align-self:flex-end;display:grid;place-items:center;outline:none}
 .pl-board[hidden]{display:none}
-.pl-svg{display:block;overflow:visible}
-.pl-cell{stroke:none}
-.pl-grid{fill:none;stroke:var(--pl-grid);stroke-width:1;pointer-events:none}
-.pl-tray{filter:drop-shadow(0 3px 5px rgba(0,0,0,.3))}
-.pl-trayfoot{stroke:rgba(0,0,0,.45);stroke-width:1}
-.pl-trayline{fill:none;stroke:rgba(0,0,0,.55);stroke-width:1}
-.pl-trayedge{fill:none;stroke:#fff;stroke-width:2}
 .pl-grain{opacity:.13;pointer-events:none}
 .pl-grain.tex{opacity:.34}
-.pl-wood{opacity:.42;pointer-events:none}
-.pl-sunk{pointer-events:none}
-.pl-shadow{fill:none;stroke:rgba(0,0,0,.4)}
-.pl-wall{fill:rgba(0,0,0,.3)}
-.pl-hollow{fill:none;stroke:rgba(0,0,0,.35);stroke-width:1;pointer-events:none}
-.pl-cell.var{fill-opacity:.5;stroke:var(--text);stroke-width:1.6;stroke-dasharray:4 3}
-.pl-goal{fill-opacity:.3;pointer-events:none}
 .pl-board.noshades .pl-goals,.pl-board.nolines .pl-marks,.pl-board.nolabels .pl-labels{display:none}
 .pl-board.nogrid .pl-grid{display:none}
-/* Simple Pieces: flat, no sheen or shadows */
-.pl-board.simple .pl-face{fill:none;stroke:rgba(0,0,0,.35)}
-.pl-board.simple .pl-body,.pl-board.simple .pl-tray{filter:none}
 .pl-marks{pointer-events:none}
-.pl-mark{fill:none;stroke-width:1.5;stroke-linejoin:round}
-.pl-mark.under{stroke:rgba(0,0,0,.6);stroke-width:3}
 .pl-piece,.pl-label{cursor:grab;transition:transform .12s ease-out}
 .pl-piece.drag,.pl-label.drag{transition:none}
-.pl-labels{pointer-events:none}
 .pl-hit{fill:transparent}
-.pl-body{filter:drop-shadow(1px 1px 1.5px rgba(0,0,0,.55));pointer-events:none}
-.pl-face{fill:url(#pl-sheen);stroke:rgba(0,0,0,.28);stroke-width:1}
 .pl-board[data-anim] .pl-piece,.pl-board[data-anim] .pl-label{transition:none}
 .pl-piece.drag{cursor:grabbing}
-.pl-piece.drag .pl-body{filter:drop-shadow(2px 4px 5px rgba(0,0,0,.45))}
-.pl-name{text-anchor:middle;font-weight:600;pointer-events:none}
 .pl-side{flex:none;position:relative;display:flex;flex-direction:column;gap:10px}
 .pl-own{display:contents}
 .pl-big{box-sizing:border-box;width:calc(200px + 10 * var(--fs));height:calc(46px + var(--fh));padding:0 16px 0 12px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);color:var(--text);cursor:pointer;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;white-space:nowrap;font:inherit;font-weight:600;font-size:calc(13px + var(--fs));box-shadow:var(--shadow)}
@@ -1398,7 +951,6 @@ button.pl-big:hover:not(:disabled){border-color:var(--accent);color:var(--accent
 .pl-moves b{font-size:calc(17px + var(--fs))}
 .pl-big:disabled{opacity:.35;cursor:default;box-shadow:none}
 .pl-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;max-width:520px;align-self:center}
-.pl-why{font-weight:600;font-size:calc(14px + var(--fs))}
 .pl-bar{flex:none;align-self:center;width:min(700px,calc(100% - 40px));margin:0 0 14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 12px;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
 .pl-transport{display:flex;align-items:center;gap:4px;flex:none}
 .pl-bar .tb{width:30px;height:30px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--text);cursor:pointer;display:grid;place-items:center;padding:0}
@@ -1410,51 +962,18 @@ button.pl-big:hover:not(:disabled){border-color:var(--accent);color:var(--accent
 .pl-count .mute{font-size:calc(13px + var(--fs))}
 .pl-btns{display:flex;flex-direction:column;align-items:stretch;gap:6px}
 .pl-btns .btn{justify-content:center}
-/* a stacking puzzle's board (decision 0042): the rods from the front, each disc a bar */
-.sk-svg{display:block;overflow:visible}
-.sk-peg,.sk-base{fill:#8c8c94}
-.sk-step{fill:var(--text);fill-opacity:.07}
-.sk-bridge{fill:var(--text);fill-opacity:.05;stroke:var(--line2);stroke-width:1;stroke-dasharray:5 4}
-.sk-channel{fill:none;stroke:var(--text);stroke-opacity:.22;stroke-linecap:round}
 .sk-disc{transition:transform .14s ease-out}
 .sk-disc.drag,.pl-board[data-anim] .sk-disc{transition:none}
-.sk-bar{stroke:rgba(0,0,0,.4);stroke-width:1}
-.sk-sheen{fill:url(#sk-sheen);pointer-events:none}
-.sk-disc.drag .sk-bar,.sk-disc.held .sk-bar{filter:drop-shadow(1px 4px 4px rgba(0,0,0,.4))}
-.sk-name{text-anchor:middle;dominant-baseline:central;font-weight:600;pointer-events:none}
-.pl-board.nolabels .sk-name{display:none}
 .sk-col{fill:transparent}
 .sk-col.has{cursor:grab}
 .sk-col.ok{cursor:pointer}
 .sk-glow{fill:transparent;pointer-events:none;transition:fill .12s}
 .sk-glow.ok{fill:var(--accentSoft)}
 .pl-board[data-drag] .sk-col{cursor:grabbing}
-.sk-goal{position:relative;display:block;box-sizing:border-box;width:calc(200px + 10 * var(--fs));padding:8px 10px 10px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);color:var(--text);font:inherit;text-align:left;cursor:pointer}
-.sk-goal[hidden]{display:none}
-.sk-goal:hover{border-color:var(--accent)}
-.sk-goal .cap{display:block;color:var(--muted);font-weight:600;font-size:calc(12px + var(--fs));margin-bottom:4px}
-.sk-goal:hover .cap,.sk-goal:hover .pop{color:var(--accent)}
-.sk-goal .pop{position:absolute;top:7px;right:8px;display:flex;color:var(--muted)}
-.sk-goal .pic{display:grid;place-items:center}
 /* a board drawn out of sight for the goal's window (goal-picture.ts) */
-.goal-room{position:fixed;left:-20000px;top:0;pointer-events:none}
 #plNote:empty{display:none}
-/* the voxel editor's Span row: by default Span alone, then Mirror & Plane (which opens Mirror and the
-   planes) and the layer label; the < after the planes hides them again */
-.mrow .mpr{display:flex;align-items:center;gap:10px;min-width:0}
-.mrow .mpbtn{flex:none;height:54px;padding:2px 8px}
-.mpbtn b,.mpx b{font-weight:600;text-align:center}
-.mpbtn.used::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .llbl{white-space:nowrap}
 .subbar.off{display:none}
-.pseg .gbtn.mpx{width:31px}
-html:is([data-density=standard],[data-density=compact]) .mrow .mpbtn{height:44px}
-html:is([data-density=standard],[data-density=compact]) .pseg .gbtn.mpx{width:27px}
-html[data-density=compact] .mrow .mpbtn{height:30px;padding:1px 6px;border-radius:6px}
-html[data-density=compact] .pseg .gbtn.mpx{width:auto;padding:2px 8px}
-html[data-density=minimal] .mrow .mpbtn{height:32px;padding:1px 6px}
-html[data-density=minimal] .pseg .gbtn.mpx{width:22px}
-#stage.f2d:not(.stk) .edctl .gbtn.mpx{padding:2px 8px}
 
 /* Solver: collapsing Step-by-step explorer and the Debug statistics row */
 .slv-fold .slv-lab.click{width:100%;border:0;background:transparent;padding:0;font-family:inherit;color:var(--text);text-align:left;text-transform:none;letter-spacing:0;font-size:calc(13px + var(--fs));margin-bottom:0;height:calc(28px + var(--fh))}
@@ -1468,18 +987,7 @@ html[data-density=minimal] .pseg .gbtn.mpx{width:22px}
 /* ---- a Tilted Square puzzle (decision 0045) ---- */
 /* the board's views take the grid's place; a piece has no size steppers or layers (one layer, the board's size) */
 #trayArea{display:none}
-#stage.tltb #trayArea{flex:1;min-width:0;min-height:0;display:grid;place-items:center;overflow:hidden;touch-action:none}
-#stage.tltb :is(#garea,#selbar,#lstrip,#toolStrip,#modRow,#planeSub,#colFoot,#gridSize){display:none}
-#stage.tlt :is(#gridSize,#lstrip){display:none}
 .bviews{display:none}
-#stage.tltb .bviews{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 10px}
-/* as high as + New Piece at every density (.btn.sm, and the densities' .btn heights that win over it) */
-#boardViews .bv .gbtn{width:auto;height:calc(26px + var(--fh));padding:0 12px}
-html:is([data-density=standard],[data-density=compact]) #boardViews .bv .gbtn{height:calc(28px + var(--fh))}
-.bviews .bvfacts{flex-basis:100%}
-.bviews .bvfacts p{margin:0;line-height:1.45}
-.bviews .bvfacts :is(.tsize,.tread,.tangle,.twallcount){font-weight:600}
-.bviews .bvfacts .thint{margin-top:4px;color:var(--muted);font-size:calc(12px + var(--fs))}
 /* the tray picture (state/tilted.ts trayPicture), in the New dialog and the board's views:
    the turned cells under the straight squares; Tray brings the squares out, Cells the cells */
 /* a wall square: dark on the light theme, light on the dark one, so it stands out from the panel and the cut cells
@@ -1522,37 +1030,6 @@ html:is([data-density=standard],[data-density=compact]) #boardViews .bv .gbtn{he
 .tilt .step{width:112px;flex:none}
 .tilt .step input.v{min-width:0;width:100%;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-weight:600;text-align:center;padding:0}
 .tilt .switch{margin:0;flex:none}
-.tilt .tsh{width:64px;height:calc(26px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);font:inherit;text-align:center}
-.tilt .tshs{display:flex;gap:6px}
 .tilt select{font:inherit;height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text)}
-.tborder .seg{flex:none}
-.tborder .tbcolor{display:flex;align-items:center;gap:6px;flex:none}
-.tborder .tbsw{width:26px;height:26px;border-radius:6px;border:1px solid var(--line2);cursor:pointer;padding:0;flex:none}
-.tborder .tbsw:hover{border-color:var(--accent)}
-.tilt .tline{margin:2px 0 6px;color:var(--muted);font-size:calc(12px + var(--fs))}
-/* the Placements dialog (stage G): every board the grid can give, a row each */
-.plc-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
-.plc-bar select{font:inherit;height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);margin-left:6px}
-.plc-bar .plc-sum{flex:1;min-width:140px;color:var(--muted)}
-.plc-list{overflow:auto;min-height:120px;max-height:min(52vh,460px);border:1px solid var(--line);border-radius:8px}
-.plc-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border-bottom:1px solid var(--line)}
-.plc-row:last-child{border-bottom:0}
-.plc-row.inuse{background:color-mix(in srgb,var(--accent) 8%,transparent)}
-.plc-row .plc-pic{flex:none;width:80px;height:80px;display:grid;place-items:center}
 /* at this size the tray's straight squares would drown the cells (their lines are bright in the dark theme): the walls and the outline stay */
 .plc-row .plc-pic .tpic .tp-sq{stroke:none}
-.plc-row .plc-t{flex:1;min-width:0}
-.plc-row .plc-t small{display:block;color:var(--muted);font-size:calc(11px + var(--fs));min-height:1.3em}
-.plc-row .plc-fit{flex:none;width:132px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
-.plc-row[data-fit="fits"] .plc-fit,.plc-row[data-fit="partial"] .plc-fit{color:var(--text);font-weight:600}
-.plc-row[data-fit="trying"] .plc-fit{color:var(--accent)}
-.plc-row .btn{flex:none;min-width:58px}
-.plc-more{display:block;margin:8px auto}
-.slv-empty .slv-try{display:block;margin:10px auto 0}
-/* File ▸ New's Tilted Square: its example, the default tray */
-.ngt-pic{display:grid;place-items:center}
-/* a tilted puzzle's piece: the cells the tray cuts are gray and take no pointer */
-#garea .cell.tcut{pointer-events:none}
-/* a tilted puzzle's piece: the grid turned in its tray, the tray's walls and outline over the cells */
-#garea .twalls polygon{fill:var(--twall)}
-#garea .tedge{fill:none;stroke:var(--text);stroke-width:2.5}

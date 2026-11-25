@@ -7,6 +7,7 @@
 // dialog and a menu. In the look of the mockup's cards and dialogs (the
 // `.cfm` question, the `.sdrawer`'s header).
 
+import './panel.css';
 import { byId, esc } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
 import { ic } from './icons.ts';

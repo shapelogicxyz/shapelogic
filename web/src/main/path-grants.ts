@@ -15,7 +15,7 @@
 /**
  * The methods that name a file, and the parameters that do (document.open's
  * `as` is the file a save then writes: a rescue copy's, cleanup item 10.11).
- * document.saveRescue is the main process's (app-ipc.ts), to the rescue
+ * document.saveRescue is the main process's (ipc/rescue.ts), to the rescue
  * copy's file; a page that calls it can name only a file it was handed.
  */
 const PATH_PARAMS: Readonly<Record<string, readonly string[]>> = {

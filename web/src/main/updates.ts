@@ -3,7 +3,7 @@
 // Whether a newer ShapeLogic is out: the latest release on GitHub (its
 // API's releases/latest, which skips drafts and prereleases) against the
 // app's version, both read as vX.Y[.Z], and its notes (the release's
-// body: release/notes/vX.Y.md, Markdown) for the dialog's Details. The main process asks (app-ipc.ts,
+// body: release/notes/vX.Y.md, Markdown) for the dialog's Details. The main process asks (ipc/store.ts,
 // on a session of its own: the window's session lets nothing remote
 // through); the renderer shows the answer (renderer/shell/updates.ts).
 // Each check's outcome is told in words for the log (cleanup item 2.8):

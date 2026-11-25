@@ -19,6 +19,7 @@
 // branches). The board is the engine's (stacking.board); every action is a
 // stacking.* call awaited until the cards show its revision.
 
+import './stacks-card.css';
 import type { DiscRef } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';

@@ -1,0 +1,25 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* image-dialog.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+#imageDlg .cfm{width:auto;max-width:calc(100% - 48px);max-height:calc(100vh - 16px);box-sizing:border-box;display:flex;flex-direction:column}
+#imageDlg .cfm .cb{overflow:auto;min-height:0}
+.imgdlg{min-width:320px}
+.imgdlg .imgdlg-pick{display:flex;align-items:center;gap:10px}
+.imgdlg .imgdlg-pick{align-items:flex-start}
+.imgdlg .imgdlg-pick > .btn{flex:none}
+.imgdlg .imgdlg-tiles{display:flex;flex-wrap:wrap;gap:6px;min-width:0;flex:1;max-width:calc(var(--imgw,320px) - 150px)}
+.imgdlg .imgdlg-none{color:var(--muted);line-height:calc(28px + var(--fh))}
+.imgdlg .imgtile{display:inline-flex;align-items:center;gap:4px;height:calc(28px + var(--fh));padding:0 2px 0 10px;border:1px solid var(--line2);border-radius:7px;background:var(--panel2);color:var(--text);cursor:pointer;max-width:240px;user-select:none}
+.imgdlg .imgtile[draggable="true"]{cursor:grab}
+.imgdlg .imgtile.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.imgdlg .imgtile .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.imgdlg .imgtile .x{flex:none;width:22px;height:22px;border:0;border-radius:5px;background:transparent;color:var(--muted);font:inherit;font-size:16px;line-height:1;cursor:pointer;padding:0}
+.imgdlg .imgtile .x:hover{background:var(--line);color:var(--text)}
+.imgdlg .imgdlg-preview{align-self:center;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.imgdlg .imgdlg-note,.imgdlg .imgdlg-hint{margin:0;color:var(--muted);font-size:calc(12px + var(--fs));max-width:max(320px,var(--imgw,320px))}
+.imgdlg .imgdlg-hint[hidden]{display:none}
+.imgdlg .imgdlg-row{display:flex;align-items:stretch;gap:10px}
+.imgdlg .imgdlg-fit{flex:none}
+.imgdlg .imgdlg-snap{margin-left:24px}
+/* the help's text wraps to the room the preview leaves, never widening the dialog */
+.imgdlg .imgdlg-help{flex:1 1 0;min-width:0;contain:inline-size}
+.imgdlg .imgdlg-snap:has(input:disabled){color:var(--muted)}

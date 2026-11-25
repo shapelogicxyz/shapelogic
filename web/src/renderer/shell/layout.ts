@@ -11,6 +11,7 @@
 // workspace (decision 0039) is in the rail only while a sliding puzzle is
 // open (`setWorkspaceShown`).
 
+import './layout.css';
 import { $$, byId } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
 import { ic } from './icons.ts';

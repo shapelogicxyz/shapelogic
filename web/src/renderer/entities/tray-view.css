@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tray-view.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+/* as high as + New Piece at every density (.btn.sm, and the densities' .btn heights that win over it) */
+#boardViews .bv .gbtn{width:auto;height:calc(26px + var(--fh));padding:0 12px}
+html:is([data-density=standard],[data-density=compact]) #boardViews .bv .gbtn{height:calc(28px + var(--fh))}
+.bviews .bvfacts{flex-basis:100%}
+.bviews .bvfacts p{margin:0;line-height:1.45}
+.bviews .bvfacts :is(.tsize,.tread,.tangle,.twallcount){font-weight:600}
+.bviews .bvfacts .thint{margin-top:4px;color:var(--muted);font-size:calc(12px + var(--fs))}

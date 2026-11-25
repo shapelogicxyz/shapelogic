@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* color-picker.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+/* the color picker (shell/color-picker.ts) */
+.cpk{display:flex;flex-direction:column;gap:8px;padding:4px;width:200px}
+.cpk-sv{position:relative;height:130px;border-radius:6px;background-image:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,rgba(255,255,255,0));cursor:crosshair;touch-action:none}
+.cpk-knob{position:absolute;width:12px;height:12px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5);transform:translate(-50%,-50%);pointer-events:none}
+.cpk-hue{-webkit-appearance:none;appearance:none;width:100%;height:12px;border-radius:6px;background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);margin:0;cursor:pointer}
+.cpk-hue::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;border:1px solid rgba(0,0,0,.4);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.cpk-row{display:flex;gap:8px;align-items:center}
+.cpk-prev{width:28px;height:28px;border-radius:6px;border:1px solid var(--line2);flex:none}
+.cpk-hex{flex:1;min-width:0;height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);padding:0 8px;font:calc(12px + var(--fs)) ui-monospace,Menlo,Consolas,monospace}

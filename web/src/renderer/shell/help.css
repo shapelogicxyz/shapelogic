@@ -1,0 +1,3 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* help.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.cfm .kbsearch{width:100%;margin:4px 0 4px}

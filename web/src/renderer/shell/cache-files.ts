@@ -10,6 +10,7 @@
 // its full path, and Delete beside its title, which asks first. Refresh lists it again. The
 // renderer deletes an item by its id; the main process finds its files.
 
+import './cache-files.css';
 import type { BtApp, CacheItem } from '../../engine/app-bridge.ts';
 import { cacheDeleted } from './cache-events.ts';
 import { itemMeta, sizeText, when } from './cache-text.ts';

@@ -17,6 +17,7 @@
 // engine's meshes, as the 3D view's (mesh.ts, material.ts), not the
 // mockup's projected cubes.
 
+import './pieces.css';
 import {
   DoubleSide,
   Group,

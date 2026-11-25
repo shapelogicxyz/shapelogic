@@ -167,14 +167,14 @@ Chrome (`--headed` shows it).
   restarted when it dies), `engine-path.ts`, `security.ts` (the window's options, the switches a
   packaged app takes, the requests and permissions allowed, the help
   links), `path-grants.ts` (the files a window's engine may be given),
-  `app-ipc.ts`, `menu.ts`, `export-file.ts`, `rescue.ts`,
+  `app-ipc.ts` (over `ipc/`, one module per group), `menu.ts`, `export-file.ts`, `rescue.ts`,
   `state-store.ts`, `index.ts` (with `BT_CALL_LOG=<file>` every call of the
   renderer is logged there with how it ended; the e2e tests read it;
   `BT_AUTOSAVE_SECONDS=<n>` shortens the Solver's autosave from 20
   minutes, for the e2e tests).
 - `src/preload/`: `window.bt` and `window.btApp`.
 - `src/renderer/`: `index.html` and `styles.css` (the mockup's body and
-  stylesheet), `main.ts`, `engine-proxy.ts` (the client's interface over
+  stylesheet; a module's own rules sit beside it as `<module>.css`), `main.ts`, `engine-proxy.ts` (the client's interface over
   `window.bt`); `shell/` (the app's frame: `app.ts`, `keys.ts` the one
   keyboard table, `keyboard.ts`, `layout.ts`, `settings.ts`, `prefs.ts`,
   `theme.ts`, `status.ts`, `escape.ts`, `history.ts` (undo and redo),

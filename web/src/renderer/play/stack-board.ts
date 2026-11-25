@@ -12,6 +12,7 @@
 // marked meanwhile. A move made again (Undo, Redo, the playback) is drawn
 // as a solution's transfer is: lifted above the rods, across, and down.
 
+import './stack-board.css';
 import { BoardShell, translate } from './board-shell.ts';
 import { boardRoom, insetBoard } from './room.ts';
 import type { Stacks } from './stack-game.ts';

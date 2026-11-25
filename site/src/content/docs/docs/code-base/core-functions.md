@@ -152,7 +152,7 @@ and `Solution` with the original module's names.
 | One engine per window | `engine-host.ts` | `EngineHost`: start, restart after a death, status |
 | The host's side of the bridge | `serve.ts` (in `web/src/engine/`) | `serveEngine`: checks the method name, admits or refuses paths, forwards the call |
 | Security | `security.ts`, `path-grants.ts` | `windowOptions`, `allowedRequest`, `SYSTEM_URLS` (the help links: `app-bridge.ts`'s `HELP_URLS`); `PathGrants` |
-| Menus, dialogs, files | `menu.ts`, `app-ipc.ts`, `export-file.ts`, `state-store.ts`, `rescue.ts` | the menu template, the file dialogs, safe writes, `state.json`, the rescue copy |
+| Menus, dialogs, files | `menu.ts`, `app-ipc.ts` and `ipc/`, `export-file.ts`, `state-store.ts`, `rescue.ts` | the menu template, the file dialogs, safe writes, `state.json`, the rescue copy |
 
 ## The app: the renderer (`web/src/renderer/`)
 
@@ -165,10 +165,10 @@ and `Solution` with the original module's names.
 | Solves | `state/solves.ts` | `Solves`, `SolveRecord`: state, phase, progress, the run's end by revision, `whenEnded` |
 | Keyboard | `shell/keys.ts`, `shell/keyboard.ts` | the one table of keys, `onKey`, `runAction` |
 | Files and menus | `shell/files.ts`, `shell/menus.ts`, `shell/rescue.ts`, `shell/imports.ts` | New, Open, Save, the unsaved-changes question, Open Recent, the rescue copy |
-| The 3D view | `view3d/view.ts`, `renderer.ts`, `camera.ts`, `scene.ts`, `pieces.ts`, `solution.ts`, `mesh.ts`, `material.ts`, `picking.ts`, `meshcache.ts` | `View3D`, `ViewRenderer`, `ShapeScene`, `PiecesScene`, `SolutionScene`, `buildMesh` |
+| The 3D view | `view3d/view.ts`, `pointer.ts`, `layer.ts` and its layers, `renderer.ts`, `camera.ts`, `scene.ts`, `pieces.ts`, `solution.ts`, `mesh.ts`, `material.ts`, `picking.ts`, `meshcache.ts` | `View3D`, `ViewRenderer`, `ShapeScene`, `PiecesScene`, `SolutionScene`, `buildMesh` |
 | The Shapes workspace | `entities/workspace.ts`, `shapes-list.ts`, `editor-card.ts`, `grid2d.ts`, `edit3d.ts`, `stroke.ts`, `inspector.ts`, `status-window.ts` | `EntitiesWorkspace`, `Grid2D`, `Edit3D`, `Stroke` (a drag as one undo group) |
 | The Puzzle workspace | `puzzle/workspace.ts`, `problems.ts`, `pieces-card.ts`, `piece-card.ts`, `layout.ts` | `PuzzleWorkspace`, `ProblemsList`, `PiecesCard`, `PieceCard` |
-| The Solver workspace | `solver/workspace.ts`, `run-card.ts`, `solutions-card.ts`, `player.ts`, `poses.ts`, `pager.ts`, `settings.ts`, `option-text.ts`, `autosave.ts`, `cadence.ts`, `stats-panel.ts` | `SolverWorkspace` (`run`, `pause`, `abort`), `RunCard`, `SolutionsCard`, `Player`, `PoseTrack`, `SolutionPager`, `solveOptions`, `Autosave` |
+| The Solver workspace | `solver/workspace.ts`, `run-card.ts`, `run-text.ts`, `run-questions.ts`, `solutions-card.ts`, `player.ts`, `poses.ts`, `pager.ts`, `settings.ts`, `option-text.ts`, `autosave.ts`, `cadence.ts`, `stats-panel.ts` | `SolverWorkspace` (`run`, `pause`, `abort`), `RunCard`, `SolutionsCard`, `Player`, `PoseTrack`, `SolutionPager`, `solveOptions`, `Autosave` |
 | Explorers and exports | `explore/explorer.ts`, `explore/tree.ts`, `export/exports.ts`, `export/glb.ts`, `export/stl-dialogs.ts` | `Explorer`, `Exports` |
 
 ## Tests by area

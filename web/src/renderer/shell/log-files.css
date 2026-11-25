@@ -1,0 +1,33 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* log-files.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+/* View ▸ Log File Manager… (log-files.ts) */
+.lf-bar{display:flex;align-items:center;gap:12px;margin:0 0 6px}
+.lf-bar .lf-search{flex:1;min-width:0}
+.lf-filter{display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer}
+.cfm .lf-sum{margin:0 2px 8px;font-size:calc(11.5px + var(--fs));min-height:1.2em;overflow-wrap:anywhere}
+.lf-sum code{font:calc(11px + var(--fs)) ui-monospace,Menlo,monospace}
+.cfm .cb p.lf-err{color:var(--danger);margin:0 0 8px}
+.lf-list{height:420px;overflow:auto;border:1px solid var(--line2);border-radius:8px;background:var(--bg);padding:4px 0;font:calc(11.5px + var(--fs)) ui-monospace,Menlo,monospace;line-height:1.45;user-select:text}
+.lf-list:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.lf-row{padding:1px 10px 1px calc(10px + 2em);text-indent:-2em;white-space:pre-wrap;overflow-wrap:anywhere}
+.lf-row.lf-debug{color:var(--muted)}
+.lf-row.lf-warn{background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.lf-row.lf-error{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.lf-empty{padding:18px 12px;color:var(--muted);text-align:center;font-family:inherit}
+#logFiles .lf-list{height:min(520px,calc(100vh - 320px));min-height:240px}
+.cfm .cb p.lf-intro{margin:0 0 18px}
+.lf-mail{color:var(--text);white-space:nowrap}
+.lf-list mark{background:color-mix(in srgb,#f5c400 55%,transparent);color:inherit;border-radius:2px}
+.lf-list.pretty{padding:0}
+.lf-table{width:100%;border-collapse:collapse}
+.lf-table th{position:sticky;top:0;z-index:1;background:var(--panel2);color:var(--muted);text-align:left;font:600 calc(11px + var(--fs)) system-ui,sans-serif;letter-spacing:.3px;padding:5px 8px;border-bottom:1px solid var(--line2)}
+.lf-table td{padding:2px 8px;vertical-align:top;border-bottom:1px solid var(--line)}
+.lf-table tr.lf-row{padding:0;text-indent:0}
+.lf-table .lf-date,.lf-table .lf-time,.lf-table .lf-lv,.lf-table .lf-src{white-space:nowrap;color:var(--muted)}
+.lf-table .lf-ev{white-space:nowrap;font-weight:600}
+.lf-table .lf-msg{width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+.lf-table .lf-lv span{font-weight:700}
+.lf-table tr.lf-debug td{color:var(--muted)}
+.lf-table tr.lf-error .lf-msg{color:var(--danger)}
+.cfm .lf-more{margin:8px auto 0;display:block}
+.cfm .lf-more[hidden]{display:none}

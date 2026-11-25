@@ -547,7 +547,7 @@ Files in `web/src/engine/`:
 - `write-hint.ts`: the Controlled Folder Access hint of a write Windows refused.
 
 Files in `web/src/main/`:
-- `app-ipc.ts`: `window.btApp`'s main side: file dialogs, the store, recent files, the rescue copy, help links, menu state, the close, export grants and writes.
+- `app-ipc.ts`: `window.btApp`'s main side: `installAppIpc` over the groups in `ipc/`, `AppIpcHost` their interfaces joined.
 - `app-log.ts`: the app's log file (`logs/shapelogic.log`; one handle, a tick's lines written together), its rotation and the Log File Manager's pages; the engines' stderr and protocol problems in it.
 - `cache-files.ts`: View ▸ Manage Cache and Autosave Files: the items, `CacheLinks`.
 - `cache-folder.ts`: the cache folder (`CacheFolderManager`): the engines' `slideFolder` and `panexFolder`, moves and deletes.
@@ -562,6 +562,15 @@ Files in `web/src/main/`:
 - `gpu-check.ts`: WebGL2 at start-up on Linux.
 - `health.ts`: the "App Health" block logged at every start.
 - `index.ts`: Electron's main process: windows, hosts, IPC, menus, files the system opens, the app's scheme.
+- `ipc/cache.ts`: the cache folder's choice; the cache manager's items, deletes and links.
+- `ipc/cli.ts`: the command line tool's info, install and uninstall.
+- `ipc/engine.ts`: the window's engine: `bt:call`, the first document, Try Again, held commands, Copy and Save Diagnostics.
+- `ipc/files.ts`: the open, save and folder dialogs (`KINDS`), the export grants and writes, a dropped file's grant.
+- `ipc/log.ts`: the Log File Manager's pages, Clear, close and Export.
+- `ipc/register.ts`: `registrar` (`handle`, `on`, `sync`: the sender checked once), `post`, `startDir`, `logRefusedWrite`.
+- `ipc/rescue.ts`: the rescue copy's record: written by the window's engine, read, cleared.
+- `ipc/store.ts`: the stored settings and layouts, recent files, the app's info, the update check.
+- `ipc/window.ts`: the menus' state, the close, New Window, a file's owner, the goal window, the help links (`openHelp`).
 - `menu.ts`: the menus' template from the menu state (Electron's types only).
 - `path-grants.ts`: `PathGrants`, the files a window's engine may be given; `settingsRefusal`.
 - `path-owners.ts`: `PathOwners`, which window owns a file (decision 0036).
@@ -587,7 +596,7 @@ Files in `web/src/demo/`:
 Files in `web/src/renderer/`:
 - `assets.d.ts`, `env.d.ts`: the renderer's ambient types (pictures by URL, Vite's environment).
 - `engine-proxy.ts`: `EngineProxy`, the client's interface over `window.bt`.
-- `index.html`, `styles.css`: the page and its stylesheet (the mockup's body and style, compact, left alone by Prettier).
+- `index.html`, `styles.css`: the page and its shared sheet (the mockup's body and style, compact, left alone by Prettier: the tokens, the shared controls, the layout, the densities, the static markup's rules). A rule naming what one module writes is in that module's sheet (`<module>.css`, imported by it, after `styles.css`); a section a module draws is an empty mount point here.
 - `main.ts`: the renderer's entry: the stored settings and layouts, then the shell.
 
 Files in `web/src/renderer/state/`:
@@ -602,11 +611,11 @@ Files in `web/src/renderer/state/`:
 Files in `web/src/renderer/shell/`:
 - `app.ts`: the shell put together; the status line.
 - `cache-events.ts`: the word that cache files were deleted in this window.
-- `cache-files.ts`: the Manage Cache and Autosave Files dialog.
-- `cache-notice.ts`: the notice at the start of what the cache folder holds.
+- `cache-files.{ts,css}`: the Manage Cache and Autosave Files dialog.
+- `cache-notice.{ts,css}`: the notice at the start of what the cache folder holds.
 - `cache-text.ts`: the cache files' words (DOM-free).
 - `cli-tool.ts`: the Command Line Tool dialog.
-- `color-picker.ts`: the color picker in the popover.
+- `color-picker.{ts,css}`: the color picker in the popover.
 - `command-gate.ts`: document commands held for the first document or while a dialog is open, or dropped once the engine failed.
 - `confirm.ts`: a question before an action that cannot be taken back.
 - `cursors.ts`: the editing tools' pictures and data-URL cursors.
@@ -615,21 +624,21 @@ Files in `web/src/renderer/shell/`:
 - `engine-failure.ts`: the dialog when the engine cannot start.
 - `escape.ts`: Esc's step-back order.
 - `files-order.ts`: the order File ▸ New lists the grids in.
-- `files.ts`: `Files`: New, Open, Save, Save As, the window's close, recent files, drops, paused solves, read-only files.
-- `help.ts`: the F1 dialog over the one table, About, the Notes dialog.
+- `files.{ts,css}`: `Files`: New, Open, Save, Save As, the window's close, recent files, drops, paused solves, read-only files.
+- `help.{ts,css}`: the F1 dialog over the one table, About, the Notes dialog.
 - `history.ts`: undo and redo, named by `edit.history`.
 - `html.ts`: `esc`, for modules the unit tests run without a DOM.
 - `icons.ts`: the line icons.
-- `imports.ts`: `Imports`: File ▸ Import and Export ▸ Puzzlecad, Edit ▸ Convert Brick Grid Type.
+- `imports.{ts,css}`: `Imports`: File ▸ Import and Export ▸ Puzzlecad, Edit ▸ Convert Brick Grid Type.
 - `keyboard.ts`: the keydown handler: an action from the table, handlers per action.
 - `keys.ts`: **the one keyboard table** (webui-spec.md section 6).
-- `layout.ts`: the rail, cards, 3D focus, layouts per workspace; `setWorkspaceShown`.
-- `log-export.ts`, `log-files.ts`, `log-rows.ts`: the Log File Manager: its Export choices, the dialog, its rows.
+- `layout.{ts,css}`: the rail, cards, 3D focus, layouts per workspace; `setWorkspaceShown`.
+- `log-export.ts`, `log-files.{ts,css}`, `log-rows.ts`: the Log File Manager: its Export choices, the dialog, its rows.
 - `menus.ts`: `Menus`: the menu state sent to the main process; commands to their handlers.
 - `new-grid-images/`: File ▸ New's example pictures.
 - `new-grids.ts`: what File ▸ New says about each grid (`NewKind`).
 - `paths.ts`: `baseName`, `puzzleStem`: file names as the dialogs show and propose them (DOM-free).
-- `panel.ts`: a non-modal window over the workspace (status window, debug statistics).
+- `panel.{ts,css}`: a non-modal window over the workspace (status window, debug statistics).
 - `persist.ts`: the settings and layouts kept across sessions.
 - `picture-keep.ts`: what the picture cache keeps: the hashes and stack keys a snapshot names, the pictures a dialog holds; the rest let go, textures first (DOM-free).
 - `picture-math.ts`: a sliding piece's picture to its cells (DOM-free).
@@ -639,13 +648,13 @@ Files in `web/src/renderer/shell/`:
 - `prefs.ts`: the settings as the client holds them: one record per setting (`PREFS`: default, kind, choices or range, the engine's name), from which the type, the defaults, `validPrefs` and the one engine map (`engineSettingsOf`) come.
 - `release-notes.ts`: a release's notes as HTML for the update dialog.
 - `rescue.ts`: `Rescue`: the rescue copy written and offered.
-- `settings.ts`: the settings dialog.
+- `settings.{ts,css}`: the settings dialog.
 - `status.ts`: the status bar, flashes, `reportError`.
 - `theme.ts`: theme, density, font size, card widths.
-- `tooltip.ts`: tooltips the page draws itself, the settings read at each hover ("Show tooltips", Minimal's captions).
-- `topbar.ts`: the file's name, path and dirty mark; the window's title.
+- `tooltip.{ts,css}`: tooltips the page draws itself, the settings read at each hover ("Show tooltips", Minimal's captions).
+- `topbar.{ts,css}`: the file's name, path and dirty mark; the window's title.
 - `tray-border.ts`: a tray's border as the views share it (decision 0046).
-- `updates.ts`: the update check and its dialog.
+- `updates.{ts,css}`: the update check and its dialog.
 - `widgets.ts`: the one stepper (`stepperHtml`, `wireSteppers`), switch (`switchHtml`; Space and Enter by `pressSwitch`), rename in place, list keys and keyboard map (`keysHtml`).
 
 Files in `web/src/renderer/view3d/`:
@@ -654,56 +663,61 @@ Files in `web/src/renderer/view3d/`:
 - `depth-order.ts`: `paintingOrder`, the vector image's back-to-front order (DOM-free).
 - `extent.ts`: a space's size in mesh units (`gridExtent`), `cellToMesh`, `placedAt`, `isCubeGrid`; held to `engine.info`'s rules by `tests/engine/extent.test.ts`.
 - `labels.ts`: the Solver view's piece labels.
+- `layer.ts`: `ViewLayer`, one puzzle kind's part of the view (reload, resolution, look, the Puzzle view's drawing), `LayerHost`.
 - `material.ts`: the faces' shader: the original's colors and light.
 - `mesh.ts`: a `MeshFrame` as three.js geometry through `meshArrays()`; `disposeBuilt`.
 - `meshcache.ts`: meshes by shape, style and transformation with their revision.
 - `overlays.ts`: axes, bounds, the layer's slab, drawn again only when their options change.
 - `picking.ts`: a raycast's triangle to its cell and side.
-- `pieces.ts`: `PiecesScene`, the Puzzle workspace's pieces scene.
+- `pieces.{ts,css}`: `PiecesScene`, the Puzzle workspace's pieces scene.
+- `pointer.ts`: `ViewPointer`: navigation, picking (one ray a pointer event), the edit host's hover and click, Alt-drags of the Solver's pieces; `ViewMods`, `EditHost`.
 - `preview.ts`: the 3D edit's preview, made again only when its ghosts change.
 - `renderer.ts`: `ViewRenderer`: three.js, the cameras, render on demand, `capture`, `band`, `tilt`, `turn`.
 - `scene.ts`: `ShapeScene`: one shape, its passes, marks, edge lines, overlays.
 - `shape-meshes.ts`: `ShapeMeshes`, one built copy of each shape mesh, shared and counted; `MeshSlot`, one asker's loads (the shape view, the pieces scene, the trays, the board).
+- `sliding-layer.ts`: `SlidingLayer`: a sliding board's trays in the Puzzle view, the walls and borders.
 - `solution.ts`: `SolutionScene`: a solution's pieces posed, framed on the result.
+- `stacking-layer.ts`: `StackingLayer`: a stacking puzzle's board (the rod set, the Puzzle's stacking, the player's pegs).
 - `svg.ts`: the vector image (File ▸ Export ▸ Vector Image).
-- `toolbar.ts`: the view's toolbar and Display menu.
+- `tilted-layer.ts`: `TiltedLayer`: a Tilted Square puzzle's turn, tray, home view and board cells.
+- `toolbar.{ts,css}`: the view's toolbar and Display menu.
 - `tray-border.ts`: a tray's border in 3D (decision 0046).
 - `tray3d.ts`: `TrayScene`, a tilted tray's outline, walls and cells (decision 0045).
 - `trays.ts`: `TrayView`, a sliding board's START and GOAL trays in the Puzzle view.
-- `view.ts`: `View3D`: the view put together (one ray a pointer event, the look worked out once a task); its state as `#vp`'s `data-*`.
+- `view.ts`: `View3D`: the view put together over its layers and pointer (the look worked out once a task); its state as `#vp`'s `data-*`.
 - `viewcube.ts`: the view cube, drawn again only when what it shows changed.
 - `walls.ts`: a sliding tray's walls in the Solver's view.
 
 Files in `web/src/renderer/entities/`:
-- `border-card.ts`: `BorderCard`, a sliding board's Tray border section (decision 0046).
+- `border-card.{ts,css}`: `BorderCard`, a sliding board's Tray border section (decision 0046).
 - `edit3d.ts`: `Edit3D`, 3D editing.
-- `editor-card.ts`: the voxel editor's card: tools, planes, layers, selection, size, palette.
+- `editor-card.{ts,css}`: the voxel editor's card: tools, planes, layers, selection, size, palette.
 - `editor-state.ts`: `EditorState`; `planeMap`; `expand` (mirror and span as the core makes them).
 - `glyphs.ts`: the editor's pictures.
-- `grid2d.ts`: `Grid2D`, one SVG renderer for every grid over a layer drawing; `buildTilted`.
-- `image-dialog.ts`: Apply image (decisions 0038 and 0047).
-- `inspector.ts`: Transform, Fit & scale, Repair & surface: the buttons of `shape.taskSet`.
+- `grid2d.{ts,css}`: `Grid2D`, one SVG renderer for every grid over a layer drawing; `buildTilted`.
+- `image-dialog.{ts,css}`: Apply image (decisions 0038 and 0047).
+- `inspector.{ts,css}`: Transform, Fit & scale, Repair & surface: the buttons of `shape.taskSet`.
 - `layer-geometry.ts`: `grid.geometry` by grid, size and layer; the cube's XZ and YZ planes.
-- `placements-dialog.ts`: a tilted tray's Placements dialog (decision 0045).
-- `rods-card.ts`: `RodsCard`, a stacking puzzle's rod sets.
+- `placements-dialog.{ts,css}`: a tilted tray's Placements dialog (decision 0045).
+- `rods-card.{ts,css}`: `RodsCard`, a stacking puzzle's rod sets.
 - `shape-cells.ts`: `ShapeCells`, the shape's cells as the engine has them.
-- `shapes-list.ts`: the shapes list (the disc list on a stacking puzzle, the board first on a tilted one).
-- `status-window.ts`: `StatusWindow`, the original's status window over `shape.table`.
+- `shapes-list.{ts,css}`: the shapes list (the disc list on a stacking puzzle, the board first on a tilted one).
+- `status-window.{ts,css}`: `StatusWindow`, the original's status window over `shape.table`.
 - `stroke.ts`: `Stroke`, a drag as one undo step.
-- `tilt-card.ts`: a tilted tray's Tilt & tolerance section.
+- `tilt-card.{ts,css}`: a tilted tray's Tilt & tolerance section.
 - `tools.ts`: which tool a press uses; the cube's faces.
-- `tray-view.ts`: a tilted board's Tray and Cells views.
+- `tray-view.{ts,css}`: a tilted board's Tray and Cells views.
 - `tray.ts`: `TrayState`, a sliding board as the Start and goal card shows it (DOM-free).
-- `workspace.ts`: `EntitiesWorkspace`, put together; the frozen state.
+- `workspace.{ts,css}`: `EntitiesWorkspace`, put together; the frozen state.
 
 Files in `web/src/renderer/puzzle/`:
 - `counts.ts`: a part's count as the chips write it, `nextCount`, the groups.
 - `layout.ts`: `puzLayout`, `arrange`: the pieces scene's items and labels.
-- `piece-card.ts`: `PieceCard`: the selected piece, its group, the color rules.
-- `pieces-card.ts`: `PiecesCard`: the result, the parts, the library, the fit summary.
+- `piece-card.{ts,css}`: `PieceCard`: the selected piece, its group, the color rules.
+- `pieces-card.{ts,css}`: `PiecesCard`: the result, the parts, the library, the fit summary.
 - `problems.ts`: `ProblemsList`.
-- `slide-card.ts`: `SlideCard`, a sliding problem's Start and goal card.
-- `stacks-card.ts`: `StacksCard`, a stacking problem's board and stacks.
+- `slide-card.{ts,css}`: `SlideCard`, a sliding problem's Start and goal card.
+- `stacks-card.{ts,css}`: `StacksCard`, a stacking problem's board and stacks.
 - `workspace.ts`: `PuzzleWorkspace`, put together; the frozen state.
 
 Files in `web/src/renderer/solver/`:
@@ -718,9 +732,11 @@ Files in `web/src/renderer/solver/`:
 - `player.ts`: `Player`, the disassembly player.
 - `poses.ts`: `PoseTrack`, a playback's poses in chunks, interpolated (DOM-free).
 - `problem-note.ts`: the note beside each problem in the Solver's list.
-- `run-card.ts`: the left card: problems, options, the run.
-- `settings.ts`: the options over a problem's stored `SolverSettings`; `defaultsOf`.
-- `solutions-card.ts`: the right card: the list, the player's controls, analysis, Manage.
+- `run-card.{ts,css}`: the left card: problems, options, the run.
+- `run-questions.ts`: `RunQuestions`: a run's note at its end, Full Search, optimized paths, a search from the start alone, a cache folder that cannot be written.
+- `run-text.ts`: a run's words over `RunView`: the tag, the empty scene, the status bar, the counters, Activity and Details (DOM-free).
+- `settings.ts`: the options over a problem's stored `SolverSettings`; `defaultsOf`; the solvers' names.
+- `solutions-card.{ts,css}`: the right card: the list, the player's controls, analysis, Manage.
 - `span.ts`: the time counters as words.
 - `stats-panel.ts`: `StatsPanel`, the debug statistics.
 - `to-shapes-form.ts`, `to-shapes.ts`: Edit ▸ Convert Assemblies to Pieces.
@@ -728,7 +744,7 @@ Files in `web/src/renderer/solver/`:
 
 Files in `web/src/renderer/explore/`:
 - `debug-stats.ts`: the debug panel's report (DOM-free).
-- `explorer.ts`: `Explorer`: the drawer with Placements, Step and Movements.
+- `explorer.{ts,css}`: `Explorer`: the drawer with Placements, Step and Movements.
 - `handle-slot.ts`: `HandleSlot`: an assembler handle opened once, closed when its reply comes after the drawer closed (DOM-free).
 - `tree.ts`: `MovementTree`, `dragDirection` (DOM-free).
 
@@ -736,11 +752,11 @@ Files in `web/src/renderer/export/`:
 - `exports.ts`: `Exports`: Image, Vector Image, STL, Solution Animation; `#stage[data-exported]`.
 - `form.ts`: the dialogs' numbers.
 - `glb.ts`: `animationGlb`, the solution animation as binary glTF (DOM-free).
-- `shape-picker.ts`: the lists the exports pick shapes in.
-- `stl-dialogs.ts`, `stl-form.ts`, `stl-preview.ts`: the STL dialogs, their words and fields (DOM-free), the preview.
+- `shape-picker.{ts,css}`: the lists the exports pick shapes in.
+- `stl-dialogs.{ts,css}`, `stl-form.ts`, `stl-preview.ts`: the STL dialogs, their words and fields (DOM-free), the preview.
 
 Files in `web/src/renderer/play/`:
-- `board.ts`: a sliding board seen from above as SVG (decision 0039).
+- `board.{ts,css}`: a sliding board seen from above as SVG (decision 0039).
 - `board-shell.ts`: `BoardShell`, what both boards share (the frame's resize, the pointer, a drag's end, a move's frame loop `animateFor`), `translate`, and `toggleButton` for the buttons beside them.
 - `follow.ts`: how a dragged piece follows the pointer (DOM-free).
 - `game.ts`: `GameOf`, a game's moves and place in them (DOM-free).
@@ -749,9 +765,9 @@ Files in `web/src/renderer/play/`:
 - `moves-file.ts`: the `.slmoves` file of a sliding game.
 - `outline.ts`: a set of cells' outline as one SVG path.
 - `room.ts`: where a board stands in its frame.
-- `sliding.ts`, `stacking.ts`: the two kinds (decisions 0039 and 0042).
-- `stack-board.ts`, `stack-game.ts`, `stack-look.ts`, `stack-moves-file.ts`: a stacking game's board, moves, drawing (DOM-free) and `.slmoves` file.
-- `workspace.ts`: the Play workspace (shown only for a sliding or stacking puzzle).
+- `sliding.ts`, `stacking.{ts,css}`: the two kinds (decisions 0039 and 0042).
+- `stack-board.{ts,css}`, `stack-game.ts`, `stack-look.ts`, `stack-moves-file.ts`: a stacking game's board, moves, drawing (DOM-free) and `.slmoves` file.
+- `workspace.{ts,css}`: the Play workspace (shown only for a sliding or stacking puzzle).
 
 Rules (AGENTS.md's; decisions 0012, 0013, 0034, 0036, 0043):
 - The engine is the truth; the client computes only what the engine cannot

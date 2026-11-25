@@ -14,6 +14,7 @@
 // allow, where a disc comes to rest and whether a position is the goal are
 // its answers, never worked out here.
 
+import './stacking.css';
 import type { Methods } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId } from '../shell/dom.ts';

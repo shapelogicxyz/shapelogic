@@ -12,6 +12,7 @@
 // by the main process, to the path its save dialog gave, or into the
 // folder its folder dialog gave.
 
+import './stl-dialogs.css';
 import { baseName } from '../shell/paths.ts';
 import type { StlParameter } from '../../engine/api.generated.ts';
 import type { BtApp } from '../../engine/app-bridge.ts';

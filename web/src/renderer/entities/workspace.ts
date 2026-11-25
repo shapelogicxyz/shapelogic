@@ -18,6 +18,7 @@
 // set chosen alone (stacking.rodSetLayout; the original's
 // `showSelectedRods`).
 
+import './workspace.css';
 import type { CellTool, ShapeImage, ShapeSummary } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Edits } from '../state/edits.ts';
@@ -66,6 +67,9 @@ import { TrayViewCard } from './tray-view.ts';
 import { cellState, isTiltBoard, isTilted } from '../state/tilted.ts';
 import { boardCenter } from '../view3d/board.ts';
 import { Stroke } from './stroke.ts';
+
+/** What changed, for the cards drawn again (`refresh`): the document, the selection, the editor's state. */
+type Refresh = 'document' | 'selection' | 'state';
 
 export class EntitiesWorkspace {
   readonly state = new EditorState();
@@ -348,12 +352,7 @@ export class EntitiesWorkspace {
     this.clampLayer();
     byId('stage').classList.toggle('frozen', store.solving);
     byId('stage').dataset.frozen = store.solving ? '1' : '0';
-    this.list.render();
-    this.renderInspector();
-    this.card.render();
-    this.cells.show(store.selected, this.xyLayer());
-    this.showGrid();
-    this.edit3d.show();
+    this.refresh('document');
   }
 
   private selectionChanged(): void {
@@ -364,22 +363,70 @@ export class EntitiesWorkspace {
       this.showRodSet();
     }
     this.clampLayer();
-    this.list.render();
-    this.renderInspector();
-    this.card.render();
-    this.cells.show(this.store.selected, this.xyLayer());
-    this.showGrid();
-    this.edit3d.show();
+    this.refresh('selection');
   }
 
   private stateChanged(): void {
     this.clampLayer();
-    this.renderInspector();
-    this.card.render();
-    this.cells.show(this.store.selected, this.xyLayer());
-    this.showGrid();
-    this.grid.refreshHover();
-    this.edit3d.show();
+    this.refresh('state');
+  }
+
+  /**
+   * The cards and views in the order they are drawn, each with the changes
+   * that draw it again: a new card is one row (cleanup item 13.3).
+   */
+  private readonly parts: readonly { on: readonly Refresh[]; draw: () => void }[] = [
+    {
+      on: ['document', 'selection'],
+      draw: () => {
+        this.list.render();
+      },
+    },
+    {
+      on: ['document', 'selection', 'state'],
+      draw: () => {
+        this.renderInspector();
+      },
+    },
+    {
+      on: ['document', 'selection', 'state'],
+      draw: () => {
+        this.card.render();
+      },
+    },
+    {
+      on: ['document', 'selection', 'state'],
+      draw: () => {
+        this.cells.show(this.store.selected, this.xyLayer());
+      },
+    },
+    {
+      on: ['document', 'selection', 'state'],
+      draw: () => {
+        this.showGrid();
+      },
+    },
+    {
+      on: ['state'],
+      draw: () => {
+        this.grid.refreshHover();
+      },
+    },
+    {
+      on: ['document', 'selection', 'state'],
+      draw: () => {
+        this.edit3d.show();
+      },
+    },
+  ];
+
+  // the cards a change draws again, in the table's order
+  private refresh(why: Refresh): void {
+    for (const p of this.parts) {
+      if (p.on.includes(why)) {
+        p.draw();
+      }
+    }
   }
 
   // the inspector's sections: each draws again only when its markup changed

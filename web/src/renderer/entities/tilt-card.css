@@ -1,0 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tilt-card.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.tilt .tsh{width:64px;height:calc(26px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);font:inherit;text-align:center}
+.tilt .tshs{display:flex;gap:6px}
+.tilt .tline{margin:2px 0 6px;color:var(--muted);font-size:calc(12px + var(--fs))}

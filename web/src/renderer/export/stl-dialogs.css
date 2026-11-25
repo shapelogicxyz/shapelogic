@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* stl-dialogs.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.stl-dlg{display:grid;grid-template-columns:minmax(320px,380px) minmax(0,1fr);gap:16px;min-height:360px}
+.stl-side{min-width:0}
+.stl-params{display:flex;flex-direction:column;gap:6px}
+.stl-look{display:flex;flex-direction:column;gap:8px;min-width:0}
+.stl-view{flex:1;width:100%;min-height:320px;border:1px solid var(--line);border-radius:10px;background:var(--canvas);display:block;cursor:grab;touch-action:none}
+.stl-view:active{cursor:grabbing}
+.stl-bar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.stl-status{font-size:calc(12.5px + var(--fs));color:var(--muted);min-height:18px;font-variant-numeric:tabular-nums}
+.stl-status.err{color:var(--danger)}
+.stl-folder{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);text-align:right;margin:0 8px}
+.stl-pieces{margin:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font:calc(12px + var(--fs))/1.5 ui-monospace,Menlo,monospace;color:var(--text);max-height:180px;overflow:auto;white-space:pre}

@@ -13,6 +13,7 @@
 // change is one tray.set (one undo step: the engine makes the board again
 // and moves the pieces); the section shows what the engine then says.
 
+import './tilt-card.css';
 import type { Tray, TraySettings } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
@@ -64,6 +65,9 @@ export class TiltCard {
 
   constructor(host: TiltHost) {
     this.host = host;
+    // the section's frame, into its place in the inspector (index.html)
+    byId('secTilt').innerHTML =
+      '<button class="sh" title="Show or hide the tray’s settings: its size, the tilt, the allowance and the placement"><span class="chev"></span>Tilt &amp; tolerance<span class="sum" id="tiltSum"></span></button><div class="sb" id="tiltBody"></div>';
     this.install();
   }
 

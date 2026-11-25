@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* updates.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+#update .relnotes{max-height:min(46vh,440px);overflow:auto;margin:0 0 14px;padding:4px 14px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);line-height:1.5;user-select:text}
+#update .relnotes h4,#update .relnotes h5,#update .relnotes h6{margin:12px 0 6px;font-size:calc(13px + var(--fs))}
+#update .relnotes p{margin:8px 0;color:var(--text)}
+#update .relnotes ul{margin:6px 0 10px;padding-left:20px}
+#update .relnotes li{margin:0 0 6px}
+#update .relnotes code{font:calc(12px + var(--fs)) ui-monospace,Menlo,monospace;white-space:nowrap}

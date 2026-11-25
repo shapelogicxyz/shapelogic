@@ -7,6 +7,7 @@
 // the selected shapes across (→, ←) or all of them (⇒, ⇐), and a double
 // click moves one.
 
+import './shape-picker.css';
 import { esc } from '../shell/dom.ts';
 
 /** A shape the lists show: its id, label and name. */

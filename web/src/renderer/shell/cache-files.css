@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* cache-files.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.cfm .cf-list{height:calc(5 * (40px + 2 * var(--fs)) + 6px);flex:none;overflow:auto;border:1px solid var(--line2);border-radius:8px;background:var(--panel2);padding:2px}
+.cfm .cf-list:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cf-row{display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:calc(40px + 2 * var(--fs));box-sizing:border-box;padding:3px 10px;border-radius:6px;cursor:pointer;user-select:none}
+.cf-row:hover{background:var(--accentSoft)}
+.cf-row[aria-selected="true"]{background:var(--accent);color:#fff}
+.cf-row .cf-t{font-size:calc(13px + var(--fs));font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cf-row .cf-m{font-size:calc(11.5px + var(--fs));color:var(--muted)}
+.cf-row[aria-selected="true"] .cf-m{color:rgba(255,255,255,.85)}
+.cf-empty,.cf-none{padding:18px 12px;color:var(--muted);text-align:center}
+.cfm .cf-total{margin:4px 2px 8px;font-size:calc(11.5px + var(--fs));min-height:1.2em}
+.cfm .cb p.cf-err{color:var(--danger);margin:0 0 8px}
+.cf-detail{min-height:300px;border-top:1px solid var(--line);padding-top:10px}
+.cf-head{display:flex;align-items:flex-start;gap:12px;margin:0 0 4px}
+.cf-head h4{flex:1;min-width:0;margin:3px 0 0;font-size:calc(14px + var(--fs));overflow-wrap:anywhere}
+.cf-dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:5px 14px;margin:0 0 10px;font-size:calc(13px + var(--fs))}
+.cf-dl dt{color:var(--muted);font-weight:600}
+.cf-dl dd{margin:0;min-width:0;overflow-wrap:anywhere;user-select:text}
+.cf-dl code{font:calc(12px + var(--fs)) ui-monospace,Menlo,monospace}
+.cf-files{max-height:132px;overflow:auto;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font:calc(11.5px + var(--fs)) ui-monospace,Menlo,monospace;line-height:1.5;user-select:text}
+.cf-files>div{padding-left:2em;text-indent:-2em;overflow-wrap:anywhere}

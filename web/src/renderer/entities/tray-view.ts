@@ -9,6 +9,7 @@
 // one tray.setWalls, so one undo step. The picture is drawn from what the
 // engine says of the tray (state/tilted.ts).
 
+import './tray-view.css';
 import type { Tray } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId } from '../shell/dom.ts';

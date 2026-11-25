@@ -17,6 +17,7 @@
 // here, so Save is Save As, under another name; Shift+Ctrl+N asks the main
 // process for a new window.
 
+import './files.css';
 import { baseName, puzzleStem } from './paths.ts';
 import type { BtApp } from '../../engine/app-bridge.ts';
 import { newOrder } from './files-order.ts';

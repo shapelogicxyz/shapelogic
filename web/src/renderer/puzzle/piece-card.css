@@ -1,0 +1,38 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* piece-card.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.btnrow{display:flex;gap:6px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 auto;justify-content:center}
+.ptile{display:inline-flex;align-items:center;gap:6px;height:calc(30px + var(--fh));padding:0 4px 0 8px;border-radius:8px;color:#fff;font-size:calc(11.5px + var(--fs));cursor:pointer;position:relative;text-shadow:0 1px 1px rgba(0,0,0,.28);outline:2px solid transparent;outline-offset:2px;user-select:none}
+.ptile.off{opacity:.36}
+.ptile.sel{outline-color:var(--accent)}
+.ptile .pl{opacity:.9;font-size:calc(10.5px + var(--fs));max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptile .pb{background:rgba(0,0,0,.3);border-radius:5px;padding:0 5px;min-width:24px;text-align:center;font-weight:700;font-size:calc(10.5px + var(--fs));line-height:18px}
+.ptile .pm{display:none;gap:2px}
+.ptile:hover .pb{display:none}
+.ptile:hover .pm{display:inline-flex}
+.ptile .pm button{width:18px;height:18px;border:0;border-radius:5px;background:rgba(0,0,0,.38);color:#fff;font-weight:800;line-height:16px;cursor:pointer;padding:0}
+.ptile .pm button:hover{background:rgba(0,0,0,.6)}
+.pzs .gw{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.pzs .gw .step{width:112px}
+.pzg{margin:0 12px 10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--panel2)}
+.pzg .gh{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:6px}
+.pzg .gh .sp{flex:1}
+.pzg .mem{display:flex;flex-wrap:wrap;gap:5px}
+.pzg .mem .ptile{height:calc(24px + var(--fh));font-size:calc(10.5px + var(--fs));cursor:default}
+.mxr{display:grid;grid-template-columns:30px repeat(5,34px);gap:4px;align-items:center}
+.sw2{width:24px;height:24px;border-radius:7px;border:1px solid rgba(0,0,0,.25);justify-self:center}
+.mxc{width:34px;height:28px;border:1px solid var(--line2);background:var(--panel);border-radius:7px;cursor:pointer;padding:0;position:relative}
+.mxc:hover{border-color:var(--accent)}
+.mxc.on{background:var(--accent);border-color:var(--accent)}
+.mxc.on::after{content:"";position:absolute;left:11px;top:5px;width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.pzr .btnrow{margin-top:8px}
+.pzs .cnt1{display:flex;align-items:center;justify-content:space-between}
+.pzs .cnt1 .step.sz{width:150px;flex:none;min-width:0}
+.pzs .cnt1 .step.sz input.v{min-width:0;width:100%}
+.pzs .gseg{display:flex;flex-wrap:wrap;gap:6px}
+.pzs .gseg button{height:28px;min-width:44px;padding:0 10px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);cursor:pointer;font-weight:600}
+.pzs .gseg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pzs .gseg button:hover:not(.on){border-color:var(--accent)}
+.pzs .gw .step.sz{width:150px;flex:none;min-width:0}
+.pzs .gw .step.sz input.v{min-width:0;width:100%}
+.pzs .gseg button .gc{font-weight:500;opacity:.8;margin-left:3px}

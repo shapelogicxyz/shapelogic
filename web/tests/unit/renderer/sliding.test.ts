@@ -22,16 +22,18 @@ import {
   DEFAULT_LIMITS,
   normalize,
   readOptions,
-  savedDetails,
-  searchActive,
-  shortCount,
   boxesShown,
-  slidingDetails,
   solveOptions,
-  stopDetails,
   withOptimizedPaths,
   writeOptions,
 } from '../../../src/renderer/solver/settings.ts';
+import {
+  savedDetails,
+  searchActive,
+  shortCount,
+  slidingDetails,
+  stopDetails,
+} from '../../../src/renderer/solver/run-text.ts';
 import { marksOf, outlineColor, copiesOf, validity } from '../../../src/renderer/entities/tray.ts';
 import type { TrayReply } from '../../../src/renderer/entities/tray.ts';
 import { WALL_GAP, wallOutline, wallSegments } from '../../../src/renderer/view3d/walls.ts';

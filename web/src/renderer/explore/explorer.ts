@@ -30,6 +30,7 @@
 // placementbrowser.cpp and movementbrowser.cpp (the mockup's drawer was
 // "layout only").
 
+import './explorer.css';
 import type {
   MeshStyle,
   Methods,

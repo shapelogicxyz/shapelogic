@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* shapes-list.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+/* ---- deferred part 2: sliding puzzles (docs/webui-spec.md, section 8) ---- */
+.row .sgtag{font-weight:600;color:var(--muted);font-size:calc(11px + var(--fs))}
+.row .tnofit{flex:none;font-weight:600;color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent);border-radius:5px;padding:1px 6px;font-size:calc(10px + var(--fs));white-space:nowrap}
+/* stacking puzzles (deferred part 4, docs/webui-spec.md section 9): the disc list, the Rods card, the stacks, the validity bar */
+.row.disc .dsz{display:flex;align-items:center;gap:3px;flex:none;font-size:calc(11.5px + var(--fs))}
+.row.disc .dsz input.v{width:40px;height:calc(24px + var(--fh));border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);text-align:center;font:inherit;font-weight:600;padding:0 2px}
+.row.disc .dsz .ib{width:22px;height:24px;font-weight:700}

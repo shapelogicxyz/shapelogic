@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* stacking.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.sk-goal{position:relative;display:block;box-sizing:border-box;width:calc(200px + 10 * var(--fs));padding:8px 10px 10px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.sk-goal[hidden]{display:none}
+.sk-goal:hover{border-color:var(--accent)}
+.sk-goal .cap{display:block;color:var(--muted);font-weight:600;font-size:calc(12px + var(--fs));margin-bottom:4px}
+.sk-goal:hover .cap,.sk-goal:hover .pop{color:var(--accent)}
+.sk-goal .pop{position:absolute;top:7px;right:8px;display:flex;color:var(--muted)}
+.sk-goal .pic{display:grid;place-items:center}
+.goal-room{position:fixed;left:-20000px;top:0;pointer-events:none}

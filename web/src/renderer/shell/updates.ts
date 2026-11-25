@@ -8,6 +8,7 @@
 // opens its page, Skip This Version keeps the startup check quiet about it,
 // Later does nothing. About shows the latest release once a check has seen it.
 
+import './updates.css';
 import type { BtApp, UpdateResult } from '../../engine/app-bridge.ts';
 import { openDialog } from './dialog.ts';
 import { esc } from './dom.ts';

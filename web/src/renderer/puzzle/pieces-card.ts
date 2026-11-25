@@ -17,6 +17,7 @@
 // view, now a collapsed section of its own) holds the table and "Set range
 // for all pieces".
 
+import './pieces-card.css';
 import type { Part, ShapeSummary } from '../../engine/api.generated.ts';
 import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { openDialog } from '../shell/dialog.ts';

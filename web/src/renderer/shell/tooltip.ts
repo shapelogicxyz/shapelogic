@@ -16,6 +16,7 @@
 // helper text, a control that loses them and has no title of its own
 // shows its caption (from docs/mockup/index.html: `svDensityTitles`).
 
+import './tooltip.css';
 import { prefs } from './prefs.ts';
 
 const DELAY = 600;

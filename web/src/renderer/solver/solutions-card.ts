@@ -15,6 +15,7 @@
 // `renderSolverPlayer`, `svPreview`, `SVMENU`, `SVSORT`, `TG`,
 // `svKeepFocus` and their handlers in `svWire`.
 
+import './solutions-card.css';
 import type { SolutionRow } from '../../engine/api.generated.ts';
 import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
 import { ic, TRANSPORT } from '../shell/icons.ts';

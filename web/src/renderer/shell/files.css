@@ -1,0 +1,19 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* files.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+/* File ▸ New: the grids in a list, what the selected one is on the right */
+#newPuzzle .cfm.wide{width:min(840px,calc(100% - 48px))}
+.ng{display:grid;grid-template-columns:200px 1fr;gap:16px;height:440px;max-height:100%}
+.ng-list{display:flex;flex-direction:column;gap:2px;overflow:auto;border-right:1px solid var(--line);padding-right:12px}
+.ng-item{font:inherit;font-size:calc(14px + var(--fs));text-align:left;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:var(--text);cursor:pointer}
+.ng-item:hover{background:var(--panel2)}
+.ng-item[aria-selected="true"]{background:var(--accentSoft);color:var(--accent);font-weight:600}
+/* the dialog focuses the first item as it opens, which the browser rings until the first click; the selected item's highlight is its focus mark */
+.ng-item[aria-selected="true"]:focus-visible{outline:none}
+.ng-info{display:flex;flex-direction:column;min-height:0;overflow:auto;padding-right:4px}
+.ng-info p{margin:0 0 12px;flex:none}
+.cfm .ng-info p.ng-desc b{color:#2e8b2e}
+.cfm .ng-info p.ng-warn b{color:var(--warn)}
+.cfm .ng-info p.ng-ex b{color:#2f6fd0}
+.ng-pic{display:block;flex:1 1 0;min-height:120px;width:100%;object-fit:contain}
+/* File ▸ New's Tilted Square: its example, the default tray */
+.ngt-pic{display:grid;place-items:center}

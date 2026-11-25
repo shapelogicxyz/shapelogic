@@ -20,6 +20,7 @@
 // 0045) the one board is there alone, made from the tray: it is renamed,
 // never copied, deleted or moved, and New makes a piece of its size.
 
+import './shapes-list.css';
 import type { ShapeSummary } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { $$, byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';

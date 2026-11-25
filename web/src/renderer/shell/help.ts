@@ -9,6 +9,7 @@
 // its authors and licence). The notes (Edit ▸ Notes…: document.setNotes,
 // allowed while solving; the mockup's "Edit comment") are here too.
 
+import './help.css';
 import type { Store } from '../state/store.ts';
 import { closeDialog, openDialog, topDialog } from './dialog.ts';
 import { esc } from './dom.ts';

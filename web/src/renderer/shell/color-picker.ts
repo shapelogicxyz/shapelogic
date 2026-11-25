@@ -6,6 +6,7 @@
 // could not hold that button. A color is taken when a drag ends, the hue
 // slider is let go or the field is confirmed: each is one step to undo.
 
+import './color-picker.css';
 import { esc } from './dom.ts';
 import { openPop } from './popover.ts';
 

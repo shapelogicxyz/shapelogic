@@ -20,6 +20,7 @@
 // shows the folder in use, and Choose Folder… and Use Default change it,
 // asking whether to move the data found there or delete it.
 
+import './settings.css';
 import type { CacheAction, CacheFolderInfo } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';

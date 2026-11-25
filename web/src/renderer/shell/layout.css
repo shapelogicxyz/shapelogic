@@ -1,0 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* layout.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+#stage.f3d{--lw:var(--railw);--rw:var(--railw)}
+#stage[data-tab=puzzle].f3d .body{grid-template-columns:calc(var(--lwx) * .7) 1fr calc(var(--rwx) * .7)}
+#stage[data-tab=solver].f3d .body{grid-template-columns:1fr calc(var(--rwx) * .7)}

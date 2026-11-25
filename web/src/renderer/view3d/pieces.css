@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* pieces.ts's rules (cleanup item 13.1): after styles.css (its tokens, the shared controls, the layout), so at equal specificity these win; each area's density overrides follow its base rules here. Compact, as styles.css. */
+.pzbox{position:absolute;border-radius:10px;border:1.6px solid transparent;box-sizing:border-box}
+.pzbox.sel{border-color:var(--accent)}
+.pzbox.selected.sel{border-width:2px}
+.pzbox.hov{border:1.6px dashed var(--accent)}
+.pzlab{position:absolute;left:50%;transform:translateX(-50%);white-space:pre;font:700 calc(10.5px + var(--fs)) system-ui,sans-serif;color:var(--accent)}
+.pzbox.result .pzlab,.pzbox.selected .pzlab{bottom:100%;margin-bottom:5px}
+.pzbox.piece .pzlab{top:100%;margin-top:3px;color:var(--text);font:600 calc(11px + var(--fs)) system-ui,sans-serif;text-align:center}
+.pzbox.opt .pzlab{color:var(--muted)}

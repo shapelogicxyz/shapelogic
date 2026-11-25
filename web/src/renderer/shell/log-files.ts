@@ -17,6 +17,7 @@
 // for a page by its filters and how many lines it shows, and tells it when
 // the dialog closes (it drops the lines it read).
 
+import './log-files.css';
 import type {
   BtApp,
   LogEntry,

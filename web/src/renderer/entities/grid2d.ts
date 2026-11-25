@@ -27,6 +27,7 @@
 // of the copy's cells in this layer, on a rounded box in the theme's
 // opposite (black on white in the dark theme, white on black in the light).
 
+import './grid2d.css';
 import type { Grid } from '../../engine/api.generated.ts';
 import { cursorFor } from '../shell/cursors.ts';
 import type { Tool } from '../shell/cursors.ts';
