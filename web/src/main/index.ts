@@ -15,7 +15,9 @@
 // question: the close is held and the renderer told (`close`); it asks
 // about unsaved changes and answers `closeWindow`. A renderer that does
 // not take the command within a few seconds (hung, or crashed) gets the
-// question natively, so a window can always be closed. A quit asks the
+// question natively, so a window can always be closed. A page that crashed
+// is reloaded (it attaches to the engine's document again), and one that
+// hangs is asked about natively (renderer-watch.ts). A quit asks the
 // windows one after the other (the focused first): each closes once its
 // question is answered, a Cancel stops the quit, and the app quits once the
 // last has closed. One app runs at a time for a data directory: a second
@@ -106,6 +108,7 @@ import {
   LOG_KEEP_ARCHIVE_BYTES,
   LOG_KEEP_LINES,
   LOG_MAX_BYTES,
+  logEngineProblems,
   machineText,
   parseEngineLine,
   tailOf,
@@ -134,6 +137,7 @@ import { engineHashLine, healthReport } from './health.ts';
 import type { HealthFs, HealthLine } from './health.ts';
 import { PathGrants, settingsRefusal } from './path-grants.ts';
 import { PathOwners } from './path-owners.ts';
+import { RELOADS_MAX, RendererWatch } from './renderer-watch.ts';
 import { RescueSlots } from './rescue.ts';
 import {
   allowedRequest,
@@ -820,9 +824,16 @@ function createWindow(first?: AppCommand): void {
         }
       });
       return NodeTransport.start(engine, { expectVersion: VERSION }).then((t) =>
-        teeStderr(t, (chunk) => {
-          lines.push(chunk);
-        }),
+        teeStderr(
+          t,
+          (chunk) => {
+            lines.push(chunk);
+          },
+          // the last words of an engine that died without their newline
+          () => {
+            lines.end();
+          },
+        ),
       );
     },
     // the searches' folders (the cache folder), before the page may call
@@ -839,6 +850,7 @@ function createWindow(first?: AppCommand): void {
     },
   });
   hosts.set(id, host);
+  logEngineProblems(host, appLog, source);
   host.onStatus((status) => {
     if (status.state === 'exited') {
       appLog.error(
@@ -897,6 +909,64 @@ function createWindow(first?: AppCommand): void {
     e.preventDefault();
   });
   contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  // a page that crashed is reloaded, one that hangs asked about (renderer-watch.ts)
+  const watch = new RendererWatch({
+    reload: () => {
+      if (!contents.isDestroyed()) {
+        contents.reload();
+      }
+    },
+    kill: () => {
+      if (!contents.isDestroyed()) {
+        contents.forcefullyCrashRenderer();
+      }
+    },
+    close: () => {
+      if (!win.isDestroyed()) {
+        w.allowClose = true;
+        win.close();
+      }
+    },
+    // a close waiting for the page's answer: its timer asks natively
+    closing: () => win.isDestroyed() || w.allowClose || w.closeTimer !== null,
+    askGone: async (details) => {
+      const { response } = await dialog.showMessageBox(win, {
+        type: 'error',
+        buttons: ['Reload', 'Close Window'],
+        defaultId: 0,
+        cancelId: 0,
+        message: 'The window keeps failing.',
+        detail: `Its page ended ${String(RELOADS_MAX)} times in a minute (${details.reason}, exit code ${String(details.exitCode)}). Reload it to go on with the document, which the engine still holds, or close the window: changes not saved are then lost; the rescue copy of the last ones is offered when the app starts again.`,
+      });
+      return response === 1 ? 'close' : 'reload';
+    },
+    askHung: async (signal) => {
+      const { response } = await dialog.showMessageBox(win, {
+        type: 'warning',
+        buttons: ['Wait', 'Reload'],
+        defaultId: 0,
+        cancelId: 0,
+        message: 'The window does not answer.',
+        detail:
+          'Wait for it, or reload its page: the document and any solve are kept by the engine, and the page attaches to them again.',
+        signal,
+      });
+      return response === 1 ? 'reload' : 'wait';
+    },
+    log: (level, event, text) => {
+      appLog.write(level, source, event, text);
+    },
+  });
+  contents.on('render-process-gone', (_e, details) => {
+    watch.gone(details);
+  });
+  contents.on('unresponsive', () => {
+    watch.unresponsive();
+  });
+  contents.on('responsive', () => {
+    watch.responsive();
+  });
 
   win.on('close', (e) => {
     if (w.allowClose) {
@@ -981,8 +1051,9 @@ function createWindow(first?: AppCommand): void {
       send(w, first);
     }
   });
-  host.start().catch((e: unknown) => {
-    console.error(`shapelogic_engine did not start: ${String(e)}`);
+  host.start().catch(() => {
+    // its failed status is logged (onStatus above: Engine Start Failed, with
+    // the system's details and the engine's last words)
   });
   const devUrl = env.rendererUrl;
   if (devUrl !== undefined) {
@@ -1195,7 +1266,12 @@ void app.whenReady().then(async () => {
   if (!app.isPackaged && process.platform === 'darwin' && existsSync(dockIcon)) {
     app.dock?.setIcon(dockIcon);
   }
-  store = new StateStore(app.getPath('userData'));
+  // a failed write of state.json: the log is made just below, before any write
+  store = new StateStore(app.getPath('userData'), {
+    onError: (message) => {
+      appLog.warn('app', 'Settings Not Stored', message);
+    },
+  });
   logDebug = store.prefs?.debugLog === true;
   appLog = new AppLog(join(app.getPath('userData'), 'logs'), { debug: logDebug });
   appLog.info(

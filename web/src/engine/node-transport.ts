@@ -11,6 +11,7 @@ import type { ChildProcessWithoutNullStreams, ExecFileException } from 'node:chi
 
 import { EngineStartError, systemFields } from './spawn-failure.ts';
 import type { SpawnFailure } from './spawn-failure.ts';
+import { setOnce } from './transport.ts';
 import type { ExitInfo, Transport } from './transport.ts';
 
 /** How long `--version` may take to answer. */
@@ -209,21 +210,21 @@ export class NodeTransport implements Transport {
   }
 
   onData(handler: (chunk: Uint8Array) => void): void {
-    this.dataHandler = handler;
+    this.dataHandler = setOnce(this.dataHandler, handler, 'onData');
     for (const c of this.early.splice(0)) {
       handler(c);
     }
   }
 
   onStderr(handler: (chunk: Uint8Array) => void): void {
-    this.stderrHandler = handler;
+    this.stderrHandler = setOnce(this.stderrHandler, handler, 'onStderr');
     for (const c of this.earlyStderr.splice(0)) {
       handler(c);
     }
   }
 
   onExit(handler: (info: ExitInfo) => void): void {
-    this.exitHandler = handler;
+    this.exitHandler = setOnce(this.exitHandler, handler, 'onExit');
     if (this.exitInfo !== null) {
       handler(this.exitInfo);
     }

@@ -10,6 +10,7 @@
 // answered as the engine would, and the events of a run are played to the
 // renderer while the demo puts the saved solution back (main.ts).
 
+import { ERROR_CODES } from '../engine/api.generated.ts';
 import type { SolveProgress, SolveState } from '../engine/api.generated.ts';
 import type { BridgeCall, BridgeMessage, BridgeRequest, BtBridge } from '../engine/bridge.ts';
 import type { EngineClient } from '../engine/client.ts';
@@ -86,7 +87,7 @@ export class EngineBridge implements BtBridge {
       this.post({
         kind: 'error',
         id: request.id,
-        code: -32602,
+        code: ERROR_CODES.invalid_argument[0],
         errc: 'invalid_argument',
         message: 'the demo plays its run to the end (a moment)',
       });

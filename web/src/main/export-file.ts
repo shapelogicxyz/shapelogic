@@ -3,34 +3,29 @@
 // Writing an exported file (stage 7: the image, the vector image, the STL
 // and the animation), the way the core writes a puzzle (core/shapelogic/io/
 // gzip_file.cpp: saveTarget and replaceWith, since the web stage 6 audit):
-// the bytes go to `<file>.tmp` beside the file and are renamed over it
-// once whole, so a failed write leaves the old file; the place is the file
-// the path names, a symbolic link followed (at most 40), so the link
-// stays; a read-only file is refused, where a rename would replace it; the
-// new file gets the permissions of the one it replaces; the temporary file
-// is this write's own, made exclusively, never one already at that name
-// (the web stage 8 audit: a link planted there carried the bytes to the
-// file it named). And which paths a window may have written
+// the bytes go to a temporary file beside the file and are renamed over it
+// once whole (replace-file.ts), so a failed write leaves the old file; the
+// place is the file the path names, a symbolic link followed (at most 40),
+// so the link stays; a read-only file is refused, where a rename would
+// replace it; the new file gets the permissions of the one it replaces;
+// the temporary file is this write's own, with a name of its own, made
+// exclusively, never one already at that name (the web stage 8 audit: a
+// link planted there carried the bytes to the file it named; cleanup item
+// 7.4: two windows exporting to one folder at once removed each other's
+// temporary file, and one installed the other's partial bytes). And which
+// paths a window may have written
 // (`ExportGrants`): those its save dialog gave it for an export, once each;
 // and from deferred part 5 the folder its folder dialog gave it for a
 // solution's STL files (`FolderGrants`), files there named only as the
 // engine names them (`isPieceFileName`). Free of Electron (the unit tests
 // use it).
 
-import {
-  access,
-  chmod,
-  constants,
-  lstat,
-  readlink,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
+import { access, constants, lstat, readlink, stat } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join } from 'node:path';
 
 import type { ExportKind } from '../engine/app-bridge.ts';
+import { replaceFile } from './replace-file.ts';
+import { errorCode } from './search-folders.ts';
 
 /** As the core's kMaxLinks. */
 const MAX_LINKS = 40;
@@ -38,10 +33,6 @@ const MAX_LINKS = 40;
 /** Why a file could not be written, in words for the user. */
 export class WriteError extends Error {
   override name = 'WriteError';
-}
-
-function code(e: unknown): string {
-  return typeof e === 'object' && e !== null && 'code' in e ? String(e.code) : '';
 }
 
 /** The file a path names: its links followed; refused when read-only. */
@@ -82,34 +73,16 @@ export async function writeTarget(path: string): Promise<string> {
 /** Writes the bytes to the file a path names, beside it first and renamed over it. */
 export async function writeFileSafely(path: string, data: Uint8Array): Promise<void> {
   const target = await writeTarget(path);
-  const tmp = `${target}.tmp`;
-  try {
-    // a file or link left at the temporary file's name (a write that died, or
-    // a link put there so that the bytes would land in the file it names) is
-    // removed, and the new file is made exclusively, so a link put there
-    // meanwhile is refused rather than followed; a directory there stays and
-    // fails the write
-    const old = await lstat(tmp).catch(() => null);
-    if (old !== null && (old.isSymbolicLink() || old.isFile())) {
-      await rm(tmp, { force: true });
-    }
-    await writeFile(tmp, data, { flag: 'wx' });
-  } catch (e) {
-    await rm(tmp, { force: true }).catch(() => undefined);
-    throw new WriteError(`could not write ${basename(path)} (${code(e) || String(e)})`);
-  }
   // the file keeps who may read and write it (a new file has the defaults)
+  const mode = await stat(target).then(
+    (s) => s.mode & 0o7777,
+    () => undefined,
+  );
   try {
-    const old = await stat(target);
-    await chmod(tmp, old.mode & 0o7777).catch(() => undefined);
-  } catch {
-    // a new file
-  }
-  try {
-    await rename(tmp, target);
+    await replaceFile(target, data, mode === undefined ? {} : { mode });
   } catch (e) {
-    await rm(tmp, { force: true }).catch(() => undefined);
-    throw new WriteError(`could not replace ${basename(path)} (${code(e) || String(e)})`);
+    const what = (e as { syscall?: unknown }).syscall === 'rename' ? 'replace' : 'write';
+    throw new WriteError(`could not ${what} ${basename(path)} (${errorCode(e) || String(e)})`);
   }
 }
 

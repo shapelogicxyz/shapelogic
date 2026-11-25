@@ -72,7 +72,7 @@ export function serveEngine(
         send({
           kind: 'error',
           id,
-          code: -32601,
+          code: ERROR_CODES.method_not_found[0],
           errc: 'method_not_found',
           message: `no method "${method}"`,
         });

@@ -16,9 +16,23 @@ export interface ExitInfo {
 }
 
 /**
+ * A transport's handler, set once: a second one throws ("onExit is already
+ * set"), where it would silently replace the client's (cleanup item 7.2).
+ * Something else that must hear the transport wraps it (app-log.ts's
+ * teeStderr) before the client is made.
+ */
+export function setOnce<T>(slot: T | null, handler: T, name: string): T {
+  if (slot !== null) {
+    throw new Error(`${name} is already set`);
+  }
+  return handler;
+}
+
+/**
  * One shapelogic_engine's stdio. The client attaches its handlers right after the
  * transport is made, before any data can arrive (the engine never speaks
- * first). `onExit` is called once, after the last stdout chunk.
+ * first); each handler is set once (setOnce). `onExit` is called once,
+ * after the last stdout chunk.
  */
 export interface Transport {
   /** Sends bytes to the engine's stdin; dropped once it has ended. */

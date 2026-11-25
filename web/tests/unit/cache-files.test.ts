@@ -143,6 +143,9 @@ describe('the cache items', () => {
     // the lock files solves that crashed left, and the file browser's own
     writeFileSync(join(f.slide, 'solve-0123456789abcdef.lock'), '');
     writeFileSync(join(f.panex, `${P1}.lock`), '');
+    // any other lock: another version's, the command line's (cleanup item 7.3)
+    writeFileSync(join(f.slide, 'foo.lock'), '');
+    writeFileSync(join(f.panex, 'foo.lock'), '');
     writeFileSync(join(f.slide, '.DS_Store'), 'x');
     await listItems(f, rescue, links);
     // listed again: the import keeps its search's link
@@ -176,6 +179,17 @@ describe('the cache items', () => {
       problem: null,
       files: [rescue.file, rescue.record],
     });
+  });
+
+  it('lists a temporary file a crash left of the rescue copy as part of its item (replace-file.ts)', async () => {
+    writeFileSync(rescue.file, '<puzzle/>');
+    const left = `${rescue.record}.4242.0123456789ab.tmp`;
+    writeFileSync(left, '{');
+    const [item] = await listItems(f, rescue, new CacheLinks(dir));
+    expect(item?.files).toEqual([rescue.file, left]);
+    const r = await deleteItem(item?.id ?? '', f, rescue, new CacheLinks(dir), never);
+    expect(r.ok).toBe(true);
+    expect(existsSync(left)).toBe(false);
   });
 
   it('keeps only links of folders in the folders in use, and keeps them across a restart', async () => {
@@ -295,6 +309,11 @@ describe('the start’s sweep of other files', () => {
     const imported = search(f.panex, `${P1}.import`, 5);
     const lock = join(f.slide, 'solve-0123456789abcdef.lock');
     writeFileSync(lock, '');
+    // a lock of a name the engine does not give (cleanup item 7.3)
+    const other = [join(f.slide, 'foo.lock'), join(f.panex, 'foo.lock')];
+    for (const p of other) {
+      writeFileSync(p, '');
+    }
     for (const p of [
       join(older, 'f1.lvl'),
       older,
@@ -302,12 +321,14 @@ describe('the start’s sweep of other files', () => {
       join(imported, 'state.bin'),
       imported,
       lock,
+      ...other,
     ]) {
       age(p, now, 30);
     }
     await sweepOther(f, now);
     expect(existsSync(older) || existsSync(imported)).toBe(false);
     expect(existsSync(lock)).toBe(true);
+    expect(other.map((p) => existsSync(p))).toEqual([true, true]);
   });
 
   it('does nothing without the folders', async () => {

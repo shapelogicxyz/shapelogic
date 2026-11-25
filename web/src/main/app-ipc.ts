@@ -467,7 +467,7 @@ export function installAppIpc(h: AppIpcHost): void {
     }
   });
 
-  ipcMain.handle('bt:rescue', (e, op: unknown, data: unknown, info: unknown) => {
+  ipcMain.handle('bt:rescue', async (e, op: unknown, data: unknown, info: unknown) => {
     if (ours(e) === null) {
       return null;
     }
@@ -477,7 +477,7 @@ export function installAppIpc(h: AppIpcHost): void {
           // the record's file is handed to the window that reads it: only
           // one this window was handed itself, else the copy has no file
           const path = info.path !== null && h.paths.allows(e.sender, info.path) ? info.path : null;
-          h.rescue.of(e.sender.id).write(data, { ...info, path });
+          await h.rescue.of(e.sender.id).write(data, { ...info, path });
         }
         return null;
       case 'read': {
@@ -489,7 +489,7 @@ export function installAppIpc(h: AppIpcHost): void {
         return copy;
       }
       case 'clear':
-        h.rescue.of(e.sender.id).clear();
+        await h.rescue.of(e.sender.id).clear();
         return null;
       default:
         return null;

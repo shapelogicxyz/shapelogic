@@ -30,21 +30,17 @@
 // Electron (the folders are given), so the unit tests run it in a
 // temporary directory.
 
-import { lstat, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { lstat, readdir, readFile, rm } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 
 import { isRescueInfo } from '../engine/app-bridge.ts';
 import type { CacheItem, CacheItemKind, CacheLink } from '../engine/app-bridge.ts';
 import type { CacheFolders } from './cache-folder.ts';
+import { isTempOf, replaceFile } from './replace-file.ts';
+import { isLockFile, SEARCH_NAME, SOLVING, walk } from './search-folders.ts';
 
 /** The most files an item lists. */
 export const MAX_FILES = 1000;
-
-/** The names the engine gives a search's folder, by kind. */
-const SEARCH_NAME: Readonly<Record<'sliding' | 'stacking', RegExp>> = {
-  sliding: /^slide-[0-9a-f]{16}$/,
-  stacking: /^[0-9a-f]{16}$/,
-};
 
 /** A sliding search's folder of version 1.5 and earlier, which never saved its search. */
 const OLDER_SLIDE_NAME = /^search-[0-9a-f]{16}$/;
@@ -55,18 +51,15 @@ const IMPORT_NAME: Readonly<Record<'sliding' | 'stacking', RegExp>> = {
   stacking: /^([0-9a-f]{16})\.import$/,
 };
 
-/** A solve's lock file (decision 0035), by kind: never listed or swept. */
-const LOCK_NAME: Readonly<Record<'sliding' | 'stacking', RegExp>> = {
-  sliding: /^solve-[0-9a-f]{16}\.lock$/,
-  stacking: /^[0-9a-f]{16}\.lock$/,
-};
-
 /** The files a system's file browser leaves in a folder it showed. */
 const SYSTEM_NAME = /^(\.DS_Store|Thumbs\.db|desktop\.ini)$/i;
 
-/** Whether a name in a search folder is left out of the list and the sweep. */
-const unlisted = (name: string, kind: 'sliding' | 'stacking'): boolean =>
-  LOCK_NAME[kind].test(name) || SYSTEM_NAME.test(name);
+/**
+ * Whether a name in a search folder is left out of the list and the sweep:
+ * every lock file (isLockFile; a lock another solve holds must stay), and
+ * what a file browser leaves.
+ */
+const unlisted = (name: string): boolean => isLockFile(name) || SYSTEM_NAME.test(name);
 
 /** What a window told of a search folder. */
 export interface LinkRecord {
@@ -130,10 +123,11 @@ export class CacheLinks {
       return this.chain;
     }
     this.chain = this.chain.then(async () => {
-      const tmp = `${this.file}.tmp`;
       try {
-        await writeFile(tmp, JSON.stringify({ version: 1, links: Object.fromEntries(links) }));
-        await rename(tmp, this.file);
+        await replaceFile(
+          this.file,
+          JSON.stringify({ version: 1, links: Object.fromEntries(links) }),
+        );
       } catch {
         // the links only name the items: without them they are "not known"
       }
@@ -200,48 +194,6 @@ export function kindOf(folder: string, f: CacheFolders): 'sliding' | 'stacking' 
     return 'stacking';
   }
   return null;
-}
-
-/** What walking a file or folder found. */
-interface Walked {
-  files: string[];
-  bytes: number;
-  created: number;
-  modified: number;
-}
-
-const created = (s: { birthtimeMs: number; mtimeMs: number }): number =>
-  s.birthtimeMs > 0 ? s.birthtimeMs : s.mtimeMs;
-
-/** Every file under a path (links not followed), their bytes and times. */
-async function walk(path: string, into: Walked): Promise<void> {
-  let s;
-  try {
-    s = await lstat(path);
-  } catch {
-    return;
-  }
-  into.created = Math.min(into.created, created(s));
-  into.modified = Math.max(into.modified, s.mtimeMs);
-  if (!s.isDirectory()) {
-    into.files.push(path);
-    into.bytes += s.size;
-    return;
-  }
-  for (const name of (await readdir(path).catch(() => [])).sort()) {
-    await walk(join(path, name), into);
-  }
-}
-
-async function walkAll(paths: readonly string[]): Promise<Walked> {
-  const w: Walked = { files: [], bytes: 0, created: Infinity, modified: 0 };
-  for (const p of paths) {
-    await walk(p, w);
-  }
-  if (!Number.isFinite(w.created)) {
-    w.created = w.modified;
-  }
-  return w;
 }
 
 const exists = (p: string): Promise<boolean> =>
@@ -352,7 +304,7 @@ async function searchGroups(
   const other: string[] = [];
   for (const name of names) {
     const p = join(dir, name);
-    if (unlisted(name, kind)) {
+    if (unlisted(name)) {
       continue;
     }
     if (!(await isSearch(p, kind))) {
@@ -412,6 +364,14 @@ async function rescueGroup(r: RescueFiles): Promise<Group | null> {
       roots.push(p);
     }
   }
+  // the temporary files replace-file.ts names for each write, left by a crash
+  const dir = dirname(r.file);
+  const bases = [basename(r.file), basename(r.record)];
+  for (const name of (await readdir(dir).catch(() => [])).sort()) {
+    if (bases.some((b) => isTempOf(name, b))) {
+      roots.push(join(dir, name));
+    }
+  }
   if (roots.length === 0) {
     return null;
   }
@@ -432,7 +392,7 @@ const idOf = (g: Group): string => `${g.kind}:${g.roots.map((p) => baseName(p)).
 
 /** A group, named and walked. */
 async function itemOf(g: Group): Promise<{ item: CacheItem; roots: string[] }> {
-  const w = await walkAll(g.roots);
+  const w = await walk(g.roots);
   const { title, about } = named(g);
   return {
     item: {
@@ -486,10 +446,6 @@ export async function listItems(
 ): Promise<CacheItem[]> {
   return (await listWithRoots(f, rescue, links)).map((x) => x.item);
 }
-
-/** The words of a running solve. */
-const SOLVING =
-  'A solve is running in a ShapeLogic window. Pause or stop it first: its search writes to the cache folder.';
 
 /**
  * Deletes the item of this id, found by listing again: the items left, or
@@ -549,10 +505,10 @@ export async function sweepOther(
     }
     for (const name of await readdir(dir).catch(() => [])) {
       const p = join(dir, name);
-      if (unlisted(name, kind) || (await isSearch(p, kind))) {
+      if (unlisted(name) || (await isSearch(p, kind))) {
         continue;
       }
-      const w = await walkAll([p]);
+      const w = await walk([p]);
       if (now - w.modified > maxAge) {
         await rm(p, { recursive: true, force: true }).catch(() => undefined);
       }

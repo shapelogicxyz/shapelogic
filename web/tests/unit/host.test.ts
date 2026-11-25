@@ -2,7 +2,9 @@
 //
 // The engine host: it starts an engine, starts another when one dies (the
 // status says so), fails calls while there is none, gives up after quick
-// deaths in a row, and starts none after stop().
+// deaths in a row, and starts none after stop(); its engines' protocol
+// problems reach its handlers (the app log's); and every transport takes
+// each of its handlers once.
 
 import { describe, expect, it } from 'vitest';
 
@@ -10,7 +12,12 @@ import type { ClientProblem } from '../../src/engine/client.ts';
 import type { EngineStatus } from '../../src/engine/client-types.ts';
 import { EngineError } from '../../src/engine/errors.ts';
 import { EngineStartError } from '../../src/engine/spawn-failure.ts';
+import { NodeTransport } from '../../src/engine/node-transport.ts';
+import type { Transport } from '../../src/engine/transport.ts';
+import { WasmTransport } from '../../src/demo/wasm-transport.ts';
+import { EngineLines, logEngineProblems, teeStderr } from '../../src/main/app-log.ts';
 import { EngineHost } from '../../src/main/engine-host.ts';
+import { FakeEngine } from '../../fake-engine/fake-engine.ts';
 import { settle, ScriptedTransport } from '../helpers/scripted-transport.ts';
 
 /** A host over scripted engines that greet at once. */
@@ -469,5 +476,119 @@ describe('the engine host', () => {
     // nothing to do while one runs
     await h.retry();
     expect(engines).toHaveLength(started + 1);
+  });
+});
+
+describe('the protocol problems of its engines (cleanup item 7.2)', () => {
+  it('reach the host’s handlers, the app log’s among them, and end the engine at a bad frame', async () => {
+    const { host: h, engines, statuses } = host();
+    const problems: ClientProblem[] = [];
+    h.onProblem((p) => problems.push(p));
+    const logged: string[] = [];
+    logEngineProblems(
+      h,
+      {
+        warn: (source, event, text) => {
+          logged.push(`${source} ${event}: ${text}`);
+        },
+      },
+      'window 1',
+    );
+    await h.start();
+    // a frame announced with a size it cannot have: the stream cannot be followed
+    engines[0]?.event('frame', { frame: 1, bytes: -1 });
+    await until(() => statuses.some((s) => s.state === 'exited'));
+    expect(problems.map((p) => p.reason)).toContain('bad-frame');
+    expect(logged.some((l) => l.startsWith('window 1 Engine Problem: bad-frame: '))).toBe(true);
+    expect(engines[0]?.killed).toBe(true);
+    await until(() => statuses.at(-1)?.state === 'running');
+  });
+});
+
+describe('a transport’s handlers (cleanup item 7.2)', () => {
+  const twice = (t: Transport): void => {
+    t.onData(() => undefined);
+    expect(() => {
+      t.onData(() => undefined);
+    }).toThrow('onData is already set');
+    t.onStderr?.(() => undefined);
+    expect(() => {
+      t.onStderr?.(() => undefined);
+    }).toThrow('onStderr is already set');
+    t.onExit(() => undefined);
+    expect(() => {
+      t.onExit(() => undefined);
+    }).toThrow('onExit is already set');
+  };
+
+  it('are set once in every transport: a second would silently replace the client’s', () => {
+    twice(new ScriptedTransport());
+    twice(
+      new FakeEngine({
+        format: 'shapelogic_engine-recording',
+        version: 1,
+        engine: '',
+        note: '',
+        entries: [],
+      }),
+    );
+    const wasm = new WasmTransport({
+      _bt_start: () => undefined,
+      _bt_write: () => undefined,
+      _bt_poll: () => undefined,
+      _bt_busy: () => 0,
+      _bt_take: () => undefined,
+      _bt_taken_data: () => 0,
+      _bt_taken_size: () => 0,
+      _bt_log_take: () => undefined,
+      _bt_log_data: () => 0,
+      _bt_log_size: () => 0,
+      _malloc: () => 0,
+      _free: () => undefined,
+      HEAPU8: new Uint8Array(1),
+    });
+    twice(wasm);
+    wasm.kill();
+    // the log's tee passes the client's handlers on, once each too
+    twice(teeStderr(new ScriptedTransport(), () => undefined));
+  });
+
+  it('are set once in the engine’s process transport', async () => {
+    // any program will do: Node itself, reading a script from its stdin
+    const t = new NodeTransport(process.execPath);
+    const ended = new Promise<void>((done) => {
+      t.onExit(() => {
+        done();
+      });
+    });
+    expect(() => {
+      t.onExit(() => undefined);
+    }).toThrow('onExit is already set');
+    t.onData(() => undefined);
+    expect(() => {
+      t.onData(() => undefined);
+    }).toThrow('onData is already set');
+    t.close();
+    await ended;
+  });
+
+  it('end the engine’s log lines before the client hears of the exit', () => {
+    const inner = new ScriptedTransport();
+    const order: string[] = [];
+    const lines = new EngineLines((l) => order.push(`line ${l}`));
+    const tee = teeStderr(
+      inner,
+      (c) => {
+        lines.push(c);
+      },
+      () => {
+        lines.end();
+      },
+    );
+    tee.onStderr?.(() => undefined);
+    tee.onExit(() => order.push('exit'));
+    inner.stderr('Assertion failed: x\nlibc++abi: terminating');
+    inner.exit({ code: null, signal: 'SIGABRT' });
+    expect(order).toEqual(['line Assertion failed: x', 'line libc++abi: terminating', 'exit']);
   });
 });

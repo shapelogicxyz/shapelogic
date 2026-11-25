@@ -6,6 +6,7 @@
 // the engine for its events, as the stdio engine's run loop does between
 // lines. Logs are the console's.
 
+import { setOnce } from '../engine/transport.ts';
 import type { ExitInfo, Transport } from '../engine/transport.ts';
 import type { EngineModule } from './engine/shapelogic_engine.js';
 
@@ -52,15 +53,15 @@ export class WasmTransport implements Transport {
   }
 
   onData(handler: (chunk: Uint8Array) => void): void {
-    this.dataHandler = handler;
+    this.dataHandler = setOnce(this.dataHandler, handler, 'onData');
   }
 
   onStderr(handler: (chunk: Uint8Array) => void): void {
-    this.stderrHandler = handler;
+    this.stderrHandler = setOnce(this.stderrHandler, handler, 'onStderr');
   }
 
   onExit(handler: (info: ExitInfo) => void): void {
-    this.exitHandler = handler;
+    this.exitHandler = setOnce(this.exitHandler, handler, 'onExit');
   }
 
   kill(): void {

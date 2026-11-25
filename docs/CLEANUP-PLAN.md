@@ -169,7 +169,7 @@ again, and comes last.
 - [x] Stage 5: smaller bugs: core, engine, Python, CLI (its three new findings are 15.6, 15.7 and 16.6)
 - [x] Checkpoint C (Fable; needed, decided by checkpoint B): review of stage 5
 - [x] Stage 6: renderer bugs (6.4 leaves the log menu, with its reason)
-- [ ] Stage 7: main-process bugs
+- [x] Stage 7: main-process bugs
 - [ ] Stage 8: test and build speed; tests that cannot clash
 - [ ] Checkpoint D (Fable): review of stage 8
 - [ ] Stage 9: CI and release pipeline
@@ -2855,7 +2855,7 @@ Done (2026-11-25), the whole stage:
 
 ## Stage 7: main-process bugs
 
-- [ ] **7.1 A crashed or hung renderer leaves a dead window** (bug; S) ✓
+- [x] **7.1 A crashed or hung renderer leaves a dead window** (bug; S) ✓
   - *Where:* `web/src/main/index.ts`: window creation (388, 688) and the
     window's events (481-578). There is no `'render-process-gone'` or
     `'unresponsive'` handler; `isCrashed()` is used only for the close (502).
@@ -2873,8 +2873,30 @@ Done (2026-11-25), the whole stage:
   - *Tests:* an e2e test that calls `webContents.forcefullyCrashRenderer()`
     (through `electronApp.evaluate`) and checks that the window reloads with
     its document (the rescue and re-attach path).
+  - Done (2026-11-25): a new `web/src/main/renderer-watch.ts`
+    (`RendererWatch`, free of Electron; `index.ts` gives it the window's
+    calls and its three events). A page gone for any reason but
+    `clean-exit` is logged (`ERROR Renderer Gone`, reason and exit code) and
+    reloaded, at most three times in 60 s per window (`Renderer Reloaded:
+    reload n of 3`); the fourth asks natively, Reload or Close Window
+    (Escape: Reload). `unresponsive` asks natively, Wait or Reload, and the
+    question is closed through its `AbortSignal` on `responsive` or when
+    the page crashes meanwhile. Two choices of the agent's: Reload of a hung
+    page calls `forcefullyCrashRenderer()` then `reload()` (Electron's
+    advice: a reload alone runs in the hung process), and that end, within
+    5 s, is logged but not counted as a crash; while a close is waiting for
+    the page's answer (or the window is going), a crash is only logged and
+    no hang is asked about: the close's timer already asks natively.
+    Tests: `renderer-watch.test.ts` (5: the budget and the question, a
+    clean exit, the hung question closed on `responsive` and on a crash,
+    its Reload not counted); `ipc.e2e.ts` "a crashed page is reloaded and
+    attaches to its document again": `forcefullyCrashRenderer()`, then the
+    new page read through the main process (Playwright's page is gone with
+    its process) shows the fixture's name, its rows and the same engine,
+    and the log has both lines. Run 3 times beside the spec's other tests,
+    12 of 12; against the old `index.ts` in a scratch copy it fails.
 
-- [ ] **7.2 Main-process failures never reach the app log** (bug; S)
+- [x] **7.2 Main-process failures never reach the app log** (bug; S)
   - *Where:*
     - `web/src/main/app-log.ts:171-176`: `EngineLines.end()` is unit-tested
       but never called, so an engine's last stderr text without a newline (a
@@ -2905,8 +2927,34 @@ Done (2026-11-25), the whole stage:
       already set") in all three transports, so the trap shows in tests.
   - *Tests:* `app-log.test.ts` (end on exit; a problem is logged);
     `host.test.ts`; a transport test that a second `onExit` throws.
+  - Done (2026-11-25):
+    - `teeStderr(t, onChunk, onEnd)` wraps `onExit` and calls `onEnd`
+      (`lines.end()` in `index.ts`) before the client hears the exit, so a
+      crash's last words without a newline are logged before "Engine
+      Stopped".
+    - `logEngineProblems(host, log, source)` (`app-log.ts`), subscribed for
+      each window: `WARN [window n] Engine Problem: <reason>: <detail>`.
+      With a subscriber the host no longer prints them to the console.
+    - `StateStore(dir, { delayMs, onError })`: `index.ts` logs a failed
+      write (`WARN Settings Not Stored`). The engine start's failure is
+      logged already by its failed status (2.2: Engine Start Failed with
+      the system's fields and the engine's last words), so
+      `host.start().catch` no longer writes the console a second copy.
+    - `setOnce` (`engine/transport.ts`): a second `onData`, `onStderr` or
+      `onExit` throws "… is already set" in `NodeTransport`,
+      `WasmTransport`, the fake engine (the recordings' transport) and the
+      tests' `ScriptedTransport`; the tee's own `onStderr` too
+      (`RecordingTransport` passes them to the transport it wraps).
+    - Tests in `host.test.ts` rather than `app-log.test.ts` (they need the
+      host and the transports): a bad frame's problem reaches the host's
+      handlers and `logEngineProblems`'s line, the engine is killed and
+      started again; the handlers set once in every transport (the process
+      one with Node itself as the program); the tee ends the lines before
+      the exit. `app.test.ts`: a failed write reaches `onError`. Against the
+      old files in a scratch copy: the three transport, tee and store tests
+      fail.
 
-- [ ] **7.3 The two cache modules disagree about lock files** (bug, combine; S)
+- [x] **7.3 The two cache modules disagree about lock files** (bug, combine; S)
   - *Where:*
     - `web/src/main/cache-folder.ts` (103, 207-230, 251-255, 387) skips every
       `*.lock` (since 9a443f2).
@@ -2931,8 +2979,17 @@ Done (2026-11-25), the whole stage:
     Both cache modules and `export-file.ts` import it.
   - *Tests:* `cache-folder.test.ts` and `cache-files.test.ts`, plus a new
     case: a `foo.lock` is never listed or swept.
+  - Done (2026-11-25): `web/src/main/search-folders.ts` holds
+    `SEARCH_NAME`, `isLockFile` (every `*.lock`), `SOLVING`, `walk(paths)`
+    (cache-files' walk; cache-folder's own recursive size is its `bytes`)
+    and `errorCode`; both cache modules use them, `export-file.ts` uses
+    `errorCode`. The import and 1.5-era names stay in `cache-files.ts`, the
+    only reader. Tests: `cache-files.test.ts` (a `foo.lock` in each folder
+    is not listed, and survives the sweep at 30 days old; both fail
+    against the old `cache-files.ts`), `cache-folder.test.ts` (a `foo.lock`
+    is not counted; it was not before either).
 
-- [ ] **7.4 One way to replace a file in the main process** (bug, combine; M)
+- [x] **7.4 One way to replace a file in the main process** (bug, combine; M)
   - *Where:* five writers that replace a file through a temporary one:
     - `web/src/main/state-store.ts:228-237`;
     - `rescue.ts:58-67`;
@@ -2957,17 +3014,75 @@ Done (2026-11-25), the whole stage:
   - *Tests:* the export, state-store and rescue unit tests; a new test: two
     `replaceFile` calls to one target at once both settle, and the target
     holds one of the two contents whole.
+  - Done (2026-11-25): `web/src/main/replace-file.ts`: `replaceFile(path,
+    data, { mode })` (a temporary file `<name>.<pid>.<12 hex>.tmp` made
+    with `wx`, written, `chmod` to `mode` when given, `sync()`, closed,
+    renamed; on an error closed and removed, the system's error rethrown
+    with its `syscall`), `replaceFileSync` (the same with `fsyncSync`),
+    `tempName`, `isTempOf`. The callers:
+    - `export-file.ts`'s `writeFileSafely` keeps `writeTarget` (links,
+      read-only) and the old file's mode, then `replaceFile`; "could not
+      replace" when the rename failed, else "could not write". It no longer
+      removes a `<target>.tmp` (the bug); one left by an older version
+      stays, never written through.
+    - `rescue.ts`: `write` and `clear` async, run one after the other on
+      the store's own chain (a clear is never undone by a write in flight);
+      the IPC handler awaits them. `rescueSlot` and the Manage Cache item
+      take the new temporary names as the copy's files.
+    - `cache-files.ts`'s `CacheLinks.save`: `replaceFile` on its chain.
+    - Synchronous, with the reason: the state store (its last write is in
+      `will-quit`; one path for all its writes, so no async write lands
+      after it; the file is small) and the log's trim (a line appended
+      between its read and its rename would be lost).
+    - Not changed: the log's compression (`<archive>.tmp`, one at a time,
+      behind a stream), which this item does not name.
+    Tests (`app.test.ts`): two `replaceFile` at once, 5 rounds of 5 MB and
+    3 MB, both fulfilled, the target one of them whole, no file left; the
+    temporary names; a failed rename leaves no temporary file (both
+    twins); the sync twin; two `writeFileSafely` at once, 5 rounds (fails
+    against the old `export-file.ts`: EEXIST); the store and the rescue
+    copy leave no temporary file; the rescue copy's writes and clear in
+    order (a test of the new chain: the old code was synchronous). The
+    tests that planted a link or a folder at `<file>.tmp` now plant the
+    link at the old name (left, not followed) and make the folder
+    read-only (EACCES). Nothing here was run on Windows or Linux
+    (`FileHandle.sync` and `fsyncSync` are Node's own on both).
 
-- [ ] **7.5 The demo reports a wrong error code** (bug; S)
+- [x] **7.5 The demo reports a wrong error code** (bug; S)
   - *Where:* `web/src/demo/engine-bridge.ts:89` sends -32602 (invalid_params)
     with errc `'invalid_argument'`, whose code is -32001.
     `web/src/main/engine-ipc.ts:75` hard-codes a code.
   - *Change:* take the code from `ERROR_CODES` (`api.generated.ts`) by errc
     at both sites.
   - *Tests:* `bridge.test.ts`.
+  - Done (2026-11-25): the demo's refusal of a played run's pause sends
+    `ERROR_CODES.invalid_argument[0]` (-32001); `engine-ipc.ts`'s
+    `method_not_found` and the client's too-long line (`invalid_request`,
+    a third hard-coded site) take theirs from `ERROR_CODES` too (both were
+    right already). Tests (`bridge.test.ts`): every error the proxy test
+    posts has its errc's code; the demo bridge's two refusals (a played
+    run's pause, a search) carry -32001 (fails against the old
+    `engine-bridge.ts`).
 
 **Gates for stage 7:** `just app-check`, `just app-test`, the e2e specs the
 items name.
+
+Done (2026-11-25), the whole stage:
+- `just app-check`: clean; `just app-test`: 647 of 647 (63 files).
+- e2e (after `npm run build`): `ipc` 4 (run 3 times, 12 of 12), `cache` 5,
+  `exports` 2, `files` 18, `windows` 6, `logs` 3, `engine-failure` 2,
+  `solver` 9: all pass. Not run: the rest of the e2e suite.
+- The new tests against the old files in a scratch copy (rule 7's,
+  `SHAPELOGIC_VERSION=v2.1`): the 7.1 e2e test and the unit tests of 7.2,
+  7.3, 7.4 and 7.5 fail there, as each Done line says.
+- `just site-demo --check`: rebuilt (`engine-bridge.ts`,
+  `wasm-transport.ts`, `engine/`); every puzzle type opens and plays.
+- No C++ changed: `just test-all`, `just check`, the oracle, the
+  benchmarks and the Linux and Windows builds were not run.
+- `docs/ARCHITECTURE.md`: map lines for `renderer-watch.ts`,
+  `replace-file.ts` and `search-folders.ts`; `app-log.ts`'s and
+  `transport.ts`'s lines; the web rule on exports adds that the main
+  process replaces a file only through `replace-file.ts`.
 
 ## Stage 8: test and build speed; tests that cannot clash
 

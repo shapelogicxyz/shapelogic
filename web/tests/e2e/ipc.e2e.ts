@@ -4,7 +4,11 @@
 // stages"): the app starts its engine, a mesh crosses the bridge as a frame
 // (window.bt, as the proxy sees it), an engine killed is reported and
 // restarted with a new document, and a reload with calls in flight gets a
-// new bridge server, so the old page's replies never reach the new one.
+// new bridge server, so the old page's replies never reach the new one;
+// a page that crashed is reloaded and shows the engine's document again.
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
@@ -138,4 +142,51 @@ test('a reload gets a bridge of its own: the old page’s replies do not reach i
   await expect(page.locator('#fname')).toHaveText('DraculasDentalDesaster.xmpuzzle');
   await expect(page.locator('#vp')).toHaveAttribute('data-shown', /^s\d+:drawing$/);
   expect(errors).toEqual([]);
+});
+
+test('a crashed page is reloaded and attaches to its document again (cleanup item 7.1)', async () => {
+  const { app, page, userData } = a;
+  await openFixture(page, 'CubeInCage.xmpuzzle');
+  const rows = await page.locator('#shapeList .row').count();
+  const main = app.process().pid;
+  const engine = engines(main ?? 0);
+  expect(engine).toHaveLength(1);
+  await app.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.webContents.forcefullyCrashRenderer();
+  });
+  // Playwright's page is gone with its process: the new page is read
+  // through the main process (a script sent while the page is replaced may
+  // never answer: each try gives up after a second)
+  const shown = (): Promise<{ name: string; rows: number; engine: string } | null> =>
+    app.evaluate(async ({ BrowserWindow }) => {
+      const c = BrowserWindow.getAllWindows()[0]?.webContents;
+      if (c === undefined || c.isCrashed() || c.isLoading()) {
+        return null;
+      }
+      const read = c
+        .executeJavaScript(
+          `({ name: document.getElementById('fname')?.textContent ?? '',
+              rows: document.querySelectorAll('#shapeList .row').length,
+              engine: document.getElementById('stage')?.dataset.engine ?? '' })`,
+        )
+        .catch(() => null) as Promise<{ name: string; rows: number; engine: string } | null>;
+      return Promise.race([
+        read,
+        new Promise<null>((done) => {
+          setTimeout(() => {
+            done(null);
+          }, 1000);
+        }),
+      ]);
+    });
+  await expect
+    .poll(shown, { timeout: 30_000 })
+    .toEqual({ name: 'CubeInCage.xmpuzzle', rows, engine: 'running' });
+  // the same engine: its document was kept, not opened again
+  expect(engines(main ?? 0)).toEqual(engine);
+  const log = readFileSync(join(userData, 'logs', 'shapelogic.log'), 'utf8');
+  expect(log).toMatch(
+    /ERROR \[window \d+\] Renderer Gone: the page's process ended: (crashed|killed)/,
+  );
+  expect(log).toContain('Renderer Reloaded: reload 1 of 3');
 });

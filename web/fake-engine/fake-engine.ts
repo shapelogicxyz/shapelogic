@@ -10,6 +10,7 @@
 
 import { fromBase64, toBase64 } from '../src/engine/recorder.ts';
 import type { Recording, RecordingEntry } from '../src/engine/recorder.ts';
+import { setOnce } from '../src/engine/transport.ts';
 import type { ExitInfo, Transport } from '../src/engine/transport.ts';
 
 export interface FakeEngineOptions {
@@ -86,15 +87,15 @@ export class FakeEngine implements Transport {
   }
 
   onData(handler: (chunk: Uint8Array) => void): void {
-    this.dataHandler = handler;
+    this.dataHandler = setOnce(this.dataHandler, handler, 'onData');
   }
 
   onStderr(handler: (chunk: Uint8Array) => void): void {
-    this.stderrHandler = handler;
+    this.stderrHandler = setOnce(this.stderrHandler, handler, 'onStderr');
   }
 
   onExit(handler: (info: ExitInfo) => void): void {
-    this.exitHandler = handler;
+    this.exitHandler = setOnce(this.exitHandler, handler, 'onExit');
   }
 
   kill(): void {

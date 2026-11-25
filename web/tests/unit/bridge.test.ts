@@ -2,11 +2,16 @@
 //
 // The renderer's proxy over the bridge to the host (decision 0013), in
 // memory: calls, frames crossing as ArrayBuffers and viewed again, errors,
-// events after their reply, the engine's status, refused messages.
+// events after their reply, the engine's status, refused messages, and
+// each error's code by its errc (the demo's bridge too).
 
 import { describe, expect, it } from 'vitest';
 
 import { FakeEngine } from '../../fake-engine/fake-engine.ts';
+import { EngineBridge } from '../../src/demo/engine-bridge.ts';
+import { ERROR_CODES } from '../../src/engine/api.generated.ts';
+import type { Errc } from '../../src/engine/api.generated.ts';
+import { EngineClient } from '../../src/engine/client.ts';
 import { loadRecording, loadTranscript } from '../../fake-engine/recordings.ts';
 import type { BridgeCall, BridgeMessage, BtBridge } from '../../src/engine/bridge.ts';
 import type { EngineStatus } from '../../src/engine/client-types.ts';
@@ -130,6 +135,36 @@ describe('the proxy', () => {
     await settle();
     const errcs = posted.flatMap((m) => (m.kind === 'error' ? [m.errc] : []));
     expect(errcs).toEqual(['internal', 'method_not_found']);
+    // each error's code is its errc's (api.generated.ts, cleanup item 7.5)
+    for (const m of posted) {
+      if (m.kind === 'error') {
+        expect(m.code).toBe(ERROR_CODES[m.errc as Errc][0]);
+      }
+    }
+  });
+
+  it('gets the demo’s refusals with their errc’s code (cleanup item 7.5)', async () => {
+    const t = new ScriptedTransport();
+    const client = new EngineClient(t);
+    const hello = client.hello();
+    t.greet();
+    await hello;
+    const bridge = new EngineBridge(client, '0.1.0');
+    bridge.solveHook = () => true;
+    const posted: BridgeMessage[] = [];
+    bridge.onMessage((m) => posted.push(m));
+    bridge.send({ kind: 'call', id: 1, method: 'solve.start', params: { problem: 'p1' } });
+    // a played run cannot be paused
+    bridge.send({ kind: 'call', id: 2, method: 'solve.pause', params: { problem: 'p1' } });
+    // a search is refused before it reaches the engine
+    bridge.send({ kind: 'call', id: 3, method: 'solve.prepare', params: { problem: 'p1' } });
+    await settle();
+    const errors = posted.flatMap((m) => (m.kind === 'error' ? [m] : []));
+    expect(errors.map((m) => [m.id, m.errc, m.code])).toEqual([
+      [2, 'invalid_argument', ERROR_CODES.invalid_argument[0]],
+      [3, 'invalid_argument', ERROR_CODES.invalid_argument[0]],
+    ]);
+    expect(ERROR_CODES.invalid_argument[0]).toBe(-32001);
   });
 
   it('tells a proxy made after the engine started the status', async () => {

@@ -150,6 +150,8 @@ describe('the data in the folders', () => {
     mkdirSync(f.panex, { recursive: true });
     writeFileSync(join(f.slide, `solve-${KEY_A}.lock`), '');
     writeFileSync(join(f.panex, `${KEY_A}.lock`), '');
+    // any lock, as the Manage Cache list leaves it (search-folders.ts's isLockFile)
+    writeFileSync(join(f.panex, 'foo.lock'), '');
     const c = await scan(f);
     expect(isEmpty(c)).toBe(true);
     expect(describeContents(c)).toBe('');

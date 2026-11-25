@@ -30,6 +30,7 @@ import type {
   CacheFolderInfo,
   CacheResult,
 } from '../engine/app-bridge.ts';
+import { errorCode, isLockFile, SEARCH_NAME, SOLVING, walk } from './search-folders.ts';
 
 /** The folder made inside the folder the user chooses. */
 export const CACHE_NAME = 'ShapeLogic';
@@ -100,12 +101,9 @@ export function foldersFor(root: string | undefined, d: CacheDefaults): CacheFol
   return { slide: join(base, 'sliding'), panex: join(base, 'panex') };
 }
 
-const errCode = (e: unknown): string =>
-  typeof e === 'object' && e !== null && 'code' in e ? String(e.code) : '';
-
 /** Why a folder could not be written, in words for the user. */
 function writeError(e: unknown): string {
-  switch (errCode(e)) {
+  switch (errorCode(e)) {
     case 'EACCES':
     case 'EPERM':
       return 'ShapeLogic does not have permission to write there';
@@ -203,31 +201,13 @@ export interface CacheContents {
   stacking: FolderContents;
 }
 
-/** The bytes of a file, or of a folder and everything in it (links not followed). */
-async function sizeOf(path: string): Promise<number> {
-  let s;
-  try {
-    s = await lstat(path);
-  } catch {
-    return 0;
-  }
-  if (!s.isDirectory()) {
-    return s.size;
-  }
-  let total = 0;
-  for (const name of await readdir(path).catch(() => [])) {
-    total += await sizeOf(join(path, name));
-  }
-  return total;
-}
-
 /**
- * The names in a folder; none when it is not there. Not the lock of a solve
- * under way (`solve-<key>.lock`, `<key>.lock`: decision 0035), which is no
- * content: it goes when its run ends.
+ * The names in a folder; none when it is not there. Not a lock file
+ * (isLockFile: a solve's, decision 0035), which is no content: it goes when
+ * its run ends.
  */
 const namesIn = async (dir: string): Promise<string[]> =>
-  dir === '' ? [] : (await readdir(dir).catch(() => [])).filter((name) => !name.endsWith('.lock'));
+  dir === '' ? [] : (await readdir(dir).catch(() => [])).filter((name) => !isLockFile(name));
 
 /** What a folder holds; `search` says which names are a saved search's folder. */
 async function contentsOf(dir: string, search: RegExp): Promise<FolderContents> {
@@ -236,7 +216,7 @@ async function contentsOf(dir: string, search: RegExp): Promise<FolderContents> 
   let searches = 0;
   for (const name of names) {
     const p = join(dir, name);
-    bytes += await sizeOf(p);
+    bytes += (await walk([p])).bytes;
     if (search.test(name)) {
       const s = await lstat(p).catch(() => null);
       if (s?.isDirectory() === true) {
@@ -250,8 +230,8 @@ async function contentsOf(dir: string, search: RegExp): Promise<FolderContents> 
 /** What the folders hold: the engine names a sliding search `slide-<key>` and a stacking one by its key. */
 export async function scan(f: CacheFolders): Promise<CacheContents> {
   return {
-    sliding: await contentsOf(f.slide, /^slide-[0-9a-f]{16}$/),
-    stacking: await contentsOf(f.panex, /^[0-9a-f]{16}$/),
+    sliding: await contentsOf(f.slide, SEARCH_NAME.sliding),
+    stacking: await contentsOf(f.panex, SEARCH_NAME.stacking),
   };
 }
 
@@ -301,7 +281,7 @@ async function moveEntry(from: string, to: string): Promise<void> {
   try {
     await rename(from, to);
   } catch (e) {
-    if (errCode(e) !== 'EXDEV') {
+    if (errorCode(e) !== 'EXDEV') {
       throw e;
     }
     try {
@@ -382,10 +362,6 @@ interface Pending {
   folders: CacheFolders;
   made: Made;
 }
-
-/** The words of a running solve. */
-const SOLVING =
-  'A solve is running in a ShapeLogic window. Pause or stop it first: its search writes to the cache folder.';
 
 /** The cache folder in use and the choices of a new one, a choice at a time. */
 export class CacheFolderManager<K extends WeakKey> {

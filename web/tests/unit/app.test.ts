@@ -44,6 +44,7 @@ import {
 } from '../../src/main/export-file.ts';
 import { commandItems, menuTemplate, NO_STATE, recentLabel } from '../../src/main/menu.ts';
 import { PathOwners } from '../../src/main/path-owners.ts';
+import { isTempOf, replaceFile, replaceFileSync, tempName } from '../../src/main/replace-file.ts';
 import { RescueSlots, RescueStore, rescueSlot } from '../../src/main/rescue.ts';
 import { RECENT_MAX, StateStore } from '../../src/main/state-store.ts';
 import {
@@ -72,7 +73,7 @@ describe('the store of settings, layouts and recent files', () => {
   it('writes a moment after a change, whole, and reads it back', () => {
     vi.useFakeTimers();
     const d = dir();
-    const s = new StateStore(d, 100);
+    const s = new StateStore(d, { delayMs: 100 });
     s.set('prefs', { theme: 'Dark', undo: 100 });
     s.set('layout', { tab: 'solver' });
     s.setBounds({ x: 1, y: 2, width: 900, height: 700 });
@@ -82,7 +83,8 @@ describe('the store of settings, layouts and recent files', () => {
     s.setCacheRoot('/big');
     expect(existsSync(join(d, 'state.json'))).toBe(false);
     vi.advanceTimersByTime(100);
-    expect(existsSync(join(d, 'state.json.tmp'))).toBe(false);
+    // no temporary file left beside it (replace-file.ts)
+    expect(readdirSync(d)).toEqual(['state.json']);
     const back = new StateStore(d);
     expect(back.prefs).toEqual({ theme: 'Dark', undo: 100 });
     expect(back.layout).toEqual({ tab: 'solver' });
@@ -119,6 +121,19 @@ describe('the store of settings, layouts and recent files', () => {
     expect(new StateStore(d).recent).toEqual([]);
   });
 
+  it('tells a write that failed to its onError (the app log), not only the console (cleanup item 7.2)', () => {
+    const d = dir();
+    // a file where its folder would be: the folder cannot be made
+    const blocked = join(d, 'blocked');
+    writeFileSync(blocked, '');
+    const told: string[] = [];
+    const s = new StateStore(blocked, { delayMs: 0, onError: (m) => told.push(m) });
+    s.setLastDir('/puzzles');
+    s.flush();
+    expect(told).toHaveLength(1);
+    expect(told[0]).toContain(`could not store the settings in ${join(blocked, 'state.json')}`);
+  });
+
   it('reads a file that is not JSON, or not ours, as an empty store', () => {
     const d = dir();
     writeFileSync(join(d, 'state.json'), '{not json');
@@ -148,22 +163,24 @@ describe('the rescue copy', () => {
   const info = { path: '/puzzles/a.xmpuzzle', name: 'a.xmpuzzle', revision: 7, time: 1000 };
   const data = Buffer.from('<puzzle/>').toString('base64');
 
-  it('is written as the file’s bytes with its record, read back, and removed', () => {
+  it('is written as the file’s bytes with its record, read back, and removed', async () => {
     const d = dir();
     const r = new RescueStore(d);
     expect(r.read()).toBeNull();
-    r.write(data, info);
+    await r.write(data, info);
     expect(readFileSync(join(d, '__rescue.xmpuzzle'), 'utf8')).toBe('<puzzle/>');
     expect(r.read()).toEqual({ data, info });
-    r.clear();
+    // no temporary file left beside them (replace-file.ts)
+    expect(readdirSync(d).sort()).toEqual(['__rescue.json', '__rescue.xmpuzzle']);
+    await r.clear();
     expect(r.read()).toBeNull();
     expect(existsSync(join(d, '__rescue.json'))).toBe(false);
   });
 
-  it('offers a copy whose record does not match it as a puzzle without a file', () => {
+  it('offers a copy whose record does not match it as a puzzle without a file', async () => {
     const d = dir();
     const r = new RescueStore(d);
-    r.write(data, info);
+    await r.write(data, info);
     // the app died between the record and the copy of a later write
     writeFileSync(join(d, '__rescue.xmpuzzle'), '<puzzle version="2"/>');
     const got = r.read();
@@ -177,6 +194,10 @@ describe('the rescue copy', () => {
   it('names its slots’ files, slot 0 as the earlier versions’ one copy', () => {
     expect(rescueSlot('__rescue.xmpuzzle')).toBe(0);
     expect(rescueSlot('__rescue.json.tmp')).toBe(0);
+    // replace-file.ts's temporary files
+    expect(rescueSlot('__rescue.xmpuzzle.4242.0123456789ab.tmp')).toBe(0);
+    expect(rescueSlot('__rescue-3.json.17.abcdef012345.tmp')).toBe(3);
+    expect(rescueSlot('__rescue.json.4242.0123456789ab')).toBeNull();
     expect(rescueSlot('__rescue-3.xmpuzzle')).toBe(3);
     expect(rescueSlot('__rescue-3.json')).toBe(3);
     expect(rescueSlot('__rescue-0.json')).toBeNull();
@@ -186,11 +207,11 @@ describe('the rescue copy', () => {
     expect(new RescueStore(d, 2).file).toBe(join(d, '__rescue-2.xmpuzzle'));
   });
 
-  it('gives each window a slot of its own, a copy left on disk to one window only', () => {
+  it('gives each window a slot of its own, a copy left on disk to one window only', async () => {
     const d = dir();
     // a session that died left copies in slots 0 and 2
-    new RescueStore(d, 0).write(data, info);
-    new RescueStore(d, 2).write(data, { ...info, name: 'c.xmpuzzle' });
+    await new RescueStore(d, 0).write(data, info);
+    await new RescueStore(d, 2).write(data, { ...info, name: 'c.xmpuzzle' });
     const slots = new RescueSlots<string>(d);
     expect(slots.of('a').slot).toBe(0);
     expect(slots.of('a').slot).toBe(0);
@@ -201,12 +222,25 @@ describe('the rescue copy', () => {
     expect(slots.of('c').slot).toBe(1);
     expect(slots.all().map((r) => r.slot)).toEqual([0, 1, 2]);
     // a window that closes frees its slot; a copy it left goes to the next window
-    slots.of('b').write(data, info);
+    await slots.of('b').write(data, info);
     slots.release('b');
     expect(slots.of('d').slot).toBe(2);
     expect(slots.of('d').read()).not.toBeNull();
     slots.release('c');
     expect(slots.all().map((r) => r.slot)).toEqual([0, 2]);
+  });
+
+  it('runs its writes and clears one after the other: a clear is never undone by a write before it', async () => {
+    const d = dir();
+    const r = new RescueStore(d);
+    const big = Buffer.alloc(4_000_000, 7).toString('base64');
+    const writes = [r.write(big, info), r.write(data, { ...info, revision: 8 })];
+    const cleared = r.clear();
+    await Promise.all([...writes, cleared]);
+    expect(r.read()).toBeNull();
+    expect(readdirSync(d)).toEqual([]);
+    await r.write(data, { ...info, revision: 9 });
+    expect(r.read()?.info.revision).toBe(9);
   });
 });
 
@@ -704,12 +738,17 @@ describe('an export’s file, written as the core writes a puzzle', () => {
     const d = fresh();
     const f = join(d, 'e.png');
     writeFileSync(f, 'old');
-    mkdirSync(`${f}.tmp`);
-    await expect(writeFileSafely(f, new Uint8Array([1]))).rejects.toThrow('could not write e.png');
+    // the file may be written, its folder not: no temporary file beside it
+    chmodSync(d, 0o555);
+    await expect(writeFileSafely(f, new Uint8Array([1]))).rejects.toThrow(
+      'could not write e.png (EACCES)',
+    );
+    chmodSync(d, 0o755);
     expect(readFileSync(f, 'utf8')).toBe('old');
+    expect(readdirSync(d)).toEqual(['e.png']);
   });
 
-  it('never writes through a link planted at the temporary file’s name, and replaces a stale one', async () => {
+  it('never writes through a link at the old temporary file’s name, and leaves it', async () => {
     const d = fresh();
     const victim = join(d, 'victim.txt');
     writeFileSync(victim, 'untouched');
@@ -719,10 +758,21 @@ describe('an export’s file, written as the core writes a puzzle', () => {
     expect(readFileSync(victim, 'utf8')).toBe('untouched');
     expect(lstatSync(f).isSymbolicLink()).toBe(false);
     expect(readFileSync(f, 'utf8')).toBe('PNG');
-    writeFileSync(`${f}.tmp`, 'stale');
-    await writeFileSafely(f, new TextEncoder().encode('PNG2'));
-    expect(readFileSync(f, 'utf8')).toBe('PNG2');
-    expect(readdirSync(d).sort()).toEqual(['f.png', 'victim.txt']);
+    expect(readdirSync(d).sort()).toEqual(['f.png', 'f.png.tmp', 'victim.txt']);
+  });
+
+  it('lets two exports to one file at once both finish, the file one of them whole (cleanup item 7.4)', async () => {
+    const d = fresh();
+    const f = join(d, 'g.stl');
+    const a = new Uint8Array(8_000_000).fill(65);
+    const b = new Uint8Array(6_000_000).fill(66);
+    for (let round = 0; round < 5; round++) {
+      await Promise.all([writeFileSafely(f, a), writeFileSafely(f, b)]);
+      const got = readFileSync(f);
+      expect([a.length, b.length]).toContain(got.length);
+      expect(got.every((x) => x === (got.length === a.length ? 65 : 66))).toBe(true);
+      expect(readdirSync(d)).toEqual(['g.stl']);
+    }
   });
 
   it('lets a window write only a path its dialog gave for an export, once, with the kind’s extension', () => {
@@ -776,5 +826,52 @@ describe('an export’s file, written as the core writes a puzzle', () => {
     ]) {
       expect(isPieceFileName(bad), bad).toBe(false);
     }
+  });
+});
+
+describe('a file replaced (replace-file.ts, cleanup item 7.4)', () => {
+  it('lets two writes to one target at once both settle, the target one of them whole', async () => {
+    const d = dir();
+    const f = join(d, 'state.json');
+    const a = 'a'.repeat(5_000_000);
+    const b = 'b'.repeat(3_000_000);
+    for (let round = 0; round < 5; round++) {
+      const results = await Promise.allSettled([replaceFile(f, a), replaceFile(f, b)]);
+      expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+      const got = readFileSync(f, 'utf8');
+      expect([a, b]).toContain(got);
+      expect(readdirSync(d)).toEqual(['state.json']);
+    }
+  });
+
+  it('names each write’s temporary file its own, and knows them', () => {
+    const one = tempName('/x/state.json');
+    expect(one).not.toBe(tempName('/x/state.json'));
+    expect(one).toMatch(/^\/x\/state\.json\.\d+\.[0-9a-f]{12}\.tmp$/);
+    const name = one.slice('/x/'.length);
+    expect(isTempOf(name, 'state.json')).toBe(true);
+    expect(isTempOf(name, 'state')).toBe(false);
+    expect(isTempOf('state.json.tmp', 'state.json')).toBe(false);
+  });
+
+  it('removes its temporary file and leaves the target when the rename fails', async () => {
+    const d = dir();
+    // a folder at the target's name: the rename cannot replace it
+    const f = join(d, 'in-the-way');
+    mkdirSync(join(f, 'inside'), { recursive: true });
+    await expect(replaceFile(f, 'x')).rejects.toMatchObject({ syscall: 'rename' });
+    expect(() => {
+      replaceFileSync(f, 'x');
+    }).toThrow();
+    expect(readdirSync(d)).toEqual(['in-the-way']);
+  });
+
+  it('replaces synchronously too, leaving no temporary file', () => {
+    const d = dir();
+    const f = join(d, 'shapelogic.log');
+    writeFileSync(f, 'old');
+    replaceFileSync(f, new Uint8Array([110, 101, 119]));
+    expect(readFileSync(f, 'utf8')).toBe('new');
+    expect(readdirSync(d)).toEqual(['shapelogic.log']);
   });
 });

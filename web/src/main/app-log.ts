@@ -10,8 +10,11 @@
 // call that failed. Their lines come on stderr (`shapelogic_engine: LEVEL:
 // Event: text`) and are split here (`EngineLines`); a line the engine
 // wrote without a level (an assertion, a crash) is an error, its event
-// `Engine Error`. The main process adds its own: the start, an engine that
-// stopped.
+// `Engine Error`; an engine's last words without their newline are taken
+// when it ends (teeStderr). The main process adds its own: the start, an
+// engine that stopped, its protocol problems (logEngineProblems), a page
+// that crashed or hung (renderer-watch.ts), settings that could not be
+// stored.
 //
 // Each line is `YYYY-MM-DD HH:MM:SS.mmm LEVEL [source] Event: text`, local
 // time, on one line: the event what happened in a few capitalised words
@@ -59,8 +62,11 @@ import type {
   LogPage,
   LogQuery,
 } from '../engine/app-bridge.ts';
+import type { ClientProblem } from '../engine/client.ts';
+import { setOnce } from '../engine/transport.ts';
 import type { Transport } from '../engine/transport.ts';
 import { writeFileSafely } from './export-file.ts';
+import { replaceFileSync } from './replace-file.ts';
 
 /** The size at which the log is compressed and a new one begun: 20 MB. */
 export const LOG_MAX_BYTES = 20_000_000;
@@ -178,9 +184,15 @@ export class EngineLines {
 
 /**
  * The transport with its stderr also handed to `onChunk` (the log), before
- * the client's handler (which keeps the tail for an engine that dies).
+ * the client's handler (which keeps the tail for an engine that dies), and
+ * `onEnd` called when the engine ended, before the client hears it (the
+ * log's last line, EngineLines.end: a crash's words without a newline).
  */
-export function teeStderr(t: Transport, onChunk: (chunk: Uint8Array) => void): Transport {
+export function teeStderr(
+  t: Transport,
+  onChunk: (chunk: Uint8Array) => void,
+  onEnd: () => void = () => undefined,
+): Transport {
   let handler: ((chunk: Uint8Array) => void) | null = null;
   t.onStderr?.((chunk) => {
     onChunk(chunk);
@@ -194,10 +206,13 @@ export function teeStderr(t: Transport, onChunk: (chunk: Uint8Array) => void): T
       t.onData(h);
     },
     onStderr: (h) => {
-      handler = h;
+      handler = setOnce(handler, h, 'onStderr');
     },
     onExit: (h) => {
-      t.onExit(h);
+      t.onExit((info) => {
+        onEnd();
+        h(info);
+      });
     },
     kill: () => {
       t.kill();
@@ -206,6 +221,25 @@ export function teeStderr(t: Transport, onChunk: (chunk: Uint8Array) => void): T
       t.close?.();
     },
   };
+}
+
+/** What logEngineProblems needs of the log. */
+type ProblemLog = Pick<AppLog, 'warn'>;
+
+/**
+ * Logs each protocol problem of a host's engines at warn level, with its
+ * kind and detail (a bad frame, which ends the engine; a lost reply; a line
+ * too long; a handler that threw): without it they reached only the
+ * console, which a packaged app does not show (cleanup item 7.2).
+ */
+export function logEngineProblems(
+  host: { onProblem(handler: (p: ClientProblem) => void): () => void },
+  log: ProblemLog,
+  source: string,
+): () => void {
+  return host.onProblem((p) => {
+    log.warn(source, 'Engine Problem', `${p.reason}: ${p.detail}`);
+  });
 }
 
 /** The current file's lines, read once and then only what was added. */
@@ -341,8 +375,8 @@ export class AppLog {
       from = nl < 0 || nl >= keepFrom ? keepFrom : nl + 1;
     }
     const kept = buf.subarray(keepFrom);
-    writeFileSync(`${this.file}.tmp`, kept);
-    renameSync(`${this.file}.tmp`, this.file);
+    // synchronously: a line appended between the read and the rename would be lost
+    replaceFileSync(this.file, kept);
     this.bytes = kept.length;
     this.cache = null;
     if (from < keepFrom) {

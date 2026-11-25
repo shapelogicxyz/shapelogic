@@ -8,10 +8,12 @@
 // it stands for (`__rescue.json`: the document's file, its name, the
 // revision, the time, and a hash of the bytes). After an engine's death,
 // or at the next start after the app itself died, the renderer offers it.
-// Each file is written to a temporary one and renamed, the record first:
-// a crash between the two leaves a record whose hash does not match the
-// copy, and such a copy is offered as a puzzle without a file (its record
-// may name another document's file, which a save must never overwrite).
+// Each file is replaced through replace-file.ts (a temporary file of its
+// own, synced, renamed), the record first: a crash between the two leaves
+// a record whose hash does not match the copy, and such a copy is offered
+// as a puzzle without a file (its record may name another document's
+// file, which a save must never overwrite). A store's writes and clears
+// run one after the other, so a clear is never undone by a write before it.
 //
 // One copy per window (decision 0036): each window takes a slot as it
 // opens and keeps it while it lives (slot 0 is `__rescue.xmpuzzle`, the
@@ -23,20 +25,29 @@
 // directory is given).
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { isRescueInfo } from '../engine/app-bridge.ts';
 import type { RescueInfo } from '../engine/app-bridge.ts';
+import { replaceFile } from './replace-file.ts';
 
 const sha = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
 
 /** A slot's file names without their extension: `__rescue`, `__rescue-1`, …. */
 const stem = (slot: number): string => (slot === 0 ? '__rescue' : `__rescue-${String(slot)}`);
 
-/** The slot a rescue file is of, or null when it is not one. */
+/**
+ * The slot a rescue file is of, or null when it is not one: the copy, its
+ * record, and their temporary files (replace-file.ts's, or the `.tmp` of
+ * the versions before it).
+ */
 export function rescueSlot(name: string): number | null {
-  const m = /^__rescue(?:-([1-9]\d{0,5}))?\.(?:xmpuzzle|json)(?:\.tmp)?$/.exec(name);
+  const m =
+    /^__rescue(?:-([1-9]\d{0,5}))?\.(?:xmpuzzle|json)(?:(?:\.\d+\.[0-9a-f]{12})?\.tmp)?$/.exec(
+      name,
+    );
   return m === null ? null : m[1] === undefined ? 0 : Number(m[1]);
 }
 
@@ -47,6 +58,8 @@ export class RescueStore {
   readonly record: string;
   readonly slot: number;
   private readonly dir: string;
+  /** The writes and clears, one after the other. */
+  private chain: Promise<void> = Promise.resolve();
 
   constructor(dir: string, slot = 0) {
     this.dir = dir;
@@ -56,15 +69,13 @@ export class RescueStore {
   }
 
   /** Writes the copy (the file's bytes, base64) and its record. */
-  write(data: string, info: RescueInfo): void {
-    const bytes = Buffer.from(data, 'base64');
-    mkdirSync(this.dir, { recursive: true });
-    const rec = `${this.record}.tmp`;
-    writeFileSync(rec, JSON.stringify({ ...info, sha256: sha(bytes) }));
-    renameSync(rec, this.record);
-    const tmp = `${this.file}.tmp`;
-    writeFileSync(tmp, bytes);
-    renameSync(tmp, this.file);
+  write(data: string, info: RescueInfo): Promise<void> {
+    return this.then(async () => {
+      const bytes = Buffer.from(data, 'base64');
+      await mkdir(this.dir, { recursive: true });
+      await replaceFile(this.record, JSON.stringify({ ...info, sha256: sha(bytes) }));
+      await replaceFile(this.file, bytes);
+    });
   }
 
   /** The copy and its record, or null when there is no copy. */
@@ -91,9 +102,18 @@ export class RescueStore {
   }
 
   /** Removes the copy and its record. */
-  clear(): void {
-    rmSync(this.file, { force: true });
-    rmSync(this.record, { force: true });
+  clear(): Promise<void> {
+    return this.then(async () => {
+      await rm(this.file, { force: true });
+      await rm(this.record, { force: true });
+    });
+  }
+
+  /** Runs `step` after the writes and clears before it; a failure is its own caller's. */
+  private then(step: () => Promise<void>): Promise<void> {
+    const p = this.chain.then(step);
+    this.chain = p.catch(() => undefined);
+    return p;
   }
 }
 

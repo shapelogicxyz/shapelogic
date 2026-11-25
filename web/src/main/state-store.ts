@@ -6,12 +6,17 @@
 // the user chose (cache-folder.ts), kept in one JSON file in the
 // app's data directory (`state.json`). Read once when the app starts (a
 // file that is missing or not JSON is an empty store); written a moment
-// after a change, whole, to a temporary file renamed over the old one, so
-// a crash mid-write leaves the old file. Free of Electron (the directory is
-// given), so the unit tests run it in a temporary directory.
+// after a change, whole, through replace-file.ts (a temporary file of its
+// own, synced and renamed over the old one), so a crash mid-write leaves
+// the old file; synchronously, as the last write is made while the app
+// quits. A write that fails is told to `onError` (the app log). Free of
+// Electron (the directory is given), so the unit tests run it in a
+// temporary directory.
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { replaceFileSync } from './replace-file.ts';
 
 /** How many recent files are kept. */
 export const RECENT_MAX = 10;
@@ -84,19 +89,33 @@ function parse(text: string): Data {
   return d;
 }
 
+/** How a store writes. */
+export interface StateStoreOptions {
+  /** The wait before a change is written (default 300 ms). */
+  delayMs?: number;
+  /** Hears why a write failed (default the console). */
+  onError?: (message: string) => void;
+}
+
 export class StateStore {
   readonly file: string;
   private readonly dir: string;
   private data: Data;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private readonly delayMs: number;
+  private readonly onError: (message: string) => void;
   private readonly listeners = new Set<() => void>();
 
-  /** The store of a directory; `delayMs` is the wait before a change is written. */
-  constructor(dir: string, delayMs = 300) {
+  /** The store of a directory. */
+  constructor(dir: string, options: StateStoreOptions = {}) {
     this.dir = dir;
     this.file = join(dir, 'state.json');
-    this.delayMs = delayMs;
+    this.delayMs = options.delayMs ?? 300;
+    this.onError =
+      options.onError ??
+      ((message) => {
+        console.error(message);
+      });
     let text = '';
     try {
       text = readFileSync(this.file, 'utf8');
@@ -228,11 +247,9 @@ export class StateStore {
   private write(): void {
     try {
       mkdirSync(this.dir, { recursive: true });
-      const tmp = `${this.file}.tmp`;
-      writeFileSync(tmp, JSON.stringify(this.data, null, 1));
-      renameSync(tmp, this.file);
+      replaceFileSync(this.file, JSON.stringify(this.data, null, 1));
     } catch (e) {
-      console.error(`could not store the settings in ${this.file}: ${String(e)}`);
+      this.onError(`could not store the settings in ${this.file}: ${String(e)}`);
     }
   }
 }

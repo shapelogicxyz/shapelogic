@@ -535,12 +535,12 @@ Files in `web/src/engine/`:
 - `recorder.ts`: `RecordingTransport`, a session recorded byte for byte.
 - `spawn-failure.ts`: `SpawnFailure`, `EngineStartError`: a failed start with every field the system gave.
 - `start-diagnosis.ts`: a failed start's likely cause by code, the Windows exit codes.
-- `transport.ts`: `Transport`, the byte pipe the client speaks over.
+- `transport.ts`: `Transport`, the byte pipe the client speaks over; `setOnce`, its handlers set once.
 - `write-hint.ts`: the Controlled Folder Access hint of a write Windows refused.
 
 Files in `web/src/main/`:
 - `app-ipc.ts`: `window.btApp`'s main side: file dialogs, the store, recent files, the rescue copy, help links, menu state, the close, export grants and writes.
-- `app-log.ts`: the app's log file (`logs/shapelogic.log`), its rotation and the Log File Manager's pages.
+- `app-log.ts`: the app's log file (`logs/shapelogic.log`), its rotation and the Log File Manager's pages; the engines' stderr and protocol problems in it.
 - `cache-files.ts`: View ▸ Manage Cache and Autosave Files: the items, `CacheLinks`.
 - `cache-folder.ts`: the cache folder (`CacheFolderManager`): the engines' `slideFolder` and `panexFolder`, moves and deletes.
 - `cli-tool.ts`: the command line tool the app ships, and its install.
@@ -558,7 +558,10 @@ Files in `web/src/main/`:
 - `menu.ts`: the menus' template from the menu state (Electron's types only).
 - `path-grants.ts`: `PathGrants`, the files a window's engine may be given; `settingsRefusal`.
 - `path-owners.ts`: `PathOwners`, which window owns a file (decision 0036).
+- `renderer-watch.ts`: `RendererWatch`: a window's page that crashed reloaded (three times a minute, then asked), one that hangs asked about.
+- `replace-file.ts`: `replaceFile`, `replaceFileSync`: the one way the main process replaces a file (a temporary file of its own, synced, renamed).
 - `rescue.ts`: `RescueStore`, `RescueSlots`: the rescue copies.
+- `search-folders.ts`: what both cache modules know of the search folders: the engine's names, `isLockFile`, the walk, `errorCode`.
 - `security.ts`: the Electron security checklist as data and pure functions.
 - `startup-line.ts`: each window's Startup line.
 - `state-store.ts`: `StateStore`, `state.json`.
@@ -757,7 +760,7 @@ Rules (AGENTS.md's; decisions 0012, 0013, 0034, 0036, 0043):
   the page may call it, and refuses a page's `settings.set` naming one.
 - A path reaches an engine only from a dialog, the rescue record, a drop,
   Open Recent or the system (`PathGrants`); an export is written by the main process only
-  to a path its save dialog gave that window for that kind, once.
+  to a path its save dialog gave that window for that kind, once; it replaces any file through `replace-file.ts`.
 - One engine, rescue slot and goal window per window; the first window to
   hold a file owns it, the others hold it read-only (0036).
 - The version is the git tag's (`tools/project-version.ts` and

@@ -10,6 +10,7 @@
 // were lost. A reply is settled before the events behind it are dispatched
 // (dispatch.ts). Calls can be coalesced by a key (CallOptions).
 
+import { ERROR_CODES } from './api.generated.ts';
 import type { Methods } from './api.generated.ts';
 import type {
   CallArgs,
@@ -308,7 +309,7 @@ export class EngineClient implements EngineApi {
       // what the engine would answer, without sending it the bytes
       reject(
         new EngineError(
-          -32600,
+          ERROR_CODES.invalid_request[0],
           'invalid_request',
           `the line is too long (${bytes.length - 1} bytes)`,
           method,
