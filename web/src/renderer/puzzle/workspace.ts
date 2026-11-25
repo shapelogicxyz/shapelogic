@@ -7,7 +7,7 @@
 // pieces scene in the view (view3d/pieces.ts over layout.ts); the keys
 // (+, −, Del), the status bar (the original's line, FitStats.statusLine)
 // and the view's tag. The problem shown is read from the engine
-// (problem.get, problem.fit, problem.kind) after every change, and the
+// (problem.get, problem.fit) after every change, and the
 // page says which revision it shows (`#leftP[data-revision]`); every
 // action is a call awaited until that revision is shown. While a solve or
 // an analysis runs, decision 0011's frozen parts are disabled and say
@@ -68,8 +68,6 @@ import { SlideCard } from './slide-card.ts';
 /** How much larger the pieces are drawn in their places than the mockup's. */
 const PIECE_GROW = 1.15;
 
-export type ProblemKind = Methods['problem.kind']['result'];
-
 /** A stacking problem's board (stacking.board). */
 export type Board = Methods['stacking.board']['result'];
 
@@ -78,10 +76,9 @@ export class PuzzleWorkspace {
   readonly edits: Edits;
   /** The problem shown, or null when the puzzle has none. */
   current: string | null = null;
-  /** The problem shown as the engine last gave it, and its fit and kind. */
+  /** The problem shown as the engine last gave it, and its fit. */
   detail: ProblemDetail | null = null;
   fit: FitStats | null = null;
-  kind: ProblemKind | null = null;
   /** The piece selected (a shape), or null. */
   sel: string | null = null;
   /** Whether the Groups section is open (collapsed at first). */
@@ -109,7 +106,6 @@ export class PuzzleWorkspace {
   private readonly card: PieceCard;
   /** Pieces whose count is shown as a range though both ends are equal: problem:shape. */
   private readonly ranges = new Set<string>();
-  private readonly kinds = new Map<string, Promise<ProblemKind>>();
   private generation = -1;
   private loads = 0;
   private readonly waits = new RevisionWaits();
@@ -257,7 +253,6 @@ export class PuzzleWorkspace {
     this.current = id;
     this.detail = null;
     this.fit = null;
-    this.kind = null;
     this.board = null;
     this.boardSel = null;
     this.stackRow = 0;
@@ -518,10 +513,8 @@ export class PuzzleWorkspace {
       this.current = null;
       this.sel = null;
       this.ranges.clear();
-      this.kinds.clear();
       this.detail = null;
       this.fit = null;
-      this.kind = null;
       this.board = null;
       this.boardSel = null;
       this.goal = false;
@@ -536,7 +529,6 @@ export class PuzzleWorkspace {
         this.current = snap.problems[Math.min(at, ids.length - 1)]?.id ?? null;
         this.detail = null;
         this.fit = null;
-        this.kind = null;
         this.board = null;
         this.boardSel = null;
       }
@@ -578,8 +570,8 @@ export class PuzzleWorkspace {
   }
 
   /**
-   * Reads the problem shown again (problem.get, problem.fit; its kind
-   * once), for the snapshot's revision; the newest load wins.
+   * Reads the problem shown again (problem.get, problem.fit), for the
+   * snapshot's revision; the newest load wins.
    */
   private load(): void {
     const store = this.store;
@@ -592,7 +584,7 @@ export class PuzzleWorkspace {
     const generation = store.generation;
     const id = this.current;
     if (id === null) {
-      this.loaded(n, revision, generation, null, null, null);
+      this.loaded(n, revision, generation, null, null);
       return;
     }
     const e = store.engine;
@@ -604,16 +596,15 @@ export class PuzzleWorkspace {
       stacking
         ? Promise.resolve(null)
         : e.call('problem.fit', { problem: id }, { coalesce: 'puzzle:problem.fit' }),
-      this.kindOf(id),
       stacking
         ? e.call('stacking.board', { problem: id, goal }, { coalesce: 'puzzle:stacking.board' })
         : Promise.resolve(null),
     ]).then(
-      ([d, f, k, b]) => {
+      ([d, f, b]) => {
         if (id === this.current) {
           this.board = b;
           this.boardGoal = goal;
-          this.loaded(n, revision, generation, d, f, k);
+          this.loaded(n, revision, generation, d, f);
         }
       },
       (err: unknown) => {
@@ -633,33 +624,18 @@ export class PuzzleWorkspace {
     );
   }
 
-  private kindOf(id: string): Promise<ProblemKind> {
-    const k = `${String(this.store.generation)}:${id}`;
-    let p = this.kinds.get(k);
-    if (p === undefined) {
-      p = this.store.engine.call('problem.kind', { problem: id });
-      p.catch(() => {
-        this.kinds.delete(k);
-      });
-      this.kinds.set(k, p);
-    }
-    return p;
-  }
-
   private loaded(
     n: number,
     revision: number,
     generation: number,
     d: ProblemDetail | null,
     f: FitStats | null,
-    k: ProblemKind | null,
   ): void {
     if (n !== this.loads) {
       return;
     }
     this.detail = d;
     this.fit = f;
-    this.kind = k;
     this.shown = revision;
     // the board's list starts on the problem's own rod set (selectProblemRod)
     const sets = this.store.snapshot?.rodSets ?? [];

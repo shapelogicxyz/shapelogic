@@ -4,6 +4,10 @@
 PLAN.md after each solver stage), then stage 5 (the solve session) in a new
 session at extra high effort. The brief is at the end.
 
+**Note (2026-11-25, cleanup item 14.1):** `RotationRules::collectDebugConflictCells`,
+which this note says "stays for the GUI", is gone with the cell-set
+out-parameters of the rule helpers: the GUI never used it.
+
 ## Done
 
 ### The audit of stage 3 (its own commit, 05088fd)

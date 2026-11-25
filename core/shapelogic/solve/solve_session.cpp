@@ -731,7 +731,6 @@ bool SolveSession::prepareSearch(const Plan& plan) {
   {
     const std::lock_guard<std::mutex> lock(runMutex_);
     assembler_ = std::move(a);
-    assemblerKind_ = kind;
     published_ = assembler_.get();
   }
   withdraw.armed = false;

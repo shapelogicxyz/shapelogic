@@ -71,9 +71,6 @@ class Voxel {
   /// The grid of this space.
   [[nodiscard]] const GridType& getGridType() const { return gt_; }
 
-  /// The squared diagonal of the space.
-  [[nodiscard]] unsigned int getDiagonal() const { return sx_ * sx_ + sy_ * sy_ + sz_ * sz_; }
-
   /// The largest of the three sizes.
   [[nodiscard]] unsigned int getBiggestDimension() const;
 
@@ -345,11 +342,6 @@ class Voxel {
   /// Applies `action` to the inner cells (all face neighbors non-empty) or
   /// to the outer ones.
   void actionOnSpace(Action action, bool inside);
-
-  /// Adds to this space the cells filled in both `va` at (xa, ya, za) and `vb`
-  /// at (xb, yb, zb), growing it when needed. True when cells were added.
-  bool unionintersect(const Voxel& va, int xa, int ya, int za, const Voxel& vb, int xb, int yb,
-                      int zb);
 
   // ---- symmetry -----------------------------------------------------------
 

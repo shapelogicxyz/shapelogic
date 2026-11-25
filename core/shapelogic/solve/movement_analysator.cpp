@@ -460,8 +460,6 @@ void MovementAnalysator::closureFull() {
 // puzzle. True when at most maxPieces move (more than half the pieces is
 // not a useful move).
 bool MovementAnalysator::checkmovement(unsigned int maxPieces, unsigned int step) {
-  stats_.checkCalls++;
-
   if (options_.fast && nextPn_ <= 64) {
     return checkmovementMasks(maxPieces, step);
   }
@@ -556,7 +554,6 @@ bool MovementAnalysator::checkmovement(unsigned int maxPieces, unsigned int step
     } while (!finished);
   }
 
-  stats_.checkSuccess++;
   return true;
 }
 
@@ -605,7 +602,6 @@ bool MovementAnalysator::checkmovementMasks(unsigned int maxPieces, unsigned int
     movement_[i] = ((moving >> i) & 1) != 0 ? step : 0;
   }
 
-  stats_.checkSuccess++;
   return true;
 }
 
@@ -900,7 +896,6 @@ NodeRef MovementAnalysator::find() {
     }
   }
 
-  stats_.nodesReturned++;
   return n;
 }
 

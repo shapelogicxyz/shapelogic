@@ -88,17 +88,6 @@ class RotationRules {
   static bool rotateCell(const Cell& cell, const Pivot& pivot, unsigned int axis,
                          unsigned int sense, Cell& out);
 
-  /// The cells a picture of one turn shows (the GUI's "Debug Rotations"):
-  /// other pieces' cells that break a rule (`outBlocking`), cells on the
-  /// way of the turn that are empty and would block if filled
-  /// (`outClearance`), and empty cells beside a moving cell, in the plane,
-  /// on a layer that touches another piece (`outRestricted`).
-  void collectDebugConflictCells(const std::vector<Cell>& occupied,
-                                 const std::vector<Cell>& startCells, const Pivot& pivot,
-                                 unsigned int axis, unsigned int sense,
-                                 std::vector<Cell>& outBlocking, std::vector<Cell>& outClearance,
-                                 std::vector<Cell>& outRestricted) const;
-
   // Defined in rotation_rules.cpp.
   struct OccupancyCache;
   struct Prepared;

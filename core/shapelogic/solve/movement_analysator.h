@@ -106,16 +106,6 @@ class MovementAnalysator {
   NodeRef findMatching(DisassemblerNode* nd, const std::vector<unsigned int>& pcs,
                        unsigned int piece, int dx, int dy, int dz);
 
-  /// Counters of the move search since construction or resetStats(). Nothing
-  /// in the search reads them.
-  struct Stats {
-    unsigned long checkCalls = 0;     ///< checkmovement() calls
-    unsigned long checkSuccess = 0;   ///< ... that allowed a move
-    unsigned long nodesReturned = 0;  ///< positions handed out by find()
-  };
-  [[nodiscard]] const Stats& getStats() const { return stats_; }
-  void resetStats() { stats_ = Stats(); }
-
  private:
   void prepare();
   void prepareFill();
@@ -198,8 +188,6 @@ class MovementAnalysator {
   const DisassemblerNode* state99node_ = nullptr;
   DisassemblerNode* searchnode_ = nullptr;
   const std::vector<unsigned int>* pieces_ = nullptr;
-
-  Stats stats_;
 };
 
 }  // namespace bt

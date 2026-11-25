@@ -195,9 +195,9 @@ again, and comes last.
 - [x] Stage 10: front-end speed and memory (10.10 waits until 2.2 has reached users)
 - [x] Stage 11: one source of truth: core, engine, API, Python, CLI (11.3's engine.info matrices handed to 12.8; 11.9's finding fixed by checkpoint E)
 - [x] Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
-- [x] Stage 12: one source of truth: front end (12.8's engine.info grid rules are an `Engine:` commit of their own; a contract flake seen there is noted under 12.8)
+- [x] Stage 12: one source of truth: front end (12.8's engine.info grid rules are an `Engine:` commit of their own; a contract flake seen there is noted under 12.8, a test's flaw fixed by stage 14)
 - [x] Stage 13: splits: front end (13.1 moved the module-owned rules, 553 of them, and two sections' markup; the cards' static skeletons stay in index.html, with their reason)
-- [ ] Stage 14: dead code and the last traps
+- [x] Stage 14: dead code and the last traps (14.1's saveBytes `gzip` removal is an `Engine:` commit of its own; the contract flake of 12.8 fixed)
 - [ ] Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (decided: D1)
 - [ ] Stage 16: damaged and hostile files (16.6 done on 2026-11-25)
 - [ ] Stage 17: core speed
@@ -5067,6 +5067,8 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     - **Users see it:** in the movement browser, Analyze no longer lists
       the moves that take pieces out (the port's comment said so all
       along: "removals are not added").
+    - (2026-11-25, stage 14: the contract flake that followed this fix
+      was a test's assumption: see 12.8.)
 
 - [x] **11.10 Small engine copies, and one trap** (combine, trap; S)
   - *Where:*
@@ -5837,6 +5839,32 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
       work; once in 12 runs on 6bc6bc7, HEAD, built apart): a flake of
       11.9's or checkpoint E's movement browser change, left for its own
       fix (stage 15 or 18).
+      - Fixed (2026-11-25, stage 14): a flaw of the test, not of the
+        engine; checkpoint E's fix (6bc6bc7: removals are no longer
+        added) made it show.
+        - The case prunes the analysis's first child and expects the move
+          made by hand from the root (piece 0, direction 0) to be gone.
+          addMove gives the child already there when it is the same
+          position, and prune keeps the path to the node pruned, so when
+          that first child is the move by hand, it rightly stays.
+        - Before 6bc6bc7 the root's first children were removals (43 on
+          this puzzle), never the move by hand. Since, the first child is
+          a plain move, the hand's move on 356 of the 927 solutions of
+          `DemoPieceGenerator` (a scratch script over every solution, on
+          HEAD's engine; 0 on the engine of d0b33d1, before stage 11,
+          built from `git archive` in the scratchpad). Which solution the
+          case takes varies: the first by moves, descending, among eight
+          with 10 moves, in the order a parallel solve stored them.
+        - No race: one request at a time, and the explorer runs no job.
+        - The contract case and its copy in `web/tests/engine/session.test.ts`
+          (seen failing there too, once in six `just app-test` runs) prune
+          a child other than the move by hand, and check that it stays and
+          that the move by hand is gone; both also check that the same
+          move again gives the same node.
+        - Seen: HEAD's contract case failed 2 of 150 runs, the new one 0 of
+          150 (`solving_session` alone, on the dev engine); the old prune
+          check fails on 356 of 927 solutions, the new on none; HEAD's
+          session test failed 1 of 20 runs, the new one 0 of 20.
 
 - [x] **12.9 One shared mesh loader** (combine; M; after 6.10)
   - *Where:* `web/src/renderer/view3d/view.ts` (858-926, 949-1068),
@@ -6275,7 +6303,7 @@ reference screenshots are light only, the new dialog ones light and dark.
 
 ## Stage 14: dead code and the last traps
 
-- [ ] **14.1 Delete dead code** (trap; S)
+- [x] **14.1 Delete dead code** (trap; S)
   - Before deleting each item, confirm with `git grep` across `core`,
     `engine`, `cli`, `python`, `tests`, `web` and `site` that it has no
     caller:
@@ -6320,8 +6348,49 @@ reference screenshots are light only, the new dialog ones light and dark.
       - 3 unused ids in `index.html`: `gridHelp`, `sgStart`, `sgGoal`.
       The `lf-*`, `ax-*` and `tp-*` classes are built in templates, so they
       are live.
+  - Done (2026-11-25): each one grepped first (`core`, `engine`, `cli`,
+    `python`, `tests`, `web`, `site`, `api`, `docs`); none had a caller.
+    - `RotationRules::collectDebugConflictCells` is gone, with what only
+      it used: the `CellSet` (`std::set`) out-parameters of
+      `axisCrossScanCell`, `inPlanePinchClear` and `perpPlaneClear` (they
+      now return at the first refusal, as they did with null), and
+      `addOverlappedCells`, `rotatedCenter`, `rotateInPlane`, `CellLess`
+      and `CellSet`. The rules' answers are the ones the tests pin.
+    - `MovementAnalysator::Stats`, `getStats`, `resetStats` and the three
+      counters bumped in `checkmovement`, `checkmovementMasks` and `find`.
+    - `Voxel::unionintersect` and `getDiagonal` (noted under 17.2);
+      `Document::requireShape` and `requireProblem` (noted under 19.2);
+      SolveSession's `assemblerKind_`; `BackgroundJob::kind()` and its two
+      overrides (the document files and finds a job by `Job::kKind`).
+    - `document.saveBytes`' `gzip` (decided: removed; the app and the demo
+      never pass it, and the engine has no other client): the schema
+      entry (the method takes no parameters now), the engine method, the
+      contract case's gzip checks. `Document::saveBytes` never had the
+      parameter (the engine compressed). The contract case keeps what the
+      checks covered: openBytes of gzip bytes (compressed by the test),
+      and the rescue copy, now checked to be the plain bytes compressed;
+      `{gzip: true}` is refused (invalid_params). 4.5's unit test of the
+      fast level stays: `document.saveRescue` uses it. This is an API
+      change: `api/document.json`, `engine/methods_document.cpp`,
+      `docs/API.md`, `api.generated.ts` and the contract case's gzip
+      hunk are an `Engine:` commit of their own.
+    - The renderer: the Solver's `kind`, `kinds` and `kindOf`, and the
+      same three in the Puzzle workspace, also never read (found beside
+      the item): `problem.kind` is no longer called by the app (the
+      method stays: the engine and contract tests call it; the puzzle
+      e2e's list of read calls drops it); both files' headers. `Edits`'
+      `solves`; `SolveRecord.solver`, so `Solves.launch(problem)` takes no
+      solver (its callers, the unit test and the recorder
+      `tools/sessions.ts`, whose recordings do not hold it).
+      `PROBLEM_CHIP`; `logsViewable`. `SLIDING_ONLY`, `STACKING_BOXES` and
+      `bt_busy` were gone already (12.1, 11.10).
+    - CSS and markup: the rules of the 18 classes (17 in `styles.css`,
+      `pm` in `puzzle/piece-card.css` after 13.1), with `.mg .gl2`'s three
+      (`.gl2` alone is live); the ids `gridHelp`, `sgStart` and `sgGoal`
+      (their elements stay).
+    - Tests and gates: below.
 
-- [ ] **14.2 Tests that keep the page and the code in step** (trap; S)
+- [x] **14.2 Tests that keep the page and the code in step** (trap; S)
   - *Change:* a unit test, `web/tests/unit/renderer/page-ids.test.ts`, that
     checks:
     - every literal passed to `byId` (412 calls, 187 ids) is an id in
@@ -6329,15 +6398,59 @@ reference screenshots are light only, the new dialog ones light and dark.
     - every class token in the CSS (`styles.css`, and the modules' CSS after
       13.1) appears in a TS string, a template or `index.html`. Classes that
       are built from prefixes (`lf-`, `ax-`, `tp-`) go on an allow list.
+  - Done (2026-11-25): `page-ids.test.ts` reads the renderer's and the
+    demo's modules with TypeScript's parser (only their strings and
+    templates count, not comments or names) and the sheets' selectors
+    (comments and at-rule preludes left out).
+    - The ids: each literal passed to `byId` (410, 190 ids; both branches
+      of a `?:`) is an `id="…"` of the page or of a module's string, or
+      given by code (`el.id = '…'`, `openDialog({id: '…'})`: the New
+      Puzzle dialog's). The four modules whose byId takes an id worked
+      out at run time are listed with where their ids come from, and the
+      test fails when that list is not the walk's.
+    - The classes: each class a selector names (585) is a word of a
+      module's string or of the page's `class` attributes, or starts with
+      one of `BUILT`'s prefixes, each with where it is built; a third case
+      checks each prefix still styles a class.
+    - Seen failing (a scratch copy of `web/`): with HEAD's two sheets it
+      lists exactly the 18 classes of 14.1; with `sgStartHint` renamed on
+      the page it names `slide-card.ts:226`.
 
-- [ ] **14.3 Leftover references in the docs** (docs; S)
+- [x] **14.3 Leftover references in the docs** (docs; S)
   - *Change:* after 14.1, grep `docs/` and the code's comments for the
     deleted names and update or remove what names them. That includes
     `docs/handoff/stage-4.md`; handoff notes are history, so add a dated
     note there instead of rewriting it.
+  - Done (2026-11-25): the names grepped in `docs/` and the code's
+    comments. Dated notes in `docs/handoff/stage-4.md` (at its top: the
+    "stays for the GUI" is gone) and `stage-1.md` (under its
+    `unionintersect` finding). `docs/API.md` and `api.generated.ts`
+    regenerated (saveBytes, and saveRescue's summary, which named
+    saveBytes' gzip); the engine's comment on the fast level moved to
+    saveRescue. Left as written: `docs/core-api.md`'s `getStats` (the
+    original's, in its "Ported from" column), `stage-0.md`'s list of what
+    was ported, and the plans and handoffs that name `problem.kind` (the
+    method stays). ARCHITECTURE.md named none of them.
 
 **Gates for stage 14:** `just test-all`, `just check`, `just app-check`,
 `just app-test`, the e2e specs of the areas whose code was deleted.
+Run (2026-11-25): `just build dev` and `release`; `just test-all` 75 of
+75; `just test` three times, 30 of 30, the last two after the last edit;
+`just test-asan` 74 of 74; `just check` over every source (208): clean;
+`just app-check` clean; `just app-test` 685 of 685 five times in six
+runs (the sixth failed in `session.test.ts`, the flake of 12.8, then
+fixed), and once more after the fix; `python3 api/gen_api_md.py` and
+`just app-gen` (both changed: saveBytes); on a build of its own
+(`BT_OUT_DIR`) the e2e specs `solver`, `puzzle`, `explore`, `sliding`,
+`entities`, `logs`, `files`, `dialogs` and `stacking`, 80 of 80;
+`just site-demo --check` after the last source edit (rebuilt; every
+puzzle type opens and plays) and `just site-build` (8 of 8). Not run: the
+oracle and the benchmarks (the oracle reads the reference checkout
+outside this worktree, which this session was told not to touch; the
+only search code changed is the rotation rules' helpers, whose answers
+the unit test "rotation rules: the same answers as the original (hash)"
+pins, and which only lost their null-checked out-parameters);
+`just test-tsan` (no threaded code changed); the other e2e specs.
 
 ## Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (D1, decided)
 
@@ -6906,7 +7019,8 @@ and 5).
     - Use it at every site above, replacing the hand pairs.
     - Add `Voxel::clearMarks()` (one pass) for the loops that clear marks.
     - Delete the unused `Voxel::unionintersect` (`voxel.cpp:606`) and
-      `getDiagonal` (confirm there are no callers).
+      `getDiagonal` (confirm there are no callers). (Done by 14.1 on
+      2026-11-25.)
   - *Keep:* the bounding box: the final recalculation does the same work
     once.
   - *Tests:* the grid tests; `just oracle-imports`; Fill holes on a hollow
@@ -7245,7 +7359,7 @@ failing a test.
     - Templates `editShapeField`, `editProblemField` and `moveInList` for
       the pairs.
     - A lookup helper that returns `Result<T&>`, for the id lookups.
-    - Delete the two unused helpers.
+    - Delete the two unused helpers. (Done by 14.1 on 2026-11-25.)
     - An audit test, `tests/unit/app/test_change_audit.cpp`:
       - a table of commands, each making a typical call on a fixture;
       - for each, compare before and after: each problem's

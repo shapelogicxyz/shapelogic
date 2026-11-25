@@ -7,11 +7,7 @@
 .ptile.sel{outline-color:var(--accent)}
 .ptile .pl{opacity:.9;font-size:calc(10.5px + var(--fs));max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ptile .pb{background:rgba(0,0,0,.3);border-radius:5px;padding:0 5px;min-width:24px;text-align:center;font-weight:700;font-size:calc(10.5px + var(--fs));line-height:18px}
-.ptile .pm{display:none;gap:2px}
 .ptile:hover .pb{display:none}
-.ptile:hover .pm{display:inline-flex}
-.ptile .pm button{width:18px;height:18px;border:0;border-radius:5px;background:rgba(0,0,0,.38);color:#fff;font-weight:800;line-height:16px;cursor:pointer;padding:0}
-.ptile .pm button:hover{background:rgba(0,0,0,.6)}
 .pzs .gw{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
 .pzs .gw .step{width:112px}
 .pzg{margin:0 12px 10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--panel2)}

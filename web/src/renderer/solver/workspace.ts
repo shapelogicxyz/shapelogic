@@ -7,7 +7,7 @@
 // the solution in the view (player.ts over view3d/solution.ts), the keys,
 // the status bar and the view's tag (their words are run-text.ts', the
 // questions around a run run-questions.ts'). The problem shown is read from the
-// engine (problem.get; problem.kind once) after every change; its solve
+// engine (problem.get) after every change; its solve
 // is the solve record's (state/solves.ts: the events', a run's end its
 // revision); its solutions are paged by the engine (pager.ts) and read
 // again when its solutionsVersion moves. Every action is a call: a run's
@@ -34,7 +34,6 @@ import type {
   SolutionRow,
   SolveProgress,
   SolveState,
-  Solver,
 } from '../../engine/api.generated.ts';
 import { EngineError, isQuietError } from '../../engine/errors.ts';
 import type { Edits } from '../state/edits.ts';
@@ -84,8 +83,6 @@ import { SolutionsCard } from './solutions-card.ts';
 import { StatsPanel } from './stats-panel.ts';
 import { ic } from '../shell/icons.ts';
 
-export type ProblemKind = Methods['problem.kind']['result'];
-
 /** A stacking problem's board as the engine draws it (stacking.board). */
 export type Board = Methods['stacking.board']['result'];
 
@@ -117,7 +114,6 @@ export class SolverWorkspace {
   /** The problem shown, or null when the puzzle has none. */
   current: string | null = null;
   detail: ProblemDetail | null = null;
-  kind: ProblemKind | null = null;
   /** The options shown (the problem's stored ones until changed). */
   options: SearchOptions = { ...DEFAULT_OPTIONS };
   /** The original's Display Limit and Keep Each: not stored with a problem. */
@@ -158,7 +154,6 @@ export class SolverWorkspace {
   private readonly runCard: RunCard;
   private readonly solCard: SolutionsCard;
   private readonly questions: RunQuestions;
-  private readonly kinds = new Map<string, Promise<ProblemKind>>();
   /** Solutions found not to come apart by an analysis, per problem (the client remembers). */
   private readonly inseparables = new Map<string, Set<string>>();
   private analysisRun: AnalysisRun | null = null;
@@ -603,7 +598,6 @@ export class SolverWorkspace {
     }
     this.current = id;
     this.detail = null;
-    this.kind = null;
     this.board = null;
     this.savedSearch = null;
     this.continueStartsOver = false;
@@ -706,11 +700,9 @@ export class SolverWorkspace {
       this.shown = -1;
       this.current = null;
       this.detail = null;
-      this.kind = null;
       this.board = null;
       this.savedSearch = null;
       this.continueStartsOver = false;
-      this.kinds.clear();
       this.inseparables.clear();
       this.analysisRun = null;
       this.launched.clear();
@@ -725,7 +717,6 @@ export class SolverWorkspace {
       if (this.current === null || !ids.includes(this.current)) {
         this.current = snap.problems[0]?.id ?? null;
         this.detail = null;
-        this.kind = null;
         this.board = null;
         this.savedSearch = null;
         this.continueStartsOver = false;
@@ -799,7 +790,7 @@ export class SolverWorkspace {
       );
   }
 
-  /** Reads the problem shown again (problem.get; its kind once); the newest load wins. */
+  /** Reads the problem shown again (problem.get); the newest load wins. */
   private load(): void {
     const store = this.store;
     const snap = store.snapshot;
@@ -811,7 +802,7 @@ export class SolverWorkspace {
     const generation = store.generation;
     const id = this.current;
     if (id === null) {
-      this.loaded(n, revision, generation, null, null);
+      this.loaded(n, revision, generation, null);
       return;
     }
     // a sliding problem's start/goal shape: whether Solve can start (its validity bar)
@@ -827,7 +818,6 @@ export class SolverWorkspace {
     const status = stacking || snap.grid === 'sliding';
     Promise.all([
       store.engine.call('problem.get', { problem: id }, { coalesce: 'solver:problem.get' }),
-      this.kindOf(id),
       tray === null
         ? Promise.resolve(null)
         : store.engine.call(
@@ -846,7 +836,7 @@ export class SolverWorkspace {
         ? store.engine.call('solve.status', { problem: id }, { coalesce: 'solver:solve.status' })
         : Promise.resolve(null),
     ]).then(
-      ([d, k, t, b, st]) => {
+      ([d, t, b, st]) => {
         // only the newest load of this document writes what it read (cleanup item 6.7)
         if (n !== this.loads || generation !== store.generation) {
           return;
@@ -861,7 +851,7 @@ export class SolverWorkspace {
           }
           this.savedSearch = st?.savedSearch ?? null;
           this.continueStartsOver = st?.continueStartsOver ?? false;
-          this.loaded(n, revision, generation, d, k);
+          this.loaded(n, revision, generation, d);
         }
       },
       (err: unknown) => {
@@ -880,32 +870,12 @@ export class SolverWorkspace {
     );
   }
 
-  private kindOf(id: string): Promise<ProblemKind> {
-    const k = `${String(this.store.generation)}:${id}`;
-    let p = this.kinds.get(k);
-    if (p === undefined) {
-      p = this.store.engine.call('problem.kind', { problem: id });
-      p.catch(() => {
-        this.kinds.delete(k);
-      });
-      this.kinds.set(k, p);
-    }
-    return p;
-  }
-
-  private loaded(
-    n: number,
-    revision: number,
-    generation: number,
-    d: ProblemDetail | null,
-    k: ProblemKind | null,
-  ): void {
+  private loaded(n: number, revision: number, generation: number, d: ProblemDetail | null): void {
     if (n !== this.loads) {
       return;
     }
     const before = this.detail;
     this.detail = d;
-    this.kind = k;
     this.shown = revision;
     // the stored options, unless the problem's are being changed here
     if (d !== null && (before?.id !== d.id || !this.editingOptions)) {
@@ -1216,7 +1186,6 @@ export class SolverWorkspace {
     kind: 'start' | 'continue',
     options: ReturnType<typeof solveOptions>,
   ): Promise<void> {
-    const solver: Solver = options.solver ?? 'classic';
     const method = kind === 'start' ? 'solve.start' : 'solve.continue';
     this.calling = true;
     this.runCard.render();
@@ -1224,7 +1193,7 @@ export class SolverWorkspace {
       await this.edits.track(
         this.store.engine.call(method, { problem, options }).then((r) => {
           // before the run's events (decision 0012: the reply first)
-          this.solves.launch(problem, solver);
+          this.solves.launch(problem);
           this.launched.set(problem, options);
           if (this.family !== 'brick') {
             void this.questions.tellNote(problem);

@@ -495,7 +495,6 @@ class SolveSession {
   /// on with it), dropped when the solve starts again or is aborted.
   /// Written by the run's thread (or the owner while nothing runs).
   std::unique_ptr<Assembler> assembler_;
-  AssemblerKind assemblerKind_ = AssemblerKind::Assembler0;
 
   /// Guards the problem while a run is active.
   mutable std::mutex resultsMutex_;

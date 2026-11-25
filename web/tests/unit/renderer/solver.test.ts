@@ -514,7 +514,7 @@ describe('the solve records', () => {
   it('end a run at the document.changed after its last state', async () => {
     const bus = eventBus();
     const s = new Solves(bus);
-    s.launch('p1', 'classic');
+    s.launch('p1');
     let end = -2;
     void s.whenEnded('p1').then((r) => (end = r));
     bus.emit('solve.state', { problem: 'p1', state: 'assembling' });
@@ -576,7 +576,7 @@ describe('the solve records', () => {
   it('end no run when a finished solve goes back to idle (its problem edited, or cleared)', async () => {
     const bus = eventBus();
     const s = new Solves(bus);
-    s.launch('p1', 'classic');
+    s.launch('p1');
     bus.emit('solve.state', { problem: 'p1', state: 'finished' });
     bus.emit('document.changed', { revision: 3, what: [], shapes: [], problems: ['p1'] });
     await settle();
@@ -595,7 +595,7 @@ describe('the solve records', () => {
   it('wait for a launched run before its first state, and keep a failure until the next launch', async () => {
     const bus = eventBus();
     const s = new Solves(bus);
-    s.launch('p1', 'classic');
+    s.launch('p1');
     let ended = false;
     void s.whenEnded('p1').then(() => (ended = true));
     await settle();
@@ -609,7 +609,7 @@ describe('the solve records', () => {
     await settle();
     expect(ended).toBe(true);
     expect(s.get('p1').failure?.message).toBe('too few');
-    s.launch('p1', 'classic');
+    s.launch('p1');
     expect(s.get('p1').failure).toBeNull();
   });
 
@@ -626,7 +626,7 @@ describe('the solve records', () => {
     // one before any run is none of a run's
     bus.emit('solve.preview', shot(0));
     expect(s.get('p1').preview).toBeNull();
-    s.launch('p1', 'classic');
+    s.launch('p1');
     bus.emit('solve.state', { problem: 'p1', state: 'assembling' });
     bus.emit('solve.preview', shot(1));
     bus.emit('solve.preview', shot(2));
@@ -640,14 +640,14 @@ describe('the solve records', () => {
     // a new launch starts with none
     bus.emit('solve.state', { problem: 'p1', state: 'assembling' });
     bus.emit('solve.preview', shot(4));
-    s.launch('p1', 'classic');
+    s.launch('p1');
     expect(s.get('p1').preview).toBeNull();
   });
 
   it('resolve a pending whenEnded when the document is replaced (clear), so autosave never hangs', async () => {
     const bus = eventBus();
     const s = new Solves(bus);
-    s.launch('p1', 'classic');
+    s.launch('p1');
     bus.emit('solve.state', { problem: 'p1', state: 'assembling' });
     const ended = s.whenEnded('p1');
     // another document arrives while a caller waits for this run's end

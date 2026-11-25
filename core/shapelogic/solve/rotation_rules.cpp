@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <set>
 
 namespace bt {
 
@@ -15,20 +14,6 @@ namespace {
 
 using Cell = RotationRules::Cell;
 using Pivot = RotationRules::Pivot;
-
-struct CellLess {
-  bool operator()(const Cell& a, const Cell& b) const {
-    if (a.x != b.x) {
-      return a.x < b.x;
-    }
-    if (a.y != b.y) {
-      return a.y < b.y;
-    }
-    return a.z < b.z;
-  }
-};
-
-using CellSet = std::set<Cell, CellLess>;
 
 // A set of cells for the rules: a dense grid over their bounding box for
 // lookups, and the cells, each once, for scans. The rules only ask yes/no
@@ -111,70 +96,6 @@ constexpr double kBevelRemove = 0.0405;
 constexpr double kHalfThick = 0.5 - kBevelRemove;
 
 double pivotWorld(int doubled) { return doubled * 0.5 + 0.5; }
-
-// Cell (i, j, k) is [i, i+1] x [j, j+1] x [k, k+1]. A unit cube centerd at
-// C overlaps the cells from floor(C - 0.5) to floor(C + 0.5 - eps).
-void addOverlappedCells(double cx, double cy, double cz, CellSet& out) {
-  const double eps = 1e-9;
-  const auto x0 = static_cast<int>(std::floor(cx - 0.5 + eps));
-  const auto x1 = static_cast<int>(std::floor(cx + 0.5 - eps));
-  const auto y0 = static_cast<int>(std::floor(cy - 0.5 + eps));
-  const auto y1 = static_cast<int>(std::floor(cy + 0.5 - eps));
-  const auto z0 = static_cast<int>(std::floor(cz - 0.5 + eps));
-  const auto z1 = static_cast<int>(std::floor(cz + 0.5 - eps));
-
-  for (int x = x0; x <= x1; x++) {
-    for (int y = y0; y <= y1; y++) {
-      for (int z = z0; z <= z1; z++) {
-        out.insert(Cell(x, y, z));
-      }
-    }
-  }
-}
-
-// (u, v) turned by theta toward a +90 (sense 0) or -90 (sense 1) turn.
-void rotateInPlane(double u, double v, double theta, unsigned int sense, double* uOut,
-                   double* vOut) {
-  const double c = std::cos(theta);
-  const double s = std::sin(theta);
-  if (sense == 0) {
-    *uOut = u * c - v * s;
-    *vOut = u * s + v * c;
-  } else {
-    *uOut = u * c + v * s;
-    *vOut = -u * s + v * c;
-  }
-}
-
-// A cell's center, relative to the pivot, turned by theta.
-void rotatedCenter(double dx, double dy, double dz, unsigned int axis, unsigned int sense,
-                   double theta, double* ox, double* oy, double* oz) {
-  if (axis == 0) {
-    double ny = 0;
-    double nz = 0;
-    rotateInPlane(dy, dz, theta, sense, &ny, &nz);
-    *ox = dx;
-    *oy = ny;
-    *oz = nz;
-  } else if (axis == 1) {
-    if (sense == 0) {
-      *ox = dx * std::cos(theta) + dz * std::sin(theta);
-      *oy = dy;
-      *oz = -dx * std::sin(theta) + dz * std::cos(theta);
-    } else {
-      *ox = dx * std::cos(theta) - dz * std::sin(theta);
-      *oy = dy;
-      *oz = dx * std::sin(theta) + dz * std::cos(theta);
-    }
-  } else {
-    double nx = 0;
-    double ny = 0;
-    rotateInPlane(dx, dy, theta, sense, &nx, &ny);
-    *ox = nx;
-    *oy = ny;
-    *oz = dz;
-  }
-}
 
 // The four normals of the separating-axis test at one angle: both squares'
 // edges (along the axes, and turned by the angle).
@@ -308,7 +229,8 @@ const std::vector<ArcStep>& arcSteps() {
   return steps;
 }
 
-// rotatedCenter with the angle's cosine and sine at hand.
+// A cell's center, relative to the pivot, turned toward a +90 (sense 0)
+// or -90 (sense 1) turn by the angle whose cosine and sine are c and s.
 void rotatedCenterCS(double dx, double dy, double dz, unsigned int axis, unsigned int sense,
                      double c, double s, double* ox, double* oy, double* oz) {
   if (axis == 0) {
@@ -633,8 +555,7 @@ bool layerTouchesOther(const Occupancy& occ, const std::vector<Cell>& startCells
 // The other pieces' cells beside one moving cell, in the plane (-U, +U,
 // -V, +V), for the axis-cross rule.
 void axisCrossScanCell(const Cell& c, unsigned int axis, const Occupancy& occ,
-                       const Occupancy& start, bool* negU, bool* posU, bool* negV, bool* posV,
-                       CellSet* slotOccupied, CellSet* restricted) {
+                       const Occupancy& start, bool* negU, bool* posU, bool* negV, bool* posV) {
   Cell nu;
   Cell pu;
   Cell nv;
@@ -666,11 +587,6 @@ void axisCrossScanCell(const Cell& c, unsigned int axis, const Occupancy& occ,
     }
     if (occ.has(slots[i])) {
       *flags[i] = true;
-      if (slotOccupied != nullptr) {
-        slotOccupied->insert(slots[i]);
-      }
-    } else if (restricted != nullptr) {
-      restricted->insert(slots[i]);
     }
   }
 }
@@ -678,8 +594,7 @@ void axisCrossScanCell(const Cell& c, unsigned int axis, const Occupancy& occ,
 // Same-layer sandwich: a moving cell must not have other pieces' cells on
 // both opposite sides in the plane (the Fortran SimpleRot test). The moving
 // body's own cells are not in `occ`, so they do not pinch.
-bool inPlanePinchClear(const Occupancy& occ, const std::vector<Cell>& cells, unsigned int axis,
-                       CellSet* blocking) {
+bool inPlanePinchClear(const Occupancy& occ, const std::vector<Cell>& cells, unsigned int axis) {
   int ux = 0;
   int uy = 0;
   int uz = 0;
@@ -688,46 +603,23 @@ bool inPlanePinchClear(const Occupancy& occ, const std::vector<Cell>& cells, uns
   int vz = 0;
   inPlaneUV(axis, &ux, &uy, &uz, &vx, &vy, &vz);
 
-  bool pinched = false;
-
   for (const Cell& c : cells) {
-    const Cell nu(c.x - ux, c.y - uy, c.z - uz);
-    const Cell pu(c.x + ux, c.y + uy, c.z + uz);
-    const Cell nv(c.x - vx, c.y - vy, c.z - vz);
-    const Cell pv(c.x + vx, c.y + vy, c.z + vz);
-
-    const bool negU = occ.has(nu);
-    const bool posU = occ.has(pu);
-    const bool negV = occ.has(nv);
-    const bool posV = occ.has(pv);
-
-    if (negU && posU) {
-      pinched = true;
-      if (blocking == nullptr) {
-        return false;
-      }
-      blocking->insert(nu);
-      blocking->insert(pu);
+    if (occ.has(c.x - ux, c.y - uy, c.z - uz) && occ.has(c.x + ux, c.y + uy, c.z + uz)) {
+      return false;
     }
-    if (negV && posV) {
-      pinched = true;
-      if (blocking == nullptr) {
-        return false;
-      }
-      blocking->insert(nv);
-      blocking->insert(pv);
+    if (occ.has(c.x - vx, c.y - vy, c.z - vz) && occ.has(c.x + vx, c.y + vy, c.z + vz)) {
+      return false;
     }
   }
 
-  return !pinched;
+  return true;
 }
 
 // Perpendicular-plane capture (Fortran PerPplane 1 and 2): on a slice of
 // constant U (or V) with at least two moving and two other cells, other
 // pieces' cells on opposite sides in V (or U), at the same coordinate along
 // the axis, refuse the axis.
-bool perpPlaneClear(const Occupancy& occ, const std::vector<Cell>& startCells, unsigned int axis,
-                    CellSet* blocking) {
+bool perpPlaneClear(const Occupancy& occ, const std::vector<Cell>& startCells, unsigned int axis) {
   if (startCells.size() < 2 || occ.size() < 2) {
     return true;
   }
@@ -767,8 +659,6 @@ bool perpPlaneClear(const Occupancy& occ, const std::vector<Cell>& startCells, u
     }
   }
 
-  bool captured = false;
-
   // PerPplane 1: slices of constant U, walls opposite in V; PerPplane 2:
   // slices of constant V, walls opposite in U. A wall is another piece's
   // cell on a moving cell's slice and layer, next to it across the slice.
@@ -785,7 +675,6 @@ bool perpPlaneClear(const Occupancy& occ, const std::vector<Cell>& startCells, u
 
       bool neg = false;
       bool pos = false;
-      CellSet hits;
       for (const Cell& c : startCells) {
         if ((alongU ? inPlaneU(c, axis) : inPlaneV(c, axis)) != k) {
           continue;
@@ -799,22 +688,15 @@ bool perpPlaneClear(const Occupancy& occ, const std::vector<Cell>& startCells, u
             continue;
           }
           (side < 0 ? neg : pos) = true;
-          if (blocking != nullptr) {
-            hits.insert(wall);
-          }
         }
       }
       if (neg && pos) {
-        captured = true;
-        if (blocking == nullptr) {
-          return false;
-        }
-        blocking->insert(hits.begin(), hits.end());
+        return false;
       }
     }
   }
 
-  return !captured;
+  return true;
 }
 
 // Other pieces' cells beside the moving cells on the pivot's column, in the
@@ -857,8 +739,7 @@ bool axisCrossClear(const Occupancy& occ, const std::vector<Cell>& startCells,
       if (!onPivotColumn(c, pivot, axis)) {
         continue;
       }
-      axisCrossScanCell(c, axis, occ, start, &layerNegU, &layerPosU, &layerNegV, &layerPosV,
-                        nullptr, nullptr);
+      axisCrossScanCell(c, axis, occ, start, &layerNegU, &layerPosU, &layerNegV, &layerPosV);
     }
 
     if ((layerPosU && seenNegU) || (layerNegU && seenPosU) || (layerPosV && seenNegV) ||
@@ -930,15 +811,15 @@ bool RotationRules::allowRotation(const std::vector<Cell>& occupied,
   }
 
   // sandwiched before the turn, or after it
-  if (!inPlanePinchClear(occ, startCells, axis, nullptr)) {
+  if (!inPlanePinchClear(occ, startCells, axis)) {
     return false;
   }
-  if (!inPlanePinchClear(occ, endCells, axis, nullptr)) {
+  if (!inPlanePinchClear(occ, endCells, axis)) {
     return false;
   }
 
   // walls opposite in planes across the plane of the turn
-  if (!perpPlaneClear(occ, startCells, axis, nullptr)) {
+  if (!perpPlaneClear(occ, startCells, axis)) {
     return false;
   }
 
@@ -955,8 +836,8 @@ bool RotationRules::axisBlocked(const std::vector<Cell>& occupied,
                                 const std::vector<Cell>& startCells, unsigned int axis) const {
   const Occupancy& occ = cachedOccupancy(occCache_, occupied);
 
-  return !inPlanePinchClear(occ, startCells, axis, nullptr) ||
-         !perpPlaneClear(occ, startCells, axis, nullptr);
+  return !inPlanePinchClear(occ, startCells, axis) ||
+         !perpPlaneClear(occ, startCells, axis);
 }
 
 bool RotationRules::rotateCell(const Cell& cell, const Pivot& pivot, unsigned int axis,
@@ -1015,8 +896,8 @@ void RotationRules::setBodies(const std::vector<Cell>& occupied,
 }
 
 bool RotationRules::preparedAxisBlocked(unsigned int axis) const {
-  return !inPlanePinchClear(prep_->occ, prep_->start, axis, nullptr) ||
-         !perpPlaneClear(prep_->occ, prep_->start, axis, nullptr);
+  return !inPlanePinchClear(prep_->occ, prep_->start, axis) ||
+         !perpPlaneClear(prep_->occ, prep_->start, axis);
 }
 
 bool RotationRules::allowPrepared(const Pivot& pivot, unsigned int axis, unsigned int sense,
@@ -1039,7 +920,7 @@ bool RotationRules::allowPrepared(const Pivot& pivot, unsigned int axis, unsigne
   if (!axisClear && preparedAxisBlocked(axis)) {
     return false;
   }
-  if (!inPlanePinchClear(p.occ, p.end, axis, nullptr)) {
+  if (!inPlanePinchClear(p.occ, p.end, axis)) {
     return false;
   }
   if (!axisCrossClear(p.occ, p.start, p.startOcc, pivot, axis)) {
@@ -1050,139 +931,6 @@ bool RotationRules::allowPrepared(const Pivot& pivot, unsigned int axis, unsigne
     p.haveSquares[axis] = true;
   }
   return arcClear(*sweep_, p.squares[axis], p.start, pivot, axis, sense);
-}
-
-void RotationRules::collectDebugConflictCells(const std::vector<Cell>& occupied,
-                                              const std::vector<Cell>& startCells,
-                                              const Pivot& pivot, unsigned int axis,
-                                              unsigned int sense, std::vector<Cell>& outBlocking,
-                                              std::vector<Cell>& outClearance,
-                                              std::vector<Cell>& outRestricted) const {
-  outBlocking.clear();
-  outClearance.clear();
-  outRestricted.clear();
-
-  const Occupancy occ(occupied);
-  const Occupancy start(startCells);
-
-  CellSet blocking;
-  CellSet clearance;
-  CellSet restricted;
-
-  // the arc: every cell the turning cubes pass through that is not a start
-  // cell is clearance; those another piece holds block
-  {
-    const double pcx = pivotWorld(pivot.hx);
-    const double pcy = pivotWorld(pivot.hy);
-    const double pcz = pivotWorld(pivot.hz);
-    const double halfPi = 1.5707963267948966;
-
-    for (const Cell& cell : startCells) {
-      const double dx = (cell.x + 0.5) - pcx;
-      const double dy = (cell.y + 0.5) - pcy;
-      const double dz = (cell.z + 0.5) - pcz;
-
-      // a cell on the axis turns in place
-      if (axis == 0 && dy == 0 && dz == 0) {
-        continue;
-      }
-      if (axis == 1 && dx == 0 && dz == 0) {
-        continue;
-      }
-      if (axis == 2 && dx == 0 && dy == 0) {
-        continue;
-      }
-
-      for (int s = 1; s < kArcSteps; s++) {
-        const double theta = halfPi * static_cast<double>(s) / static_cast<double>(kArcSteps);
-        double ox = 0;
-        double oy = 0;
-        double oz = 0;
-        rotatedCenter(dx, dy, dz, axis, sense, theta, &ox, &oy, &oz);
-
-        CellSet hit;
-        addOverlappedCells(pcx + ox, pcy + oy, pcz + oz, hit);
-        for (const Cell& h : hit) {
-          if (start.has(h)) {
-            continue;
-          }
-          clearance.insert(h);
-          if (occ.has(h)) {
-            blocking.insert(h);
-          }
-        }
-      }
-    }
-  }
-
-  // sandwiching and capturing cells
-  inPlanePinchClear(occ, startCells, axis, &blocking);
-  perpPlaneClear(occ, startCells, axis, &blocking);
-
-  // axis-cross: the slots beside the pivot column's moving cells on
-  // touching layers; opposition across layers marks blockers
-  if (!startCells.empty()) {
-    int aMin = axialCoord(startCells[0], axis);
-    int aMax = aMin;
-    for (std::size_t i = 1; i < startCells.size(); i++) {
-      const int a = axialCoord(startCells[i], axis);
-      aMin = std::min(aMin, a);
-      aMax = std::max(aMax, a);
-    }
-
-    bool seenNegU = false;
-    bool seenPosU = false;
-    bool seenNegV = false;
-    bool seenPosV = false;
-    CellSet slotOccupied;
-
-    for (int a = aMin; a <= aMax; a++) {
-      if (!layerTouchesOther(occ, startCells, axis, a)) {
-        continue;
-      }
-
-      bool layerNegU = false;
-      bool layerPosU = false;
-      bool layerNegV = false;
-      bool layerPosV = false;
-
-      for (const Cell& c : startCells) {
-        if (axialCoord(c, axis) != a) {
-          continue;
-        }
-        if (!onPivotColumn(c, pivot, axis)) {
-          continue;
-        }
-        axisCrossScanCell(c, axis, occ, start, &layerNegU, &layerPosU, &layerNegV, &layerPosV,
-                          &slotOccupied, &restricted);
-      }
-
-      const bool cross = (layerPosU && seenNegU) || (layerNegU && seenPosU) ||
-                         (layerPosV && seenNegV) || (layerNegV && seenPosV);
-      if (cross) {
-        blocking.insert(slotOccupied.begin(), slotOccupied.end());
-      }
-
-      seenNegU |= layerNegU;
-      seenPosU |= layerPosU;
-      seenNegV |= layerNegV;
-      seenPosV |= layerPosV;
-    }
-
-    clearance.insert(slotOccupied.begin(), slotOccupied.end());
-  }
-
-  outBlocking.assign(blocking.begin(), blocking.end());
-  for (const Cell& c : clearance) {
-    if (!blocking.contains(c)) {
-      outClearance.push_back(c);
-    }
-  }
-  for (const Cell& c : restricted) {
-    if (!blocking.contains(c) && !clearance.contains(c)) {
-      outRestricted.push_back(c);
-    }
-  }
 }
 
 }  // namespace bt

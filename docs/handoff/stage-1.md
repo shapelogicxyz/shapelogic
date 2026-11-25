@@ -59,6 +59,8 @@
 3. **`unionintersect` compares positions as signed numbers**; the original
    mixed unsigned and signed, which only differs for negative offsets (its
    only caller, the GUI, passes non-negative ones).
+   (Note, 2026-11-25: removed by cleanup item 14.1, with `getDiagonal`;
+   nothing here called either.)
 4. `voxel_c::copy()` (copy all but the name; unused, and it kept a stale
    cache) was not ported. Copy constructors keep the caches instead of
    resetting them: they describe the same content and hotspot.

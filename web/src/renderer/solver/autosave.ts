@@ -285,7 +285,7 @@ export class Autosave {
       }
       // as it ran: the engine keeps a paused solve's options
       await e.call('solve.continue', { problem });
-      this.solves.launch(problem, null);
+      this.solves.launch(problem);
       this.continued(problem);
       flash('The solve was paused for a save — it carries on');
     } catch (x) {
@@ -549,7 +549,7 @@ export class Autosave {
         try {
           // as it ran: the engine keeps a paused solve's options
           await e.call('solve.continue', { problem: p });
-          this.solves.launch(p, null);
+          this.solves.launch(p);
           this.continued(p);
         } catch (x) {
           reportError(x, 'Continue');

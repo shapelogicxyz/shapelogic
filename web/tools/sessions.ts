@@ -255,7 +255,7 @@ export const SESSIONS: Record<string, SessionScript> = {
       const { solves, trace } = traceSolves(c);
       const p = await dominoBox(c, 2, 2, 3, solves);
       d.keep(await c.call('solve.start', { problem: p, options: { disassemble: true } }));
-      solves.launch(p, 'classic');
+      solves.launch(p);
       const end = await solves.whenEnded(p);
       d.keep({ end, trace: trace.splice(0) });
       d.keep(await c.call('problem.get', { problem: p }));
@@ -301,7 +301,7 @@ export const SESSIONS: Record<string, SessionScript> = {
       const options = { disassemble: true, keepAtMost: 5, threads: 1 };
       let from = d.mark;
       d.keep(await c.call('solve.start', { problem: p, options }));
-      solves.launch(p, 'classic');
+      solves.launch(p);
       await d.waitFor('solve.state', (e) => e.problem === p && e.state === 'assembling', from);
       await d.waitFor('solve.solutionsAdded', (e) => e.problem === p && e.saved > 0, from);
       d.keep(await c.call('solve.pause', { problem: p }));
@@ -319,7 +319,7 @@ export const SESSIONS: Record<string, SessionScript> = {
       await new Promise((done) => setTimeout(done, 400));
       from = d.mark;
       d.keep(await c.call('solve.continue', { problem: p, options }));
-      solves.launch(p, 'classic');
+      solves.launch(p);
       await d.waitFor('solve.solutionsAdded', (e) => e.problem === p, from);
       d.keep({ version: pager.version, trace: trace.splice(0) });
 
@@ -331,7 +331,7 @@ export const SESSIONS: Record<string, SessionScript> = {
       // an abort of a solve paused in memory: one document.changed, no run ends
       from = d.mark;
       d.keep(await c.call('solve.start', { problem: p, options }));
-      solves.launch(p, 'classic');
+      solves.launch(p);
       await d.waitFor('solve.state', (e) => e.problem === p && e.state === 'assembling', from);
       d.keep(await c.call('solve.pause', { problem: p }));
       d.keep({ end: await solves.whenEnded(p), trace: trace.splice(0) });
@@ -348,7 +348,7 @@ export const SESSIONS: Record<string, SessionScript> = {
           options: { disassemble: false, keepAtMost: 0, threads: 1 },
         }),
       );
-      solves.launch(q, 'classic');
+      solves.launch(q);
       d.keep({ end: await solves.whenEnded(q), trace: trace.splice(0) });
       const total = (await c.call('solution.analyse', { problem: q, which: 'all', threads: 1 }))
         .total;

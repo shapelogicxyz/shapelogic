@@ -38,7 +38,6 @@ import type {
   SolveFailure,
   SolveProgress,
   SolveState,
-  Solver,
 } from '../../engine/api.generated.ts';
 import type { EngineApi, EventParams } from '../../engine/client-types.ts';
 
@@ -70,8 +69,6 @@ export interface SolveRecord {
   phase: RunPhase;
   /** This client started a run whose last state has not come yet. */
   launched: boolean;
-  /** The solver this client last started or carried on the solve with; null when unknown. */
-  solver: Solver | null;
   /** The last solve.progress (null before the first). */
   progress: SolveProgress | null;
   /** The failure of a run that ended in error (solve.error); cleared by the next launch. */
@@ -171,7 +168,6 @@ export class Solves {
         told: false,
         phase: 'none',
         launched: false,
-        solver: null,
         progress: null,
         failure: null,
         added: null,
@@ -202,14 +198,11 @@ export class Solves {
    * This client started or carried on a run (its call was answered): its
    * end is waited for even if no active state is seen.
    */
-  launch(problem: string, solver: Solver | null): void {
+  launch(problem: string): void {
     const r = this.get(problem);
     r.launched = true;
     r.failure = null;
     r.preview = null;
-    if (solver !== null) {
-      r.solver = solver;
-    }
     this.emit({ problem, kind: 'launch' });
   }
 

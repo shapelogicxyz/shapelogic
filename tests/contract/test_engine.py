@@ -894,6 +894,8 @@ def solving_session(e):
                "direction": 0}
     moved = e.call("explore.addMove", by_hand)
     check(moved["parent"] == root["node"], "a move by hand")
+    # a position already there is that node, not a second one
+    check(e.call("explore.addMove", by_hand)["node"] == moved["node"], "the same move again")
     # a piece dragged one step: some piece can move some way
     found = []
     for q in root["pieces"]:
@@ -906,7 +908,13 @@ def solving_session(e):
     check(found and all(n["parent"] == root["node"] for n in found), "matching moves")
     e.fails("explore.findMatching", {"handle": mx["handle"], "node": root["node"], "piece": 999,
                                      "delta": [1, 0, 0]}, "invalid_argument")
-    e.call("explore.prune", {"handle": mx["handle"], "node": child["node"]})
+    # pruning a node keeps its path and drops its siblings; the node kept is
+    # one other than the move by hand, which can be the analysis's own
+    # first child (the solution shown is one of a parallel solve's, in no
+    # set order)
+    kept = next(c for c in children if c["node"] != moved["node"])
+    e.call("explore.prune", {"handle": mx["handle"], "node": kept["node"]})
+    check(e.call("explore.node", {"handle": mx["handle"], "node": kept["node"]}) == kept, "the path stays")
     e.fails("explore.node", {"handle": mx["handle"], "node": moved["node"]}, "not_found")
     e.call("explore.close", {"handle": mx["handle"]})
     e.fails("explore.close", {"handle": mx["handle"]}, "not_found")

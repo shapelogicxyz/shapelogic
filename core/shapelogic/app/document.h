@@ -975,9 +975,6 @@ class Document {
   [[nodiscard]] Result<void> checkSharedSearchFree(unsigned int problem,
                                                    const std::string& workDir) const;
 
-  Result<unsigned int> requireShape(Id id) const { return shapeIndex(id); }
-  Result<unsigned int> requireProblem(Id id) const { return problemIndex(id); }
-
   std::unique_ptr<Puzzle> puzzle_;
   Ids ids_;
   std::string openNotice_;

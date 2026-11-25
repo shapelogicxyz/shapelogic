@@ -180,7 +180,7 @@ export function startApp(saved: StoredState = {}): {
   installSettings(store);
   installTopBar(store, app);
   const view = new View3D(store);
-  const edits = new Edits(store, solves);
+  const edits = new Edits(store);
   const entities = new EntitiesWorkspace(store, view, edits);
   const puzzle = new PuzzleWorkspace(store, view, edits);
   const solver = new SolverWorkspace(store, view, edits, solves);

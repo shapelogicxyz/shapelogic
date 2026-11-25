@@ -494,10 +494,7 @@ test('problems, color rules, the frozen problem, sliding and stacking puzzles', 
       readCallLog(log)
         .slice(from)
         .map((c) => c.method)
-        .filter(
-          (m) =>
-            m.startsWith('problem.') && !['problem.get', 'problem.fit', 'problem.kind'].includes(m),
-        );
+        .filter((m) => m.startsWith('problem.') && !['problem.get', 'problem.fit'].includes(m));
     expect(edits(mark)).toEqual([]);
     // P2 is not being solved: its pieces can be edited; problems can be
     // added (a copy of P1 too) but not deleted

@@ -136,11 +136,6 @@ export function setLogViewer(view: () => void): void {
   logViewer = view;
 }
 
-/** Whether View Logs is shown (something opens the log). */
-export function logsViewable(): boolean {
-  return logViewer !== null;
-}
-
 /** Whether a dialog is open (the keyboard map waits). */
 export function dialogOpen(): boolean {
   return stack.length > 0;

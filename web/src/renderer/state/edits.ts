@@ -10,17 +10,14 @@
 
 import { byId } from '../shell/dom.ts';
 import { flash, reportError } from '../shell/status.ts';
-import type { Solves } from './solves.ts';
 import type { Store } from './store.ts';
 
 export class Edits {
   private readonly store: Store;
-  private readonly solves: Solves | null;
   private busy = 0;
 
-  constructor(store: Store, solves: Solves | null = null) {
+  constructor(store: Store) {
     this.store = store;
-    this.solves = solves;
     this.add(0);
   }
 

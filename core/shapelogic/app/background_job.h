@@ -36,8 +36,6 @@ class BackgroundJob {
   BackgroundJob(const BackgroundJob&) = delete;
   BackgroundJob& operator=(const BackgroundJob&) = delete;
 
-  /// What the job is.
-  [[nodiscard]] virtual Kind kind() const = 0;
   /// Asks it to stop as soon as it can; does not wait. Any thread.
   void stop();
   /// Waits until it has ended.

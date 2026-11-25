@@ -13,9 +13,6 @@
 import { contrast, hex, pieceColor } from '../shell/piece-colors.ts';
 import type { Part, ProblemDetail, SolveState } from '../../engine/api.generated.ts';
 
-/** The color of the problems' chips (the mockup's). */
-export const PROBLEM_CHIP = '#2f6df6';
-
 /** A problem's chip style: the color of its place in the list, as a shape's. */
 export function problemChipStyle(index: number): string {
   const c = pieceColor(Math.max(0, index));

@@ -243,13 +243,16 @@ describe.skipIf(ENGINE === null)('the scripted session', () => {
       (await c.call('explore.node', { handle: mx.handle, node: root.node })).children.length,
     ).toBeGreaterThan(0);
     expect(await c.call('explore.node', { handle: mx.handle, node: child.node })).toEqual(child);
-    const moved = await c.call('explore.addMove', {
+    const byHand = {
       handle: mx.handle,
       node: root.node,
       pieces: [root.pieces[0]?.piece ?? 0],
       direction: 0,
-    });
+    };
+    const moved = await c.call('explore.addMove', byHand);
     expect(moved.parent).toBe(root.node);
+    // a position already there is that node, not a second one
+    expect((await c.call('explore.addMove', byHand)).node).toBe(moved.node);
     // a piece dragged one step: some piece can move some way
     const found = [];
     for (const q of root.pieces) {
@@ -282,7 +285,16 @@ describe.skipIf(ENGINE === null)('the scripted session', () => {
       }),
       'invalid_argument',
     );
-    await c.call('explore.prune', { handle: mx.handle, node: child.node });
+    // pruning a node keeps its path and drops its siblings; the node kept
+    // is one other than the move by hand, which can be the analysis's own
+    // first child (the solution shown is one of a parallel solve's, in no
+    // set order)
+    const kept = children.find((n) => n.node !== moved.node);
+    if (kept === undefined) {
+      throw new Error('no other child');
+    }
+    await c.call('explore.prune', { handle: mx.handle, node: kept.node });
+    expect(await c.call('explore.node', { handle: mx.handle, node: kept.node })).toEqual(kept);
     await fails(c.call('explore.node', { handle: mx.handle, node: moved.node }), 'not_found');
     await c.call('explore.close', { handle: mx.handle });
     await fails(c.call('explore.close', { handle: mx.handle }), 'not_found');
