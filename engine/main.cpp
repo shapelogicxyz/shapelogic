@@ -22,7 +22,8 @@
 
 int main(int argc, char** argv) {
   if (argc == 2 && std::string_view(argv[1]) == "--version") {
-    std::printf("shapelogic_engine %.*s\n", static_cast<int>(bt::kVersion.size()), bt::kVersion.data());
+    const std::string_view version = bt::versionString();
+    std::printf("shapelogic_engine %.*s\n", static_cast<int>(version.size()), version.data());
     return 0;
   }
   if (argc != 1) {

@@ -10,6 +10,14 @@ A solver stage is done only when the harness reports no differences
 - The original checkout at `../burr-tools` (or `BT_OLD_REPO`), built
   with `just build` there, so `build/burrTxt` and `build/burrTxt2` exist.
 - The new `shapelogic_cli` is built by `just oracle` itself (release preset).
+- What a run writes (the new side's solved files and text, the round
+  trip's and the imports' saves, the search folders) goes to a folder of
+  its own: `--work DIR` (kept), else `work/run-<pid>`, removed when the run
+  passes and named on stderr when it fails. Two runs at once never share
+  one. What the baseline commands record for later runs stays in `work/`
+  (`work/old*`, `work/text-old*`), and the original's drivers
+  (`*_old.cpp`) are built once into `work/tools/<name>-<hash>` (the hash of
+  their sources, the compile command and the original's libraries).
 
 ## Corpus and tiers
 
@@ -80,7 +88,7 @@ and keeps the solved file it writes beside it (`work/old/<path>ttt`).
 `compare-files` does the same with the new core (`bt --save`, burrTxt2's
 mode, which runs a `SolveSession` as burrTxt2 runs its solve thread: the matrix, reduce,
 the saved position, the search, the take-apart queue and its workers,
-solutions sorted by moves) into `work/new`, reads both files with the new
+solutions sorted by moves) into the run's `new`, reads both files with the new
 core (`bt_solutions`) and compares problem 0: the state, the assembly and
 solution counts, and the saved solutions. The original keeps the ten best
 by moves, and which of several with the same moves it keeps depends on the
@@ -90,7 +98,7 @@ list, and each solution the original kept must be in the new file with the
 same assembly, separation tree (every state of every node), level text and
 move counts. `A` puzzles compare the counts only (their saved assemblies
 keep the solve thread's limit of ten).
-`--solver crowell` uses `work/old-<solver>` and `work/new-<solver>`.
+`--solver crowell` uses `work/old-<solver>` and the run's `new-<solver>`.
 
 ## Text output (stage 8 onward)
 
@@ -162,7 +170,7 @@ Another".
 Four things the sliding runs do that the other tiers' do not:
 
 - **A search folder of its own for every run** (`SHAPELOGIC_SLIDE_DIR`,
-  the original's `BURRTOOLS_SLIDE_DIR`, under `work/slide-tmp`, removed
+  the original's `BURRTOOLS_SLIDE_DIR`, under the run's `slide-tmp`, removed
   afterwards). The search's folder is named by the puzzle's key, so the
   text runs of one puzzle, which go side by side, would share one folder
   in the user's cache and carry on or overwrite each other's levels.
@@ -327,7 +335,7 @@ back on the same machine; numbers in the baseline files are only a guide.
 default solver is the Stacking Solver (burrTxt's); `--solver panex` runs
 the Panex Solver on the puzzles it takes (flag `Q` marks the others). Each
 run gets a Panex folder of its own (`SHAPELOGIC_PANEX_DIR` under
-`work/panex-tmp`), so the user's cache and other runs' saved searches are
+the run's `panex-tmp`), so the user's cache and other runs' saved searches are
 never touched:
 
 ```bash

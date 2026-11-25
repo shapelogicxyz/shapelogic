@@ -276,7 +276,8 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       usage(k);
       return kExitOk;
     } else if (a == "--version") {
-      std::printf("shapelogic_cli %.*s\n", static_cast<int>(kVersion.size()), kVersion.data());
+      const std::string_view version = versionString();
+      std::printf("shapelogic_cli %.*s\n", static_cast<int>(version.size()), version.data());
       return kExitOk;
     } else if (a == "--solver") {
       if (!hasValue) {

@@ -503,12 +503,13 @@ const std::vector<std::string> kQuickFiles = {
     "test_rotation_solvers_solved.xmpuzzle", "test_sliding_solver.xmpuzzle",
     "test_stacking_hanoi.xmpuzzle"};
 
-// the rhombic shapes of these take the Minkowski mesher long (a large
-// shape of 12PieceSeparation about 50 s in the dev build), the sphere
-// grid's are large
-const std::vector<std::string> kSlowFiles = {"12PieceSeparation.xmpuzzle",
-                                             "AugmentedSecondStellation.xmpuzzle",
+// the rhombic shapes of these take the Minkowski mesher long (shape 0 of
+// 12PieceSeparation about two minutes in the dev build, the others a few
+// seconds each), the sphere grid's are large; 12PieceSeparation is a case
+// of its own, so that ctest runs the rest beside it (cleanup item 8.1)
+const std::vector<std::string> kSlowFiles = {"AugmentedSecondStellation.xmpuzzle",
                                              "BallRoom.xmpuzzle", "BallRoom_solved.xmpuzzle"};
+const std::vector<std::string> kSlowestFiles = {"12PieceSeparation.xmpuzzle"};
 
 }  // namespace
 
@@ -521,4 +522,9 @@ TEST_CASE("stl dump: the STL meshes of the fixture shapes match the original", "
 TEST_CASE("stl dump: the large fixture shapes match the original too", "[mesh][stl][slow]") {
   bool textDone = true;  // the text STL is in the quick files
   compareWithRecording(kSlowFiles, textDone);
+}
+
+TEST_CASE("stl dump: the largest fixture's shapes match the original too", "[mesh][stl][slow]") {
+  bool textDone = true;  // the text STL is in the quick files
+  compareWithRecording(kSlowestFiles, textDone);
 }

@@ -9,8 +9,32 @@ old_repo := env_var_or_default("BT_OLD_REPO", justfile_directory() + "/../burr-t
 default:
     @just --list
 
-# Configure and build a preset (dev, release, asan, tsan)
+# Configure and build a preset (dev, release, asan, tsan); one build of a preset at a time (build/<preset>.lock)
 build preset="dev":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Sessions side by side share build/<preset>: a second build of the
+    # preset waits for the first (a mkdir lock, as macOS has no flock). A
+    # lock whose holder is gone, or that never got its holder's pid, is
+    # taken over.
+    mkdir -p build
+    lock="build/{{preset}}.lock"
+    said=""
+    until mkdir "$lock" 2>/dev/null; do
+      holder=$(cat "$lock/pid" 2>/dev/null || true)
+      if { [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; } ||
+         { [ -z "$holder" ] && [ -n "$(find "$lock" -maxdepth 0 -mmin +1 2>/dev/null)" ]; }; then
+        rm -rf "$lock"
+        continue
+      fi
+      if [ -z "$said" ]; then
+        echo "waiting for another build of {{preset}} (process ${holder:-?}, $lock)" >&2
+        said=1
+      fi
+      sleep 1
+    done
+    echo $$ > "$lock/pid"
+    trap 'rm -rf "$lock"' EXIT
     cmake --preset {{preset}} > /dev/null
     cmake --build --preset {{preset}}
 
@@ -26,10 +50,10 @@ test-all preset="dev": (build preset)
 # Address + undefined-behavior sanitizers
 test-asan: (test-all "asan")
 
-# ThreadSanitizer: the [parallel] cases (see AGENTS.md for why the puzzle choice matters),
-# then the contract suite against the TSan-built engine
+# ThreadSanitizer: the [parallel] cases (see AGENTS.md for why the puzzle choice matters), each a
+# ctest test of its own, side by side; then the contract suite against the TSan-built engine
 test-tsan: (build "tsan")
-    TSAN_OPTIONS=halt_on_error=1 ./build/tsan/tests/bt_tests "[parallel]"
+    TSAN_OPTIONS=halt_on_error=1 ctest --preset tsan -L parallel -j {{num_cpus()}}
     TSAN_OPTIONS=halt_on_error=1 python3 tests/contract/test_engine.py --engine build/tsan/engine/shapelogic_engine
 
 # Compare the new bt against the original burrTxt (see tests/oracle/README.md)
@@ -103,7 +127,7 @@ check *files: (build "dev")
     if [ -n "{{files}}" ]; then
       "$tidy" -quiet -clang-tidy-binary "$bin" "${sdk[@]}" -p build/dev {{files}}
     else
-      "$tidy" -quiet -clang-tidy-binary "$bin" "${sdk[@]}" -p build/dev "$(pwd)/(core|engine|cli|tests/unit)/.*\.cpp$"
+      "$tidy" -quiet -clang-tidy-binary "$bin" "${sdk[@]}" -p build/dev "$(pwd)/(core|engine|cli|python/src|tests/unit|tests/tools)/.*\.cpp$"
     fi
 
 # ---- the web front end (web/, docs/FRONTEND-PLAN.md; needs Node 22) ----
@@ -134,14 +158,24 @@ app-release: (build "release")
 
 # Build the app and run its end-to-end tests (Playwright's Electron driver; the release engine or BT_ENGINE),
 # side by side (E2E_WORKERS apps at once, half the cores by default); without arguments the timed test
-# (perf.e2e.ts) follows, alone
+# (perf.e2e.ts) follows, alone. The build is the run's own (web/out-e2e-<pid>, BT_OUT_DIR), removed at the end.
 app-e2e *args:
-    cd web && env -u ELECTRON_RUN_AS_NODE npm run e2e -- {{args}}
-    {{ if args == "" { "cd web && env -u ELECTRON_RUN_AS_NODE npx playwright test --project=timed" } else { "" } }}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd web
+    export BT_OUT_DIR="out-e2e-$$"
+    trap 'rm -rf "$BT_OUT_DIR"' EXIT
+    env -u ELECTRON_RUN_AS_NODE npm run e2e -- {{args}}
+    {{ if args == "" { "env -u ELECTRON_RUN_AS_NODE npx playwright test --project=timed" } else { "" } }}
 
-# Only the timed e2e test (perf.e2e.ts), alone
+# Only the timed e2e test (perf.e2e.ts), alone, on a build of its own (as app-e2e)
 app-e2e-timed:
-    cd web && env -u ELECTRON_RUN_AS_NODE npm run e2e-timed
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd web
+    export BT_OUT_DIR="out-e2e-$$"
+    trap 'rm -rf "$BT_OUT_DIR"' EXIT
+    env -u ELECTRON_RUN_AS_NODE npm run e2e-timed
 
 # Package the app (electron-builder, web/tools/dist.ts) for this platform with the release engine: `--dir` the unpacked app only, `--arch x64` an Intel Mac's (after `just build release-x64`)
 app-dist *args: (build "release")
@@ -179,7 +213,13 @@ site-demo *args:
 
 # Retake the user guide's screenshots from the built app (site/src/assets/screens; after `just build release`)
 docs-screenshots:
-    cd web && env -u ELECTRON_RUN_AS_NODE npm run docs-shots
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd web
+    # a build of its own (BT_OUT_DIR), as app-e2e's
+    export BT_OUT_DIR="out-docs-$$"
+    trap 'rm -rf "$BT_OUT_DIR"' EXIT
+    env -u ELECTRON_RUN_AS_NODE npm run docs-shots
 
 # ---- releases (the steps: `just release` with no version prints them) ----
 

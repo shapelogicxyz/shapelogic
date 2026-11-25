@@ -4,6 +4,7 @@
 // of a solving problem from the owner's thread (the [parallel] case is for
 // ThreadSanitizer), and the autosave flow. New.
 #include "app_test_helpers.h"
+#include "../scratch_dir.h"
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/base/solve_state.h"
@@ -20,6 +21,7 @@
 using namespace bt;
 using namespace bt::app;
 using test::openFixture;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -252,7 +254,8 @@ TEST_CASE("document solving: problems added while a run is active", "[app][solvi
 TEST_CASE("document solving: the autosave flow and saving", "[app][solving][resume]") {
   Document d = fresh("DemoPieceGenerator.xmpuzzle");
   const Id p = d.problemIds().front();
-  const std::filesystem::path tmp = std::filesystem::temp_directory_path() / "bt_autosave.xmpuzzle";
+  const ScratchDir scratch("autosave");
+  const std::filesystem::path tmp = scratch.path() / "autosave.xmpuzzle";
   REQUIRE(d.solveStart(p, takeApart()).has_value());
   // pause at a save point, save, carry on
   while (d.solveState(p) == SolveState::Preparing) {

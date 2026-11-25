@@ -13,8 +13,9 @@ are `just` recipes from the root of the repository, except the benchmarks.
 
 `just gate` runs the suites one after another and ends with a table of what
 passed. A suite that fails does not stop the run. Each suite's output is in
-`build/gate/<nn>-<name>.log`, the table in `build/gate/summary.txt`, and the
-command fails if any suite did. It takes about an hour and a quarter; run it
+`build/gate/<nn>-<name>.log`, the table in `build/gate/summary.txt` (or
+under `GATE_OUT` when it is set, so two gates at once keep their own), and
+the command fails if any suite did. It takes about an hour and a quarter; run it
 on a quiet machine.
 
 | Command | What runs |
@@ -34,14 +35,14 @@ folder.
 
 ## The core tests: `just test` and `just test-all`
 
-These seven are CTest tests, defined in `tests/CMakeLists.txt`.
-`just test-all` runs all of them; `just test` runs all but **unit-slow**,
-for a quick check while you work.
+These are CTest tests, defined in `tests/CMakeLists.txt`.
+`just test-all` runs all of them; `just test` runs all but **slow**, for a
+quick check while you work.
 
 | Name | What it checks | `just test` | `just test-all` |
 |---|---|---|---|
-| **unit** | The Catch2 tests in `bt_tests`, except the `[slow]` ones: the C++ core (grids, the puzzle model, the solvers, sliding and stacking puzzles, the document and its commands) and the engine run in process. | yes | yes |
-| **unit-slow** | The `[slow]` Catch2 cases, each taking more than about a second: bigger puzzles, long searches, saved searches. | no | yes |
+| **unit** | The Catch2 tests in `bt_tests`, except the `[slow]` ones: the C++ core (grids, the puzzle model, the solvers, sliding and stacking puzzles, the document and its commands) and the engine run in process. They run in shards, `unit-0` to `unit-23`, side by side. | yes | yes |
+| **slow** | The `[slow]` Catch2 cases, each taking more than about a second: bigger puzzles, long searches, saved searches. Each is a test of its own, `slow: <case>`, so the longest start first. | no | yes |
 | **api-schema** | The engine API's schema files, `api/*.json`, are valid and use only what the validator understands. | yes | yes |
 | **api-docs** | `docs/API.md` matches `api/*.json`. It fails until `python3 api/gen_api_md.py` is run after a schema change. | yes | yes |
 | **contract** | Runs `shapelogic_engine` as a separate process and checks every reply and event against `api/`. It also fails if any method is never called. | yes | yes |
@@ -50,10 +51,10 @@ for a quick check while you work.
 
 Both commands build first and take a build preset: `just test-all release`
 runs the same tests on the release build. `just test-all` on the dev preset
-takes about ten minutes on an M-series Mac, most of it **unit-slow**.
+takes about four minutes on an M-series Mac, most of it **slow**.
 
 The test binary takes Catch2 tags, so you can run part of **unit** or
-**unit-slow** directly: `build/dev/tests/bt_tests "[solve]"` runs one
+**slow** directly: `build/dev/tests/bt_tests "[solve]"` runs one
 module's cases, `"[parallel]"` the threaded ones, `"~[slow]"` everything
 but the slow cases, and a test's name runs that test alone.
 
@@ -61,8 +62,8 @@ but the slow cases, and a test's name runs that test alone.
 
 | Name | Command | What it checks |
 |---|---|---|
-| **asan** | `just test-asan` | All seven core tests in a build with the address and undefined-behavior sanitizers: memory errors and undefined behavior. |
-| **tsan** | `just test-tsan` | The `[parallel]` unit cases and the **contract** test in a ThreadSanitizer build: data races between threads. |
+| **asan** | `just test-asan` | All the core tests in a build with the address and undefined-behavior sanitizers: memory errors and undefined behavior. |
+| **tsan** | `just test-tsan` | The `[parallel]` unit cases (each a test of its own, side by side) and the **contract** test in a ThreadSanitizer build: data races between threads. |
 
 Both build their own preset (`build/asan`, `build/tsan`) and are much
 slower than `just test-all`.

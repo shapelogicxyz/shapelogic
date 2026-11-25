@@ -4,6 +4,7 @@
 // notes, Find Solutions off and Just Count, the playback's routes, and the
 // orientations the pieces are placed in.
 #include "../model/model_test_helpers.h"
+#include "../scratch_dir.h"
 #include "solve_test_helpers.h"
 #include "solve_session_test_access.h"
 
@@ -43,6 +44,7 @@
 
 using namespace bt;
 using namespace bt::sliding;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -250,10 +252,17 @@ TEST_CASE("sliding session: pausing and continuing finds every solution once",
 
     Puzzle p = manyStarts();
     SolveSession s(p, p.getProblem(0), o);
-    REQUIRE(s.start().has_value());
-    unsigned int paused = 0;
+    // The first stop lands whatever the machine's speed: the search is
+    // prepared and paused before its first start (cleanup item 8.8; a
+    // pause asked for after a sleep landed only when the run was still
+    // going, and a loaded machine finished it first). The runs after it
+    // pause wherever a random sleep ends, or finish.
+    REQUIRE(s.prepare().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
     for (unsigned int run = 0;; run++) {
       REQUIRE(run < 400);
+      REQUIRE(s.resume().has_value());
       const auto delay = std::chrono::microseconds(
           std::uniform_int_distribution<int>(0, 2000 + 200 * static_cast<int>(run))(rng));
       std::this_thread::sleep_for(delay);
@@ -267,10 +276,7 @@ TEST_CASE("sliding session: pausing and continuing finds every solution once",
       if (s.state() == SolveState::Finished) {
         break;
       }
-      paused++;
-      REQUIRE(s.resume().has_value());
     }
-    CHECK(paused > 0);
     CHECK(slideTotals(p.getProblem(0), threads == 1) == expected);
   }
 }
@@ -353,9 +359,8 @@ TEST_CASE("sliding session: a save point lets a search with no folder finish, a 
 // that ran out of disk meanwhile, do not say so.
 TEST_CASE("sliding session: a save point pauses a search with a folder between two levels",
           "[sliding][session][resume][parallel]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_savepoint";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_savepoint");
+  const std::filesystem::path dir = scratch.path() / "work";
   SolveOptions o = findSolutions(2);
   o.sliding.workDir = dir.string();
   o.sliding.memoryBytes = 8000000;
@@ -859,9 +864,8 @@ TEST_CASE("sliding: the orientations each part may take", "[sliding]") {
 // search where it is) are told before the run, for the owner to refuse.
 TEST_CASE("sliding session: a paused search is not carried on as another search",
           "[sliding][session][resume][parallel]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_other_search";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_other_search");
+  const std::filesystem::path dir = scratch.path() / "work";
   SolveOptions o = findSolutions(2);
   o.sliding.workDir = dir.string();
   o.sliding.memoryBytes = 8000000;
@@ -916,9 +920,8 @@ TEST_CASE("sliding session: a paused search is not carried on as another search"
 
 TEST_CASE("sliding session: a paused search is carried on from its folder",
           "[sliding][session][resume]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_resume";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_resume");
+  const std::filesystem::path dir = scratch.path() / "work";
   // the 4x4 tray of fifteen with the swap: one start, searched long enough
   // to be paused in the middle, and never to its end here
   SolveOptions o = findSolutions(2);
@@ -979,9 +982,8 @@ TEST_CASE("sliding session: a paused search is carried on from its folder",
 // said to solve again, which threw the search away).
 TEST_CASE("sliding session: a search out of disk pauses for Continue",
           "[sliding][session][resume]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_disk";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_disk");
+  const std::filesystem::path dir = scratch.path() / "work";
   // one start whose search visits every one of 181,440 arrangements, its
   // levels on disk from the first and the disk it may take one byte
   SolveOptions o = findSolutions(2);
@@ -1026,9 +1028,8 @@ TEST_CASE("sliding session: a search out of disk pauses for Continue",
 // would carry it on by itself.
 TEST_CASE("sliding session: a search that cannot write its files pauses for Continue",
           "[sliding][session][resume]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_write";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_write");
+  const std::filesystem::path dir = scratch.path() / "work";
   SolveOptions o = findSolutions(2);
   o.sliding.workDir = dir.string();
   o.sliding.memoryBytes = 1;
@@ -1077,8 +1078,8 @@ TEST_CASE("sliding session: a search that cannot write its files pauses for Cont
 // Solve throws it away and searches from the beginning (decision 0041).
 TEST_CASE("sliding session: a saved search that cannot be read pauses the solve and is kept",
           "[sliding][session][resume]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_unread";
+  const ScratchDir scratch("slide_session_unread");
+  const std::filesystem::path dir = scratch.path() / "work";
   for (const bool state : {false, true}) {
     INFO((state ? "the state cut short" : "a level file cut short"));
     std::filesystem::remove_all(dir);
@@ -1213,9 +1214,8 @@ TEST_CASE("sliding session: starts not searched completely stay counted over a p
 // once the problem is solved, the saved one goes too.
 TEST_CASE("sliding session: a finished solve leaves no saved search of its problem",
           "[sliding][session][resume]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_stale";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_stale");
+  const std::filesystem::path dir = scratch.path() / "work";
   SolveOptions o = findSolutions(2);
   o.sliding.workDir = dir.string();
   o.sliding.memoryBytes = 1;
@@ -1249,9 +1249,8 @@ TEST_CASE("sliding session: a finished solve leaves no saved search of its probl
 // and with a folder it can write solves as a run that never paused.
 TEST_CASE("sliding session: a folder that cannot be written pauses the run",
           "[sliding][session][parallel]") {
-  const std::filesystem::path base =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_folder";
-  std::filesystem::remove_all(base);
+  const ScratchDir scratch("slide_session_folder");
+  const std::filesystem::path base = scratch.path() / "work";
   std::filesystem::create_directories(base);
   const std::filesystem::path file = base / "not-a-folder";
   { std::ofstream(file) << "x"; }
@@ -1484,9 +1483,8 @@ TEST_CASE("sliding session: optimized paths find the fewest moves of a board of 
 // on that way, and the paused problem says so.
 TEST_CASE("sliding session: a paused search saved from the start alone is told",
           "[sliding][session][resume]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_alone";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_alone");
+  const std::filesystem::path dir = scratch.path() / "work";
   SolveOptions o = findSolutions(2);
   o.sliding.nested = true;
   o.sliding.optimizedPaths = true;
@@ -1526,9 +1524,8 @@ TEST_CASE("sliding session: a paused search saved from the start alone is told",
 // Solve starts afresh: a saved search left in the folder would be carried
 // on by the search of its start, from the start alone if it was saved so.
 TEST_CASE("sliding session: Solve throws the saved search away", "[sliding][session][resume]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_afresh";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_afresh");
+  const std::filesystem::path dir = scratch.path() / "work";
   SolveOptions o = findSolutions(2);
   o.sliding.nested = true;
   o.sliding.optimizedPaths = true;
@@ -1582,8 +1579,8 @@ TEST_CASE("sliding session: Solve throws the saved search away", "[sliding][sess
 TEST_CASE("sliding session: a search paused in v1.8.1 is told, carried on or solved again",
           "[sliding][session][resume]") {
   const std::filesystem::path from = "tests/data/slide_paused_by_v1.8.1";
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_v181";
+  const ScratchDir scratch("slide_session_v181");
+  const std::filesystem::path dir = scratch.path() / "work";
   SolveOptions o = findSolutions(2);
   o.sliding.nested = true;
   o.sliding.optimizedPaths = true;
@@ -1642,9 +1639,8 @@ TEST_CASE("sliding session: a search paused in v1.8.1 is told, carried on or sol
 TEST_CASE("sliding session: a copy of a problem paused before uids does not take its search",
           "[sliding][session][resume]") {
   const std::filesystem::path from = "tests/data/slide_paused_by_v1.8.1";
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_uid_copy";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_uid_copy");
+  const std::filesystem::path dir = scratch.path() / "work";
   std::filesystem::create_directories(dir);
   std::filesystem::copy(from / "slide-cafc026be534476e", dir / "slide-cafc026be534476e");
   Result<std::string> xml = io::readMaybeGzipFile(from / "cup_and_blocks.xmpuzzle");
@@ -1735,9 +1731,8 @@ TEST_CASE("sliding session: optimized paths say a full search may find what they
 
 TEST_CASE("sliding session: each move's time is kept while the solve is open",
           "[sliding][session][resume]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_level_times";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_level_times");
+  const std::filesystem::path dir = scratch.path() / "work";
   // the 4x4 tray of fifteen with the swap: searched long enough to pause
   // several moves deep
   SolveOptions o = findSolutions(2);
@@ -1790,9 +1785,8 @@ TEST_CASE("sliding session: each move's time is kept while the solve is open",
 
 TEST_CASE("sliding session: a paused solve opened without times goes on from untimed moves",
           "[sliding][session][resume]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_untimed";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_untimed");
+  const std::filesystem::path dir = scratch.path() / "work";
   SolveOptions o = findSolutions(2);
   o.sliding.workDir = dir.string();
   Puzzle p = swapped(4);
@@ -1847,9 +1841,8 @@ TEST_CASE("sliding session: a paused solve opened without times goes on from unt
 // searches to the solve that works in them.
 TEST_CASE("sliding session: a problem another solve works on is refused",
           "[sliding][session][lock]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_slide_session_lock";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slide_session_lock");
+  const std::filesystem::path dir = scratch.path() / "work";
   std::filesystem::create_directories(dir);
   SolveOptions o = findSolutions(2);
   o.sliding.nested = true;

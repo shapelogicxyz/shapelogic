@@ -5,6 +5,7 @@
 // switches are the search's options; its scratch folders are this
 // process's own), followed by new cases in test_sliding_session.cpp.
 #include "../model/model_test_helpers.h"
+#include "../scratch_dir.h"
 #include "file_size_limit.h"
 #include "solve_session_test_access.h"
 
@@ -41,7 +42,6 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <random>
 #include <set>
 #include <sstream>
 #include <string>
@@ -55,6 +55,7 @@
 
 using namespace bt;
 using namespace bt::sliding;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -82,17 +83,6 @@ SolveOptions findSolutions() {
   o.disassemble = true;
   o.reduce = false;
   return o;
-}
-
-// A scratch folder of this process's own, removed again (never a fixed
-// name, never the user's cache).
-std::filesystem::path scratchDir(const std::string& what) {
-  std::random_device rd;
-  const std::filesystem::path p =
-      std::filesystem::temp_directory_path() /
-      ("bt_test_" + what + "_" + std::to_string(rd()) + "_" + std::to_string(rd()));
-  std::filesystem::remove_all(p);
-  return p;
 }
 
 }  // namespace
@@ -1075,7 +1065,8 @@ __extension__ using Wide = unsigned __int128;
 }  // namespace
 
 TEST_CASE("sliding: a key set finds what was put in it, on disk and in memory", "[sliding]") {
-  const std::filesystem::path dir = scratchDir("keyset");
+  const ScratchDir scratch("keyset");
+  const std::filesystem::path dir = scratch.path() / "work";
   std::filesystem::create_directories(dir);
   for (int onDisk = 0; onDisk < 2; onDisk++) {
     // keys spread over all 128 bits, a few close together, sorted
@@ -1240,7 +1231,8 @@ TEST_CASE("sliding: the search counts the arrangements the legacy search does",
 // every level past the first two toward the disk.
 TEST_CASE("sliding: the search keeps its levels where it can", "[sliding]") {
   const OneWay w = oneWayPuzzle();
-  const std::filesystem::path dir = scratchDir("slidedir");
+  const ScratchDir scratch("slidedir");
+  const std::filesystem::path dir = scratch.path() / "work";
 
   SlideSearch onDisk;
   onDisk.nested = true;
@@ -1302,7 +1294,8 @@ TEST_CASE("sliding: the search keeps its levels where it can", "[sliding]") {
 TEST_CASE("sliding: a search keeps to its share of shared memory as it changes",
           "[sliding][memory][parallel]") {
   const OneWay w = oneWayPuzzle();
-  const std::filesystem::path dir = scratchDir("slideshare");
+  const ScratchDir scratch("slideshare");
+  const std::filesystem::path dir = scratch.path() / "work";
 
   MemoryShare roomy(1000000000);
   SlideSearch alone;
@@ -1778,8 +1771,8 @@ std::vector<int> placesAlong(const Separation& path) {
 // same start carries it on to the same path, counting what was searched
 // once; without `resume` the saved search is thrown away.
 TEST_CASE("sliding: a stopped search is saved and carried on", "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slideresume");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slideresume");
+  const std::filesystem::path dir = scratch.path() / "work";
   const SlideFixture f = slideFixture(4, 5, kKlotski);
 
   SlideSearch straight;
@@ -1875,8 +1868,8 @@ TEST_CASE("sliding: a stopped search is saved and carried on", "[sliding][resume
 // still in memory); an aborted one writes nothing, and its folder goes.
 TEST_CASE("sliding: a paused search tells its save, an aborted one saves nothing",
           "[sliding][resume]") {
-  const std::filesystem::path dir = scratchDir("slidestop");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidestop");
+  const std::filesystem::path dir = scratch.path() / "work";
   const SlideFixture f = slideFixture(4, 5, kKlotski);
 
   StopSource pause;
@@ -1917,8 +1910,8 @@ TEST_CASE("sliding: a paused search tells its save, an aborted one saves nothing
 // cuts the level short, and a stop a level could never get through).
 TEST_CASE("sliding: a save point stops a search between two levels",
           "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidesavepoint");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidesavepoint");
+  const std::filesystem::path dir = scratch.path() / "work";
   const SlideFixture f = slideFixture(4, 5, kKlotski);
 
   SlideSearch straight;
@@ -2001,8 +1994,8 @@ TEST_CASE("sliding: a save point stops a search between two levels",
 // search while it can still save itself, and once there is room again a
 // search of the same start carries it on to the same path.
 TEST_CASE("sliding: a search stops with room to save itself", "[sliding][resume]") {
-  const std::filesystem::path dir = scratchDir("slidereserve");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidereserve");
+  const std::filesystem::path dir = scratch.path() / "work";
   const SlideFixture f = slideFixture(4, 5, kKlotski);
 
   SlideSearch straight;
@@ -2117,7 +2110,8 @@ TEST_CASE("sliding: the path is traced across thinned levels", "[sliding][parall
 // Sorted parts join into one set without decoding; a cursor starts at any
 // key; a set written to a file opens again.
 TEST_CASE("sliding: key sets join, seek and reopen", "[sliding]") {
-  const std::filesystem::path dir = scratchDir("keyset2");
+  const ScratchDir scratch("keyset2");
+  const std::filesystem::path dir = scratch.path() / "work";
   std::filesystem::create_directories(dir);
   std::vector<Wide> keys;
   for (int i = 0; i < 1000; i++) {
@@ -2631,8 +2625,8 @@ TEST_CASE("sliding: the stops of a grid cell are searched as one", "[sliding]") 
 // loose stops) is carried on as it was begun.
 TEST_CASE("sliding: a search with the stops of a grid cell as one is carried on",
           "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slideloose");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slideloose");
+  const std::filesystem::path dir = scratch.path() / "work";
   auto gridSearch = [] {
     SlideSearch s;
     s.nested = true;
@@ -2984,8 +2978,8 @@ TEST_CASE("sliding: loose stops take the wide key before they are given up", "[s
 // A/B switch itself does not take up a search saved without it.
 TEST_CASE("sliding: a grid search saved with every position numbered is carried on",
           "[sliding][resume]") {
-  const std::filesystem::path dir = scratchDir("slideplain");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slideplain");
+  const std::filesystem::path dir = scratch.path() / "work";
   const GridBoard g = cupsAndUnits(true);
   for (const bool nested : {true, false}) {
     INFO("nested " << nested);
@@ -3558,8 +3552,8 @@ TEST_CASE("sliding: copies of a piece with a goal each are searched from both en
 // has been through and carried on to the fewest moves, stopped wherever.
 TEST_CASE("sliding: a search from both ends with nested slides is carried on",
           "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slideends");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slideends");
+  const std::filesystem::path dir = scratch.path() / "work";
   auto gridSearch = [] {
     SlideSearch s = nestedSearch(3);
     s.threads = 2;
@@ -3682,8 +3676,8 @@ TEST_CASE("sliding: a search from both ends with nested slides is carried on",
 // done than its total.
 TEST_CASE("sliding: a search with nested slides tells the parts of a move that visit nothing",
           "[sliding][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidephase");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidephase");
+  const std::filesystem::path dir = scratch.path() / "work";
   const GridBoard g = settledBoard(37);
   SlideSearch s = nestedSearch(3);
   s.threads = 2;
@@ -3743,8 +3737,8 @@ TEST_CASE("sliding: a search with nested slides tells the parts of a move that v
 // path, and the path is the one a search with no stops finds.
 TEST_CASE("sliding: a search from both ends with nested slides is carried on past its disk budget",
           "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidebudget");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidebudget");
+  const std::filesystem::path dir = scratch.path() / "work";
   const GridBoard g = settledBoard(37);
 
   // levels in memory up to `memory` bytes; autosaved after every level or,
@@ -3891,8 +3885,10 @@ TEST_CASE("sliding: a search from both ends with nested slides is carried on pas
 // finds the path a search with no stops finds.
 TEST_CASE("sliding: a saved search with a damaged level is kept, and nothing is searched",
           "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidedamaged");
-  const std::filesystem::path spareDir = scratchDir("slidedamaged-spare");
+  const ScratchDir scratch("slidedamaged");
+  const std::filesystem::path dir = scratch.path() / "work";
+  const ScratchDir spareScratch("slidedamaged-spare");
+  const std::filesystem::path spareDir = spareScratch.path() / "work";
   std::filesystem::remove_all(dir);
   std::filesystem::remove_all(spareDir);
   std::filesystem::create_directories(spareDir);
@@ -4077,8 +4073,8 @@ TEST_CASE("sliding: a saved search with a damaged level is kept, and nothing is 
 // names; the saved search read back, what its state.bin names.
 TEST_CASE("sliding: the debug log tells each level, each save and the search read back",
           "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidedebuglog");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidedebuglog");
+  const std::filesystem::path dir = scratch.path() / "work";
   auto runSearch = [&](std::vector<LogLine>& told) {
     SlideSearch s = nestedSearch(3);
     s.threads = 2;
@@ -4141,8 +4137,8 @@ TEST_CASE("sliding: the debug log tells each level, each save and the search rea
 // search would go from both ends that is worth saying.
 TEST_CASE("sliding: a search saved from the start alone is told where both ends would do",
           "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidealone");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidealone");
+  const std::filesystem::path dir = scratch.path() / "work";
   auto gridSearch = [] {
     SlideSearch s = nestedSearch(3);
     s.threads = 2;
@@ -4692,8 +4688,8 @@ TEST_CASE("sliding: a stopped search with packed or wide keys is saved and carri
   };
   for (const auto& [packing, bits] : forms) {
     INFO("bits " << bits);
-    const std::filesystem::path dir = scratchDir("slidekeys");
-    std::filesystem::remove_all(dir);
+    const ScratchDir scratch("slidekeys");
+    const std::filesystem::path dir = scratch.path() / "work";
     SlideSearch form;
     form.packing = packing;
     form.minKeyBits = bits;
@@ -4790,7 +4786,8 @@ std::vector<Wide> levelLikeKeys(std::size_t count, std::uint64_t seed) {
 // looked up a few at a time; the file's size is what the set says it
 // takes, and smaller the better it is compressed.
 TEST_CASE("sliding: a key set's file is compressed in chunks", "[sliding]") {
-  const std::filesystem::path dir = scratchDir("keychunks");
+  const ScratchDir scratch("keychunks");
+  const std::filesystem::path dir = scratch.path() / "work";
   std::filesystem::create_directories(dir);
   const std::vector<Wide> keys = levelLikeKeys(60000, 88172645463325252ULL);
   std::vector<Wide> in;
@@ -4869,7 +4866,8 @@ TEST_CASE("sliding: a key set's file is compressed in chunks", "[sliding]") {
 // in chunks of another size, or not at all), blocks in memory are gathered
 // into chunks, and a file's chunks are decompressed into memory.
 TEST_CASE("sliding: key sets are joined whatever they are kept in", "[sliding]") {
-  const std::filesystem::path dir = scratchDir("keyjoin");
+  const ScratchDir scratch("keyjoin");
+  const std::filesystem::path dir = scratch.path() / "work";
   std::filesystem::create_directories(dir);
   const std::vector<Wide> keys = levelLikeKeys(9000, 4242424242ULL);
   // a few keys added first, then three parts
@@ -4930,7 +4928,8 @@ TEST_CASE("sliding: key sets are joined whatever they are kept in", "[sliding]")
 // A file cut short, one whose chunk is damaged, one of a later version and
 // one that is not there: none is read as keys, and each says what it is.
 TEST_CASE("sliding: a damaged key set file is told", "[sliding]") {
-  const std::filesystem::path dir = scratchDir("keydamage");
+  const ScratchDir scratch("keydamage");
+  const std::filesystem::path dir = scratch.path() / "work";
   std::filesystem::create_directories(dir);
   const std::vector<Wide> keys = levelLikeKeys(20000, 31337);
   const std::filesystem::path whole = dir / "whole";
@@ -5116,8 +5115,8 @@ std::map<std::string, std::string> levelEndings(const std::filesystem::path& dir
 // compressed chunks, the same keys.
 TEST_CASE("sliding: a key set file of an earlier version is read, and written again",
           "[sliding]") {
-  const std::filesystem::path dir = scratchDir("keyolder");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("keyolder");
+  const std::filesystem::path dir = scratch.path() / "work";
   std::filesystem::create_directories(dir);
   for (const std::size_t count : {std::size_t{0}, std::size_t{1}, std::size_t{128},
                                   std::size_t{129}, std::size_t{200000}}) {
@@ -5221,9 +5220,9 @@ TEST_CASE("sliding: a key set file of an earlier version is read, and written ag
 // the path a search with no stops finds. With nested slides (the visited
 // sets) and without (the levels kept), from both ends and from one.
 TEST_CASE("sliding: a search saved by an earlier version is carried on, its files compressed",
-          "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slideolder");
-  std::filesystem::remove_all(dir);
+          "[sliding][resume][parallel][slow]") {
+  const ScratchDir scratch("slideolder");
+  const std::filesystem::path dir = scratch.path() / "work";
   const GridBoard g = settledBoard(37);
   const SlideFixture f = slideFixture(4, 5, kKlotski);
   struct Kind {
@@ -5450,8 +5449,8 @@ TEST_CASE("sliding: a search saved by an earlier version is carried on, its file
 // another.
 TEST_CASE("sliding: the levels' files compressed or not, the same search",
           "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidecompress");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidecompress");
+  const std::filesystem::path dir = scratch.path() / "work";
   const SlideFixture f = slideFixture(4, 5, kKlotski);
   SlideSearch straight;
   straight.oneEnd = true;
@@ -5512,9 +5511,9 @@ TEST_CASE("sliding: the levels' files compressed or not, the same search",
 // again, and the search is saved at its last whole level for a search of
 // the same start to carry on, wherever in its work the write failed.
 TEST_CASE("sliding: a search that cannot write a file is saved at its last whole level",
-          "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidewrite");
-  std::filesystem::remove_all(dir);
+          "[sliding][resume][parallel][slow]") {
+  const ScratchDir scratch("slidewrite");
+  const std::filesystem::path dir = scratch.path() / "work";
   const SlideFixture f = slideFixture(4, 5, kKlotski);
   SlideSearch straight;
   const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
@@ -5580,8 +5579,8 @@ TEST_CASE("sliding: a search that cannot write a file is saved at its last whole
 // are all still there. Without such a save there is nothing to keep.
 TEST_CASE("sliding: a search that cannot save itself is left as it was last saved",
           "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidefull");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidefull");
+  const std::filesystem::path dir = scratch.path() / "work";
   const SlideFixture f = slideFixture(4, 5, kKlotski);
   SlideSearch straight;
   const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
@@ -5666,8 +5665,8 @@ TEST_CASE("sliding: a search that cannot save itself is left as it was last save
 // next Continue could not read it.
 TEST_CASE("sliding: a state.bin whose write fails leaves the last good one",
           "[sliding][resume][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidestatefull");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidestatefull");
+  const std::filesystem::path dir = scratch.path() / "work";
   const SlideFixture f = slideFixture(4, 5, kKlotski);
   SlideSearch straight;
   const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
@@ -5755,8 +5754,8 @@ TEST_CASE("sliding: a state.bin whose write fails leaves the last good one",
 // those thinned out gone at once though the last save named them.
 TEST_CASE("sliding: the levels kept are thinned at half the disk budget",
           "[sliding][parallel]") {
-  const std::filesystem::path dir = scratchDir("slidethin");
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("slidethin");
+  const std::filesystem::path dir = scratch.path() / "work";
   const SlideFixture f = slideFixture(4, 5, kKlotski);
   auto search = [&] {
     SlideSearch s;
@@ -5806,7 +5805,8 @@ TEST_CASE("sliding: the levels kept are thinned at half the disk budget",
 // read of more than 2 GB (macOS reads no more than that at a time). About
 // 4 GB of disk, as much memory and a few minutes: hidden.
 TEST_CASE("sliding: a key set of more than 2^33 keys", "[.huge][sliding]") {
-  const std::filesystem::path dir = scratchDir("keyhuge");
+  const ScratchDir scratch("keyhuge");
+  const std::filesystem::path dir = scratch.path() / "work";
   std::filesystem::create_directories(dir);
   using Set = levels::KeySet<Wide>;
 

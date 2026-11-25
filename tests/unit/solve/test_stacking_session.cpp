@@ -6,6 +6,8 @@
 // search cannot hold, Just Count, and the progress.
 #include "../model/model_test_helpers.h"
 #include "file_size_limit.h"
+#include "../scratch_dir.h"
+#include "stacking_test_helpers.h"
 
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/base/stop.h"
@@ -29,7 +31,6 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <random>
 #include <set>
 #include <string>
 #include <thread>
@@ -38,37 +39,16 @@
 
 using namespace bt;
 using namespace bt::stacking;
+using bt::test::addSized;
+using bt::test::ScratchDir;
 
 namespace {
 
 // A work folder of this process's own for the saved searches (never a
 // fixed name, never the user's cache), removed at exit.
-class WorkDir {
- public:
-  WorkDir() {
-    std::random_device rd;
-    path = std::filesystem::temp_directory_path() /
-           ("bt_test_stacking_session_" + std::to_string(rd()) + "_" + std::to_string(rd()));
-    std::filesystem::create_directories(path);
-  }
-  ~WorkDir() {
-    std::error_code ec;
-    std::filesystem::remove_all(path, ec);
-  }
-  WorkDir(const WorkDir&) = delete;
-  WorkDir& operator=(const WorkDir&) = delete;
-  std::filesystem::path path;
-};
-
 std::string workDir() {
-  static const WorkDir w;
-  return w.path.string();
-}
-
-void addSized(Puzzle& puz, Problem& prob, unsigned int size) {
-  const unsigned int id = addDisk(puz, size);
-  prob.setShapeMaximum(puz, id, 1);
-  prob.setShapeMinimum(puz, id, 1);
+  static const ScratchDir w("stacking_session");
+  return w.path().string();
 }
 
 // The classic Panex swap of n discs a tower (test_stacking.cpp's).

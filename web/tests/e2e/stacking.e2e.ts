@@ -20,6 +20,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import {
+  attr,
   BUILT,
   command,
   counted,
@@ -86,10 +87,6 @@ function fileText(path: string): string {
 
 function tmpDir(): string {
   return mkdtempSync(join(tmpdir(), 'bt-e2e-stack-'));
-}
-
-async function attr(page: Page, sel: string, name: string): Promise<string> {
-  return (await page.getAttribute(sel, name)) ?? '';
 }
 
 /** Opens a puzzle file by its path (fixtures in folders too). */

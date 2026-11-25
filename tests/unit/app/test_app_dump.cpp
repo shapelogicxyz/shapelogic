@@ -430,6 +430,13 @@ bool isQuickFixture(const std::string& name) {
          name == "test_rotation_solvers_solved.xmpuzzle";
 }
 
+// The slowest of the others (about a minute at -O0, as long as all the
+// rest): a case of its own, so that ctest runs the rest beside it (cleanup
+// item 8.1).
+bool isSlowestFixture(const std::string& name) {
+  return name == "DraculasDentalDesaster.xmpuzzle";
+}
+
 }  // namespace
 
 TEST_CASE("app dump: meshes, status table, fit line and playback match the original",
@@ -441,5 +448,12 @@ TEST_CASE("app dump: the other fixtures match the original too",
           "[app][mesh][playback][dump][slow]") {
   // these hold the solutions read without orientations (PelikanBurr,
   // CubeInCage, ...): some poses are masked
-  CHECK(compareDumps([](const std::string& name) { return !isQuickFixture(name); }) > 0);
+  CHECK(compareDumps([](const std::string& name) {
+          return !isQuickFixture(name) && !isSlowestFixture(name);
+        }) > 0);
+}
+
+TEST_CASE("app dump: the slowest fixture matches the original too",
+          "[app][mesh][playback][dump][slow]") {
+  compareDumps(isSlowestFixture);
 }

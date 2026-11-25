@@ -6,6 +6,7 @@
 // of a disc edit keeps the stacks" (test_stacking.cpp).
 #include "app_test_helpers.h"
 #include "../model/model_test_helpers.h"
+#include "../scratch_dir.h"
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/playback.h"
@@ -31,7 +32,6 @@
 #include <iterator>
 #include <map>
 #include <optional>
-#include <random>
 #include <regex>
 #include <string>
 #include <vector>
@@ -39,26 +39,9 @@
 using namespace bt;
 using namespace bt::app;
 using test::openFixture;
+using bt::test::ScratchDir;
 
 namespace {
-
-// A folder of this test's own, removed at the end of the case.
-class Scratch {
- public:
-  Scratch() {
-    std::random_device rd;
-    path = std::filesystem::temp_directory_path() /
-           ("bt_test_document_stacking_" + std::to_string(rd()) + "_" + std::to_string(rd()));
-    std::filesystem::create_directories(path);
-  }
-  ~Scratch() {
-    std::error_code ec;
-    std::filesystem::remove_all(path, ec);
-  }
-  Scratch(const Scratch&) = delete;
-  Scratch& operator=(const Scratch&) = delete;
-  std::filesystem::path path;
-};
 
 SolveOptions findSolutions(const std::filesystem::path& work) {
   SolveOptions o;
@@ -111,7 +94,7 @@ Document swapDocument(unsigned int n, const std::filesystem::path& folder) {
 }  // namespace
 
 TEST_CASE("stacking document: a stacking problem solves and plays", "[app][stacking]") {
-  const Scratch work;
+  const ScratchDir work("document_stacking");
   // a disc whose hotspot is elsewhere has it at its center once solving
   // starts, as the GUI's Solve put it (cb_BtnCont's ensureHotspot)
   Puzzle hanoi = test::loadFixture("test_stacking_hanoi.xmpuzzle");
@@ -119,7 +102,7 @@ TEST_CASE("stacking document: a stacking problem solves and plays", "[app][stack
   Document d = Document::openBytes(io::writePuzzle(hanoi)).value();
   const Id p = d.problemIds().front();
   REQUIRE(d.puzzle().getShape(0).getHx() == 0);
-  REQUIRE(d.solveStart(p, findSolutions(work.path)).has_value());
+  REQUIRE(d.solveStart(p, findSolutions(work.path())).has_value());
   CHECK(d.puzzle().getShape(0).getHx() == 3);
   CHECK(d.puzzle().getShape(0).getHy() == 3);
   REQUIRE(d.solveWait(p).has_value());
@@ -141,12 +124,12 @@ TEST_CASE("stacking document: a stacking problem solves and plays", "[app][stack
 
 TEST_CASE("stacking document: a paused Panex solve exported and imported carries on",
           "[app][stacking][parallel][slow]") {
-  const Scratch work;
-  const std::filesystem::path here = work.path / "here";
-  const std::filesystem::path there = work.path / "there";
+  const ScratchDir work("document_stacking");
+  const std::filesystem::path here = work.path() / "here";
+  const std::filesystem::path there = work.path() / "there";
   Document d = openFixture("stacking/stack_panex_swap_5.xmpuzzle");
   const Id p = d.problemIds().front();
-  const std::filesystem::path file = work.path / "swap.slsolve";
+  const std::filesystem::path file = work.path() / "swap.slsolve";
 
   // nothing paused: refused
   CHECK(d.exportPaused(p, file, {here.string(), true}).error().code == Errc::InvalidState);
@@ -219,7 +202,7 @@ TEST_CASE("stacking document: a paused Panex solve exported and imported carries
   // saved search that was in the folder as it was, and nothing beside it
   // (decision 0041).
   {
-    const std::filesystem::path whole = work.path / "whole.slsolve";
+    const std::filesystem::path whole = work.path() / "whole.slsolve";
     REQUIRE(d.exportPaused(p, whole, {here.string(), true}).has_value());
     REQUIRE(Document::importPaused(whole, {}, there.string()).has_value());
     const Problem& pr = d.puzzle().getProblem(0);
@@ -234,7 +217,7 @@ TEST_CASE("stacking document: a paused Panex solve exported and imported carries
     const std::map<std::string, std::uintmax_t> before = listing();
     REQUIRE(before.contains("state.bin"));
     REQUIRE(before.contains("f0.lvl"));
-    const std::filesystem::path cut = work.path / "cut.slsolve";
+    const std::filesystem::path cut = work.path() / "cut.slsolve";
     std::filesystem::copy_file(whole, cut);
     std::filesystem::resize_file(cut, std::filesystem::file_size(cut) - 100);
     CHECK_FALSE(Document::importPaused(cut, {}, there.string()).has_value());
@@ -490,7 +473,7 @@ TEST_CASE("stacking document: discs are made and sized, not edited by cells",
 // byte.
 TEST_CASE("stacking document: Hanoi built through the commands, its stacks edited",
           "[app][stacking]") {
-  const Scratch work;
+  const ScratchDir work("document_stacking");
   Document d(GridKind::Stacking);
   const Id board = d.rodSetIds().front();
   std::vector<Id> discs;
@@ -528,7 +511,7 @@ TEST_CASE("stacking document: Hanoi built through the commands, its stacks edite
         test::withoutUids(io::writePuzzle(test::loadFixture("test_stacking_hanoi.xmpuzzle"))));
 
   // and it solves
-  REQUIRE(d.solveStart(p, findSolutions(work.path)).has_value());
+  REQUIRE(d.solveStart(p, findSolutions(work.path())).has_value());
   REQUIRE(d.solveWait(p).has_value());
   REQUIRE(d.puzzle().getProblem(0).getNumberOfSavedSolutions() == 1);
   CHECK(stacking::logicalMoves(*d.puzzle().getProblem(0).getSavedSolution(0).getDisassembly()) ==
@@ -576,10 +559,10 @@ TEST_CASE("stacking document: Hanoi built through the commands, its stacks edite
 // with it, nothing at all when that side is the position already, and
 // refused with the reason when it is no position of the discs.
 TEST_CASE("stacking document: a position becomes the start or the goal", "[app][stacking]") {
-  const Scratch work;
+  const ScratchDir work("document_stacking");
   Document d = openFixture("test_stacking_hanoi.xmpuzzle");
   const Id p = d.problemIds()[0];
-  REQUIRE(d.solveStart(p, findSolutions(work.path)).has_value());
+  REQUIRE(d.solveStart(p, findSolutions(work.path())).has_value());
   REQUIRE(d.solveWait(p).has_value());
   const Problem& pr = d.puzzle().getProblem(0);
   REQUIRE(pr.getNumberOfSavedSolutions() == 1);
@@ -643,13 +626,13 @@ TEST_CASE("stacking document: a position becomes the start or the goal", "[app][
 // (cb_RodField) and an emptied stacking (changeProblem) do; a disc's size,
 // a disc moved and a board chosen do not.
 TEST_CASE("stacking document: what drops the solutions follows the GUI", "[app][stacking]") {
-  const Scratch work;
+  const ScratchDir work("document_stacking");
   Document d = openFixture("stacking/stack_two_boards.xmpuzzle");
   const Id hanoi = d.rodSetIds()[0];
   const Id p1 = d.problemIds()[0];
   const Id p2 = d.problemIds()[1];
   for (const Id p : {p1, p2}) {
-    REQUIRE(d.solveStart(p, findSolutions(work.path)).has_value());
+    REQUIRE(d.solveStart(p, findSolutions(work.path())).has_value());
     REQUIRE(d.solveWait(p).has_value());
   }
   const auto saved = [&d](unsigned int problem) {
@@ -777,14 +760,14 @@ TEST_CASE("stacking document: a rod past the board's count is not on it", "[app]
 // paused one. Each problem's search is now its own.
 TEST_CASE("stacking document: identical problems have their own saved searches",
           "[app][stacking][parallel]") {
-  const Scratch work;
-  Document d = swapDocument(6, work.path);
+  const ScratchDir work("document_stacking");
+  Document d = swapDocument(6, work.path());
   const Id p1 = d.problemIds().front();
   const Result<Id> copy = d.duplicateProblem(p1);
   REQUIRE(copy.has_value());
   const Id p2 = *copy;
   CHECK(d.puzzle().getProblem(1).getUid() != d.puzzle().getProblem(0).getUid());
-  SolveOptions o = findSolutions(work.path / "panex");
+  SolveOptions o = findSolutions(work.path() / "panex");
   o.threads = 1;
   const std::string& folder = o.stacking.workDir;
 
@@ -822,7 +805,7 @@ TEST_CASE("stacking document: identical problems have their own saved searches",
 // search, so one run at a time works on it (Document::sharedSearchActive).
 TEST_CASE("stacking document: problems paused before uids share their saved search",
           "[app][stacking][parallel]") {
-  const Scratch work;
+  const ScratchDir work("document_stacking");
   Puzzle puz = swapPuzzle(6);
   Problem& copy = puz.getProblem(puz.addProblem(puz.getProblem(0)));
   copy.setName("twin");
@@ -836,7 +819,7 @@ TEST_CASE("stacking document: problems paused before uids share their saved sear
   Document& d = *opened;
   const Id p1 = d.problemIds()[0];
   const Id p2 = d.problemIds()[1];
-  SolveOptions o = findSolutions(work.path / "panex");
+  SolveOptions o = findSolutions(work.path() / "panex");
   o.threads = 1;
   const std::string& folder = o.stacking.workDir;
   const Problem& first = d.puzzle().getProblem(0);

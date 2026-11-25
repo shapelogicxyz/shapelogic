@@ -18,6 +18,7 @@ import type { ElectronApplication, Page } from '@playwright/test';
 import {
   answerDialogs,
   BUILT,
+  docOf,
   ENGINE,
   engineCall,
   engines,
@@ -25,18 +26,11 @@ import {
   launch,
   menu,
   nextWindow,
+  settled,
+  windowCount,
 } from './app.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
-
-interface Snap {
-  revision: number;
-  dirty: boolean;
-  path: string | null;
-  notes: string;
-}
-
-const docOf = (page: Page): Promise<Snap> => engineCall<Snap>(page, 'document.get');
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), 'bt-e2e-windows-'));
@@ -47,16 +41,6 @@ function copyOf(dir: string, name: string): string {
   const file = join(dir, name);
   copyFileSync(join(FIXTURES, name), file);
   return file;
-}
-
-async function settled(page: Page): Promise<void> {
-  await expect(page.locator('#stage')).toHaveAttribute('data-busy', '0');
-  await expect
-    .poll(async () => {
-      const snap = await docOf(page);
-      return Number(await page.getAttribute('#stage', 'data-revision')) >= snap.revision;
-    })
-    .toBe(true);
 }
 
 /** Opens a file in this window by its key (Ctrl+O), the open dialog answering it. */
@@ -84,10 +68,6 @@ async function closeWindowOf(app: ElectronApplication, page: Page): Promise<void
   await win.evaluate((w: Electron.BrowserWindow) => {
     w.close();
   });
-}
-
-function windowCount(app: ElectronApplication): Promise<number> {
-  return app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
 }
 
 test('New Window opens a window of its own; a file open in both is read-only in the second', async () => {

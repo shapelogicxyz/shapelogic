@@ -1,5 +1,7 @@
 node_modules/
 out/
+# builds of their own (BT_OUT_DIR: just app-e2e)
+out-*/
 dist/
 # the engine for the browser, copied from build/wasm by tools/build-demo.ts
 src/demo/engine/*

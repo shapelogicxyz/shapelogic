@@ -137,11 +137,15 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
   what the front end does with a puzzle depends on its grid, not on which
   puzzle it is. Add a file there only when its content takes the front end
   down a path the others do not, and say which.
-- The tests run side by side: ctest runs `bt_tests` in shards (`unit-N`,
-  `BT_TEST_SHARDS`, the cases shuffled with a fixed seed) beside the
-  contract suite, which runs its tests at once (`--jobs`); the e2e tests
-  run in E2E_WORKERS apps at once. So no test may depend on another's
-  order or files, and only the `timed` e2e project may assert on time.
+- The tests run side by side: ctest runs the quick `bt_tests` cases in
+  shards (`unit-N`, `BT_UNIT_SHARDS`, the cases shuffled with a fixed
+  seed), each `[slow]` case as a test of its own (`slow: <case>`; in the
+  TSan build each `[parallel]` one too), beside the contract suite, which
+  runs its tests at once (`--jobs`); the e2e tests run in E2E_WORKERS
+  apps at once. So no test may depend on another's
+  order or files, and only the `timed` e2e project may assert on time. A
+  unit test's temp folder is a `ScratchDir` (`tests/unit/scratch_dir.h`),
+  never a fixed name: other sessions' runs share the temp folder.
 - The Python module (`python/`, decision 0018): `python/tests/` (unittest;
   ctest `python` when the module is built, so `just test-all` runs it),
   the original's tests ported as they were plus new ones; the module

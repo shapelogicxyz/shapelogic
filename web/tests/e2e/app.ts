@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The app for the e2e tests: the build in out/ launched by Playwright's
-// Electron driver with the release engine (or BT_ENGINE), its window at a
+// The app for the e2e tests: the build in out/ (or BT_OUT_DIR, a folder
+// under web/ of the run's own) launched by Playwright's Electron driver
+// with the release engine (or BT_ENGINE; global-setup.ts runs a copy of
+// it, helpers/engine-path.ts), its window at a
 // fixed size and its data (the stored settings, the rescue copy) in a
 // directory of its own, and the UI actions the tests share (open a
 // fixture as File ▸ Open Recent does, a new puzzle by File ▸ New, pick a
@@ -19,6 +21,8 @@ import { join, resolve } from 'node:path';
 import { _electron as electron, expect } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
 
+import type { Snapshot } from '../../src/engine/api.generated.ts';
+import { testEngine } from '../helpers/engine-path.ts';
 import { fileName } from '../helpers/fixtures.ts';
 
 export const WEB = resolve(import.meta.dirname, '../..');
@@ -26,17 +30,24 @@ export const ROOT = resolve(WEB, '..');
 export const FIXTURES = resolve(ROOT, 'tests/data/puzzles');
 
 /** The engine the app runs, or null (the tests are skipped). */
-export const ENGINE: string | null = (() => {
-  const fromEnv = process.env.BT_ENGINE;
-  if (fromEnv !== undefined && fromEnv !== '') {
-    return resolve(fromEnv);
-  }
-  const path = resolve(ROOT, 'build/release/engine/shapelogic_engine');
-  return existsSync(path) ? path : null;
-})();
+export const ENGINE: string | null = testEngine();
+
+/**
+ * The app's build: out/, or BT_OUT_DIR (electron.vite.config.ts), so a run
+ * can test a build of its own while another session builds out/.
+ */
+export const OUT_DIR = resolve(
+  WEB,
+  process.env.BT_OUT_DIR !== undefined && process.env.BT_OUT_DIR !== ''
+    ? process.env.BT_OUT_DIR
+    : 'out',
+);
+
+/** The app's main script, the one every test launches. */
+export const APP_MAIN = resolve(OUT_DIR, 'main/index.js');
 
 /** Whether the app is built. */
-export const BUILT = existsSync(resolve(WEB, 'out/main/index.js'));
+export const BUILT = existsSync(APP_MAIN);
 
 /** The window's content size of every test (screenshots depend on it). */
 export const WINDOW = { width: 1500, height: 900 } as const;
@@ -122,13 +133,7 @@ export async function launch(
     '--disable-background-timer-throttling',
   ];
   const app = await electron.launch({
-    args: [
-      '--force-color-profile=srgb',
-      ...scale,
-      ...unthrottled,
-      resolve(WEB, 'out/main/index.js'),
-      ...(opts.args ?? []),
-    ],
+    args: ['--force-color-profile=srgb', ...scale, ...unthrottled, APP_MAIN, ...(opts.args ?? [])],
     cwd: WEB,
     env,
   });
@@ -454,6 +459,42 @@ export function counted(c: LoggedCall): boolean {
     !(c.method === 'document.saveBytes' && c.errc === 'invalid_state') &&
     !(c.method.startsWith('playback.') && c.errc === 'not_found')
   );
+}
+
+/** A folder of the test's own in the temp folder, and a call log's file in it (launch's callLog). */
+export function tmpLog(): { dir: string; log: string } {
+  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
+  return { dir, log: join(dir, 'calls.log') };
+}
+
+/** An element's attribute, '' when it has none. */
+export async function attr(page: Page, sel: string, name: string): Promise<string> {
+  return (await page.getAttribute(sel, name)) ?? '';
+}
+
+/** What the page's engine holds of its document (document.get). */
+export function docOf(page: Page): Promise<Snapshot> {
+  return engineCall<Snapshot>(page, 'document.get');
+}
+
+/**
+ * Waits until the workspace's edits are done (data-busy 0) and the page
+ * shows the engine's newest revision (or a newer one, should the engine
+ * move on between the two reads).
+ */
+export async function settled(page: Page): Promise<void> {
+  await expect(page.locator('#stage')).toHaveAttribute('data-busy', '0');
+  await expect
+    .poll(async () => {
+      const snap = await docOf(page);
+      return Number(await page.getAttribute('#stage', 'data-revision')) >= snap.revision;
+    })
+    .toBe(true);
+}
+
+/** The app's windows. */
+export function windowCount(app: ElectronApplication): Promise<number> {
+  return app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
 }
 
 /** The ids engineCall gives its calls, above any the page's proxy reaches. */

@@ -33,6 +33,7 @@ import type { Page } from '@playwright/test';
 
 import {
   answerDialogs,
+  attr,
   BUILT,
   command,
   counted,
@@ -48,6 +49,7 @@ import {
   settle,
   SHAPE_ROWS,
   shapes,
+  tmpLog,
 } from './app.ts';
 import { clickCell, settled, shapeGet } from './editor.ts';
 import { currentProblem, definition, problemGet, pzSettled } from './puzzle.ts';
@@ -76,15 +78,6 @@ interface Tray {
   starts: (string | null)[];
   goals: (string | null)[];
   error: string | null;
-}
-
-function tmpLog(): { dir: string; log: string } {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
-  return { dir, log: join(dir, 'calls.log') };
-}
-
-async function attr(page: Page, sel: string, name: string): Promise<string> {
-  return (await page.getAttribute(sel, name)) ?? '';
 }
 
 /** Opens a puzzle file by its path (fixtures in folders too). */
@@ -1435,7 +1428,7 @@ test('optimized paths: asked about before a solve, the full search offered when 
       { problem: p },
     );
     expect(stored.solverSettings.optimizedPaths).toBe(true);
-    const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
+    const bad = readCallLog(log).filter(counted);
     expect(bad).toEqual([]);
   } finally {
     await a.close();
@@ -1698,7 +1691,7 @@ test('Performance Analysis: the moves’ times and the estimates while a sliding
     await page.locator('#confirm [data-x="ok"]').click();
     await runEnded(page, 'idle');
     await expect(perf).toHaveCount(0);
-    const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
+    const bad = readCallLog(log).filter(counted);
     expect(bad).toEqual([]);
   } finally {
     await a.close();

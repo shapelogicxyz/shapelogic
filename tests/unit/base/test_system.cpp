@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "../scratch_dir.h"
+
 #include "shapelogic/base/system.h"
 #include "shapelogic/solve/sliding_search.h"
 
@@ -12,6 +14,7 @@ using bt::DiskBudget;
 using bt::diskBudgetFor;
 using bt::diskBudgetReason;
 using bt::kAutoDiskBudgetMax;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -20,8 +23,8 @@ constexpr std::uint64_t kGB = 1000000000ULL;
 }  // namespace
 
 TEST_CASE("system: the free disk of an existing folder can be read", "[base][system]") {
-  const std::optional<std::uint64_t> free =
-      bt::availableDiskBytes(std::filesystem::temp_directory_path());
+  const ScratchDir dir("system_disk");
+  const std::optional<std::uint64_t> free = bt::availableDiskBytes(dir.path());
   REQUIRE(free.has_value());
   CHECK(*free > 0);
 }
@@ -31,7 +34,8 @@ TEST_CASE("system: the free disk of an existing folder can be read", "[base][sys
 // by the free space alone.
 TEST_CASE("system: no budget asked for is half the free space, at most 200 GB",
           "[base][system]") {
-  const std::filesystem::path dir = std::filesystem::temp_directory_path();
+  const ScratchDir scratch("system_budget");
+  const std::filesystem::path& dir = scratch.path();
   const DiskBudget b = diskBudgetFor(dir, 0);
   REQUIRE(b.free.has_value());
   CHECK(b.automatic);
@@ -45,7 +49,8 @@ TEST_CASE("system: no budget asked for is half the free space, at most 200 GB",
 }
 
 TEST_CASE("system: a budget asked for is given, but held to the free space", "[base][system]") {
-  const std::filesystem::path dir = std::filesystem::temp_directory_path();
+  const ScratchDir scratch("system_budget");
+  const std::filesystem::path& dir = scratch.path();
   const DiskBudget small = diskBudgetFor(dir, 1000);
   CHECK_FALSE(small.automatic);
   CHECK_FALSE(small.heldToFree);

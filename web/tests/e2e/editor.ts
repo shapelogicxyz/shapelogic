@@ -9,7 +9,10 @@
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { engineCall } from './app.ts';
+import { engineCall, settled } from './app.ts';
+
+// app.ts's, for the specs that take the editor's helpers from here
+export { settled };
 
 export type Cell = [number, number, number];
 
@@ -86,23 +89,6 @@ async function pointOf(page: Page, at: Cell): Promise<{ x: number; y: number }> 
     throw new Error(`no cell ${at.join(',')} in the layer shown`);
   }
   return p;
-}
-
-/**
- * Waits until the workspace's edits are done (data-busy 0) and the page
- * shows the engine's newest revision.
- */
-export async function settled(page: Page): Promise<void> {
-  await expect(page.locator('#stage')).toHaveAttribute('data-busy', '0');
-  await expect
-    .poll(async () => {
-      const snap = await engineCall<{ revision: number }>(page, 'document.get');
-      return page.evaluate(
-        (rev) => document.getElementById('stage')?.dataset.revision === String(rev),
-        snap.revision,
-      );
-    })
-    .toBe(true);
 }
 
 /** Clicks a cell of the grid (a stroke of one cell), with a button and modifiers. */

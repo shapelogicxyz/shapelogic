@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { BUILT, ENGINE, engineCall, launch, newDocument, readCallLog } from './app.ts';
+import { BUILT, counted, ENGINE, engineCall, launch, newDocument, readCallLog } from './app.ts';
 import { selected, settled } from './editor.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
@@ -197,7 +197,7 @@ test('the shapes list', async () => {
     await expect(page.locator('#shapeList')).toBeVisible();
 
     // the refused rename is the only refusal
-    const refused = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
+    const refused = readCallLog(log).filter(counted);
     expect(refused.map((c) => `${c.method} ${c.errc ?? ''}`)).toEqual([
       'shape.rename invalid_argument',
     ]);

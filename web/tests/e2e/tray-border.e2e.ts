@@ -6,10 +6,10 @@
 // of the board: the Shapes tab's 3D view, the Puzzle tab's two trays, the
 // Play tab's tray and round the Solver's pieces; kept by the file.
 
-import { crc32, deflateSync } from 'node:zlib';
-
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+
+import { rgbPng } from '../helpers/png.ts';
 
 import { BUILT, ENGINE, engineCall, launch, openFixture, selectShape, shapes } from './app.ts';
 import { settled } from './editor.ts';
@@ -21,29 +21,7 @@ test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run buil
 
 /** A w x h PNG: red on the left half, blue on the right. */
 function png(w: number, h: number): Buffer {
-  const chunk = (name: string, data: Buffer): Buffer => {
-    const len = Buffer.alloc(4);
-    len.writeUInt32BE(data.length);
-    const body = Buffer.concat([Buffer.from(name, 'ascii'), data]);
-    const crc = Buffer.alloc(4);
-    crc.writeUInt32BE(crc32(body));
-    return Buffer.concat([len, body, crc]);
-  };
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(w, 0);
-  ihdr.writeUInt32BE(h, 4);
-  ihdr[8] = 8; // bits
-  ihdr[9] = 2; // RGB
-  const row = Buffer.alloc(1 + 3 * w);
-  for (let x = 0; x < w; x++) {
-    row[1 + 3 * x + (x < w / 2 ? 0 : 2)] = 255;
-  }
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(Buffer.concat(Array.from({ length: h }, () => row)))),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
+  return rgbPng(w, h, (x) => (x < w / 2 ? [255, 0, 0] : [0, 0, 255]));
 }
 
 interface Border {

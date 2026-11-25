@@ -22,6 +22,7 @@ add_library(btcore STATIC
   shapelogic/base/solve_state.cpp
   shapelogic/base/system.cpp
   shapelogic/base/thread_pool.cpp
+  shapelogic/base/version.cpp
   shapelogic/grid/cairo_lattice.cpp
   shapelogic/grid/grid_type.cpp
   shapelogic/grid/symmetries_0.cpp
@@ -108,8 +109,21 @@ add_library(btcore STATIC
   shapelogic/solve/stack_search.cpp
   shapelogic/solve/take_apart_pool.cpp)
 
+# The list above is kept by hand; every source under shapelogic/ must be in
+# it (cleanup item 8.6: a file left out is never built, tested or checked).
+file(GLOB_RECURSE bt_core_found CONFIGURE_DEPENDS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+     shapelogic/*.cpp)
+get_target_property(bt_core_listed btcore SOURCES)
+foreach(src IN LISTS bt_core_found)
+  if(NOT src IN_LIST bt_core_listed)
+    message(FATAL_ERROR "core/${src} is not in btcore's source list (core/CMakeLists.txt)")
+  endif()
+endforeach()
+
 target_include_directories(btcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(btcore PUBLIC BT_VERSION_STRING="${PROJECT_VERSION}")
+# The version reaches only version.cpp: a new tag recompiles one file.
+set_source_files_properties(shapelogic/base/version.cpp PROPERTIES
+  COMPILE_DEFINITIONS BT_VERSION_STRING="${PROJECT_VERSION}")
 target_compile_features(btcore PUBLIC cxx_std_23)
 target_link_libraries(btcore PRIVATE ZLIB::ZLIB manifold::manifold libzstd_static)
 if(APPLE)

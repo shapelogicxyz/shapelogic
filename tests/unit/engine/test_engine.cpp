@@ -5,6 +5,7 @@
 #include "engine.h"
 #include "output.h"
 #include "rpc.h"
+#include "../scratch_dir.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -15,7 +16,6 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
-#include <random>
 #include <sstream>
 #include <thread>
 #include <string>
@@ -23,6 +23,7 @@
 
 using namespace bt;
 using namespace bt::engine;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -332,17 +333,8 @@ TEST_CASE("engine: a solve's events, polled while it runs", "[engine][parallel]"
 TEST_CASE("engine: a stacking solve's events, polled while it runs, paused and carried on",
           "[engine][parallel]") {
   // a Panex folder of the test's own (never the user's cache)
-  std::random_device rd;
-  const std::filesystem::path work =
-      std::filesystem::temp_directory_path() /
-      ("bt_test_engine_panex_" + std::to_string(rd()) + "_" + std::to_string(rd()));
-  struct Remove {
-    std::filesystem::path path;
-    ~Remove() {
-      std::error_code ec;
-      std::filesystem::remove_all(path, ec);
-    }
-  } remove{work};
+  const ScratchDir scratch("engine_panex");
+  const std::filesystem::path& work = scratch.path();
   Harness h;
   h.result("settings.set", {{"panexFolder", work.string()}});
   const Json snap =
@@ -414,17 +406,8 @@ TEST_CASE("engine: a stacking solve's events, polled while it runs, paused and c
 // be written solves.
 TEST_CASE("engine: shared search memory, and a search folder that cannot be written",
           "[engine]") {
-  std::random_device rd;
-  const std::filesystem::path work =
-      std::filesystem::temp_directory_path() /
-      ("bt_test_engine_folder_" + std::to_string(rd()) + "_" + std::to_string(rd()));
-  struct Remove {
-    std::filesystem::path path;
-    ~Remove() {
-      std::error_code ec;
-      std::filesystem::remove_all(path, ec);
-    }
-  } remove{work};
+  const ScratchDir scratch("engine_folder");
+  const std::filesystem::path& work = scratch.path();
   std::filesystem::create_directories(work);
   const std::filesystem::path file = work / "not-a-folder";
   { std::ofstream(file) << "x"; }
@@ -464,17 +447,8 @@ TEST_CASE("engine: the log line of a Continue without options names the paused s
           "[engine]") {
   // solve.continue without options carries a solve paused in memory on as
   // it ran: its log line names those options, not the defaults
-  std::random_device rd;
-  const std::filesystem::path work =
-      std::filesystem::temp_directory_path() /
-      ("bt_test_engine_continue_log_" + std::to_string(rd()) + "_" + std::to_string(rd()));
-  struct Remove {
-    std::filesystem::path path;
-    ~Remove() {
-      std::error_code ec;
-      std::filesystem::remove_all(path, ec);
-    }
-  } remove{work};
+  const ScratchDir scratch("engine_continue_log");
+  const std::filesystem::path& work = scratch.path();
   std::filesystem::create_directories(work);
   const std::filesystem::path file = work / "not-a-folder";
   { std::ofstream(file) << "x"; }
@@ -640,17 +614,8 @@ TEST_CASE("engine: solve.abort is the stop of a solve under way", "[engine]") {
 }
 
 TEST_CASE("engine: solve.abort throws away a paused solve from a file", "[engine]") {
-  std::random_device rd;
-  const std::filesystem::path path =
-      std::filesystem::temp_directory_path() /
-      ("bt_test_engine_abort_" + std::to_string(rd()) + "_" + std::to_string(rd()) + ".xmpuzzle");
-  struct Remove {
-    std::filesystem::path path;
-    ~Remove() {
-      std::error_code ec;
-      std::filesystem::remove(path, ec);
-    }
-  } remove{path};
+  const ScratchDir scratch("engine_abort");
+  const std::filesystem::path path = scratch.path() / "engine_abort.xmpuzzle";
   Harness h;
   h.result("document.new", {{"grid", "bricks"}});
   const std::string box = h.result("shape.create", {{"size", {2, 1, 1}}})["shape"];

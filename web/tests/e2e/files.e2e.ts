@@ -33,18 +33,22 @@ import {
 } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
+import type { Snapshot } from '../../src/engine/api.generated.ts';
+import { CLOSE_TAKEN_MS } from '../../src/main/renderer-watch.ts';
 import { fileName, SWEEP } from '../helpers/fixtures.ts';
 import {
   answerDialogs,
+  APP_MAIN,
   appOf,
   BUILT,
   command,
   counted,
+  docOf,
   ENGINE,
   engineCall,
   engines,
@@ -54,23 +58,12 @@ import {
   menuItem,
   openFixture,
   readCallLog,
-  WEB,
+  settled,
+  windowCount,
 } from './app.ts';
 import { dominoBox, runButton, runEnded, solverSettled, toSolver } from './solver.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
-
-interface Snap {
-  revision: number;
-  dirty: boolean;
-  grid: string;
-  path: string | null;
-  notes: string;
-  shapes: { id: string; name: string }[];
-  problems: { id: string; saved: number; state: string; solve: string }[];
-}
-
-const docOf = (page: Page): Promise<Snap> => engineCall<Snap>(page, 'document.get');
 
 /** A directory of the test's own. */
 function tmp(): string {
@@ -111,21 +104,6 @@ async function changes(page: Page): Promise<unknown[]> {
 }
 
 /** Waits until nothing is under way and the page shows the engine's revision. */
-async function settled(page: Page): Promise<void> {
-  await expect(page.locator('#stage')).toHaveAttribute('data-busy', '0');
-  await expect
-    .poll(async () => {
-      const snap = await docOf(page);
-      return Number(await page.getAttribute('#stage', 'data-revision')) >= snap.revision;
-    })
-    .toBe(true);
-}
-
-/** The app's windows. */
-function windowCount(page: Page): Promise<number> {
-  return appOf(page).evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
-}
-
 /** Closes the window as its close button does. */
 async function closeTheWindow(page: Page): Promise<void> {
   await appOf(page).evaluate(({ BrowserWindow }) => {
@@ -383,7 +361,7 @@ test('an engine killed after edits: restarted, the rescue copy offered and reope
         '\n',
       encoding: 'utf8',
     });
-    const snap = (JSON.parse(reread.stdout.split('\n')[0] ?? '{}') as { result: Snap }).result;
+    const snap = (JSON.parse(reread.stdout.split('\n')[0] ?? '{}') as { result: Snapshot }).result;
     expect(snap.notes).toBe('rescued notes');
     expect(snap.shapes.length).toBe(before.shapes.length + 1);
   } finally {
@@ -486,7 +464,8 @@ test('the window’s close asks about unsaved changes: Cancel keeps it, Save sav
     await expect(ask).toContainText('Bermuda.xmpuzzle');
     await ask.locator('[data-x="cancel"]').click();
     await expect(ask).toHaveCount(0);
-    await page.waitForTimeout(4500); // longer than the main process waits for a close to be taken
+    // longer than the main process waits for a close to be taken
+    await page.waitForTimeout(CLOSE_TAKEN_MS + 500);
     expect(await windows()).toBe(1);
     expect(await boxes()).toBe(0);
     await expect(page.locator('#stage')).toHaveAttribute('data-dirty', '1');
@@ -754,7 +733,7 @@ test('a save while solving at a save point; the paused solver state exported and
         '\n',
       encoding: 'utf8',
     });
-    const saved = (JSON.parse(out.stdout.split('\n')[0] ?? '{}') as { result: Snap }).result;
+    const saved = (JSON.parse(out.stdout.split('\n')[0] ?? '{}') as { result: Snapshot }).result;
     expect(saved.problems.find((p) => p.state === 'solving')).toBeDefined();
 
     // Export ▸ Paused Solver State: refused while it runs, offered once paused
@@ -967,7 +946,7 @@ test('the rescue copy is kept until its offer is answered: another death, the wi
     await rescued(page);
     await killForOffer(page);
     await closeTheWindow(page);
-    await expect.poll(() => windowCount(page)).toBe(0);
+    await expect.poll(() => windowCount(appOf(page))).toBe(0);
     expect(existsSync(copy)).toBe(true);
   } finally {
     await a.close();
@@ -977,7 +956,7 @@ test('the rescue copy is kept until its offer is answered: another death, the wi
   try {
     await expect(b.page.locator('#rescueAsk')).toContainText('did not close properly');
     await closeTheWindow(b.page);
-    await expect.poll(() => windowCount(b.page)).toBe(0);
+    await expect.poll(() => windowCount(appOf(b.page))).toBe(0);
     expect(existsSync(copy)).toBe(true);
   } finally {
     await b.close();
@@ -1020,11 +999,11 @@ test('a window closed while the engine cannot run keeps the rescue copy, and say
     await expect(ask).toContainText('the engine is not running');
     await ask.locator('[data-x="cancel"]').click();
     await expect(ask).toHaveCount(0);
-    expect(await windowCount(page)).toBe(1);
+    expect(await windowCount(appOf(page))).toBe(1);
     // Close: the window goes, the copy stays for the next start
     await closeTheWindow(page);
     await ask.locator('[data-x="drop"]').click();
-    await expect.poll(() => windowCount(page)).toBe(0);
+    await expect.poll(() => windowCount(appOf(page))).toBe(0);
     expect(existsSync(join(a.userData, '__rescue.xmpuzzle'))).toBe(true);
   } finally {
     await a.close();
@@ -1053,7 +1032,7 @@ test('a quit asked about: Cancel keeps the app; a close of the window meanwhile 
     await expect(ask).toHaveCount(0);
     await page.waitForTimeout(500);
     expect(app.exited).toBe(false);
-    expect(await windowCount(page)).toBe(1);
+    expect(await windowCount(appOf(page))).toBe(1);
     // Cmd+Q again; the window's close button pressed while it asks; Don't Save: the app quits
     await a.app.evaluate(({ app: electron }) => {
       electron.quit();
@@ -1098,7 +1077,7 @@ test('a close whose save does not end: another close asks natively, and the wind
     // the close button again: no question on screen takes it, so the main
     // process asks natively a few seconds later
     await closeTheWindow(page);
-    await expect.poll(() => windowCount(page), { timeout: 10_000 }).toBe(0);
+    await expect.poll(() => windowCount(appOf(page)), { timeout: 10_000 }).toBe(0);
     expect(await app.evaluate(() => (globalThis as unknown as { boxes: number }).boxes)).toBe(1);
     // the page did not end its close: the copy stays for the next start
     expect(existsSync(join(a.userData, '__rescue.xmpuzzle'))).toBe(true);
@@ -1186,7 +1165,7 @@ test('a second start while the app runs hands its file over and quits: the copy 
     env.BT_USER_DATA = userData;
     env.BT_ENGINE = ENGINE ?? '';
     const electron = createRequire(import.meta.url)('electron') as string;
-    const second = spawn(electron, [resolve(WEB, 'out/main/index.js'), other], {
+    const second = spawn(electron, [APP_MAIN, other], {
       env,
       stdio: 'ignore',
     });

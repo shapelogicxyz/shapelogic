@@ -5,6 +5,7 @@
 // gzip they need.
 #include "app_test_helpers.h"
 #include "../model/model_test_helpers.h"
+#include "../scratch_dir.h"
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/io/gzip_file.h"
@@ -25,6 +26,7 @@
 using namespace bt;
 using namespace bt::app;
 using test::openFixture;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -227,7 +229,8 @@ TEST_CASE("gzip in memory: as the files are written", "[io]") {
   CHECK(io::gunzipIfCompressed(text).value() == text);
   CHECK(io::gunzipIfCompressed("").value().empty());
   CHECK(io::gunzipIfCompressed(z.substr(0, z.size() / 2)).error().code == Errc::ParseError);
-  const std::filesystem::path tmp = std::filesystem::temp_directory_path() / "bt_gzip.gz";
+  const ScratchDir scratch("gzip");
+  const std::filesystem::path tmp = scratch.path() / "gzip.gz";
   REQUIRE(io::writeGzipFile(tmp, text).has_value());
   CHECK(fileBytes(tmp) == z);
   // what inflates past the limit is refused, in memory and from a file: a
@@ -257,7 +260,8 @@ TEST_CASE("gzip in memory: as the files are written", "[io]") {
 TEST_CASE("paused solves: BTSOLVE2 both ways", "[io][app][analysis]") {
   Document d = dominoBox();
   const Id p = firstProblem(d);
-  const std::filesystem::path file = std::filesystem::temp_directory_path() / "bt_paused.slsolve";
+  const ScratchDir scratch("paused");
+  const std::filesystem::path file = scratch.path() / "paused.slsolve";
   CHECK(d.exportPaused(p, file).error().code == Errc::InvalidState);  // nothing paused
   REQUIRE(d.solvePrepare(p, SolveOptions{}).has_value());
   REQUIRE(d.solveWait(p).has_value());

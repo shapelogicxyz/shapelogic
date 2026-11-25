@@ -6,7 +6,9 @@
 # `just gate unit oracle` (only those groups), `just gate all` (every group).
 # A suite that fails does not stop the run. Each suite's output is kept in
 # build/gate/<nn>-<name>.log, the table in build/gate/summary.txt; the exit
-# code is 1 when a suite failed.
+# code is 1 when a suite failed. GATE_OUT names another folder for the
+# logs and the table (two gates at once each need their own: the gate
+# empties its folder first).
 #
 #   build       the dev and release presets
 #   unit        just test-all, on both presets (the release one twice: a
@@ -54,7 +56,7 @@ for g in $groups; do
 done
 wanted() { case " $groups " in *" $1 "*) return 0 ;; esac; return 1; }
 
-OUT=build/gate
+OUT="${GATE_OUT:-build/gate}"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 SUMMARY="$OUT/summary.txt"

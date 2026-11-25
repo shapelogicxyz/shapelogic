@@ -170,7 +170,7 @@ again, and comes last.
 - [x] Checkpoint C (Fable; needed, decided by checkpoint B): review of stage 5
 - [x] Stage 6: renderer bugs (6.4 leaves the log menu, with its reason)
 - [x] Stage 7: main-process bugs
-- [ ] Stage 8: test and build speed; tests that cannot clash
+- [x] Stage 8: test and build speed; tests that cannot clash
 - [ ] Checkpoint D (Fable): review of stage 8
 - [ ] Stage 9: CI and release pipeline
 - [ ] Stage 10: front-end speed and memory
@@ -3086,7 +3086,7 @@ Done (2026-11-25), the whole stage:
 
 ## Stage 8: test and build speed; tests that cannot clash
 
-- [ ] **8.1 Balance the test shards** (speed; S) ✓
+- [x] **8.1 Balance the test shards** (speed; S) ✓
   - *Where:* `tests/CMakeLists.txt` (79-89) makes eight shards of `"~[slow]"`
     and eight of `"[slow]"`, each a slice of the shuffled case list.
     `justfile:32`: test-tsan runs one unsharded process.
@@ -3114,8 +3114,42 @@ Done (2026-11-25), the whole stage:
   - *Verify:* run `just test-all` twice and write the wall times before and
     after in the Done line. Run `just test-asan` once as well. It is long, so
     say so before it starts, and run nothing heavy beside it.
+  - Done (2026-11-25): each `[slow]` case is a ctest test of its own,
+    `slow: <case>` (Catch2 3.16's `catch_discover_tests`, `DISCOVERY_MODE
+    PRE_TEST` so a build never runs `bt_tests`; label `slow`; time limit
+    1200 s times the scale; Catch.cmake from the fetched source's
+    `extras/`, or beside an installed Catch2's config). The quick cases run
+    in 24 shards; the cache variable is renamed `BT_UNIT_SHARDS`, so build
+    folders that cached `BT_TEST_SHARDS=8` take the new default. The
+    longest cases (`--durations`, alone at -O0): shape 0 of
+    12PieceSeparation's STL takes about 120 s alone, so "stl dump: the
+    large fixture shapes" is split (that file in a case of its own, "the
+    largest fixture's shapes"; the other three files stay); the app dump's
+    DraculasDentalDesaster (56 s of the case's 93 s) is a case of its own
+    ("the slowest fixture"; the other case keeps the check that some poses
+    are masked, which comes from PelikanBurr and CubeInCage). Two quick
+    cases took 16 s each alone (13 s of it system time, the saved search's
+    file writes) and 80 s beside the shards, setting `just test`'s length:
+    "sliding: a search saved by an earlier version is carried on, its
+    files compressed" and "sliding: a search that cannot write a file is
+    saved at its last whole level" are tagged `[slow]` (AGENTS.md: cases
+    over about a second). `test-tsan` runs the `[parallel]` cases as
+    tests of their own too (`parallel: <case>`, registered only when
+    `BT_SANITIZE` has `thread`; `ctest --preset tsan -L parallel -j`).
+    Cases: 858 before, 860 after (the two splits); `[slow]` 41, now 45;
+    ctest -N (dev): 22 before (8 + 8 shards, six suites), 75 after (24 +
+    45 + the same six). The shuffle seed is kept; `just test` still runs
+    `-LE slow`.
+    Wall times of `just test-all` (dev, `ctest -j 10`, nothing beside):
+    before 290 s and 293 s; after, 287 s (the first run, no cost data for
+    the new tests: the 146 s stl case started last), 235 s (8 old shards
+    left in the cache), 283 s (after the dump splits, the new cases again
+    without cost data) and 227 s (steady). The floor now is that one
+    shape's mesh: 120 s alone, 227 s beside the rest (the case lands on an
+    efficiency core). `just test` (quick): 71 s, was 109 to 140 s.
+    `just test-asan` and `just test-tsan`: see the stage's Done lines.
 
-- [ ] **8.2 A new tag recompiles every file** (speed; S)
+- [x] **8.2 A new tag recompiles every file** (speed; S)
   - *Where:*
     - `core/CMakeLists.txt:112`:
       `target_compile_definitions(btcore PUBLIC BT_VERSION_STRING="${PROJECT_VERSION}")`;
@@ -3137,8 +3171,19 @@ Done (2026-11-25), the whole stage:
   - *Verify:* in a scratch build folder, change the version input (see
     `ProjectVersion.cmake` for an override; never make a git tag) and check
     that one file recompiles.
+  - Done (2026-11-25): `core/shapelogic/base/version.cpp` holds
+    `bt::versionString()`; the define is set on that file alone
+    (`set_source_files_properties(… COMPILE_DEFINITIONS …)`); `version.h`
+    declares the function, and the six users call it (`cli/options.cpp`,
+    `engine/main.cpp`, `engine/methods_engine.cpp`, `engine/app_log.cpp`,
+    which the item did not list, `python/src/module.cpp`,
+    `test_error.cpp`). `compile_commands.json` of build/dev holds the
+    define once. Checked in a scratch build folder (Release, tests off):
+    after a whole build, `SHAPELOGIC_VERSION=v9.9` reconfigured and the
+    build ran 5 steps: `version.cpp`, the library and three links; the
+    engine and the CLI then say 9.9.0. ARCHITECTURE.md's base map line.
 
-- [ ] **8.3 One scratch-folder helper for the C++ tests** (stability, combine; S)
+- [x] **8.3 One scratch-folder helper for the C++ tests** (stability, combine; S)
   - *Where:*
     - 26 fixed folder names in the shared temp folder:
       - `tests/unit/solve/test_sliding_session.cpp` (15
@@ -3172,8 +3217,26 @@ Done (2026-11-25), the whole stage:
   - *Verify:* `grep -rn temp_directory_path tests/unit` matches only
     `scratch_dir.h`. `just test-all` passes while a second `bt_tests` from
     another build folder runs at the same time.
+  - Done (2026-11-25): `tests/unit/scratch_dir.h`: `bt::test::ScratchDir`
+    (`<temp>/bt_test_<tag>-<pid>-<8 hex digits>`, made on construction,
+    drawn again when the name is taken, removed in the destructor with
+    errors ignored; `_getpid` on Windows). Every fixed name and every
+    helper of the item uses it, and three more the item did not list:
+    `test_search_folders.cpp` (the listener holds an
+    `optional<ScratchDir>`), `test_imports.cpp` and `test_system.cpp`
+    (the disk queries read a scratch folder instead of the temp folder).
+    Where a test relied on its folder not being there yet (the sliding
+    searches make their own), it uses `scratch.path() / "work"`. The three
+    `addSized` copies are one, `tests/unit/solve/stacking_test_helpers.h`.
+    `grep -rn temp_directory_path tests/unit` matches only
+    `scratch_dir.h`. `just test-all` (dev) passed 75 of 75 while
+    `build/release/tests/bt_tests "~[slow]"` ran beside it; that release
+    run failed one case, "solve session: a save point while draining
+    finishes the solve" (`CHECK(landed)`, a timing check of the 8.8 kind:
+    20 processes on 10 cores; the case uses no folder): left for a later
+    stage, see 8.8.
 
-- [ ] **8.4 Long test runs use live binaries and folders that other sessions rebuild** (stability; M)
+- [x] **8.4 Long test runs use live binaries and folders that other sessions rebuild** (stability; M)
   - *Where:*
     - `web/package.json:22-27`: `build`, `e2e`, `e2e-timed`, `dist` and
       `docs-shots` all rewrite `web/out`.
@@ -3209,8 +3272,44 @@ Done (2026-11-25), the whole stage:
        builds of one preset wait for each other.
   - *Verify:* `just build release` while a vitest engine run goes; both
     pass.
+  - Done (2026-11-25):
+    1. `web/tests/helpers/engine-path.ts`: `testEngine()` (BT_ENGINE, else
+       the release build's) and `useRunCopyOfEngine()`, which copies it into
+       a temp folder, points BT_ENGINE at the copy and returns its removal.
+       The vitest global setup (`tests/global-setup.ts`) and the e2e one
+       (`tests/e2e/global-setup.ts`, its teardown returned) call it; a
+       missing engine is not copied, so the tests skip or fail as before
+       (BT_REQUIRE_ALL unchanged).
+    2. `electron.vite.config.ts` takes `BT_OUT_DIR` (a folder name under
+       web/, refused if it is a path: the main process finds web/ as the
+       folder above its own). `web/tests/e2e/app.ts` exports `OUT_DIR` and
+       `APP_MAIN`, used by `launch`, `BUILT` and `files.e2e.ts`'s second
+       app. `just app-e2e`, `just app-e2e-timed` and `just
+       docs-screenshots` build into `web/out-e2e-<pid>` (`out-docs-<pid>`)
+       and remove it at the end; `out-*/` is ignored by git, ESLint and
+       Prettier. A plain `npm run build` still writes `out/`.
+    3. `oracle.py`: a run's outputs and search folders go to
+       `work/run-<pid>` (removed when the run passes, named on stderr when
+       it fails) or `--work DIR` (kept; before or after the command).
+       What the baselines record for later runs stays in `work/`
+       (`work/old*`, `work/text-old*`). `build_against_old` builds a
+       driver once into `work/tools/<name>-<hash>` (the source, the files
+       of this repo it includes, the compile command, and the size and
+       time of the original's libraries), compiled under a name of the
+       run's own and renamed into place. tests/oracle/README.md says so.
+    4. `tests/gate.sh` takes `GATE_OUT` (default `build/gate`); the site's
+       testing page says so.
+    5. `just build` takes `build/<preset>.lock` (mkdir; the holder's pid
+       inside; a lock whose holder is gone, or that has no pid after a
+       minute, is taken over). Two `just build release` at once: the
+       second said "waiting for another build of release" and then found
+       nothing to do; a stale lock (a dead pid) was taken over. A race is
+       left: two waiters taking over one stale lock at the same moment can
+       both build (a stale lock needs a build killed with SIGKILL).
+    Verify: `npm test` (647 of 647) passed while two `just build release`
+    ran, one relinking the engine.
 
-- [ ] **8.5 One set of e2e helpers** (stability, combine; S)
+- [x] **8.5 One set of e2e helpers** (stability, combine; S)
   - *Where:*
     - `settled` at `web/tests/e2e/editor.ts:95`, `files.e2e.ts:113`,
       `keymap.e2e.ts:94` and `windows.e2e.ts:52` (`===` in some, `>=` in
@@ -3239,8 +3338,30 @@ Done (2026-11-25), the whole stage:
     - Use `counted` at the five places.
     - Export `CLOSE_TAKEN_MS` and derive the sleep from it (plus 500 ms).
   - *Verify:* run each touched spec on its own.
+  - Done (2026-11-25): `web/tests/e2e/app.ts` exports `settled` (the
+    `>=` form: the page may show a newer revision than the engine said a
+    moment before), `docOf` (the API's `Snapshot`), `attr`, `tmpLog` and
+    `windowCount(app)`; `editor.ts` re-exports `settled` for its
+    importers. `web/tests/helpers/png.ts`: `rgbPng(w, h, color)`, used by
+    `piece-images`, `tray-border` and the guide's sunset (the bytes are
+    the same as the three writers', checked for every size the specs use).
+    `helpers/engine-path.ts` (8.4) is the one engine lookup:
+    `tests/helpers/engine.ts`, `tests/e2e/app.ts`, the vitest global
+    setup and `tools/record-sessions.ts` (an empty BT_ENGINE is no
+    longer a path). `counted` at the five places (`solver.e2e.ts`'s
+    `expectNoRefusal`, `sliding.e2e.ts` twice, `shapes.e2e.ts`,
+    `puzzle.e2e.ts`'s `refusals`). `CLOSE_TAKEN_MS` moved to
+    `web/src/main/renderer-watch.ts` (free of Electron, so a spec can
+    import it; index.ts imports it there) and `files.e2e.ts` waits
+    `CLOSE_TAKEN_MS + 500`. Each touched spec on its own, on a build in
+    `BT_OUT_DIR=out-stage8`: explore 3, solver 9, puzzle 3, shapes 1,
+    files 18, windows 6, keymap 1, tilted 7, piece-images 7, tray-border
+    1, frozen 1, rebuild 2, sliding 21: all pass; stacking 5 of 6: its
+    screenshot `stacking-player.png` differs (3% of pixels, the Solver
+    panel's layout), and fails the same way on HEAD's web/ in a scratch
+    copy, so it is not this stage's (left as found).
 
-- [ ] **8.6 Tests and sources registered by hand** (trap; S)
+- [x] **8.6 Tests and sources registered by hand** (trap; S)
   - *Where:*
     - `tests/CMakeLists.txt:4-69`, the `bt_tests` source list: 39 commits
       since September, and some lines out of order at 17-20;
@@ -3259,16 +3380,33 @@ Done (2026-11-25), the whole stage:
       list; FATAL_ERROR names the missing file).
   - *Verify:* add a scratch test file and configure: it is built. Then
     delete it.
+  - Done (2026-11-25): `bt_tests` is `file(GLOB_RECURSE … CONFIGURE_DEPENDS
+    unit/*.cpp)` (all 65 files were listed: nothing new runs);
+    `test_cli.py` runs every `test_*` function of `globals()` in the order
+    written (the same eight; it fails when none is found); `core/` keeps
+    its list and a configure-time check (FATAL_ERROR names the file).
+    Checked: a scratch `tests/unit/test_zz_scratch.cpp` was built and its
+    case ran; a scratch `core/shapelogic/base/zz_scratch.cpp` stopped the
+    configure with "core/shapelogic/base/zz_scratch.cpp is not in btcore's
+    source list"; both deleted.
 
-- [ ] **8.7 `just check` skips two folders** (trap; S)
+- [x] **8.7 `just check` skips two folders** (trap; S)
   - *Where:* `justfile:106`, the file pattern (unchanged since stage 0).
     `python/src` (5 files) and `tests/tools` (6 files) are in
     `compile_commands.json` but never checked.
   - *Change:* add both to the pattern, and fix what clang-tidy reports (or
     suppress with reasons, as AGENTS.md says). `just check` must be green
     again in the same change.
+  - Done (2026-11-25): the pattern adds `python/src` and `tests/tools`.
+    `python/src` was clean. `tests/tools` had 14 findings of three
+    checks, now left out there by `tests/tools/.clang-tidy` with the
+    reasons (as `tests/unit/.clang-tidy` does): `bugprone-exception-escape`
+    (an exception out of a driver's main is a failed run the harness
+    reports), `bugprone-unchecked-string-to-number-conversion` (atoi on
+    the harness's own arguments) and `performance-*`. `just check`: 206
+    files, clean.
 
-- [ ] **8.8 A sliding pause test asserts on timing** (stability; S; found 2026-11-25)
+- [x] **8.8 A sliding pause test asserts on timing** (stability; S; found 2026-11-25)
   - *Where:* `tests/unit/solve/test_sliding_session.cpp`, "sliding
     session: pausing and continuing finds every solution once":
     `CHECK(paused > 0)`.
@@ -3280,10 +3418,52 @@ Done (2026-11-25), the whole stage:
   - *Change:* a solve long enough that the first pause always lands (a
     larger tray), or a pause asked for before `start()` returns control to
     the search; keep the check that every solution is found once.
+  - Done (2026-11-25): the first stop is `prepare()`: the session prepares
+    the search and pauses before its first start, whatever the machine's
+    speed, so `CHECK(paused > 0)` and its counter are gone; the runs after
+    it resume and pause after a random sleep, or finish, as before, and
+    the check that every solution is found once stays. Not shown failing
+    first: the old check failed only on a loaded machine (once in
+    `just test-asan`). The same kind found here: "solve session: a save
+    point while draining finishes the solve" (`CHECK(landed)` after five
+    attempts) failed once in a release run beside a dev `just test-all`
+    (8.3); not changed in this stage.
 
 **Gates for stage 8:** `just test-all` (twice, timed), `just app-test`, the
 e2e specs touched one by one, `just check`, the CLI tests, one oracle tier
 run in a work folder of its own.
+
+Done (2026-11-25), the whole stage:
+- `just test-all` (dev): 75 of 75 in every run (the times are 8.1's:
+  before 290 s and 293 s, after 227 s steady); once more with a release
+  `bt_tests "~[slow]"` beside it (8.3). `just test` (quick): 30 of 30 in
+  71 s and 74 s. The CLI tests (ctest `cli`) and the contract suite pass
+  in each.
+- `just test-asan`: 74 of 74, 867 s (was 1,005 s for `unit-slow-1`
+  alone). `just test-tsan`: 127 of 127 `parallel:` tests in 261 s, then
+  the contract suite, 0 failed.
+- `just check`: 206 files, clean (with `python/src` and `tests/tools`).
+- `just app-check`: clean; `just app-test`: 647 of 647 (63 files),
+  while two `just build release` ran (8.4).
+- e2e, each touched spec alone on a build of its own (8.5's list): all
+  pass but `stacking.e2e.ts`'s screenshot `stacking-player.png`, which
+  fails the same way on HEAD (not this stage's). Not run: the other
+  specs.
+- Oracle: `just oracle --tier sliding --allow-missing --work <scratch>`:
+  23 of 23 match (the reference checkout at ../burr-tools is unbuilt and
+  lacks some files, so only what this repo holds ran); a run without
+  `--work` removed its `work/run-<pid>`. Not run: the oracle commands
+  that build the original's drivers (the checkout has no build), so
+  `work/tools` caching was not exercised.
+- `just site-demo --check`: rebuilt (core, engine and web/src changed);
+  every puzzle type opens and plays.
+- No benchmarks: no solver code changed. `scratch_dir.h` (its `#if
+  _WIN32` branch) in Docker's ubuntu:24.04: built and run with GCC, and
+  `x86_64-w64-mingw32-g++-posix -fsyntax-only` for Windows (only
+  compiled there, never run). The whole tree was not built on Linux.
+- docs: AGENTS.md (the shards, `slow:` tests, `ScratchDir`),
+  ARCHITECTURE.md (version, `tests/unit`, renderer-watch, the web tests),
+  tests/oracle/README.md, web/README.md, the site's testing page.
 
 ## Checkpoint D (Fable): review of stage 8
 

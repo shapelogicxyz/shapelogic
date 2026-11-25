@@ -17,6 +17,7 @@ import { EngineClient } from '../src/engine/client.ts';
 import { NodeTransport } from '../src/engine/node-transport.ts';
 import { RecordingTransport } from '../src/engine/recorder.ts';
 import { RECORDINGS_DIR, recordingJson } from '../fake-engine/recordings.ts';
+import { engineFromEnv, RELEASE_ENGINE } from '../tests/helpers/engine-path.ts';
 import { Driver, SESSIONS } from './sessions.ts';
 
 const ROOT = resolve(import.meta.dirname, '../..');
@@ -48,7 +49,8 @@ async function record(name: string, engine: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const engine = process.env.BT_ENGINE ?? resolve(ROOT, 'build/release/engine/shapelogic_engine');
+  // an empty BT_ENGINE is none (tests/helpers/engine-path.ts), not a path
+  const engine = engineFromEnv() ?? RELEASE_ENGINE;
   // The engine's default folders (settings.get's slideFolder, panexFolder)
   // are in the user's cache folder, which it finds from these: a neutral
   // home keeps the recording user's paths out of the recordings.

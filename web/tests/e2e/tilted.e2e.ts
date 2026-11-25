@@ -17,13 +17,11 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import type { Snapshot } from '../../src/engine/api.generated.ts';
-import { BUILT, ENGINE, engineCall, launch, menu, openFixture, SHAPE_ROWS } from './app.ts';
+import { BUILT, docOf, ENGINE, engineCall, launch, menu, openFixture, SHAPE_ROWS } from './app.ts';
 import { settled } from './editor.ts';
 import { confirm, runButton, runEnded, solverSettled, toSolver } from './solver.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
-
-const docOf = (page: Page): Promise<Snapshot> => engineCall<Snapshot>(page, 'document.get');
 
 test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, the Solver', async () => {
   const a = await launch();

@@ -41,5 +41,5 @@ TEST_CASE("error: BT_ASSERT throws an InternalError naming the check", "[base][e
 }
 
 TEST_CASE("version: set from CMake", "[base]") {
-  CHECK_FALSE(bt::kVersion.empty());
+  CHECK_FALSE(bt::versionString().empty());
 }

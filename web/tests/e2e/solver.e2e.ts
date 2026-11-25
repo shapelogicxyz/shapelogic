@@ -16,16 +16,16 @@
 // labels from the Display menu; the 3D focus's cards. Each test's call log holds no refusal the
 // UI could have avoided (only the client's own superseded reads).
 
-import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, rmSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
 
 import {
   answerDialogs,
+  attr,
   BUILT,
+  counted,
   display,
   ENGINE,
   engineCall,
@@ -34,6 +34,7 @@ import {
   newDocument,
   openFixture,
   readCallLog,
+  tmpLog,
 } from './app.ts';
 import { pzSettled } from './puzzle.ts';
 import {
@@ -55,19 +56,10 @@ import {
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
 
-function tmpLog(): { dir: string; log: string } {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
-  return { dir, log: join(dir, 'calls.log') };
-}
-
-/** No call failed but the client's own superseded reads. */
+/** No call failed but those `counted` lets pass (the client's own superseded reads, ...). */
 function expectNoRefusal(log: string): void {
-  const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
+  const bad = readCallLog(log).filter(counted);
   expect(bad).toEqual([]);
-}
-
-async function attr(page: Page, sel: string, name: string): Promise<string> {
-  return (await page.getAttribute(sel, name)) ?? '';
 }
 
 test('Bermuda: solved with take-apart as bt counts it, played, stepped, jumped, posed as the engine', async () => {

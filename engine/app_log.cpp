@@ -231,7 +231,7 @@ std::string startLine(std::uint64_t openFiles) {
                             : openFiles == 0        ? "unknown"
                                                     : std::to_string(openFiles);
   return "shapelogic_engine: " + std::string(logLevelName(LogLevel::Info)) +
-         ": Engine Started: version " + std::string(kVersion) + ", " + build + ", vectors " +
+         ": Engine Started: version " + std::string(versionString()) + ", " + build + ", vectors " +
          vectors + ", open files " + files;
 }
 

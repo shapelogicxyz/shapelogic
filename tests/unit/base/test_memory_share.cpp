@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The memory the searches running at once share (decision 0028), and the
 // check that a search's folder can be written.
+#include "../scratch_dir.h"
+
 #include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/system.h"
 
@@ -15,6 +17,7 @@
 #include <vector>
 
 using bt::MemoryShare;
+using bt::test::ScratchDir;
 
 TEST_CASE("memory share: the budget is shared equally by the leases held", "[base][memory]") {
   MemoryShare m(1200);
@@ -81,9 +84,8 @@ TEST_CASE("memory share: leases taken and given back on many threads at once",
 }
 
 TEST_CASE("system: a folder that cannot be written is found out", "[base][system]") {
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_folder_write_check";
-  std::filesystem::remove_all(dir);
+  const ScratchDir scratch("folder_write_check");
+  const std::filesystem::path& dir = scratch.path();
   // made when it is not there, and left empty
   CHECK(bt::folderWriteError(dir / "made").empty());
   CHECK(std::filesystem::is_directory(dir / "made"));
@@ -92,5 +94,4 @@ TEST_CASE("system: a folder that cannot be written is found out", "[base][system
   { std::ofstream(dir / "file") << "x"; }
   CHECK_FALSE(bt::folderWriteError(dir / "file").empty());
   CHECK_FALSE(bt::folderWriteError(dir / "file" / "below").empty());
-  std::filesystem::remove_all(dir);
 }

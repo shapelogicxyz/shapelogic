@@ -47,6 +47,15 @@ REPO = HERE.parent.parent
 CORPUS = HERE / "corpus.txt"
 BASELINE_DIR = HERE / "baseline"
 WORK_DIR = HERE / "work"
+# What one run writes goes to a folder of its own: --work, else
+# work/run-<pid>, removed when the run passes (cleanup item 8.4), so two runs
+# at once never share or wipe each other's outputs or search folders. What
+# the baseline commands record and later runs read stays in work/ itself:
+# work/old* (baseline-files) and work/text-old* (baseline-text). The
+# original's drivers (*_old.cpp) are built once into work/tools, under a
+# name of their sources' hash.
+RUN_DIR = WORK_DIR / f"run-{os.getpid()}"
+TOOLS_DIR = WORK_DIR / "tools"
 
 # Fields that must match exactly. solvetime is reported, never compared.
 COMPARED = ("assemblies", "solutions", "dotlevel", "level", "totalmoves", "moves", "rotations")
@@ -136,7 +145,7 @@ def search_env(entry: "Entry"):
     else:
         yield None
         return
-    root = WORK_DIR / name
+    root = RUN_DIR / name
     root.mkdir(parents=True, exist_ok=True)
     folder = Path(tempfile.mkdtemp(dir=root))
     try:
@@ -461,8 +470,9 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
 
 def files_dir(side: str, solver: str) -> Path:
-    """work/old or work/new for the default solver, work/<side>-<solver> for another."""
-    return WORK_DIR / (side if solver == "classic" else f"{side}-{solver}")
+    """work/old or the run's new for the default solver, <side>-<solver> for
+    another: the original's solved files are recorded, the new ones the run's."""
+    return (WORK_DIR if side == "old" else RUN_DIR) / (side if solver == "classic" else f"{side}-{solver}")
 
 
 def slide_solve_flags(entry: Entry) -> list[str]:
@@ -488,15 +498,14 @@ def cmd_baseline_files(args: argparse.Namespace) -> int:
     if any(e.tier not in ("sliding", "stacking") for e in entries) and not old_bin.exists():
         print(f"original burrTxt2 not found at {old_bin}", file=sys.stderr)
         return 2
-    slide_tool = WORK_DIR / "slide_solve_old"
+    slide_tool = stack_tool = None
     if any(e.tier == "sliding" for e in entries):
-        WORK_DIR.mkdir(exist_ok=True)
-        if not build_against_old(args.old_repo, HERE / "slide_solve_old.cpp", slide_tool):
+        slide_tool = build_against_old(args.old_repo, HERE / "slide_solve_old.cpp")
+        if slide_tool is None:
             return 2
-    stack_tool = WORK_DIR / "stack_solve_old"
     if any(e.tier == "stacking" for e in entries):
-        WORK_DIR.mkdir(exist_ok=True)
-        if not build_against_old(args.old_repo, HERE / "stack_solve_old.cpp", stack_tool):
+        stack_tool = build_against_old(args.old_repo, HERE / "stack_solve_old.cpp")
+        if stack_tool is None:
             return 2
     out_root = files_dir("old", args.solver)
     for n, e in enumerate(entries, 1):
@@ -780,7 +789,8 @@ def text_input(e: Entry, where: str, old_repo: Path, solver: str = "classic") ->
 
 
 def text_dir(side: str, solver: str) -> Path:
-    return WORK_DIR / (f"text-{side}" if solver == "classic" else f"text-{side}-{solver}")
+    """work/text-old* (recorded by baseline-text), the run's text-new*."""
+    return (WORK_DIR if side == "old" else RUN_DIR) / (f"text-{side}" if solver == "classic" else f"text-{side}-{solver}")
 
 
 def text_baseline_path(tier: str, solver: str) -> Path:
@@ -1023,30 +1033,65 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
     return 1 if failures else 0
 
 
-def build_against_old(old_repo: Path, source: Path, out: Path) -> bool:
-    """Compile a tool from this repo against the original's library (core + manifold)."""
+def own_includes(source: Path) -> list[Path]:
+    """The files of this repo a driver includes (`#include "../x.h"`), and
+    theirs: with the source, what its build depends on here."""
+    seen: list[Path] = []
+    todo = [source]
+    while todo:
+        f = todo.pop()
+        for name in re.findall(r'^\s*#\s*include\s+"([^"]+)"', f.read_text(errors="replace"), re.M):
+            inc = (f.parent / name).resolve()
+            if inc.is_file() and inc.is_relative_to(REPO) and inc not in seen:
+                seen.append(inc)
+                todo.append(inc)
+    return sorted(seen)
+
+
+def build_against_old(old_repo: Path, source: Path) -> Path | None:
+    """A tool of this repo compiled against the original's library (core +
+    manifold): work/tools/<name>-<hash>, built when no run built it yet. The
+    hash covers the source, the files of this repo it includes, the compile
+    command and the original's libraries (their size and time), so a run
+    never rebuilds a driver another run uses, and a change rebuilds it.
+    None when it cannot be built."""
     lib = old_repo / "build" / "libburr_core.a"
     manifold = next(iter(sorted((old_repo / "build" / "subprojects").glob("manifold-*/libmanifold.a"))), None)
     if not lib.exists() or manifold is None:
         print(f"original library not found under {old_repo / 'build'}; build the old repo first (just build)", file=sys.stderr)
-        return False
+        return None
     cxx = os.environ.get("CXX", "c++")
-    cmd = [cxx, "-std=c++20", "-O1", "-w", f"-I{old_repo / 'src'}", f"-I{old_repo / 'src' / 'lib'}",
-           str(source), str(lib), str(manifold), "-lz", "-o", str(out)]
+    flags = ["-std=c++20", "-O1", "-w", f"-I{old_repo / 'src'}", f"-I{old_repo / 'src' / 'lib'}"]
     if sys.platform == "darwin":
-        cmd.insert(1, "-mmacosx-version-min=11.0")
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        flags.insert(0, "-mmacosx-version-min=11.0")
+    h = hashlib.sha256()
+    for f in [source, *own_includes(source)]:
+        h.update(str(f.relative_to(REPO)).encode() + b"\0" + f.read_bytes() + b"\0")
+    for f in (lib, manifold):
+        st = f.stat()
+        h.update(f"{f}:{st.st_size}:{st.st_mtime_ns}\0".encode())
+    h.update(" ".join([cxx, *flags]).encode())
+    out = TOOLS_DIR / f"{source.stem}-{h.hexdigest()[:16]}"
+    if out.exists():
+        return out
+    TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+    # built under a name of this run's, then renamed: a run beside it sees
+    # the whole program or none
+    tmp = TOOLS_DIR / f".{out.name}.{os.getpid()}"
+    proc = subprocess.run([cxx, *flags, str(source), str(lib), str(manifold), "-lz", "-o", str(tmp)],
+                          capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         print(proc.stderr, file=sys.stderr)
-        return False
-    return True
+        tmp.unlink(missing_ok=True)
+        return None
+    os.replace(tmp, out)
+    return out
 
 
 def cmd_grid_dump(args: argparse.Namespace) -> int:
     """Record tests/data/grid_dump.txt: the grid dump (tests/unit/grid/grid_dump.h) of the original."""
-    WORK_DIR.mkdir(exist_ok=True)
-    exe = WORK_DIR / "grid_dump_old"
-    if not build_against_old(args.old_repo, HERE / "grid_dump_old.cpp", exe):
+    exe = build_against_old(args.old_repo, HERE / "grid_dump_old.cpp")
+    if exe is None:
         return 2
     out = HERE.parent / "data" / "grid_dump.txt"
     with open(out, "w") as f:
@@ -1060,9 +1105,8 @@ FIXTURES = HERE.parent / "data" / "puzzles"
 
 def cmd_model_dump(args: argparse.Namespace) -> int:
     """Record tests/data/model_dump.txt: the model dump of the original for the fixture puzzles."""
-    WORK_DIR.mkdir(exist_ok=True)
-    exe = WORK_DIR / "model_dump_old"
-    if not build_against_old(args.old_repo, HERE / "model_dump_old.cpp", exe):
+    exe = build_against_old(args.old_repo, HERE / "model_dump_old.cpp")
+    if exe is None:
         return 2
     files = sorted(FIXTURES.glob("*.xmpuzzle"))
     out = HERE.parent / "data" / "model_dump.txt"
@@ -1075,9 +1119,8 @@ def cmd_model_dump(args: argparse.Namespace) -> int:
 def cmd_app_dump(args: argparse.Namespace) -> int:
     """Record tests/data/app_dump.txt: the original's meshes, status table, fit line and
     playback tracks for the fixture puzzles (stage 6)."""
-    WORK_DIR.mkdir(exist_ok=True)
-    exe = WORK_DIR / "app_dump_old"
-    if not build_against_old(args.old_repo, HERE / "app_dump_old.cpp", exe):
+    exe = build_against_old(args.old_repo, HERE / "app_dump_old.cpp")
+    if exe is None:
         return 2
     files = sorted(FIXTURES.glob("*.xmpuzzle"))
     out = HERE.parent / "data" / "app_dump.txt"
@@ -1090,9 +1133,8 @@ def cmd_app_dump(args: argparse.Namespace) -> int:
 def cmd_stl_dump(args: argparse.Namespace) -> int:
     """Record tests/data/stl_dump.txt: the original's STL meshes of the fixture shapes with each
     grid's default parameters, the view's STL style and one text STL (deferred part 5)."""
-    WORK_DIR.mkdir(exist_ok=True)
-    exe = WORK_DIR / "stl_dump_old"
-    if not build_against_old(args.old_repo, HERE / "stl_dump_old.cpp", exe):
+    exe = build_against_old(args.old_repo, HERE / "stl_dump_old.cpp")
+    if exe is None:
         return 2
     files = sorted(FIXTURES.glob("*.xmpuzzle"))
     out = HERE.parent / "data" / "stl_dump.txt"
@@ -1105,9 +1147,8 @@ def cmd_stl_dump(args: argparse.Namespace) -> int:
 def cmd_stl_solution(args: argparse.Namespace) -> int:
     """Record tests/data/stl_solution_by_original/CubeInCage/: the files the original's Export
     Solution Pieces to STL writes for CubeInCage's first solution, defaults, binary (deferred part 5)."""
-    WORK_DIR.mkdir(exist_ok=True)
-    exe = WORK_DIR / "stl_solution_old"
-    if not build_against_old(args.old_repo, HERE / "stl_solution_old.cpp", exe):
+    exe = build_against_old(args.old_repo, HERE / "stl_solution_old.cpp")
+    if exe is None:
         return 2
     out = HERE.parent / "data" / "stl_solution_by_original" / "CubeInCage"
     if out.exists():
@@ -1120,14 +1161,13 @@ def cmd_stl_solution(args: argparse.Namespace) -> int:
 
 def cmd_record_saves(args: argparse.Namespace) -> int:
     """Record tests/data/saved_by_original/: what the original writes for each fixture puzzle."""
-    WORK_DIR.mkdir(exist_ok=True)
-    exe = WORK_DIR / "roundtrip_old"
-    if not build_against_old(args.old_repo, HERE / "roundtrip_old.cpp", exe):
+    exe = build_against_old(args.old_repo, HERE / "roundtrip_old.cpp")
+    if exe is None:
         return 2
     out_dir = HERE.parent / "data" / "saved_by_original"
     out_dir.mkdir(exist_ok=True)
     for src in sorted(FIXTURES.glob("*.xmpuzzle")):
-        tmp = WORK_DIR / "record.xmpuzzle"
+        tmp = RUN_DIR / "record.xmpuzzle"
         err = run_tool([str(exe), str(src), str(tmp)], 120)
         if err:
             print(f"{src.name}: {err}", file=sys.stderr)
@@ -1151,14 +1191,13 @@ ANALYSED = (
 def cmd_record_analysed(args: argparse.Namespace) -> int:
     """Record tests/data/analysed_by_original/: each fixture's saved assemblies taken
     apart again by the original, as "Add disassembly" for all solutions (stage 7)."""
-    WORK_DIR.mkdir(exist_ok=True)
-    exe = WORK_DIR / "analyse_old"
-    if not build_against_old(args.old_repo, HERE / "analyse_old.cpp", exe):
+    exe = build_against_old(args.old_repo, HERE / "analyse_old.cpp")
+    if exe is None:
         return 2
     out_dir = HERE.parent / "data" / "analysed_by_original"
     out_dir.mkdir(exist_ok=True)
     for name, flags in ANALYSED:
-        tmp = WORK_DIR / "analysed.xmpuzzle"
+        tmp = RUN_DIR / "analysed.xmpuzzle"
         err = run_tool([str(exe), str(FIXTURES / (name + ".xmpuzzle")), str(tmp), *flags], 600)
         if err:
             print(f"{name}: {err}", file=sys.stderr)
@@ -1302,9 +1341,8 @@ def roundtrip_one(old_tool: Path, new_tool: Path, src: Path, out: Path, timeout:
 
 def cmd_roundtrip(args: argparse.Namespace) -> int:
     """Load and save every corpus file (and the extras) with both programs."""
-    WORK_DIR.mkdir(exist_ok=True)
-    old_tool = WORK_DIR / "roundtrip_old"
-    if not build_against_old(args.old_repo, HERE / "roundtrip_old.cpp", old_tool):
+    old_tool = build_against_old(args.old_repo, HERE / "roundtrip_old.cpp")
+    if old_tool is None:
         return 2
     if not args.new_tool.exists():
         print(f"new bt_roundtrip not found at {args.new_tool}", file=sys.stderr)
@@ -1325,7 +1363,7 @@ def cmd_roundtrip(args: argparse.Namespace) -> int:
         print("note: no solved files under work/old; run `oracle.py baseline-files --tier all` to include them",
               file=sys.stderr)
 
-    out_root = WORK_DIR / "roundtrip"
+    out_root = RUN_DIR / "roundtrip"
     shutil.rmtree(out_root, ignore_errors=True)
     results: dict[str, dict] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
@@ -1517,14 +1555,13 @@ def cmd_imports(args: argparse.Namespace) -> int:
     inputs and the original's Puzzlecad files imported, every corpus puzzle converted to each grid
     and exported to Puzzlecad for each problem, those exports imported again, and a
     PuzzleSolver3D file made of each cube-grid puzzle's shapes imported."""
-    WORK_DIR.mkdir(exist_ok=True)
-    old_tool = WORK_DIR / "imports_old"
-    if not build_against_old(args.old_repo, HERE / "imports_old.cpp", old_tool):
+    old_tool = build_against_old(args.old_repo, HERE / "imports_old.cpp")
+    if old_tool is None:
         return 2
     if not args.new_tool.exists():
         print(f"new bt_imports not found at {args.new_tool}", file=sys.stderr)
         return 2
-    out_root = WORK_DIR / "imports"
+    out_root = RUN_DIR / "imports"
     shutil.rmtree(out_root, ignore_errors=True)
     gen_dir = out_root / "generated"
     gen_dir.mkdir(parents=True)
@@ -1659,9 +1696,8 @@ def cmd_record_imports(args: argparse.Namespace) -> int:
     committed input imported (<name>.xmpuzzle, or <name>.refused), and of each top-level cube-grid
     fixture its conversions (<fixture>.<grid>.xmpuzzle) and its Puzzlecad exports
     (<fixture>.p<N>.scad, one for each problem and one past the last)."""
-    WORK_DIR.mkdir(exist_ok=True)
-    exe = WORK_DIR / "imports_old"
-    if not build_against_old(args.old_repo, HERE / "imports_old.cpp", exe):
+    exe = build_against_old(args.old_repo, HERE / "imports_old.cpp")
+    if exe is None:
         return 2
     if IMPORTS_BY_ORIGINAL.exists():
         shutil.rmtree(IMPORTS_BY_ORIGINAL)
@@ -1744,15 +1780,14 @@ def run_resume_tool(tool: Path, args: list[str], timeout: float) -> dict:
 
 def cmd_resume_check(args: argparse.Namespace) -> int:
     """Pause assembler searches in one program and continue them in the other."""
-    WORK_DIR.mkdir(exist_ok=True)
-    old_tool = WORK_DIR / "resume_old"
-    if not build_against_old(args.old_repo, HERE / "resume_old.cpp", old_tool):
+    old_tool = build_against_old(args.old_repo, HERE / "resume_old.cpp")
+    if old_tool is None:
         return 2
     if not args.new_tool.exists():
         print(f"new bt_resume not found at {args.new_tool}", file=sys.stderr)
         return 2
     tools = {"old": old_tool, "new": args.new_tool}
-    pos_file = WORK_DIR / "resume_position.txt"
+    pos_file = RUN_DIR / "resume_position.txt"
 
     runs = [(rel, mode) for rel in RESUME_SET for mode in RESUME_MODES]
     runs += [(rel, mode) for rel in RESUME_SET_ASSEMBLER1 for mode in RESUME_MODES]
@@ -1866,9 +1901,8 @@ POSITION_FIXTURES = (
 def cmd_record_positions(args: argparse.Namespace) -> int:
     """Record tests/data/positions_by_original.txt: searches the original paused,
     with the position it saved and the assemblies it reported before."""
-    WORK_DIR.mkdir(exist_ok=True)
-    tool = WORK_DIR / "resume_old"
-    if not build_against_old(args.old_repo, HERE / "resume_old.cpp", tool):
+    tool = build_against_old(args.old_repo, HERE / "resume_old.cpp")
+    if tool is None:
         return 2
     blocks = ["# Searches paused by the original (oracle.py record-positions):",
               "# POS <fixture> <solver> <threads> <plain> <reduce> <stopAfter>, the saved position,",
@@ -1900,9 +1934,8 @@ def cmd_sliding_puzzles(args: argparse.Namespace) -> int:
     """Make the sliding puzzles of the original's test_sliding.cpp (and a few
     more) with the original's code: tests/data/puzzles/sliding/ (the sliding
     tier's generated part)."""
-    WORK_DIR.mkdir(exist_ok=True)
-    exe = WORK_DIR / "sliding_puzzles_old"
-    if not build_against_old(args.old_repo, HERE / "sliding_puzzles_old.cpp", exe):
+    exe = build_against_old(args.old_repo, HERE / "sliding_puzzles_old.cpp")
+    if exe is None:
         return 2
     proc = subprocess.run([str(exe), str(SLIDING_FIXTURES)], capture_output=True, text=True, check=False)
     if proc.returncode != 0:
@@ -1936,11 +1969,9 @@ def cmd_record_slide_routes(args: argparse.Namespace) -> int:
     """Record tests/data/slide_solved_by_original/ and tests/data/slide_routes.txt:
     sliding puzzles solved by the original's solve thread, and the route of
     every move with where its player put the pieces at quarter steps."""
-    WORK_DIR.mkdir(exist_ok=True)
-    solve = WORK_DIR / "slide_solve_old"
-    routes = WORK_DIR / "slide_routes_old"
-    if not (build_against_old(args.old_repo, HERE / "slide_solve_old.cpp", solve)
-            and build_against_old(args.old_repo, HERE / "slide_routes_old.cpp", routes)):
+    solve = build_against_old(args.old_repo, HERE / "slide_solve_old.cpp")
+    routes = build_against_old(args.old_repo, HERE / "slide_routes_old.cpp") if solve else None
+    if solve is None or routes is None:
         return 2
     out_dir = HERE.parent / "data" / "slide_solved_by_original"
     out_dir.mkdir(exist_ok=True)
@@ -1970,9 +2001,8 @@ def cmd_stacking_puzzles(args: argparse.Namespace) -> int:
     """Make the stacking puzzles of the original's test_stacking.cpp (and a
     few more) with the original's code: tests/data/puzzles/stacking/ (the
     stacking tier's generated part)."""
-    WORK_DIR.mkdir(exist_ok=True)
-    exe = WORK_DIR / "stacking_puzzles_old"
-    if not build_against_old(args.old_repo, HERE / "stacking_puzzles_old.cpp", exe):
+    exe = build_against_old(args.old_repo, HERE / "stacking_puzzles_old.cpp")
+    if exe is None:
         return 2
     proc = subprocess.run([str(exe), str(STACKING_FIXTURES)], capture_output=True, text=True, check=False)
     if proc.returncode != 0:
@@ -2035,15 +2065,14 @@ def saved_files(folder: Path) -> dict[str, bytes]:
 def cmd_panex_resume(args: argparse.Namespace) -> int:
     """Stop Panex searches in one program and carry them on in the other;
     both must save the same files and find the same paths."""
-    WORK_DIR.mkdir(exist_ok=True)
-    old_tool = WORK_DIR / "panex_resume_old"
-    if not build_against_old(args.old_repo, HERE / "panex_resume_old.cpp", old_tool):
+    old_tool = build_against_old(args.old_repo, HERE / "panex_resume_old.cpp")
+    if old_tool is None:
         return 2
     if not args.new_tool.exists():
         print(f"new bt_panex_resume not found at {args.new_tool}", file=sys.stderr)
         return 2
     tools = {"old": old_tool, "new": args.new_tool}
-    root = WORK_DIR / "panex-resume"
+    root = RUN_DIR / "panex-resume"
     rng = random.Random(3)
     checks = failures = 0
 
@@ -2123,17 +2152,15 @@ def cmd_blockpack_check(args: argparse.Namespace) -> int:
     """Pack files with one program's blockpack and unpack them with the
     other's: a saved Panex search's state and levels (as a .slsolve export
     holds them), and odd files; the packed bytes compared too."""
-    WORK_DIR.mkdir(exist_ok=True)
-    old_tool = WORK_DIR / "blockpack_old"
-    search_tool = WORK_DIR / "panex_resume_old"
-    if not (build_against_old(args.old_repo, HERE / "blockpack_old.cpp", old_tool)
-            and build_against_old(args.old_repo, HERE / "panex_resume_old.cpp", search_tool)):
+    old_tool = build_against_old(args.old_repo, HERE / "blockpack_old.cpp")
+    search_tool = build_against_old(args.old_repo, HERE / "panex_resume_old.cpp") if old_tool else None
+    if old_tool is None or search_tool is None:
         return 2
     if not args.new_tool.exists():
         print(f"new bt_blockpack not found at {args.new_tool}", file=sys.stderr)
         return 2
     tools = {"old": old_tool, "new": args.new_tool}
-    root = WORK_DIR / "blockpack-check"
+    root = RUN_DIR / "blockpack-check"
     shutil.rmtree(root, ignore_errors=True)
     root.mkdir(parents=True)
     # a saved search: the Panex 5 swap stopped half way, every level on disk
@@ -2195,6 +2222,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burr-tools")))
     p.add_argument("--new-bt", type=Path, default=HERE.parent.parent / "build" / "release" / "cli" / "shapelogic_cli")
+    work_help = ("the folder this run writes its outputs and search folders in, kept (default: "
+                 "work/run-<pid>, removed when the run passes)")
+    p.add_argument("--work", type=Path, help=work_help)
     sub = p.add_subparsers(dest="cmd", required=True)
     for name in ("baseline", "compare", "baseline-files", "compare-files", "baseline-text", "compare-text"):
         s = sub.add_parser(name)
@@ -2281,8 +2311,29 @@ def main() -> int:
     s.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 4)
     s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")
     s.add_argument("--verbose", "-v", action="store_true")
+    # before or after the command (`just oracle --work DIR`)
+    for command in sub.choices.values():
+        command.add_argument("--work", type=Path, default=argparse.SUPPRESS, help=work_help)
     args = p.parse_args()
     args.old_repo = args.old_repo.resolve()
+    global RUN_DIR
+    if args.work:
+        RUN_DIR = args.work.resolve()
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
+    code = 1
+    try:
+        code = run_command(args)
+        return code
+    finally:
+        # the run's own folder is kept when the run failed, for its outputs
+        if not args.work:
+            if code == 0 or not any(RUN_DIR.iterdir()):
+                shutil.rmtree(RUN_DIR, ignore_errors=True)
+            else:
+                print(f"this run's outputs: {RUN_DIR}", file=sys.stderr)
+
+
+def run_command(args: argparse.Namespace) -> int:
     return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
             "compare-files": cmd_compare_files, "baseline-text": cmd_baseline_text,
             "compare-text": cmd_compare_text,

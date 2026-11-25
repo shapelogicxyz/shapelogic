@@ -29,6 +29,7 @@ import {
   launch,
   openFixture,
   settle,
+  settled,
 } from './app.ts';
 import type { App } from './app.ts';
 import { drag, expectGame, STAGE, toPlay } from './play.ts';
@@ -96,16 +97,6 @@ async function snapshot(page: Page): Promise<{
   problems: { id: string }[];
 }> {
   return engineCall(page, 'document.get');
-}
-
-async function settled(page: Page): Promise<void> {
-  await expect(stage(page)).toHaveAttribute('data-busy', '0');
-  await expect
-    .poll(async () => {
-      const r = await engineCall<{ revision: number }>(page, 'document.get');
-      return Number(await page.getAttribute('#stage', 'data-revision')) >= r.revision;
-    })
-    .toBe(true);
 }
 
 /** Opens a fixture (again, if something else or a changed copy is open) in a workspace. */

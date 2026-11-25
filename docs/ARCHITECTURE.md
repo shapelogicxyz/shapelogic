@@ -52,7 +52,7 @@ programs: nothing in the core calls it).
 | `python/` | `shapelogic`, the Python module (pybind11, decision 0018): `src/` the bindings, `tests/` its tests, `pyproject.toml` its wheel; see `python/README.md` |
 | `api/` | the JSON Schema of the engine's methods and events, its validator (`apischema.py`) and the generator of `docs/API.md`; see `api/README.md` |
 | `web/` | the front end (decision 0013): `src/` (the map below), `tools/` (the API types' generator, packaging, the demo's build, the recorded sessions), `fake-engine/` (recorded sessions replayed as a transport), `tests/` (unit, engine, e2e, docs); see `web/README.md` |
-| `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`) |
+| `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`): every `.cpp` under `tests/unit` is built (a glob), the helpers are headers; `tests/unit/scratch_dir.h`'s `ScratchDir` is the tests' one way to a temp folder (a name of the process's own) |
 | `tests/contract/` | the engine's contract tests: `shapelogic_engine` driven as a subprocess, every message checked against `api/` |
 | `tests/cli/` | `test_cli.py` (ctest `cli`): `shapelogic_cli`'s options, refusals and modes on the fixtures |
 | `tests/docs/` | `test_architecture_map.py` (ctest `architecture-map`): this file's map against the tree |
@@ -80,7 +80,7 @@ Files in `core/shapelogic/base/`:
 - `stop.h`: `StopSource`, `StopToken`, `StopKind` (decision 0004).
 - `system.{h,cpp}`: the machine: memory, free disk, `diskBudgetFor`, `gbToBytes`, `folderWriteError`, the cache folder.
 - `thread_pool.{h,cpp}`: `ThreadPool`, the threads of one solve; `kMaxThreads` (256), `hardwareThreads()`, `splitThreads()`, `takeApartThreads()`.
-- `version.h`: `kVersion`, from CMake.
+- `version.{h,cpp}`: `versionString()`, from CMake; only version.cpp sees the define, so a new tag recompiles one file.
 
 Rules (decisions 0004, 0009):
 - One `StopSource` per run; nothing resets a source; a search that must end
@@ -558,7 +558,7 @@ Files in `web/src/main/`:
 - `menu.ts`: the menus' template from the menu state (Electron's types only).
 - `path-grants.ts`: `PathGrants`, the files a window's engine may be given; `settingsRefusal`.
 - `path-owners.ts`: `PathOwners`, which window owns a file (decision 0036).
-- `renderer-watch.ts`: `RendererWatch`: a window's page that crashed reloaded (three times a minute, then asked), one that hangs asked about.
+- `renderer-watch.ts`: `RendererWatch`: a window's page that crashed reloaded (three times a minute, then asked), one that hangs asked about; `CLOSE_TAKEN_MS`, how long a page may take to take a close.
 - `replace-file.ts`: `replaceFile`, `replaceFileSync`: the one way the main process replaces a file (a temporary file of its own, synced, renamed).
 - `rescue.ts`: `RescueStore`, `RescueSlots`: the rescue copies.
 - `search-folders.ts`: what both cache modules know of the search folders: the engine's names, `isLockFile`, the walk, `errorCode`.
@@ -770,9 +770,9 @@ Rules (AGENTS.md's; decisions 0012, 0013, 0034, 0036, 0043):
   `--version` (`package.json`'s stays 0.0.0). A packaged app runs only
   the engine in its resources (on Windows linked statically, on Linux with
   libstdc++ and libgcc linked in: `engine/CMakeLists.txt`).
-- Tests (Vitest): `tests/unit/` (no engine), `tests/engine/` (the release
-  engine), `tests/e2e/` (Playwright on the built app); after a change to
-  what the engine sends, `npm run record`.
+- Tests (Vitest): `tests/unit/` (no engine), `tests/engine/`, `tests/e2e/`
+  (Playwright on out/ or BT_OUT_DIR), on a run's copy of the engine
+  (`tests/helpers/engine-path.ts`); after an engine change, `npm run record`.
 
 ## Testing against the original
 
@@ -816,15 +816,15 @@ AGENTS.md has the full list; the load-bearing ones:
 
 ## Build and test
 
-The recipes are AGENTS.md's. ctest runs the unit shards, `api-schema` (the
-schema checks itself), `api-docs` (`docs/API.md` is current),
-`architecture-map` (this file's map), `contract`, `cli` and, when the module
-is built, `python`. Presets are in `CMakePresets.json`; strict warnings are
-errors in `dev` and `release` (and `release-x64`, `release-arm64`: macOS's
-release for one architecture, the packaged app's engine for the other kind
-of Mac). Dependencies (`cmake/Dependencies.cmake`): zlib from the system or
-a pinned release; zstd 1.5.7 (pinned, always built from source as a static
-library, one thread a call); nlohmann/json 3.12.0 (the engine only);
-pybind11 3.0.0 (the Python module only); Manifold 3.5.2 (built optimized,
-without its cross sections or parallel backend, as the original builds it;
-uninstrumented under ASan, decision 0016); Catch2.
+The recipes are AGENTS.md's. ctest runs the unit shards, the `[slow]` cases
+(one test each), `api-schema` (the schema checks itself), `api-docs`
+(`docs/API.md` is current), `architecture-map` (this file's map), `contract`,
+`cli` and, when the module is built, `python`. Presets: `CMakePresets.json`;
+strict warnings are errors in `dev` and `release` (and `release-x64`,
+`release-arm64`: macOS's release for one architecture, the packaged app's
+engine for the other kind of Mac). Dependencies (`cmake/Dependencies.cmake`):
+zlib from the system or a pinned release; zstd 1.5.7 (pinned, always built
+from source as a static library, one thread a call); nlohmann/json 3.12.0
+(the engine only); pybind11 3.0.0 (the Python module only); Manifold 3.5.2
+(built optimized, without its cross sections or parallel backend, as the
+original builds it; uninstrumented under ASan, decision 0016); Catch2.

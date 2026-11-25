@@ -15,6 +15,7 @@ export default defineConfig(
     ignores: [
       'node_modules/',
       'out/',
+      'out-*/',
       'dist/',
       'src/engine/api.generated.ts',
       'src/demo/engine/*.js',

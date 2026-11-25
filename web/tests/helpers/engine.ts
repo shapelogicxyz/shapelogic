@@ -3,26 +3,21 @@
 // The real engine for the engine tests: build/release/engine/shapelogic_engine (or
 // BT_ENGINE), run from the repository's root so fixture paths are relative.
 
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
-
 import { EngineClient } from '../../src/engine/client.ts';
 import type { ClientProblem } from '../../src/engine/client.ts';
 import type { EventName, EventParams } from '../../src/engine/client-types.ts';
 import { NodeTransport } from '../../src/engine/node-transport.ts';
 
-export const ROOT = resolve(import.meta.dirname, '../../..');
+import { ROOT, testEngine } from './engine-path.ts';
+
+export { ROOT };
 export const FIXTURES = 'tests/data/puzzles';
 
-/** The engine the tests run, or null (the tests are skipped with a message). */
-export const ENGINE: string | null = (() => {
-  const fromEnv = process.env.BT_ENGINE;
-  if (fromEnv !== undefined && fromEnv !== '') {
-    return resolve(fromEnv);
-  }
-  const path = resolve(ROOT, 'build/release/engine/shapelogic_engine');
-  return existsSync(path) ? path : null;
-})();
+/**
+ * The engine the tests run, or null (the tests are skipped with a message):
+ * the run's copy of it (global-setup.ts).
+ */
+export const ENGINE: string | null = testEngine();
 
 /** One thing the client delivered, in delivery order. */
 export interface Seen {

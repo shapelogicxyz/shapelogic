@@ -4,15 +4,15 @@
 // would otherwise be the user's cache folder, shared by every shard and
 // suite running side by side. Two solves of one problem cannot work in the
 // same folders (decision 0035), and the tests leave nothing in the cache.
+#include "scratch_dir.h"
+
 #include <catch2/catch_test_run_info.hpp>
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_registrars.hpp>
 
 #include <cstdlib>
-#include <filesystem>
-#include <random>
+#include <optional>
 #include <string>
-#include <system_error>
 
 namespace {
 
@@ -29,20 +29,15 @@ class SearchFolders : public Catch::EventListenerBase {
   using Catch::EventListenerBase::EventListenerBase;
 
   void testRunStarting(const Catch::TestRunInfo& /*info*/) override {
-    std::random_device rd;
-    root_ = std::filesystem::temp_directory_path() /
-            ("bt_test_folders_" + std::to_string(rd()) + "_" + std::to_string(rd()));
-    setVariable("SHAPELOGIC_SLIDE_DIR", (root_ / "sliding").string());
-    setVariable("SHAPELOGIC_PANEX_DIR", (root_ / "panex").string());
+    root_.emplace("folders");
+    setVariable("SHAPELOGIC_SLIDE_DIR", (root_->path() / "sliding").string());
+    setVariable("SHAPELOGIC_PANEX_DIR", (root_->path() / "panex").string());
   }
 
-  void testRunEnded(const Catch::TestRunStats& /*stats*/) override {
-    std::error_code ec;
-    std::filesystem::remove_all(root_, ec);
-  }
+  void testRunEnded(const Catch::TestRunStats& /*stats*/) override { root_.reset(); }
 
  private:
-  std::filesystem::path root_;
+  std::optional<bt::test::ScratchDir> root_;
 };
 
 }  // namespace

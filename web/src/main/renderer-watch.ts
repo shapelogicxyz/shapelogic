@@ -18,6 +18,13 @@ export const RELOADS_MAX = 3;
 /** The time those reloads are counted in. */
 export const RELOADS_WINDOW_MS = 60_000;
 
+/**
+ * How long a page may take to take a window's close before the window asks
+ * natively (main/index.ts: a page that does not answer is not let to hold
+ * its window open; the e2e tests wait past it).
+ */
+export const CLOSE_TAKEN_MS = 4000;
+
 /** How soon after its kill a page's end is taken for that kill's. */
 const KILL_TOLD_MS = 5_000;
 

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The slide search's keys wider than 128 bits (bt/solve/slide_key.h): they
 // do what a built-in integer does, and the key sets hold them.
+#include "../scratch_dir.h"
+
 #include "shapelogic/solve/slide_key.h"
 #include "shapelogic/solve/slide_levels.h"
 
@@ -9,12 +11,12 @@
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
-#include <random>
 #include <string>
 #include <type_traits>
 #include <vector>
 
 using namespace bt::sliding;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -35,15 +37,6 @@ BigKey<W> randomKey(Rnd& rnd) {
     k.w[i] = rnd();
   }
   return k;
-}
-
-std::filesystem::path scratchDir(const std::string& what) {
-  std::random_device rd;
-  const std::filesystem::path p =
-      std::filesystem::temp_directory_path() /
-      ("bt_test_" + what + "_" + std::to_string(rd()) + "_" + std::to_string(rd()));
-  std::filesystem::remove_all(p);
-  return p;
 }
 
 }  // namespace
@@ -155,7 +148,8 @@ TEST_CASE("sliding: a wide key shifts, adds and keeps fields across its words", 
 // The key sets keep the gaps between keys as varints: a wide key's gaps too.
 TEST_CASE("sliding: a key set holds keys wider than 128 bits", "[sliding]") {
   using Key = BigKey<4>;
-  const std::filesystem::path dir = scratchDir("widekeyset");
+  const ScratchDir scratch("widekeyset");
+  const std::filesystem::path dir = scratch.path() / "work";
   std::filesystem::create_directories(dir);
   for (int onDisk = 0; onDisk < 2; onDisk++) {
     // keys spread over all 256 bits, a few close together, sorted

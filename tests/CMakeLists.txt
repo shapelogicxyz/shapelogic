@@ -1,89 +1,28 @@
 # Unit tests: one Catch2 binary for the whole core. Tag conventions are in
 # AGENTS.md ([slow] cases are skipped by `just test`, [parallel] cases are
 # what the ThreadSanitizer build runs).
-add_executable(bt_tests
-  unit/app/test_analysis_files.cpp
-  unit/app/test_app_dump.cpp
-  unit/app/test_document.cpp
-  unit/app/test_document_sliding.cpp
-  unit/app/test_document_stacking.cpp
-  unit/app/test_document_tilted.cpp
-  unit/app/test_document_solving.cpp
-  unit/app/test_layer_geometry.cpp
-  unit/app/test_playback_explorers.cpp
-  unit/app/test_shape_images.cpp
-  unit/app/test_stl_export.cpp
-  unit/app/test_tools_queries.cpp
-  unit/base/test_save_cadence.cpp
-  unit/base/test_error.cpp
-  unit/engine/test_engine.cpp
-  unit/test_search_folders.cpp
-  unit/base/test_solve_state.cpp
-  unit/base/test_stop.cpp
-  unit/base/test_memory_share.cpp
-  unit/base/test_file_lock.cpp
-  unit/base/test_system.cpp
-  unit/base/test_thread_pool.cpp
-  unit/grid/test_grid_dump.cpp
-  unit/grid/test_grid_invariants.cpp
-  unit/grid/test_grid_oracle.cpp
-  unit/grid/test_hex_cairo.cpp
-  unit/grid/test_grid_port.cpp
-  unit/grid/test_symmetries.cpp
-  unit/grid/test_voxel.cpp
-  unit/grid/test_voxel_connect.cpp
-  unit/io/test_imports.cpp
-  unit/io/test_puzzle_file.cpp
-  unit/io/test_roundtrip.cpp
-  unit/io/test_xml.cpp
-  unit/mesh/test_cell_sweep.cpp
-  unit/mesh/test_meshes.cpp
-  unit/mesh/test_stl.cpp
-  unit/mesh/test_stl_dump.cpp
-  unit/mesh/test_uniform_mesh.cpp
-  unit/model/test_model_dump.cpp
-  unit/model/test_puzzle_model.cpp
-  unit/model/test_tilted_tray.cpp
-  unit/solve/test_assembler.cpp
-  unit/solve/test_assembler_1.cpp
-  unit/solve/test_derived_disassembly.cpp
-  unit/solve/test_disassembly.cpp
-  unit/solve/test_grouping.cpp
-  unit/solve/test_movement_checks.cpp
-  unit/solve/test_positions.cpp
-  unit/solve/test_rotation_solvers.cpp
-  unit/solve/test_row_rotation_check.cpp
-  unit/solve/test_search_sample.cpp
-  unit/solve/test_simd_exact_cover.cpp
-  unit/solve/test_slide_key.cpp
-  unit/solve/test_slide_routes.cpp
-  unit/solve/test_sliding.cpp
-  unit/solve/test_sliding_play.cpp
-  unit/solve/test_slide_forecast.cpp
-  unit/solve/test_sliding_session.cpp
-  unit/solve/test_solve_session.cpp
-  unit/solve/test_split_tasks.cpp
-  unit/solve/test_stacking.cpp
-  unit/solve/test_stacking_play.cpp
-  unit/solve/test_stacking_session.cpp
-  unit/solve/test_take_apart_pool.cpp)
+# Every .cpp under unit/ is a test file (the helpers are headers), so the
+# list is a glob: a new test file cannot be left out (cleanup item 8.6).
+file(GLOB_RECURSE bt_test_sources CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cpp)
+add_executable(bt_tests ${bt_test_sources})
 
 target_link_libraries(bt_tests PRIVATE btengine Catch2::Catch2WithMain manifold::manifold)
 bt_set_warnings(bt_tests)
 
 # Run from the source root so fixtures resolve as tests/data/...
-# The cases are split into shards that ctest runs side by side (`ctest -j`).
-# A shard is a run of the case list, so the list is shuffled first, the same
-# way in every shard (a fixed seed; no test uses Catch2's random numbers),
-# which spreads the slow cases of one file over the shards.
-set(BT_TEST_SHARDS 8 CACHE STRING "How many shards the unit tests are split into")
+# The quick cases are split into shards that ctest runs side by side
+# (`ctest -j`). A shard is a run of the case list, so the list is shuffled
+# first, the same way in every shard (a fixed seed; no test uses Catch2's
+# random numbers), which spreads the slow cases of one file over the
+# shards. More shards than cores: a shard that drew long cases holds one
+# core while the others take the rest.
+set(BT_UNIT_SHARDS 24 CACHE STRING "How many shards the quick unit tests are split into")
 
 # Every test has a time limit, so a deadlock fails its test instead of
 # stalling the run for good. Each limit is at least three times the longest
-# time of its kind (the Debug build, 8 shards side by side, on 2026-11-24:
-# build/dev/Testing/Temporary/CTestCostData.txt and a run beside an oracle
-# run), at least 120 s; the sanitizer presets multiply them by
-# BT_TEST_TIMEOUT_SCALE (6).
+# time of its kind (the Debug build side by side, on 2026-11-25:
+# build/dev/Testing/Temporary/CTestCostData.txt), at least 120 s; the
+# sanitizer presets multiply them by BT_TEST_TIMEOUT_SCALE (6).
 set(BT_TEST_TIMEOUT_SCALE 1 CACHE STRING "Multiplies every test's time limit (the sanitizer presets: 6)")
 function(bt_test_timeout seconds)
   math(EXPR scaled "${seconds} * ${BT_TEST_TIMEOUT_SCALE}")
@@ -92,19 +31,40 @@ endfunction()
 
 # --durations yes: each case's time as it ends, so the log of a shard that
 # ran out of time shows the last case that finished.
-math(EXPR last_shard "${BT_TEST_SHARDS} - 1")
+math(EXPR last_shard "${BT_UNIT_SHARDS} - 1")
 foreach(i RANGE ${last_shard})
   add_test(NAME unit-${i} COMMAND bt_tests "~[slow]" --order rand --rng-seed 1
-           --shard-count ${BT_TEST_SHARDS} --shard-index ${i} --durations yes
+           --shard-count ${BT_UNIT_SHARDS} --shard-index ${i} --durations yes
            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-  add_test(NAME unit-slow-${i} COMMAND bt_tests "[slow]" --allow-running-no-tests
-           --order rand --rng-seed 1 --shard-count ${BT_TEST_SHARDS} --shard-index ${i} --durations yes
-           WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-  set_tests_properties(unit-slow-${i} PROPERTIES LABELS slow)
-  # seen: the quick shards up to 140 s, the slow ones up to 311 s
+  # seen: the quick shards of 8 up to 140 s
   bt_test_timeout(600 unit-${i})
-  bt_test_timeout(1200 unit-slow-${i})
 endforeach()
+
+# Each [slow] case is a ctest test of its own ("slow: <case>", label slow):
+# a few of them take minutes, and in shards the shard that drew them set
+# the length of the whole run. ctest's cost data starts the longest first.
+# Listed when ctest runs (PRE_TEST), so a build needs no run of bt_tests.
+if(catch2_SOURCE_DIR)
+  list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
+else()
+  # an installed Catch2 (FIND_PACKAGE_ARGS) has Catch.cmake beside its config
+  list(APPEND CMAKE_MODULE_PATH "${Catch2_DIR}")
+endif()
+include(Catch)
+# seen: a case up to 235 s beside the others (120 s alone)
+math(EXPR slow_timeout "1200 * ${BT_TEST_TIMEOUT_SCALE}")
+catch_discover_tests(bt_tests TEST_SPEC "[slow]" TEST_PREFIX "slow: "
+                     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} DISCOVERY_MODE PRE_TEST
+                     PROPERTIES LABELS slow TIMEOUT ${slow_timeout})
+
+# The ThreadSanitizer build: each [parallel] case a test of its own as well
+# ("parallel: <case>", label parallel), so `just test-tsan` runs them side
+# by side (`ctest -L parallel`) instead of in one process.
+if(BT_SANITIZE MATCHES "thread")
+  catch_discover_tests(bt_tests TEST_SPEC "[parallel]" TEST_PREFIX "parallel: "
+                       WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} DISCOVERY_MODE PRE_TEST
+                       PROPERTIES LABELS parallel TIMEOUT ${slow_timeout})
+endif()
 
 # The engine's contract (decision 0012): the schema checks itself, docs/API.md
 # is what api/gen_api_md.py makes of it, and shapelogic_engine, driven as a

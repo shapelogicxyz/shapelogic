@@ -5,6 +5,8 @@
 // goal. The rules are the Stacking Solver's, so every position a search
 // can reach is walked here and the play calls compared with moveAllowed,
 // and a path the solver found is played as a game.
+#include "stacking_test_helpers.h"
+
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/model/disassembly.h"
 #include "shapelogic/model/problem.h"
@@ -26,16 +28,11 @@
 
 using namespace bt;
 using namespace bt::stacking;
+using bt::test::addSized;
 
 namespace {
 
 Puzzle makeBoard() { return Puzzle(GridType(GridKind::Stacking)); }
-
-void addSized(Puzzle& puz, Problem& prob, unsigned int size) {
-  const unsigned int id = addDisk(puz, size);
-  prob.setShapeMaximum(puz, id, 1);
-  prob.setShapeMinimum(puz, id, 1);
-}
 
 // The Tower of Hanoi with n discs: the tower on rod 1, its goal on rod 3.
 Problem& makeHanoi(Puzzle& puz, unsigned int n) {

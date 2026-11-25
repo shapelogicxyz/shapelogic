@@ -46,7 +46,7 @@ enum class VoxelState : int {
 
 PYBIND11_MODULE(shapelogic, m) {
   m.doc() = "Python bindings for the ShapeLogic 3D interlocking puzzle library";
-  m.attr("__version__") = std::string(bt::kVersion);
+  m.attr("__version__") = std::string(bt::versionString());
 
   // Voxel state enum
   py::enum_<VoxelState>(m, "Voxel", "Voxel state values")

@@ -10,10 +10,11 @@
 
 import { mkdirSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
-import { crc32, deflateSync } from 'node:zlib';
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+
+import { rgbPng } from '../helpers/png.ts';
 
 import {
   BUILT,
@@ -393,42 +394,19 @@ test('the Play tab', async () => {
  * it and dark hills, so a picture on a piece reads as one in a screenshot.
  */
 function sunset(w: number, h: number): Buffer {
-  const chunk = (name: string, data: Buffer): Buffer => {
-    const len = Buffer.alloc(4);
-    len.writeUInt32BE(data.length);
-    const body = Buffer.concat([Buffer.from(name, 'ascii'), data]);
-    const crc = Buffer.alloc(4);
-    crc.writeUInt32BE(crc32(body));
-    return Buffer.concat([len, body, crc]);
-  };
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(w, 0);
-  ihdr.writeUInt32BE(h, 4);
-  ihdr[8] = 8; // bits
-  ihdr[9] = 2; // RGB
-  const rows = Buffer.alloc(h * (w * 3 + 1));
   const mix = (a: number, b: number, t: number): number => Math.round(a + (b - a) * t);
-  for (let y = 0; y < h; y++) {
-    const row = y * (w * 3 + 1);
-    for (let x = 0; x < w; x++) {
-      const t = y / h;
-      let c = [mix(42, 250, t), mix(58, 150, t), mix(140, 70, t)];
-      if (Math.hypot(x - w * 0.55, y - h * 0.62) < w * 0.17) {
-        c = [255, 222, 120];
-      }
-      const hill = h * (0.74 + 0.08 * Math.sin((x / w) * Math.PI * 2.2));
-      if (y > hill) {
-        c = [mix(60, 30, (y - hill) / h), mix(48, 26, (y - hill) / h), 70];
-      }
-      rows.set(c, row + 1 + x * 3);
+  return rgbPng(w, h, (x, y) => {
+    const t = y / h;
+    let c: [number, number, number] = [mix(42, 250, t), mix(58, 150, t), mix(140, 70, t)];
+    if (Math.hypot(x - w * 0.55, y - h * 0.62) < w * 0.17) {
+      c = [255, 222, 120];
     }
-  }
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(rows)),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
+    const hill = h * (0.74 + 0.08 * Math.sin((x / w) * Math.PI * 2.2));
+    if (y > hill) {
+      c = [mix(60, 30, (y - hill) / h), mix(48, 26, (y - hill) / h), 70];
+    }
+    return c;
+  });
 }
 
 test('a picture on a sliding piece', async () => {

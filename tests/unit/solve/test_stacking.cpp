@@ -7,6 +7,8 @@
 // switches are the search's options; the solve thread's case runs a
 // SolveSession; its undo case is the document's (test_document_stacking.cpp).
 #include "../model/model_test_helpers.h"
+#include "../scratch_dir.h"
+#include "stacking_test_helpers.h"
 
 #include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/stop.h"
@@ -42,48 +44,26 @@
 
 using namespace bt;
 using namespace bt::stacking;
+using bt::test::addSized;
+using bt::test::ScratchDir;
 
 namespace {
 
 // Every folder these tests write goes under one scratch folder of this
 // process, removed at exit. Fixed names in the temp folder let two test
 // runs at once wipe each other's saved searches.
-class ScratchRoot {
- public:
-  ScratchRoot() {
-    std::random_device rd;
-    root = std::filesystem::temp_directory_path() /
-           ("bt_test_stacking_" + std::to_string(rd()) + "_" +
-            std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-    std::filesystem::create_directories(root);
-  }
-  ~ScratchRoot() {
-    std::error_code ec;
-    std::filesystem::remove_all(root, ec);
-  }
-  ScratchRoot(const ScratchRoot&) = delete;
-  ScratchRoot& operator=(const ScratchRoot&) = delete;
-  std::filesystem::path root;
-};
-
-const ScratchRoot& scratchRoot() {
-  static const ScratchRoot r;
+const ScratchDir& scratchRoot() {
+  static const ScratchDir r("stacking");
   return r;
 }
 
-std::filesystem::path scratch(const char* name) { return scratchRoot().root / name; }
+std::filesystem::path scratch(const char* name) { return scratchRoot().path() / name; }
 
 // Where the original's searches without a workDir went: SHAPELOGIC_PANEX_DIR,
 // which its tests pointed into their scratch folder.
-std::string cacheDir() { return (scratchRoot().root / "cache").string(); }
+std::string cacheDir() { return (scratchRoot().path() / "cache").string(); }
 
 Puzzle makeBoard() { return Puzzle(GridType(GridKind::Stacking)); }
-
-void addSized(Puzzle& puz, Problem& prob, unsigned int size) {
-  const unsigned int id = addDisk(puz, size);
-  prob.setShapeMaximum(puz, id, 1);
-  prob.setShapeMinimum(puz, id, 1);
-}
 
 }  // namespace
 

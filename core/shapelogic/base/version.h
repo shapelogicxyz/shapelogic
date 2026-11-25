@@ -5,7 +5,9 @@
 
 namespace bt {
 
-/// The project version from CMakeLists.txt.
-inline constexpr std::string_view kVersion = BT_VERSION_STRING;
+/// The project version from CMake (the git tag's, cmake/ProjectVersion.cmake).
+/// A function, so that only version.cpp sees the define and a new tag
+/// recompiles that one file.
+[[nodiscard]] std::string_view versionString() noexcept;
 
 }  // namespace bt

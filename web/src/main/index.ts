@@ -137,7 +137,7 @@ import { engineHashLine, healthReport } from './health.ts';
 import type { HealthFs, HealthLine } from './health.ts';
 import { PathGrants, settingsRefusal } from './path-grants.ts';
 import { PathOwners } from './path-owners.ts';
-import { RELOADS_MAX, RendererWatch } from './renderer-watch.ts';
+import { CLOSE_TAKEN_MS, RELOADS_MAX, RendererWatch } from './renderer-watch.ts';
 import { RescueSlots } from './rescue.ts';
 import {
   allowedRequest,
@@ -194,9 +194,6 @@ protocol.registerSchemesAsPrivileged([
 
 /** The files each window's renderer was handed: the only ones its engine may be given. */
 const paths = new PathGrants<WebContents>();
-
-/** How long a renderer may take to take a close before it is asked natively. */
-const CLOSE_TAKEN_MS = 4000;
 
 /** What the main process keeps of a window. */
 interface WindowState {

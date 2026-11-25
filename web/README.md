@@ -50,7 +50,12 @@ meanwhile; `BT_BACKGROUND=` (empty) shows them on the screen, to watch a
 run. The test that times the
 app (`perf.e2e.ts`) is the `timed` project, run alone after the others.
 Both recipes clear `ELECTRON_RUN_AS_NODE`, which
-some editors' terminals set and which turns Electron into plain Node.
+some editors' terminals set and which turns Electron into plain Node, and
+build into a folder of the run's own (`out-e2e-<pid>`, `BT_OUT_DIR`,
+removed at the end), so another session's `npm run build` cannot swap the
+app under a run. By hand: `BT_OUT_DIR=out-mine npm run build`, then
+`BT_OUT_DIR=out-mine npx playwright test tests/e2e/<file>` (a folder name
+under `web/`).
 
 Inside `web/`: `npm run format` reformats, `npm run record` records the
 fake engine's sessions again (after a change to what the engine sends),
@@ -136,7 +141,10 @@ Chrome (`--headed` shows it).
 ## Where the engine comes from
 
 - The tests run `build/release/engine/shapelogic_engine`, or `BT_ENGINE` when it is
-  set, from the repository's root (fixtures are opened by relative path).
+  set, from the repository's root (fixtures are opened by relative path):
+  a copy of it, made in a temp folder as the run starts and removed at its
+  end (`tests/helpers/engine-path.ts`), so a build of the release preset
+  meanwhile cannot change the engine under a run.
   Without one the engine tests are skipped and the run says so; so are the
   e2e tests, which also need `npm run build` (`just app-e2e` builds).
 - The app in development (`src/main/engine-path.ts`) runs `BT_ENGINE`,
@@ -200,7 +208,8 @@ Chrome (`--headed` shows it).
   drives the voxel editor, `puzzle.ts` the Puzzle's cards, `solver.ts` the
   Solver's; `packaged.smoke.ts` the packaged app's smoke test;
   `__screenshots__/` the reference screenshots),
-  `helpers/`.
+  `helpers/` (`engine-path.ts` the engine every suite runs and the run's
+  copy of it, `png.ts` the pictures the tests put on pieces).
 
 ## Rules
 

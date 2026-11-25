@@ -6,6 +6,7 @@
 // against what the original made of them (tests/data/imports_by_original/,
 // `oracle.py record-imports`), through the document as the engine calls it.
 #include "../model/model_test_helpers.h"
+#include "../scratch_dir.h"
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/shape_tools.h"
 #include "shapelogic/grid/voxel.h"
@@ -24,13 +25,13 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
-#include <random>
 #include <string>
 #include <utility>
 #include <vector>
 
 using namespace bt;
 using namespace bt::app;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -314,9 +315,8 @@ TEST_CASE("imports: the targets of a conversion", "[io][imports]") {
 
 TEST_CASE("imports: files are read as they are", "[io][imports]") {
   // a gzip-compressed Puzzlecad file is not one (std::ifstream read it so)
-  const std::filesystem::path tmp =
-      std::filesystem::temp_directory_path() /
-      ("bt-import-" + std::to_string(std::random_device{}()) + ".scad");
+  const ScratchDir scratch("import");
+  const std::filesystem::path tmp = scratch.path() / "gzipped.scad";
   {
     std::ofstream out(tmp, std::ios::binary);
     out << io::gzipCompress(R"(burr_piece("xx");)");

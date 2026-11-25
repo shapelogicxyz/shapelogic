@@ -15,9 +15,7 @@
 // fixture, its selections, and Remove selected as one undo step. Each
 // test's call log holds no refusal the UI could have avoided.
 
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rmSync } from 'node:fs';
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -27,6 +25,7 @@ import type { MovementNode, Placement, SolveStats } from '../../src/engine/api.g
 import { cellToMesh, gridExtent, placedAt } from '../../src/renderer/view3d/extent.ts';
 import { SWEEP } from '../helpers/fixtures.ts';
 import {
+  attr,
   BUILT,
   counted,
   display,
@@ -36,6 +35,7 @@ import {
   menu,
   openFixture,
   readCallLog,
+  tmpLog,
 } from './app.ts';
 import {
   openExplorerFold,
@@ -51,19 +51,10 @@ test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run buil
 
 type V3 = [number, number, number];
 
-function tmpLog(): { dir: string; log: string } {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
-  return { dir, log: join(dir, 'calls.log') };
-}
-
 /** No call failed but the client's own superseded reads (and what the test itself expected to fail). */
 function expectNoRefusal(log: string): void {
   const bad = readCallLog(log).filter(counted);
   expect(bad).toEqual([]);
-}
-
-async function attr(page: Page, sel: string, name: string): Promise<string> {
-  return (await page.getAttribute(sel, name)) ?? '';
 }
 
 /** Where the engine says a piece goes: its turned mesh's hotspot on the cell, centerd on the result. */

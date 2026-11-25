@@ -386,8 +386,13 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--bt", type=Path, required=True)
     BT = p.parse_args().bt
-    for test in (test_help_and_mistakes, test_stacking, test_sliding, test_no_result, test_solving,
-                 test_save_ask_and_retake, test_new_grids, test_tilted):
+    # every test_* function of this file, in the order they are written: a
+    # new one runs without being added to a list (cleanup item 8.6)
+    tests = [f for name, f in globals().items() if name.startswith("test_") and callable(f)]
+    if not tests:
+        print("no test_* functions found")
+        return 1
+    for test in tests:
         test()
     print(f"{'all passed' if not failures else f'{len(failures)} failed'}")
     return 1 if failures else 0

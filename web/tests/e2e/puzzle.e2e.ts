@@ -22,6 +22,7 @@ import type { Page } from '@playwright/test';
 import {
   BUILT,
   camera,
+  counted,
   ENGINE,
   engineCall,
   launch,
@@ -37,9 +38,9 @@ import type { Problem } from './puzzle.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
 
-/** The calls the engine refused (the client's own superseded reads are none). */
+/** The calls the engine refused that count against the app (app.ts's `counted`). */
 function refusals(calls: LoggedCall[]): LoggedCall[] {
-  return calls.filter((c) => c.errc !== null && c.errc !== 'superseded');
+  return calls.filter(counted);
 }
 
 async function toPuzzle(page: Page): Promise<string> {

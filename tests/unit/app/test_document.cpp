@@ -6,6 +6,7 @@
 // for its GUI); the solving guards are in test_document_solving.cpp.
 #include "../grid/grid_test_helpers.h"
 #include "app_test_helpers.h"
+#include "../scratch_dir.h"
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/base/int_cast.h"
@@ -27,6 +28,7 @@ using namespace bt::app;
 using test::openFixture;
 using test::refused;
 using test::roundTrip;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -69,8 +71,8 @@ TEST_CASE("document: new, open, save, and the ids of what it holds", "[app][docu
   CHECK(d.solutionIndex(firstProblem(d), sol).value() == 0);
 
   // a save, and the bytes read back give the same file
-  const std::filesystem::path tmp =
-      std::filesystem::temp_directory_path() / "bt_document_test.xmpuzzle";
+  const ScratchDir scratch("document");
+  const std::filesystem::path tmp = scratch.path() / "test.xmpuzzle";
   REQUIRE(d.renameShape(firstShape(d), "renamed").has_value());
   CHECK(d.dirty());
   REQUIRE(d.save(tmp).has_value());
@@ -710,7 +712,8 @@ TEST_CASE("document: groups of edits are one step; depth, dirty and history", "[
 
   // clean after a save; undoing back to there is clean again
   Document e(GridKind::Bricks);
-  const std::filesystem::path tmp = std::filesystem::temp_directory_path() / "bt_dirty.xmpuzzle";
+  const ScratchDir scratch("document_dirty");
+  const std::filesystem::path tmp = scratch.path() / "dirty.xmpuzzle";
   REQUIRE(e.createShape().has_value());
   REQUIRE(e.save(tmp).has_value());
   CHECK_FALSE(e.dirty());

@@ -4,13 +4,13 @@
 
 #include "../grid/grid_test_helpers.h"
 #include "../model/model_test_helpers.h"
+#include "../scratch_dir.h"
 
 #include "shapelogic/io/gzip_file.h"
 #include "shapelogic/io/puzzle_file.h"
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -21,31 +21,9 @@
 using namespace bt;
 using bt::test::fromLayers;
 using bt::test::puzzlesRoundtripEqual;
+using bt::test::ScratchDir;
 
 namespace {
-
-/// A scratch directory, removed when the guard goes.
-class TempDir {
- public:
-  TempDir() {
-    static int counter = 0;
-    path_ = std::filesystem::temp_directory_path() /
-            ("bt-test-" + std::to_string(counter++) + "-" +
-             std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-    std::filesystem::create_directories(path_);
-  }
-  ~TempDir() {
-    std::error_code ec;
-    std::filesystem::remove_all(path_, ec);
-  }
-  TempDir(const TempDir&) = delete;
-  TempDir& operator=(const TempDir&) = delete;
-
-  [[nodiscard]] std::filesystem::path file(const char* name) const { return path_ / name; }
-
- private:
-  std::filesystem::path path_;
-};
 
 Puzzle reloaded(const Puzzle& p) {
   Result<Puzzle> r = io::parsePuzzle(io::writePuzzle(p));
@@ -56,8 +34,8 @@ Puzzle reloaded(const Puzzle& p) {
 }  // namespace
 
 TEST_CASE("gzip file: a plain text file is read back unchanged", "[io][gzip]") {
-  TempDir dir;
-  const auto name = dir.file("plain.txt");
+  const ScratchDir dir("roundtrip");
+  const auto name = dir.path() / "plain.txt";
   {
     std::ofstream out(name);
     out << "<puzzle/>";
@@ -68,8 +46,8 @@ TEST_CASE("gzip file: a plain text file is read back unchanged", "[io][gzip]") {
 }
 
 TEST_CASE("gzip file: a gzipped file is decompressed, and really compressed", "[io][gzip]") {
-  TempDir dir;
-  const auto name = dir.file("longer.gz");
+  const ScratchDir dir("roundtrip");
+  const auto name = dir.path() / "longer.gz";
 
   std::string payload;
   for (int i = 0; i < 500; i++) {
@@ -86,12 +64,12 @@ TEST_CASE("gzip file: a gzipped file is decompressed, and really compressed", "[
 }
 
 TEST_CASE("gzip file: a missing file is an error, an empty file is empty", "[io][gzip]") {
-  TempDir dir;
-  const auto missing = io::readMaybeGzipFile(dir.file("does-not-exist.xmpuzzle"));
+  const ScratchDir dir("roundtrip");
+  const auto missing = io::readMaybeGzipFile(dir.path() / "does-not-exist.xmpuzzle");
   REQUIRE_FALSE(missing.has_value());
   REQUIRE(missing.error().code == Errc::IoError);
 
-  const auto name = dir.file("empty.xmpuzzle");
+  const auto name = dir.path() / "empty.xmpuzzle";
   { std::ofstream out(name); }
   const auto empty = io::readMaybeGzipFile(name);
   REQUIRE(empty.has_value());
@@ -217,8 +195,8 @@ TEST_CASE("puzzle: saving a reloaded puzzle reproduces the same document", "[io]
 
 TEST_CASE("puzzle: a round trip through a gzipped file preserves the puzzle",
           "[io][roundtrip][gzip]") {
-  TempDir dir;
-  const auto name = dir.file("roundtrip.xmpuzzle");
+  const ScratchDir dir("roundtrip");
+  const auto name = dir.path() / "roundtrip.xmpuzzle";
   const GridType gt(GridKind::Bricks);
 
   Puzzle original(gt);

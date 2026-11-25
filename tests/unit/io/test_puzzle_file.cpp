@@ -3,6 +3,7 @@
 // although it is not modeled (decisions 0006 and 0008), and what is refused.
 
 #include "../model/model_test_helpers.h"
+#include "../scratch_dir.h"
 
 #include "shapelogic/io/gzip_file.h"
 #include "shapelogic/io/paused_solve.h"
@@ -26,6 +27,7 @@
 
 using namespace bt;
 using Catch::Matchers::ContainsSubstring;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -49,14 +51,6 @@ std::string parseError(const std::string& xml) {
   REQUIRE_FALSE(p.has_value());
   REQUIRE(p.error().code == Errc::ParseError);
   return p.error().message;
-}
-
-/// A directory of a test's own, empty.
-std::filesystem::path freshDir(const std::string& name) {
-  const std::filesystem::path dir = std::filesystem::temp_directory_path() / name;
-  std::filesystem::remove_all(dir);
-  std::filesystem::create_directories(dir);
-  return dir;
 }
 
 /// A small valid document around one problem's inner XML.
@@ -445,10 +439,8 @@ TEST_CASE("puzzle file: a saved disassembly reads back with its levels", "[io][f
 
 TEST_CASE("puzzle file: a save replaces the file only once the new one is whole", "[io][file]") {
   // the original's writePuzzleFile: written beside the file, renamed over it
-  const std::filesystem::path dir =
-      std::filesystem::temp_directory_path() / "bt_test_safe_save";
-  std::filesystem::remove_all(dir);
-  std::filesystem::create_directories(dir);
+  const ScratchDir scratch("safe_save");
+  const std::filesystem::path& dir = scratch.path();
   const std::filesystem::path file = dir / "p.xmpuzzle";
   const Puzzle a = parse(withProblem("", ""));
   REQUIRE(io::savePuzzle(a, file).has_value());
@@ -476,13 +468,13 @@ TEST_CASE("puzzle file: a save replaces the file only once the new one is whole"
   REQUIRE(io::savePausedSolve(a, 0, solve).has_value());
   CHECK_FALSE(std::filesystem::exists(dir / "s.slsolve.tmp"));
   CHECK(io::loadPausedSolve(solve).has_value());
-  std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("puzzle file: a save through a symbolic link writes the file it names", "[io][file]") {
   // a rename over the link would replace the link by a file and leave the
   // puzzle's own file as it was
-  const std::filesystem::path dir = freshDir("bt_test_save_link");
+  const ScratchDir scratch("save_link");
+  const std::filesystem::path& dir = scratch.path();
   std::filesystem::create_directories(dir / "real");
   std::filesystem::create_directories(dir / "links");
   const std::filesystem::path real = dir / "real" / "p.xmpuzzle";
@@ -494,7 +486,6 @@ TEST_CASE("puzzle file: a save through a symbolic link writes the file it names"
   std::error_code ec;
   std::filesystem::create_symlink(std::filesystem::path("..") / "real" / "p.xmpuzzle", link, ec);
   if (ec) {
-    std::filesystem::remove_all(dir);
     SKIP("no symbolic links here: " << ec.message());
   }
   REQUIRE(io::savePuzzle(b, link).has_value());
@@ -515,14 +506,14 @@ TEST_CASE("puzzle file: a save through a symbolic link writes the file it names"
   const Result<io::PausedSolve> ps = io::loadPausedSolve(solve);
   REQUIRE(ps.has_value());
   CHECK(io::writePuzzle(ps->puzzle) == io::writePuzzle(b));
-  std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("puzzle file: a save never writes through a planted temporary file", "[io][file]") {
   // the temporary file is the save's own: a link left at <file>.tmp (by
   // whoever may write in the folder) is removed, not written through, and
   // the file is made exclusively; a stale file of a save that died goes too
-  const std::filesystem::path dir = freshDir("bt_test_save_tmp");
+  const ScratchDir scratch("save_tmp");
+  const std::filesystem::path& dir = scratch.path();
   const std::filesystem::path file = dir / "p.xmpuzzle";
   const std::filesystem::path victim = dir / "victim";
   {
@@ -532,7 +523,6 @@ TEST_CASE("puzzle file: a save never writes through a planted temporary file", "
   std::error_code ec;
   std::filesystem::create_symlink("victim", dir / "p.xmpuzzle.tmp", ec);
   if (ec) {
-    std::filesystem::remove_all(dir);
     SKIP("no symbolic links here: " << ec.message());
   }
   const Puzzle a = parse(withProblem("", ""));
@@ -556,7 +546,6 @@ TEST_CASE("puzzle file: a save never writes through a planted temporary file", "
   CHECK(std::filesystem::is_regular_file(std::filesystem::symlink_status(solve)));
   CHECK_FALSE(std::filesystem::exists(std::filesystem::symlink_status(dir / "s.slsolve.tmp")));
   CHECK(io::loadPausedSolve(solve).has_value());
-  std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("puzzle file: a save refuses a read-only file and leaves it as it was", "[io][file]") {
@@ -568,7 +557,8 @@ TEST_CASE("puzzle file: a save refuses a read-only file and leaves it as it was"
   // a rename replaces a file whatever its permissions; writing it did not
   using std::filesystem::perms;
   const perms readOnly = perms::owner_read | perms::group_read | perms::others_read;
-  const std::filesystem::path dir = freshDir("bt_test_save_read_only");
+  const ScratchDir scratch("save_read_only");
+  const std::filesystem::path& dir = scratch.path();
   const std::filesystem::path file = dir / "p.xmpuzzle";
   const Puzzle a = parse(withProblem("", ""));
   const Puzzle b = parse(withProblem(" name=\"b\"", ""));
@@ -593,7 +583,6 @@ TEST_CASE("puzzle file: a save refuses a read-only file and leaves it as it was"
   CHECK(readText(solve) == solveBefore);
   std::filesystem::permissions(file, perms::owner_all);
   std::filesystem::permissions(solve, perms::owner_all);
-  std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("puzzle file: a write the system refuses says the system's reason", "[io][file]") {
@@ -606,7 +595,8 @@ TEST_CASE("puzzle file: a write the system refuses says the system's reason", "[
   // cleanup item 2.5: "could not open … for writing: Permission denied (errno 13)",
   // as Windows says "Access is denied (5)" when Controlled Folder Access blocks it
   using std::filesystem::perms;
-  const std::filesystem::path dir = freshDir("bt_test_save_refused");
+  const ScratchDir scratch("save_refused");
+  const std::filesystem::path& dir = scratch.path();
   std::filesystem::permissions(dir, perms::owner_read | perms::owner_exec);
   const Puzzle a = parse(withProblem("", ""));
   const Result<void> r = io::savePuzzle(a, dir / "p.xmpuzzle");
@@ -622,7 +612,6 @@ TEST_CASE("puzzle file: a write the system refuses says the system's reason", "[
   CHECK_THAT(w.error().message, ContainsSubstring("(errno 13)"));
   REQUIRE_FALSE(missing.has_value());
   CHECK_THAT(missing.error().message, ContainsSubstring("(errno 2)"));
-  std::filesystem::remove_all(dir);
 #endif
 }
 
@@ -633,7 +622,8 @@ TEST_CASE("puzzle file: a save keeps the file's permissions", "[io][file]") {
   // a new file has the default permissions (0644 under the usual umask): a
   // private puzzle would become readable by everyone
   using std::filesystem::perms;
-  const std::filesystem::path dir = freshDir("bt_test_save_permissions");
+  const ScratchDir scratch("save_permissions");
+  const std::filesystem::path& dir = scratch.path();
   const std::filesystem::path file = dir / "p.xmpuzzle";
   const Puzzle a = parse(withProblem("", ""));
   REQUIRE(io::savePuzzle(a, file).has_value());
@@ -644,7 +634,6 @@ TEST_CASE("puzzle file: a save keeps the file's permissions", "[io][file]") {
     REQUIRE(io::savePuzzle(a, file).has_value());
     CHECK((std::filesystem::status(file).permissions() & perms::all) == mode);
   }
-  std::filesystem::remove_all(dir);
 }
 
 // A sliding puzzle's starts and goals are each problem's own (decision
