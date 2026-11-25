@@ -76,9 +76,14 @@ def work_name(rel: str) -> str:
     return rel.replace(ALPHA_PREFIX, "alpha/", 1)
 
 
-def load_corpus(old_repo: Path) -> list[Entry]:
+def load_corpus(old_repo: Path, allow_missing: bool = False) -> list[Entry]:
+    """The corpus's entries. A pattern that matches nothing ends the run
+    (exit 2): a comparison of nothing must not pass. `allow_missing` (the
+    commands' --allow-missing, for a reference checkout known to be partial)
+    makes it a warning."""
     entries: list[Entry] = []
     slow: set[str] = set()
+    unmatched: list[str] = []
     for line in CORPUS.read_text().splitlines():
         line = line.split("#", 1)[0].strip()
         if not line:
@@ -88,12 +93,19 @@ def load_corpus(old_repo: Path) -> list[Entry]:
         root = REPO if alpha else old_repo
         matches = sorted(glob.glob(str(root / pattern.removeprefix(ALPHA_PREFIX)), recursive=True))
         if not matches:
-            print(f"warning: corpus pattern matched nothing: {pattern}", file=sys.stderr)
+            unmatched.append(pattern)
         for m in matches:
             rel = (ALPHA_PREFIX if alpha else "") + str(Path(m).relative_to(root))
             if tier == "slow":
                 slow.add(rel)
             entries.append(Entry(tier, flags, rel))
+    for pattern in unmatched:
+        print(f"{'warning' if allow_missing else 'error'}: corpus pattern matched nothing: {pattern}",
+              file=sys.stderr)
+    if unmatched and not allow_missing:
+        print(f"{len(unmatched)} corpus pattern(s) matched nothing in {old_repo}: the reference checkout "
+              "is incomplete (--allow-missing runs on what is there)", file=sys.stderr)
+        raise SystemExit(2)
     # A puzzle listed as slow is not also part of the full tier.
     return [e for e in entries if not (e.tier == "full" and e.rel in slow)]
 
@@ -133,33 +145,68 @@ def search_env(entry: "Entry"):
         shutil.rmtree(folder, ignore_errors=True)
 
 
-def select(entries: list[Entry], tiers: list[str], name_filter: str | None,
-           solver: str = "classic") -> list[Entry]:
-    """The entries of the tiers, those the solver runs on: the brick solvers
-    on the brick tiers, the sliding one on the sliding tier, the stacking
-    ones on the stacking tier; a stacking entry flagged Q (no Panex columns)
-    not with the Panex Solver."""
+def solver_tiers(tiers: list[str], solver: str = "classic") -> list[str]:
+    """The tiers of the selection the solver runs on: the brick solvers on
+    the brick tiers, the sliding one on the sliding tier, the stacking ones
+    on the stacking tier."""
     wanted = set(tiers)
     if "all" in wanted:
         wanted = (wanted - {"all"}) | {"fast", "full", "slow"}
     out = []
-    for e in entries:
-        if e.tier not in wanted or (name_filter and name_filter not in e.rel):
-            continue
-        if e.tier == "sliding":
+    for tier in sorted(wanted):
+        if tier == "sliding":
             if solver != "classic":
                 continue
-        elif e.tier == "stacking":
-            # the Stacking Solver (classic) on all, the Panex Solver on the
-            # puzzles it takes (not Q)
+        elif tier == "stacking":
+            # the Stacking Solver (classic) and the Panex Solver
             if solver not in ("classic", *STACKING_SOLVERS):
-                continue
-            if "Q" in e.flags and solver == "panex":
                 continue
         elif solver in STACKING_SOLVERS:
             continue
+        out.append(tier)
+    return out
+
+
+def select(entries: list[Entry], tiers: list[str], name_filter: str | None,
+           solver: str = "classic") -> list[Entry]:
+    """The entries of the tiers the solver runs on (solver_tiers); a
+    stacking entry flagged Q (no Panex columns) not with the Panex Solver."""
+    wanted = set(solver_tiers(tiers, solver))
+    out = []
+    for e in entries:
+        if e.tier not in wanted or (name_filter and name_filter not in e.rel):
+            continue
+        if e.tier == "stacking" and "Q" in e.flags and solver == "panex":
+            continue
         out.append(e)
     return out
+
+
+def not_compared(baseline: dict[str, dict], compared: set[str], args: argparse.Namespace,
+                 skip=lambda rel, value: False) -> tuple[list[str], list[str]]:
+    """The baseline's entries of the selection (its --filter) that were not
+    compared, as (failures, excused): an entry whose file is missing from the
+    reference checkout is excused under --allow-missing, every other one is
+    a failure (a corpus line removed, a pattern that no longer matches it)."""
+    failures, excused = [], []
+    for rel in sorted(baseline):
+        if rel in compared or (args.filter and args.filter not in rel) or skip(rel, baseline[rel]):
+            continue
+        absent = not entry_path(args.old_repo, rel).exists()
+        (excused if absent and args.allow_missing else failures).append(rel)
+    return failures, excused
+
+
+def report_not_compared(failures: list[str], excused: list[str]) -> None:
+    for rel in failures:
+        print(f"{'NOT COMPARED':12} {rel}  in the baseline, not compared")
+    for rel in excused:
+        print(f"{'MISSING':12} {rel}  in the baseline, not in the reference checkout (--allow-missing)")
+
+
+def compared_line(compared: int, total: int, differ: int, what: str = "baseline entries") -> str:
+    """The last line of every comparison: how much of its baseline it compared."""
+    return f"{compared} of {total} {what} compared, {differ} differ"
 
 
 def solver_args(solver: str) -> list[str]:
@@ -289,7 +336,7 @@ def cmd_baseline(args: argparse.Namespace) -> int:
     if not old_bin.exists():
         print(f"original burrTxt not found at {old_bin}; build the old repo first (just build)", file=sys.stderr)
         return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
+    entries = select(load_corpus(args.old_repo, args.allow_missing), args.tier, args.filter, args.solver)
     results = run_many(old_bin, args.old_repo, entries, args.jobs, args.timeout, old=True, solver=args.solver)
     BASELINE_DIR.mkdir(exist_ok=True)
     by_tier: dict[str, dict] = {}
@@ -315,9 +362,9 @@ def cmd_compare(args: argparse.Namespace) -> int:
     if not args.new_bt.exists():
         print(f"new bt not found at {args.new_bt}", file=sys.stderr)
         return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
+    entries = select(load_corpus(args.old_repo, args.allow_missing), args.tier, args.filter, args.solver)
     expected: dict[str, dict] = {}
-    for tier in {e.tier for e in entries}:
+    for tier in solver_tiers(args.tier, args.solver):
         path = baseline_path(tier, args.solver)
         if not path.exists():
             print(f"no baseline for tier '{tier}' ({args.solver}): run "
@@ -380,6 +427,10 @@ def cmd_compare(args: argparse.Namespace) -> int:
     for rel, status, detail in rows:
         if status != "ok" or args.verbose:
             print(f"{status:12} {rel}  {detail}")
+    missing, excused = not_compared(expected, {e.rel for e in entries}, args)
+    report_not_compared(missing, excused)
+    differ = failures
+    failures += len(missing)
     oldFailed = sum(1 for _, status, _ in rows if status == "OLD FAILED")
     oneThread = sum(1 for _, status, _ in rows if status == "ONE THREAD")
     compared = len(rows) - oldFailed - oneThread - (unported if args.allow_unported else 0)
@@ -395,6 +446,17 @@ def cmd_compare(args: argparse.Namespace) -> int:
     if unported:
         print(f"{unported} need a part that is not ported yet"
               + (" (not counted: --allow-unported)" if args.allow_unported else " (counted as failures)"))
+    if missing:
+        print(f"{len(missing)} in the baseline and not compared (NOT COMPARED above, counted as failures)")
+    if excused:
+        print(f"{len(excused)} in the baseline and missing from the reference checkout (--allow-missing)")
+    if not rows:
+        print("nothing was compared")
+        failures += 1
+    in_baseline = sum(1 for rel in expected if not args.filter or args.filter in rel)
+    not_run = ("OLD FAILED", "ONE THREAD", "NO BASELINE", *(["UNPORTED"] if args.allow_unported else []))
+    print(compared_line(sum(1 for rel, status, _ in rows if rel in expected and status not in not_run),
+                        in_baseline, differ))
     return 1 if failures else 0
 
 
@@ -419,7 +481,7 @@ def cmd_baseline_files(args: argparse.Namespace) -> int:
     sliding puzzles with the original's solve thread (slide_solve_old.cpp),
     as burrTxt2 refuses -d on their grid, and stacking ones too
     (stack_solve_old.cpp: burrTxt2 has no stacking solver)."""
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
+    entries = select(load_corpus(args.old_repo, args.allow_missing), args.tier, args.filter, args.solver)
     # a stacking puzzle whose setup is not ready (I): the GUI refused to solve it
     entries = [e for e in entries if "I" not in e.flags]
     old_bin = args.old_repo / "build" / "burrTxt2"
@@ -598,8 +660,17 @@ def cmd_compare_files(args: argparse.Namespace) -> int:
         if not tool.exists():
             print(f"{tool} not found: build the release preset", file=sys.stderr)
             return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
+    entries = select(load_corpus(args.old_repo, args.allow_missing), args.tier, args.filter, args.solver)
     entries = [e for e in entries if "I" not in e.flags]
+    # the puzzles to compare: the summary baselines' (the solved files under
+    # work/old are not kept by tier), but for a setup that is not ready (I)
+    expected: dict[str, dict] = {}
+    for tier in solver_tiers(args.tier, args.solver):
+        path = baseline_path(tier, args.solver)
+        if not path.exists():
+            print(f"no baseline for tier '{tier}' ({args.solver}): {path.relative_to(REPO)}", file=sys.stderr)
+            return 2
+        expected.update(json.loads(path.read_text()))
     results: dict[str, dict] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = {pool.submit(compare_files_one, e, args): e for e in entries}
@@ -614,11 +685,27 @@ def cmd_compare_files(args: argparse.Namespace) -> int:
             failures += 1
         if r["status"] != "ok" or args.verbose:
             print(f"{r['status']:12} {rel}  {r.get('detail', '')}")
+    missing, excused = not_compared(expected, set(results), args,
+                                    skip=lambda rel, value: "I" in value.get("flags", ""))
+    report_not_compared(missing, excused)
+    differ = failures
     print(f"\n{len(results) - failures}/{len(results)} solved files match the original's "
           f"(solver {args.solver})" + ("" if failures == 0 else f", {failures} do not"))
     own = sum(1 for r in results.values() if r.get("own"))
     if own:
         print(f"{own} of them hold {OWN_ANSWER}: their counts match the summary baseline")
+    if missing:
+        print(f"{len(missing)} in the baseline and not compared (NOT COMPARED above, counted as failures)")
+        failures += len(missing)
+    if excused:
+        print(f"{len(excused)} in the baseline and missing from the reference checkout (--allow-missing)")
+    if not results:
+        print("nothing was compared")
+        failures += 1
+    in_baseline = sum(1 for rel, value in expected.items()
+                      if (not args.filter or args.filter in rel) and "I" not in value.get("flags", ""))
+    print(compared_line(sum(1 for rel, r in results.items() if rel in expected and r["status"] != "NO BASELINE"),
+                        in_baseline, differ))
     return 1 if failures else 0
 
 
@@ -773,7 +860,7 @@ def cmd_baseline_text(args: argparse.Namespace) -> int:
     if not old_bin.exists():
         print(f"original burrTxt not found at {old_bin}", file=sys.stderr)
         return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
+    entries = select(load_corpus(args.old_repo, args.allow_missing), args.tier, args.filter, args.solver)
     jobs = text_jobs(entries, args.old_repo, args.solver)
     missing = sorted({str(p) for _, _, _, p in jobs if not p.exists()})
     if missing:
@@ -824,9 +911,9 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
     if not args.new_bt.exists():
         print(f"new bt not found at {args.new_bt}", file=sys.stderr)
         return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
+    entries = select(load_corpus(args.old_repo, args.allow_missing), args.tier, args.filter, args.solver)
     expected: dict[str, dict] = {}
-    for tier in {e.tier for e in entries}:
+    for tier in solver_tiers(args.tier, args.solver):
         path = text_baseline_path(tier, args.solver)
         if not path.exists():
             print(f"no text baseline for tier '{tier}' ({args.solver}): run "
@@ -836,6 +923,10 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
     jobs = text_jobs(entries, args.old_repo, args.solver)
     store = text_dir("new", args.solver)
     old_store = text_dir("old", args.solver)
+    # a run the baseline holds that this harness no longer makes is not compared
+    made = {(e.rel, name) for e, name, _, _ in jobs}
+    runs_not_made = sorted((rel, name) for rel, runs in expected.items() if rel in {e.rel for e in entries}
+                           for name in runs if (rel, name) not in made)
 
     def one(job):
         e, name, a, puzzle = job
@@ -903,6 +994,11 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
             failures += 1
         if status not in ("ok", "own") or args.verbose:
             print(f"{status:12} {rel} {name}  {detail}")
+    for rel, name in runs_not_made:
+        print(f"{'NOT RUN':12} {rel} {name}  in the baseline, not run")
+    missing, excused = not_compared(expected, {e.rel for e in entries}, args)
+    report_not_compared(missing, excused)
+    differ = failures
     compared = len(rows) - old_failed - own
     print(f"\n{compared - failures}/{compared} text runs match the original's "
           f"({len(entries)} puzzles; solver {args.solver})" + ("" if failures == 0 else f", {failures} do not"))
@@ -910,6 +1006,20 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
         print(f"{own} more hold {OWN_ANSWER}: their counts match the summary baseline")
     if old_failed:
         print(f"{old_failed} not compared: the original gave no answer (OLD FAILED above)")
+    if runs_not_made:
+        print(f"{len(runs_not_made)} runs in the baseline and not run (NOT RUN above, counted as failures)")
+        failures += len(runs_not_made)
+    if missing:
+        print(f"{len(missing)} puzzles in the baseline and not compared (NOT COMPARED above, counted as failures)")
+        failures += len(missing)
+    if excused:
+        print(f"{len(excused)} puzzles in the baseline and missing from the reference checkout (--allow-missing)")
+    if not rows:
+        print("nothing was compared")
+        failures += 1
+    in_baseline = sum(1 for rel in expected if not args.filter or args.filter in rel)
+    ran = {rel for rel, _, status, _ in rows if rel in expected and status not in ("OLD FAILED", "NO BASELINE")}
+    print(compared_line(len(ran), in_baseline, differ, "baseline puzzles"))
     return 1 if failures else 0
 
 
@@ -1137,7 +1247,16 @@ def run_tool(argv: list[str], timeout: float, env: dict | None = None) -> str | 
     return None
 
 
-def roundtrip_one(old_tool: Path, new_tool: Path, src: Path, out: Path, timeout: float) -> dict:
+def missing_input(path: Path, allow_missing: bool) -> dict:
+    """The result for an input that does not exist: never "both refuse" (both
+    programs refuse a file that is not there); excused under --allow-missing."""
+    return {"status": "MISSING" if allow_missing else "MISSING INPUT", "detail": f"no {path}"}
+
+
+def roundtrip_one(old_tool: Path, new_tool: Path, src: Path, out: Path, timeout: float,
+                  allow_missing: bool = False) -> dict:
+    if not src.exists():
+        return missing_input(src, allow_missing)
     out.mkdir(parents=True, exist_ok=True)
     old_out, new_out = out / "old.xmpuzzle", out / "new.xmpuzzle"
     new2_out, old_of_new = out / "new2.xmpuzzle", out / "old_of_new.xmpuzzle"
@@ -1192,7 +1311,7 @@ def cmd_roundtrip(args: argparse.Namespace) -> int:
         return 2
 
     files: list[tuple[str, Path]] = []
-    for e in select(load_corpus(args.old_repo), ["all", "sliding", "stacking"], args.filter):
+    for e in select(load_corpus(args.old_repo, args.allow_missing), ["all", "sliding", "stacking"], args.filter):
         files.append((e.rel, entry_path(args.old_repo, e.rel)))
     for rel in ROUNDTRIP_EXTRA:
         if not args.filter or args.filter in rel:
@@ -1210,7 +1329,8 @@ def cmd_roundtrip(args: argparse.Namespace) -> int:
     shutil.rmtree(out_root, ignore_errors=True)
     results: dict[str, dict] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(roundtrip_one, old_tool, args.new_tool, src, out_root / f"{n:04d}", args.timeout): rel
+        futures = {pool.submit(roundtrip_one, old_tool, args.new_tool, src, out_root / f"{n:04d}", args.timeout,
+                               args.allow_missing): rel
                    for n, (rel, src) in enumerate(files)}
         for fut in concurrent.futures.as_completed(futures):
             rel = futures[fut]
@@ -1222,10 +1342,13 @@ def cmd_roundtrip(args: argparse.Namespace) -> int:
     failures = 0
     for rel in sorted(results):
         r = results[rel]
-        if r["status"] == "MISMATCH":
+        if r["status"] in ("MISMATCH", "MISSING INPUT"):
             failures += 1
         if r["status"] != "ok" or args.verbose:
             print(f"{r['status']:12} {rel}  {r.get('detail', '')}")
+    differ = sum(1 for r in results.values() if r["status"] == "MISMATCH")
+    missing = sum(1 for r in results.values() if r["status"] == "MISSING INPUT")
+    excused = sum(1 for r in results.values() if r["status"] == "MISSING")
     marks = [r for r in results.values() if r["status"] == "ok" and r.get("marks")]
     ok = [r for r in results.values() if r["status"] == "ok" and not r.get("marks")]
     print(f"\n{len(results) - failures}/{len(results)} files: the new core saves what the original saves"
@@ -1236,6 +1359,14 @@ def cmd_roundtrip(args: argparse.Namespace) -> int:
     if marks:
         print(f"  {len(marks)} sliding puzzles saved with their problems' slide marks (decision 0027): "
               "the original's save read as the input, the new save a fixpoint")
+    if missing:
+        print(f"{missing} inputs do not exist (MISSING INPUT above, counted as failures)")
+    if excused:
+        print(f"{excused} inputs missing from the reference checkout (--allow-missing)")
+    if not files:
+        print("nothing was compared")
+        failures += 1
+    print(compared_line(len(results) - missing - excused, len(files), differ, "inputs"))
     return 1 if failures else 0
 
 
@@ -1306,9 +1437,13 @@ def as_shapelogic_writes(scad: bytes) -> bytes:
 SLIDING_GRID = 5
 
 
-def imports_one(old_tool: Path, new_tool: Path, job: tuple, out: Path, timeout: float) -> dict:
+def imports_one(old_tool: Path, new_tool: Path, job: tuple, out: Path, timeout: float,
+                allow_missing: bool = False) -> dict:
     """One job of `oracle.py imports`: both programs, the same arguments, the outputs compared."""
     mode, args = job[0], list(job[1:])
+    if not Path(args[0]).exists():
+        # every mode's first argument is its input file
+        return missing_input(Path(args[0]), allow_missing)
     out.mkdir(parents=True, exist_ok=True)
     saves = mode != "scad-export"
     old_args = args + ([str(out / "old.xmpuzzle")] if saves else [])
@@ -1347,11 +1482,11 @@ def import_jobs(args: argparse.Namespace, gen_dir: Path) -> list[tuple[str, tupl
         if f.suffix in (".puz", ".scad") and (not flt or flt in f.name):
             jobs.append((f"input:{f.name}", ("ps3d" if f.suffix == ".puz" else "scad", str(f))))
     for rel in IMPORT_SCAD_EXTRA:
-        if (args.old_repo / rel).exists() and (not flt or flt in rel):
+        if not flt or flt in rel:
             jobs.append((rel, ("scad", str(args.old_repo / rel))))
     seen = set()
     files = [(e.rel, entry_path(args.old_repo, e.rel))
-             for e in select(load_corpus(args.old_repo), ["all", "sliding", "stacking"], flt)]
+             for e in select(load_corpus(args.old_repo, args.allow_missing), ["all", "sliding", "stacking"], flt)]
     files += [(rel, args.old_repo / rel) for rel in ROUNDTRIP_EXTRA if not flt or flt in rel]
     files += [(f"alpha:tests/data/puzzles/{p.name}", p) for p in sorted(FIXTURES.glob("*.xmpuzzle"))
               if not flt or flt in p.name]
@@ -1361,6 +1496,8 @@ def import_jobs(args: argparse.Namespace, gen_dir: Path) -> list[tuple[str, tupl
         seen.add(src)
         for name, grid in CONVERT_TARGETS:
             jobs.append((f"{rel} convert {name}", ("convert", str(src), str(grid))))
+        if not src.exists():
+            continue  # its conversions above report it missing
         try:
             grid, shapes, result, problems = puzzle_shapes(src)
         except Exception as exc:  # noqa: BLE001 - a file Python cannot read is reported, not fatal
@@ -1396,7 +1533,8 @@ def cmd_imports(args: argparse.Namespace) -> int:
     def run(batch):
         results = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-            futures = {pool.submit(imports_one, old_tool, args.new_tool, job, out_root / tag, args.timeout): label
+            futures = {pool.submit(imports_one, old_tool, args.new_tool, job, out_root / tag, args.timeout,
+                                   args.allow_missing): label
                        for tag, (label, job) in batch}
             for fut in concurrent.futures.as_completed(futures):
                 label = futures[fut]
@@ -1419,12 +1557,17 @@ def cmd_imports(args: argparse.Namespace) -> int:
     for label in sorted(results):
         r = results[label]
         counts[r["status"]] = counts.get(r["status"], 0) + 1
-        if r["status"] == "MISMATCH":
+        if r["status"] in ("MISMATCH", "MISSING INPUT"):
             failures += 1
-        if r["status"] == "MISMATCH" or args.verbose:
+        if r["status"] in ("MISMATCH", "MISSING INPUT", "MISSING") or args.verbose:
             print(f"{r['status']:12} {label}  {r.get('detail', '')}")
     print(f"\n{len(results) - failures}/{len(results)} imports, exports and conversions the same as the original's"
           + "".join(f"; {v} {k}" for k, v in sorted(counts.items())))
+    if not results:
+        print("nothing was compared")
+        failures += 1
+    not_run = counts.get("MISSING INPUT", 0) + counts.get("MISSING", 0)
+    print(compared_line(len(results) - not_run, len(results), counts.get("MISMATCH", 0), "jobs"))
     return 1 if failures else 0
 
 
@@ -1475,7 +1618,7 @@ def cmd_python(args: argparse.Namespace) -> int:
         return 2
     jobs: list[tuple[str, list[str], bool]] = [
         ("errors and generated puzzles", ["--errors", "--generated", str(args.generated)], True)]
-    for e in select(load_corpus(args.old_repo), args.tier, args.filter):
+    for e in select(load_corpus(args.old_repo, args.allow_missing), args.tier, args.filter):
         # a grid only the new core takes apart ("D"): the solves without the take-apart
         argv = [str(entry_path(args.old_repo, e.rel)), *(["--assemble-only"] if "D" in e.flags else []),
                 *(["--first-problem"] if e.tier in ("full", "slow") else [])]
@@ -1504,6 +1647,10 @@ def cmd_python(args: argparse.Namespace) -> int:
             if status != "OK" or args.verbose:
                 print(f"{status:12} {label}  {detail}")
     print(f"\n{len(jobs) - failures}/{len(jobs)} Python transcripts the same as the original module's")
+    if len(jobs) == 1:
+        print("no corpus puzzle was compared")
+        failures += 1
+    print(compared_line(len(jobs), len(jobs), failures, "transcripts"))
     return 1 if failures else 0
 
 
@@ -2040,6 +2187,10 @@ def cmd_blockpack_check(args: argparse.Namespace) -> int:
     return 1 if failures else 0
 
 
+ALLOW_MISSING_HELP = ("run on a reference checkout known to be partial: corpus patterns that match nothing, "
+                      "and baseline entries and inputs missing from it, are listed but do not fail the run")
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burr-tools")))
@@ -2054,6 +2205,7 @@ def main() -> int:
         s.add_argument("--jobs", "-j", type=int, default=1, help="puzzles at once (1 keeps solve times comparable)")
         s.add_argument("--timeout", type=float, default=600.0, help="seconds per puzzle")
         s.add_argument("--verbose", "-v", action="store_true")
+        s.add_argument("--allow-missing", action="store_true", help=ALLOW_MISSING_HELP)
         s.add_argument("--solver", choices=["classic", "crowell", *STACKING_SOLVERS],
                        default="classic",
                        help="the solver both programs run (baselines of another than classic are "
@@ -2097,6 +2249,7 @@ def main() -> int:
                    help="record tests/data/imports_by_original/: the original's imports, Puzzlecad exports and conversions")
     s = sub.add_parser("imports", help="import, export to Puzzlecad and convert grids with both programs and compare")
     s.add_argument("--new-tool", type=Path, default=HERE.parent.parent / "build" / "release" / "tests" / "bt_imports")
+    s.add_argument("--allow-missing", action="store_true", help=ALLOW_MISSING_HELP)
     s.add_argument("--filter", help="only files whose path contains this text")
     s.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 4)
     s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")
@@ -2110,6 +2263,7 @@ def main() -> int:
     s.add_argument("--generated", type=int, default=300, help="puzzles built through the API")
     s.add_argument("--jobs", "-j", type=int, default=max(1, (os.cpu_count() or 4) // 2))
     s.add_argument("--timeout", type=float, default=600.0, help="seconds per transcript")
+    s.add_argument("--allow-missing", action="store_true", help=ALLOW_MISSING_HELP)
     s.add_argument("--verbose", "-v", action="store_true")
     sub.add_parser("record-slide-routes",
                    help="record tests/data/slide_solved_by_original/ and slide_routes.txt from the original")
@@ -2122,6 +2276,7 @@ def main() -> int:
     s.add_argument("--verbose", "-v", action="store_true")
     s = sub.add_parser("roundtrip", help="load and save every corpus file with both programs and compare")
     s.add_argument("--new-tool", type=Path, default=HERE.parent.parent / "build" / "release" / "tests" / "bt_roundtrip")
+    s.add_argument("--allow-missing", action="store_true", help=ALLOW_MISSING_HELP)
     s.add_argument("--filter", help="only files whose path contains this text")
     s.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 4)
     s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")

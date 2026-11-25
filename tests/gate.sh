@@ -28,10 +28,18 @@
 #               is rebuilt for the version: just site-demo)
 #   dist        just app-dist --dir, just app-smoke
 #
+# Each suite has a time limit (GATE_STEP_TIMEOUT seconds, 2 hours by
+# default; the longest take about 20 minutes): one that outlasts it is
+# stopped and marked TIMEOUT, so the table always prints.
+#
 # Run it on a quiet machine: the suites run side by side inside themselves
 # and some time real solves.
 set -u
 cd "$(dirname "$0")/.."
+
+# A suite that cannot run fails instead of skipping: the web engine tests
+# without an engine, the smoke test without a packaged app.
+export BT_REQUIRE_ALL=1
 
 DEFAULT="build unit sanitizers python oracle app check"
 EVERY="$DEFAULT e2e site dist"
@@ -53,8 +61,22 @@ SUMMARY="$OUT/summary.txt"
 : > "$SUMMARY"
 n=0
 failed=0
+LIMIT="${GATE_STEP_TIMEOUT:-7200}"
 
-# run <name> <command...>: one suite, its output in a log of its own
+# The running suite's process group and its watcher's, stopped with the
+# gate (Ctrl-C).
+step=""
+watcher=""
+stop_step() {
+  [ -n "$step" ] && kill -TERM -- "-$step" 2>/dev/null
+  [ -n "$watcher" ] && kill -TERM -- "-$watcher" 2>/dev/null
+  exit 130
+}
+trap stop_step INT TERM
+
+# run <name> <command...>: one suite, its output in a log of its own, in a
+# process group of its own (macOS has no `timeout`): a watcher stops the
+# whole group when the suite outlasts LIMIT.
 run() {
   n=$((n + 1))
   local name="$1"
@@ -63,10 +85,32 @@ run() {
   log="$OUT/$(printf '%02d' "$n")-$name.log"
   local t0=$SECONDS
   printf '%s  ....  %-28s %s\n' "$(date +%T)" "$name" "$*"
-  "$@" > "$log" 2>&1
+  rm -f "$log.timeout"
+  set -m
+  "$@" > "$log" 2>&1 < /dev/null &
+  step=$!
+  (
+    sleep "$LIMIT"
+    touch "$log.timeout"
+    echo "gate: stopped after ${LIMIT}s (GATE_STEP_TIMEOUT)" >> "$log"
+    kill -TERM -- "-$step" 2>/dev/null
+    sleep 10
+    kill -KILL -- "-$step" 2>/dev/null
+  ) > /dev/null 2>&1 &
+  watcher=$!
+  set +m
+  wait "$step"
   local rc=$?
+  kill -TERM -- "-$watcher" 2>/dev/null
+  wait "$watcher" 2>/dev/null
+  step=""
+  watcher=""
   local verdict=PASS
-  if [ $rc -ne 0 ]; then
+  if [ -e "$log.timeout" ]; then
+    rm -f "$log.timeout"
+    verdict="TIMEOUT"
+    failed=$((failed + 1))
+  elif [ $rc -ne 0 ]; then
     verdict="FAIL($rc)"
     failed=$((failed + 1))
   fi

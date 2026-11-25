@@ -39,6 +39,14 @@ so have stacking puzzles: `Q` not for the Panex Solver, `L` no `-o all`
 text run, `I` a setup that is not ready (see "Stacking puzzles" below). A
 path beginning `alpha:` is a file of this repo, not of the original's.
 
+A run never passes on nothing. A corpus pattern that matches nothing in
+the original checkout stops the run (exit 2). A baseline entry of the
+selected tiers that was not compared is a failure. So are a run that
+compared nothing and an input file that does not exist (round trip,
+imports). Each command's last line reads "N of M baseline entries
+compared, K differ". For a checkout known to be partial, `--allow-missing`
+lists the files it lacks without failing on them.
+
 ## Commands
 
 ```bash

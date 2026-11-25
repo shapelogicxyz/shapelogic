@@ -77,15 +77,33 @@ bt_set_warnings(bt_tests)
 # way in every shard (a fixed seed; no test uses Catch2's random numbers),
 # which spreads the slow cases of one file over the shards.
 set(BT_TEST_SHARDS 8 CACHE STRING "How many shards the unit tests are split into")
+
+# Every test has a time limit, so a deadlock fails its test instead of
+# stalling the run for good. Each limit is at least three times the longest
+# time of its kind (the Debug build, 8 shards side by side, on 2026-11-24:
+# build/dev/Testing/Temporary/CTestCostData.txt and a run beside an oracle
+# run), at least 120 s; the sanitizer presets multiply them by
+# BT_TEST_TIMEOUT_SCALE (6).
+set(BT_TEST_TIMEOUT_SCALE 1 CACHE STRING "Multiplies every test's time limit (the sanitizer presets: 6)")
+function(bt_test_timeout seconds)
+  math(EXPR scaled "${seconds} * ${BT_TEST_TIMEOUT_SCALE}")
+  set_tests_properties(${ARGN} PROPERTIES TIMEOUT ${scaled})
+endfunction()
+
+# --durations yes: each case's time as it ends, so the log of a shard that
+# ran out of time shows the last case that finished.
 math(EXPR last_shard "${BT_TEST_SHARDS} - 1")
 foreach(i RANGE ${last_shard})
   add_test(NAME unit-${i} COMMAND bt_tests "~[slow]" --order rand --rng-seed 1
-           --shard-count ${BT_TEST_SHARDS} --shard-index ${i}
+           --shard-count ${BT_TEST_SHARDS} --shard-index ${i} --durations yes
            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
   add_test(NAME unit-slow-${i} COMMAND bt_tests "[slow]" --allow-running-no-tests
-           --order rand --rng-seed 1 --shard-count ${BT_TEST_SHARDS} --shard-index ${i}
+           --order rand --rng-seed 1 --shard-count ${BT_TEST_SHARDS} --shard-index ${i} --durations yes
            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
   set_tests_properties(unit-slow-${i} PROPERTIES LABELS slow)
+  # seen: the quick shards up to 140 s, the slow ones up to 311 s
+  bt_test_timeout(600 unit-${i})
+  bt_test_timeout(1200 unit-slow-${i})
 endforeach()
 
 # The engine's contract (decision 0012): the schema checks itself, docs/API.md
@@ -98,10 +116,15 @@ add_test(NAME api-docs COMMAND Python3::Interpreter api/gen_api_md.py --check
          WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 add_test(NAME contract COMMAND Python3::Interpreter tests/contract/test_engine.py
          --engine $<TARGET_FILE:shapelogic_engine> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+# recorded: the schema and docs checks under a second; the contract suite
+# 4 s, but 41 s beside the unit shards
+bt_test_timeout(120 api-schema api-docs)
+bt_test_timeout(300 contract)
 
 # The shapelogic_cli command line: burrTxt's option rules, the refusals, --save, -a, -x.
 add_test(NAME cli COMMAND Python3::Interpreter tests/cli/test_cli.py
          --bt $<TARGET_FILE:shapelogic_cli> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+bt_test_timeout(120 cli)
 
 # The Python module (deferred part 7), when it is built: the original's
 # tests and the new ones in python/tests, on this build's module.
@@ -109,7 +132,8 @@ if(TARGET shapelogic)
   add_test(NAME python COMMAND Python::Interpreter -m unittest discover -s python/tests -v
            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
   set_tests_properties(python PROPERTIES
-    ENVIRONMENT "PYTHONPATH=$<TARGET_FILE_DIR:shapelogic>" LABELS python TIMEOUT 600)
+    ENVIRONMENT "PYTHONPATH=$<TARGET_FILE_DIR:shapelogic>" LABELS python)
+  bt_test_timeout(600 python)
 endif()
 
 # bt_roundtrip: load and save one puzzle file, for `oracle.py roundtrip`.

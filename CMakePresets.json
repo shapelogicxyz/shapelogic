@@ -39,13 +39,13 @@
       "name": "asan",
       "displayName": "AddressSanitizer + UndefinedBehaviorSanitizer",
       "inherits": "base",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BT_SANITIZE": "address,undefined" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BT_SANITIZE": "address,undefined", "BT_TEST_TIMEOUT_SCALE": "6" }
     },
     {
       "name": "tsan",
       "displayName": "ThreadSanitizer",
       "inherits": "base",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BT_SANITIZE": "thread" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BT_SANITIZE": "thread", "BT_TEST_TIMEOUT_SCALE": "6" }
     },
     {
       "name": "wasm",

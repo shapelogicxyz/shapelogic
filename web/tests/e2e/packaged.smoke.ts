@@ -74,6 +74,11 @@ const ENGINE = join(
 );
 const VERSION = projectVersion();
 
+// With BT_REQUIRE_ALL=1 (the gate) a missing app fails the run: a gate
+// that skipped the smoke test must not pass.
+if (process.env.BT_REQUIRE_ALL === '1' && !existsSync(APP.exe)) {
+  throw new Error(`BT_REQUIRE_ALL=1: no packaged app at ${APP.exe}: run \`just app-dist --dir\``);
+}
 test.skip(!existsSync(APP.exe), `no packaged app at ${APP.exe}: run \`just app-dist --dir\``);
 
 /** Starts the packaged app with these arguments; resolves with its DevTools address. */

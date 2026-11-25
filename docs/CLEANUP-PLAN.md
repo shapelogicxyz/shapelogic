@@ -138,7 +138,7 @@ Stages 1 to 14 need only Opus 5.5 High, with Fable 5.2 High reviewing some
 of them (the checkpoints). Stages 15 to 20 need Fable. Stage 21 is Opus
 again, and comes last.
 
-- [ ] Stage 1: checks that cannot pass on nothing, and that end
+- [x] Stage 1: checks that cannot pass on nothing, and that end
 - [ ] Stage 2: startup health: logs and messages that tell why the app cannot work
 - [ ] Stage 3: the agent docs: trimmed, and true (decided: D2)
 - [ ] Checkpoint A (Fable): review of stage 3
@@ -311,7 +311,7 @@ Each checkpoint, in one Fable session:
 Every later stage is judged by these suites. On 2026-11-22 the oracle's full
 tier compared no puzzle at all and still passed.
 
-- [ ] **1.1 The oracle fails when it compared nothing** (trap; S) ✓
+- [x] **1.1 The oracle fails when it compared nothing** (trap; S) ✓
   - *Where:* `tests/oracle/oracle.py`: `load_corpus()` (79-110; the warning
     "corpus pattern matched nothing" at about 91); `cmd_compare()`
     (314-400), `cmd_compare_files()` (595-638), `cmd_compare_text()`
@@ -348,8 +348,56 @@ tier compared no puzzle at all and still passed.
   - *If the full tier then fails* because its pattern matches nothing in
     the reference checkout: stop and tell the user. Do not look for the
     files outside the repo (the reference checkout is outside it).
+  - Done (2026-11-24): confirmed: against `../burr-tools` ten patterns match
+    nothing (`test/test_rotation_solvers`, all four `tictest/` patterns, the
+    three sliding and two stacking fixtures of the original), so the full and
+    slow tiers compared 0 puzzles and passed. `tests/oracle/oracle.py`:
+    - `load_corpus()` lists every unmatched pattern and exits 2;
+      `--allow-missing` (on every command that reads the corpus) makes them
+      warnings.
+    - `compare`, `compare-files` and `compare-text` load the baselines of
+      the selected tiers (`solver_tiers()`, now also `select()`'s tier rule),
+      not only of the tiers that matched.
+      - A baseline entry that was not compared is `NOT COMPARED`, a failure.
+        `compare-files` uses the summary baselines for its list, since
+        `work/old` is not kept by tier, and leaves out `I` entries.
+        `compare-text` also fails a run in the baseline that it no longer
+        makes (`NOT RUN`).
+      - Under `--allow-missing`, only entries whose file is absent from the
+        checkout are excused (`MISSING`); one that is there but was not
+        compared still fails.
+    - A run that compared nothing fails.
+    - `roundtrip_one()` and `imports_one()` give `MISSING INPUT` (a failure)
+      for an input that does not exist. `imports` no longer drops a missing
+      `IMPORT_SCAD_EXTRA` file without a word. `python` fails when no corpus
+      puzzle was run.
+    - Each command's last line: "N of M baseline entries compared, K
+      differ" (inputs, jobs, transcripts for the commands with no baseline).
+    - tests/oracle/README.md says so.
+    By hand, `--old-repo` an empty scratch folder:
+    - `compare --tier all`, `compare-text --tier all` and
+      `compare-files --tier all`: exit 2 (28 patterns);
+    - `roundtrip`, `imports` and `python`: exit 2 (no original library or
+      module, before the corpus);
+    - with `--allow-missing --tier full`: `compare`, `compare-text` and
+      `compare-files` exit 1 ("nothing was compared", "0 of 158 baseline
+      entries compared");
+    - the paths the empty folder cannot reach, called directly:
+      `not_compared()` fails a present-but-uncompared entry even under
+      `--allow-missing`, and `roundtrip_one()` and `imports_one()` give
+      `MISSING INPUT` for an absent file.
+    The real checkout:
+    - `just oracle --tier fast` and `--tier full`: exit 2;
+    - with `--allow-missing`: fast 18 of 19 compared, 0 differ; stacking 38
+      of 41 (1 OLD FAILED, 2 missing); stacking panex 10 of 11; sliding 23 of
+      35 (9 one-thread only, 3 missing); all exit 0.
+    **The full and slow tiers now fail until the reference checkout holds
+    `tictest/` and the missing `test/` and `examples/` files.** Its
+    `build/` is also missing (no `burrTxt`, no `libburr_core.a`), so
+    `roundtrip`, `imports`, `python` and the `baseline-*` commands cannot
+    run either. Told the user; nothing was looked for outside the repo.
 
-- [ ] **1.2 Web tests and the smoke test fail under the gate instead of skipping** (trap; S)
+- [x] **1.2 Web tests and the smoke test fail under the gate instead of skipping** (trap; S)
   - *Where:* `web/tests/global-setup.ts` (17-26: prints "the engine tests
     are SKIPPED" and goes on); the ten `describe.skipIf(ENGINE === null)`
     in `web/tests/engine/*.test.ts` (grep `skipIf(ENGINE`);
@@ -363,8 +411,30 @@ tier compared no puzzle at all and still passed.
     Without the variable, local runs behave as now.
   - *Tests:* in `web/`: `BT_REQUIRE_ALL=1 BT_ENGINE=/nonexistent npx vitest run tests/engine`
     fails; without `BT_REQUIRE_ALL` it skips with the message.
+  - Done (2026-11-24): with `BT_REQUIRE_ALL=1`:
+    - `web/tests/global-setup.ts` throws when there is no engine;
+    - `packaged.smoke.ts` throws when there is no packaged app;
+    - `web/tests/e2e/global-setup.ts` throws when there is no engine or no
+      `out/` build. Added beyond the item: the gate's e2e group runs
+      `just app-e2e`, which does not build the engine, so every spec would
+      skip and the gate would read PASS.
+    `tests/gate.sh` exports the variable. Differs from the item's test: an
+    explicit `BT_ENGINE` that does not exist was already used as given (the
+    helpers skip only when the default engine is missing), so
+    `BT_ENGINE=/nonexistent` without the variable fails rather than skips,
+    as before. The setup's message now says so instead of "SKIPPED".
+    Checked:
+    - `BT_REQUIRE_ALL=1 BT_ENGINE=/nonexistent npx vitest run tests/engine`:
+      exit 1;
+    - the default engine moved aside: without the variable 39 skipped, exit
+      0; with it, exit 1;
+    - the smoke test with no app: skipped, exit 0; with the variable, exit 1;
+    - `layout.e2e.ts` with no build: skipped, exit 0; with the variable,
+      exit 1;
+    - `just app-check` passes, and `just app-test` passes 569 of 569, also
+      with `BT_REQUIRE_ALL=1`.
 
-- [ ] **1.3 Every test run has a time limit** (stability; S)
+- [x] **1.3 Every test run has a time limit** (stability; S)
   - *Where:* `tests/CMakeLists.txt` (79-104: no TIMEOUT except the
     `python` test's, at 112); `CMakePresets.json` (no test timeout);
     `tests/gate.sh:66` (each step runs without a limit).
@@ -383,6 +453,31 @@ tier compared no puzzle at all and still passed.
        "timeout" in the table.
   - *Note:* item 8.1 changes the shards; set these limits generously, or do
     8.1 first.
+  - Done (2026-11-24):
+    - `tests/CMakeLists.txt`: a `bt_test_timeout()` helper. The limits, at
+      least three times the longest time seen (the dev cost data and a run
+      beside the oracle): quick shards 600 s (seen 140 s), slow shards
+      1200 s (311 s), contract 300 s (4 s in the cost data, 41 s beside the
+      shards), cli, api-schema and api-docs 120 s, python 600 s (as
+      before).
+    - `BT_TEST_TIMEOUT_SCALE` (1; 6 in the asan and tsan presets) multiplies
+      them. Checked with `ctest --show-only=json-v1`: every one of dev's 21
+      tests has a limit, and asan's and tsan's are ×6 (slow shards
+      7200 s; asan's slowest was recorded at 929 s).
+    - `--durations yes` on both `bt_tests` commands; a shard's log lists
+      each case's time.
+    - `tests/gate.sh`: each step runs in its own process group under a
+      watcher that stops the group after `GATE_STEP_TIMEOUT` seconds (7200
+      by default; the longest steps take about 20 minutes). The table says
+      `TIMEOUT`, and Ctrl-C stops the running step too. Tested on a copy
+      with fake steps and a 3 s limit: `sleep 60` and a step whose children
+      sleep were stopped after 3 s and marked TIMEOUT, later steps ran, the
+      table printed, and no process was left; a TERM to the gate stopped
+      its step.
+    - `tsan`'s `bt_tests "[parallel]"` runs outside ctest; only the gate's
+      step limit covers it.
+    - `just test` passes (13 of 13) and `just test-all` passes (21 of 21,
+      353 s, beside oracle runs).
 
 ## Stage 2: startup health: logs and messages that tell why the app cannot work
 
