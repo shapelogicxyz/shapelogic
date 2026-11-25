@@ -343,6 +343,11 @@ test('an engine killed after edits: restarted, the rescue copy offered and reope
     await rescued(page);
     const edited = await docOf(page);
     expect(existsSync(join(a.userData, '__rescue.xmpuzzle'))).toBe(true);
+    // gzip-compressed (cleanup item 4.5): a large document's plain XML, in
+    // base64, was too long a line for the engine to open again
+    expect([...readFileSync(join(a.userData, '__rescue.xmpuzzle')).subarray(0, 2)]).toEqual([
+      0x1f, 0x8b,
+    ]);
 
     const main = app.process().pid ?? 0;
     const [pid] = engines(main);

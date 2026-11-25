@@ -882,6 +882,11 @@ class Document {
   void touchAppendedProblem();
   void swapIn(Snapshot& s);
   void pushStep(Step step);
+  /// Drops the oldest undo steps past the depth, moving baseStamp_ up.
+  void dropOldestSteps();
+  /// The stamp of the state the document is in: the step on top of the
+  /// undo stack, or baseStamp_ with none.
+  [[nodiscard]] std::uint64_t currentStamp() const;
   void changed(std::uint32_t what);
 
   // the original's changeShape / changeProblem
@@ -983,7 +988,12 @@ class Document {
   /// Every touch of a part by a command (saved or already covered).
   std::uint64_t touches_ = 0;
   std::uint64_t stamps_ = 0;
-  /// The step on top of the undo stack when the document was clean.
+  /// The state with no step left to undo: 0, the file as opened, until the
+  /// depth drops the oldest step, then the stamp of the last step dropped
+  /// (cleanup item 4.4: an empty stack counted as the file as opened, so
+  /// more edits than the depth, all undone, looked saved).
+  std::uint64_t baseStamp_ = 0;
+  /// The state when the document was clean (currentStamp then).
   std::uint64_t cleanStamp_ = 0;
   bool solveDirty_ = false;
 

@@ -229,7 +229,7 @@ Result<void> Document::save(const std::filesystem::path& path) {
   if (Result<void> r = io::savePuzzle(*puzzle_, path); !r) {
     return r;
   }
-  cleanStamp_ = undo_.empty() ? 0 : undo_.back().stamp;
+  cleanStamp_ = currentStamp();
   solveDirty_ = false;
   revision_++;
   lastChange_ = ChangeSet{};
@@ -243,16 +243,23 @@ Result<std::string> Document::saveBytes() const {
   return io::writePuzzle(*puzzle_);
 }
 
-bool Document::dirty() const {
-  const std::uint64_t current = undo_.empty() ? 0 : undo_.back().stamp;
-  return solveDirty_ || current != cleanStamp_;
+bool Document::dirty() const { return solveDirty_ || currentStamp() != cleanStamp_; }
+
+std::uint64_t Document::currentStamp() const {
+  return undo_.empty() ? baseStamp_ : undo_.back().stamp;
+}
+
+void Document::dropOldestSteps() {
+  while (undo_.size() > settings_.undoDepth) {
+    // the state below the steps left is the one after the step that goes
+    baseStamp_ = undo_.front().stamp;
+    undo_.erase(undo_.begin());
+  }
 }
 
 void Document::setSettings(const DocumentSettings& settings) {
   settings_ = settings;
-  while (undo_.size() > settings_.undoDepth) {
-    undo_.erase(undo_.begin());
-  }
+  dropOldestSteps();
 }
 
 // ---- ids ----------------------------------------------------------------------------
@@ -534,9 +541,7 @@ void Document::pushStep(Step step) {
   step.stamp = ++stamps_;
   undo_.push_back(std::move(step));
   redo_.clear();
-  while (undo_.size() > settings_.undoDepth) {
-    undo_.erase(undo_.begin());
-  }
+  dropOldestSteps();
 }
 
 void Document::changed(std::uint32_t what) {

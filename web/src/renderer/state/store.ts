@@ -171,6 +171,15 @@ export class Store {
   }
 
   /**
+   * The bytes of a rescue copy (base64): the file gzip-compressed, since a
+   * large document's plain XML, in base64, would be too long a line for the
+   * engine to open again (cleanup item 4.5). openRescue takes them back.
+   */
+  async rescueBytes(): Promise<string> {
+    return (await this.engine.call('document.saveBytes', { gzip: true })).data;
+  }
+
+  /**
    * Reopens a rescue copy (the file's bytes, base64): the document stands
    * for its file (`path`, or none) and has unsaved changes.
    */

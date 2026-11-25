@@ -20,6 +20,7 @@
 
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
+#include "shapelogic/io/gzip_file.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/stacking.h"
@@ -512,12 +513,12 @@ constexpr std::array<char, 8> kStateMagic = {'B', 'T', 'P', 'A', 'N', 'E', 'X', 
 constexpr std::array<char, 8> kStateMagicSeconds = {'B', 'T', 'P', 'A', 'N', 'E', 'X', '3'};
 
 template <class T>
-void put(std::ofstream& out, const T& v) {
+void put(std::ostream& out, const T& v) {
   out.write(reinterpret_cast<const char*>(&v), sizeof(v));
 }
 
 template <class T>
-void get(std::ifstream& in, T& v) {
+void get(std::istream& in, T& v) {
   in.read(reinterpret_cast<char*>(&v), sizeof(v));
 }
 
@@ -541,10 +542,19 @@ class Store {
       return false;
     }
     used = 0;
+    std::vector<std::filesystem::path> leftovers;
     for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
       if (e.path().extension() == ".lvl") {
         used += e.file_size(ec);
+      } else if (e.path().extension() == ".tmp") {
+        leftovers.push_back(e.path());
       }
+    }
+    // the temporary files of a save that never finished ("f12.lvl.tmp",
+    // "state.bin.tmp"; "state.tmp" from builds before cleanup item 4.1):
+    // the save they belong to is lost, and nothing reads them
+    for (const auto& p : leftovers) {
+      std::filesystem::remove(p, ec);
     }
     return true;
   }
@@ -583,13 +593,21 @@ class Store {
     return levelPath(side, level);
   }
 
+  // A level's file, through a temporary file of its own, checked once it is
+  // closed and only then named as the level (cleanup item 4.1). Synced
+  // plainly: the Full sync of the state.bin that names it covers it.
   static bool writeKeys(const std::filesystem::path& path, const PKey* keys, std::size_t count) {
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    if (count != 0) {
-      out.write(reinterpret_cast<const char*>(keys),
-                static_cast<std::streamsize>(count * sizeof(PKey)));
-    }
-    return static_cast<bool>(out);
+    return io::writeFileStreamed(
+               path,
+               [&](std::ostream& out) {
+                 if (count != 0) {
+                   out.write(reinterpret_cast<const char*>(keys),
+                             static_cast<std::streamsize>(count * sizeof(PKey)));
+                 }
+                 return static_cast<bool>(out);
+               },
+               io::Sync::Plain)
+        .has_value();
   }
 
   void wrote(std::size_t keys) {
@@ -633,36 +651,32 @@ class Store {
     return false;
   }
 
+  // state.bin through a temporary file of its own, checked once it is closed
+  // and synced before it replaces the last good state (cleanup item 4.1).
   [[nodiscard]] bool saveState(const SavedState& st) const {
-    const std::filesystem::path tmp = dir / "state.tmp";
-    {
-      std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-      out.write(kStateMagic.data(), kStateMagic.size());
-      put(out, st.fingerprint);
-      put(out, st.fwdDepth);
-      put(out, st.bwdDepth);
-      put(out, st.interval);
-      put(out, st.found);
-      put(out, st.ms);
-      put(out, st.met);
-      put(out, st.fromStart);
-      put(out, st.fromGoal);
-      put(out, st.meetAt);
-      for (const Layer* l : {&st.fwdPrev, &st.fwdCur, &st.bwdPrev, &st.bwdCur, &st.mirrorPrev}) {
-        put(out, static_cast<std::uint64_t>(l->size()));
-        if (!l->empty()) {
-          out.write(reinterpret_cast<const char*>(l->data()),
-                    static_cast<std::streamsize>(l->size() * sizeof(PKey)));
-        }
-      }
-      if (!out) {
-        return false;
-      }
-    }
-    // Replace the old state only once the new one is whole.
-    std::error_code ec;
-    std::filesystem::rename(tmp, dir / "state.bin", ec);
-    return !ec;
+    return io::writeFileStreamed(dir / "state.bin", [&](std::ostream& out) {
+             out.write(kStateMagic.data(), kStateMagic.size());
+             put(out, st.fingerprint);
+             put(out, st.fwdDepth);
+             put(out, st.bwdDepth);
+             put(out, st.interval);
+             put(out, st.found);
+             put(out, st.ms);
+             put(out, st.met);
+             put(out, st.fromStart);
+             put(out, st.fromGoal);
+             put(out, st.meetAt);
+             for (const Layer* l :
+                  {&st.fwdPrev, &st.fwdCur, &st.bwdPrev, &st.bwdCur, &st.mirrorPrev}) {
+               put(out, static_cast<std::uint64_t>(l->size()));
+               if (!l->empty()) {
+                 out.write(reinterpret_cast<const char*>(l->data()),
+                           static_cast<std::streamsize>(l->size() * sizeof(PKey)));
+               }
+             }
+             return static_cast<bool>(out);
+           })
+        .has_value();
   }
 
   // With layers false, only the header: enough to describe the search.
@@ -1254,12 +1268,20 @@ class Searcher {
     auto deep = [&]() {
       return mirrored ? 2 * std::uint64_t{fwd.depth} : std::uint64_t{fwd.depth} + bwd.depth;
     };
-    // The search stopped short: save it if it can be carried on.
+    // The search stopped short: save it if it can be carried on. An abort
+    // throws the search away, so nothing is written for it (cleanup item
+    // 4.3: the frontier is gigabytes deep in a search, and the engine
+    // answered nothing while it was written). A save that fails ends the
+    // search as any failed write does (diskFailed), its folder kept with
+    // the last good save in it, never deleted for it (cleanup item 4.2).
     auto haltAndSave = [&](Outcome why) {
       search_.outcome = why;
       search_.depthReached = deep();
-      if (top && saveTo != nullptr) {
-        search_.saved = saveState();
+      if (top && saveTo != nullptr && search_.stop.kind() != StopKind::Abort) {
+        if (!saveState()) {
+          return diskFailed();
+        }
+        search_.saved = true;
       }
       return false;
     };
@@ -1905,7 +1927,9 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
   search.diskBytes = store.used;
   search.levelInterval = store.interval;
   if (!ok) {
-    // A finished search, found or not, needs nothing saved.
+    // A search that is not saved needs its folder no more: one finished
+    // without a path, or aborted. One that could not save itself ended in an
+    // Error and keeps the folder, with the last save that succeeded in it.
     if (searcher.store != nullptr && !search.saved && search.outcome != Outcome::Error) {
       store.remove();
     }

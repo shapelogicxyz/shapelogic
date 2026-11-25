@@ -369,6 +369,21 @@ def document_files(e):
         check(again["path"] is None and again["notes"] == "changed notes", "openBytes")
         check([s["name"] for s in again["shapes"]] == [s["name"] for s in snap["shapes"]], "shapes")
         check(again["revision"] > r["revision"], "revisions go on across documents")
+        # gzip (the rescue copy's, cleanup item 4.5): the same file compressed,
+        # and opened as it is
+        zipped = e.call("document.saveBytes", {"gzip": True})["data"]
+        raw = base64.b64decode(zipped)
+        check(raw[:2] == b"\x1f\x8b", "gzip bytes")
+        check(gzip.decompress(raw) == base64.b64decode(e.call("document.saveBytes")["data"]),
+              "the plain bytes, compressed")
+        check(len(zipped) < len(data), "smaller")
+        unzipped = e.call("document.openBytes", {"data": zipped})
+        check(unzipped["notes"] == "changed notes"
+              and [s["name"] for s in unzipped["shapes"]] == [s["name"] for s in snap["shapes"]],
+              "openBytes of the gzip bytes")
+        check(base64.b64decode(e.call("document.saveBytes", {"gzip": False})["data"])[:1] == b"<",
+              "gzip false: plain XML")
+        e.fails("document.saveBytes", {"gzip": "yes"}, "invalid_params")
         # a rescue copy: the bytes standing for a file, with unsaved changes
         rescued = e.call(
             "document.openBytes", {"data": data, "path": str(path), "dirty": True}

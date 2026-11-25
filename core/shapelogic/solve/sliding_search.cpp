@@ -14,6 +14,7 @@
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/gzip_file.h"
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
@@ -4071,18 +4072,18 @@ std::string folderText(const std::filesystem::path& dir) {
 }
 
 template <class T>
-void put(std::ofstream& out, const T& v) {
+void put(std::ostream& out, const T& v) {
   out.write(reinterpret_cast<const char*>(&v), sizeof(T));
 }
-void putString(std::ofstream& out, const std::string& s) {
+void putString(std::ostream& out, const std::string& s) {
   put(out, static_cast<std::uint32_t>(s.size()));
   out.write(s.data(), static_cast<std::streamsize>(s.size()));
 }
 template <class T>
-void get(std::ifstream& in, T& v) {
+void get(std::istream& in, T& v) {
   in.read(reinterpret_cast<char*>(&v), sizeof(T));
 }
-bool getString(std::ifstream& in, std::string& s) {
+bool getString(std::istream& in, std::string& s) {
   std::uint32_t n = 0;
   get(in, n);
   if (!in || n > 64) {
@@ -4093,10 +4094,11 @@ bool getString(std::ifstream& in, std::string& s) {
   return static_cast<bool>(in);
 }
 
+// Writes state.bin through a temporary file of its own, checked once it is
+// closed and synced before it replaces the last good state (cleanup item
+// 4.1: a write lost at the close left an empty state.bin in its place).
 bool writeState(const std::filesystem::path& dir, const SavedSearch& st) {
-  const std::filesystem::path tmp = dir / "state.tmp";
-  {
-    std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+  const Result<void> written = io::writeFileStreamed(dir / "state.bin", [&](std::ostream& out) {
     const bool bothNested = st.nested && st.bidirectional;
     out.write(bothNested ? kStateMagicBothNested.data() : kStateMagic.data(), kStateMagic.size());
     put(out, st.problemKey);
@@ -4127,14 +4129,9 @@ bool writeState(const std::filesystem::path& dir, const SavedSearch& st) {
         putString(out, name);
       }
     }
-    if (!out) {
-      return false;
-    }
-  }
-  // Replace the old state only once the new one is whole.
-  std::error_code ec;
-  std::filesystem::rename(tmp, dir / "state.bin", ec);
-  return !ec;
+    return static_cast<bool>(out);
+  });
+  return written.has_value();
 }
 
 // With `whole` false only the keys, enough to tell whose search it is.

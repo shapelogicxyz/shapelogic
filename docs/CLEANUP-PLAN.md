@@ -101,6 +101,16 @@ user's standing instructions.
    never the whole e2e suite (`just app-e2e`) unless the user asks, and say
    what was left unrun. `just gate` (about 75 minutes) only when the user
    asks for every suite.
+   Two things checkpoint B found unrun after stage 4:
+   - **The demo.** A stage that changes `core/`, `engine/`, `api/` or
+     `web/src` ends with `just site-demo --check`, after its last source
+     edit: the site's test (`just site-build`) fails on a demo older than
+     its inputs.
+   - **The other systems.** An item that adds a system call, or a branch
+     under `#ifdef`, is built on Linux and compiled for Windows before it
+     is called done. Docker's `ubuntu:24.04` does both: GCC and the quick
+     suite for Linux, `g++-mingw-w64-x86-64-posix -fsyntax-only` for
+     Windows. Say in the Done line what was only compiled and never run.
 9. **Checks.** `just check <regex of the changed C++ files>` stays green; a
    suppression needs its reason on the line
    (`// NOLINTNEXTLINE(check): reason`). The front end: `just app-check`.
@@ -142,10 +152,10 @@ again, and comes last.
 - [x] Stage 2: startup health: logs and messages that tell why the app cannot work
 - [x] Stage 3: the agent docs: trimmed, and true (decided: D2)
 - [x] Checkpoint A (Fable): review of stage 3
-- [ ] Stage 4: bugs that lose work: the small fixes
-- [ ] Checkpoint B (Fable): review of stage 4
+- [x] Stage 4: bugs that lose work: the small fixes
+- [x] Checkpoint B (Fable): review of stage 4
 - [ ] Stage 5: smaller bugs: core, engine, Python, CLI
-- [ ] Checkpoint C (Fable, only if needed): review of stage 5
+- [ ] Checkpoint C (Fable; needed, decided by checkpoint B): review of stage 5
 - [ ] Stage 6: renderer bugs
 - [ ] Stage 7: main-process bugs
 - [ ] Stage 8: test and build speed; tests that cannot clash
@@ -1031,6 +1041,10 @@ Design rules for this stage:
        … the version check / the session …") and Copy Diagnostics.
     6. With Controlled Folder Access on, save a puzzle into Documents:
        the message names Controlled Folder Access.
+    7. Added by checkpoint B (saves now flush the file to the disk, 4.1):
+       save a puzzle into a VMware shared folder (`\\vmware-host\…` or its
+       drive letter) and onto a USB stick: both saves succeed, and the
+       files open again.
 
 **Gates for stage 2:** `just app-check`, `just app-test`, the e2e specs
 touched (engine-failure.e2e.ts and the specs whose files changed), the
@@ -1440,7 +1454,7 @@ test that shows a mistake, so Opus makes them. The two such bugs that
 need Fable (the engine ending without pausing its solves, and one solve
 setup for four programs) are 15.1 and 15.2.
 
-- [ ] **4.1 Saved-search state and level files: check the write after the file is closed, and make it durable** (bug; S to M) ✓
+- [x] **4.1 Saved-search state and level files: check the write after the file is closed, and make it durable** (bug; S to M) ✓
   - *Where:*
     - `core/shapelogic/solve/sliding_search.cpp` `writeState()` (4096-4138).
       Its check `if (!out) return false;` (4130) runs inside the block,
@@ -1501,8 +1515,90 @@ setup for four programs) are 15.1 and 15.2.
     and `test_sliding_session.cpp:1511` (the v1.8.1 fixture), the save and
     resume cases in `test_stacking.cpp` and `test_stacking_session.cpp`,
     and `just oracle-resume`.
+  Done (2026-11-24):
+  - Both searches' `state.bin` and Panex's level files (`writeKeys`) go
+    through `io::writeFileStreamed`. `put`/`get` take `std::ostream&` and
+    `std::istream&`, and write the same bytes in the same order.
+  - The temporary file is now `<file>.tmp` (`state.bin.tmp`,
+    `f12.lvl.tmp`). The sliding resume's sweep already removes every file
+    `state.bin` does not name. Panex's `Store::open` now removes `*.tmp`,
+    including the `state.tmp` of earlier builds.
+  - The sliding level files (`KeySet::finish`) are not renamed: `state.bin`
+    names a level only after its finish succeeded, so a cut file is never
+    named. `finish` now syncs the file (Plain) and checks `fclose`.
+  - New `io::Sync` (Full, Plain) and `io::syncDescriptor`:
+    - `writeGzipFile`, `writeFileWhole` and `writeFileStreamed` sync before
+      the rename (Full by default; `writeGzipFile` syncs a dup of the
+      descriptor zlib closes) and now check the close.
+    - `replaceWith` syncs the folder after the rename (POSIX, best effort).
+    - macOS uses `F_FULLFSYNC` and falls back to `fsync`; Windows uses `_commit`.
+  - Measured with the release build: a temporary hidden test, Klotski
+    with a save after every one of its 81 levels (the tests' worst case),
+    nothing else running, median of 9 runs (sets in memory / every set a
+    file):
+    - no sync (as before): 1151 / 1177 ms;
+    - Plain everywhere: 1157 / 1177 ms;
+    - Full everywhere: 2242 / 2685 ms;
+    - chosen, level files Plain and `state.bin` Full: 1504 / 1535 ms.
+    So `F_FULLFSYNC` on the level files would cost far more than 1%. The
+    `state.bin` sync costs about 4.3 ms a save, and real solves save at most
+    once a minute (SaveCadence), so under 0.01%. This is still durable: a
+    full sync empties the drive's whole cache, levels synced before it
+    included.
+  - Tests:
+    - "sliding: a state.bin whose write fails leaves the last good one"
+      (test_sliding.cpp);
+    - the Panex case is 4.2's test.
+    Not a read-only folder, as the item says: the old code's `!out`
+    caught a failed open, so such a test passed without the fix. Instead
+    `tests/unit/solve/file_size_limit.h` lowers `RLIMIT_FSIZE` (POSIX,
+    `SIGXFSZ` ignored), so the write fails after the open: the case that was
+    lost at the close. With the old `writeState` put back, the sliding test
+    fails (checked).
+  Review (2026-11-24, Fable): OK, with two small fixes.
+  - The problem was real, and the tests hold:
+    - with the old `writeState` back, the sliding test fails: a 16-byte
+      `state.bin` replaces the good one, the run says it is saved, and
+      Continue cannot read it;
+    - with Panex's old writers back (the new `haltAndSave` kept), 4.2's test
+      fails: the save lost at the close is reported as saved.
+  - The same bytes: the `put` calls of both `state.bin` writers and of
+    `writeKeys` are those of before, in the same order (read from the diff).
+  - The sweep: the sliding resume removes `state.bin.tmp` with every other
+    file the state does not name. Panex's `Store::open` is called only by
+    `solve`, which holds the folder's lock, so it cannot remove the
+    temporary file of another run.
+  - The other systems, which the stage had not tried:
+    - Linux: built with GCC 13 on Ubuntu 24.04 (Docker), as the release
+      workflow builds it. The three failure tests pass there, and the quick
+      suite (13 of 13).
+    - Windows: the changed files compile with MinGW GCC 13 (syntax only,
+      not run).
+    - WebAssembly: they compile with Emscripten (syntax only).
+  - Fixed: on Windows `syncDescriptor` called `_commit`, and any failure of
+    it failed the save. Some network and virtual drives have no flush call
+    ("Incorrect function"), so every save to them would have failed. It now
+    calls `FlushFileBuffers` and counts `ERROR_INVALID_FUNCTION` and
+    `ERROR_NOT_SUPPORTED` as synced, as the POSIX branch counts `EINVAL` and
+    `ENOTSUP`. Compiled with MinGW, not run on Windows: step 7 of 2.9's
+    Windows checklist is a save to a shared folder, for the user to try.
+  - Fixed: a save whose close failed gave no reason in its message (the
+    reason was read before the close). The three writers now read it after.
+  - Not changed, to know:
+    - `Sync::Plain` is cheap only on macOS. On Windows it is the same full
+      flush as `Full`, and on Linux `fsync` commits the journal. The
+      numbers above are macOS's.
+    - It is still judged fine there. A sliding set or a Panex level is a
+      file only once the search is past its memory, where a level takes
+      seconds or more, against milliseconds for a flush.
+    - `KeySet::finish` also syncs sets that no `state.bin` will name (the
+      runs of a merge). The `kept` flag cannot tell them apart: a set made
+      with `kept` false can become a visited set.
+    - If a large search on Linux or Windows shows this cost, sync at the
+      save instead: the sets a `state.bin` is about to name, each once.
+  - `just oracle-resume` is still not run (the original is not built).
 
-- [ ] **4.2 Panex: a Pause whose save fails deletes the search folder** (bug; S) ✓
+- [x] **4.2 Panex: a Pause whose save fails deletes the search folder** (bug; S) ✓
   - *Where:* `core/shapelogic/solve/panex_search.cpp`: the `haltAndSave`
     lambda (1258-1265: `search_.saved = saveState()`); the end of `solve()`
     (1903-1912): `if (searcher.store != nullptr && !search.saved && search.outcome != Outcome::Error) { store.remove(); }`,
@@ -1524,8 +1620,34 @@ setup for four programs) are 15.1 and 15.2.
     table at 315 is a model), make the folder read-only before a Pause.
     Afterwards the folder and its old `state.bin` are still there, the
     outcome names the disk, and Continue resumes from the older state.
+  Done (2026-11-24): when `saveState()` fails, `haltAndSave` returns
+  `diskFailed()`. The outcome is Error with "Could not save the search in
+  <folder>. The disk may be full.", and the session pauses with its existing
+  words ("The search is still saved as it last was: Continue carries it
+  on; …"). The comment at the end of `solve()` is corrected.
+  Test: "stacking session: a stop whose save fails keeps the last save":
+  - a probe run in another folder sizes `state.bin` against the largest
+    level file;
+  - the limit is set one byte under `state.bin`, so only the state write
+    fails;
+  - the folder's files stay byte for byte, and none ends in `.tmp`;
+  - a session's Continue carries the older save on to the 128-move path.
+  The test fails with the old panex_search.cpp (checked).
+  Review (2026-11-24, Fable): OK.
+  - With only this fix taken out (the new writers kept), the test fails:
+    the folder is gone.
+  - The session's words are right when an earlier save is there: it pauses
+    with "The search is still saved as it last was: Continue carries it
+    on; …".
+  - With no earlier save (the first save is the one that fails), the run
+    ends Finished with "Could not save the search in <folder>. The disk
+    may be full.", and the folder keeps its levels without a `state.bin`;
+    the next Solve wipes it. A write that fails inside the loop already
+    ended so.
+  - A memory stop whose save fails now reports the disk, not the memory:
+    the disk is what the user must fix first.
 
-- [ ] **4.3 Panex: Abort writes the whole search before it is deleted** (bug, speed; S)
+- [x] **4.3 Panex: Abort writes the whole search before it is deleted** (bug, speed; S)
   - *Where:* `panex_search.cpp` `haltAndSave` (1258-1265: saves on every
     stop); `core/shapelogic/solve/solve_session.cpp:249-253` (`abort()`,
     then `discardSaved`); `engine/engine.cpp` (`solve.abort` joins the run
@@ -1542,8 +1664,28 @@ setup for four programs) are 15.1 and 15.2.
     `test_stacking_session.cpp` still passes; add a check that an aborted
     run writes no file into the folder after the abort was asked (compare
     the files' sizes and mtimes before and after).
+  Done (2026-11-24): `haltAndSave` writes nothing when
+  `search_.stop.kind()` is Abort. The search is then not saved, so
+  `panex::solve` removes its own folder; the session's `discardSaved`
+  finds nothing left.
+  Test: "stacking session: an aborted Panex search writes no save". A
+  resumed run aborted before its first level is not saved and leaves no
+  folder; the old code saved it again. A paused one is saved. The test
+  checks the `saved` flag and the folder, not sizes and mtimes: the folder
+  is gone by the end of the run. It fails with the old code (checked).
+  "abort throws the saved search away" still passes.
+  Review (2026-11-24, Fable): OK.
+  - With only the abort condition taken out, the test fails (saved again,
+    the folder still there).
+  - An aborted run now deletes its folder, earlier saves included. That is
+    safe: an Abort reaches a stacking search only through
+    `SolveSession::abort`, which discards the saved search anyway. The
+    session's destructor asks for a Pause, so a search still running at
+    the engine's end is saved as before (15.1 is about that end).
+  - The session then says "Stopped before the search was complete." and
+    goes Idle, as before.
 
-- [ ] **4.4 The document says it is saved when it is not, after more edits than the undo depth** (bug; S) ✓
+- [x] **4.4 The document says it is saved when it is not, after more edits than the undo depth** (bug; S) ✓
   - *Where:* `core/shapelogic/app/document.cpp`:
     - `save()`: `cleanStamp_ = undo_.empty() ? 0 : undo_.back().stamp;` (232);
     - `dirty()` (246-249: `current = undo_.empty() ? 0 : undo_.back().stamp`);
@@ -1570,8 +1712,28 @@ setup for four programs) are 15.1 and 15.2.
     - 26 edits at depth 25, then 25 undos: `dirty()` is true;
     - 8 edits, save, 25 more edits at depth 25, then 25 undos: `dirty()` is
       false (the state is the saved one).
+  Done (2026-11-24): added `baseStamp_`, `currentStamp()` (read by
+  `dirty()` and `save()`) and `dropOldestSteps()` (used by `pushStep` and
+  `setSettings`). Every other stamp reader was checked:
+  - `open`, `openBytes` and the constructors make a new Document;
+  - undo and redo move steps with their stamps.
+  The depth test is extended:
+  - 26 steps at depth 25, all undone: dirty; redone: dirty;
+  - 8 steps, a save, 25 more, 25 undone: clean; one redone: dirty;
+  - a smaller depth set later moves the base the same way.
+  With an empty stack counted as 0 again, three of the checks fail
+  (checked).
+  Review (2026-11-24, Fable): OK.
+  - With the old document.cpp and document.h, three checks of the depth
+    test fail.
+  - Every reader agrees with `currentStamp()`: `dirty()` and `save()` call
+    it, steps are dropped only in `dropOldestSteps()`, undo and redo move a
+    step with its stamp, and a Document is copied with its members.
+  - One case the test does not name is also right: a depth made smaller
+    while steps wait in the redo stack. Redoing them leaves more steps
+    than the depth until the next edit, and each step keeps its stamp.
 
-- [ ] **4.5 Rescue copies over about 48 MiB cannot be reopened** (bug; S)
+- [x] **4.5 Rescue copies over about 48 MiB cannot be reopened** (bug; S)
   - *Where:*
     - `core/shapelogic/app/document.cpp` `saveBytes()` (239-244: returns
       `io::writePuzzle(*puzzle_)`, the plain XML);
@@ -1604,11 +1766,72 @@ setup for four programs) are 15.1 and 15.2.
     - web unit: `rescue.ts` asks with `gzip: true` (the scripted transport);
     - a document over 64 MiB would be slow in the quick loop: tag it
       `[slow]`, or run it once by hand and write that into the Done line.
+  Done (2026-11-24):
+  - `document.saveBytes` takes `gzip` (boolean, default false). The engine
+    compresses with `io::gzipCompress`. `docs/API.md` and
+    `api.generated.ts` were regenerated.
+  - The renderer's rescue asks with `gzip: true`, through a new
+    `Store.rescueBytes()` beside `openRescue`: rescue.ts needs the DOM, and
+    the unit tests compile without it. `web/src/main/rescue.ts`
+    writes the bytes as they come, and its comment now says so (copies from
+    earlier versions, plain XML, still open). The demo does not ask for
+    gzip and is unchanged.
+  - Tests:
+    - contract (`document_files`): the gzip bytes are the plain bytes
+      compressed, smaller, reopened by `openBytes`, and `gzip: "yes"` is
+      refused;
+    - web unit (`tests/unit/renderer/store.test.ts`, the stand-in engine):
+      `rescueBytes` asks with `{gzip: true}`, and `openRescue` sends the
+      bytes back.
+  - By hand with the release engine: a document of 52.5 MiB of XML (its
+    notes). Plain, it is 69.9 MiB of base64, and its reopen is refused
+    ("the line is too long"). Gzipped, it is 8.4 MiB and reopens whole in
+    1.8 s.
+  - Pictures are base64 in the XML already, so gzip gains less on them
+    (about a quarter). A document made mostly of pictures now reaches the
+    limit at about 64 MiB of XML instead of 48. The full fix is 10.11.
+  Review (2026-11-24, Fable): OK, with one change.
+  - `document.openBytes` reads the gzip bytes (`gunzipIfCompressed`), and
+    plain copies of earlier versions still open. The demo asks without
+    `gzip` and is untouched; the changed files compile for WebAssembly.
+    `docs/API.md` matches the schema (`api-docs` passes).
+  - Changed: the rescue copy was compressed at level 9 on the thread that
+    answers the edits, after every change. On puzzle XML that level runs
+    at about 50 MiB a second, as long again as writing the XML. It is now
+    level 1 (`io::kGzipFast`; `gzipCompress` takes a level). Release
+    engine, a document of 1.0 MiB of XML, median of 15 calls:
+    - plain: 15.2 ms, 1359 KiB of base64;
+    - level 9: 23.6 ms, 13 KiB;
+    - level 1: 7.0 ms, 46 KiB.
+    So the gzip call is now faster than the plain one it replaced. The
+    schema's text says that the bytes are not a save's level 9.
+  - Added: the unit test "gzip in memory" opens a document from level 1
+    bytes. The e2e rescue spec ("an engine killed after edits …") checks
+    that the copy on disk starts with the gzip magic: before, no test
+    failed if `rescue.ts` stopped asking for gzip.
 
 **Gates for stage 4:** `just test-all`, `just test-asan`,
 `just oracle-resume`, the contract suite (4.5's parameter), `just check`
 on the changed files, `just app-test` and the web unit tests touched
 (4.5).
+
+Done (2026-11-24, gates):
+- `just test-all`: 22 of 22 (5 min); `just test-asan`: 21 of 21 (18 min);
+  `just test` run twice more.
+- The contract suite passed with 4.5's checks.
+- `just check` on the eight changed C++ sources: clean.
+- `just app-check`: clean. `just app-test`: 619 of 619.
+- e2e: `files.e2e.ts` (17 of 17, its four rescue specs among them), and
+  the 8 rescue, journal and autosave specs of `solver`, `windows`,
+  `stacking` and `sliding`. The rest of the e2e suite was not run.
+- `just oracle-resume` was not run: `../burr-tools` has no build (no
+  original library), so the harness stops before it starts. The C++
+  resume tests ran in `test-all` (the v1.8.1 fixture among them). Run
+  `just oracle-resume` once the original is built.
+- `docs/ARCHITECTURE.md`: the `gzip_file` map line, the Safe writes rule
+  (synced, checked once closed, level files plain before a full
+  `state.bin`), the Panex rule (no save on an abort, a failed save is a disk
+  error).
 
 ## Checkpoint B (Fable): review of stage 4
 
@@ -1626,6 +1849,44 @@ The procedure is in "Fable checkpoints". What to look at:
 - **4.4:** every place that reads a stamp agrees with `currentStamp()`.
 - **4.5:** `document.openBytes` reads the gzip bytes, the demo still opens
   and saves a puzzle, and `docs/API.md` was regenerated.
+
+Done (2026-11-24): see the Review lines under 4.1 to 4.5.
+- **The five fixes hold.** Each problem was real, each fix does what its
+  item says, and each new test fails with its fix taken out (tried one fix
+  at a time in a scratch copy).
+- **What got past the stage** is outside the items' own text:
+  - Windows: a save failed on any drive that cannot flush (4.1). No test
+    here can show it. Fixed, compiled, not run on Windows.
+  - The rescue copy's level 9 compression ran on the thread that answers
+    the edits (4.5). Now level 1.
+  - The stage was built and measured on macOS only. This session built it
+    on Linux and compiled it for Windows and WebAssembly.
+  - The demo was left older than its inputs, so `just site-build` would
+    have failed. Rebuilt.
+  Rule 8 now names the last two for every stage.
+- **Checkpoint C runs.** The first point is a bug that the stage's tests
+  did not catch, which is this plan's condition. Stage 5 has three items
+  of the same kind, where the risk is beside the item's text: 5.2 (the
+  pool's lock), 5.9 (the GIL) and 5.11 (a memory order). E is still
+  decided by C and D.
+- **Gates**, after the review's fixes:
+  - `just test-all`: 22 of 22 (314 s); `just test` twice: 14 of 14;
+  - `just test-asan`: 21 of 21 (17 min);
+  - ThreadSanitizer on `[sliding][resume]`, the new `[parallel]` test
+    among them: 32 cases pass;
+  - `just check` on the nine changed C++ sources: clean;
+  - `just app-check`: clean; `just app-test`: 619 of 619;
+  - e2e `files.e2e.ts`: 17 of 17, with the new gzip check; the rest of the
+    e2e suite was not run;
+  - `just site-demo --check`: the demo opens its puzzle, takes an edit and
+    plays every type's example on the rebuilt WebAssembly engine; the
+    site's demo test passes;
+  - Linux (Docker, GCC 13): the build, the three failure tests and the
+    quick suite, 13 of 13, before the review's fixes; the two files those
+    fixes changed compile there and for Windows without a warning.
+  - Not run: `just oracle-resume` (`../burr-tools` is not built), the
+    whole e2e suite, and anything on Windows itself.
+- The review's fixes are in the tree with stage 4, ready for one commit.
 
 ## Stage 5: smaller bugs: core, engine, Python, CLI
 

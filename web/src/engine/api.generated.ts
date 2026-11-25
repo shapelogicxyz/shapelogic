@@ -2149,11 +2149,20 @@ export interface Methods {
     errors: 'invalid_state' | 'io_error' | 'invalid_argument';
   };
   /**
-   * The file's bytes (plain XML), base64, without marking the document clean.
+   * The file's bytes (plain XML, or with gzip compressed as a .xmpuzzle file is), base64, without
+   * marking the document clean. document.openBytes takes either.
    * (document.json)
    */
   'document.saveBytes': {
-    params: Record<string, never>;
+    params: {
+      /**
+       * Gzip-compressed (default false; at the fastest level, not a save's level 9, so the bytes
+       * differ from a saved file's): far smaller, so that the base64 of a large document stays
+       * within the longest line the engine reads (64 MiB) when it is opened again (the rescue
+       * copy).
+       */
+      gzip?: boolean;
+    };
     result: {
       data: string;
     };

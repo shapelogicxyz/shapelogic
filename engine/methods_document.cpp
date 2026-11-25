@@ -3,6 +3,8 @@
 #include "convert.h"
 #include "engine.h"
 
+#include "shapelogic/io/gzip_file.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -170,9 +172,14 @@ Reply documentSave(State& s, Params& p) {
 }
 
 Reply documentSaveBytes(State& s, Params& p) {
+  const bool gzip = p.optBoolean("gzip", false);
   BTE_CHECK(p.finish());
   BTE_TRY(const std::string bytes, s.document().saveBytes());
-  return Json{{"data", base64Encode(bytes)}};
+  // the rescue copy's (cleanup item 4.5): plain XML over about 48 MiB came
+  // back in base64 longer than the 64 MiB line the engine reads. Compressed
+  // fast: the copy is made after every change, on the thread that answers
+  // the edits, and level 9 took about as long again as writing the XML
+  return Json{{"data", base64Encode(gzip ? io::gzipCompress(bytes, io::kGzipFast) : bytes)}};
 }
 
 Reply documentGet(State& s, Params& p) {

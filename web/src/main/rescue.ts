@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The rescue copies (stage 6), as the original's `__rescue.xmpuzzle`: the
-// document's bytes as the engine writes them (document.saveBytes, plain
-// XML, which ShapeLogic opens as any puzzle file), kept in the app's data
-// directory while the document has unsaved changes, with a record of what
+// document's bytes as the engine writes them (document.saveBytes, gzip as
+// in a saved .xmpuzzle; plain XML from earlier versions, which opens as
+// well), kept in the app's data directory while the document has unsaved
+// changes, with a record of what
 // it stands for (`__rescue.json`: the document's file, its name, the
 // revision, the time, and a hash of the bytes). After an engine's death,
 // or at the next start after the app itself died, the renderer offers it.

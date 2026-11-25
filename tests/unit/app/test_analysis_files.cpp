@@ -246,6 +246,12 @@ TEST_CASE("gzip in memory: as the files are written", "[io]") {
   Document d = openFixture("PelikanBurr.xmpuzzle");
   const std::string xml = d.saveBytes().value();
   CHECK(io::writePuzzle(Document::openBytes(io::gzipCompress(xml)).value().puzzle()) == xml);
+  // and compressed fast, as the rescue copy is (cleanup item 4.5): other
+  // bytes than a save's, the same document
+  const std::string fast = io::gzipCompress(xml, io::kGzipFast);
+  CHECK(static_cast<unsigned char>(fast[0]) == 0x1f);
+  CHECK(io::gunzipIfCompressed(fast).value() == xml);
+  CHECK(io::writePuzzle(Document::openBytes(fast).value().puzzle()) == xml);
 }
 
 TEST_CASE("paused solves: BTSOLVE2 both ways", "[io][app][analysis]") {

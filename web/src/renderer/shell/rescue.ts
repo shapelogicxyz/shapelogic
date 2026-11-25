@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The rescue copy (stage 6), as the original's `__rescue.xmpuzzle`: while
-// the document has unsaved changes, its bytes (document.saveBytes) are
+// the document has unsaved changes, its bytes (document.saveBytes, gzip) are
 // written to the app's data directory a moment after each change, at most
 // every two seconds; once the document is clean (saved, or another one
 // opened after the question about the old one), the copy is removed. When
@@ -204,7 +204,7 @@ export class Rescue {
     const gen = this.store.generation;
     let data: string;
     try {
-      data = (await this.store.engine.call('document.saveBytes')).data;
+      data = await this.store.rescueBytes();
     } catch {
       // a run started, or the engine went: the next change writes again
       return false;

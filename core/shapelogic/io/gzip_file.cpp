@@ -124,11 +124,43 @@ int openTemporary(const std::filesystem::path& tmp) {
 #endif
 }
 
-void closeFd(int fd) {
+/// Closes a descriptor; false when the close reported an error (the last
+/// bytes may not have reached the file).
+bool closeFd(int fd) {
 #ifdef _WIN32
-  ::_close(fd);
+  return ::_close(fd) == 0;
 #else
-  ::close(fd);
+  return ::close(fd) == 0;
+#endif
+}
+
+/// A second descriptor on the file `fd` is open on, or -1: zlib closes the
+/// one it is given, and the file is synced after that close.
+int dupFd(int fd) {
+#ifdef _WIN32
+  return ::_dup(fd);
+#else
+  return ::fcntl(fd, F_DUPFD_CLOEXEC, 0);
+#endif
+}
+
+/// Syncs the folder `file` is in, so that a rename just made into it lasts
+/// a power cut (POSIX; Windows has no such call, and NTFS logs renames).
+/// Best effort: the file is already in place, and some file systems refuse
+/// to sync a folder.
+void syncFolderOf(const std::filesystem::path& file) {
+#ifndef _WIN32
+  std::filesystem::path dir = file.parent_path();
+  if (dir.empty()) {
+    dir = ".";
+  }
+  const int fd = ::open(dir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (fd >= 0) {
+    (void)syncDescriptor(fd, Sync::Plain);
+    ::close(fd);
+  }
+#else
+  (void)file;
 #endif
 }
 
@@ -156,6 +188,44 @@ Error tooLarge(std::size_t maxBytes) {
 }
 
 }  // namespace
+
+bool syncDescriptor(int fd, Sync how) {
+#ifdef _WIN32
+  (void)how;
+  // FlushFileBuffers, as _commit calls it, but with its reason read: a
+  // drive that has no such call (some network and virtual drives answer
+  // "Incorrect function") counts as synced, as a file system that cannot
+  // sync does below; failing the save there would lose more than it guards
+  const auto handle = reinterpret_cast<HANDLE>(::_get_osfhandle(fd));
+  if (handle == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+  if (FlushFileBuffers(handle) != 0) {
+    return true;
+  }
+  const DWORD why = GetLastError();
+  return why == ERROR_INVALID_FUNCTION || why == ERROR_NOT_SUPPORTED;
+#else
+#ifdef __APPLE__
+  // fsync on macOS leaves the bytes in the drive's cache; F_FULLFSYNC
+  // empties it, and fails on file systems that cannot (then fsync)
+  if (how == Sync::Full && ::fcntl(fd, F_FULLFSYNC) == 0) {
+    return true;
+  }
+#else
+  (void)how;
+#endif
+  while (true) {
+    if (::fsync(fd) == 0) {
+      return true;
+    }
+    if (errno != EINTR) {
+      // a file system or special file that cannot sync: nothing more to do
+      return errno == EINVAL || errno == ENOTSUP || errno == EOPNOTSUPP;
+    }
+  }
+#endif
+}
 
 Result<std::string> readMaybeGzipFile(const std::filesystem::path& path, std::size_t maxBytes) {
   // zlib reads data that is not gzip as it is ("transparent" reading)
@@ -229,9 +299,19 @@ Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view d
       const SystemError why;
       return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing" + reasonOf(why));
     }
+    // kept open past zlib's close, to sync the file
+    const int syncFd = dupFd(fd);
+    if (syncFd < 0) {
+      const SystemError why;
+      (void)closeFd(fd);
+      std::filesystem::remove(tmp, ec);
+      return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing" + reasonOf(why));
+    }
     GzHandle f(gzdopen(fd, "wb9"));
     if (!f) {
-      closeFd(fd);
+      (void)closeFd(fd);
+      (void)closeFd(syncFd);
+      std::filesystem::remove(tmp, ec);
       return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing");
     }
     while (!data.empty()) {
@@ -239,14 +319,21 @@ Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view d
       if (gzwrite(f.get(), data.data(), chunk) != static_cast<int>(chunk)) {
         const SystemError why;
         f.reset();
+        (void)closeFd(syncFd);
         std::filesystem::remove(tmp, ec);
         return fail(Errc::IoError, "could not write " + describe(path) + reasonOf(why));
       }
       data.remove_prefix(chunk);
     }
     // closing writes the end of the compressed data; it can fail too
-    if (gzclose(f.release()) != Z_OK) {
-      const SystemError why;
+    clearSystemError();
+    bool whole = gzclose(f.release()) == Z_OK && syncDescriptor(syncFd, Sync::Full);
+    SystemError why;
+    if (!closeFd(syncFd) && whole) {
+      why = SystemError{};
+      whole = false;
+    }
+    if (!whole) {
       std::filesystem::remove(tmp, ec);
       return fail(Errc::IoError, "could not write " + describe(path) + reasonOf(why));
     }
@@ -267,9 +354,13 @@ Result<void> writeFileWhole(const std::filesystem::path& path, std::string_view 
     return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing" + reasonOf(why));
   }
   clearSystemError();
-  const bool written = writeAll(fd, data);
-  const SystemError why;
-  closeFd(fd);
+  bool written = writeAll(fd, data) && syncDescriptor(fd, Sync::Full);
+  SystemError why;
+  // the close is checked too: some file systems report a failed write only then
+  if (!closeFd(fd) && written) {
+    why = SystemError{};
+    written = false;
+  }
   if (!written) {
     std::error_code ec;
     std::filesystem::remove(tmp, ec);
@@ -339,7 +430,7 @@ class FdOutBuf : public std::streambuf {
 }  // namespace
 
 Result<void> writeFileStreamed(const std::filesystem::path& path,
-                               const std::function<bool(std::ostream&)>& write) {
+                               const std::function<bool(std::ostream&)>& write, Sync how) {
   const Result<std::filesystem::path> target = saveTarget(path);
   if (!target) {
     return std::unexpected(target.error());
@@ -358,9 +449,14 @@ Result<void> writeFileStreamed(const std::filesystem::path& path,
     std::ostream out(&buf);
     ok = write(out) && static_cast<bool>(out.flush()) && buf.flushBuffer();
   }
+  ok = ok && syncDescriptor(fd, how);
   // a writer that failed on its own (not the file) leaves errno 0: no reason then
-  const SystemError why;
-  closeFd(fd);
+  SystemError why;
+  // the close is checked too: some file systems report a failed write only then
+  if (!closeFd(fd) && ok) {
+    why = SystemError{};
+    ok = false;
+  }
   if (!ok) {
     std::error_code ec;
     std::filesystem::remove(tmp, ec);
@@ -408,13 +504,15 @@ Result<void> replaceWith(const std::filesystem::path& written,
     std::filesystem::remove(written, ignored);
     return fail(Errc::IoError, "could not replace " + describe(target) + ": " + ec.message());
   }
+  syncFolderOf(target);
   return {};
 }
 
-std::string gzipCompress(std::string_view data) {
-  // the gzip wrapper (window bits + 16) and level 9, as gzopen's "wb9"
+std::string gzipCompress(std::string_view data, int level) {
+  // the gzip wrapper (window bits + 16); level 9 is gzopen's "wb9"
+  BT_ASSERT(level >= 1 && level <= 9);
   z_stream z{};
-  const int init = deflateInit2(&z, 9, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+  const int init = deflateInit2(&z, level, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
   BT_ASSERT_MSG(init == Z_OK, "zlib could not start compressing");
   std::string out;
   std::array<char, 65536> buf{};

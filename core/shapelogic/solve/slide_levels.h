@@ -35,6 +35,7 @@
 
 #include "shapelogic/base/compress.h"
 #include "shapelogic/base/system.h"
+#include "shapelogic/io/gzip_file.h"
 
 #include <algorithm>
 #include <atomic>
@@ -444,7 +445,18 @@ class KeySet {
               put(&tail, sizeof(tail)) && put(&last_, sizeof(Key)) &&
               put(kSetMagic, sizeof(kSetMagic));
     ok = std::fflush(out_.get()) == 0 && ok && std::ferror(out_.get()) == 0;
-    out_.reset();
+    // synced plainly before a state.bin may name it: that file's Full sync
+    // then covers this one (cleanup item 4.1); and the close is checked,
+    // since some file systems report a lost write only then
+#ifdef _WIN32
+    const int fd = _fileno(out_.get());
+#else
+    const int fd = fileno(out_.get());
+#endif
+    ok = ok && io::syncDescriptor(fd, io::Sync::Plain);
+    // the FILE is owned by out_, released here to close it once:
+    // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+    ok = std::fclose(out_.release()) == 0 && ok;
     fileSize_ = chunkAt_.back() + indexFileBytes(blocks, chunks) + kFooterBytes;
     return ok && file_.open(path_);
   }

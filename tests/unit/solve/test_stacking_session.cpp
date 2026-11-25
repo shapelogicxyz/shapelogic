@@ -5,8 +5,10 @@
 // cb_BtnCont and runStacking, the Stacking Solver on a puzzle the Panex
 // search cannot hold, Just Count, and the progress.
 #include "../model/model_test_helpers.h"
+#include "file_size_limit.h"
 
 #include "shapelogic/base/solve_state.h"
+#include "shapelogic/base/stop.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/model/disassembly.h"
 #include "shapelogic/model/problem.h"
@@ -303,6 +305,143 @@ TEST_CASE("stacking session: abort throws the saved search away", "[stacking][pa
   CHECK(pr.getSolveState() == ProblemState::Unsolved);
   CHECK(panex::savedSearch(puz, pr, workDir()).empty());
 }
+
+// An aborted search is thrown away, so it writes nothing first (cleanup
+// item 4.3): before, it wrote its kept levels and its whole frontier (deep
+// in a search, gigabytes) for the session to delete at once, and the
+// engine answered nothing meanwhile.
+TEST_CASE("stacking session: an aborted Panex search writes no save", "[stacking]") {
+  Puzzle puz = panexSwap(4);
+  Problem& pr = puz.getProblem(0);
+  panex::discardSaved(puz, pr, workDir());
+  panex::PanexSearch first;
+  first.workDir = workDir();
+  first.threads = 1;
+  first.stopAtDepth = 20;
+  REQUIRE_FALSE(panex::solve(puz, pr, first).has_value());
+  REQUIRE(first.saved);
+  const std::filesystem::path folder = panex::searchFolder(puz, pr, workDir());
+  REQUIRE(std::filesystem::exists(folder / "state.bin"));
+
+  // carried on, and aborted before its first level: not saved, the folder gone
+  StopSource abort;
+  abort.request(StopKind::Abort);
+  panex::PanexSearch on;
+  on.workDir = workDir();
+  on.threads = 1;
+  on.resume = true;
+  on.stop = abort.token();
+  CHECK_FALSE(panex::solve(puz, pr, on).has_value());
+  CHECK(on.outcome == panex::Outcome::Stopped);
+  CHECK_FALSE(on.saved);
+  CHECK_FALSE(std::filesystem::exists(folder));
+
+  // a pause, by contrast, saves it
+  StopSource pause;
+  pause.request(StopKind::Pause);
+  panex::PanexSearch paused;
+  paused.workDir = workDir();
+  paused.threads = 1;
+  paused.stop = pause.token();
+  CHECK_FALSE(panex::solve(puz, pr, paused).has_value());
+  CHECK(paused.outcome == panex::Outcome::Stopped);
+  CHECK(paused.saved);
+  CHECK(std::filesystem::exists(folder / "state.bin"));
+  panex::discardSaved(puz, pr, workDir());
+}
+
+#ifndef _WIN32
+// A stop whose save fails (the disk full, here once a file is open, as at
+// the close of a file: cleanup item 4.1) keeps the saved search as its last
+// good save left it (cleanup item 4.2): before, the end of the search took
+// the folder for one that needed nothing saved and deleted it, that last
+// save with it. The search ends as a failed write ends it, saying the disk
+// may be full, and Continue carries the older save on to the path.
+TEST_CASE("stacking session: a stop whose save fails keeps the last save", "[stacking]") {
+  Puzzle puz = panexSwap(4);
+  Problem& pr = puz.getProblem(0);
+  auto firstRun = [&](const std::string& dir) {
+    panex::discardSaved(puz, pr, dir);
+    panex::PanexSearch first;
+    first.workDir = dir;
+    first.threads = 1;
+    first.stopAtDepth = 20;
+    REQUIRE_FALSE(panex::solve(puz, pr, first).has_value());
+    REQUIRE(first.saved);
+  };
+  auto secondRun = [&](const std::string& dir, panex::PanexSearch& on) {
+    on.workDir = dir;
+    on.threads = 1;
+    on.resume = true;
+    on.stopAtDepth = 26;
+    return panex::solve(puz, pr, on).has_value();
+  };
+  auto listing = [](const std::filesystem::path& folder) {
+    std::map<std::string, std::string> files;
+    for (const auto& e : std::filesystem::directory_iterator(folder)) {
+      std::ifstream in(e.path(), std::ios::binary);
+      files[e.path().filename().string()] =
+          std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    return files;
+  };
+
+  // The same runs in another folder, to learn what the second one writes:
+  // its levels must all fit under a limit that its state.bin does not.
+  const std::filesystem::path probeDir = std::filesystem::path(workDir()) / "probe";
+  std::filesystem::create_directories(probeDir);
+  firstRun(probeDir.string());
+  {
+    panex::PanexSearch on;
+    REQUIRE_FALSE(secondRun(probeDir.string(), on));
+    REQUIRE(on.saved);
+  }
+  const std::filesystem::path probe = panex::searchFolder(puz, pr, probeDir.string());
+  const std::uintmax_t stateBytes = std::filesystem::file_size(probe / "state.bin");
+  std::uintmax_t levelBytes = 0;
+  for (const auto& e : std::filesystem::directory_iterator(probe)) {
+    if (e.path().extension() == ".lvl") {
+      levelBytes = std::max(levelBytes, e.file_size());
+    }
+  }
+  INFO("state.bin " << stateBytes << " bytes, the largest level " << levelBytes);
+  REQUIRE(levelBytes + 1 < stateBytes);
+  panex::discardSaved(puz, pr, probeDir.string());
+
+  firstRun(workDir());
+  const std::filesystem::path folder = panex::searchFolder(puz, pr, workDir());
+  const std::map<std::string, std::string> saved = listing(folder);
+  REQUIRE(saved.contains("state.bin"));
+  panex::PanexSearch on;
+  {
+    const test::FileSizeLimit full(stateBytes - 1);
+    CHECK_FALSE(secondRun(workDir(), on));
+  }
+  CHECK(on.outcome == panex::Outcome::Error);
+  CHECK_FALSE(on.saved);
+  CHECK(on.error == "Could not save the search in " + folder.string() + ". The disk may be full.");
+  // the last save as it was: its state, and its levels with the new ones
+  // the run wrote whole; no temporary file left
+  REQUIRE(std::filesystem::exists(folder));
+  const std::map<std::string, std::string> after = listing(folder);
+  CHECK(after.at("state.bin") == saved.at("state.bin"));
+  for (const auto& [name, bytes] : saved) {
+    CHECK(after.at(name) == bytes);
+  }
+  for (const auto& [name, bytes] : after) {
+    CHECK_FALSE(name.ends_with(".tmp"));
+  }
+
+  // the solve carries the older save on to the path
+  SolveSession s(puz, pr, findSolutions(1));
+  REQUIRE(s.resume().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK(pr.getNumSolutions() == 1);
+  checkPath(puz, pr, 128);
+  CHECK_FALSE(std::filesystem::exists(folder));
+}
+#endif
 
 // A saved search's state is trusted no further than its file: a damaged or
 // crafted state.bin (one imported from a .slsolve) claimed a layer of 2^60

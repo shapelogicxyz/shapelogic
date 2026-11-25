@@ -185,7 +185,7 @@ Rules (decisions 0014, 0015, 0021, 0027, 0042, 0044, 0045):
 
 Files in `core/shapelogic/io/`:
 - `blockpack.{h,cpp}`: files packed in chunks on a pool's threads, sorted 16-byte keys as variable-length gaps: byte for byte the original's packing.
-- `gzip_file.{h,cpp}`: whole files through zlib (level 9) and the same in memory (`gzipCompress`, `gunzipIfCompressed`); `readPlainFile`; `writeFileWhole`, `replaceWith`, `saveTarget`.
+- `gzip_file.{h,cpp}`: whole files through zlib (level 9) and the same in memory (`gzipCompress`, `gunzipIfCompressed`); `readPlainFile`; `writeFileWhole`, `writeFileStreamed`, `replaceWith`, `saveTarget`, `syncDescriptor`.
 - `imports.h`, `ps3d_file.cpp`, `scad_file.cpp`: other programs' files (decision 0017): `readPuzzleSolver3D`, `readPuzzlecad`, `writePuzzlecad` (puzzlecad's `burr_plate`), line for line the original's loaders; `kMaxImportCells`.
 - `paused_solve.{h,cpp}`: the paused solve file (`.slsolve`, the original's BTSOLVE2), both ways, streamed.
 - `puzzle_file.{h,cpp}`: `loadPuzzle`, `parsePuzzle`, `readPuzzle`, `savePuzzle`, `writePuzzle`; `giveUids`.
@@ -217,11 +217,15 @@ Rules (decisions 0006, 0008, 0017, 0038, 0044, 0045, 0046):
   as few digits as read back alike, `walls` row by row, `#` a wall). A
   `<tray>` the reader cannot take is kept as the file has it; on another
   grid it is dropped.
-- **Safe writes** (`gzip_file.h`): beside the file, then renamed over it,
-  puzzle and paused solve alike, so a failed save leaves the old file; the
-  temporary file made exclusively; a link followed, a read-only file
-  refused, the permissions kept (the original's rename replaced the link
-  and the read-only file). The main process's writes do the same.
+- **Safe writes** (`gzip_file.h`): beside the file, checked once closed,
+  synced, then renamed over it (the folder synced), puzzle, paused solve and
+  saved searches' `state.bin` alike, so a failed save leaves the old file;
+  a saved search's level files are synced plainly before the `state.bin`
+  naming them is synced fully (macOS `F_FULLFSYNC` empties the drive's cache,
+  theirs too); the temporary file made exclusively; a link followed, a
+  read-only file refused, the permissions kept (the original's rename
+  replaced the link and the read-only file). The main process's writes also
+  go through a temporary file.
 - A paused solve file is streamed both ways (a saved search's levels can be
   gigabytes); imports read the file as it is (`readPlainFile`, never
   decompressed) within a budget of cells the original lacked.
@@ -318,7 +322,8 @@ alike):
   named by the rules, the stacks and the uid (none for a problem paused
   before uids); its steps run on a pool a core larger than the levels'
   threads, as the original had a writer thread. It saves itself by
-  `SaveCadence` (`StackingOptions::autosave`) and when it stops.
+  `SaveCadence` (`StackingOptions::autosave`) and when it stops, but for an
+  abort; a save that fails is a disk error, the folder kept as last saved.
 
 Rules of the solve session (decision 0010; checked by `compare-files` and
 pause/continue stress tests):

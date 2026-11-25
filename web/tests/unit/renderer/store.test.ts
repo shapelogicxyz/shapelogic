@@ -4,7 +4,8 @@
 // no call before the engine runs; everything loaded when it runs and again
 // when it was restarted (a new document, ids not taken for the old ones);
 // document.changed reloads the snapshot, and only the newest load counts;
-// meshes coalesced by their key and dropped by what document.changed names.
+// meshes coalesced by their key and dropped by what document.changed names;
+// the rescue copy's bytes asked for gzip-compressed.
 
 import { describe, expect, it } from 'vitest';
 
@@ -176,6 +177,22 @@ describe('the store', () => {
     expect(store.displayName).toBe('x.xmpuzzle');
     expect(store.generation).toBe(1);
     expect(store.selected).toBe('s1');
+  });
+
+  it('asks for a rescue copy gzip-compressed, which it reopens with unsaved changes', async () => {
+    const f = new FakeEngine();
+    const store = new Store(f.link);
+    await running(f);
+    const bytes = store.rescueBytes();
+    expect(f.calls.map((c) => [c.method, c.params])).toEqual([
+      ['document.saveBytes', { gzip: true }],
+    ]);
+    f.answer('document.saveBytes', { data: 'H4sIAAAA' });
+    expect(await bytes).toBe('H4sIAAAA');
+    const reopened = store.openRescue('H4sIAAAA', '/p/x.xmpuzzle', 'x.xmpuzzle');
+    expect(f.calls[0]?.params).toEqual({ data: 'H4sIAAAA', dirty: true, path: '/p/x.xmpuzzle' });
+    f.answer('document.openBytes', snapshot(5, ['s1']));
+    await reopened;
   });
 
   it('reports failed calls, except while the engine restarts', async () => {

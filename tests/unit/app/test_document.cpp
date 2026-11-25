@@ -711,6 +711,62 @@ TEST_CASE("document: groups of edits are one step; depth, dirty and history", "[
   REQUIRE(e.undo().has_value());
   CHECK(e.dirty());
   std::filesystem::remove(tmp);
+
+  // past the depth (cleanup item 4.4): the oldest step dropped is still
+  // applied with every step left undone, so the document is not clean;
+  // and the saved state, its step dropped, is clean when undone back to
+  {
+    Document f(GridKind::Bricks);
+    f.setSettings(DocumentSettings{25});
+    const Result<Id> made = f.createShape();
+    REQUIRE(made.has_value());
+    const Id shape = *made;
+    for (int i = 1; i < 26; i++) {
+      REQUIRE(f.renameShape(shape, "n" + std::to_string(i)).has_value());
+    }
+    REQUIRE(f.history().undo.size() == 25);
+    while (f.canUndo()) {
+      REQUIRE(f.undo().has_value());
+    }
+    CHECK(f.dirty());
+    // and redone: changed
+    REQUIRE(f.redo().has_value());
+    CHECK(f.dirty());
+  }
+  {
+    Document f(GridKind::Bricks);
+    f.setSettings(DocumentSettings{25});
+    const Result<Id> made = f.createShape();
+    REQUIRE(made.has_value());
+    const Id shape = *made;
+    for (int i = 1; i < 8; i++) {
+      REQUIRE(f.renameShape(shape, "n" + std::to_string(i)).has_value());
+    }
+    REQUIRE(f.save(tmp).has_value());
+    CHECK_FALSE(f.dirty());
+    for (int i = 0; i < 25; i++) {
+      REQUIRE(f.renameShape(shape, "m" + std::to_string(i)).has_value());
+    }
+    CHECK(f.dirty());
+    for (int i = 0; i < 25; i++) {
+      REQUIRE(f.undo().has_value());
+    }
+    CHECK_FALSE(f.canUndo());
+    CHECK_FALSE(f.dirty());
+    REQUIRE(f.redo().has_value());
+    CHECK(f.dirty());
+    // a smaller depth set later drops steps the same way
+    REQUIRE(f.undo().has_value());
+    CHECK_FALSE(f.dirty());
+    for (int i = 0; i < 3; i++) {
+      REQUIRE(f.redo().has_value());
+    }
+    f.setSettings(DocumentSettings{1});
+    REQUIRE(f.history().undo.size() == 1);
+    REQUIRE(f.undo().has_value());
+    CHECK(f.dirty());
+    std::filesystem::remove(tmp);
+  }
 }
 
 TEST_CASE("document: queries and meshes through the document", "[app][document]") {

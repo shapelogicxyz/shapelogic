@@ -5,6 +5,7 @@
 // switches are the search's options; its scratch folders are this
 // process's own), followed by new cases in test_sliding_session.cpp.
 #include "../model/model_test_helpers.h"
+#include "file_size_limit.h"
 #include "solve_session_test_access.h"
 
 #include "shapelogic/base/memory_share.h"
@@ -5654,6 +5655,99 @@ TEST_CASE("sliding: a search that cannot save itself is left as it was last save
   }
   std::filesystem::remove_all(dir);
 }
+
+#ifndef _WIN32
+// A save whose write fails only once its file is open (the disk full when
+// the bytes still buffered go out at the close) is a failed save (cleanup
+// item 4.1): the last good state.bin stays as it was, never replaced by a
+// file cut short, and the search is left as that save has it, to be
+// carried on to the same path. Before, the error at the close was lost:
+// the cut file took state.bin's place, the run said it was saved, and the
+// next Continue could not read it.
+TEST_CASE("sliding: a state.bin whose write fails leaves the last good one",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidestatefull");
+  std::filesystem::remove_all(dir);
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+  SlideSearch straight;
+  const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
+  REQUIRE(whole.has_value());
+
+  auto stateFile = [&dir] {
+    for (const auto& e : std::filesystem::recursive_directory_iterator(dir)) {
+      if (e.path().filename() == "state.bin") {
+        return e.path();
+      }
+    }
+    return std::filesystem::path();
+  };
+  auto bytesOf = [](const std::filesystem::path& p) {
+    std::ifstream in(p, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+  };
+
+  // Every set in a file, so that a save writes its state.bin alone, and a
+  // save after every level. After a few levels the disk fills (files may
+  // hold 16 bytes, fewer than any state.bin) and a save point is asked
+  // for: the save of the stop is the write that fails.
+  constexpr unsigned int kFullAt = 12;
+  std::optional<test::FileSizeLimit> full;
+  std::string lastGood;
+  StopSource point;
+  unsigned int levels = 0;
+  std::vector<LogLine> told;
+  SlideSearch first;
+  first.threads = 2;
+  first.workDir = dir.string();
+  first.memoryLevelBytes = 1;
+  first.autosaveFloorSeconds = 0;
+  first.autosaveEveryLevel = true;
+  first.savePoint = point.token();
+  first.onLevel = [&](const std::string&) {
+    if (++levels == kFullAt) {
+      lastGood = bytesOf(stateFile());
+      full.emplace(16);
+      point.request(StopKind::Pause);
+    }
+  };
+  first.onLog = [&told](LogLevel level, const std::string& text) {
+    told.push_back(LogLine{level, text});
+  };
+  CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, first).has_value());
+  full.reset();
+  REQUIRE(levels == kFullAt);
+  REQUIRE(first.outcome == SlideOutcome::Stopped);
+  REQUIRE(lastGood.size() > 16);
+  // the save failed, and the search is left as the one before it saved it
+  CHECK(first.saved);
+  CHECK(std::any_of(told.begin(), told.end(), [](const LogLine& l) {
+    return l.text.find("The search's state could not be written") != std::string::npos;
+  }));
+  CHECK(std::any_of(told.begin(), told.end(), [](const LogLine& l) {
+    return l.text.find("as it was last saved while it ran") != std::string::npos;
+  }));
+  const std::filesystem::path state = stateFile();
+  REQUIRE_FALSE(state.empty());
+  CHECK(bytesOf(state) == lastGood);
+  // and the failed save's temporary file is gone
+  for (const auto& e : std::filesystem::recursive_directory_iterator(dir)) {
+    CHECK(e.path().extension() != ".tmp");
+  }
+
+  // carried on from that save to the same path
+  SlideSearch second;
+  second.threads = 3;
+  second.workDir = dir.string();
+  const std::optional<Separation> rest = findSlidePath(f.puz, f.pr(), *f.start, second);
+  REQUIRE(rest.has_value());
+  CHECK(second.resumed);
+  CHECK(rest->getMoves() == 81);
+  CHECK(placesAlong(*rest) == placesAlong(*whole));
+  CHECK(second.visited == straight.visited);
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
+#endif
 
 // What making a level took on the disk at its most is measured, for what
 // the next will take; and the levels kept for tracing the path back are

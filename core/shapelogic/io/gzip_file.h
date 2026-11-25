@@ -9,6 +9,7 @@
 
 #include "shapelogic/base/error.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <iosfwd>
@@ -34,26 +35,48 @@ inline constexpr std::size_t kMaxInflatedBytes = std::size_t{256} << 20;
 [[nodiscard]] Result<std::string> readPlainFile(const std::filesystem::path& path,
                                                 std::size_t maxBytes = kMaxInflatedBytes);
 
+/// How far a save pushes its file toward the disk before it replaces the
+/// old one (cleanup item 4.1: a power cut after the rename could otherwise
+/// leave an empty file in its place).
+enum class Sync : std::uint8_t {
+  /// To the medium: on macOS F_FULLFSYNC, which empties the drive's whole
+  /// cache, so every file synced Plain before it is on the medium too.
+  Full,
+  /// Handed to the drive (fsync; on macOS the drive may still hold it in
+  /// its cache): for files that a Full sync covers before anything names
+  /// them (the levels of a saved search, before its state.bin).
+  Plain,
+};
+
+/// Pushes what was written to an open file descriptor to the disk, as
+/// `how` says; false when the system reports that it failed (a file system
+/// or drive that cannot sync counts as synced). On Windows both kinds are
+/// FlushFileBuffers, to the medium.
+[[nodiscard]] bool syncDescriptor(int fd, Sync how);
+
 /// Writes `data` gzip-compressed (level 9, as the original), replacing the
 /// file only once the new one is whole: it is written to `<file>.tmp` beside
-/// the file `path` names (saveTarget) and renamed over it, so a failed save
-/// leaves the old file. The temporary file is this save's own: one already
-/// there is removed and the new one made exclusively, never written through
-/// (a link left at that name would carry the bytes to another file).
+/// the file `path` names (saveTarget), synced (Sync::Full) and renamed over
+/// it, so a failed save leaves the old file. The temporary file is this
+/// save's own: one already there is removed and the new one made
+/// exclusively, never written through (a link left at that name would carry
+/// the bytes to another file).
 [[nodiscard]] Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view data);
 
 /// Writes `data` as it is, replacing the file the way writeGzipFile does
-/// (through a temporary file of its own beside it, renamed over it once
-/// whole).
+/// (through a temporary file of its own beside it, synced and renamed over
+/// it once whole).
 [[nodiscard]] Result<void> writeFileWhole(const std::filesystem::path& path, std::string_view data);
 
 /// Writes a file through `write`, which gets a stream on the new file (it
 /// may seek back to fill in what it learns later) and answers false on an
-/// error of its own; the file is replaced the way writeFileWhole replaces
-/// it. For files too large to build in memory (a paused solve with its
-/// saved search).
+/// error of its own (a stream gone bad, say); the file is replaced the way
+/// writeFileWhole replaces it, synced as `how` says. For files too large to
+/// build in memory (a paused solve with its saved search) and for the
+/// files of a saved search.
 [[nodiscard]] Result<void> writeFileStreamed(const std::filesystem::path& path,
-                                             const std::function<bool(std::ostream&)>& write);
+                                             const std::function<bool(std::ostream&)>& write,
+                                             Sync how = Sync::Full);
 
 /// The file a save to `path` replaces: `path` followed through its symbolic
 /// links, so a link is written through, not replaced by a file (the file it
@@ -62,12 +85,19 @@ inline constexpr std::size_t kMaxInflatedBytes = std::size_t{256} << 20;
 [[nodiscard]] Result<std::filesystem::path> saveTarget(const std::filesystem::path& path);
 
 /// Renames a file just written over `target` (a saveTarget), giving it the
-/// permissions of the file it replaces; removes it when that fails.
+/// permissions of the file it replaces, and syncs the folder so that the
+/// rename lasts (POSIX); removes the file when the rename fails.
 [[nodiscard]] Result<void> replaceWith(const std::filesystem::path& written,
                                        const std::filesystem::path& target);
 
-/// `data` gzip-compressed in memory, as writeGzipFile writes it.
-[[nodiscard]] std::string gzipCompress(std::string_view data);
+/// The fastest gzip level: for bytes compressed often and read back by
+/// this program (the rescue copy), where level 9 costs ten times the time
+/// for little less to send.
+inline constexpr int kGzipFast = 1;
+
+/// `data` gzip-compressed in memory: at level 9 as writeGzipFile writes
+/// it, or at `level` (1 to 9).
+[[nodiscard]] std::string gzipCompress(std::string_view data, int level = 9);
 
 /// `data` decompressed when it is gzip data (it starts with the gzip
 /// magic), as it is otherwise; ParseError for broken gzip data and for
