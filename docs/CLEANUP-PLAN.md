@@ -15,6 +15,9 @@ own logs (`build/release/.ninja_log`, `build/dev/Testing/Temporary/CTestCostData
 in the code; those are marked ✓. The rest are a reviewer's reading of the
 code: specific and plausible, not proven. Stage 2 was added the same day at
 the user's request, after two Windows users could not use v2.1 (see there).
+The same day the stages were put in a new order: Opus does the early work,
+Fable takes the stages that need it later on, and Fable sessions review some
+of Opus's early stages ("Fable checkpoints").
 
 What the review judged, and what this plan keeps to: agents are the only
 readers and writers of this code (the user said so when asking for the
@@ -107,7 +110,7 @@ user's standing instructions.
 10. **Engine methods.** A new method or parameter follows api/README.md's
     "Adding a method": the schema entry, a contract call that succeeds,
     `python3 api/gen_api_md.py`, then `just app-gen`.
-11. **Branches.** Before a split (stages 16, 17), a large move (stage 18) or
+11. **Branches.** Before a split (stages 13, 21), a large move (stage 20) or
     the rewrite of a shared doc (stage 3), run `git worktree list`, and
     `git log main..<branch> --stat` for each open branch. At the time of
     writing they are `feature/cell-search` and
@@ -131,25 +134,36 @@ user's standing instructions.
 
 ## Status
 
+Stages 1 to 14 need only Opus 5.5 High, with Fable 5.2 High reviewing some
+of them (the checkpoints). Stages 15 to 20 need Fable. Stage 21 is Opus
+again, and comes last.
+
 - [ ] Stage 1: checks that cannot pass on nothing, and that end
 - [ ] Stage 2: startup health: logs and messages that tell why the app cannot work
 - [ ] Stage 3: the agent docs: trimmed, and true (decided: D2)
-- [ ] Stage 4: bugs that lose work: core and engine
-- [ ] Stage 5: smaller bugs: core, engine, Python; the Solve undo step (decided: D1)
+- [ ] Checkpoint A (Fable): review of stage 3
+- [ ] Stage 4: bugs that lose work: the small fixes
+- [ ] Checkpoint B (Fable): review of stage 4
+- [ ] Stage 5: smaller bugs: core, engine, Python, CLI
+- [ ] Checkpoint C (Fable, only if needed): review of stage 5
 - [ ] Stage 6: renderer bugs
 - [ ] Stage 7: main-process bugs
-- [ ] Stage 8: damaged and hostile files
-- [ ] Stage 9: test and build speed; tests that cannot clash
-- [ ] Stage 10: CI and release pipeline
-- [ ] Stage 11: core speed
-- [ ] Stage 12: the engine stays responsive
-- [ ] Stage 13: front-end speed and memory
-- [ ] Stage 14: one source of truth: core, engine, API, Python, CLI
-- [ ] Stage 15: one source of truth: front end
-- [ ] Stage 16: splits: core
-- [ ] Stage 17: splits: front end
-- [ ] Stage 18: core deduplication under benchmarks
-- [ ] Stage 19: dead code and the last traps
+- [ ] Stage 8: test and build speed; tests that cannot clash
+- [ ] Checkpoint D (Fable): review of stage 8
+- [ ] Stage 9: CI and release pipeline
+- [ ] Stage 10: front-end speed and memory
+- [ ] Stage 11: one source of truth: core, engine, API, Python, CLI
+- [ ] Checkpoint E (Fable, only if needed): review of stage 11
+- [ ] Stage 12: one source of truth: front end
+- [ ] Stage 13: splits: front end
+- [ ] Stage 14: dead code and the last traps
+- [ ] Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (decided: D1)
+- [ ] Stage 16: damaged and hostile files
+- [ ] Stage 17: core speed
+- [ ] Stage 18: the engine stays responsive
+- [ ] Stage 19: names and audits that must not drift
+- [ ] Stage 20: core deduplication under benchmarks
+- [ ] Stage 21: splits: core
 
 ## Who builds each stage
 
@@ -158,35 +172,51 @@ user's standing instructions.
 | 1 | The oracle and the web tests fail when they compared or ran nothing; time limits | Low | Opus 5.5 High |
 | 2 | Startup health logs, the engine-failure message, Windows diagnostics | Medium: much of it Windows behavior that only the user can try | Opus 5.5 High |
 | 3 | AGENTS.md's read list; ARCHITECTURE.md as a map and rules; stale docs | Medium: judging which prose holds facts the code does not | Opus 5.5 High |
-| 4 | Saved-search writes, Panex's failed save, the clean flag, the engine's end, rescue size, one solve setup | Medium to high: a saved search that carries on wrongly is hard to see | Fable 5.2 High |
-| 5 | Small core, engine and Python bugs; the Solve undo step | Medium; 5.6 and 5.13 high (what the UI refreshes, undo exactness) | Fable 5.2 High for 5.6 and 5.13, Opus 5.5 High for the rest |
+| A | Review of stage 3: the docs kept every fact | Medium | Fable 5.2 High |
+| 4 | The small fixes for bugs that lose work: saved-search writes, Panex's failed save and Abort, the "saved" flag, rescue size | Low to medium: each comes with a test that shows a mistake | Opus 5.5 High |
+| B | Review of stage 4 | Medium | Fable 5.2 High |
+| 5 | Small core, engine, Python and CLI bugs | Low to medium | Opus 5.5 High |
+| C | Review of stage 5, only if needed | Low to medium | Fable 5.2 High |
 | 6 | Renderer bugs | Medium | Opus 5.5 High |
 | 7 | Main-process bugs | Medium | Opus 5.5 High |
-| 8 | Damaged and hostile files | Medium: a missed bound is invisible until a bad file comes | Fable 5.2 High |
-| 9 | Test shards, the version define, scratch folders, per-run copies, helpers | Low to medium | Opus 5.5 High |
-| 10 | CI pinning and automatic re-runs | Low | Opus 5.5 High |
-| 11 | Core speed | Medium to high: identical answers, measured | Fable 5.2 High |
-| 12 | The engine's request thread and Stop | High: stops in the middle of builds and merges | Fable 5.2 High |
-| 13 | Front-end speed and memory | Medium | Opus 5.5 High |
-| 14 | Single sources in core, engine, API, Python, CLI | Medium; 14.9, 14.11, 14.15 high | Fable 5.2 High for 14.9, 14.11, 14.15; Opus 5.5 High for the rest |
-| 15 | Single sources in the front end | Medium | Opus 5.5 High |
-| 16 | Core splits | Medium: mechanical, checked by the tests and the oracle | Opus 5.5 High |
-| 17 | Front-end splits | Medium | Opus 5.5 High |
-| 18 | Assembler and take-apart deduplication | High: speed and exactness of ported searches | Fable 5.2 High |
-| 19 | Dead code, tests that keep the page and code in step | Low | Opus 5.5 High |
+| 8 | Test shards, the version define, scratch folders, per-run copies, helpers | Low to medium | Opus 5.5 High |
+| D | Review of stage 8: nothing stopped running | Medium | Fable 5.2 High |
+| 9 | CI pinning and automatic re-runs | Low | Opus 5.5 High |
+| 10 | Front-end speed and memory | Medium | Opus 5.5 High |
+| 11 | Single sources in core, engine, API, Python, CLI | Medium | Opus 5.5 High |
+| E | Review of stage 11, only if needed | Medium | Fable 5.2 High |
+| 12 | Single sources in the front end | Medium | Opus 5.5 High |
+| 13 | Front-end splits | Medium | Opus 5.5 High |
+| 14 | Dead code; tests that keep the page and the code in step | Low | Opus 5.5 High |
+| 15 | The engine's end, one solve setup, change reports, two solves at once, the Solve undo step | High: each can pass its tests and still be wrong | Fable 5.2 High |
+| 16 | Damaged and hostile files | Medium: a missed bound is invisible until a bad file comes | Fable 5.2 High |
+| 17 | Core speed | Medium to high: identical answers, measured | Fable 5.2 High |
+| 18 | The engine's request thread and Stop | High: stops in the middle of builds and merges | Fable 5.2 High |
+| 19 | Saved-search names, the change audit, names pinned by tests | High: a mistake orphans users' saved searches | Fable 5.2 High |
+| 20 | Assembler and take-apart deduplication | High: speed and exactness of ported searches | Fable 5.2 High |
+| 21 | Core splits | Medium: mechanical, checked by the tests and the oracle | Opus 5.5 High |
 
 The rule behind the choice is the one of `docs/TILTED-SQUARE-PLAN.md`: Fable
 where a wrong answer is hard to see (a saved search that carries on
 wrongly, an assembly lost, a race, a missed bound), Opus where a mistake
-shows in a failing test or on the screen.
+shows in a failing test or on the screen. That gives 107 items to Opus and
+36 to Fable, plus the checkpoints. The five fixes in stage 4 are small, and
+each comes with a test that shows a mistake, so they stay early with Opus.
+The two bugs that lose work and need Fable are 15.1 and 15.2.
+
+Sometimes an Opus session meets a wrong answer it cannot explain: a count
+or a path that differs, or a test that fails for a reason it cannot name.
+It then stops that item, writes what it saw under it, and leaves it for a
+Fable session. Start each stage's session with the model this table names
+(`/model`).
 
 ## Decisions
 
 **Decided by the user on 2026-11-24:**
 - **D1. Solving records an undo step.** Today an undo after a solve can
-  throw its results away (see 5.13). Each solve run and each take-apart
+  throw its results away (see 15.5). Each solve run and each take-apart
   records a step ("Solve P1", "Take apart P1"), so undo removes the results
-  first and redo brings them back. This amends decision 0011. Item 5.13.
+  first and redo brings them back. This amends decision 0011. Item 15.5.
 - **D2. ARCHITECTURE.md becomes a map and a set of rules,** and AGENTS.md
   stops asking every session to read it (and PLAN.md) whole. Stage 3.
 
@@ -194,20 +224,28 @@ shows in a failing test or on the screen.
 managing all the code … backend and logic changes I want to trust Claude
 to make". These items go ahead as written, and each says how to decide its
 details:
-- **D3. CSS and markup with their modules** (17.1): yes. Add screenshot
+- **D3. CSS and markup with their modules** (13.1): yes. Add screenshot
   tests of the dialogs before moving their CSS.
-- **D4. CI and release** (stage 10): pin the macOS runner image and its
+- **D4. CI and release** (stage 9): pin the macOS runner image and its
   Xcode. Build for the lowest macOS that the app's Electron version
   supports, or the lowest the code builds for without changing a result if
   that is higher. Re-run release jobs that got no runner from a workflow.
-- **D5. Per-mode facades for `document.h`** (16.6): yes, after 16.1 to 16.5.
-- **D6. Merging the duplicated assembler and take-apart code** (stage 18):
-  yes, under the benchmarks. AGENTS.md allows reshaping a port once it is
+- **D5. Per-mode facades for `document.h`** (21.6): yes, after 21.1 to 21.5.
+- **D6. Merging the duplicated assembler and take-apart code**:
+  yes, under the benchmarks (stage 20). AGENTS.md allows reshaping a port once it is
   proven. An item that cannot keep the benchmarks within noise is dropped
   and recorded: `Not done (date): the numbers`.
 
 ## Order, and work side by side
 
+- Run the stages in their numbers' order, one stage per session. Stages 1
+  to 14 are Opus's. Stages 15 to 20 are Fable's, so one switch of model
+  covers them all. Stage 21 is Opus's again, last, because it moves code
+  that stages 15 to 19 edit first.
+- Checkpoints A, B and D (Fable) review stages 3, 4 and 8 soon after each
+  is done; C and E run only if needed ("Fable checkpoints" below). A
+  checkpoint can run beside the next Opus stage when they edit different
+  files; their test runs follow rule 6.
 - Stage 1 first: every later stage is checked by these suites.
 - Stage 2 next: real users are affected now.
 - Stage 3 early: it makes every later stage cheaper to start. It rewrites
@@ -215,23 +253,58 @@ details:
   in them (`git status` shows their edits). Open branches will conflict in
   `docs/ARCHITECTURE.md` at their merge; rule 11 says what to record. The
   fix is easy: take the new file and add the branch's map lines.
+- Stage 4 then: the fixes for bugs that lose work that are small enough for
+  Opus.
 - Stages 4 and 5 (core and engine) and stages 6 and 7 (front end) touch
-  different files and can run in separate sessions at the same time; the
+  different files and can run in separate sessions at the same time. The
   core stages rebuild `build/release`, which the web engine and e2e tests
   use, so keep to rule 6.
-- Stage 8 after stage 4 (both edit the saved-search readers and writers).
-- Stage 9 any time after stage 1; it changes the test machinery, so not
-  beside another stage's test runs.
-- Stage 10 any time.
-- Stages 11 and 12 after stages 4 and 9.
-- Stage 13 after stage 6 (13.1 after 6.11).
-- Stage 14 after stage 5; stage 15 after stages 6 and 7.
-- Stage 16 after stages 11, 12 and 14's sliding items (14.7 to 14.9, 14.15):
-  those edit `sliding_search.cpp` in place; the split then moves finished
-  code.
-- Stage 17 after stages 13 and 15.
-- Stage 18 last.
-- Stage 19 any time; its deletions in the renderer follow rule 7.
+- Stage 8 changes the test machinery: not beside another stage's test runs.
+  Every later stage's tests run faster after it.
+- Stage 9 any time.
+- Stage 10 after stage 6 (10.1 after 6.11).
+- Stage 11 after stage 5; stage 12 after stages 6 and 7; stage 13 after
+  stages 10 and 12.
+- Stage 14 any time; its deletions in the renderer follow rule 7.
+- Stage 15 after stages 4 and 5; 15.3 comes before 19.2's audit.
+- Stage 16 after stage 4 (both edit the saved-search readers and writers).
+- Stages 17 and 18 after stages 4 and 8; stage 19 after stages 11 and 15;
+  stage 20 after stage 17.
+- Stage 21 last. Stages 15 to 19 edit `sliding_search.cpp`,
+  `solve_session.cpp`, `puzzle_file.cpp` and `document.h` in place; the
+  splits then move finished code.
+
+## Fable checkpoints
+
+Opus does stages 1 to 14. A Fable 5.2 High session reviews some of those
+stages soon after they are done, to check that the work holds up where tests
+are thin (added at the user's request on 2026-11-24):
+- Checkpoints A, B and D always run.
+- C and E run only if an earlier checkpoint found a real problem: a bug that
+  the stage's own tests did not catch.
+
+Each checkpoint, in one Fable session:
+1. Read this plan's rules, the reviewed stage's items and their Done lines.
+2. Find the stage's changes. If the stage was committed, use
+   `git show <its commit>` (message `Cleanup N: …`). If not, use `git diff` on
+   the files its Done lines name; other sessions' changes may be in the
+   tree.
+3. For each item, check that:
+   - the problem was real (read the code as it was);
+   - the change fixes it and keeps what its *Keep* line says;
+   - the new test fails without the fix: revert the fix in a scratch copy
+     (for the front end, rule 7's copy) and run that test.
+4. Look for what the tests do not reach: error paths, the other platforms,
+   the edge cases in the item's text.
+5. Run the stage's gates.
+6. Under each item, add `Review (date, Fable): OK`, or what was wrong and what
+   this session changed. Fixes stay ready to commit with the stage, or as
+   `Cleanup N: review fixes`.
+7. Tell the user in a few lines what was checked and what was found. If a
+   real problem got past Opus, run the optional checkpoints, and consider
+   moving later items of the same kind to Fable (write the change into "Who
+   builds each stage"). If A, B and D find nothing beyond small notes, skip
+   C and E.
 
 ## Stage 1: checks that cannot pass on nothing, and that end
 
@@ -308,8 +381,8 @@ tier compared no puzzle at all and still passed.
        default: run the step in its own process group in the background,
        wait with a deadline, kill the group when it passes, and record
        "timeout" in the table.
-  - *Note:* item 9.1 changes the shards; set these limits generously, or do
-    9.1 first.
+  - *Note:* item 8.1 changes the shards; set these limits generously, or do
+    8.1 first.
 
 ## Stage 2: startup health: logs and messages that tell why the app cannot work
 
@@ -460,7 +533,7 @@ Design rules for this stage:
     5. The log line becomes, for example:
        `ERROR [window 1] Engine Start Failed: spawn UNKNOWN (errno -4094, syscall spawn, the version check) at C:\…\shapelogic_engine.exe, 120 ms after start. Likely cause: …`,
        plus one line with the last engine stderr text if any.
-  - *Note:* item 13.10 removes the `--version` launch. Do this item first,
+  - *Note:* item 10.10 removes the `--version` launch. Do this item first,
     so that the reports from v2.2 users say which of the two launches
     failed. If it is mostly the second, a scanner that lets the first run
     and then blocks is likely.
@@ -646,7 +719,7 @@ Design rules for this stage:
     links and Help URLs); the help-link table (today in four places:
     `web/src/engine/app-bridge.ts:316`, `web/src/main/security.ts:33-42`,
     `web/src/main/app-ipc.ts:486-497`, `web/src/demo/demo-app.ts:65-77`;
-    item 15.3 makes it one).
+    item 12.3 makes it one).
   - *Change:*
     1. A guide page, "When ShapeLogic does not start on Windows". It gives:
        - what the messages of 2.2 mean;
@@ -760,7 +833,7 @@ about 43,000.
         `controlMutex_` and the join serialize them.
       - Write it as: "one writer at a time: the run's worker while it runs,
         the owner under `controlMutex_` before and after."
-      - The code check is 5.14.
+      - The code check is 5.11.
     - The Panex autosave interval. "Every 20 minutes" is in
       `core/shapelogic/solve/stack_search.h:101`,
       `engine/methods_solve.cpp:64`, `api/solve.json:32` (so also
@@ -783,7 +856,7 @@ about 43,000.
     - `core/shapelogic/solve/simd_exact_cover.h:91-93` says the larger sizes
       "serve assembler 1"; they serve only a unit test.
     - Decision 0012:216 says long work is kept in jobs, but
-      `explore.openAssembly` is not until 12.1. Decision 0012:205 says the
+      `explore.openAssembly` is not until 18.1. Decision 0012:205 says the
       explorers refuse sliding puzzles; `core/shapelogic/app/explorers.cpp:80-99`
       opens them. Add "Amended" lines.
     - `docs/ARCHITECTURE.md` (if 3.2 has not replaced these lines):
@@ -792,7 +865,7 @@ about 43,000.
         (`tests/unit/io/test_puzzle_file.cpp:92`);
       - 1650 and 1687 say only the undo depth and threads go to the engine;
       - 1671 names `pausedBt2`;
-      - 1939 describes `ws.kind`, which 19.1 removes;
+      - 1939 describes `ws.kind`, which 14.1 removes;
       - 1077-1079 describe the shared-search guard (see below).
     - `core/shapelogic/grid/TABLES.md` ends by saying the mesh tables "come
       over" in stage 6 (done long ago).
@@ -829,7 +902,28 @@ about 43,000.
 `just app-test` (the spelling and staleness tests), `just site-build` if the
 guide's links changed.
 
-## Stage 4: bugs that lose work: core and engine
+## Checkpoint A (Fable): review of stage 3
+
+The procedure is in "Fable checkpoints". What to look at:
+- **Every fact the old `docs/ARCHITECTURE.md` stated that the code does not
+  is still stated.**
+  - List the old text's invariants, rules that span files, file-format and
+    compatibility statements, thread rules and decision pointers. Read it
+    with `git show <the commit before stage 3>:docs/ARCHITECTURE.md`.
+  - Check that each one is in the new rules, or in the header comment of the
+    file it concerns, or is no longer true (say why).
+- The map test passes. Twenty map lines picked at random match their files'
+  header comments.
+- AGENTS.md's new read list and finishing steps keep every rule of
+  CLAUDE.md and of this plan's "How to work through this plan".
+- Each fix of 3.3 matches the code it describes.
+
+## Stage 4: bugs that lose work: the small fixes
+
+Small fixes for bugs that lose work. Each is a few lines and comes with a
+test that shows a mistake, so Opus makes them. The two such bugs that
+need Fable (the engine ending without pausing its solves, and one solve
+setup for four programs) are 15.1 and 15.2.
 
 - [ ] **4.1 Saved-search state and level files: check the write after the file is closed, and make it durable** (bug; S to M) ✓
   - *Where:*
@@ -962,61 +1056,7 @@ guide's links changed.
     - 8 edits, save, 25 more edits at depth 25, then 25 undos: `dirty()` is
       false (the state is the saved one).
 
-- [ ] **4.5 The engine ends without pausing its solves** (bug; M)
-  - *Where:*
-    - `engine/main.cpp`: no SIGPIPE handling. The `Engine` lives in a block
-      so that its Document's destructor pauses and saves the solves.
-    - `engine/engine.cpp`:
-      - `Engine::run()` (411-437): `poll()` runs once more after the input
-        ends, and nothing in the loop catches;
-      - `handleLine()` (255-283): `logCall`, `flushEvents` and
-        `announceChange` run outside the handler's try.
-    - `engine/output.cpp:24` (`out_.write`).
-    - `core/shapelogic/app/document.cpp:1212`: `Document::poll()` has a
-      `BT_ASSERT_MSG`, which throws `InternalError`.
-    - `core/shapelogic/base/assert.h:9-10` promises "the engine process keeps
-      running".
-    - The front end: `web/src/main/index.ts` (`win.on('closed')` 512-529:
-      `hosts.delete(...)` then `void host.stop()`; `app.on('will-quit')`
-      661-666) and `web/src/main/engine-host.ts` `stop()` (105-132: closes
-      stdin, kills after 10 s).
-  - *Problem:*
-    - (a) Nothing ignores SIGPIPE. When the app crashes or is force-quit,
-      the engine's next progress write raises SIGPIPE and kills it.
-    - (b) An `InternalError` thrown by `poll()`, or by the steps after a
-      handler, reaches `std::terminate`.
-    - Either way the Document's destructor never runs, so the solves are not
-      paused: a Panex search loses what it did since its last autosave, and
-      a sliding search loses its current level.
-    - (c) On quit, the app's process ends while each engine, its stdin just
-      closed, still waits for its solves to pause (decision 0012). The 10 s
-      kill never runs, and the orphan's output has no reader. A hung orphan
-      keeps its solve locks (decision 0035).
-  - *Change:*
-    1. `engine/main.cpp` (not `wasm_main.cpp`):
-       `std::signal(SIGPIPE, SIG_IGN)` under `#ifndef _WIN32`.
-    2. `output.cpp`: after each write and flush, a failed stream (a closed
-       pipe shows as one once SIGPIPE is ignored) sets a flag. `run()`
-       ends its loop on it, so the destructor pauses and saves.
-    3. `run()`: no `poll()` once the input has ended. The loop's body (pop,
-       `handleLine`, `poll`) goes in a try that catches `InternalError` and
-       `std::exception`, writes `shapelogic_engine: ERROR: …` to the log
-       stream and goes on. In `handleLine`, the steps after the handler get
-       the same treatment.
-    4. Front end:
-       - `index.ts` keeps the hosts that are stopping in a Set;
-       - `before-quit` waits for each one's `stop()`, capped at 15 s
-         (`e.preventDefault()`, then `app.quit()` again once they are done);
-       - `stop()` already kills after 10 s.
-  - *Tests:*
-    - `tests/contract/test_engine.py`: start a stacking or sliding solve that
-      runs for seconds (the suite has such fixtures), close the client's end
-      of the engine's stdout, then its stdin. The search folder then holds a
-      `state.bin` written after the close: the solve was paused and saved.
-    - `web/tests/unit/host.test.ts`: quit waits for a host whose `stop()` is
-      still pending (a fake host).
-
-- [ ] **4.6 Rescue copies over about 48 MiB cannot be reopened** (bug; S)
+- [ ] **4.5 Rescue copies over about 48 MiB cannot be reopened** (bug; S)
   - *Where:*
     - `core/shapelogic/app/document.cpp` `saveBytes()` (239-244: returns
       `io::writePuzzle(*puzzle_)`, the plain XML);
@@ -1043,75 +1083,41 @@ guide's links changed.
     - The rescue passes `gzip: true`.
     - The demo (`web/src/demo/main.ts:677`) gunzips when the bytes start
       with the gzip magic, so it works either way.
-    - The larger fix, a rescue copy that never crosses IPC, is item 13.11.
+    - The larger fix, a rescue copy that never crosses IPC, is item 10.11.
   - *Tests:*
     - contract: `saveBytes {gzip: true}` round-trips through `openBytes`;
     - web unit: `rescue.ts` asks with `gzip: true` (the scripted transport);
     - a document over 64 MiB would be slow in the quick loop: tag it
       `[slow]`, or run it once by hand and write that into the Done line.
 
-- [ ] **4.7 One solve setup for the session, the CLI, the explorer and Python; Python's Tilted Square answers** (bug, combine; M) ✓
-  - *Where:*
-    - `core/shapelogic/solve/solve_session.cpp` (345-367):
-      - the sliding rules: the solver is Classic; `keepMirrors`,
-        `keepRotations`, `completeRotations = false`;
-      - `strictColors`, `startLocks` and `freeStarts` from
-        `sliding::usesStartMarks`;
-      - `sliding::partTransforms(…, anyOrientation, mirroredOrientations)`;
-      - otherwise, on a tilted tray with flipPieces off,
-        `trayPlaneTurns(puzzle_, problem_)`.
-    - `cli/main.cpp` (733-755): the same rules, plus `variableHoleColumns`
-      and the non-sliding `strictColors` from its options, and the tray
-      rule with `o.flip.value_or(bt::storedFlipPieces(problem))`.
-    - `core/shapelogic/app/explorers.cpp` (83-99): the sliding rules with
-      the orientation options false and false, after `prepareForSolving`.
-      It has no tray rule.
-    - `python/src/solution_iterator.cpp` (206-208): only `keepMirrors` and
-      `keepRotations`.
-    - `trayPlaneTurns` is declared in `solve_session.h:151`.
-  - *Problem:* four hand copies of the rules that build a solve's matrix.
-    - Python's never applies the tray rule and has no flip option. A Tilted
-      Square problem stored with "pieces may be turned over" off gives
-      different solutions in Python than in the app and the CLI.
-    - The explorer has no tray rule either, so its placements on such a
-      problem differ from the solve's.
-  - *Change:*
-    1. A core function beside `trayPlaneTurns`, in `solve/solve_session.h`
-       or a new `solve/solve_setup.{h,cpp}` (it must not need a session):
-       ```cpp
-       struct SolveSetup { MatrixOptions matrix; SolverType solver; };
-       struct SetupFlags { bool anyOrientation = false; bool mirroredOrientations = false;
-                           std::optional<bool> flipPieces; /* empty: the stored value */ };
-       SolveSetup solveSetup(const Puzzle&, const Problem&, MatrixOptions base,
-                             SolverType solver, const SetupFlags&);
-       ```
-       It applies the sliding rules (forcing Classic) or the tray rule
-       exactly as the session does today.
-    2. The session, the CLI (its own `variableHoleColumns` and non-sliding
-       `strictColors` go in `base`), the explorer (flags false and false,
-       flip as stored) and Python all call it.
-    3. Python gets an option `flip_pieces` (default `None`: the stored
-       value) on its solve entry point, documented in `python/README.md`.
-       The module keeps the original's names; this is a new name with a
-       reason: Tilted Square did not exist in the original.
-  - *Keep:* everything the session and the CLI give today (the oracle tiers,
-    the tilted tests). The explorer changes only for tilted puzzles with
-    flipping off, which is the fix.
-  - *Tests:*
-    - `python/tests/`: solve a fixture from `tests/data/puzzles/tilted/` that
-      has flipping off and compare the count with the CLI's `--json`
-      (record the CLI's number in the test);
-    - a C++ unit test that `solveSetup` gives the session's matrix options
-      for a sliding, a tilted and a plain problem.
-  - *Verify:* `just test-all`, `just oracle --tier fast`,
-    `just oracle --tier sliding`, `just oracle-python`, `just python-test`.
+**Gates for stage 4:** `just test-all`, `just test-asan`,
+`just oracle-resume`, the contract suite (4.5's parameter), `just check`
+on the changed files, `just app-test` and the web unit tests touched
+(4.5).
 
-**Gates for stage 4:** `just test-all`, `just test-asan`, `just test-tsan`
-(4.5), `just oracle-resume`, the oracle tiers named in 4.7, `just check` on
-the changed files, `just app-test` and the web unit tests touched (4.5,
-4.6), the contract suite.
+## Checkpoint B (Fable): review of stage 4
 
-## Stage 5: smaller bugs: core, engine, Python; the Solve undo step
+The procedure is in "Fable checkpoints". What to look at:
+- **4.1:**
+  - The writers write the same bytes as before: the same `put` calls in the
+    same order, read from the diff.
+  - Old searches still resume (the v1.8.1 fixture test, `just oracle-resume`).
+  - The new failure tests fail when the fix is reverted.
+  - The fsync branches build on all three systems (CI).
+  - The leftover sweep removes the new temporary names.
+- **4.2 and 4.3:** each outcome's message in the session
+  (`solve_session.cpp:1040-1055`) is the right one, and an aborted search
+  writes nothing.
+- **4.4:** every place that reads a stamp agrees with `currentStamp()`.
+- **4.5:** `document.openBytes` reads the gzip bytes, the demo still opens
+  and saves a puzzle, and `docs/API.md` was regenerated.
+
+## Stage 5: smaller bugs: core, engine, Python, CLI
+
+Small bugs, each with a test of its own. The three that need Fable
+(change reports, two sliding solves at once, the Solve undo step) are
+15.3 to 15.5. Item 5.12 came from the damaged-files work; 11.6 uses its
+helper.
 
 - [ ] **5.1 The goal check can write past its array** (bug, UB; S) ✓
   - *Where:* `core/shapelogic/solve/sliding_search.cpp` `GoalCheck::reached()`
@@ -1204,48 +1210,21 @@ the changed files, `just app-test` and the web unit tests touched (4.5,
   - *Tests:* `test_document.cpp`: `addOneOfEach` on a part at 65535 is refused
     and leaves the document as it was.
 
-- [ ] **5.6 Change reports that miss or overstate what changed** (bug; M)
-  - *Where:*
-    - `core/shapelogic/app/document.cpp` `changed()` (541-545) assigns
-      `lastChange_.what = what` rather than ORing.
-    - `core/shapelogic/app/document_commands.cpp`:
-      - `deleteShape` (206) reports no solutions, though
-        `Problem::removeShape` erases the solutions that place the shape;
-      - the group commands (`setGroupCount`, `setGroup`, `deleteGroup`)
-        report solutions they leave alone;
-      - `setPieceCount`'s sliding branch (1148) drops the bits that
-        `syncSliding` set.
-  - *Problem:* the front end mirrors engine state and refreshes it by
-    `document.changed`'s `what` (AGENTS.md's rule). A missing bit leaves a
-    stale mirror. After deleting a shape, the Solver's list can still show
-    the removed solutions until something else refreshes it.
-  - *Change:*
-    - `changed()` ORs into `lastChange_.what`. Check that the step's commit
-      reads `lastChange_` after every helper ran, and fold `lastChange_.what`
-      into the step there.
-    - `deleteShape` reports solutions when any problem's `solutionsVersion()`
-      changed.
-    - The group commands drop the solutions bit if they never change
-      solutions.
-    - Item 14.11's audit test then keeps all of this checked.
-  - *Tests:* `test_document.cpp`: deleting a placed shape reports solutions;
-    the group commands do not. In the contract suite, check `document.changed`'s
-    `what` for those calls.
-
-- [ ] **5.7 Solution numbers are 32-bit while the counts are 64-bit** (bug; S to M)
+- [ ] **5.6 Solution numbers are 32-bit while the counts are 64-bit** (bug; S to M)
   - *Where:* `core/shapelogic/model/solution.h:83-84`;
     `core/shapelogic/model/problem.cpp:610`, 619-620, 635-636
     (`static_cast<unsigned>`); `core/shapelogic/io/puzzle_file.cpp:749-750`
     (`atoi`).
   - *Problem:* a solution found after 2^32 assemblies is stored, sorted and
     saved with its number wrapped.
-  - *Change:* `std::uint64_t` throughout; read the number with the file's
-    bounded number parser (8.2) or `strtoull`; write it in decimal as today.
+  - *Change:* `std::uint64_t` throughout; read the number with `strtoull`
+    (16.2 later bounds every number the reader takes); write it in decimal
+    as today.
     The output is the same below 2^32.
   - *Tests:* a solution numbered 2^32 + 5 round-trips through write and
     read; `just oracle-files --tier fast` is unchanged.
 
-- [ ] **5.8 The uniform mesher loses vertices that lie close together** (bug; S)
+- [ ] **5.7 The uniform mesher loses vertices that lie close together** (bug; S)
   - *Where:* `core/shapelogic/mesh/uniform_mesh.cpp` `NearVertices` (83-114):
     one id per 1e-4 key cell (`emplace` ignores a second id). Vertices
     match within 1e-5 (`core/shapelogic/mesh/cell_geometry.cpp:23`).
@@ -1259,7 +1238,7 @@ the changed files, `just app-test` and the web unit tests touched (4.5,
     correctly (`tests/unit/mesh/`); the STL tests and the oracle's STL dumps
     are unchanged.
 
-- [ ] **5.9 The app log names the wrong options for `solve.continue`** (bug; S)
+- [ ] **5.8 The app log names the wrong options for `solve.continue`** (bug; S)
   - *Where:* `engine/app_log.cpp:174-189` works the options out again with
     `solveOptionsFrom`. Since 9034b03, `launch` (`engine/methods_solve.cpp:24-27`)
     uses `pausedOptions()` when `solve.continue` gives none.
@@ -1270,7 +1249,7 @@ the changed files, `just app-test` and the web unit tests touched (4.5,
   - *Tests:* in `tests/unit/engine/`, continue a paused solve without options;
     the logged line names the paused options.
 
-- [ ] **5.10 Python: `stop()` and the iterator's destructor wait for the worker while holding the GIL** (bug; S)
+- [ ] **5.9 Python: `stop()` and the iterator's destructor wait for the worker while holding the GIL** (bug; S)
   - *Where:* `python/src/module.cpp:105`; `python/src/solution_iterator.cpp`
     (100-114, `stop`; 161-163, the destructor).
   - *Problem:* `createMatrix`, and the wait after an abort, cannot be
@@ -1283,94 +1262,16 @@ the changed files, `just app-test` and the web unit tests touched (4.5,
     thread while a third Python thread counts; the count goes on during the
     stop.
 
-- [ ] **5.11 Python refuses to export sliding puzzles to Puzzlecad** (bug; S)
+- [ ] **5.10 Python refuses to export sliding puzzles to Puzzlecad** (bug; S)
   - *Where:* `python/src/py_puzzle.cpp:129-146` (refuses sliding puzzles);
     `core/shapelogic/app/document.cpp:143-180` (has allowed them since
     1991b14).
   - *Change:* drop Python's own check and call the core's rule. If the rule
     sits inside `Document`, move it to a free function that both call (see
-    14.5).
+    11.5).
   - *Tests:* `python/tests/`: exporting a sliding fixture to Puzzlecad works.
 
-- [ ] **5.12 `solveLaunch` still prepares sliding solves the way it did before eb70072** (trap; S; a behavior change: tell the user)
-  - *Where:* `core/shapelogic/app/document.cpp` `solveLaunch` (789-828,
-    841-858); `needsPreparing` (1571-1590), which repeats `syncMaxHoles`
-    (1492-1514); `core/shapelogic/model/sliding.cpp:1592-1599`
-    (`prepareForSolving`, which since eb70072 only sets the problem's
-    maximum of holes).
-  - *Problem:* `solveLaunch` still behaves as if preparing changed shapes:
-    - its comment says it sets start locks and changes shapes;
-    - it refuses a second sliding solve ("…changes shapes another solve
-      reads: pause it first"), though only the problem being solved changes;
-    - it keeps a dead loop that adds color ids;
-    - it reports shapes, colors and solutions as changed, so the front end
-      refreshes all of them for nothing.
-  - *Change:* first confirm that `prepareForSolving` touches only the problem
-    being solved. Then drop the refusal and the loop, report
-    `kChangeProblems` for that problem, and give `needsPreparing` and
-    `syncMaxHoles` one shared "holes this problem needs" function.
-  - *Behavior change:* a second sliding solve (of another problem) can start
-    while one runs. Say so in the Done line and to the user.
-  - *Tests:* `test_document_sliding.cpp`: two sliding problems solved at once,
-    each with its own search folder (decision 0035).
-
-- [ ] **5.13 Solving and taking apart record an undo step** (bug; M; D1, decided 2026-11-24) ✓
-  - *Where:*
-    - `core/shapelogic/app/document.cpp`:
-      - `touchProblem()` (395-405) copies the whole problem, solutions
-        included, into the open step;
-      - `undo()` (547-568) and `redo()` swap the step's parts back whole;
-      - `solveLaunch` (789-828) and `analyseStart` start a run or a
-        take-apart and record no step.
-    - Decision 0011 ("Solving does not record undo steps… undoing an older
-      step can bring back the solutions it saved", 85-87).
-    - `web/src/renderer/solver/workspace.ts:1246-1279` (the Solver tab's
-      options are undoable edits).
-  - *Problem:*
-    - (a) Toggle a Solver option: that makes a step holding the problem.
-      Solve for an hour, then press Ctrl+Z. The problem as it was before
-      the solve comes back, the solutions move into the redo step, and the
-      next edit throws them away. The same happens after any whole-puzzle
-      step (every sliding stamp, deleting or moving a shape).
-    - (b) Edit a shape whose problem is unsolved (no problem part is saved),
-      solve, then undo: the old shape comes back, but the solutions found
-      for the edited shape stay.
-  - *Change:*
-    1. When a run starts (Start, Prepare, Continue), record a step "Solve
-       <problem name>" that holds the problem as it is then. If the top
-       step is already a Solve step of the same problem and no other step
-       came since, record nothing: the restore point is the same.
-    2. `analyseStart` records "Take apart <problem name>" the same way.
-    3. Undo is last in, first out, so it removes a run's results before
-       the edits made before the run; redo brings them back. An undo while
-       a solve runs is still refused (`checkNotSolving`).
-    4. The undo label the front end shows must name the step. Check how
-       steps are labeled and shown (grep `label` in `document.h` and the
-       undo items in `web/src/renderer/`), and add labels if steps have
-       none.
-    5. Check `dirty()` and `solveDirty_` with the new steps: a solve makes
-       the document changed as before.
-    6. Cost: the step copies the problem with its solutions as they are at
-       the run's start, as `touchProblem` does today. If solves only ever
-       append solutions (confirm in `Problem` and the session), a cheaper
-       part is possible: keep the count before the run, move the solutions
-       after it into the step on undo, and back on redo. Write down which
-       one was built and why.
-    7. Amend decision 0011 with a dated line: "Solving records an undo step
-       at each run's start (decided 2026-11-24)".
-  - *Tests:* `tests/unit/app/test_document_solving.cpp`:
-    - option, solve, undo: the solutions go with the undo, and redo brings
-      them back;
-    - solve, undo, then an edit: redo is cleared and the solutions are gone,
-      as asked;
-    - undo while solving is refused as before;
-    - a take-apart, then undo: the disassemblies it found are removed;
-    - the tests that count steps after solving (213-242) change: the new
-      counts and the reason go in the Done line.
-    - Contract: the undo label after `solve.start`.
-  - *Model:* Fable (undo exactness).
-
-- [ ] **5.14 `SolveStateCell::advance()` checks that it is the only writer** (trap; S)
+- [ ] **5.11 `SolveStateCell::advance()` checks that it is the only writer** (trap; S)
   - *Where:* `core/shapelogic/base/solve_state.{h,cpp}`: `advance()` loads,
     asserts the transition, then stores. The writers are listed in 3.3.
   - *Problem:* a second concurrent writer would pass unnoticed.
@@ -1379,11 +1280,39 @@ the changed files, `just app-test` and the web unit tests touched (4.5,
     The rule's text is in 3.3.
   - *Tests:* `just test-tsan`; the session tests.
 
-**Gates for stage 5:** `just test-all`, `just test-asan`, `just test-tsan`,
-the oracle tiers the items name (sliding for 5.1 and 5.12, files for 5.7),
-`just python-test` and `just oracle-python` (5.10, 5.11), the contract
-suite, `just check` on the changed files, and for 5.4 and 5.13 `just app-test`
-and the solver and stacking e2e specs.
+- [ ] **5.12 Disk-budget arguments are cast without bounds** (stability; S)
+  - *Where:* `cli/main.cpp:244` and 341 cast with
+    `static_cast<uint64_t>(strtod(gb) * 1e9)`. That is undefined for:
+    - negative values (0 on arm64, 2^63 on x86-64);
+    - inf;
+    - values over 1.8e10.
+    `engine/convert.cpp:669-671` does the same conversion; the engine's
+    settings ranges keep it in range today.
+  - *Change:* one `std::optional<std::uint64_t> gbToBytes(double)` in
+    `base/`. It refuses NaN, negatives, inf and values over a cap (1e6 GB).
+    The CLI refuses a bad value with a message, and `convert.cpp` uses it
+    too.
+  - *Tests:* `tests/cli/test_cli.py`: the disk option (find its name in
+    `cli/options.cpp`) with -1 is refused with exit code 2.
+
+**Gates for stage 5:** `just test-all`, `just test-asan`, `just test-tsan`
+(5.2, 5.11), `just oracle --tier sliding` (5.1), `just oracle-files --tier fast`
+(5.6), `just python-test` and `just oracle-python` (5.9, 5.10), the
+contract suite, the CLI tests (5.12), `just check` on the changed files,
+and for 5.4 `just app-test` and the stacking e2e spec.
+
+## Checkpoint C (Fable, only if needed): review of stage 5
+
+The procedure is in "Fable checkpoints". What to look at:
+- **5.1:** nothing is added to the work per arrangement; only `need_.size()`
+  entries are zeroed.
+- **5.2:** the unwinding runs under the pool's lock and leaves `lent_` as
+  before.
+- **5.11:** the compare-exchange's memory order matches the old store's.
+- **5.9:** nothing touches a Python object while the GIL is released.
+- **5.6:** numbers at and above 2^32 read and write in decimal, and old files
+  read as before.
+- **5.7:** the neighbor search still looks in the adjacent key cells.
 
 ## Stage 6: renderer bugs
 
@@ -1626,7 +1555,7 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
     one, for example when the style is toggled and back (or the theme, for
     the trays).
   - *Change:* bump `loads` before the early return in both, so a reply in
-    flight is stale. The shared loader of 15.9 later replaces all four.
+    flight is stale. The shared loader of 12.9 later replaces all four.
   - *Tests:* `sliding.e2e.ts` (`data-tray`), `stacking.e2e.ts` (`data-board`).
 
 - [ ] **6.11 The 3D view stays blank after the GPU resets; Export STL previews keep WebGL contexts** (bug; S)
@@ -1640,7 +1569,7 @@ Every item here edits `web/src/renderer/`: follow rule 7 before saving.
     - three.js restores the context and uploads everything again, but only
       on the next render. Rendering is on demand, so after a GPU reset the
       view stays blank until something changes. Today the needless
-      pointer-move renders of 13.1 hide this.
+      pointer-move renders of 10.1 hide this.
     - Each STL preview's context lives until garbage collection. Chromium
       keeps about 16 live contexts and drops the oldest, which is the main
       view's.
@@ -1810,158 +1739,9 @@ the items name, one file at a time.
 **Gates for stage 7:** `just app-check`, `just app-test`, the e2e specs the
 items name.
 
-## Stage 8: damaged and hostile files
+## Stage 8: test and build speed; tests that cannot clash
 
-Puzzle files are passed between people, and `.slsolve` imports carry saved
-searches from other machines. A damaged or hostile file must be refused with
-a message: never a crash, a hang or all the memory.
-
-- [ ] **8.1 The XML reader: a quadratic duplicate check, and no limit on elements** (stability; S)
-  - *Where:* `core/shapelogic/io/xml_pull_parser.cpp:417-423` compares every
-    pair of attributes for a duplicate, and copies both names each time
-    (`getAttributeName` returns by value). `core/shapelogic/io/xml_document.cpp:31-64`
-    builds the whole tree before anything is checked.
-  - *Problem:*
-    - 10^6 attributes on one element are about 11 MB of text, far under the
-      256 MiB inflate cap, and take about 5×10^11 comparisons. They run on
-      the engine's only request thread.
-    - `<a/>` (4 bytes) becomes a 104-byte element plus vector slack, so a
-      gzip of about 300 KB can grow to 7 to 10 GB.
-  - *Change:*
-    - The duplicate check with a hash set of views into the parser's buffer;
-      keep the message (it names the repeated attribute).
-    - An element budget in `readElement`: 16 million elements, then a
-      ParseError "too many elements".
-    - An attribute budget per element (4096).
-    - Make the budgets a parameter (`XmlLimits`) so a test can use small
-      ones.
-  - *Keep:* the messages for ordinary errors (`tests/unit/io/test_xml.cpp`).
-  - *Tests:* `test_xml.cpp`: 50,000 attributes parse at once; with a budget
-    of 1,000 elements, 1,001 are refused. Then `just oracle-roundtrip` (the
-    corpus still loads).
-
-- [ ] **8.2 `readPuzzle` allocates before it validates, and lets exceptions escape** (stability; S)
-  - *Where:* `core/shapelogic/io/puzzle_file.cpp`:
-    - the voxel reader (374-382): `<voxel x="1024" y="1024" z="1024" type="0">#</voxel>`
-      passes the 2^30 cap, zero-fills 1 GiB, then fails on the short text;
-    - the sliding problem's search depth (1067-1070):
-      `searchDepth="2147483648"` makes `ms.assign` write 16 GiB, and at 2^61
-      or more it throws `length_error`;
-    - the entry point (2086-2092) catches only `ReadError`;
-    - number reading (142) adds digits in `int`, so a long run of digits
-      overflows a signed int (UB);
-    - placements (514-515) take any coordinate, and
-      `core/shapelogic/model/assembly.cpp:642` subtracts them in `int`.
-    `cli/main.cpp` has no try around the load, so the CLI aborts.
-  - *Change:*
-    - Require the voxel text's length to cover `sx*sy*sz` before
-      `makeVoxel` (check the format: one character per cell).
-    - Cap the search depth at what the sliding search can use (find its
-      constant) before `assign`.
-    - Read numbers into 64 bits with an overflow check, and refuse values
-      outside `int`.
-    - Bound placement coordinates (for example ±2^20).
-    - Catch `std::exception` at the entry point and return ParseError
-      ("the file could not be read: …").
-    - In the CLI, catch at `main` and print the error with the exit code its
-      other read errors use.
-  - *Tests:* `tests/unit/io/test_puzzle_file.cpp`: each hostile piece of text
-    is refused with ParseError; run under `just test-asan`.
-
-- [ ] **8.3 Sliding level files: reading trusts the index and the raw blocks** (stability; S)
-  - *Where:* `core/shapelogic/solve/slide_levels.h`:
-    - `reload` (509-541) checks only the last entry of each table, not that
-      the tables rise or that blocks sit inside chunks (`reloadOlder` does
-      check, 892-899);
-    - `Reader::block` (626-652) runs `getVarint(p, n); keys.resize(n); keys[0] = k;`:
-      with `n == 0` it writes past an empty vector, and a garbage `n` asks
-      for gigabytes;
-    - `getVarint` (142-152) has no end bound, and a shift of 64 or more is
-      UB for 64-bit keys;
-    - the raw chunks (973-976) go unchecked. The zstd checksum covers only
-      compressed chunks, so these have none:
-      - chunks zstd could not shrink;
-      - files written at compression 0;
-      - every BTSLKEY2 file of v1.9 and earlier, which resume reads.
-  - *Change:*
-    - Validate the tables once in `reload`, in O(blocks): offsets rise, each
-      block lies inside its chunk, each chunk inside the file. Otherwise
-      report Damaged, the existing state for an unreadable level.
-    - In `block()`: require 1 ≤ n ≤ `kBlockKeys`, bound the varints by the
-      block's end, and return false on a bad block.
-    - `getVarint` takes an end pointer and stops after 10 bytes.
-  - *Keep:* the format; good files read as before (the checks are per block,
-    not per key).
-  - *Tests:* extend "a damaged key set file is told"
-    (`tests/unit/solve/test_sliding.cpp:4931`) with a compression-0 file and
-    a file with a corrupted offset; both are reported damaged, under
-    `just test-asan`.
-
-- [ ] **8.4 Panex: a damaged `state.bin` writes out of bounds in `decode`** (stability; S) ✓
-  - *Where:* `core/shapelogic/solve/panex_search.cpp`:
-    - `Rules::decode` (197-216) starts at `unsigned int r = rods - 1;` and
-      runs `r--` at each separator. A key with more than rods-1 separators
-      wraps `r` to 0xFFFFFFFF, and `s.disc[r][…]` writes out of bounds on a
-      worker's stack in `nextLevel` (977).
-    - `loadState` (727-745) checks each layer's count against the file
-      size, not the keys.
-  - *Problem:* `state.bin` files come from other machines inside `.slsolve`
-    imports (`core/shapelogic/io/paused_solve.h`); a run of 0xFF bytes is
-    enough.
-  - *Change:* in `solve()`, after loading, check every key of the five layers
-    and `meetAt` once:
-    - exactly rods-1 separators;
-    - each disc number below `rules.discs`;
-    - each rod's count within its height.
-    A bad key makes the saved search damaged, through the same path as an
-    unreadable file. `decode` stays branch-free.
-  - *Tests:* the damage table in `tests/unit/solve/test_stacking_session.cpp:315`:
-    add "0xFF over the first key at offset 80", expected to be damaged.
-
-- [ ] **8.5 One reader per format: gzip and paused solves** (stability, combine; S)
-  - *Where:*
-    - `core/shapelogic/io/gzip_file.cpp`: `readMaybeGzipFile` (115-140)
-      uses gzread, which reads a cut-short stream as its end (Z_BUF_ERROR is
-      never checked), while `gunzipIfCompressed` (382-416) refuses that
-      stream. `openBytes` and the paused solves use the latter.
-    - `core/shapelogic/io/paused_solve.cpp`: `parsePausedSolve` (180-222) is
-      used only by tests (`tests/unit/app/test_analysis_files.cpp:293-303`);
-      the app loads through 224-330.
-  - *Problem:* opening a truncated file from disk reads as far as it goes
-    and fails later with an XML message, or not at all if the cut falls
-    after the root closes. Also, the tests check a copy of the paused-solve
-    reader, not the one the app uses.
-  - *Change:*
-    - `readMaybeGzipFile` becomes `readPlainFile` plus `gunzipIfCompressed`:
-      one inflate path, which refuses a cut-short stream with "the file is
-      cut short".
-    - One paused-solve reader over `std::istream`, used by the app and the
-      tests.
-  - *Tests:* a truncated gzip file is refused with that message;
-    `test_analysis_files.cpp` runs the app's reader.
-
-- [ ] **8.6 Disk-budget arguments are cast without bounds** (stability; S)
-  - *Where:* `cli/main.cpp:244` and 341 cast with
-    `static_cast<uint64_t>(strtod(gb) * 1e9)`. That is undefined for:
-    - negative values (0 on arm64, 2^63 on x86-64);
-    - inf;
-    - values over 1.8e10.
-    `engine/convert.cpp:669-671` does the same conversion; the engine's
-    settings ranges keep it in range today.
-  - *Change:* one `std::optional<std::uint64_t> gbToBytes(double)` in
-    `base/`. It refuses NaN, negatives, inf and values over a cap (1e6 GB).
-    The CLI refuses a bad value with a message, and `convert.cpp` uses it
-    too.
-  - *Tests:* `tests/cli/test_cli.py`: the disk option (find its name in
-    `cli/options.cpp`) with -1 is refused with exit code 2.
-
-**Gates for stage 8:** `just test-all`, `just test-asan`,
-`just oracle-roundtrip`, `just oracle-resume`, `just check` on the changed
-files, the CLI tests.
-
-## Stage 9: test and build speed; tests that cannot clash
-
-- [ ] **9.1 Balance the test shards** (speed; S) ✓
+- [ ] **8.1 Balance the test shards** (speed; S) ✓
   - *Where:* `tests/CMakeLists.txt` (79-89) makes eight shards of `"~[slow]"`
     and eight of `"[slow]"`, each a slice of the shuffled case list.
     `justfile:32`: test-tsan runs one unsharded process.
@@ -1990,7 +1770,7 @@ files, the CLI tests.
     after in the Done line. Run `just test-asan` once as well. It is long, so
     say so before it starts, and run nothing heavy beside it.
 
-- [ ] **9.2 A new tag recompiles every file** (speed; S)
+- [ ] **8.2 A new tag recompiles every file** (speed; S)
   - *Where:*
     - `core/CMakeLists.txt:112`:
       `target_compile_definitions(btcore PUBLIC BT_VERSION_STRING="${PROJECT_VERSION}")`;
@@ -2013,7 +1793,7 @@ files, the CLI tests.
     `ProjectVersion.cmake` for an override; never make a git tag) and check
     that one file recompiles.
 
-- [ ] **9.3 One scratch-folder helper for the C++ tests** (stability, combine; S)
+- [ ] **8.3 One scratch-folder helper for the C++ tests** (stability, combine; S)
   - *Where:*
     - 26 fixed folder names in the shared temp folder:
       - `tests/unit/solve/test_sliding_session.cpp` (15
@@ -2048,7 +1828,7 @@ files, the CLI tests.
     `scratch_dir.h`. `just test-all` passes while a second `bt_tests` from
     another build folder runs at the same time.
 
-- [ ] **9.4 Long test runs use live binaries and folders that other sessions rebuild** (stability; M)
+- [ ] **8.4 Long test runs use live binaries and folders that other sessions rebuild** (stability; M)
   - *Where:*
     - `web/package.json:22-27`: `build`, `e2e`, `e2e-timed`, `dist` and
       `docs-shots` all rewrite `web/out`.
@@ -2085,7 +1865,7 @@ files, the CLI tests.
   - *Verify:* `just build release` while a vitest engine run goes; both
     pass.
 
-- [ ] **9.5 One set of e2e helpers** (stability, combine; S)
+- [ ] **8.5 One set of e2e helpers** (stability, combine; S)
   - *Where:*
     - `settled` at `web/tests/e2e/editor.ts:95`, `files.e2e.ts:113`,
       `keymap.e2e.ts:94` and `windows.e2e.ts:52` (`===` in some, `>=` in
@@ -2115,7 +1895,7 @@ files, the CLI tests.
     - Export `CLOSE_TAKEN_MS` and derive the sleep from it (plus 500 ms).
   - *Verify:* run each touched spec on its own.
 
-- [ ] **9.6 Tests and sources registered by hand** (trap; S)
+- [ ] **8.6 Tests and sources registered by hand** (trap; S)
   - *Where:*
     - `tests/CMakeLists.txt:4-69`, the `bt_tests` source list: 39 commits
       since September, and some lines out of order at 17-20;
@@ -2135,7 +1915,7 @@ files, the CLI tests.
   - *Verify:* add a scratch test file and configure: it is built. Then
     delete it.
 
-- [ ] **9.7 `just check` skips two folders** (trap; S)
+- [ ] **8.7 `just check` skips two folders** (trap; S)
   - *Where:* `justfile:106`, the file pattern (unchanged since stage 0).
     `python/src` (5 files) and `tests/tools` (6 files) are in
     `compile_commands.json` but never checked.
@@ -2143,13 +1923,31 @@ files, the CLI tests.
     suppress with reasons, as AGENTS.md says). `just check` must be green
     again in the same change.
 
-**Gates for stage 9:** `just test-all` (twice, timed), `just app-test`, the
+**Gates for stage 8:** `just test-all` (twice, timed), `just app-test`, the
 e2e specs touched one by one, `just check`, the CLI tests, one oracle tier
 run in a work folder of its own.
 
-## Stage 10: CI and release pipeline (D4: the agent decides)
+## Checkpoint D (Fable): review of stage 8
 
-- [ ] **10.1 macOS builds on a pinned image with a deployment target** (stability; S)
+The procedure is in "Fable checkpoints". What to look at:
+- **Nothing stopped running.** Compare these lists before and after the
+  stage:
+  - `bt_tests --list-tests`, all cases and `[slow]`;
+  - `ctest -N` in each preset;
+  - the vitest files and test counts;
+  - `test_cli.py`'s functions;
+  - the e2e spec list.
+  Every test that ran before runs after.
+- **The time limits.** They never stop a normal run (compare with
+  CTestCostData). A hang is stopped, and the gate's table says "timeout".
+- **Builds that clash.** Two builds of one preset wait for each other, and a
+  vitest engine run passes while `just build release` runs.
+- **1.2 still works.** `BT_REQUIRE_ALL=1` still fails a run without an
+  engine.
+
+## Stage 9: CI and release pipeline (D4: the agent decides)
+
+- [ ] **9.1 macOS builds on a pinned image with a deployment target** (stability; S)
   - *Where:* `.github/workflows/release.yml:272` and `staple.yml:39`
     (`macos-latest`). `release.yml:291-294` builds macOS with warnings as
     errors, unlike Linux (196) and Windows (251). No
@@ -2179,7 +1977,7 @@ run in a work folder of its own.
   - *Risk:* library features newer than the target become compile errors,
     which show where the target must be.
 
-- [ ] **10.2 Release jobs that got no runner are run again** (stability; S)
+- [ ] **9.2 Release jobs that got no runner are run again** (stability; S)
   - *Where:* `.github/workflows/release.yml` (269-277, 462-471); no workflow
     listens on `workflow_run`.
   - *Problem:* today a macOS job that got no runner is re-run by hand, about
@@ -2195,354 +1993,11 @@ run in a work folder of its own.
   - *After:* once a release has used it, tell the user that the manual
     re-runs are no longer needed.
 
-## Stage 11: core speed
-
-All answers stay identical: the oracle and the benchmarks decide (rules 3
-and 5).
-
-- [ ] **11.1 After the goal is found, the last level is scanned again on one thread** (speed; S) ✓
-  - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
-    - `goalFound()` (6096-6132) walks `fwd_.cur` from key 0 with `movers_[0]`
-      until a key has a move to the goal;
-    - the parallel first match to reuse is stepBack's fallback (5975-6018);
-    - the goal hit itself is found in expand (5056-5092).
-  - *Problem:* in a one-end search all threads stop at the first goal hit.
-    `goalFound` then scans the level again from its start, on one thread,
-    without polling the stop token and without progress. That takes about
-    as many times as long as there are threads. One-end searches are the
-    big ones: any goal that is not one arrangement, partial or loose nesting,
-    `oneEnd`.
-  - *Change:* a parallel first match like stepBack's:
-    - threads claim blocks in order;
-    - the lowest key with a goal move is kept under a mutex;
-    - a thread stops at a block whose first key is above the best so far;
-    - then work out the goal key for that one key.
-    Poll the stop token per block, and report a phase ("finding the move to
-    the goal") through `slide_phase.h`.
-  - *Keep:* the same path, found from the lowest such key as now: the test
-    "the search finds the same path on any number of threads"
-    (`tests/unit/solve/test_sliding.cpp:1336`).
-  - *Tests:* that test, the Klotski 81-move test, `just oracle --tier sliding`.
-
-- [ ] **11.2 `Voxel::set` rescans the whole shape for every cell** (speed; S) ✓
-  - *Where:* `core/shapelogic/grid/voxel.cpp` `set()` (99-107) calls
-    `recalcBoundingBox()` each time, a full scan.
-    - Loops of `set` without the skip bracket:
-      - `voxel.cpp:435` (`fillHoles`);
-      - `core/shapelogic/model/puzzle.cpp:119` and 121 (`removeColor`);
-      - `core/shapelogic/io/ps3d_file.cpp:130` and `io/scad_file.cpp:553`
-        (the imports).
-    - `setMark` (`voxel.cpp:445-458`) assigns and rescans on every clear.
-      It is called that way in loops that clear all marks:
-      `io/puzzle_file.cpp:1467` (whose loop condition rescans too) and
-      `model/sliding.cpp:1667`, 1800 and 1820.
-    - The bracket today is hand-written true/false pairs:
-      - `puzzle_file.cpp:383` and 480;
-      - `model/assembly.cpp:656` and 680;
-      - `model/grid_convert.cpp:63` and 89;
-      - `scad_file.cpp:771` and 775;
-      - `model/stacking.cpp:375` and 388.
-    - A scoped guard exists only in `python/src/py_shape.cpp:101-104`.
-  - *Problem:* Fill holes on a hollow 30³ box takes about 6.5×10^8 steps,
-    and a 100³ imported piece about 10^12. `kMaxImportCells` limits memory,
-    not time.
-  - *Change:*
-    - Move the guard into `voxel.h`. It saves the skip state it found and
-      sets skip; on destruction it restores that state and, when it was the
-      outermost, recalculates once.
-    - Use it at every site above, replacing the hand pairs.
-    - Add `Voxel::clearMarks()` (one pass) for the loops that clear marks.
-    - Delete the unused `Voxel::unionintersect` (`voxel.cpp:606`) and
-      `getDiagonal` (confirm there are no callers).
-  - *Keep:* the bounding box: the final recalculation does the same work
-    once.
-  - *Tests:* the grid tests; `just oracle-imports`; Fill holes on a hollow
-    40³ box completes in the quick loop.
-
-- [ ] **11.3 Union-find without path compression, and `shape.info` works out every shape's row** (speed; S) ✓
-  - *Where:* `core/shapelogic/grid/voxel.cpp` (332-337: `root` walks the
-    chain; copies at 386-391 and 421-426); `core/shapelogic/app/queries.cpp:104-108`
-    (`connected` five times per shape, for every shape, on each `shape.info`);
-    `engine/methods_shape.cpp:429` (builds the whole table to return one
-    row).
-  - *Problem:* the links form a chain in visit order, so each find walks
-    back sy·sz cells. The outside node's chain grows by one per boundary
-    cell, which makes it O(B²). That is about 10^8 steps for a 30³ shape and
-    10^10 for 100³, on each `shape.info`.
-  - *Change:* one shared `root()` with path halving, used by the three
-    copies. `shape.info` computes only the asked shape's row (a per-shape
-    function in `queries`).
-  - *Keep:* the partitions; the answers do not change.
-  - *Tests:* the grid tests; a 60³ shape's connectivity in the quick loop.
-
-- [ ] **11.4 The goal test decodes pieces that cannot fail** (speed; S)
-  - *Where:* `sliding_search.cpp`: `isGoal`'s single-piece loop (1892-1896),
-    against the packs' loop (1897-1901: `if (!pk.hasGoal) continue;`). It is
-    called for every emitted arrangement (5058).
-  - *Change:* in `layout()`, list the single pieces whose `atGoal` can fail
-    (their table has a 0) and loop over those only.
-  - *Keep:* the answers (it is a pure AND).
-  - *Verify:* bench a sliding search with pieces that have no goal, before
-    and after; the oracle's sliding tier.
-
-- [ ] **11.5 Nested slides: `groupAt` runs for pieces that can hold nothing** (speed; S)
-  - *Where:* `sliding_search.cpp`: `expandAt` (2023-2059), `movesBack`
-    (2088-2094), `groupAt` (2870-2902).
-  - *Change:*
-    - A `holds[i]` flag (`outlines[i].size() > cells[i].size()`), set in
-      `SlideSpace::build`.
-    - Skip `groupAt` for pieces without it, whose group would be just
-      themselves.
-    - Leave `expandLoose` as it is: its `looseNear` check runs before the
-      members check.
-  - *Tests:* the `checkSlideMovesBack` tests (`test_sliding.cpp:3265`, 3293
-    and 4640), the nested both-ends fuzz test, `just oracle --tier sliding`.
-
-- [ ] **11.6 Panex copies its whole frontier at each save, and holds two after a resume** (speed, memory; S) ✓
-  - *Where:* `core/shapelogic/solve/panex_search.cpp`:
-    - the `saveState` lambda (1235-1252) runs `st.fwdPrev = fwd.prev; …`
-      for all five layers;
-    - the resume (1156-1163) copies out of `const SavedState* resumeFrom`;
-    - `resumeState` lives until `solve()` returns (1873);
-    - `inMemory` and `room` (1181-1187, 1274-1277) count one copy.
-  - *Problem:*
-    - Every autosave and every pause doubles the search's memory while it
-      writes.
-    - A resumed run keeps the loaded frontier beside its own copy for its
-      whole length. So after "outgrew its memory … press Continue", the
-      resumed search starts at about twice its budget. With High Memory it
-      swaps, or ends in `bad_alloc` and "ran out of memory" instead of a
-      pause.
-  - *Change:*
-    - `Store::saveState` takes the header fields and `const Layer&`
-      references (a view struct) instead of a `SavedState` holding copies.
-    - `resumeFrom` becomes non-const, and the layers are moved out of it.
-  - *Keep:* the file's bytes.
-  - *Tests:* "a stopped search carries on where it stopped" and "tracing
-    back between saved levels" in `test_stacking.cpp`; `just oracle-resume`.
-
-- [ ] **11.7 Assembler 1 keeps a second copy of its matrix** (speed, memory; S to M)
-  - *Where:* `core/shapelogic/solve/assembler_1.cpp:2447` (`base_ = links_;`
-    in `assemble()`). Its readers are 1510 (a worker, `n_ = parent_.base_`),
-    1821 and 1998 (task generation); `assembler_1.h:256-259`.
-  - *Problem:*
-    - The plain single-thread search and the vector search never read
-      `base_`.
-    - Still, every `assemble()` (every pause and resume, every journal save
-      point) copies six node arrays (24 bytes per node), and the copy lives
-      as long as the assembler.
-    - The plain search runs when the matrix is too big for the vector
-      budget, so the biggest matrices pay double.
-  - *Change:*
-    - Workers copy `links_`; confirm nothing changes it while they run.
-    - Task generation works on a local copy made inside
-      `parallelMultiSearch` only.
-    - Drop `base_`.
-  - *Tests:* `test_assembler_1`, `test_split_tasks`, `just oracle-resume`,
-    `just oracle --tier full` with all threads and with `--threads 1`; bench
-    `--plain`.
-
-- [ ] **11.8 Playback clones and turns every piece for every sample** (speed; S)
-  - *Where:* `core/shapelogic/app/playback.cpp:325-338`: `evaluate()` runs
-    `clone()` and `transform(t)` for each piece and sample only to read the
-    turned hotspot and matrix (`recalcSpaceCoordinates` depends on the grid
-    alone). Also `engine/methods_playback.cpp:83-108` and
-    `web/src/renderer/solver/poses.ts:18-20` (a chunk is 257 samples times
-    the pieces).
-  - *Change:* cache the hotspot and matrix for each (piece, transform), next
-    to `orientCenter`, which already caches per transform.
-  - *Keep:* the poses, number for number.
-  - *Tests:* `tests/unit/app/test_playback_explorers.cpp`; the web engine
-    pose tests.
-
-- [ ] **11.9 Quadratic loops over solution lists** (speed; S)
-  - *Where:*
-    - `core/shapelogic/app/document_commands.cpp:1548-1577`: "Remove
-      assemblies" with All, Before or WithoutDisassembly calls
-      `removeSolution` (a vector erase) in a loop;
-    - `core/shapelogic/model/problem.cpp:664-671`;
-    - `core/shapelogic/app/document.cpp:1215-1222`: `poll()` finds each
-      analysis result by scanning from the start, which is O(n²) for "take
-      apart all".
-  - *Change:*
-    - `Problem::removeSolutionsIf(pred)` in one pass, keeping `sortedUpTo_`
-      right (count the kept ones before it).
-    - An id-to-index map in `poll()`.
-  - *Tests:* the deleteSolutions tests; `tests/unit/app/test_analysis_files.cpp`.
-
-- [ ] **11.10 Undo steps copy every saved solution, and the depth counts steps, not bytes** (speed, memory; M)
-  - *Where:*
-    - `core/shapelogic/app/document.cpp`: `touchProblem()` (395-405) copies
-      the problem with its solutions; the whole-puzzle steps (403, 464);
-      `pushStep` (533-539).
-    - `core/shapelogic/model/problem.h:446`.
-    - `api/engine.json:107`: the undo depth goes up to 10000.
-    - Steps that change no solution but copy them all:
-      - `renameProblem` and `setSolverOptions` (every Solver option);
-      - `setGroupCount`, `setGroup` and `deleteGroup` (`setPartGroup` only
-        touches `groups`, `problem.cpp:516-536`);
-      - `setProblemRodSet` and `moveDisc`.
-    - Whole-puzzle copies:
-      - adding, copying, renaming and moving rod sets
-        (`document_stacking.cpp:246-361`);
-      - `moveProblem` and `addColor`;
-      - every sliding stamp (`document_sliding.cpp:62`).
-  - *Problem:* a problem whose "keep all" solutions are copied by 25 to 500
-    steps reaches gigabytes. Decision 0011 says "memory per step is what the
-    step changed".
-  - *Change:*
-    - Part kinds that save only what these steps change:
-      - `ProblemSettings`: the problem's fields without its solutions,
-        swapped field by field;
-      - `RodSet`;
-      - `ProblemOrder`: a permutation.
-      Use them in the commands above.
-    - A byte budget in `pushStep`, beside the depth. Each part reports its
-      size, and while the steps' total is over the budget (say 512 MiB), the
-      oldest steps go (with 4.4's `baseStamp_` rule).
-    - This also makes 5.13's steps cheaper where it fits.
-  - *Keep:* the "undo gives writePuzzle byte for byte" tests of each command:
-    they guard exactness.
-
-- [ ] **11.11 The stop token walks its parent chain at every search step** (speed; S to M; measure first)
-  - *Where:* `core/shapelogic/base/stop.h:34-44`: `effective()` does an
-    acquire load and a pointer hop per level. It is polled at every step in:
-    - `assembler_0.cpp:188` and 469;
-    - `assembler_1.cpp:1249` and 1549;
-    - `simd_exact_cover.cpp:374` and 533;
-    - `simd_huang_cover.cpp:611` and 879;
-    - `movement_analysator.cpp:785`.
-    The chain has two levels in the CLI and three in the app
-    (`solve_session.cpp:453-454` plus SearchRun).
-  - *Change, only if the benchmark shows a cost:* either
-    - (a) a request is pushed down to the children when it is made (a child
-      list under a mutex; a request stores to itself and every descendant),
-      so a poll is one load; or
-    - (b) poll every 64 to 256 steps, with counters that exist
-      (`assembler_0.cpp:221` and 492, `simd_exact_cover.cpp:383`).
-  - *Keep:* decision 0004's rules: requests are never withdrawn, and
-    children follow their parents.
-  - *Measure:* `bench.py`'s default set with a three-level token (the CLI
-    has two; build a three-level chain behind a bench switch if needed). If
-    the cost is under 1%, write "Not needed" with the numbers.
-
-- [ ] **11.12 Assembler 1 keeps its nodes' up and down links in separate arrays** (speed; M; bench first)
-  - *Where:* `core/shapelogic/solve/assembler_1.h:95-101`, compared with
-    `dlx_matrix.h:32-40`, which interleaves them ("saves a register in the
-    cover loops"). The loops that touch them: `hideRow` and `coverColumnRows`
-    (`assembler_1.cpp:117-164`).
-  - *Change:* interleave them as `DlxNodes` does (mechanical). Keep it only if
-    `bench.py --plain` and `--set identical` show it faster.
-
-- [ ] **11.13 The take-apart allocates for every candidate move** (speed; M; bench first)
-  - *Where:* `core/shapelogic/solve/disassembler_node.h:40-42` and
-    `disassembler_node.cpp:15` (two allocations per node);
-    `disassembler.cpp:176` (an `unordered_set` per position on the parallel
-    path). Most candidates are dropped at once as known positions (314-318).
-  - *Change:*
-    - One allocation per node: inline storage for small piece counts, or a
-      free list per analysator (all the nodes of a part have the same piece
-      count).
-    - A scratch set per slot for `seen`, or no `seen` for Classic, where the
-      merge's `take()` already removes duplicates.
-  - *Bench:* `-d -R`.
-
-**Gates for stage 11:** `just test-all`, `just test-tsan`, the oracle tiers
-each item names (`fast`, `full`, `sliding`, with all threads and
-`--threads 1`), `just oracle-resume`, `just oracle-imports` (11.2), and
-`bench.py` with the before and after numbers.
-
-## Stage 12: the engine stays responsive
-
-The engine answers on one thread. Work that runs there for minutes, or
-ignores Stop, freezes every call the window makes to that engine, Pause and
-Abort included.
-
-- [ ] **12.1 `explore.openAssembly` builds a matrix on the request thread, holding the solve's lock** (stability, speed; S then M)
-  - *Where:* `engine/methods_explore.cpp:46-64` (`reduce` defaults to true,
-    and the front end sends none: `web/src/renderer/explore/explorer.ts:393`);
-    `core/shapelogic/app/document.cpp:1343` (`make` runs inside
-    `readProblem`, under the session's `resultsMutex_`);
-    `core/shapelogic/app/explorers.cpp:101` and 106 (`reduce(StopToken())`).
-  - *Problem:*
-    - On a big problem it blocks the request thread for minutes: Pause,
-      Abort, events and every other call wait, and nothing can stop it.
-    - It also stalls a running solve of that problem, which waits on
-      `resultsMutex_`.
-  - *Change:*
-    - First (S): copy the puzzle under the lock and build outside it.
-    - Then (M): make it a job like the analysis, with a StopSource,
-      progress and an `explore.ready` event (`api/explore.json`; rule 10).
-      The drawer shows "preparing" and a Cancel button.
-    - The decision text this contradicts is fixed in 3.3.
-  - *Tests:* a contract test: during `openAssembly` on a big fixture,
-    `engine.info` answers (for the job form); `explore.e2e.ts`.
-
-- [ ] **12.2 `solution.page` sorts the whole list again for every page** (speed; S to M)
-  - *Where:*
-    - `engine/methods_solution.cpp:33-61`.
-    - The comparator `comp2Moves` (`core/shapelogic/model/problem.cpp:684`)
-      calls the recursive `sumMoves`, which runs `getRotations` over every
-      state (`core/shapelogic/model/disassembly.cpp:119-158`) on each
-      comparison.
-    - The pager (`web/src/renderer/solver/pager.ts:156-171`) asks for every
-      visible page on each `solutionsAdded`, up to four times a second.
-  - *Problem:* with "keep all" and thousands of solutions, each page costs
-    hundreds of milliseconds, and the solve's worker waits on the lock
-    meanwhile.
-  - *Change:*
-    - Work out each solution's sort keys once, and sort indexes by key.
-    - Keep the order in the engine's state, keyed by (problem,
-      `solutionsVersion`, `sortBy`, descending), and drop it when the
-      version changes.
-  - *Keep:* the order, with the same ties (a stable sort).
-  - *Tests:* `tests/unit/engine/`: the pages are the same before and after
-    for each `sortBy` on a fixture with many solutions.
-
-- [ ] **12.3 Pause and Abort wait for the matrix to be built** (stability; M)
-  - *Where:* `core/shapelogic/solve/assembler.h:159` (`createMatrix` takes no
-    stop token); `core/shapelogic/solve/solve_session.cpp:694-711`
-    (`prepareSearch`); `engine/engine.cpp:413-428`.
-  - *Problem:* `abort()` joins the run on the request thread. While a long
-    matrix build runs (the Solver shows "N placements so far",
-    `web/src/renderer/solver/settings.ts:619`), every call waits until the
-    build ends.
-  - *Change:*
-    - Pass the run's StopToken into `createMatrix`, and into the placement
-      finder under it.
-    - A stopped build returns a new `AssemblerError::Stopped`, which
-      `prepareSearch` treats as its existing stop check at 711.
-  - *Scope:* this reaches into the three assemblers' matrix code. That is
-    known and planned here, so it needs no warning under rule 2.
-  - *Keep:* the results of runs that are not stopped (the oracle tiers).
-
-- [ ] **12.4 Sliding: Stop and Abort wait for the visited-set merge and for the path's trace** (stability; M)
-  - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
-    - `insertVisited` (5394-5460) runs as `extra` inside expand's `pool.run`
-      (5043-5049);
-    - `restoreVisited`, while resuming (4806-4836);
-    - the trace across thinned levels (`step(ball, …, false, false, …)` at
-      6060).
-  - *Problem:* none of these polls the token, and deep in a search a merge
-    takes minutes.
-  - *Change:*
-    - Poll the token in `insertVisited`'s merge loop, and drop the partial
-      set on a stop. Its inputs stay listed until the merge is whole (5397),
-      and `restoreVisited` puts a missing level back when the search
-      carries on.
-    - Honor Abort in the trace's expand.
-  - *Tests:* a test that stops during a merge (a test-only option that
-    stops after N merged keys), then continues to the same path.
-
-**Gates for stage 12:** `just test-all`, `just test-tsan`, the contract
-suite, `just oracle --tier fast` and `--tier sliding`, `just oracle-resume`,
-`just app-test` and `explore.e2e.ts` (12.1).
-
-## Stage 13: front-end speed and memory
+## Stage 10: front-end speed and memory
 
 Rule 7 holds for every renderer item here.
 
-- [ ] **13.1 Every pointer move over the 3D view renders a full frame** (speed, bug; M)
+- [ ] **10.1 Every pointer move over the 3D view renders a full frame** (speed, bug; M)
   - *Where:*
     - `web/src/renderer/view3d/view.ts`:
       - the pointer handlers (1590-1606);
@@ -2589,7 +2044,7 @@ Rule 7 holds for every renderer item here.
     - a unit test: pointer moves with nothing under the pointer ask for no
       render.
 
-- [ ] **13.2 `lookChanged` runs at least three times per snapshot, and rebuilds the overlays each time** (speed; M)
+- [ ] **10.2 `lookChanged` runs at least three times per snapshot, and rebuilds the overlays each time** (speed; M)
   - *Where:*
     - `web/src/renderer/view3d/view.ts`:
       - `reload()` calls it twice (880, 916, 925);
@@ -2616,7 +2071,7 @@ Rule 7 holds for every renderer item here.
     - One `lookChanged` per snapshot.
   - *Tests:* the screenshot tests, `entities.e2e.ts`, `view.e2e.ts`.
 
-- [ ] **13.3 The shape view fetches its mesh again at every revision** (speed; S)
+- [ ] **10.3 The shape view fetches its mesh again at every revision** (speed; S)
   - *Where:* `web/src/renderer/view3d/view.ts`:
     - `reload` (878, 884, 895) keys and asks for the mesh at the document's
       revision;
@@ -2636,7 +2091,7 @@ Rule 7 holds for every renderer item here.
   - *Tests:* `perf.e2e.ts` expects exactly one build when a shape is
     selected; also check the SVG export.
 
-- [ ] **13.4 Cards re-render whole on every snapshot, keyed by hand-written lists** (speed, trap; M)
+- [ ] **10.4 Cards re-render whole on every snapshot, keyed by hand-written lists** (speed, trap; M)
   - *Where:*
     - `web/src/renderer/entities/workspace.ts` (315-357, 385-394);
     - `entities/shapes-list.ts` (109-200);
@@ -2661,7 +2116,7 @@ Rule 7 holds for every renderer item here.
   - *Keep:* the guards for renaming in place and for typing a disc size.
   - *Tests:* the e2e specs `shapes`, `entities`, `keys` and `piece-images`.
 
-- [ ] **13.5 Hidden tabs reload after every edit** (speed; S to M)
+- [ ] **10.5 Hidden tabs reload after every edit** (speed; S to M)
   - *Where:*
     - The Puzzle tab:
       - `web/src/renderer/puzzle/workspace.ts` (133-139, 492-583):
@@ -2692,7 +2147,7 @@ Rule 7 holds for every renderer item here.
     which, and say so in the Done line.
   - *Tests:* the puzzle and solver e2e specs.
 
-- [ ] **13.6 The picture caches never let go** (memory; M)
+- [ ] **10.6 The picture caches never let go** (memory; M)
   - *Where:*
     - `web/src/renderer/shell/piece-images.ts` (30, 140-143, 186-196):
       `ready` holds an ImageBitmap and a base64 data URL for every hash and
@@ -2713,7 +2168,7 @@ Rule 7 holds for every renderer item here.
     - Clear the mesh-build measures as the render measures are cleared.
   - *Tests:* `piece-images.e2e.ts`, `tray-border.e2e.ts`, the play specs.
 
-- [ ] **13.7 A MutationObserver on the whole page rescans the document** (speed; S)
+- [ ] **10.7 A MutationObserver on the whole page rescans the document** (speed; S)
   - *Where:*
     - `web/src/renderer/shell/theme.ts` (103-145, 191-202) watches
       childList, subtree and `title` changes. In Minimal density it runs two
@@ -2727,7 +2182,7 @@ Rule 7 holds for every renderer item here.
     go.
   - *Tests:* `tooltips.e2e.ts`.
 
-- [ ] **13.8 Solver playback does needless work every frame** (speed; S)
+- [ ] **10.8 Solver playback does needless work every frame** (speed; S)
   - *Where:*
     - `web/src/renderer/solver/player.ts` (608-668):
       - `track.at()` runs twice per frame (623 and 504);
@@ -2744,7 +2199,7 @@ Rule 7 holds for every renderer item here.
   - *Tests:* `keymap.e2e.ts` (`data-t`), the solver specs' poses helper,
     `explore.e2e.ts`.
 
-- [ ] **13.9 The app log blocks the main process** (speed; M)
+- [ ] **10.9 The app log blocks the main process** (speed; M)
   - *Where:*
     - `web/src/main/app-log.ts`:
       - 376-389: one `appendFileSync` per stderr line of every window's
@@ -2767,7 +2222,7 @@ Rule 7 holds for every renderer item here.
     - Drop the cache when the dialog closes.
   - *Tests:* `app-log.test.ts`, `logs.e2e.ts`.
 
-- [ ] **13.10 Every engine start launches the engine twice** (speed; S; after 2.2)
+- [ ] **10.10 Every engine start launches the engine twice** (speed; S; after 2.2)
   - *Where:* `web/src/engine/node-transport.ts` (`engineVersion()` 19-38, and
     `start()` 96-107: a `--version` launch before each start);
     `web/src/main/index.ts:433`; `engine/methods_engine.cpp:43`
@@ -2781,7 +2236,7 @@ Rule 7 holds for every renderer item here.
   - *Tests:* `host.test.ts:65-68` (the `/--version/` expectation for a
     missing engine becomes the spawn error).
 
-- [ ] **13.11 Rescue copies without the document crossing IPC** (speed; M; after 4.6)
+- [ ] **10.11 Rescue copies without the document crossing IPC** (speed; M; after 4.5)
   - *Where:* `web/src/renderer/shell/rescue.ts` (32, 207, 224) →
     `web/src/main/app-ipc.ts:440-452` → `web/src/main/rescue.ts:58-67`.
   - *Problem:* at most every 2 s per changed window, the whole document goes
@@ -2800,13 +2255,16 @@ Rule 7 holds for every renderer item here.
   - *Tests:* the rescue specs in `files.e2e.ts`; a contract test of
     `saveRescue`.
 
-**Gates for stage 13:** `just app-check`, `just app-test`, the e2e specs each
+**Gates for stage 10:** `just app-check`, `just app-test`, the e2e specs each
 item names, `perf.e2e.ts` through `just app-e2e-timed` (it runs alone), and
 the screenshot tests.
 
-## Stage 14: one source of truth: core, engine, API, Python, CLI
+## Stage 11: one source of truth: core, engine, API, Python, CLI
 
-- [ ] **14.1 A test that ties the API schema to the C++** (combine, trap; M)
+This stage's three items that need Fable (Continue's refusal and the
+folder name, the change audit, the names pinned by tests) are stage 19.
+
+- [ ] **11.1 A test that ties the API schema to the C++** (combine, trap; M)
   - *Where:*
     - The error table has five copies:
       - `engine/rpc.h:33-45` and `rpc.cpp:10-21`;
@@ -2853,12 +2311,12 @@ the screenshot tests.
        and compares:
        - every Names table with the schema's enum;
        - `kSolverBoxes` with the schema's solver options;
-       - the numeric maxima (threads, and 14.2's limits) with the C++
+       - the numeric maxima (threads, and 11.2's limits) with the C++
          constants;
        - the error table with `toRpc`.
   - *Tests:* that test; the contract suite; `ctest -R api-docs`.
 
-- [ ] **14.2 Limits as core constants, emitted for the web** (combine, bug; M)
+- [ ] **11.2 Limits as core constants, emitted for the web** (combine, bug; M)
   - *Where:*
     - Disc size 100, rods 16, heights 64: `core/shapelogic/app/document_stacking.cpp:37-39`,
       `engine/methods_stacking.cpp:81-103`, `api/stacking.json:93` and
@@ -2873,16 +2331,16 @@ the screenshot tests.
     (`document_stacking.cpp:72`). A copy missed anywhere drifts silently.
   - *Change:*
     - The core's constants are the source, and the engine uses them.
-    - 14.1's test checks the schema's maxima against them.
+    - 11.1's test checks the schema's maxima against them.
     - `just app-gen` (`web/tools/gen-api.ts`) emits the schema's maxima as
       named constants (for example `LIMITS.stacking.rods`), and the web uses
       those instead of its own numbers.
     - One behavior out of range: refuse. The document refuses too, as the
       engine does today.
-  - *Tests:* 14.1's test; the staleness test of the generated file; the web
+  - *Tests:* 11.1's test; the staleness test of the generated file; the web
     cards' unit tests use `LIMITS`.
 
-- [ ] **14.3 Grid kinds: compile-time checks now, one table of traits next** (combine, trap; S then M) ✓
+- [ ] **11.3 Grid kinds: compile-time checks now, one table of traits next** (combine, trap; S then M) ✓
   - *Where:*
     - `core/shapelogic/grid/grid_type.h:30-42` holds the `enum GridKind`
       (0 to 8) and, separately, `inline constexpr int kNumGridKinds = 9;`.
@@ -2946,7 +2404,7 @@ the screenshot tests.
     `just oracle-python`; the web engine tests of the client's grid tables
     (`web/tests/engine/editor.test.ts`, `solver.test.ts`).
 
-- [ ] **14.4 Code copied between the new grids; marks on grids that have none** (combine, bug; S to M)
+- [ ] **11.4 Code copied between the new grids; marks on grids that have none** (combine, bug; S to M)
   - *Where:*
     - `core/shapelogic/grid/voxel_hex.cpp:173-210` is the same as
       `voxel_bricks.cpp:361-397`.
@@ -2982,11 +2440,11 @@ the screenshot tests.
   - *Tests:* the grid tests (`test_grid_invariants`, `test_grid_oracle`), the
     mesh tests, the oracle's grid dump.
 
-- [ ] **14.5 Python and the CLI use the Document's rules** (combine; S to M)
+- [ ] **11.5 Python and the CLI use the Document's rules** (combine; S to M)
   - *Where:* `python/src/solution_iterator.cpp:286-313` copies `solveLaunch`'s
     checks (`core/shapelogic/app/document.cpp:793-808`) and
     `prepareShapesForSolving` (714-726). The CLI's `--save`
-    (`cli/main.cpp:1245-1311`) skips the checks. Also 5.11.
+    (`cli/main.cpp:1245-1311`) skips the checks. Also 5.10.
   - *Change:* free functions in the core (in `app/` or `solve/`, called by
     `Document` too): one gives why a problem cannot be solved (an empty
     result, no pieces, …), one does the preparation. Python and the CLI call
@@ -2994,7 +2452,7 @@ the screenshot tests.
   - *Tests:* `python/tests/`; `tests/cli/test_cli.py`: a problem the app
     refuses is refused by `--save` with the same reason.
 
-- [ ] **14.6 Search folders and disk budgets from one helper** (combine; S)
+- [ ] **11.6 Search folders and disk budgets from one helper** (combine; S)
   - *Where:* `engine/engine.cpp:27-45` (an empty `SHAPELOGIC_*_DIR` counts as
     unset, so the cache folder is used); `cli/main.cpp:220-245` and 333-342
     (an empty value means "no folder"); `python/src/module.cpp:206`
@@ -3002,10 +2460,10 @@ the screenshot tests.
   - *Change:* one function in the core that takes the environment's value as
     a parameter (the core reads no environment; the callers pass it in),
     with one rule everywhere: empty means unset, the engine's rule. Use
-    8.6's `gbToBytes` for the budgets.
+    5.12's `gbToBytes` for the budgets.
   - *Tests:* `tests/unit/test_search_folders.cpp`; `test_cli.py`.
 
-- [ ] **14.7 Sliding: the order of attempts is written twice** (combine; S)
+- [ ] **11.7 Sliding: the order of attempts is written twice** (combine; S)
   - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
     `savedFromStartAlone` (6826-6855) and `findSlidePath` (6892-6923; the
     comment at 6893 reads "what findSlidePath asks…"). The `table` and
@@ -3017,7 +2475,7 @@ the screenshot tests.
     `savedFromStartAlone` runs `tableProbe` over them.
   - *Tests:* `test_sliding.cpp:4141`, `test_sliding_session.cpp:1511`.
 
-- [ ] **14.8 Sliding: fields set after `build()`, options copied by hand, two compression constants** (trap; S)
+- [ ] **11.8 Sliding: fields set after `build()`, options copied by hand, two compression constants** (trap; S)
   - *Where:* `space.partial` and `backMoves` are set after `build()` by both
     builders (`sliding_search.cpp:6256` and 6961). `slideSearchFor` copies
     SlidingOptions field by field (6597-6618). `kSlideCompression`
@@ -3031,20 +2489,7 @@ the screenshot tests.
     constant.
   - *Tests:* `test_sliding.cpp`; the nested both-ends fuzz test.
 
-- [ ] **14.9 Continue's refusal and the saved search's folder name can disagree** (trap; S)
-  - *Where:* `core/shapelogic/solve/solve_session.cpp` `resumeRefusal`
-    (160-188; its list of the options that name a saved slide search is at
-    172-180); `sliding_search.cpp` `nameSpace` (6262-6300: what goes into
-    the folder's name).
-  - *Problem:* an option added only to the name makes Continue start over
-    silently, the failure decision 0043 describes.
-  - *Change:* one list of the fields that name a search, used both by
-    `nameSpace` and by a new `sliding::namesDiffer(a, b)`, which
-    `resumeRefusal` calls.
-  - *Tests:* for each field in that list, changing it makes `resumeRefusal`
-    refuse (a loop over the list).
-
-- [ ] **14.10 Movement values as named constants** (trap; S)
+- [ ] **11.9 Movement values as named constants** (trap; S)
   - *Where:*
     - `kFree` is defined at `core/shapelogic/solve/movement_cache.h:32`, but
       the literal 32000 is used in `movement_cache_bricks.cpp:42-81`,
@@ -3062,37 +2507,7 @@ the screenshot tests.
   - *Keep:* every value.
   - *Tests:* `test_movement_checks`; the oracle's file comparison.
 
-- [ ] **14.11 Document commands: one way to report a change, and an audit test** (combine, trap; M; after 5.6)
-  - *Where:*
-    - `core/shapelogic/app/document.cpp` `changed()` (541-545; see 5.6).
-    - 61 StepGuard sites: `document_commands.cpp` 38, `document_stacking.cpp`
-      15, `document_sliding.cpp` 6, `document_tilted.cpp` 1, `document.cpp` 1.
-    - About 100 id lookups, each with a three-line early return; 39
-      `checkNotSolving` and 23 `checkProblemFree` calls; 39 hand-set lists of
-      `lastChange_` ids.
-    - Pairs that differ only in the field they touch:
-      - `setShapeWeight` and `setShapeColor` (`document_commands.cpp:317-357`);
-      - `renameProblem` and `setSolverOptions` (981-1001, 1501-1521);
-      - `moveProblem` and `moveRodSet` (953-979;
-        `document_stacking.cpp:332-361`).
-    - `requireShape` and `requireProblem` are never used
-      (`document.h:955-956`).
-  - *Change:*
-    - Templates `editShapeField`, `editProblemField` and `moveInList` for
-      the pairs.
-    - A lookup helper that returns `Result<T&>`, for the id lookups.
-    - Delete the two unused helpers.
-    - An audit test, `tests/unit/app/test_change_audit.cpp`:
-      - a table of commands, each making a typical call on a fixture;
-      - for each, compare before and after: each problem's
-        `solutionsVersion()`, the shapes' bytes, the lists' sizes, the
-        colors and the problem settings;
-      - assert that `lastChange_.what` covers every category that changed;
-      - for categories named but unchanged, a warning list in the test
-        output.
-  - *Tests:* the audit test; the contract suite's `document.changed` checks.
-
-- [ ] **14.12 Small engine copies, and one trap** (combine, trap; S)
+- [ ] **11.10 Small engine copies, and one trap** (combine, trap; S)
   - *Where:*
     - The check of a name's control characters appears twice:
       `engine/methods_document.cpp:136-143` and `methods_export.cpp:102-109`.
@@ -3122,7 +2537,7 @@ the screenshot tests.
     - `stackingSetRules` takes its defaults from the core's struct.
   - *Tests:* the contract suite; `test_cli.py` with `--limit 10`.
 
-- [ ] **14.13 Tray helpers in the undo header; tray math and nudge codes written twice** (combine; S)
+- [ ] **11.11 Tray helpers in the undo header; tray math and nudge codes written twice** (combine; S)
   - *Where:*
     - `core/shapelogic/app/document_internal.h:63-90` holds the tray helpers;
       `placement_fit.cpp:5` includes the undo header only for
@@ -3138,7 +2553,7 @@ the screenshot tests.
     - Export `isNudge(grid, task)` from `shape_tools.h` and use it.
   - *Tests:* `test_document_tilted.cpp`.
 
-- [ ] **14.14 Analysis and PlacementFit: one background-job skeleton** (combine; M)
+- [ ] **11.12 Analysis and PlacementFit: one background-job skeleton** (combine; M)
   - *Where:* `core/shapelogic/app/analysis.{h,cpp}` and
     `placement_fit.{h,cpp}` (its header says "the pattern is Analysis");
     `document.h:986-997`; `document.cpp:54-59`, 637-663 and 1190-1250.
@@ -3154,47 +2569,29 @@ the screenshot tests.
   - *Tests:* the `[parallel]` cases under `just test-tsan`;
     `test_analysis_files.cpp`; the placement-fit tests.
 
-- [ ] **14.15 Names worked out from code or bytes, pinned by tests** (trap; S)
-  - *Where:*
-    - `core/shapelogic/solve/sliding_search.cpp` `Fingerprint::mix`
-      (3118-3132) hashes `sizeof(T)` raw bytes; `problemKeyOf` (3140) and
-      `nameSpace` (6265-6312) use it.
-    - Panex's `fingerprintOf` mixes 8 bytes per value.
-    - `core/shapelogic/io/puzzle_file.cpp` `giveUids` (958-983): a problem
-      without a stored uid gets one hashed from `writeProblem`'s bytes, and
-      the uid names its saved sliding and Panex searches
-      (`sliding_search.cpp:3143`, `panex_search.cpp:1728`).
-    - The known-attribute lists: `puzzle_file.cpp:469-472` with
-      `isImageAttribute`, 994-996, 1367 and 757.
-  - *Problem:*
-    - Changing an accessor's return type renames every saved-search folder:
-      Continue starts over and the old folder is orphaned. Only one name is
-      pinned by a test (`slide-cafc026be534476e`, nested and grid).
-    - Any change to what the writer emits changes the uids worked out for
-      the original's files, which orphans their paused searches after an
-      upgrade. `test_puzzle_file.cpp:660` checks this only within one build.
-    - If a writer emits an attribute that its reader's list lacks, the
-      reader keeps it as "extra", and the next save writes it twice. The
-      parser then refuses that file.
-  - *Change:*
-    - `Fingerprint::mix` through fixed-width overloads (8, 16, 32 and 64
-      bits), with explicit conversions at the callers that keep today's
-      bytes. Check every call's current width, so no name changes.
-    - Tests that pin the folder names of a plain board, a board with packed
-      keys and a Panex puzzle.
-    - A test that pins one original fixture's worked-out uid to its value.
-    - A `BT_ASSERT` in `core/shapelogic/io/xml_writer.cpp` (56, 65) that a
-      tag never gets the same attribute twice.
-  - *Tests:* the new pins; `tests/unit/test_search_folders.cpp`.
-
-**Gates for stage 14:** `just test-all`, `just test-tsan`, the contract
+**Gates for stage 11:** `just test-all`, `just test-tsan`, the contract
 suite, `ctest -R api-docs`, `just app-gen` and its staleness test,
 `just python-test`, `just oracle-python`, the CLI tests, the oracle tiers
 the items touch, `just check`.
 
-## Stage 15: one source of truth: front end
+## Checkpoint E (Fable, only if needed): review of stage 11
 
-- [ ] **15.1 One record per setting** (combine; M)
+The procedure is in "Fable checkpoints". What to look at:
+- **11.1:** the test compares what it says it compares. Break one Names table
+  on purpose in a scratch copy, and the test fails.
+- **11.2:**
+  - every limit refuses out-of-range values in the engine and in the
+    document;
+  - the web's `LIMITS` come from the generated file.
+- **11.3:** the `static_assert`s fail when a GridKind is added without
+  changing the count. Try it in a scratch copy.
+- **11.5 and 11.6:** Python, the CLI and the app give the same refusals and
+  use the same folders.
+- **11.7 and 11.8:** `just oracle --tier sliding` gives the same results.
+
+## Stage 12: one source of truth: front end
+
+- [ ] **12.1 One record per setting** (combine; M)
   - *Where:*
     - `web/src/renderer/shell/prefs.ts`: the type (20-112), the defaults
       (115-170), the choices (202-216), the chain of checks (238-266; 260
@@ -3240,7 +2637,7 @@ the items touch, `just check`.
     run-card shows each BOXES entry for its puzzle types (a DOM test).
     `journal.test.ts` and `tilted.test.ts` use `DEFAULT_OPTIONS`.
 
-- [ ] **15.2 A typed table of the IPC channels** (combine; M)
+- [ ] **12.2 A typed table of the IPC channels** (combine; M)
   - *Where:* `web/src/main/app-ipc.ts` (202-661), `web/src/main/index.ts`
     (215, 257, 471, 549, 581), `web/src/preload/index.ts` (32-290),
     `web/src/engine/app-bridge.ts`; 49 channel names written out in
@@ -3267,11 +2664,11 @@ the items touch, `just check`.
       once.
     - A unit test that every table key is registered in main and exposed in
       the preload.
-    - Item 17.4 then splits `app-ipc.ts` by its groups.
+    - Item 13.4 then splits `app-ipc.ts` by its groups.
   - *Tests:* `security.test.ts` (built from the table, not the 49 names),
     `preload.test.ts`, the files and logs e2e specs.
 
-- [ ] **15.3 Runtime guards that the compiler checks** (combine, trap; S) ✓
+- [ ] **12.3 Runtime guards that the compiler checks** (combine, trap; S) ✓
   - *Where:*
     - `web/src/engine/app-bridge.ts`:
       - `isMenuState` (686-702) checks a hand list of booleans that lacks
@@ -3301,7 +2698,7 @@ the items touch, `just check`.
     help-link test; a test that `isMenuState` accepts a full MenuState built
     from the type's keys.
 
-- [ ] **15.4 One registry of event handlers** (combine, bug; S)
+- [ ] **12.4 One registry of event handlers** (combine, bug; S)
   - *Where:* `web/src/engine/client.ts` (238-256, 513-528),
     `web/src/main/engine-host.ts` (151-177, 232-239: no guard, so one
     throwing host handler skips the rest for that event),
@@ -3318,7 +2715,7 @@ the items touch, `just check`.
   - *Tests:* `client.test.ts`, `bridge.test.ts`, `host.test.ts` (a throwing
     handler does not stop the others).
 
-- [ ] **15.5 One set of controls** (combine; M)
+- [ ] **12.5 One set of controls** (combine; M)
   - *Where:*
     - Steppers: ten templates in six files (`shell/settings.ts:626`, 631 and
       645; `entities/editor-card.ts:329`; `entities/tilt-card.ts:110`;
@@ -3348,7 +2745,7 @@ the items touch, `just check`.
     Move the sites over one card at a time.
   - *Tests:* the entities, puzzle, solver and keys e2e specs.
 
-- [ ] **15.6 Menu commands from one table; the shell's helpers once** (combine; S)
+- [ ] **12.6 Menu commands from one table; the shell's helpers once** (combine; S)
   - *Where:*
     - `web/src/renderer/shell/menus.ts` (64-98, 232-305: 17 identical switch
       cases) and `shell/app.ts` (272-362: 25 commits, mostly wiring).
@@ -3374,7 +2771,7 @@ the items touch, `just check`.
       dispatch.
   - *Tests:* `app.test.ts`; the files and exports e2e specs.
 
-- [ ] **15.7 Solver and Play rules in one place** (combine; S)
+- [ ] **12.7 Solver and Play rules in one place** (combine; S)
   - *Where:*
     - File ▸ Export's enabling: `shell/menus.ts:191-195`, `shell/app.ts:69-73`
       and `solver/solutions-card.ts:486-489`.
@@ -3389,7 +2786,7 @@ the items touch, `just check`.
   - *Change:* one export each, in the module that owns the idea.
   - *Tests:* the solver unit tests and solver e2e specs.
 
-- [ ] **15.8 The front end's grid and tool rules in one place** (combine, trap; S)
+- [ ] **12.8 The front end's grid and tool rules in one place** (combine, trap; S)
   - *Where:*
     - The cube-grid test (bricks, sliding, stacking) is written six times:
       `entities/workspace.ts:67`, `entities/edit3d.ts:41`,
@@ -3415,7 +2812,7 @@ the items touch, `just check`.
   - *Tests:* `entities.e2e.ts` (it presses 1, 2 and 4); new checks in
     `view3d.test` and `keys.test`.
 
-- [ ] **15.9 One shared mesh loader** (combine; M; after 6.10)
+- [ ] **12.9 One shared mesh loader** (combine; M; after 6.10)
   - *Where:* `web/src/renderer/view3d/view.ts` (858-926, 949-1068),
     `view3d/trays.ts` (132-301) and `view3d/board.ts` (271-365).
     `disposeBuilt` is copied at `view.ts:1686`, `trays.ts:323` and
@@ -3437,7 +2834,7 @@ the items touch, `just check`.
     (`data-board`), `puzzle.e2e.ts`, `perf.e2e.ts` (exactly one build when a
     shape is selected).
 
-- [ ] **15.10 The two play boards share their frame code** (combine, trap; M)
+- [ ] **12.10 The two play boards share their frame code** (combine, trap; M)
   - *Where:*
     - Copies in `web/src/renderer/play/board.ts` (182-224, 262-314, 816-838)
       and `play/stack-board.ts` (77-111, 174-223, 479-498):
@@ -3458,7 +2855,7 @@ the items touch, `just check`.
     - `PlayBoard.offsetOf(i)` instead of the regex.
   - *Tests:* the play and stack-play e2e and unit tests.
 
-- [ ] **15.11 Small copies outside the renderer** (combine; S)
+- [ ] **12.11 Small copies outside the renderer** (combine; S)
   - *Where:*
     - The binary location rule (the `.exe` suffix, plus
       `build/<preset>/{engine,cli}/`) is written in seven places:
@@ -3488,7 +2885,7 @@ the items touch, `just check`.
     - One version pattern.
   - *Tests:* `dist.test.ts` and the unit tests that use them.
 
-- [ ] **15.12 Status colors as tokens** (combine; S)
+- [ ] **12.12 Status colors as tokens** (combine; S)
   - *Where:* `styles.css` and the TS that writes colors. `var(--warn,#c80)`
     names a token that is never defined. The status colors are literals
     (#2e8b57 three times, #c02828 twice, five different oranges) with no dark
@@ -3497,175 +2894,12 @@ the items touch, `just check`.
     values; replace the literals.
   - *Tests:* the screenshot tests, light and dark.
 
-**Gates for stage 15:** `just app-check`, `just app-test`, the e2e specs the
-items name, the screenshot tests, `just site-build` (15.11's demo hash).
+**Gates for stage 12:** `just app-check`, `just app-test`, the e2e specs the
+items name, the screenshot tests, `just site-build` (12.11's demo hash).
 
-## Stage 16: splits: core
+## Stage 13: splits: front end
 
-Each split moves code without changing it. Check open branches first (rule
-11). Count the tests before and after: every case must still run.
-
-- [ ] **16.1 `sliding_search.cpp` split along its seams, and compiled in parts** (separate, speed; M)
-  - *Where:* `core/shapelogic/solve/sliding_search.cpp` (7,362 lines; 29
-    commits since September). Its templates (1236-6380) sit inside the
-    anonymous namespace (52-6489). `eachKey` (6396-6420) instantiates them for
-    five key types: `uint64_t`, `__int128`, `BigKey<3>`, `BigKey<4>` and
-    `BigKey<8>`.
-  - *Build cost:* `build/release/.ninja_log` shows 38.8 s and then 70.3 s for
-    this one file (51 s and 81 s with tsan). The next largest of our files
-    takes 8.9 s, and all 205 take 475 s in total. `sliding_search.h` is
-    included by 59 files.
-  - *Seams.* The history shows them:
-    - a1e4927, 24272bd and 422fdb5 changed only lines 3000-6200;
-    - 445bf4b (612 lines added) changed only 1000-2600, plus `eachKey`;
-    - 4abf08d, 3218c98 and fbfbd2e changed only the play.
-    The parts, which go into `bt::sliding::detail` where they leave the
-    anonymous namespace:
-    - the board rules (54-753: GoalCheck, cellsOf and outlineOf, StopGrid,
-      reachableShifts, fewestTurns, nestedGroup) go to `slide_board.{h,cpp}`;
-    - the play (7128-7362) goes to `sliding_play.cpp`. Its header exists,
-      and ARCHITECTURE.md (749) already says the play is defined there;
-    - the tables, keys and moves (916-3091: PosTable, SlideSpace,
-      SlideMover, chain) go to `slide_space.h`;
-    - the set storage (3093-3958: SearchFolder, SetStore, runMerge,
-      RunBuilder) and the state file (3959-4199) go to `slide_store.h` and
-      `slide_saved.cpp`;
-    - LevelSearch, the naming and the public API stay, about 3,000 lines.
-  - *Shared with the Panex and stack searches.* They include
-    `sliding_search.h` only for these, which move to `base/` (for example
-    `base/search_memory.h` and `base/binary_io.h`):
-    - `memoryBudget`, `memoryStates` and `kSearchMemoryBytes`
-      (`sliding_search.h:62-80`, `.cpp:6579-6595`); `Searcher::budget()`
-      (`panex_search.cpp:814-818`) repeats the shared-memory branch;
-    - the `put`/`get` helpers (`panex_search.cpp:514-522`,
-      `sliding_search.cpp:4073-4084`);
-    - the FNV-1a hashing. Panex's `fingerprintOf` mixes 8 bytes per value,
-      and the sliding Fingerprint mixes `sizeof(T)`: a shared hasher must
-      keep both forms, so no folder name changes (14.15 pins them).
-  - *Near-copies to fold.*
-    - `floodShifts` and `floodGroup` (2657-2733, 2753-2818) become one
-      templated shift flood, taking the blocked and soft cells and a
-      callback per stop. Keep it templated: this is the hot path.
-    - "others_ = occupied_ less the group" (2048, 2108, 2357) and the epoch
-      reset (1993, 2428) become two small helpers.
-  - *Compiling in parts:*
-    - Move the Key templates into an internal header.
-    - Declare `extern template` for `tableSearch` and `tableProbe`, and for
-      whatever else `eachKey` instantiates.
-    - Add one small file per key width with the explicit instantiations
-      (keep the `__SIZEOF_INT128__` branch). The five then build side by
-      side.
-  - *Keep:* the behavior. Names that leave the anonymous namespace must not
-    clash with Panex's own `put`, `get` and state helpers.
-  - *Verify:*
-    - `just test-all`, `just oracle --tier sliding`, `just oracle-resume`;
-    - a sliding solve timed alone, before and after (rule 5);
-    - `just check` on the new files;
-    - the release build time of these files, in the Done line.
-
-- [ ] **16.2 `test_sliding.cpp` split** (separate, speed; S to M)
-  - *Where:* `tests/unit/solve/test_sliding.cpp` (5,851 lines; 85 cases in one
-    file).
-  - *Seams:*
-    - The KeySet cases (1076, 2118, 4791-5116, 5714) need only
-      `slide_levels.h`: they go to `test_slide_levels.cpp`.
-    - The saved, resume and disk cases (1779-2086, 2631, 2984, 3558,
-      3743-4141, 4684, 5222-5662) are interleaved with the search cases;
-      they go to `test_sliding_saved.cpp`.
-    - The stamp and mark cases (1492-1719), whose code is in
-      `model/sliding.cpp`, go to `tests/unit/model/test_slide_marks.cpp`.
-    - The shared helpers (`solveRun`, `SlideFixture`, `oneWayPuzzle`, and
-      9.3's `ScratchDir` in place of `scratchDir`) go to
-      `tests/unit/solve/sliding_test_helpers.h`.
-  - *Keep:* every case. List them before and after
-    (`bt_tests --list-tests`), and the two lists must match.
-
-- [ ] **16.3 `solve_session.cpp`: the sliding and stacking flows in files of their own** (separate; M)
-  - *Where:* `core/shapelogic/solve/solve_session.cpp` (2,319 lines). Of its
-    14 commits since 2026-11-12, 10 changed `onSlidingAssembly`, 7 `launch`,
-    6 `progress`, and 5 each `slidingSummary` and `runStacking`.
-    - Sliding:
-      - about 25 members used only by sliding (`solve_session.h:536-610`);
-      - `onSlidingAssembly` (1269-1410), `onSlideDepth`, `slidingSummary`
-        (1434-1488) and `resumeRefusal` (160-188);
-      - the slide setup in `launch` (346-363, 433-443, 471-497);
-      - the slide part of `progress()` (2014-2064).
-    - Stacking: `launchStacking`, `runStacking` and `endStackingRun`
-      (531-611, 975-1149).
-  - *Change:* the sliding state and its functions go in a `SlideRun` member,
-    defined in `solve_session_sliding.cpp` (declared in the header or an
-    internal header). The stacking flow goes in `solve_session_stacking.cpp`.
-    It stays the same class in other files. The seams are the launch setup,
-    `onAssembly`, the end-of-run stats, the note, `progress` and
-    `resumeRefusal`.
-  - *Keep:* the behavior (a mechanical move).
-  - *Tests:* the session tests, `just oracle-files --tier fast`,
-    `just test-tsan`.
-
-- [ ] **16.4 `convert.cpp`: its solve part in its own file** (separate; S)
-  - *Where:* `engine/convert.cpp` (994 lines; 33 commits since September, the
-    most of any C++ file). Its commits' hunks land in:
-    - `solveOptionsFrom` and `kSolverBoxes` (8 or more);
-    - `progressJson` (6 or more);
-    - `shapeSummary` (4);
-    - `trayJson` (3);
-    - the names (3).
-    They nearly always come with `solve_progress.h`, `solve_session.h` and
-    `types.json`: this is the file every reported field passes through.
-  - *Change:*
-    - Lines 595-943 (the stored settings, the solve options in, the
-      progress, stats and failures out) go to `engine/convert_solve.cpp`.
-    - `trayJson` goes beside `readTraySettings` and `placementFitJson` in
-      `engine/methods_tray.cpp`.
-    - A table of fields would not save the three edits (the header, the
-      converter, the schema), so none is planned.
-
-- [ ] **16.5 `puzzle_file.cpp` split by element** (separate; M)
-  - *Where:* `core/shapelogic/io/puzzle_file.cpp` (2,204 lines). Each of its
-    last twelve commits edited the reader and the writer of the same element
-    (for example ff4fce7, 0aa9c93, 068cbba). The solution and separation code
-    (484-800, 1607-1779) changed once.
-  - *Change:* one file per element, each holding the element's reader, its
-    writer and its list of known attributes:
-    - `io/puzzle_file_voxel.cpp`;
-    - `_solution.cpp`;
-    - `_problem.cpp` (with stacking, slide marks and uids);
-    - `_tray.cpp`.
-    The access structs, Keeper and the slot enums go in
-    `io/puzzle_file_internal.h`. This is not a split into reading and
-    writing, which would cut every lockstep edit across two files.
-  - *Keep:* the bytes (`just oracle-roundtrip`, `test_puzzle_file`).
-
-- [ ] **16.6 `document.h`: per-mode facades** (separate; L; D5: decided; after 16.1 to 16.5)
-  - *Where:* `core/shapelogic/app/document.h` (1,000 lines; 28 commits since
-    September, the most in `app/`).
-    - About 38 files compile it: six in `app/` through `document_internal.h`,
-      all 19 native engine files through `engine/engine.h` and
-      `engine/rpc.h`, and 13 tests.
-    - About 15 of its last 27 commits added declarations for one mode (11
-      sliding, 3 tilted, 1 stacking).
-    - `document_commands.cpp` holds 17 tilted, 15 sliding and 16 stacking
-      checks inside generic commands.
-    - For scale: the Tilted Square stages touched 126 files (core 15, engine
-      8, api 7, cli 3, `web/src` 36, web tests and recordings 15, C++,
-      contract and CLI tests 12, docs and site 18, demo and screenshots 15).
-  - *Change:*
-    - Per-mode facades (`SlidingEdits`, `StackingEdits`, `TrayEdits`):
-      friend classes of Document, declared beside their mode's `.cpp` and
-      included only by their engine methods file and their tests.
-    - The refusals by mode become one table (command × mode → reason) behind
-      a single `refuse(cmd, shape)`.
-    - The web's `Family` plus its separate `tilted` flag could become one
-      mode that the engine reports.
-
-**Gates for stage 16:** `just test-all`, `just test-tsan`, the oracle tiers
-the moved code serves (`sliding`, `fast`, `files`, `roundtrip`),
-`just oracle-resume`, the contract suite, `just check` on the new files,
-the release build's time.
-
-## Stage 17: splits: front end
-
-- [ ] **17.1 CSS and markup with their modules** (separate; M per area; D3: decided)
+- [ ] **13.1 CSS and markup with their modules** (separate; M per area; D3: decided)
   - *Where:* `web/src/renderer/styles.css` (51 commits since September, the
     most of any hand-written file) and `index.html` (30). For example,
     ff4fce7 (the tray border) added `#secBorder` and `#borderColorPick` to
@@ -3701,7 +2935,7 @@ the release build's time.
     - `security.test.ts:336` reads only `styles.css`; extend it to every
       `.css` file.
 
-- [ ] **17.2 `solver/workspace.ts` split by concern** (separate; M)
+- [ ] **13.2 `solver/workspace.ts` split by concern** (separate; M)
   - *Where:* `web/src/renderer/solver/workspace.ts` (2,154 lines; 37 commits
     since September).
     - Its commits' changed lines, by method: the constructor in 15 commits,
@@ -3725,7 +2959,7 @@ the release build's time.
     unit tests; the Activity and Details checks in the solver, sliding and
     stacking e2e specs.
 
-- [ ] **17.3 `view.ts`: one layer per puzzle kind** (separate; L; after 13.1 to 13.3)
+- [ ] **13.3 `view.ts`: one layer per puzzle kind** (separate; L; after 10.1 to 10.3)
   - *Where:* `web/src/renderer/view3d/view.ts` (1,712 lines; 27 commits).
     - Each puzzle-kind commit (4cb6e2b, 18945de, c201e81, dc30490, 26857b5,
       ff4fce7) adds:
@@ -3745,11 +2979,11 @@ the release build's time.
       implemented per puzzle kind in its own file. `resized`, `lookChanged`
       and `draw` walk the layers.
     - The picking and pointer handlers go to `view3d/pointer.ts`.
-    - The mesh loaders become 15.9's.
+    - The mesh loaders become 12.9's.
     - One keyed `refresh()` over all the cards in `entities/workspace.ts`.
   - *Tests:* all the view e2e specs and the screenshot tests.
 
-- [ ] **17.4 `app-ipc.ts` split by its groups** (separate; M; after 15.2)
+- [ ] **13.4 `app-ipc.ts` split by its groups** (separate; M; after 12.2)
   - *Where:* `web/src/main/app-ipc.ts` (670 lines; 22 commits) and `index.ts`
     (931; 24 commits).
   - *Change:* one module per group, each with its own small dependency
@@ -3762,10 +2996,874 @@ the release build's time.
     - the CLI;
     - the window: close, goal and help.
 
-**Gates for stage 17:** `just app-check`, `just app-test`, the e2e specs of
+**Gates for stage 13:** `just app-check`, `just app-test`, the e2e specs of
 each moved area, the screenshot tests (light and dark).
 
-## Stage 18: core deduplication under benchmarks (D6: decided)
+## Stage 14: dead code and the last traps
+
+- [ ] **14.1 Delete dead code** (trap; S)
+  - Before deleting each item, confirm with `git grep` across `core`,
+    `engine`, `cli`, `python`, `tests`, `web` and `site` that it has no
+    caller:
+    - ✓ `RotationRules::collectDebugConflictCells`
+      (`core/shapelogic/solve/rotation_rules.cpp:1055-1186`), and the
+      `CellSet*` out-parameters it threads through the hot rule helpers
+      (635, 681, 729). `docs/handoff/stage-4.md` says it "stays for the
+      GUI", which never used it.
+    - `MovementAnalysator::Stats`, `getStats` and `resetStats`
+      (`movement_analysator.h:109-117`), with the counters bumped on every
+      `checkmovement` call.
+    - `Voxel::unionintersect` (`core/shapelogic/grid/voxel.cpp:606`) and
+      `getDiagonal`, if 17.2 has not already removed them.
+    - `Document::requireShape` and `requireProblem` (`document.h:955-956`),
+      if 19.2 has not.
+    - SolveSession's `assemblerKind_`: written, never read.
+    - In `web/src/renderer/solver/workspace.ts`, `ws.kind` and `kindOf`:
+      `problem.kind` is still awaited in every load (1007, 1055-1079), but
+      nothing has read the answer since 18945de. Removing it saves an engine
+      call per load. The file's header (line 9) describes it too.
+    - From the BurrTools 2 removal (ef67313): `Edits.solves`
+      (`state/edits.ts:18-24`) and `SolveRecord.solver` (`state/solves.ts:72`,
+      200).
+    - `SLIDING_ONLY` and `STACKING_BOXES`, unless 12.1 uses them;
+      `PROBLEM_CHIP` (`puzzle/counts.ts:17`); `logsViewable`
+      (`shell/dialog.ts:97`).
+    - `bt_busy` (`engine/wasm_main.cpp`), if 11.10 has not removed it.
+    - CSS and markup:
+      - 18 class tokens that appear in no TS string or class attribute:
+        `axf`, `cmat`, `crul`, `rrul`, `gwrap`, `mg`, `mnote`, `ph2`, `pm`,
+        `prow`, `pz-pieces`, `pzo`, `pzsec`, `pzt-wrap`, `slv-dbg`,
+        `slv-sum`, `sol`, `tname`;
+      - 3 unused ids in `index.html`: `gridHelp`, `sgStart`, `sgGoal`.
+      The `lf-*`, `ax-*` and `tp-*` classes are built in templates, so they
+      are live.
+
+- [ ] **14.2 Tests that keep the page and the code in step** (trap; S)
+  - *Change:* a unit test, `web/tests/unit/renderer/page-ids.test.ts`, that
+    checks:
+    - every literal passed to `byId` (412 calls, 187 ids) is an id in
+      `index.html` or in a TS template;
+    - every class token in the CSS (`styles.css`, and the modules' CSS after
+      13.1) appears in a TS string, a template or `index.html`. Classes that
+      are built from prefixes (`lf-`, `ax-`, `tp-`) go on an allow list.
+
+- [ ] **14.3 Leftover references in the docs** (docs; S)
+  - *Change:* after 14.1, grep `docs/` and the code's comments for the
+    deleted names and update or remove what names them. That includes
+    `docs/handoff/stage-4.md`; handoff notes are history, so add a dated
+    note there instead of rewriting it.
+
+**Gates for stage 14:** `just test-all`, `just check`, `just app-check`,
+`just app-test`, the e2e specs of the areas whose code was deleted.
+
+## Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (D1, decided)
+
+Each of these can pass its tests and still lose a user's work or give a
+wrong answer later, so they need Fable. 15.1 and 15.2 are the bugs that
+lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs.
+
+- [ ] **15.1 The engine ends without pausing its solves** (bug; M)
+  - *Where:*
+    - `engine/main.cpp`: no SIGPIPE handling. The `Engine` lives in a block
+      so that its Document's destructor pauses and saves the solves.
+    - `engine/engine.cpp`:
+      - `Engine::run()` (411-437): `poll()` runs once more after the input
+        ends, and nothing in the loop catches;
+      - `handleLine()` (255-283): `logCall`, `flushEvents` and
+        `announceChange` run outside the handler's try.
+    - `engine/output.cpp:24` (`out_.write`).
+    - `core/shapelogic/app/document.cpp:1212`: `Document::poll()` has a
+      `BT_ASSERT_MSG`, which throws `InternalError`.
+    - `core/shapelogic/base/assert.h:9-10` promises "the engine process keeps
+      running".
+    - The front end: `web/src/main/index.ts` (`win.on('closed')` 512-529:
+      `hosts.delete(...)` then `void host.stop()`; `app.on('will-quit')`
+      661-666) and `web/src/main/engine-host.ts` `stop()` (105-132: closes
+      stdin, kills after 10 s).
+  - *Problem:*
+    - (a) Nothing ignores SIGPIPE. When the app crashes or is force-quit,
+      the engine's next progress write raises SIGPIPE and kills it.
+    - (b) An `InternalError` thrown by `poll()`, or by the steps after a
+      handler, reaches `std::terminate`.
+    - Either way the Document's destructor never runs, so the solves are not
+      paused: a Panex search loses what it did since its last autosave, and
+      a sliding search loses its current level.
+    - (c) On quit, the app's process ends while each engine, its stdin just
+      closed, still waits for its solves to pause (decision 0012). The 10 s
+      kill never runs, and the orphan's output has no reader. A hung orphan
+      keeps its solve locks (decision 0035).
+  - *Change:*
+    1. `engine/main.cpp` (not `wasm_main.cpp`):
+       `std::signal(SIGPIPE, SIG_IGN)` under `#ifndef _WIN32`.
+    2. `output.cpp`: after each write and flush, a failed stream (a closed
+       pipe shows as one once SIGPIPE is ignored) sets a flag. `run()`
+       ends its loop on it, so the destructor pauses and saves.
+    3. `run()`: no `poll()` once the input has ended. The loop's body (pop,
+       `handleLine`, `poll`) goes in a try that catches `InternalError` and
+       `std::exception`, writes `shapelogic_engine: ERROR: …` to the log
+       stream and goes on. In `handleLine`, the steps after the handler get
+       the same treatment.
+    4. Front end:
+       - `index.ts` keeps the hosts that are stopping in a Set;
+       - `before-quit` waits for each one's `stop()`, capped at 15 s
+         (`e.preventDefault()`, then `app.quit()` again once they are done);
+       - `stop()` already kills after 10 s.
+  - *Tests:*
+    - `tests/contract/test_engine.py`: start a stacking or sliding solve that
+      runs for seconds (the suite has such fixtures), close the client's end
+      of the engine's stdout, then its stdin. The search folder then holds a
+      `state.bin` written after the close: the solve was paused and saved.
+    - `web/tests/unit/host.test.ts`: quit waits for a host whose `stop()` is
+      still pending (a fake host).
+
+- [ ] **15.2 One solve setup for the session, the CLI, the explorer and Python; Python's Tilted Square answers** (bug, combine; M) ✓
+  - *Where:*
+    - `core/shapelogic/solve/solve_session.cpp` (345-367):
+      - the sliding rules: the solver is Classic; `keepMirrors`,
+        `keepRotations`, `completeRotations = false`;
+      - `strictColors`, `startLocks` and `freeStarts` from
+        `sliding::usesStartMarks`;
+      - `sliding::partTransforms(…, anyOrientation, mirroredOrientations)`;
+      - otherwise, on a tilted tray with flipPieces off,
+        `trayPlaneTurns(puzzle_, problem_)`.
+    - `cli/main.cpp` (733-755): the same rules, plus `variableHoleColumns`
+      and the non-sliding `strictColors` from its options, and the tray
+      rule with `o.flip.value_or(bt::storedFlipPieces(problem))`.
+    - `core/shapelogic/app/explorers.cpp` (83-99): the sliding rules with
+      the orientation options false and false, after `prepareForSolving`.
+      It has no tray rule.
+    - `python/src/solution_iterator.cpp` (206-208): only `keepMirrors` and
+      `keepRotations`.
+    - `trayPlaneTurns` is declared in `solve_session.h:151`.
+  - *Problem:* four hand copies of the rules that build a solve's matrix.
+    - Python's never applies the tray rule and has no flip option. A Tilted
+      Square problem stored with "pieces may be turned over" off gives
+      different solutions in Python than in the app and the CLI.
+    - The explorer has no tray rule either, so its placements on such a
+      problem differ from the solve's.
+  - *Change:*
+    1. A core function beside `trayPlaneTurns`, in `solve/solve_session.h`
+       or a new `solve/solve_setup.{h,cpp}` (it must not need a session):
+       ```cpp
+       struct SolveSetup { MatrixOptions matrix; SolverType solver; };
+       struct SetupFlags { bool anyOrientation = false; bool mirroredOrientations = false;
+                           std::optional<bool> flipPieces; /* empty: the stored value */ };
+       SolveSetup solveSetup(const Puzzle&, const Problem&, MatrixOptions base,
+                             SolverType solver, const SetupFlags&);
+       ```
+       It applies the sliding rules (forcing Classic) or the tray rule
+       exactly as the session does today.
+    2. The session, the CLI (its own `variableHoleColumns` and non-sliding
+       `strictColors` go in `base`), the explorer (flags false and false,
+       flip as stored) and Python all call it.
+    3. Python gets an option `flip_pieces` (default `None`: the stored
+       value) on its solve entry point, documented in `python/README.md`.
+       The module keeps the original's names; this is a new name with a
+       reason: Tilted Square did not exist in the original.
+  - *Keep:* everything the session and the CLI give today (the oracle tiers,
+    the tilted tests). The explorer changes only for tilted puzzles with
+    flipping off, which is the fix.
+  - *Tests:*
+    - `python/tests/`: solve a fixture from `tests/data/puzzles/tilted/` that
+      has flipping off and compare the count with the CLI's `--json`
+      (record the CLI's number in the test);
+    - a C++ unit test that `solveSetup` gives the session's matrix options
+      for a sliding, a tilted and a plain problem.
+  - *Verify:* `just test-all`, `just oracle --tier fast`,
+    `just oracle --tier sliding`, `just oracle-python`, `just python-test`.
+
+- [ ] **15.3 Change reports that miss or overstate what changed** (bug; M)
+  - *Where:*
+    - `core/shapelogic/app/document.cpp` `changed()` (541-545) assigns
+      `lastChange_.what = what` rather than ORing.
+    - `core/shapelogic/app/document_commands.cpp`:
+      - `deleteShape` (206) reports no solutions, though
+        `Problem::removeShape` erases the solutions that place the shape;
+      - the group commands (`setGroupCount`, `setGroup`, `deleteGroup`)
+        report solutions they leave alone;
+      - `setPieceCount`'s sliding branch (1148) drops the bits that
+        `syncSliding` set.
+  - *Problem:* the front end mirrors engine state and refreshes it by
+    `document.changed`'s `what` (AGENTS.md's rule). A missing bit leaves a
+    stale mirror. After deleting a shape, the Solver's list can still show
+    the removed solutions until something else refreshes it.
+  - *Change:*
+    - `changed()` ORs into `lastChange_.what`. Check that the step's commit
+      reads `lastChange_` after every helper ran, and fold `lastChange_.what`
+      into the step there.
+    - `deleteShape` reports solutions when any problem's `solutionsVersion()`
+      changed.
+    - The group commands drop the solutions bit if they never change
+      solutions.
+    - Item 19.2's audit test then keeps all of this checked.
+  - *Tests:* `test_document.cpp`: deleting a placed shape reports solutions;
+    the group commands do not. In the contract suite, check `document.changed`'s
+    `what` for those calls.
+
+- [ ] **15.4 `solveLaunch` still prepares sliding solves the way it did before eb70072** (trap; S; Fable: two solves at once; a behavior change: tell the user)
+  - *Where:* `core/shapelogic/app/document.cpp` `solveLaunch` (789-828,
+    841-858); `needsPreparing` (1571-1590), which repeats `syncMaxHoles`
+    (1492-1514); `core/shapelogic/model/sliding.cpp:1592-1599`
+    (`prepareForSolving`, which since eb70072 only sets the problem's
+    maximum of holes).
+  - *Problem:* `solveLaunch` still behaves as if preparing changed shapes:
+    - its comment says it sets start locks and changes shapes;
+    - it refuses a second sliding solve ("…changes shapes another solve
+      reads: pause it first"), though only the problem being solved changes;
+    - it keeps a dead loop that adds color ids;
+    - it reports shapes, colors and solutions as changed, so the front end
+      refreshes all of them for nothing.
+  - *Change:* first confirm that `prepareForSolving` touches only the problem
+    being solved. Then drop the refusal and the loop, report
+    `kChangeProblems` for that problem, and give `needsPreparing` and
+    `syncMaxHoles` one shared "holes this problem needs" function.
+  - *Behavior change:* a second sliding solve (of another problem) can start
+    while one runs. Say so in the Done line and to the user.
+  - *Tests:* `test_document_sliding.cpp`: two sliding problems solved at once,
+    each with its own search folder (decision 0035).
+
+- [ ] **15.5 Solving and taking apart record an undo step** (bug; M; D1, decided 2026-11-24) ✓
+  - *Where:*
+    - `core/shapelogic/app/document.cpp`:
+      - `touchProblem()` (395-405) copies the whole problem, solutions
+        included, into the open step;
+      - `undo()` (547-568) and `redo()` swap the step's parts back whole;
+      - `solveLaunch` (789-828) and `analyseStart` start a run or a
+        take-apart and record no step.
+    - Decision 0011 ("Solving does not record undo steps… undoing an older
+      step can bring back the solutions it saved", 85-87).
+    - `web/src/renderer/solver/workspace.ts:1246-1279` (the Solver tab's
+      options are undoable edits).
+  - *Problem:*
+    - (a) Toggle a Solver option: that makes a step holding the problem.
+      Solve for an hour, then press Ctrl+Z. The problem as it was before
+      the solve comes back, the solutions move into the redo step, and the
+      next edit throws them away. The same happens after any whole-puzzle
+      step (every sliding stamp, deleting or moving a shape).
+    - (b) Edit a shape whose problem is unsolved (no problem part is saved),
+      solve, then undo: the old shape comes back, but the solutions found
+      for the edited shape stay.
+  - *Change:*
+    1. When a run starts (Start, Prepare, Continue), record a step "Solve
+       <problem name>" that holds the problem as it is then. If the top
+       step is already a Solve step of the same problem and no other step
+       came since, record nothing: the restore point is the same.
+    2. `analyseStart` records "Take apart <problem name>" the same way.
+    3. Undo is last in, first out, so it removes a run's results before
+       the edits made before the run; redo brings them back. An undo while
+       a solve runs is still refused (`checkNotSolving`).
+    4. The undo label the front end shows must name the step. Check how
+       steps are labeled and shown (grep `label` in `document.h` and the
+       undo items in `web/src/renderer/`), and add labels if steps have
+       none.
+    5. Check `dirty()` and `solveDirty_` with the new steps: a solve makes
+       the document changed as before.
+    6. Cost: the step copies the problem with its solutions as they are at
+       the run's start, as `touchProblem` does today. If solves only ever
+       append solutions (confirm in `Problem` and the session), a cheaper
+       part is possible: keep the count before the run, move the solutions
+       after it into the step on undo, and back on redo. Write down which
+       one was built and why.
+    7. Amend decision 0011 with a dated line: "Solving records an undo step
+       at each run's start (decided 2026-11-24)".
+  - *Tests:* `tests/unit/app/test_document_solving.cpp`:
+    - option, solve, undo: the solutions go with the undo, and redo brings
+      them back;
+    - solve, undo, then an edit: redo is cleared and the solutions are gone,
+      as asked;
+    - undo while solving is refused as before;
+    - a take-apart, then undo: the disassemblies it found are removed;
+    - the tests that count steps after solving (213-242) change: the new
+      counts and the reason go in the Done line.
+    - Contract: the undo label after `solve.start`.
+  - *Model:* Fable (undo exactness).
+
+**Gates for stage 15:** `just test-all`, `just test-asan`,
+`just test-tsan`, the contract suite, `just oracle --tier fast` and
+`--tier sliding`, `just python-test`, `just oracle-python`, `just check`
+on the changed files, `just app-test`, and the solver, sliding and
+stacking e2e specs (15.3, 15.5).
+
+## Stage 16: damaged and hostile files
+
+Puzzle files are passed between people, and `.slsolve` imports carry saved
+searches from other machines. A damaged or hostile file must be refused with
+a message: never a crash, a hang or all the memory.
+
+- [ ] **16.1 The XML reader: a quadratic duplicate check, and no limit on elements** (stability; S)
+  - *Where:* `core/shapelogic/io/xml_pull_parser.cpp:417-423` compares every
+    pair of attributes for a duplicate, and copies both names each time
+    (`getAttributeName` returns by value). `core/shapelogic/io/xml_document.cpp:31-64`
+    builds the whole tree before anything is checked.
+  - *Problem:*
+    - 10^6 attributes on one element are about 11 MB of text, far under the
+      256 MiB inflate cap, and take about 5×10^11 comparisons. They run on
+      the engine's only request thread.
+    - `<a/>` (4 bytes) becomes a 104-byte element plus vector slack, so a
+      gzip of about 300 KB can grow to 7 to 10 GB.
+  - *Change:*
+    - The duplicate check with a hash set of views into the parser's buffer;
+      keep the message (it names the repeated attribute).
+    - An element budget in `readElement`: 16 million elements, then a
+      ParseError "too many elements".
+    - An attribute budget per element (4096).
+    - Make the budgets a parameter (`XmlLimits`) so a test can use small
+      ones.
+  - *Keep:* the messages for ordinary errors (`tests/unit/io/test_xml.cpp`).
+  - *Tests:* `test_xml.cpp`: 50,000 attributes parse at once; with a budget
+    of 1,000 elements, 1,001 are refused. Then `just oracle-roundtrip` (the
+    corpus still loads).
+
+- [ ] **16.2 `readPuzzle` allocates before it validates, and lets exceptions escape** (stability; S)
+  - *Where:* `core/shapelogic/io/puzzle_file.cpp`:
+    - the voxel reader (374-382): `<voxel x="1024" y="1024" z="1024" type="0">#</voxel>`
+      passes the 2^30 cap, zero-fills 1 GiB, then fails on the short text;
+    - the sliding problem's search depth (1067-1070):
+      `searchDepth="2147483648"` makes `ms.assign` write 16 GiB, and at 2^61
+      or more it throws `length_error`;
+    - the entry point (2086-2092) catches only `ReadError`;
+    - number reading (142) adds digits in `int`, so a long run of digits
+      overflows a signed int (UB);
+    - placements (514-515) take any coordinate, and
+      `core/shapelogic/model/assembly.cpp:642` subtracts them in `int`.
+    `cli/main.cpp` has no try around the load, so the CLI aborts.
+  - *Change:*
+    - Require the voxel text's length to cover `sx*sy*sz` before
+      `makeVoxel` (check the format: one character per cell).
+    - Cap the search depth at what the sliding search can use (find its
+      constant) before `assign`.
+    - Read numbers into 64 bits with an overflow check, and refuse values
+      outside `int`.
+    - Bound placement coordinates (for example ±2^20).
+    - Catch `std::exception` at the entry point and return ParseError
+      ("the file could not be read: …").
+    - In the CLI, catch at `main` and print the error with the exit code its
+      other read errors use.
+  - *Tests:* `tests/unit/io/test_puzzle_file.cpp`: each hostile piece of text
+    is refused with ParseError; run under `just test-asan`.
+
+- [ ] **16.3 Sliding level files: reading trusts the index and the raw blocks** (stability; S)
+  - *Where:* `core/shapelogic/solve/slide_levels.h`:
+    - `reload` (509-541) checks only the last entry of each table, not that
+      the tables rise or that blocks sit inside chunks (`reloadOlder` does
+      check, 892-899);
+    - `Reader::block` (626-652) runs `getVarint(p, n); keys.resize(n); keys[0] = k;`:
+      with `n == 0` it writes past an empty vector, and a garbage `n` asks
+      for gigabytes;
+    - `getVarint` (142-152) has no end bound, and a shift of 64 or more is
+      UB for 64-bit keys;
+    - the raw chunks (973-976) go unchecked. The zstd checksum covers only
+      compressed chunks, so these have none:
+      - chunks zstd could not shrink;
+      - files written at compression 0;
+      - every BTSLKEY2 file of v1.9 and earlier, which resume reads.
+  - *Change:*
+    - Validate the tables once in `reload`, in O(blocks): offsets rise, each
+      block lies inside its chunk, each chunk inside the file. Otherwise
+      report Damaged, the existing state for an unreadable level.
+    - In `block()`: require 1 ≤ n ≤ `kBlockKeys`, bound the varints by the
+      block's end, and return false on a bad block.
+    - `getVarint` takes an end pointer and stops after 10 bytes.
+  - *Keep:* the format; good files read as before (the checks are per block,
+    not per key).
+  - *Tests:* extend "a damaged key set file is told"
+    (`tests/unit/solve/test_sliding.cpp:4931`) with a compression-0 file and
+    a file with a corrupted offset; both are reported damaged, under
+    `just test-asan`.
+
+- [ ] **16.4 Panex: a damaged `state.bin` writes out of bounds in `decode`** (stability; S) ✓
+  - *Where:* `core/shapelogic/solve/panex_search.cpp`:
+    - `Rules::decode` (197-216) starts at `unsigned int r = rods - 1;` and
+      runs `r--` at each separator. A key with more than rods-1 separators
+      wraps `r` to 0xFFFFFFFF, and `s.disc[r][…]` writes out of bounds on a
+      worker's stack in `nextLevel` (977).
+    - `loadState` (727-745) checks each layer's count against the file
+      size, not the keys.
+  - *Problem:* `state.bin` files come from other machines inside `.slsolve`
+    imports (`core/shapelogic/io/paused_solve.h`); a run of 0xFF bytes is
+    enough.
+  - *Change:* in `solve()`, after loading, check every key of the five layers
+    and `meetAt` once:
+    - exactly rods-1 separators;
+    - each disc number below `rules.discs`;
+    - each rod's count within its height.
+    A bad key makes the saved search damaged, through the same path as an
+    unreadable file. `decode` stays branch-free.
+  - *Tests:* the damage table in `tests/unit/solve/test_stacking_session.cpp:315`:
+    add "0xFF over the first key at offset 80", expected to be damaged.
+
+- [ ] **16.5 One reader per format: gzip and paused solves** (stability, combine; S)
+  - *Where:*
+    - `core/shapelogic/io/gzip_file.cpp`: `readMaybeGzipFile` (115-140)
+      uses gzread, which reads a cut-short stream as its end (Z_BUF_ERROR is
+      never checked), while `gunzipIfCompressed` (382-416) refuses that
+      stream. `openBytes` and the paused solves use the latter.
+    - `core/shapelogic/io/paused_solve.cpp`: `parsePausedSolve` (180-222) is
+      used only by tests (`tests/unit/app/test_analysis_files.cpp:293-303`);
+      the app loads through 224-330.
+  - *Problem:* opening a truncated file from disk reads as far as it goes
+    and fails later with an XML message, or not at all if the cut falls
+    after the root closes. Also, the tests check a copy of the paused-solve
+    reader, not the one the app uses.
+  - *Change:*
+    - `readMaybeGzipFile` becomes `readPlainFile` plus `gunzipIfCompressed`:
+      one inflate path, which refuses a cut-short stream with "the file is
+      cut short".
+    - One paused-solve reader over `std::istream`, used by the app and the
+      tests.
+  - *Tests:* a truncated gzip file is refused with that message;
+    `test_analysis_files.cpp` runs the app's reader.
+
+**Gates for stage 16:** `just test-all`, `just test-asan`,
+`just oracle-roundtrip`, `just oracle-resume`, `just check` on the changed
+files, the CLI tests.
+
+## Stage 17: core speed
+
+All answers stay identical: the oracle and the benchmarks decide (rules 3
+and 5).
+
+- [ ] **17.1 After the goal is found, the last level is scanned again on one thread** (speed; S) ✓
+  - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
+    - `goalFound()` (6096-6132) walks `fwd_.cur` from key 0 with `movers_[0]`
+      until a key has a move to the goal;
+    - the parallel first match to reuse is stepBack's fallback (5975-6018);
+    - the goal hit itself is found in expand (5056-5092).
+  - *Problem:* in a one-end search all threads stop at the first goal hit.
+    `goalFound` then scans the level again from its start, on one thread,
+    without polling the stop token and without progress. That takes about
+    as many times as long as there are threads. One-end searches are the
+    big ones: any goal that is not one arrangement, partial or loose nesting,
+    `oneEnd`.
+  - *Change:* a parallel first match like stepBack's:
+    - threads claim blocks in order;
+    - the lowest key with a goal move is kept under a mutex;
+    - a thread stops at a block whose first key is above the best so far;
+    - then work out the goal key for that one key.
+    Poll the stop token per block, and report a phase ("finding the move to
+    the goal") through `slide_phase.h`.
+  - *Keep:* the same path, found from the lowest such key as now: the test
+    "the search finds the same path on any number of threads"
+    (`tests/unit/solve/test_sliding.cpp:1336`).
+  - *Tests:* that test, the Klotski 81-move test, `just oracle --tier sliding`.
+
+- [ ] **17.2 `Voxel::set` rescans the whole shape for every cell** (speed; S) ✓
+  - *Where:* `core/shapelogic/grid/voxel.cpp` `set()` (99-107) calls
+    `recalcBoundingBox()` each time, a full scan.
+    - Loops of `set` without the skip bracket:
+      - `voxel.cpp:435` (`fillHoles`);
+      - `core/shapelogic/model/puzzle.cpp:119` and 121 (`removeColor`);
+      - `core/shapelogic/io/ps3d_file.cpp:130` and `io/scad_file.cpp:553`
+        (the imports).
+    - `setMark` (`voxel.cpp:445-458`) assigns and rescans on every clear.
+      It is called that way in loops that clear all marks:
+      `io/puzzle_file.cpp:1467` (whose loop condition rescans too) and
+      `model/sliding.cpp:1667`, 1800 and 1820.
+    - The bracket today is hand-written true/false pairs:
+      - `puzzle_file.cpp:383` and 480;
+      - `model/assembly.cpp:656` and 680;
+      - `model/grid_convert.cpp:63` and 89;
+      - `scad_file.cpp:771` and 775;
+      - `model/stacking.cpp:375` and 388.
+    - A scoped guard exists only in `python/src/py_shape.cpp:101-104`.
+  - *Problem:* Fill holes on a hollow 30³ box takes about 6.5×10^8 steps,
+    and a 100³ imported piece about 10^12. `kMaxImportCells` limits memory,
+    not time.
+  - *Change:*
+    - Move the guard into `voxel.h`. It saves the skip state it found and
+      sets skip; on destruction it restores that state and, when it was the
+      outermost, recalculates once.
+    - Use it at every site above, replacing the hand pairs.
+    - Add `Voxel::clearMarks()` (one pass) for the loops that clear marks.
+    - Delete the unused `Voxel::unionintersect` (`voxel.cpp:606`) and
+      `getDiagonal` (confirm there are no callers).
+  - *Keep:* the bounding box: the final recalculation does the same work
+    once.
+  - *Tests:* the grid tests; `just oracle-imports`; Fill holes on a hollow
+    40³ box completes in the quick loop.
+
+- [ ] **17.3 Union-find without path compression, and `shape.info` works out every shape's row** (speed; S) ✓
+  - *Where:* `core/shapelogic/grid/voxel.cpp` (332-337: `root` walks the
+    chain; copies at 386-391 and 421-426); `core/shapelogic/app/queries.cpp:104-108`
+    (`connected` five times per shape, for every shape, on each `shape.info`);
+    `engine/methods_shape.cpp:429` (builds the whole table to return one
+    row).
+  - *Problem:* the links form a chain in visit order, so each find walks
+    back sy·sz cells. The outside node's chain grows by one per boundary
+    cell, which makes it O(B²). That is about 10^8 steps for a 30³ shape and
+    10^10 for 100³, on each `shape.info`.
+  - *Change:* one shared `root()` with path halving, used by the three
+    copies. `shape.info` computes only the asked shape's row (a per-shape
+    function in `queries`).
+  - *Keep:* the partitions; the answers do not change.
+  - *Tests:* the grid tests; a 60³ shape's connectivity in the quick loop.
+
+- [ ] **17.4 The goal test decodes pieces that cannot fail** (speed; S)
+  - *Where:* `sliding_search.cpp`: `isGoal`'s single-piece loop (1892-1896),
+    against the packs' loop (1897-1901: `if (!pk.hasGoal) continue;`). It is
+    called for every emitted arrangement (5058).
+  - *Change:* in `layout()`, list the single pieces whose `atGoal` can fail
+    (their table has a 0) and loop over those only.
+  - *Keep:* the answers (it is a pure AND).
+  - *Verify:* bench a sliding search with pieces that have no goal, before
+    and after; the oracle's sliding tier.
+
+- [ ] **17.5 Nested slides: `groupAt` runs for pieces that can hold nothing** (speed; S)
+  - *Where:* `sliding_search.cpp`: `expandAt` (2023-2059), `movesBack`
+    (2088-2094), `groupAt` (2870-2902).
+  - *Change:*
+    - A `holds[i]` flag (`outlines[i].size() > cells[i].size()`), set in
+      `SlideSpace::build`.
+    - Skip `groupAt` for pieces without it, whose group would be just
+      themselves.
+    - Leave `expandLoose` as it is: its `looseNear` check runs before the
+      members check.
+  - *Tests:* the `checkSlideMovesBack` tests (`test_sliding.cpp:3265`, 3293
+    and 4640), the nested both-ends fuzz test, `just oracle --tier sliding`.
+
+- [ ] **17.6 Panex copies its whole frontier at each save, and holds two after a resume** (speed, memory; S) ✓
+  - *Where:* `core/shapelogic/solve/panex_search.cpp`:
+    - the `saveState` lambda (1235-1252) runs `st.fwdPrev = fwd.prev; …`
+      for all five layers;
+    - the resume (1156-1163) copies out of `const SavedState* resumeFrom`;
+    - `resumeState` lives until `solve()` returns (1873);
+    - `inMemory` and `room` (1181-1187, 1274-1277) count one copy.
+  - *Problem:*
+    - Every autosave and every pause doubles the search's memory while it
+      writes.
+    - A resumed run keeps the loaded frontier beside its own copy for its
+      whole length. So after "outgrew its memory … press Continue", the
+      resumed search starts at about twice its budget. With High Memory it
+      swaps, or ends in `bad_alloc` and "ran out of memory" instead of a
+      pause.
+  - *Change:*
+    - `Store::saveState` takes the header fields and `const Layer&`
+      references (a view struct) instead of a `SavedState` holding copies.
+    - `resumeFrom` becomes non-const, and the layers are moved out of it.
+  - *Keep:* the file's bytes.
+  - *Tests:* "a stopped search carries on where it stopped" and "tracing
+    back between saved levels" in `test_stacking.cpp`; `just oracle-resume`.
+
+- [ ] **17.7 Assembler 1 keeps a second copy of its matrix** (speed, memory; S to M)
+  - *Where:* `core/shapelogic/solve/assembler_1.cpp:2447` (`base_ = links_;`
+    in `assemble()`). Its readers are 1510 (a worker, `n_ = parent_.base_`),
+    1821 and 1998 (task generation); `assembler_1.h:256-259`.
+  - *Problem:*
+    - The plain single-thread search and the vector search never read
+      `base_`.
+    - Still, every `assemble()` (every pause and resume, every journal save
+      point) copies six node arrays (24 bytes per node), and the copy lives
+      as long as the assembler.
+    - The plain search runs when the matrix is too big for the vector
+      budget, so the biggest matrices pay double.
+  - *Change:*
+    - Workers copy `links_`; confirm nothing changes it while they run.
+    - Task generation works on a local copy made inside
+      `parallelMultiSearch` only.
+    - Drop `base_`.
+  - *Tests:* `test_assembler_1`, `test_split_tasks`, `just oracle-resume`,
+    `just oracle --tier full` with all threads and with `--threads 1`; bench
+    `--plain`.
+
+- [ ] **17.8 Playback clones and turns every piece for every sample** (speed; S)
+  - *Where:* `core/shapelogic/app/playback.cpp:325-338`: `evaluate()` runs
+    `clone()` and `transform(t)` for each piece and sample only to read the
+    turned hotspot and matrix (`recalcSpaceCoordinates` depends on the grid
+    alone). Also `engine/methods_playback.cpp:83-108` and
+    `web/src/renderer/solver/poses.ts:18-20` (a chunk is 257 samples times
+    the pieces).
+  - *Change:* cache the hotspot and matrix for each (piece, transform), next
+    to `orientCenter`, which already caches per transform.
+  - *Keep:* the poses, number for number.
+  - *Tests:* `tests/unit/app/test_playback_explorers.cpp`; the web engine
+    pose tests.
+
+- [ ] **17.9 Quadratic loops over solution lists** (speed; S)
+  - *Where:*
+    - `core/shapelogic/app/document_commands.cpp:1548-1577`: "Remove
+      assemblies" with All, Before or WithoutDisassembly calls
+      `removeSolution` (a vector erase) in a loop;
+    - `core/shapelogic/model/problem.cpp:664-671`;
+    - `core/shapelogic/app/document.cpp:1215-1222`: `poll()` finds each
+      analysis result by scanning from the start, which is O(n²) for "take
+      apart all".
+  - *Change:*
+    - `Problem::removeSolutionsIf(pred)` in one pass, keeping `sortedUpTo_`
+      right (count the kept ones before it).
+    - An id-to-index map in `poll()`.
+  - *Tests:* the deleteSolutions tests; `tests/unit/app/test_analysis_files.cpp`.
+
+- [ ] **17.10 Undo steps copy every saved solution, and the depth counts steps, not bytes** (speed, memory; M)
+  - *Where:*
+    - `core/shapelogic/app/document.cpp`: `touchProblem()` (395-405) copies
+      the problem with its solutions; the whole-puzzle steps (403, 464);
+      `pushStep` (533-539).
+    - `core/shapelogic/model/problem.h:446`.
+    - `api/engine.json:107`: the undo depth goes up to 10000.
+    - Steps that change no solution but copy them all:
+      - `renameProblem` and `setSolverOptions` (every Solver option);
+      - `setGroupCount`, `setGroup` and `deleteGroup` (`setPartGroup` only
+        touches `groups`, `problem.cpp:516-536`);
+      - `setProblemRodSet` and `moveDisc`.
+    - Whole-puzzle copies:
+      - adding, copying, renaming and moving rod sets
+        (`document_stacking.cpp:246-361`);
+      - `moveProblem` and `addColor`;
+      - every sliding stamp (`document_sliding.cpp:62`).
+  - *Problem:* a problem whose "keep all" solutions are copied by 25 to 500
+    steps reaches gigabytes. Decision 0011 says "memory per step is what the
+    step changed".
+  - *Change:*
+    - Part kinds that save only what these steps change:
+      - `ProblemSettings`: the problem's fields without its solutions,
+        swapped field by field;
+      - `RodSet`;
+      - `ProblemOrder`: a permutation.
+      Use them in the commands above.
+    - A byte budget in `pushStep`, beside the depth. Each part reports its
+      size, and while the steps' total is over the budget (say 512 MiB), the
+      oldest steps go (with 4.4's `baseStamp_` rule).
+    - This also makes 15.5's steps cheaper where it fits.
+  - *Keep:* the "undo gives writePuzzle byte for byte" tests of each command:
+    they guard exactness.
+
+- [ ] **17.11 The stop token walks its parent chain at every search step** (speed; S to M; measure first)
+  - *Where:* `core/shapelogic/base/stop.h:34-44`: `effective()` does an
+    acquire load and a pointer hop per level. It is polled at every step in:
+    - `assembler_0.cpp:188` and 469;
+    - `assembler_1.cpp:1249` and 1549;
+    - `simd_exact_cover.cpp:374` and 533;
+    - `simd_huang_cover.cpp:611` and 879;
+    - `movement_analysator.cpp:785`.
+    The chain has two levels in the CLI and three in the app
+    (`solve_session.cpp:453-454` plus SearchRun).
+  - *Change, only if the benchmark shows a cost:* either
+    - (a) a request is pushed down to the children when it is made (a child
+      list under a mutex; a request stores to itself and every descendant),
+      so a poll is one load; or
+    - (b) poll every 64 to 256 steps, with counters that exist
+      (`assembler_0.cpp:221` and 492, `simd_exact_cover.cpp:383`).
+  - *Keep:* decision 0004's rules: requests are never withdrawn, and
+    children follow their parents.
+  - *Measure:* `bench.py`'s default set with a three-level token (the CLI
+    has two; build a three-level chain behind a bench switch if needed). If
+    the cost is under 1%, write "Not needed" with the numbers.
+
+- [ ] **17.12 Assembler 1 keeps its nodes' up and down links in separate arrays** (speed; M; bench first)
+  - *Where:* `core/shapelogic/solve/assembler_1.h:95-101`, compared with
+    `dlx_matrix.h:32-40`, which interleaves them ("saves a register in the
+    cover loops"). The loops that touch them: `hideRow` and `coverColumnRows`
+    (`assembler_1.cpp:117-164`).
+  - *Change:* interleave them as `DlxNodes` does (mechanical). Keep it only if
+    `bench.py --plain` and `--set identical` show it faster.
+
+- [ ] **17.13 The take-apart allocates for every candidate move** (speed; M; bench first)
+  - *Where:* `core/shapelogic/solve/disassembler_node.h:40-42` and
+    `disassembler_node.cpp:15` (two allocations per node);
+    `disassembler.cpp:176` (an `unordered_set` per position on the parallel
+    path). Most candidates are dropped at once as known positions (314-318).
+  - *Change:*
+    - One allocation per node: inline storage for small piece counts, or a
+      free list per analysator (all the nodes of a part have the same piece
+      count).
+    - A scratch set per slot for `seen`, or no `seen` for Classic, where the
+      merge's `take()` already removes duplicates.
+  - *Bench:* `-d -R`.
+
+- [ ] **17.14 Sliding: one flood for shifts and groups** (combine, speed; S to M)
+  - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
+    - `floodShifts` (2657-2733) and `floodGroup` (2753-2818) are near-copies;
+    - "others_ = occupied_ less the group" is written three times (2048,
+      2108, 2357);
+    - the epoch reset is written twice (1993, 2428).
+  - *Change:* one shift flood, a template on what blocks a cell and what is
+    soft, with a callback for each stop; two small helpers for the others
+    set and the epoch reset. Keep it a template, not a function pointer or
+    `std::function`: it runs for every arrangement.
+  - *Keep:* the moves and their order, so the paths and counts stay the
+    same (`test_sliding.cpp`, the nested both-ends fuzz test,
+    `just oracle --tier sliding`); and the speed (time a sliding solve
+    alone, before and after).
+  - *Order:* before 21.1, which then only moves code.
+
+**Gates for stage 17:** `just test-all`, `just test-tsan`, the oracle tiers
+each item names (`fast`, `full`, `sliding`, with all threads and
+`--threads 1`), `just oracle-resume`, `just oracle-imports` (17.2), and
+`bench.py` with the before and after numbers.
+
+## Stage 18: the engine stays responsive
+
+The engine answers on one thread. Work that runs there for minutes, or
+ignores Stop, freezes every call the window makes to that engine, Pause and
+Abort included.
+
+- [ ] **18.1 `explore.openAssembly` builds a matrix on the request thread, holding the solve's lock** (stability, speed; S then M)
+  - *Where:* `engine/methods_explore.cpp:46-64` (`reduce` defaults to true,
+    and the front end sends none: `web/src/renderer/explore/explorer.ts:393`);
+    `core/shapelogic/app/document.cpp:1343` (`make` runs inside
+    `readProblem`, under the session's `resultsMutex_`);
+    `core/shapelogic/app/explorers.cpp:101` and 106 (`reduce(StopToken())`).
+  - *Problem:*
+    - On a big problem it blocks the request thread for minutes: Pause,
+      Abort, events and every other call wait, and nothing can stop it.
+    - It also stalls a running solve of that problem, which waits on
+      `resultsMutex_`.
+  - *Change:*
+    - First (S): copy the puzzle under the lock and build outside it.
+    - Then (M): make it a job like the analysis, with a StopSource,
+      progress and an `explore.ready` event (`api/explore.json`; rule 10).
+      The drawer shows "preparing" and a Cancel button.
+    - The decision text this contradicts is fixed in 3.3.
+  - *Tests:* a contract test: during `openAssembly` on a big fixture,
+    `engine.info` answers (for the job form); `explore.e2e.ts`.
+
+- [ ] **18.2 `solution.page` sorts the whole list again for every page** (speed; S to M)
+  - *Where:*
+    - `engine/methods_solution.cpp:33-61`.
+    - The comparator `comp2Moves` (`core/shapelogic/model/problem.cpp:684`)
+      calls the recursive `sumMoves`, which runs `getRotations` over every
+      state (`core/shapelogic/model/disassembly.cpp:119-158`) on each
+      comparison.
+    - The pager (`web/src/renderer/solver/pager.ts:156-171`) asks for every
+      visible page on each `solutionsAdded`, up to four times a second.
+  - *Problem:* with "keep all" and thousands of solutions, each page costs
+    hundreds of milliseconds, and the solve's worker waits on the lock
+    meanwhile.
+  - *Change:*
+    - Work out each solution's sort keys once, and sort indexes by key.
+    - Keep the order in the engine's state, keyed by (problem,
+      `solutionsVersion`, `sortBy`, descending), and drop it when the
+      version changes.
+  - *Keep:* the order, with the same ties (a stable sort).
+  - *Tests:* `tests/unit/engine/`: the pages are the same before and after
+    for each `sortBy` on a fixture with many solutions.
+
+- [ ] **18.3 Pause and Abort wait for the matrix to be built** (stability; M)
+  - *Where:* `core/shapelogic/solve/assembler.h:159` (`createMatrix` takes no
+    stop token); `core/shapelogic/solve/solve_session.cpp:694-711`
+    (`prepareSearch`); `engine/engine.cpp:413-428`.
+  - *Problem:* `abort()` joins the run on the request thread. While a long
+    matrix build runs (the Solver shows "N placements so far",
+    `web/src/renderer/solver/settings.ts:619`), every call waits until the
+    build ends.
+  - *Change:*
+    - Pass the run's StopToken into `createMatrix`, and into the placement
+      finder under it.
+    - A stopped build returns a new `AssemblerError::Stopped`, which
+      `prepareSearch` treats as its existing stop check at 711.
+  - *Scope:* this reaches into the three assemblers' matrix code. That is
+    known and planned here, so it needs no warning under rule 2.
+  - *Keep:* the results of runs that are not stopped (the oracle tiers).
+
+- [ ] **18.4 Sliding: Stop and Abort wait for the visited-set merge and for the path's trace** (stability; M)
+  - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
+    - `insertVisited` (5394-5460) runs as `extra` inside expand's `pool.run`
+      (5043-5049);
+    - `restoreVisited`, while resuming (4806-4836);
+    - the trace across thinned levels (`step(ball, …, false, false, …)` at
+      6060).
+  - *Problem:* none of these polls the token, and deep in a search a merge
+    takes minutes.
+  - *Change:*
+    - Poll the token in `insertVisited`'s merge loop, and drop the partial
+      set on a stop. Its inputs stay listed until the merge is whole (5397),
+      and `restoreVisited` puts a missing level back when the search
+      carries on.
+    - Honor Abort in the trace's expand.
+  - *Tests:* a test that stops during a merge (a test-only option that
+    stops after N merged keys), then continues to the same path.
+
+**Gates for stage 18:** `just test-all`, `just test-tsan`, the contract
+suite, `just oracle --tier fast` and `--tier sliding`, `just oracle-resume`,
+`just app-test` and `explore.e2e.ts` (18.1).
+
+## Stage 19: names and audits that must not drift
+
+The three single-source items that need Fable: a mistake in any of them
+can orphan users' saved searches, or leave the screen stale, without
+failing a test.
+
+- [ ] **19.1 Continue's refusal and the saved search's folder name can disagree** (trap; S)
+  - *Where:* `core/shapelogic/solve/solve_session.cpp` `resumeRefusal`
+    (160-188; its list of the options that name a saved slide search is at
+    172-180); `sliding_search.cpp` `nameSpace` (6262-6300: what goes into
+    the folder's name).
+  - *Problem:* an option added only to the name makes Continue start over
+    silently, the failure decision 0043 describes.
+  - *Change:* one list of the fields that name a search, used both by
+    `nameSpace` and by a new `sliding::namesDiffer(a, b)`, which
+    `resumeRefusal` calls.
+  - *Tests:* for each field in that list, changing it makes `resumeRefusal`
+    refuse (a loop over the list).
+
+- [ ] **19.2 Document commands: one way to report a change, and an audit test** (combine, trap; M; after 15.3)
+  - *Where:*
+    - `core/shapelogic/app/document.cpp` `changed()` (541-545; see 15.3).
+    - 61 StepGuard sites: `document_commands.cpp` 38, `document_stacking.cpp`
+      15, `document_sliding.cpp` 6, `document_tilted.cpp` 1, `document.cpp` 1.
+    - About 100 id lookups, each with a three-line early return; 39
+      `checkNotSolving` and 23 `checkProblemFree` calls; 39 hand-set lists of
+      `lastChange_` ids.
+    - Pairs that differ only in the field they touch:
+      - `setShapeWeight` and `setShapeColor` (`document_commands.cpp:317-357`);
+      - `renameProblem` and `setSolverOptions` (981-1001, 1501-1521);
+      - `moveProblem` and `moveRodSet` (953-979;
+        `document_stacking.cpp:332-361`).
+    - `requireShape` and `requireProblem` are never used
+      (`document.h:955-956`).
+  - *Change:*
+    - Templates `editShapeField`, `editProblemField` and `moveInList` for
+      the pairs.
+    - A lookup helper that returns `Result<T&>`, for the id lookups.
+    - Delete the two unused helpers.
+    - An audit test, `tests/unit/app/test_change_audit.cpp`:
+      - a table of commands, each making a typical call on a fixture;
+      - for each, compare before and after: each problem's
+        `solutionsVersion()`, the shapes' bytes, the lists' sizes, the
+        colors and the problem settings;
+      - assert that `lastChange_.what` covers every category that changed;
+      - for categories named but unchanged, a warning list in the test
+        output.
+  - *Tests:* the audit test; the contract suite's `document.changed` checks.
+
+- [ ] **19.3 Names worked out from code or bytes, pinned by tests** (trap; S)
+  - *Where:*
+    - `core/shapelogic/solve/sliding_search.cpp` `Fingerprint::mix`
+      (3118-3132) hashes `sizeof(T)` raw bytes; `problemKeyOf` (3140) and
+      `nameSpace` (6265-6312) use it.
+    - Panex's `fingerprintOf` mixes 8 bytes per value.
+    - `core/shapelogic/io/puzzle_file.cpp` `giveUids` (958-983): a problem
+      without a stored uid gets one hashed from `writeProblem`'s bytes, and
+      the uid names its saved sliding and Panex searches
+      (`sliding_search.cpp:3143`, `panex_search.cpp:1728`).
+    - The known-attribute lists: `puzzle_file.cpp:469-472` with
+      `isImageAttribute`, 994-996, 1367 and 757.
+  - *Problem:*
+    - Changing an accessor's return type renames every saved-search folder:
+      Continue starts over and the old folder is orphaned. Only one name is
+      pinned by a test (`slide-cafc026be534476e`, nested and grid).
+    - Any change to what the writer emits changes the uids worked out for
+      the original's files, which orphans their paused searches after an
+      upgrade. `test_puzzle_file.cpp:660` checks this only within one build.
+    - If a writer emits an attribute that its reader's list lacks, the
+      reader keeps it as "extra", and the next save writes it twice. The
+      parser then refuses that file.
+  - *Change:*
+    - `Fingerprint::mix` through fixed-width overloads (8, 16, 32 and 64
+      bits), with explicit conversions at the callers that keep today's
+      bytes. Check every call's current width, so no name changes.
+    - Tests that pin the folder names of a plain board, a board with packed
+      keys and a Panex puzzle.
+    - A test that pins one original fixture's worked-out uid to its value.
+    - A `BT_ASSERT` in `core/shapelogic/io/xml_writer.cpp` (56, 65) that a
+      tag never gets the same attribute twice.
+  - *Tests:* the new pins; `tests/unit/test_search_folders.cpp`.
+
+**Gates for stage 19:** `just test-all`, the contract suite,
+`tests/unit/test_search_folders.cpp`, `just oracle-resume`, `just check`
+on the changed files.
+
+## Stage 20: core deduplication under benchmarks (D6: decided)
 
 The assemblers and the take-apart are faithful ports, benchmarked against the
 original (within 5%, or faster). Each item must leave the oracle's answers
@@ -3774,7 +3872,7 @@ quiet machine, one solve at a time. An item that cannot keep the benchmarks
 within noise is dropped: revert it, tick it, and write
 `Not done (date): <the numbers>`.
 
-- [ ] **18.1 Crowell: use the prepared rotation API, and share Classic's helpers** (speed, combine; S to M)
+- [ ] **20.1 Crowell: use the prepared rotation API, and share Classic's helpers** (speed, combine; S to M)
   - *Where:*
     - `core/shapelogic/solve/rotation_moves_crowell.cpp` (96-117, 205,
       292-303).
@@ -3811,7 +3909,7 @@ within noise is dropped: revert it, tick it, and write
   - *Tests:* `just oracle --solver crowell` with rotations (`-R`);
     `test_rotation_solvers.cpp`; the bench with rotations.
 
-- [ ] **18.2 One take-apart pool for the CLI and the app** (combine, speed; L)
+- [ ] **20.2 One take-apart pool for the CLI and the app** (combine, speed; L)
   - *Where:* `core/shapelogic/solve/take_apart_pool.cpp` (115-154, 170-260),
     used only by the CLI (`cli/main.cpp:881`); `solve_session.cpp`
     (1490-1528, 1760-1814), the app's.
@@ -3838,7 +3936,7 @@ within noise is dropped: revert it, tick it, and write
   - *Tests:* `test_take_apart_pool`, `test_solve_session` (`[parallel]`), the
     web engine tests; bench both paths.
 
-- [ ] **18.3 Assembler 1: one search machine** (combine; L)
+- [ ] **20.3 Assembler 1: one search machine** (combine; L)
   - *Where:* `core/shapelogic/solve/assembler_1.cpp`: `iterative`
     (1232-1485), `Worker::search` (1541-1726) and `generateTasksAtDepth`
     (1815-2002). Its header (4-6) says they "stay three state machines, as
@@ -3852,7 +3950,7 @@ within noise is dropped: revert it, tick it, and write
   - *Tests:* the oracle's iteration counts for the plain search,
     `just oracle-resume`, `test_assembler_1`.
 
-- [ ] **18.4 Assemblers 0 and 1: one matrix builder and one adapter to the run layer** (combine; M)
+- [ ] **20.4 Assemblers 0 and 1: one matrix builder and one adapter to the run layer** (combine; M)
   - *Where:* the copies (assembler 0's, then assembler 1's):
     - `addToCache`: `dlx_matrix.cpp:26` and `assembler_1.cpp:38`;
     - `isSliding`: 39 and 50;
@@ -3877,7 +3975,7 @@ within noise is dropped: revert it, tick it, and write
   - *Tests:* the oracle's iteration counts, `just oracle-resume`,
     `test_assembler*`.
 
-- [ ] **18.5 The Huang cover's kernels: one pre-filter, and every kernel tested** (combine, trap; S)
+- [ ] **20.5 The Huang cover's kernels: one pre-filter, and every kernel tested** (combine, trap; S)
   - *Where:* `core/shapelogic/solve/simd_huang_cover.cpp` (119-131, 164-176,
     205-217, 265-277: the chosen-row, shape and range pre-filter is pasted
     into each kernel); `tests/unit/solve/test_simd_exact_cover.cpp:487`
@@ -3898,68 +3996,173 @@ within noise is dropped: revert it, tick it, and write
       multisets with the default run.
   - *Tests:* the new tests; the bench.
 
-**Gates for stage 18:** `just test-all`, `just test-tsan`, `just oracle` on
+**Gates for stage 20:** `just test-all`, `just test-tsan`, `just oracle` on
 the fast, full and slow tiers with all threads and `--threads 1`, for
 `--solver classic` and `crowell`; `just oracle-resume`;
 `just oracle-files --tier all`; `bench.py` (the default set, `--plain`,
 `--set glar`), with the numbers in the Done lines.
 
-## Stage 19: dead code and the last traps
+## Stage 21: splits: core
 
-- [ ] **19.1 Delete dead code** (trap; S)
-  - Before deleting each item, confirm with `git grep` across `core`,
-    `engine`, `cli`, `python`, `tests`, `web` and `site` that it has no
-    caller:
-    - ✓ `RotationRules::collectDebugConflictCells`
-      (`core/shapelogic/solve/rotation_rules.cpp:1055-1186`), and the
-      `CellSet*` out-parameters it threads through the hot rule helpers
-      (635, 681, 729). `docs/handoff/stage-4.md` says it "stays for the
-      GUI", which never used it.
-    - `MovementAnalysator::Stats`, `getStats` and `resetStats`
-      (`movement_analysator.h:109-117`), with the counters bumped on every
-      `checkmovement` call.
-    - `Voxel::unionintersect` (`core/shapelogic/grid/voxel.cpp:606`) and
-      `getDiagonal`, if 11.2 has not already removed them.
-    - `Document::requireShape` and `requireProblem` (`document.h:955-956`),
-      if 14.11 has not.
-    - SolveSession's `assemblerKind_`: written, never read.
-    - In `web/src/renderer/solver/workspace.ts`, `ws.kind` and `kindOf`:
-      `problem.kind` is still awaited in every load (1007, 1055-1079), but
-      nothing has read the answer since 18945de. Removing it saves an engine
-      call per load. The file's header (line 9) describes it too.
-    - From the BurrTools 2 removal (ef67313): `Edits.solves`
-      (`state/edits.ts:18-24`) and `SolveRecord.solver` (`state/solves.ts:72`,
-      200).
-    - `SLIDING_ONLY` and `STACKING_BOXES`, unless 15.1 uses them;
-      `PROBLEM_CHIP` (`puzzle/counts.ts:17`); `logsViewable`
-      (`shell/dialog.ts:97`).
-    - `bt_busy` (`engine/wasm_main.cpp`), if 14.12 has not removed it.
-    - CSS and markup:
-      - 18 class tokens that appear in no TS string or class attribute:
-        `axf`, `cmat`, `crul`, `rrul`, `gwrap`, `mg`, `mnote`, `ph2`, `pm`,
-        `prow`, `pz-pieces`, `pzo`, `pzsec`, `pzt-wrap`, `slv-dbg`,
-        `slv-sum`, `sol`, `tname`;
-      - 3 unused ids in `index.html`: `gridHelp`, `sgStart`, `sgGoal`.
-      The `lf-*`, `ax-*` and `tp-*` classes are built in templates, so they
-      are live.
+Each split moves code without changing it. It comes last because stages
+15 to 19 edit these files in place first; this stage then moves finished
+code. Check open branches first (rule 11). Count the tests before and
+after: every case must still run.
 
-- [ ] **19.2 Tests that keep the page and the code in step** (trap; S)
-  - *Change:* a unit test, `web/tests/unit/renderer/page-ids.test.ts`, that
-    checks:
-    - every literal passed to `byId` (412 calls, 187 ids) is an id in
-      `index.html` or in a TS template;
-    - every class token in the CSS (`styles.css`, and the modules' CSS after
-      17.1) appears in a TS string, a template or `index.html`. Classes that
-      are built from prefixes (`lf-`, `ax-`, `tp-`) go on an allow list.
+- [ ] **21.1 `sliding_search.cpp` split along its seams, and compiled in parts** (separate, speed; M)
+  - *Where:* `core/shapelogic/solve/sliding_search.cpp` (7,362 lines; 29
+    commits since September). Its templates (1236-6380) sit inside the
+    anonymous namespace (52-6489). `eachKey` (6396-6420) instantiates them for
+    five key types: `uint64_t`, `__int128`, `BigKey<3>`, `BigKey<4>` and
+    `BigKey<8>`.
+  - *Build cost:* `build/release/.ninja_log` shows 38.8 s and then 70.3 s for
+    this one file (51 s and 81 s with tsan). The next largest of our files
+    takes 8.9 s, and all 205 take 475 s in total. `sliding_search.h` is
+    included by 59 files.
+  - *Seams.* The history shows them:
+    - a1e4927, 24272bd and 422fdb5 changed only lines 3000-6200;
+    - 445bf4b (612 lines added) changed only 1000-2600, plus `eachKey`;
+    - 4abf08d, 3218c98 and fbfbd2e changed only the play.
+    The parts, which go into `bt::sliding::detail` where they leave the
+    anonymous namespace:
+    - the board rules (54-753: GoalCheck, cellsOf and outlineOf, StopGrid,
+      reachableShifts, fewestTurns, nestedGroup) go to `slide_board.{h,cpp}`;
+    - the play (7128-7362) goes to `sliding_play.cpp`. Its header exists,
+      and ARCHITECTURE.md (749) already says the play is defined there;
+    - the tables, keys and moves (916-3091: PosTable, SlideSpace,
+      SlideMover, chain) go to `slide_space.h`;
+    - the set storage (3093-3958: SearchFolder, SetStore, runMerge,
+      RunBuilder) and the state file (3959-4199) go to `slide_store.h` and
+      `slide_saved.cpp`;
+    - LevelSearch, the naming and the public API stay, about 3,000 lines.
+  - *Shared with the Panex and stack searches.* They include
+    `sliding_search.h` only for these, which move to `base/` (for example
+    `base/search_memory.h` and `base/binary_io.h`):
+    - `memoryBudget`, `memoryStates` and `kSearchMemoryBytes`
+      (`sliding_search.h:62-80`, `.cpp:6579-6595`); `Searcher::budget()`
+      (`panex_search.cpp:814-818`) repeats the shared-memory branch;
+    - the `put`/`get` helpers (`panex_search.cpp:514-522`,
+      `sliding_search.cpp:4073-4084`);
+    - the FNV-1a hashing. Panex's `fingerprintOf` mixes 8 bytes per value,
+      and the sliding Fingerprint mixes `sizeof(T)`: a shared hasher must
+      keep both forms, so no folder name changes (19.3 pins them).
+  - *The near-copies* (`floodShifts` and `floodGroup`, the others set and
+    the epoch reset) are folded before this item, in 17.14 (Fable's). This
+    item only moves code.
+  - *Compiling in parts:*
+    - Move the Key templates into an internal header.
+    - Declare `extern template` for `tableSearch` and `tableProbe`, and for
+      whatever else `eachKey` instantiates.
+    - Add one small file per key width with the explicit instantiations
+      (keep the `__SIZEOF_INT128__` branch). The five then build side by
+      side.
+  - *Keep:* the behavior. Names that leave the anonymous namespace must not
+    clash with Panex's own `put`, `get` and state helpers.
+  - *Verify:*
+    - `just test-all`, `just oracle --tier sliding`, `just oracle-resume`;
+    - a sliding solve timed alone, before and after (rule 5);
+    - `just check` on the new files;
+    - the release build time of these files, in the Done line.
 
-- [ ] **19.3 Leftover references in the docs** (docs; S)
-  - *Change:* after 19.1, grep `docs/` and the code's comments for the
-    deleted names and update or remove what names them. That includes
-    `docs/handoff/stage-4.md`; handoff notes are history, so add a dated
-    note there instead of rewriting it.
+- [ ] **21.2 `test_sliding.cpp` split** (separate, speed; S to M)
+  - *Where:* `tests/unit/solve/test_sliding.cpp` (5,851 lines; 85 cases in one
+    file).
+  - *Seams:*
+    - The KeySet cases (1076, 2118, 4791-5116, 5714) need only
+      `slide_levels.h`: they go to `test_slide_levels.cpp`.
+    - The saved, resume and disk cases (1779-2086, 2631, 2984, 3558,
+      3743-4141, 4684, 5222-5662) are interleaved with the search cases;
+      they go to `test_sliding_saved.cpp`.
+    - The stamp and mark cases (1492-1719), whose code is in
+      `model/sliding.cpp`, go to `tests/unit/model/test_slide_marks.cpp`.
+    - The shared helpers (`solveRun`, `SlideFixture`, `oneWayPuzzle`, and
+      8.3's `ScratchDir` in place of `scratchDir`) go to
+      `tests/unit/solve/sliding_test_helpers.h`.
+  - *Keep:* every case. List them before and after
+    (`bt_tests --list-tests`), and the two lists must match.
 
-**Gates for stage 19:** `just test-all`, `just check`, `just app-check`,
-`just app-test`, the e2e specs of the areas whose code was deleted.
+- [ ] **21.3 `solve_session.cpp`: the sliding and stacking flows in files of their own** (separate; M)
+  - *Where:* `core/shapelogic/solve/solve_session.cpp` (2,319 lines). Of its
+    14 commits since 2026-11-12, 10 changed `onSlidingAssembly`, 7 `launch`,
+    6 `progress`, and 5 each `slidingSummary` and `runStacking`.
+    - Sliding:
+      - about 25 members used only by sliding (`solve_session.h:536-610`);
+      - `onSlidingAssembly` (1269-1410), `onSlideDepth`, `slidingSummary`
+        (1434-1488) and `resumeRefusal` (160-188);
+      - the slide setup in `launch` (346-363, 433-443, 471-497);
+      - the slide part of `progress()` (2014-2064).
+    - Stacking: `launchStacking`, `runStacking` and `endStackingRun`
+      (531-611, 975-1149).
+  - *Change:* the sliding state and its functions go in a `SlideRun` member,
+    defined in `solve_session_sliding.cpp` (declared in the header or an
+    internal header). The stacking flow goes in `solve_session_stacking.cpp`.
+    It stays the same class in other files. The seams are the launch setup,
+    `onAssembly`, the end-of-run stats, the note, `progress` and
+    `resumeRefusal`.
+  - *Keep:* the behavior (a mechanical move).
+  - *Tests:* the session tests, `just oracle-files --tier fast`,
+    `just test-tsan`.
+
+- [ ] **21.4 `convert.cpp`: its solve part in its own file** (separate; S)
+  - *Where:* `engine/convert.cpp` (994 lines; 33 commits since September, the
+    most of any C++ file). Its commits' hunks land in:
+    - `solveOptionsFrom` and `kSolverBoxes` (8 or more);
+    - `progressJson` (6 or more);
+    - `shapeSummary` (4);
+    - `trayJson` (3);
+    - the names (3).
+    They nearly always come with `solve_progress.h`, `solve_session.h` and
+    `types.json`: this is the file every reported field passes through.
+  - *Change:*
+    - Lines 595-943 (the stored settings, the solve options in, the
+      progress, stats and failures out) go to `engine/convert_solve.cpp`.
+    - `trayJson` goes beside `readTraySettings` and `placementFitJson` in
+      `engine/methods_tray.cpp`.
+    - A table of fields would not save the three edits (the header, the
+      converter, the schema), so none is planned.
+
+- [ ] **21.5 `puzzle_file.cpp` split by element** (separate; M)
+  - *Where:* `core/shapelogic/io/puzzle_file.cpp` (2,204 lines). Each of its
+    last twelve commits edited the reader and the writer of the same element
+    (for example ff4fce7, 0aa9c93, 068cbba). The solution and separation code
+    (484-800, 1607-1779) changed once.
+  - *Change:* one file per element, each holding the element's reader, its
+    writer and its list of known attributes:
+    - `io/puzzle_file_voxel.cpp`;
+    - `_solution.cpp`;
+    - `_problem.cpp` (with stacking, slide marks and uids);
+    - `_tray.cpp`.
+    The access structs, Keeper and the slot enums go in
+    `io/puzzle_file_internal.h`. This is not a split into reading and
+    writing, which would cut every lockstep edit across two files.
+  - *Keep:* the bytes (`just oracle-roundtrip`, `test_puzzle_file`).
+
+- [ ] **21.6 `document.h`: per-mode facades** (separate; L; D5: decided; after 21.1 to 21.5)
+  - *Where:* `core/shapelogic/app/document.h` (1,000 lines; 28 commits since
+    September, the most in `app/`).
+    - About 38 files compile it: six in `app/` through `document_internal.h`,
+      all 19 native engine files through `engine/engine.h` and
+      `engine/rpc.h`, and 13 tests.
+    - About 15 of its last 27 commits added declarations for one mode (11
+      sliding, 3 tilted, 1 stacking).
+    - `document_commands.cpp` holds 17 tilted, 15 sliding and 16 stacking
+      checks inside generic commands.
+    - For scale: the Tilted Square stages touched 126 files (core 15, engine
+      8, api 7, cli 3, `web/src` 36, web tests and recordings 15, C++,
+      contract and CLI tests 12, docs and site 18, demo and screenshots 15).
+  - *Change:*
+    - Per-mode facades (`SlidingEdits`, `StackingEdits`, `TrayEdits`):
+      friend classes of Document, declared beside their mode's `.cpp` and
+      included only by their engine methods file and their tests.
+    - The refusals by mode become one table (command × mode → reason) behind
+      a single `refuse(cmd, shape)`.
+    - The web's `Family` plus its separate `tilted` flag could become one
+      mode that the engine reports.
+
+**Gates for stage 21:** `just test-all`, `just test-tsan`, the oracle tiers
+the moved code serves (`sliding`, `fast`, `files`, `roundtrip`),
+`just oracle-resume`, the contract suite, `just check` on the new files,
+the release build's time.
 
 ## Not in this plan
 
@@ -3978,6 +4181,6 @@ the fast, full and slow tiers with all threads and `--threads 1`, for
   - `autosave.ts`'s generation checks.
 - Formatting and naming: not enforced on purpose (`just format` was removed
   on 2026-11-15).
-- Unity builds and precompiled headers: after `sliding_search.cpp` (16.1),
+- Unity builds and precompiled headers: after `sliding_search.cpp` (21.1),
   the slowest of our files takes about 11 s in dev, so they would not save
   much.
