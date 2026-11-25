@@ -19,6 +19,7 @@ import {
   writeOptions,
 } from '../../../src/renderer/solver/settings.ts';
 import {
+  SHIFT_MAX,
   TRAY_MAX,
   boardToTray,
   cellState,
@@ -136,6 +137,7 @@ describe('a tilted tray in words', () => {
     expect(parseAllowance('')).toBeNull();
     expect(parseAllowance('a')).toBeNull();
     expect(TRAY_MAX).toBe(LIMITS.tray.side);
+    expect(SHIFT_MAX).toBe(LIMITS.tray.shift);
     expect(parseWhole('8', 1, TRAY_MAX)).toBe(8);
     expect(parseWhole('0', 1, TRAY_MAX)).toBeNull();
     expect(parseWhole(String(TRAY_MAX + 1), 1, TRAY_MAX)).toBeNull();

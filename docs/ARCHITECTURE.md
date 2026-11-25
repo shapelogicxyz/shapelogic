@@ -450,7 +450,7 @@ Rules (decisions 0011, 0014, 0015, 0027, 0033, 0039, 0044, 0045):
 
 Files in `engine/`:
 - `app_log.{h,cpp}`: the engine's lines for the app's log (the `log` setting: `off`, `info`, `debug`).
-- `convert.{h,cpp}`: the schema's enum names and the JSON of the items (snapshot, summaries, fit, meshes as frames, solver settings, options, progress, failures, solution rows, placements).
+- `convert.{h,cpp}`: the schema's enum names, the engine's own bounds of its inputs and the JSON of the items (snapshot, summaries, fit, meshes as frames, solver settings, options, progress, failures, solution rows, placements).
 - `engine.{h,cpp}`: `Engine` (the dispatcher: `handleLine`, `poll`, `run`), `State`, `Settings`, the method table.
 - `events.cpp`: `document.changed` and the poll's events.
 - `main.cpp`: the process's entry.

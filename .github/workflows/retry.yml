@@ -1,19 +1,21 @@
-# Runs a failed Release run's jobs again when they got no runner (GitHub's
-# queue gave up on them, mostly the macOS ones: canceled, no step run),
-# ten minutes later, up to the run's twelfth attempt; the publish job runs
-# again with them. A job that ran and failed is never re-run.
-# .github/scripts/retry.sh has the details.
+# Runs a failed Release or Staple run's jobs again when they got no runner
+# (GitHub's queue gave up on them, mostly the macOS ones: canceled, no step
+# run), ten minutes later, up to the run's twelfth attempt; Release's
+# publish job runs again with them. A job that ran and failed is never
+# re-run. .github/scripts/retry.sh has the details, and what it does not
+# reach.
 #
 # It follows the attempts it starts itself, so it does not rely on the
 # re-run's end starting this workflow again. A second Retry run for the
-# same Release run (if it does) waits for the first, then finds nothing to
-# do. GitHub runs workflow_run workflows from the default branch only.
+# same run (if it does) waits for the first, then finds nothing to do.
+# GitHub runs workflow_run workflows from the default branch only: the
+# script is that branch's too (the checkout below), not the tag's.
 
 name: Retry
 
 on:
   workflow_run:
-    workflows: [Release]
+    workflows: [Release, Staple]
     types: [completed]
 
 permissions:
@@ -28,8 +30,8 @@ jobs:
   retry:
     if: github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt < 12
     runs-on: ubuntu-24.04
-    # eleven re-runs, each ten minutes' wait and up to fifteen of queue; a
-    # Release attempt whose jobs got a runner ends this job
+    # eleven re-runs, each ten minutes' wait and up to fifteen of queue; an
+    # attempt whose jobs got a runner ends this job
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4

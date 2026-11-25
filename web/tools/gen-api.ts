@@ -72,6 +72,10 @@ const LIMIT_FIELDS: Record<string, Record<string, string>> = {
     side: 'types.json#/$defs/TraySettings/properties/width',
     slope: 'types.json#/$defs/TraySettings/properties/over',
     allowance: 'types.json#/$defs/TraySettings/properties/allowance',
+    shift: 'types.json#/$defs/TraySettings/properties/shiftX',
+  },
+  solutions: {
+    page: 'solution.json#/methods/solution.page/params/properties/limit',
   },
 };
 

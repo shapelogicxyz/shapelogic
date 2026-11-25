@@ -867,7 +867,7 @@ Result<void> Document::solveAbort(Id problem, const std::string& stackingWorkDir
   if (!p) {
     return std::unexpected(p.error());
   }
-  if (job<Analysis>(problem, BackgroundJob::Kind::Analysis) != nullptr) {
+  if (job<Analysis>(problem) != nullptr) {
     return fail(Errc::InvalidState, "the problem's solutions are being taken apart: stop it first");
   }
   // the hard stop of a solve under way (the original's Abort button was
@@ -1134,8 +1134,7 @@ Result<unsigned int> Document::analyseStart(Id problem, const AnalyseOptions& op
     prepareShapesForSolving();
   }
   analysisEnds_.erase(problem);
-  jobs_.emplace(std::pair{problem, BackgroundJob::Kind::Analysis},
-                std::make_unique<Analysis>(*puzzle_, pr, std::move(work), options));
+  startJob<Analysis>(problem, *puzzle_, pr, std::move(work), options);
   return n;
 }
 
@@ -1143,7 +1142,7 @@ Result<void> Document::analyseStop(Id problem) {
   if (Result<unsigned int> p = problemIndex(problem); !p) {
     return std::unexpected(p.error());
   }
-  Analysis* a = job<Analysis>(problem, BackgroundJob::Kind::Analysis);
+  Analysis* a = job<Analysis>(problem);
   if (a == nullptr) {
     return fail(Errc::InvalidState, "the problem is not being analysed");
   }
@@ -1155,7 +1154,7 @@ Result<AnalyseProgress> Document::analyseProgress(Id problem) const {
   if (Result<unsigned int> p = problemIndex(problem); !p) {
     return std::unexpected(p.error());
   }
-  if (const Analysis* a = job<Analysis>(problem, BackgroundJob::Kind::Analysis)) {
+  if (const Analysis* a = job<Analysis>(problem)) {
     return a->progress();
   }
   const auto e = analysisEnds_.find(problem);
@@ -1163,7 +1162,7 @@ Result<AnalyseProgress> Document::analyseProgress(Id problem) const {
 }
 
 bool Document::analysing(Id problem) const {
-  return jobs_.contains({problem, BackgroundJob::Kind::Analysis});
+  return jobs_.contains({problem, Analysis::kKind});
 }
 
 bool Document::poll() {

@@ -25,8 +25,6 @@ namespace {
 // at most this many values (the sphere grid has eight parameters)
 constexpr std::size_t kMaxValues = 16;
 
-
-
 // The values of the request's parameters, or the grid's defaults when it
 // has none; the count is checked by the core.
 std::vector<double> readValues(const State& s, Params& p) {

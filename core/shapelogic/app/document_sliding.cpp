@@ -191,10 +191,10 @@ Result<Id> Document::addStartGoal(std::array<unsigned int, 3> size) {
   if (Result<void> r = checkNotSolving(); !r) {
     return std::unexpected(r.error());
   }
-  if (size[0] == 0 || size[1] == 0 || size[2] == 0 || size[0] > 1024 || size[1] > 1024 ||
-      size[2] > 1024) {
-    return fail(Errc::InvalidArgument,
-                "a start/goal shape is 1 to 1024 cells wide, high and deep");
+  if (std::ranges::any_of(size, [](unsigned int n) { return n == 0 || n > kMaxStartGoalSide; })) {
+    return fail(Errc::InvalidArgument, "a start/goal shape is 1 to " +
+                                           std::to_string(kMaxStartGoalSide) +
+                                           " cells wide, high and deep");
   }
   StepGuard g(*this, "New start/goal");
   touchWhole();

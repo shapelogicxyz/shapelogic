@@ -79,7 +79,7 @@ std::uint64_t msSince(std::int64_t originNs) {
 TakeApartThreads chooseWorkers(const SolveOptions& o, unsigned int budget) {
   TakeApartThreads t = takeApartThreads(o.threads, budget);
   if (o.takeApartWorkers > 0) {
-    t.workers = std::min(o.takeApartWorkers, 64U);
+    t.workers = std::min(o.takeApartWorkers, kMaxTakeApartWorkers);
     t.beside = t.workers;
   }
   return t;

@@ -7,8 +7,9 @@
 // errors-only and search filters, Export of both files as plain text (or
 // of the newest lines alone) with the sizes it offers, and Clear, in a
 // temporary directory; the lines of a tick written together at its end (an
-// error at once), an engine line that never ends cut, and a search whose
-// text grows narrowing the last matches (cleanup item 10.9).
+// error at once), an engine line that never ends cut, a search whose text
+// grows narrowing the last matches (cleanup item 10.9), and a new file
+// begun when the log was deleted or renamed from outside (its checkpoint).
 
 import {
   existsSync,
@@ -16,6 +17,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -195,6 +197,31 @@ describe('the log file', () => {
     // and a page reads what is waiting too
     log.info('app', 'Test Line', 'six');
     expect(log.page(query).entries[0]?.line).toMatch(/six$/);
+  });
+
+  it('begins a new file when the log was deleted or renamed from outside', () => {
+    // the handle stays open between lines: without a look at the path, the
+    // lines after went into the file that is gone
+    const log = new AppLog(dir);
+    log.info('app', 'ONE', 'before');
+    log.flush();
+    rmSync(log.file);
+    log.info('app', 'TWO', 'after the delete');
+    log.flush();
+    expect(readFileSync(log.file, 'utf8')).toMatch(
+      /^\S+ \S+ INFO +\[app\] TWO: after the delete\n$/,
+    );
+    expect(log.writeError).toBeNull();
+    renameSync(log.file, join(dir, 'moved.log'));
+    log.info('app', 'THREE', 'after the rename');
+    log.flush();
+    expect(readFileSync(log.file, 'utf8')).toMatch(/THREE: after the rename\n$/);
+    expect(readFileSync(log.file, 'utf8').trimEnd().split('\n')).toHaveLength(1);
+    expect(readFileSync(join(dir, 'moved.log'), 'utf8')).toMatch(/TWO: after the delete\n$/);
+    // the size counted is the new file's, and a page reads what is there
+    const page = log.page(query);
+    expect(page.entries).toHaveLength(1);
+    expect(page.bytes).toBe(readFileSync(log.file).length);
   });
 
   it('gives pages of a hundred lines, then the next, by the lines shown', () => {

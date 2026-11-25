@@ -227,6 +227,11 @@ const Names<unsigned int>& changeKindNames() {
   return n;
 }
 
+const Names<unsigned int>& axisNames() {
+  static const Names<unsigned int> n = {{"x", 0}, {"y", 1}, {"z", 2}};
+  return n;
+}
+
 std::string_view solveStateName(SolveState s) { return nameOf(solveStateNames(), s); }
 
 std::string_view solveStageName(SolveStage s) { return nameOf(solveStageNames(), s); }
@@ -870,7 +875,7 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   o.solutionLimit = static_cast<unsigned int>(p.optInteger("keepAtMost", o.solutionLimit, 0, 0xFFFFFFFF));
   o.solutionDrop = static_cast<unsigned int>(p.optInteger("keepEach", o.solutionDrop, 0, 0xFFFFFFFF));
   o.threads = static_cast<unsigned int>(p.optInteger("threads", o.threads, 0, kMaxThreads));
-  o.takeApartWorkers = static_cast<unsigned int>(p.optInteger("takeApartWorkers", 0, 0, 64));
+  o.takeApartWorkers = static_cast<unsigned int>(p.optInteger("takeApartWorkers", 0, 0, kMaxTakeApartWorkers));
   if (p.has("sliding")) {
     const Json& sj = p.value("sliding");
     if (!sj.is_object()) {

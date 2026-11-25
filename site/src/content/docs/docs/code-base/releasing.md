@@ -166,11 +166,13 @@ they share are in `.github/scripts/`.
   anything, it keeps the patch's files and notes as an artifact of its run.
 - **Staple** (`staple.yml`) is run by hand when Apple takes longer than the
   Release workflow waits (below).
-- **Retry** (`retry.yml`, with `retry.sh`) starts when a Release run fails.
-  When every failed job got no runner (GitHub's queue gave up on it: the
-  job is canceled and ran no step, mostly a macOS one), it waits ten
-  minutes and re-runs those jobs, and the `publish` job with them, up to
-  the run's twelfth attempt. A job that ran and failed is never re-run.
+- **Retry** (`retry.yml`, with `retry.sh`) starts when a Release or a
+  Staple run fails. When every failed job got no runner (GitHub's queue
+  gave up on it: the job is canceled and ran no step, mostly a macOS one),
+  it waits ten minutes and re-runs those jobs, and Release's `publish` job
+  with them, up to the run's twelfth attempt. A job that ran and failed is
+  never re-run. If the jobs were re-run by hand during the ten minutes, it
+  leaves that attempt alone.
 
 Release can also be run by hand from the Actions tab (Release ▸ Run
 workflow) to make test builds of a branch. These builds are workflow

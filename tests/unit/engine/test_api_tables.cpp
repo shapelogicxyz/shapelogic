@@ -5,14 +5,26 @@
 // constants, and the error codes against api/errors.json. The contract
 // suite checks what the engine sends; these check what it accepts too,
 // whether or not a test happens to send it.
+//
+// The schema is walked whole (checkpoint E): an `enum` or a `maximum` that
+// no row here ties to the C++ must be listed with the reason it is not, so
+// a new one cannot be left out without saying so.
 #include "convert.h"
 #include "engine.h"
 #include "rpc.h"
 
+#include "shapelogic/app/document.h"
+#include "shapelogic/base/solve_state.h"
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
+#include "shapelogic/grid/shape_image.h"
+#include "shapelogic/grid/tray_border.h"
+#include "shapelogic/mesh/stl.h"
+#include "shapelogic/model/problem.h"
 #include "shapelogic/model/stacking_types.h"
 #include "shapelogic/model/tilted_tray.h"
+#include "shapelogic/solve/solve_progress.h"
+#include "shapelogic/solve/solve_session.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -74,6 +86,133 @@ struct EnumRow {
   std::vector<std::string> names;
 };
 
+// Every place of the schema ("file#/pointer") that holds `key` ("enum",
+// "maximum"), in every file of api/.
+void placesOf(const nlohmann::json& node, const std::string& file,
+              const nlohmann::json::json_pointer& pointer, const std::string& key,
+              std::set<std::string>& out) {
+  if (node.is_object()) {
+    if (node.contains(key)) {
+      out.insert(file + "#" + pointer.to_string());
+    }
+    for (const auto& [name, child] : node.items()) {
+      placesOf(child, file, pointer / name, key, out);
+    }
+  } else if (node.is_array()) {
+    for (std::size_t i = 0; i < node.size(); i++) {
+      placesOf(node[i], file, pointer / i, key, out);
+    }
+  }
+}
+
+std::set<std::string> placesOf(const std::string& key) {
+  std::set<std::string> out;
+  for (const auto& entry : std::filesystem::directory_iterator("api")) {
+    if (entry.path().extension() == ".json") {
+      const std::string file = entry.path().filename().string();
+      placesOf(schemaFile(file), file, nlohmann::json::json_pointer(), key, out);
+    }
+  }
+  return out;
+}
+
+// True for a value its enum names: a switch with a case for every
+// enumerator and no default, so the build names a new enumerator here
+// (-Wswitch, an error), as detail::isGridKind does for the grids. The
+// engine writes these by nameOf, which gives "?" for a value its table
+// lacks; the case below asks every value for its name.
+constexpr bool named(SolveState s) {
+  switch (s) {
+    case SolveState::Idle:
+    case SolveState::Preparing:
+    case SolveState::Assembling:
+    case SolveState::Draining:
+    case SolveState::Paused:
+    case SolveState::Finished:
+    case SolveState::Error: return true;
+  }
+  return false;
+}
+constexpr bool named(SolveStage s) {
+  switch (s) {
+    case SolveStage::Idle:
+    case SolveStage::Prepare:
+    case SolveStage::Reduce:
+    case SolveStage::Assemble:
+    case SolveStage::Disassemble:
+    case SolveStage::Stopping:
+    case SolveStage::Paused:
+    case SolveStage::Done:
+    case SolveStage::Error:
+    case SolveStage::Other: return true;
+  }
+  return false;
+}
+constexpr bool named(ProblemState s) {
+  switch (s) {
+    case ProblemState::Unsolved:
+    case ProblemState::Solving:
+    case ProblemState::Solved:
+    case ProblemState::Unknown: return true;
+  }
+  return false;
+}
+constexpr bool named(ImageFit f) {
+  switch (f) {
+    case ImageFit::Crop:
+    case ImageFit::Stretch:
+    case ImageFit::Manual: return true;
+  }
+  return false;
+}
+constexpr bool named(BorderCorners c) {
+  switch (c) {
+    case BorderCorners::Round:
+    case BorderCorners::Sharp: return true;
+  }
+  return false;
+}
+constexpr bool named(BorderMaterial m) {
+  switch (m) {
+    case BorderMaterial::Smooth:
+    case BorderMaterial::Textured:
+    case BorderMaterial::Wood: return true;
+  }
+  return false;
+}
+constexpr bool named(mesh::StlParameterType t) {
+  switch (t) {
+    case mesh::StlParameterType::Double:
+    case mesh::StlParameterType::PositiveDouble:
+    case mesh::StlParameterType::PositiveInteger:
+    case mesh::StlParameterType::Switch: return true;
+  }
+  return false;
+}
+constexpr bool named(tilted::Tray::Placement p) {
+  switch (p) {
+    case tilted::Tray::Placement::Best:
+    case tilted::Tray::Placement::Custom: return true;
+  }
+  return false;
+}
+
+// Every value of E (an enum of one byte) has a name in its table, and the
+// table names nothing else.
+template <class E>
+void everyValueNamed(const Names<E>& table) {
+  std::size_t values = 0;
+  for (unsigned int i = 0; i < 256; i++) {
+    const E e = static_cast<E>(i);
+    if (named(e)) {
+      INFO("value " << i);
+      CHECK(nameOf(table, e) != "?");
+      values++;
+    }
+  }
+  CHECK(values == table.size());
+}
+
 }  // namespace
 
 TEST_CASE("api tables: every Names table is the schema's enum", "[engine][api]") {
@@ -107,6 +246,7 @@ TEST_CASE("api tables: every Names table is the schema's enum", "[engine][api]")
       {"solution.json#/methods/solution.analyse/params/properties/which",
        namesOf(analyseWhichNames())},
       {"export.json#/$defs/StlParameter/properties/type", namesOf(stlParameterTypeNames())},
+      {"types.json#/$defs/Axes/items", namesOf(axisNames())},
   };
   for (const EnumRow& row : rows) {
     INFO(row.where);
@@ -121,6 +261,53 @@ TEST_CASE("api tables: every Names table is the schema's enum", "[engine][api]")
     CHECK(asSet(values).size() == values.size());
     CHECK(asSet(row.names) == asSet(values));
   }
+
+  // The schema's other enums: the engine reads none of them. It writes
+  // each from one place, a switch or a choice over the core's values, and
+  // the contract suite checks a reply that carries one (a new enum of the
+  // schema is a row above, or a line here that says where it is written).
+  std::set<std::string> rest = placesOf("enum");
+  for (const EnumRow& row : rows) {
+    CHECK(rest.erase(row.where) == 1);
+  }
+  const std::set<std::string> written = {
+      // numbers, not names: -1 or 1 (methods_problem.cpp)
+      "problem.json#/methods/problem.movePart/params/properties/delta",
+      // problemKind (methods_problem.cpp)
+      "problem.json#/methods/problem.kind/result/properties/kind",
+      // the picture's type, the core's (Document::imageData)
+      "shape.json#/methods/shape.imageData/result/properties/type",
+      // the core's group labels (app::taskSet)
+      "shape.json#/methods/shape.taskSet/result/properties/tasks/items/properties/group",
+      // solve.preview's source (events.cpp)
+      "solve.json#/events/solve.preview/params/properties/source",
+      // one value (engine.info's sliding solver, methods_engine.cpp)
+      "types.json#/$defs/SlidingSolver",
+      // a cell's state (methods_shape.cpp's shape.get, methods_sliding.cpp's tray)
+      "types.json#/$defs/CellState",
+      // a frame's array types (output.h's FrameBuilder)
+      "types.json#/$defs/ArrayRef/properties/type",
+      // fitJson, progressJson's stopKind, slidePhaseJson, failureJson, solutionRow (convert.cpp)
+      "types.json#/$defs/FitStats/properties/verdict",
+      "types.json#/$defs/SolveProgress/properties/stopKind",
+      "types.json#/$defs/SolveProgress/properties/slidePhase/oneOf/0/properties/part",
+      "types.json#/$defs/SolveFailure/properties/assembler",
+      "types.json#/$defs/SolutionRow/properties/disassembly",
+  };
+  CHECK(rest == written);
+}
+
+TEST_CASE("api tables: every value the engine writes by name has one", "[engine][api]") {
+  everyValueNamed(solveStateNames());
+  everyValueNamed(solveStageNames());
+  everyValueNamed(problemStateNames());
+  everyValueNamed(imageFitNames());
+  everyValueNamed(borderCornersNames());
+  everyValueNamed(borderMaterialNames());
+  everyValueNamed(stlParameterTypeNames());
+  everyValueNamed(trayPlacementNames());
+  // the grids' names are GridTraits' rows, one a kind (grid_traits.h)
+  CHECK(gridNames().size() == static_cast<std::size_t>(kNumGridKinds));
 }
 
 TEST_CASE("api tables: the stored settings' check boxes are SolverSettings' booleans",
@@ -169,6 +356,24 @@ TEST_CASE("api tables: the schema's maxima are the engine's and the core's bound
       {"types.json#/$defs/TraySettings/properties/allowance", tilted::Tray::kMaxAllowance},
       {"types.json#/$defs/TraySettings/properties/shiftX", tilted::Tray::kMaxShift},
       {"types.json#/$defs/TraySettings/properties/shiftY", tilted::Tray::kMaxShift},
+      // a tray's rim
+      {"shape.json#/methods/shape.setBorder/params/properties/thickness", kMaxBorderThickness},
+      {"types.json#/$defs/TrayBorder/properties/thickness", kMaxBorderThickness},
+      // a sliding puzzle's new start/goal shape
+      {"sliding.json#/$defs/TraySize/items", app::kMaxStartGoalSide},
+      // a solve's take-apart workers
+      {"types.json#/$defs/SolveOptions/properties/takeApartWorkers", kMaxTakeApartWorkers},
+      // the engine's own bounds (convert.h)
+      {"document.json#/methods/document.exportPuzzlecad/params/properties/lip",
+       static_cast<double>(kMaxLip)},
+      {"playback.json#/methods/playback.poses/params/properties/samplesPerStep",
+       static_cast<double>(kMaxSamplesPerStep)},
+      {"playback.json#/methods/playback.track/params/properties/samplesPerStep",
+       static_cast<double>(kMaxSamplesPerStep)},
+      {"solution.json#/methods/solution.page/params/properties/limit",
+       static_cast<double>(kMaxPageLimit)},
+      {"explore.json#/methods/explore.step/params/properties/steps",
+       static_cast<double>(kMaxExploreSteps)},
   };
   for (const auto& [where, most] : maxima) {
     INFO(where);
@@ -176,6 +381,25 @@ TEST_CASE("api tables: the schema's maxima are the engine's and the core's bound
     REQUIRE(schema.contains("maximum"));
     CHECK(schema.at("maximum").get<double>() == most);
   }
+
+  // The schema's other maxima are no bound of a count or a size (a new
+  // maximum of the schema is a row above, or a line here that says why
+  // not).
+  std::set<std::string> rest = placesOf("maximum");
+  for (const auto& [where, most] : maxima) {
+    CHECK(rest.erase(where) == 1);
+  }
+  const std::set<std::string> others = {
+      // a step up or down: -1 to 1 (methods_stacking.cpp)
+      "stacking.json#/methods/stacking.moveDisc/params/properties/delta",
+      // a fraction, 0 to 1 (written, never read)
+      "tray.json#/$defs/FitProgress/properties/current",
+      "tray.json#/$defs/FitEvent/properties/current",
+      // one of the eight ways a picture lies (written, never read: it
+      // turns and flips with its shape's cells)
+      "types.json#/$defs/ShapeImage/properties/turn",
+  };
+  CHECK(rest == others);
 }
 
 TEST_CASE("api tables: the error codes are api/errors.json's", "[engine][api]") {

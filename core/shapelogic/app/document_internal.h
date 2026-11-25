@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace bt::app {
@@ -60,9 +61,17 @@ class Document::StepGuard {
   bool committed_ = false;
 };
 
+template <class Job, class... Args>
+void Document::startJob(Id problem, Args&&... args) {
+  jobs_.emplace(std::pair{problem, Job::kKind},
+                std::make_unique<Job>(std::forward<Args>(args)...));
+}
+
+// (startJob alone fills jobs_, so what is filed under a class's kind is
+// of that class)
 template <class Job>
-Job* Document::job(Id problem, BackgroundJob::Kind kind) const {
-  const auto it = jobs_.find({problem, kind});
+Job* Document::job(Id problem) const {
+  const auto it = jobs_.find({problem, Job::kKind});
   return it == jobs_.end() ? nullptr : &static_cast<Job&>(*it->second);
 }
 

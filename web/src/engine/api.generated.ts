@@ -5270,6 +5270,10 @@ export const LIMITS = {
     side: 64,
     slope: 64,
     allowance: 0.25,
+    shift: 1024,
+  },
+  solutions: {
+    page: 10000,
   },
 } as const;
 

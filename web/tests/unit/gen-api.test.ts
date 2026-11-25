@@ -152,6 +152,8 @@ describe('the schema subset', () => {
     expect(out).toContain('  parse_error: [-32700, -32003],\n');
     expect(out).toContain('  internal: [-32603],\n');
     expect(out).toMatch(/LIMITS = \{\n {2}stacking: \{\n {4}rods: 16,/);
+    expect(out).toMatch(/ {2}tray: \{\n(?: {4}\w+: [\d.]+,\n)* {4}shift: 1024,\n/);
+    expect(out).toMatch(/ {2}solutions: \{\n {4}page: 10000,\n/);
     expect(() =>
       generate(API_DIR, { stacking: { rods: 'stacking.json#/$defs/Rules/properties/name' } }),
     ).toThrow(/has no maximum/);

@@ -83,8 +83,8 @@ Reply explorePlacements(State& s, Params& p) {
 
 Reply exploreStep(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::AssemblyExplorer);
-  // capped: requests are served one at a time, and a long search would hold up the rest
-  const auto steps = static_cast<unsigned long>(p.optInteger("steps", 1, 1, 1000000));
+  // capped (kMaxExploreSteps)
+  const auto steps = static_cast<unsigned long>(p.optInteger("steps", 1, 1, kMaxExploreSteps));
   BTE_CHECK(p.finish());
   BTE_TRY(app::AssemblyExplorer* e, assemblyExplorer(s, handle));
   e->step(steps);

@@ -39,6 +39,7 @@
 import {
   closeSync,
   existsSync,
+  fstatSync,
   mkdirSync,
   openSync,
   readSync,
@@ -507,6 +508,13 @@ export class AppLog {
     this.pending = [];
     this.pendingBytes = 0;
     try {
+      if (this.fd !== null && this.movedAway(this.fd)) {
+        // a new file is begun, as each line's own append did before the
+        // handle was kept
+        this.closeFile();
+        this.bytes = 0;
+        this.forget();
+      }
       this.fd ??= openSync(this.file, 'a');
       const buf = Buffer.from(text, 'utf8');
       for (let at = 0; at < buf.length;) {
@@ -519,6 +527,18 @@ export class AppLog {
       this.failure = e instanceof Error ? e.message : String(e);
       this.closeFile();
     }
+  }
+
+  /**
+   * Whether the file the handle is open on is no longer the one at the
+   * log's path: deleted or renamed from outside the app while it runs (a
+   * log cleared by hand before a problem is tried again). The handle would
+   * go on writing into a file nobody finds. Asked once a batch of lines.
+   */
+  private movedAway(fd: number): boolean {
+    const open = fstatSync(fd);
+    const named = statSync(this.file, { throwIfNoEntry: false });
+    return named?.ino !== open.ino || named.dev !== open.dev;
   }
 
   /** Closes the file (written lines are on it; a later write opens it again). */

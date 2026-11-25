@@ -131,6 +131,17 @@ user's standing instructions.
    - **A run that finds no test fails.** `ctest -L` and `-R` exit 0 when
      nothing matches: a recipe or a CI step that picks tests so takes
      `--no-tests=error`.
+   Two things checkpoint E found after stage 11:
+   - **A table in place of a switch.** A switch over an enum fails the
+     build when an enumerator is added; the table that takes its place
+     does not. An item that makes the change says what asks every value
+     now: a `static_assert` over the table, or a test that walks the enum
+     by a switch without default.
+   - **A test that ties copies together walks the source.** It finds what
+     it checks in the file that holds the copies (every `enum` of the
+     schema, every literal of a kind), and lists what it leaves out with
+     the reason. A list written beside the test checks only what its
+     writer thought of.
 9. **Checks.** `just check <regex of the changed C++ files>` stays green; a
    suppression needs its reason on the line
    (`// NOLINTNEXTLINE(check): reason`). The front end: `just app-check`.
@@ -182,8 +193,8 @@ again, and comes last.
 - [x] Checkpoint D (Fable): review of stage 8
 - [x] Stage 9: CI and release pipeline (v2.1's macOS engine needed macOS 26: now 13.0, checked in CI)
 - [x] Stage 10: front-end speed and memory (10.10 waits until 2.2 has reached users)
-- [x] Stage 11: one source of truth: core, engine, API, Python, CLI (11.3's engine.info matrices handed to 12.8; a new finding under 11.9)
-- [ ] Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
+- [x] Stage 11: one source of truth: core, engine, API, Python, CLI (11.3's engine.info matrices handed to 12.8; 11.9's finding fixed by checkpoint E)
+- [x] Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
 - [ ] Stage 12: one source of truth: front end
 - [ ] Stage 13: splits: front end
 - [ ] Stage 14: dead code and the last traps
@@ -3825,6 +3836,23 @@ Checkpoint D lines under 6.5 and 7.4.
       the new steps. It does not know the `macos-26` label (it is older
       than the image), and its two old findings (SC2153 in the version
       step, SC2046 in the keychain step) are unchanged.
+  - Checkpoint E (2026-11-25, Fable): read again; sound.
+    - The target is a cache variable of the `base` preset: every preset
+      has it, the libraries the build fetches too, and a build folder
+      made before the stage takes it at its next configure.
+    - The CI step reads the packaged programs. `jq`, `plutil -extract …
+      raw`, `vtool` and `python3` are on the image, and each program is of
+      one architecture (one `minos` line).
+    - Left: the wheel of `just python-wheel` does not go through a preset
+      (scikit-build-core configures it), so it is built for the macOS it
+      is built on. It is made by hand and is in no release; a wheel given
+      out would need `MACOSX_DEPLOYMENT_TARGET=13.0` at its build.
+    - Not run on GitHub: the image's label, the Xcode step and the check
+      run first at the next release.
+    - **For the user:** v2.1 as released opens on macOS 13 to 15, but its
+      engine and CLI need macOS 26, so it cannot solve there. The fix is
+      in the next release; whether a v2.1.1 is cut for it before then is
+      the user's to say.
 
 - [x] **9.2 Release jobs that got no runner are run again** (stability; S)
   - *Where:* `.github/workflows/release.yml` (269-277, 462-471); no workflow
@@ -3888,6 +3916,40 @@ Checkpoint D lines under 6.5 and 7.4.
       release has used it yet, so the user still has to be told that the
       manual re-runs are no longer needed after the first release that
       does.
+  - Checkpoint E (2026-11-25, Fable): read again, with three changes.
+    - Sound:
+      - the permissions (`actions: write` re-runs and reads the jobs,
+        `contents: read` the checkout);
+      - the run's id reaches the script through the environment, never
+        as text of the shell's line;
+      - a `workflow_run` run checks out the default branch, so the script
+        is main's, never a tag's or a branch's;
+      - a run canceled by hand concludes canceled, not failed, and is
+        left; a skipped job (publish behind a build that got no runner)
+        does not count as failed.
+    - **Re-run by hand during the ten minutes** (as it was done until
+      now): `gh run rerun` then failed on a run under way, and
+      the Retry run with it. The script now looks at the run again after
+      the wait and starts over with what it finds (going: nothing to do).
+    - **One lost answer of the API** in hours of polling ended the script
+      (`read` on an empty answer under `set -e`). A call is now made
+      again, a minute apart, five times in all.
+    - **Staple was not covered,** and its jobs are macOS jobs: Retry
+      listens to both workflows (the script takes any run's number).
+    - Left, and said in the script's header:
+      - a job that first runs in a re-run (publish) and gets no runner
+        there is re-run only if that attempt's end starts Retry again,
+        which is not documented for a re-run made with the workflow's
+        token;
+      - an attempt that runs long beside a job without a runner can use
+        up the 350 minutes before the twelfth attempt (GitHub ends a job
+        at 360).
+    - Tests: the stage's seven cases with the stand-in `gh` again, two of
+      them given a state for the new look to read: the same results. Two new cases: re-run by hand during the wait (no
+      re-run, then "nothing to re-run"), and the API failing twice (it
+      carries on: one re-run). `bash -n`; both workflow files parse.
+      Not run: shellcheck and actionlint on the changed files (this
+      session was refused their container), and anything on GitHub.
 
 Gates for the stage (2026-11-25), after its last edit, on macOS with every
 preset now built for 13.0 (each engine's `minos 13.0` checked):
@@ -4202,6 +4264,11 @@ Rule 7 holds for every renderer item here.
     `sliding`, `play`, `stack-play`, `frozen`: 97 of 97. Left: the Solver's
     solution pager still refreshes out of sight when a change names its
     problem's solutions (the item did not list it).
+  - Checkpoint E (2026-11-25, Fable): what the stage left stays. The
+    pager's refresh out of sight is one read of the pages shown when a
+    change names the problem's solutions or problems (a run's end, a
+    removal, an analysis), not one an edit, and its selected row is asked
+    for out of sight too (the Export menu's Solution Pieces).
 
 - [x] **10.6 The picture caches never let go** (memory; M)
   - *Where:*
@@ -4247,6 +4314,10 @@ Rule 7 holds for every renderer item here.
     `stack-play` 16 of 16, and the new test. Left: a picture still loading
     when its hash stops being named stays until the next snapshot; an undo
     back to a pruned picture fetches and decodes it again.
+  - Checkpoint E (2026-11-25, Fable): the two things left stay. A picture
+    that was still loading when its hash stopped being named goes at the
+    next snapshot (one picture, for one edit). An undo back to a picture
+    let go fetches and decodes it again: the price of letting go.
 
 - [x] **10.7 A MutationObserver on the whole page rescans the document** (speed; S)
   - *Where:*
@@ -4358,6 +4429,21 @@ Rule 7 holds for every renderer item here.
     another's open one (it reads again on its next page); a log file
     deleted from outside while the app runs is written into until the next
     rotate, trim or Clear (before, the next line made a new file).
+  - Checkpoint E (2026-11-25, Fable): of the two things left, one was a
+    bug of the item. With the handle kept open, a log deleted or renamed
+    from outside while the app runs took no more lines until the next
+    rotate, trim, Clear or start: "delete the log, try again, send it"
+    gave no file. `flush()` now looks once a batch whether the file at the
+    log's path is still the one the handle is open on (`fstat` against
+    `stat`), and begins a new one when it is not. Test
+    (`app-log.test.ts`: a delete, then a rename): fails with the stage's
+    `app-log.ts` (no file). Not run on Windows, where a file deleted
+    under an open handle stays until the handle closes: the look then
+    finds no file at the path, or `stat` fails and that batch is lost as
+    with any failed write, and closing the handle lets the delete finish.
+    The other stays: one window closing the manager drops the lines read
+    for another window's open one, which reads them again at its next
+    page.
 
 - [ ] **10.10 Every engine start launches the engine twice** (speed; S; after 2.2)
   - *Where:* `web/src/engine/node-transport.ts` (`engineVersion()` 19-38, and
@@ -4426,6 +4512,10 @@ Rule 7 holds for every renderer item here.
     `solver` rescue tests. Left: `document.saveBytes {gzip}` has no caller
     in the app now (for stage 14); decision 0013 still lists the path
     methods as they were (a decision record, left as it is).
+  - Checkpoint E (2026-11-25, Fable): `document.saveBytes`'s `gzip` is on
+    14.1's list now. Decision 0013 stays as it was written (a record of
+    its day; ARCHITECTURE.md's `web` rules hold the path rule as it is,
+    the rescue copy named).
 
 **Gates for stage 10:** `just app-check`, `just app-test`, the e2e specs each
 item names, `perf.e2e.ts` through `just app-e2e-timed` (it runs alone), and
@@ -4548,6 +4638,46 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     "crop" renamed in `imageFitNames` and `flipPieces` dropped from the
     boxes, two of its four cases fail (and pass again restored). Defaults
     are still description text only: no item here asks more.
+  - Review (2026-11-25, Fable): the error table and the Names tables are
+    as the Done line says; **the test did not cover what it said, and
+    three kinds of copy were left.**
+    - Tried in a scratch copy: "crop" renamed in `imageFitNames` fails the
+      Names case, as the stage saw.
+    - **The test checked the rows written into it, nothing more.** An enum
+      or a maximum added to the schema, or one the stage did not think
+      of, went unchecked. It now walks every file of `api/`: each `enum`
+      and each `maximum` is a row, or a line in a list of the ones not
+      tied, with the reason (twelve enums the engine only writes, each
+      from one switch or choice, and `problem.movePart`'s -1 or 1, read as
+      a number; four maxima that are no bound of a size).
+      Tried: an enum and a maximum added to `tray.json` fail it.
+    - **"Every enum the engine reads or writes" was not so.** The axes of
+      a mirror or a span were read by comparisons in `methods_shape.cpp`:
+      now `axisNames()`, a row. The twelve written ones stay as they
+      are; `convert.h` and `api/README.md` say so.
+    - **Nine maxima of the schema were tied to nothing,** six of them
+      literals in the code, some in several places, as the item's 256
+      was. Each is a constant now, and a row:
+      - the take-apart workers' 64 (`solve_session.cpp`, `convert.cpp`):
+        `kMaxTakeApartWorkers`;
+      - a start/goal shape's 1024, three times in `document_sliding.cpp`
+        and in its message: `app::kMaxStartGoalSide`;
+      - the engine's own, in `convert.h`: `kMaxSamplesPerStep` (256,
+        twice), `kMaxPageLimit` (10000), `kMaxExploreSteps` and `kMaxLip`
+        (a constant of its file before);
+      - the rim's thickness, twice in the schema, was
+        `kMaxBorderThickness` already.
+      The web's page size (10000, four times in `solver/workspace.ts`) is
+      `LIMITS.solutions.page`.
+    - **A check the compiler made was lost.** `solveStageName`,
+      `problemStateName`, the STL parameters' `typeName` and the file
+      format's names the engine used were switches: a new enumerator
+      failed the build. `nameOf` gives "?" for a value its table lacks,
+      which only a reply that happens to carry it shows. A case of the
+      test now asks every value of the eight enums written so for its
+      name; the values come from a switch without default, as
+      `detail::isGridKind`'s. Tried: "search" taken out of
+      `solveStageNames` fails it.
 
 - [x] **11.2 Limits as core constants, emitted for the web** (combine, bug; M)
   - *Where:*
@@ -4596,6 +4726,22 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     bounded") refuses six out-of-range rules and keeps the rod set as it
     was (it fails on HEAD's document, which clamped); the web's
     `stacking.test.ts` and `tilted.test.ts` use `LIMITS`.
+  - Review (2026-11-25, Fable): OK, with one literal and one test.
+    - The engine and the document both refuse past every limit: the rod
+      count and the heights (`optInteger`'s bounds; `setRodSetRules`), a
+      disc's size (`setDiscSize`), the tray (`tilted::Tray::valid`, which
+      the document asks; the engine has no bounds of its own for it), the
+      cells (`checkSize`; `grid.geometry`).
+    - The web's `LIMITS` come from the generated file. One literal was
+      left, the tray shift's 1024 in `tilt-card.ts`: now
+      `LIMITS.tray.shift` (`SHIFT_MAX`).
+    - The exception, the value a rod set already has, had no test. New
+      (`test_document_stacking.cpp`): a file with 20 rods of height 80; an
+      edit of another rule keeps both, another value past the bounds is
+      refused, and once inside them the old value is refused too. The
+      engine's side is the same path: `stacking.setRules` takes what is
+      not given from the rod set, unchecked. Both tests fail with the
+      stage's parent's `document_stacking.cpp` (the clamp).
 
 - [x] **11.3 Grid kinds: compile-time checks now, one table of traits next** (combine, trap; S then M) ✓
   - *Where:*
@@ -4684,6 +4830,14 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     so that `web/src/renderer/view3d/extent.ts` could go: that is an
     engine addition and front-end work, handed to 12.8 (written there). Answers unchanged: the grid, mesh and tool tests and
     the oracle runs of the gates line.
+  - Review (2026-11-25, Fable): OK. Tried in a scratch copy: a tenth
+    kind is named by `-Wswitch` in `isGridKind` and in the other switches
+    over the kinds; with its case there, the `static_assert` fails until the
+    count is raised; with the count raised, `kGridTraits`' assert asks for
+    its row. That rests on warnings being errors, which the dev and
+    release presets and CI's macOS job have; CI's Linux and Windows jobs
+    build with `BT_WERROR=OFF` and would only warn. The table's rows were
+    read against the old switches, value for value: the same.
 
 - [x] **11.4 Code copied between the new grids; marks on grids that have none** (combine, bug; S to M)
   - *Where:*
@@ -4739,6 +4893,14 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     Test: `test_puzzle_file.cpp` "marks on a grid other than the sliding
     one are dropped as it loads" (the cube and hexagonal grids, every
     turn); on HEAD's `puzzle_file.cpp` it fails (the marks are kept).
+  - Review (2026-11-25, Fable): OK. `rebuildTurned` was read against both
+    old transforms: the same box, fit, cells and hotspot; the marks are
+    new. `prismFace` gives the same floats. Marks reach a shape from the
+    reader, which now drops them off the sliding grid, and from four
+    functions of `model/sliding.cpp` that work on sliding boards, so the
+    new assert cannot fail on a file. The test fails with the stage's
+    parent's `puzzle_file.cpp` (tried). Its comment had landed between
+    decision 0044's comment and that decision's test: moved.
 
 - [x] **11.5 Python and the CLI use the Document's rules** (combine; S to M)
   - *Where:* `python/src/solution_iterator.cpp:286-313` copies `solveLaunch`'s
@@ -4767,6 +4929,13 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     on two starts; HEAD's CLI solved it, 2 assemblies) and
     `test_alpha.py` `test_a_problem_the_app_refuses` (the same file and
     reason in Python, which refused it before too).
+  - Review (2026-11-25, Fable): OK. The stage's file through all three:
+    the CLI's `--save` (exit 1, "Could not start Solver"), the Python
+    module and the engine's `solve.start` (`invalid_argument`) give the
+    same words, "S1 has 2 starts but the puzzle has 1 copy of it." In
+    `solveLaunch` the missing result or pieces are now refused before the
+    "pause it first" of the start locks, and also when nothing needs
+    preparing, where the session refused them alike.
 
 - [x] **11.6 Search folders and disk budgets from one helper** (combine; S)
   - *Where:* `engine/engine.cpp:27-45` (an empty `SHAPELOGIC_*_DIR` counts as
@@ -4791,6 +4960,11 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     write in the user's cache). Tests: a case in `test_search_folders.cpp`
     ([base]); `test_cli.py` `test_an_empty_folder_variable_is_unset` (a
     home of its own; HEAD's CLI made no folder).
+  - Review (2026-11-25, Fable): OK. With `SHAPELOGIC_SLIDE_DIR` and
+    `SHAPELOGIC_PANEX_DIR` set and empty and a home of the test's own,
+    the engine's `settings.get` and the CLI name the same folder (the
+    cache folder's `sliding`). The three CLI tests of 11.5, 11.6 and
+    11.10 fail on the stage's parent's CLI (tried).
 
 - [x] **11.7 Sliding: the order of attempts is written twice** (combine; S)
   - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
@@ -4811,6 +4985,11 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     saved ones with loose stops and then the both-ends one, which are the
     probes it made before, in the same order. The `table` and `would`
     lambdas' copies of the order are gone.
+  - Review (2026-11-25, Fable): OK. Read against the old code: the same
+    attempts in the same order. `savedFromStartAlone` now takes its two
+    kinds of probe from the list; where the list would differ from the
+    old probes (no loose stops wanted, or `oneEnd`), its first lines have
+    returned already, as before. The sliding oracle: see the checkpoint.
 
 - [x] **11.8 Sliding: fields set after `build()`, options copied by hand, two compression constants** (trap; S)
   - *Where:* `space.partial` and `backMoves` are set after `build()` by both
@@ -4834,6 +5013,9 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     (the grid stays apart: its rule differs). One compression constant:
     `kSlideCompression`; `levels::kKeptCompression` went (the key sets'
     default takes it; `slide_levels.h` includes `sliding_search.h`).
+  - Review (2026-11-25, Fable): OK. The seventeen fields had the same
+    defaults in both structs. `build()` sets `partial` and `backMoves` as
+    it ends, from the members the builders read before.
 
 - [x] **11.9 Movement values as named constants** (trap; S)
   - *Where:*
@@ -4866,6 +5048,25 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     keeps only the direction in its position, so the check seems never to
     hold and an analysed removal would be added as a child; for stage 14
     or 15 to confirm.
+  - Review (2026-11-25, Fable): the values are kept (read in the diff).
+    **The finding the stage left is a bug, fixed here.**
+    - `MovementExplorer::addNode` looked for a removal by a coordinate
+      past 10000, a take-apart state's mark. A node of the search marks a
+      piece that left by its orientation and holds the direction it left
+      in where its place was, so the check never held.
+    - What it did: Analyze added every removal as a child. Its label was
+      wrong ("x-y-z: S13, S14.2, S22"), its pieces stood at that
+      "place", and analysing it failed an assertion (an internal error
+      in the app). On the first solution of `SolidSixPieceBurrs` the
+      root's first children were such.
+    - The check is `isSeparation()` now. Test
+      (`test_playback_explorers.cpp`, that solution, two levels down:
+      every child differs from its parent by one step of a direction, and
+      can be analysed): fails without the fix, on the label's node and on
+      the assertion.
+    - **Users see it:** in the movement browser, Analyze no longer lists
+      the moves that take pieces out (the port's comment said so all
+      along: "removals are not added").
 
 - [x] **11.10 Small engine copies, and one trap** (combine, trap; S)
   - *Where:*
@@ -4911,6 +5112,9 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     its defaults from the core's struct through `rodSetFields`, which
     `rodSetJson` uses too. Tests: the contract suite; `test_cli.py` refuses
     `--limit 10` and `--limit 3` without `--save`.
+  - Review (2026-11-25, Fable): OK. The helpers give the messages the
+    copies gave; `replayJson` counts the steps before it moves them. Two
+    blank lines left in `methods_export.cpp` went.
 
 - [x] **11.11 Tray helpers in the undo header; tray math and nudge codes written twice** (combine; S)
   - *Where:*
@@ -4935,6 +5139,8 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     when `nudge()` gives a shift) replaces the code ranges in
     `onTrayAfterTask` (a tilted puzzle is on the cube grid, whose nudges
     are 0 to 5, so the answers are the same).
+  - Review (2026-11-25, Fable): OK. A tilted puzzle is on the cube grid,
+    where `nudge()` moves by tasks 0 to 5 only, as the Done line says.
 
 - [x] **11.12 Analysis and PlacementFit: one background-job skeleton** (combine; M)
   - *Where:* `core/shapelogic/app/analysis.{h,cpp}` and
@@ -4963,6 +5169,16 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     and `job<Job>(problem, kind)` (in `document_internal.h`) finds one.
     `poll()` notes the problems it touched in the map's order (problem,
     then kind) instead of fits first.
+  - Review (2026-11-25, Fable): OK, with one trap closed. `job<Job>(problem,
+    kind)` cast what it found to `Job` whatever `kind` it was given: a
+    call with the wrong pair read one job as the other. Each class now
+    names its kind (`kKind`); `startJob<Job>` alone fills the map, and
+    `job<Job>` finds by `Job::kKind`. Read: a job starts its thread last
+    in its constructor and ends it first in its destructor, both classes
+    are final, and `stopped` is the same sum as before. `poll()` now notes
+    the problems in the map's order, which is the order of
+    `document.changed`'s `problems`; the front end reads that list as a
+    set.
 
 **Gates for stage 11:** `just test-all`, `just test-tsan`, the contract
 suite, `ctest -R api-docs`, `just app-gen` and its staleness test,
@@ -5010,6 +5226,121 @@ The procedure is in "Fable checkpoints". What to look at:
 - **Every item (from checkpoint C):** each new constant, bound or helper
   has every user of the old copies behind it (grep the old literal and the
   old function), and each new test fails with its change taken out.
+
+Done (2026-11-25): see the Review lines under 11.1 to 11.12, and the
+Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
+- **The twelve changes hold.** Each was read against the code as it was,
+  and the answers are the same: the grid tables row for row, the two
+  transforms, the order of the slide attempts, the movement values. What
+  this section asks to try was tried in a scratch copy: a Names table
+  broken (11.1), a grid kind added without the count (11.3), the stage's
+  tests on its parent's files (11.2, 11.4 and the CLI's three: each
+  fails), one refused file through the CLI, Python and the engine (11.5:
+  the same words), the folders under an empty variable (11.6: the same
+  one), and the sliding oracle (below).
+- **What got past the stage:**
+  - **A bug the stage found and left (11.9).** The movement browser's
+    Analyze added every move that takes pieces out as a position, with a
+    wrong label and place, and analysing one failed an assertion. It is
+    from before this plan (the port's check never held). Fixed, with a
+    test that fails without the fix. Users see it.
+  - **The test of 11.1 checked a list, not the schema.** An enum or a
+    maximum outside its rows went unchecked, and the Done line's "every
+    enum" was not so: one enum was read by comparisons, twelve are
+    written from switches of their own, and nine maxima were tied to
+    nothing, six of them literals, one in three places. The test walks the
+    schema now; what it does not tie is listed with the reason.
+  - **A check the compiler made was lost (11.1):** names that came from
+    switches come from tables, which give "?" for a value they lack. The
+    test asks every value.
+  - **Two literals left in the web** (11.1, 11.2): the tray shift's 1024
+    and the page size, 10000. Both are `LIMITS` now.
+  - **A path without a test (11.2):** the value a file gave past the
+    bounds, kept through an edit. Tested now.
+  - **A cast that trusted its caller (11.12):** `job<Job>(problem, kind)`.
+    The class names its kind now.
+  The first is a bug of the app; the rest are of one kind: the claim "every
+  one" checked against a list its writer made. No answer was wrong and no
+  work could be lost. Rule 8 has two more lines for it. No item moves to
+  Fable: stage 12 is of the same kind (single sources in the front end),
+  and with the new lines its items say what checks every value and where
+  their tests look.
+- **What the stages 9 to 11 reported and left** (the coordinator's list),
+  each looked at:
+  - Fixed here:
+    - the movement browser's removals (11.9);
+    - the log that took no lines after it was deleted from outside
+      (10.9);
+    - the retry script when the jobs were re-run by hand meanwhile or the
+      API lost an answer, and Staple's jobs without a runner (9.2).
+  - Passed on: `document.saveBytes`'s `gzip` without a caller, to 14.1.
+    11.3's `engine.info` matrices are with 12.8 already.
+  - Left, with the reason:
+    - 10.10, as its item says: it waits for the first release with 2.2.
+    - The Retry workflow's two gaps (under 9.2), and that it works only
+      once this branch is on main. After the first release that used it:
+      tell the user that the re-runs by hand are over.
+    - The wheel's macOS target (under 9.1).
+    - The Solver's pager out of sight (10.5), a picture still loading as
+      it is let go (10.6), the log's lines read again by a second window
+      (10.9), decision 0013 (10.11).
+    - Python's `work_dir=""` stays "in memory" (11.6): it is a parameter
+      with that meaning in its doc, not an environment's value.
+    - Defaults are still only text in the schema (11.1): no item asks for
+      more, and no copy of one was found drifting.
+    - The idle view's frame once a second, which checkpoint D passed to
+      10.1: stage 10 could not make it happen (no frame in 3 s), and its
+      test mark is gone.
+    - The reference checkout has no build and lacks files (told in 1.1):
+      the oracle ran what this repo holds.
+  - Not run by the stage and not here: the e2e specs `imports`,
+    `rebuild`, `security` and `windows` (nothing of stages 10 and 11 or of
+    this review touches them).
+- **What users could notice** of stage 11 and this review, for the
+  release's notes:
+  - the movement browser's Analyze lists no removals;
+  - the CLI: an empty `SHAPELOGIC_SLIDE_DIR` or `SHAPELOGIC_PANEX_DIR`
+    means the cache folder; `--save` refuses a sliding problem the app
+    refuses; `--limit` given without `--save` is refused whatever its
+    number;
+  - a rod set whose file gave it more rods or a greater height than the
+    fields allow keeps them through an edit of another rule (they were
+    cut to the bounds);
+  - Python no longer sets the hole count of a brick problem it solves.
+- **Gates**, after the review's fixes:
+  - `just test-all` (dev): 75 of 75 (283 s, the scratch builds beside it);
+    `just test` three times: 30 of 30 (70, 78 and 77 s), the last two
+    after the last C++ edit. `just test-all` and `just test-asan` ran
+    before three edits of comments and a blank line (`convert.h`,
+    `explorers.cpp`, `methods_document.cpp`); everything else after them.
+  - `just test-asan`: 74 of 74 (833 s).
+  - `just test-tsan`: 127 of 127 `parallel:` tests (271 s), then the
+    contract suite, 0 failed (153 methods called).
+  - `just check` on the 19 C++ sources changed or including a changed
+    header of the core: clean.
+  - `just oracle --tier sliding --allow-missing --work <scratch>`: 23 of
+    35 baseline entries compared, 0 differ; with `--threads 1`: 32 of 35,
+    0 differ (the three others are missing from the reference checkout).
+  - `just app-check`: clean. `just app-test`: 660 of 660 (63 files; the
+    generator's staleness test, the engine tests and `spelling.test.ts`
+    among them), after `just app-gen` (`LIMITS`' two new entries).
+  - e2e, on a build of their own (`BT_OUT_DIR`): `explore`, `tilted`,
+    `logs` and `solver`, 22 of 22. Not run: the other specs.
+  - `just site-demo --check`, after the last source edit: rebuilt; every
+    puzzle type opens and plays. `just site-build`: built, the links are
+    valid, its 8 tests pass.
+  - The retry script: nine cases with a stand-in `gh` (under 9.2).
+  - Not run: shellcheck and actionlint on the changed workflow files
+    (this session was refused their container); the workflows on GitHub;
+    the oracle commands that need the original's build; the benchmarks
+    (no search code changed: the take-apart workers' bound is the same
+    number); the whole e2e suite; Linux and Windows builds (the review
+    added no system call and no `#ifdef` to the C++; the log's new look
+    at its file was not run on Windows, see 10.9).
+- No engine method or parameter was added: the schema, `docs/API.md` and
+  the generated types' methods are as they were (`LIMITS` grew by two
+  entries). The review's fixes are in the tree, ready for one commit with
+  the next stage or as `Cleanup 11: review fixes`.
 
 ## Stage 12: one source of truth: front end
 
@@ -5465,6 +5796,14 @@ each moved area, the screenshot tests (light and dark).
       `PROBLEM_CHIP` (`puzzle/counts.ts:17`); `logsViewable`
       (`shell/dialog.ts:97`).
     - `bt_busy` (`engine/wasm_main.cpp`), if 11.10 has not removed it.
+    - From checkpoint E:
+      - `document.saveBytes`'s `gzip` parameter (`api/document.json`,
+        `engine/methods_document.cpp`, `Document::saveBytes`). The app has
+        not called it since 10.11 (the engine writes the rescue copy
+        itself); its contract case and 4.5's unit test do. Remove it with
+        them, or keep it for other clients and say so here.
+      - `BackgroundJob::kind()` (`app/background_job.h`): no caller. The
+        document files a job under its class's `kKind`.
     - CSS and markup:
       - 18 class tokens that appear in no TS string or class attribute:
         `axf`, `cmat`, `crul`, `rrul`, `gwrap`, `mg`, `mnote`, `ph2`, `pm`,
@@ -6689,7 +7028,7 @@ after: every case must still run.
 - [ ] **21.4 `convert.cpp`: its solve part in its own file** (separate; S)
   - *Where:* `engine/convert.cpp` (994 lines; 33 commits since September, the
     most of any C++ file). Its commits' hunks land in:
-    - `solveOptionsFrom` and `kSolverBoxes` (8 or more);
+    - `solveOptionsFrom` and `solverBoxNames` (8 or more);
     - `progressJson` (6 or more);
     - `shapeSummary` (4);
     - `trayJson` (3);

@@ -84,7 +84,7 @@ Reply playbackPoses(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::Playback);
   const std::optional<std::int64_t> from = p.maybeInteger("from", 0, 0xFFFFFFFF);
   const std::optional<std::int64_t> to = p.maybeInteger("to", 0, 0xFFFFFFFF);
-  const auto samples = static_cast<unsigned int>(p.optInteger("samplesPerStep", 8, 1, 256));
+  const auto samples = static_cast<unsigned int>(p.optInteger("samplesPerStep", 8, 1, kMaxSamplesPerStep));
   BTE_CHECK(p.finish());
   BTE_TRY(app::PlaybackSampler* ps, sampler(s, handle));
   const auto first = static_cast<unsigned int>(from.value_or(0));
@@ -111,7 +111,8 @@ Reply playbackPoses(State& s, Params& p) {
 Reply playbackTrack(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::Playback);
   app::TrackOptions o;
-  o.samplesPerStep = static_cast<unsigned int>(p.optInteger("samplesPerStep", o.samplesPerStep, 1, 256));
+  o.samplesPerStep = static_cast<unsigned int>(
+      p.optInteger("samplesPerStep", o.samplesPerStep, 1, kMaxSamplesPerStep));
   o.secondsPerStep = static_cast<float>(p.optNumber("secondsPerStep", static_cast<double>(o.secondsPerStep), 0.001, 3600));
   o.reassemble = p.optBoolean("reassemble", o.reassemble);
   BTE_CHECK(p.finish());

@@ -11,6 +11,7 @@
 #include "shapelogic/grid/voxel.h"
 
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <string>
 
@@ -284,8 +285,8 @@ Reply shapeImageData(State& s, Params& p) {
 // The mirror and span axes as the editor's bits.
 std::uint8_t readSymmetry(Params& p) {
   std::uint8_t bits = 0;
-  const auto axes = [&p, &bits](std::string_view name, std::uint8_t x, std::uint8_t y,
-                                std::uint8_t z) {
+  // `bit`: the editor's bit of each axis, x, y and z
+  const auto axes = [&p, &bits](std::string_view name, std::array<std::uint8_t, 3> bit) {
     if (!p.has(name)) {
       (void)p.optString(name);  // marks it read
       return;
@@ -296,19 +297,20 @@ std::uint8_t readSymmetry(Params& p) {
       return;
     }
     for (const Json& axis : a) {
-      if (axis == "x") {
-        bits |= x;
-      } else if (axis == "y") {
-        bits |= y;
-      } else if (axis == "z") {
-        bits |= z;
-      } else {
+      bool known = false;
+      for (const auto& [axisName, index] : axisNames()) {
+        if (axis == axisName) {
+          bits |= bit.at(index);
+          known = true;
+        }
+      }
+      if (!known) {
         p.fail("'" + std::string(name) + "' holds x, y and z only");
       }
     }
   };
-  axes("mirror", app::kMirrorX, app::kMirrorY, app::kMirrorZ);
-  axes("span", app::kSpanX, app::kSpanY, app::kSpanZ);
+  axes("mirror", {app::kMirrorX, app::kMirrorY, app::kMirrorZ});
+  axes("span", {app::kSpanX, app::kSpanY, app::kSpanZ});
   return bits;
 }
 

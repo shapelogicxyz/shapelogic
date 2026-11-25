@@ -368,6 +368,55 @@ TEST_CASE("stacking document: rod sets are added, copied, named, moved and delet
   test::refused(d, Errc::NotFound, [panex](Document& x) { return x.renameRodSet(panex, "x"); });
 }
 
+// A file may hold more rods or a taller rod than the inputs allow (the
+// reader takes up to 1000): an edit of another rule keeps what the rod set
+// has, where the clamp cut it to the bounds, and only a change to a value
+// past them is refused (cleanup item 11.2; this path, checkpoint E).
+TEST_CASE("stacking document: rules past the bounds, as a file gave them, stay through an edit",
+          "[app][stacking]") {
+  std::ifstream in("tests/data/puzzles/test_stacking_hanoi.xmpuzzle");
+  REQUIRE(in.good());
+  std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  const auto put = [&text](const std::string& was, const std::string& now) {
+    const std::size_t at = text.find(was);
+    REQUIRE(at != std::string::npos);
+    text.replace(at, was.size(), now);
+  };
+  put("rods=\"3\"", "rods=\"20\"");
+  put("grow=\"1\" height=\"8\"", "grow=\"0\" height=\"80\"");
+  Result<Document> opened = Document::openBytes(text);
+  REQUIRE(opened.has_value());
+  Document& d = *opened;
+  const Id r = d.rodSetIds().front();
+  REQUIRE(d.puzzle().getRodSet(0).rodCount == 20);
+  REQUIRE(d.puzzle().getRodSet(0).definedHeight == 80);
+
+  // another rule changes: the count and the height stay
+  stacking::RodSet f = d.puzzle().getRodSet(0);
+  f.sizeMatters = !f.sizeMatters;
+  test::roundTrip(d, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  CHECK(d.puzzle().getRodSet(0).rodCount == 20);
+  CHECK(d.puzzle().getRodSet(0).definedHeight == 80);
+  CHECK(d.puzzle().getRodSet(0).sizeMatters == f.sizeMatters);
+  CHECK(d.puzzle().getProblem(0).startStacks().rods.size() == 20);
+
+  // another value past the bounds is refused; one inside them is taken,
+  // and then the old one is past them like any other
+  f = d.puzzle().getRodSet(0);
+  f.rodCount = 21;
+  test::refused(d, Errc::InvalidArgument, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  f.rodCount = 20;
+  f.definedHeight = 81;
+  test::refused(d, Errc::InvalidArgument, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  f.definedHeight = 80;
+  f.rodCount = stacking::kMaxRods;
+  test::roundTrip(d, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  CHECK(d.puzzle().getRodSet(0).rodCount == stacking::kMaxRods);
+  CHECK(d.puzzle().getRodSet(0).definedHeight == 80);
+  f.rodCount = 20;
+  test::refused(d, Errc::InvalidArgument, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+}
+
 // cb_RodField: the fields as the GUI read them back, in its bounds (past
 // them refused, as the engine refuses them: cleanup item 11.2).
 TEST_CASE("stacking document: a rod set's rules are bounded and follow Panex columns",

@@ -35,8 +35,10 @@ using Names = std::vector<std::pair<std::string_view, E>>;
 
 /// The names of the schema's enums, each value once: the API's own, apart
 /// from the file format's names (imageFitName and the like), so renaming
-/// one changes neither. Every one the engine reads or writes is here, and
-/// tests/unit/engine/test_api_tables.cpp holds each to the schema's enum.
+/// one changes neither. Every one the engine reads is here, and most of
+/// those it only writes; tests/unit/engine/test_api_tables.cpp holds each
+/// to the schema's enum, and lists the ones written from a switch of
+/// their own.
 [[nodiscard]] const Names<GridKind>& gridNames();
 [[nodiscard]] const Names<SolverType>& solverNames();
 [[nodiscard]] const Names<stacking::StackingSolver>& stackingSolverNames();
@@ -63,6 +65,8 @@ using Names = std::vector<std::pair<std::string_view, E>>;
 [[nodiscard]] const Names<ProblemState>& problemStateNames();
 /// document.changed's `what`: a ChangeSet bit each.
 [[nodiscard]] const Names<unsigned int>& changeKindNames();
+/// The axes of a mirror or a span (types.json's Axes): 0, 1 and 2.
+[[nodiscard]] const Names<unsigned int>& axisNames();
 /// SolverSettings' check boxes (types.json): stored "1" or "0", sent as
 /// true or false.
 [[nodiscard]] const std::vector<std::string_view>& solverBoxNames();
@@ -102,6 +106,18 @@ template <class E>
 /// A color field that may be null (none): read from `name`, as 0xrrggbb;
 /// a value that is neither fails the params.
 [[nodiscard]] std::optional<std::uint32_t> readRgbOrNull(Params& p, std::string_view name);
+
+/// The engine's own bounds of what a call asks for (the core has none for
+/// them), each written here once: the schema's maxima are held to them by
+/// tests/unit/engine/test_api_tables.cpp. The highest tray lip of a
+/// Puzzlecad export, in cells; the most samples of a move a playback
+/// gives; the most rows of solution.page; the most steps of explore.step
+/// (requests are served one at a time, and a long search would hold up
+/// the rest).
+inline constexpr std::int64_t kMaxLip = 16;
+inline constexpr std::int64_t kMaxSamplesPerStep = 256;
+inline constexpr std::int64_t kMaxPageLimit = 10000;
+inline constexpr std::int64_t kMaxExploreSteps = 1000000;
 
 /// The most shapes one call names (a Puzzlecad export, STL file names).
 inline constexpr std::size_t kMaxShapeList = 65536;

@@ -21,7 +21,7 @@ Reply solutionPage(State& s, Params& p) {
   const int by = p.optChoice("sortBy", solutionPageSortNames()).value_or(-1);
   const bool descending = p.optBoolean("descending", false);
   const auto offset = static_cast<std::size_t>(p.optInteger("offset", 0, 0, 0xFFFFFFFF));
-  const auto limit = static_cast<std::size_t>(p.optInteger("limit", kDefaultPage, 1, 10000));
+  const auto limit = static_cast<std::size_t>(p.optInteger("limit", kDefaultPage, 1, kMaxPageLimit));
   BTE_CHECK(p.finish());
   BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
   // sorted as a view, under the lock a running solve writes with

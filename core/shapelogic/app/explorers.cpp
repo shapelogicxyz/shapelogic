@@ -10,7 +10,6 @@
 #include "shapelogic/base/stop.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/voxel.h"
-#include "shapelogic/model/movement_values.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/sliding.h"
@@ -21,7 +20,6 @@
 #include "shapelogic/solve/movement_cache.h"
 
 #include <algorithm>
-#include <cmath>
 #include <deque>
 #include <utility>
 
@@ -203,13 +201,14 @@ struct MovementExplorer::Impl {
       }
     }
     const Node& from = nodes[at];
-    // removals are not added
-    for (unsigned int i = 0; i < from.pieces.size(); i++) {
-      if (std::abs(mv->getX(i)) > movement::kRemovedBeyond ||
-          std::abs(mv->getY(i)) > movement::kRemovedBeyond ||
-          std::abs(mv->getZ(i)) > movement::kRemovedBeyond) {
-        return std::nullopt;
-      }
+    // Removals are not added: a node marks a piece that left by its
+    // orientation and keeps the direction it left in where its place was
+    // (DisassemblerNode::setRemove), so such a node shows no position, and
+    // analysing it would ask for the moves of a piece that is not there.
+    // (The check as it was ported looked for a coordinate past 10000, a
+    // take-apart state's mark, which no node has.)
+    if (mv->isSeparation()) {
+      return std::nullopt;
     }
     Node n;
     n.id = static_cast<unsigned int>(nodes.size());

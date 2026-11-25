@@ -80,7 +80,9 @@ class Analysis final : public BackgroundJob {
   /// Stops and waits.
   ~Analysis() override;
 
-  [[nodiscard]] Kind kind() const override { return Kind::Analysis; }
+  /// The kind of every Analysis: the document's key for it.
+  static constexpr Kind kKind = Kind::Analysis;
+  [[nodiscard]] Kind kind() const override { return kKind; }
   /// Any thread.
   [[nodiscard]] AnalyseProgress progress() const;
   /// The separations found, by solution id, in the order of the work;

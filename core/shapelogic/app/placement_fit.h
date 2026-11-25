@@ -71,7 +71,9 @@ class PlacementFit final : public BackgroundJob {
   /// Stops and waits.
   ~PlacementFit() override;
 
-  [[nodiscard]] Kind kind() const override { return Kind::PlacementFit; }
+  /// The kind of every PlacementFit: the document's key for it.
+  static constexpr Kind kKind = Kind::PlacementFit;
+  [[nodiscard]] Kind kind() const override { return kKind; }
   /// Any thread.
   [[nodiscard]] PlacementFitProgress progress() const;
 

@@ -24,6 +24,9 @@ namespace bt::app {
 class BackgroundJob {
  public:
   /// The kinds of job; the document keeps one of each kind per problem.
+  /// Each job class names its own as `kKind`, which is what the document
+  /// files it under and finds it by (Document::startJob, job), so a job is
+  /// never read as another class.
   enum class Kind : std::uint8_t {
     Analysis,      ///< saved assemblies taken apart (analysis.h)
     PlacementFit,  ///< a tilted tray's placements tried (placement_fit.h)

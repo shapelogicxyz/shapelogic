@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Runs a Release run's jobs again when they got no runner: the Retry
-# workflow (retry.yml) calls it when a Release run has failed.
+# Runs a Release or Staple run's jobs again when they got no runner: the
+# Retry workflow (retry.yml) calls it when such a run has failed.
 #
 #   .github/scripts/retry.sh <run id>
 #
@@ -14,7 +14,14 @@
 # the attempt's end and starts over. A job that ran a step and failed is a
 # real failure: then nothing is re-run. It stops at the run's twelfth
 # attempt, and when the run is going or has passed (another Retry run
-# waited for this one: the concurrency group).
+# waited for this one: the concurrency group; or someone re-ran the jobs by
+# hand during the ten minutes, which is looked for before the re-run).
+#
+# What it does not reach: a job that first runs in a re-run (publish, which
+# needs the builds) and gets no runner there is re-run only if that
+# attempt's end starts the Retry workflow again; and an attempt that runs
+# long beside a job without a runner can use up the workflow's 350 minutes
+# before the twelfth attempt. Then: Re-run failed jobs, by hand.
 #
 # Needs GH_TOKEN (actions: write) and GITHUB_REPOSITORY.
 set -euo pipefail
@@ -24,7 +31,21 @@ repo="${GITHUB_REPOSITORY}"
 max_attempts=12
 wait_seconds=600
 
-api() { gh api "repos/${repo}/actions/runs/${run_id}$1" "${@:2}"; }
+# A call of the API for the run. One that fails is made again, a minute
+# apart, five times in all: this polls for hours, and one answer lost on
+# the way must not end it.
+api() {
+  local out try
+  for try in 1 2 3 4 5; do
+    if out="$(gh api "repos/${repo}/actions/runs/${run_id}$1" "${@:2}")"; then
+      printf '%s\n' "${out}"
+      return 0
+    fi
+    echo "the API did not answer (try ${try} of 5)" >&2
+    sleep 60
+  done
+  return 1
+}
 
 # The jobs of an attempt that did not succeed: "<steps run> <name>" a line.
 unfinished_jobs() {
@@ -56,6 +77,13 @@ while true; do
   names="$(cut -d' ' -f2- <<< "${jobs}")"
   echo "every failed job got no runner: re-running them in ${wait_seconds} s"
   sleep "${wait_seconds}"
+  # re-run by hand meanwhile: start over with the run as it is now (going:
+  # nothing to do; failed again: its own jobs looked at)
+  read -r status now < <(api "" --jq '"\(.status) \(.run_attempt)"')
+  if [ "${status}" != completed ] || [ "${now}" -ne "${attempt}" ]; then
+    echo "the run was started again meanwhile (attempt ${now}, ${status})"
+    continue
+  fi
   gh run rerun "${run_id}" --repo "${repo}" --failed
   next=$((attempt + 1))
   # follow the new attempt until each re-run job has a runner, or it ends

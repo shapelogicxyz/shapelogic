@@ -705,8 +705,6 @@ TEST_CASE("file: sliding start marks are read, written and converted from colors
   CHECK(io::writePuzzle(k).find("<slideMarks start=") != std::string::npos);
 }
 
-// Decision 0044: a problem's uid names its saved searches, so it is kept
-// through saves, renames and moves, and no two problems of a file share one.
 // Start and goal marks belong to the sliding grid alone: only its grid
 // class moves them with the cells, so marks read on another grid would be
 // left the wrong length by a transform or a scale (cleanup item 11.4).
@@ -732,6 +730,8 @@ TEST_CASE("file: marks on a grid other than the sliding one are dropped as it lo
   }
 }
 
+// Decision 0044: a problem's uid names its saved searches, so it is kept
+// through saves, renames and moves, and no two problems of a file share one.
 TEST_CASE("puzzle file: every problem has a uid of its own, kept as it is saved",
           "[io][file][uid]") {
   const auto problems = [](const std::string& each, int n) {

@@ -460,3 +460,50 @@ TEST_CASE("explorers: the movements of a take-apart", "[app][explorers]") {
   }
   CHECK(e->root().children == std::vector<unsigned int>{k0});
 }
+
+// Analyze finds removals too (the pieces that can leave at once), which are
+// no positions: a node of the search marks a piece that left by its
+// orientation and holds the direction it left in where its place was. Such
+// a child showed the piece at that "place", and analysing it failed an
+// assertion (the orientation of a piece that is not there). Checkpoint E
+// of docs/CLEANUP-PLAN.md, under 11.9.
+TEST_CASE("explorers: a move that takes pieces out is not added", "[app][explorers]") {
+  // the root of this burr's solution has pieces that slide out at once
+  Document d = openFixture("SolidSixPieceBurrs.xmpuzzle");
+  const Id p = d.problemIds().front();
+  REQUIRE(d.puzzle().getProblem(0).getNumberOfSavedSolutions() > 0);
+  const Id sol = d.puzzle().getProblem(0).getSavedSolution(0).getId();
+  Result<MovementExplorer> e = d.exploreMovements(p, sol, false);
+  REQUIRE(e.has_value());
+  const std::vector<std::array<int, 3>> directions = e->directionVectors();
+
+  // every child, two levels down: each piece stays or moves one step of a
+  // direction, and the child can be analysed in its turn
+  std::vector<unsigned int> todo = e->analyse(0).value();
+  REQUIRE_FALSE(todo.empty());
+  const std::size_t first = todo.size();
+  for (std::size_t at = 0; at < todo.size(); at++) {
+    const MovementExplorer::Node& n = e->node(todo[at]);
+    const MovementExplorer::Node& from = e->node(n.parent);
+    INFO("node " << n.id << " '" << n.label << "'");
+    REQUIRE(n.pieces == from.pieces);
+    unsigned int moved = 0;
+    for (std::size_t i = 0; i < n.pieces.size(); i++) {
+      const std::array<int, 3> by{n.x[i] - from.x[i], n.y[i] - from.y[i], n.z[i] - from.z[i]};
+      if (by == std::array<int, 3>{0, 0, 0}) {
+        continue;
+      }
+      moved++;
+      const bool step = std::any_of(directions.begin(), directions.end(), [&by](const auto& v) {
+        return by == v || by == std::array<int, 3>{-v[0], -v[1], -v[2]};
+      });
+      CHECK(step);
+    }
+    CHECK(moved > 0);
+    if (at < first) {
+      const Result<std::vector<unsigned int>> kids = e->analyse(n.id);
+      REQUIRE(kids.has_value());
+      todo.insert(todo.end(), kids->begin(), kids->end());
+    }
+  }
+}

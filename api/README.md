@@ -61,10 +61,13 @@ or result is reported.
 5. `just app-gen` (the front end's types; its engine tests compare the
    method list with `engine.info`).
 
-An enum the engine reads or writes has one `Names` table in
+An enum the engine reads has one `Names` table in
 `engine/convert.{h,cpp}` (the API's names, apart from the file format's),
-and a numeric bound is a constant of the core or the engine:
+and so have most of those it only writes; a numeric bound is a constant of
+the core or of the engine (its own are in `convert.h`).
 `tests/unit/engine/test_api_tables.cpp` holds the schema's enums and
-maxima to them (add a row there with a new one). A maximum the front end
+maxima to them. It walks the whole schema: a new enum or maximum is a row
+there, or a line in its list of the ones it does not tie, with the reason
+(an enum written from one switch, a fraction). A maximum the front end
 holds its inputs to is emitted as `LIMITS` (`web/tools/gen-api.ts`'s
 `LIMIT_FIELDS`).

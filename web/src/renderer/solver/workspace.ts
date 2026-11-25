@@ -25,6 +25,7 @@
 // `renderSolver`, `svSelect`, `svManage`, `svTag`, `svStatus`, `svKey`
 // and the Solver keydown handlers, and `SV`.
 
+import { LIMITS } from '../../engine/api.generated.ts';
 import type {
   Methods,
   ProblemDetail,
@@ -2001,12 +2002,12 @@ export class SolverWorkspace {
   // the ids of the saved solutions in the stored order (without their moves: `missing`)
   private async collectTargets(problem: string, missing: boolean): Promise<string[]> {
     const out: string[] = [];
-    for (let offset = 0; ; offset += 10000) {
+    for (let offset = 0; ; offset += LIMITS.solutions.page) {
       const page = await this.store.engine.call('solution.page', {
         problem,
         sortBy: 'list',
         offset,
-        limit: 10000,
+        limit: LIMITS.solutions.page,
       });
       for (const r of page.rows) {
         if (!missing || r.disassembly !== 'tree') {
@@ -2043,12 +2044,12 @@ export class SolverWorkspace {
     })
       .then(async () => {
         const have = new Set<string>();
-        for (let offset = 0; ; offset += 10000) {
+        for (let offset = 0; ; offset += LIMITS.solutions.page) {
           const page = await this.store.engine.call('solution.page', {
             problem,
             sortBy: 'list',
             offset,
-            limit: 10000,
+            limit: LIMITS.solutions.page,
           });
           for (const r of page.rows) {
             if (r.disassembly !== 'none') {

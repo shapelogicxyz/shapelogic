@@ -55,6 +55,9 @@ namespace bt::app {
 /// The largest space a command makes, in cells: a guard against sizes typed
 /// by mistake, far above any real puzzle (grid.geometry draws no larger).
 inline constexpr std::uint64_t kMaxShapeCells = std::uint64_t{1} << 24;
+/// The most cells a new start/goal shape of a sliding puzzle is wide, high
+/// or deep (Document::addStartGoal).
+inline constexpr unsigned int kMaxStartGoalSide = 1024;
 
 /// A stable runtime id: names a shape, color or problem while the
 /// document is open, whatever its place in the list (labels like "S1"
@@ -1015,9 +1018,13 @@ class Document {
   /// checkProblemFree(), poll() and the destructor walk them all, so a new
   /// kind is a new BackgroundJob::Kind (cleanup item 11.12).
   std::map<std::pair<Id, BackgroundJob::Kind>, std::unique_ptr<BackgroundJob>> jobs_;
-  /// The job of a kind for a problem; null for none.
+  /// Starts a job of class `Job` for a problem, filed under the class's
+  /// kind (Job::kKind): the one place a job goes into jobs_.
+  template <class Job, class... Args>
+  void startJob(Id problem, Args&&... args);
+  /// The problem's job of class `Job` (found by Job::kKind); null for none.
   template <class Job>
-  [[nodiscard]] Job* job(Id problem, BackgroundJob::Kind kind) const;
+  [[nodiscard]] Job* job(Id problem) const;
   /// How each problem's last analysis ended, kept by poll() as it puts the
   /// results in: an owner that looks after poll() still learns its counts.
   std::map<Id, AnalyseProgress> analysisEnds_;

@@ -118,7 +118,9 @@ class MovementExplorer {
   [[nodiscard]] bool exists(unsigned int id) const;
 
   /// Adds every position one move away from a node (Analyze) and returns
-  /// their ids; positions met before at that node are not added twice.
+  /// their ids; positions met before at that node are not added twice. A
+  /// move that takes pieces out of the puzzle gives no position: it is not
+  /// added.
   Result<std::vector<unsigned int>> analyse(unsigned int id);
   /// Adds the position where the given pieces (the problem's piece
   /// numbers) moved one step in direction `direction` of the grid's

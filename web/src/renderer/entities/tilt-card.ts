@@ -21,6 +21,7 @@ import { flash } from '../shell/status.ts';
 import {
   ALLOWANCE_MAX,
   ALLOWANCE_ON,
+  SHIFT_MAX,
   SLOPE_MAX,
   TRAY_MAX,
   degreesText,
@@ -254,7 +255,7 @@ export class TiltCard {
       case 'shiftX':
       case 'shiftY': {
         const n = Number(v.trim().replace(',', '.'));
-        if (v.trim() === '' || !Number.isFinite(n) || Math.abs(n) > 1024) {
+        if (v.trim() === '' || !Number.isFinite(n) || Math.abs(n) > SHIFT_MAX) {
           flash('The shift is a number of cells');
           this.redraw();
         } else if (n !== t[key]) {

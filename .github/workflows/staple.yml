@@ -14,7 +14,8 @@
 #
 # A submission still In Progress, or Invalid, fails the job with its status
 # (and for Invalid, Apple's log); nothing is stapled. An architecture the run
-# did not build (its box unticked) is skipped.
+# did not build (its box unticked) is skipped. A job that got no runner is
+# run again by the Retry workflow (retry.yml), as Release's are.
 
 name: Staple
 

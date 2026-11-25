@@ -436,8 +436,7 @@ Result<unsigned int> Document::fitPlacementsStart(Id problem, const SolveOptions
   (void)scratch->addProblem(pr);
 
   fitEnds_.erase(problem);
-  jobs_.emplace(std::pair{problem, BackgroundJob::Kind::PlacementFit},
-                std::make_unique<PlacementFit>(std::move(scratch), boards, options));
+  startJob<PlacementFit>(problem, std::move(scratch), boards, options);
   return static_cast<unsigned int>(boards.boards.size());
 }
 
@@ -445,7 +444,7 @@ Result<void> Document::fitPlacementsStop(Id problem) {
   if (Result<unsigned int> p = problemIndex(problem); !p) {
     return std::unexpected(p.error());
   }
-  PlacementFit* f = job<PlacementFit>(problem, BackgroundJob::Kind::PlacementFit);
+  PlacementFit* f = job<PlacementFit>(problem);
   if (f == nullptr) {
     return fail(Errc::InvalidState, "the tray's placements are not being tried with the problem");
   }
@@ -457,7 +456,7 @@ Result<PlacementFitProgress> Document::fitPlacementsProgress(Id problem) const {
   if (Result<unsigned int> p = problemIndex(problem); !p) {
     return std::unexpected(p.error());
   }
-  if (const PlacementFit* f = job<PlacementFit>(problem, BackgroundJob::Kind::PlacementFit)) {
+  if (const PlacementFit* f = job<PlacementFit>(problem)) {
     return f->progress();
   }
   const auto e = fitEnds_.find(problem);
@@ -465,7 +464,7 @@ Result<PlacementFitProgress> Document::fitPlacementsProgress(Id problem) const {
 }
 
 bool Document::fittingPlacements(Id problem) const {
-  return jobs_.contains({problem, BackgroundJob::Kind::PlacementFit});
+  return jobs_.contains({problem, PlacementFit::kKind});
 }
 
 }  // namespace bt::app

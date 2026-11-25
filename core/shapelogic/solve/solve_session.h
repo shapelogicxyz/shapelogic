@@ -65,6 +65,10 @@ enum class SolutionOrder : std::uint8_t {
   Rotations = 3,  ///< the most turns first
 };
 
+/// The most take-apart workers a solve is given
+/// (SolveOptions::takeApartWorkers): more are held to it.
+inline constexpr unsigned int kMaxTakeApartWorkers = 64;
+
 /// What a solve does (the solve thread's PAR_ flags and its settings). May
 /// change between the runs of a session (setOptions).
 struct SolveOptions {
@@ -110,7 +114,7 @@ struct SolveOptions {
   /// is over.
   unsigned int threads = 0;
   /// Take-apart workers; 0 chooses (SHAPELOGIC_DISASM_WORKERS of the
-  /// original). At most 64.
+  /// original). At most kMaxTakeApartWorkers.
   unsigned int takeApartWorkers = 0;
   /// The assembly search's switches: vectorSearch, kernels,
   /// vectorMemoryBudget. Its threads and pool are the session's.

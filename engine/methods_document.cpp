@@ -17,9 +17,6 @@ namespace bt::engine {
 
 namespace {
 
-// the highest tray lip of a Puzzlecad export, in cells
-constexpr std::int64_t kMaxLip = 16;
-
 Reply documentNew(State& s, Params& p) {
   const GridKind grid = p.choice("grid", gridNames());
   const bool tilted = p.has("tray");

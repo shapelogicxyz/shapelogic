@@ -34,6 +34,8 @@ export const ALLOWANCE_MAX = LIMITS.tray.allowance;
 export const TRAY_MAX = LIMITS.tray.side;
 /** The largest slope number (over, and so down). */
 export const SLOPE_MAX = LIMITS.tray.slope;
+/** The farthest a custom placement shifts the tray, in cells, either way. */
+export const SHIFT_MAX = LIMITS.tray.shift;
 
 /** The ids of a tilted puzzle's pieces that do not fit its board (ShapeSummary.fits). */
 export function unfitIds(shapes: readonly Pick<ShapeSummary, 'id' | 'fits'>[]): Set<string> {
