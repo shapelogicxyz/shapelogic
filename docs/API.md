@@ -112,6 +112,17 @@ Result:
 | `grids.defaultSize` | integer | required | The size of a new shape in each direction, in cells. |
 | `grids.sizeUnit` | integer | required | shape.resize counts in blocks of this many cells. |
 | `grids.convertsTo` | [Grid](#grid)[] | required | The grids document.convertGrid converts its puzzles to (the original's Convert brick grid type to other): rhombic and tetraOcta for bricks, none for the others. |
+| `grids.cubeLike` | boolean | required | Its cells are the cube grid's, one mesh unit each (bricks, sliding, stacking): a layer of the editor's plane is one unit thick, and a mesh's cells are its unit cubes. |
+| `grids.cellToMesh` | Matrix3 | required | Where a cell lies in mesh units (the original's recalcSpaceCoordinates): this matrix times the cell's coordinates. Linear, so a cell minus a hotspot maps as one: where a placed piece's mesh goes. |
+| `grids.extent` | object | required | The size in mesh units of a space of size s (the original's calculateSize: the box the meshes lie in, from 0): offset + matrix · u, where u is s in whole blocks of `unit` cells per axis, rounded up. |
+
+`grids.extent`:
+
+| name | type | | description |
+|---|---|---|---|
+| `grids.extent.unit` | integer | required | Cells per block: 5 on the rhombic grid, 3 on the tetra-octa grid, else 1. |
+| `grids.extent.matrix` | Matrix3 | required | A 3x3 matrix by rows: row i times a vector [x, y, z] gives the result's axis i. |
+| `grids.extent.offset` | number[] | required |  |
 
 `solvers`:
 

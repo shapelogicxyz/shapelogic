@@ -361,7 +361,7 @@ Files in `core/shapelogic/mesh/`:
 - `cell_sweep.{h,cpp}`: `sweepEnters`, `sweptCells`: the cells a moved cell passes through (decision 0025).
 - `cube_mesh.{h,cpp}`: the cube grids' STL mesh (`cubeSurface`, `cubePolyhedron`) from the chamfer table.
 - `draw_mesh.{h,cpp}`: `DrawMesh`, a mesh as plain arrays for a binary frame; `shapeDrawMesh`.
-- `grid_geometry.{h,cpp}`, `grid_geometry_tables.h`: `connectionFace`, `calculateSize`, `recalcSpaceCoordinates` for every grid.
+- `grid_geometry.{h,cpp}`, `grid_geometry_tables.h`: `connectionFace`, `calculateSize`, `recalcSpaceCoordinates` for every grid; `spaceRule`, the last two as linear rules (engine.info's `cellToMesh` and `extent`), held to them by a test.
 - `grid_geometry_{0,1,3,4}.cpp`: the original's grids' faces, each with its `meshverts.inc`.
 - `grid_geometry_{7,8}.cpp`: the hexagonal and cairo cells' faces (decision 0023).
 - `mink_mesh.{h,cpp}`: the prism, rhombic and tetra-octa grids' STL mesh: Minkowski sums and differences on Manifold.

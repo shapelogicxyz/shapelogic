@@ -45,9 +45,22 @@
                 "supported": {"type": "boolean", "description": "This version solves its puzzles: every grid (stacking since the deferred plan's part 3b)."},
                 "defaultSize": {"type": "integer", "minimum": 1, "description": "The size of a new shape in each direction, in cells."},
                 "sizeUnit": {"type": "integer", "minimum": 1, "description": "shape.resize counts in blocks of this many cells."},
-                "convertsTo": {"type": "array", "items": {"$ref": "types.json#/$defs/Grid"}, "description": "The grids document.convertGrid converts its puzzles to (the original's Convert brick grid type to other): rhombic and tetraOcta for bricks, none for the others."}
+                "convertsTo": {"type": "array", "items": {"$ref": "types.json#/$defs/Grid"}, "description": "The grids document.convertGrid converts its puzzles to (the original's Convert brick grid type to other): rhombic and tetraOcta for bricks, none for the others."},
+                "cubeLike": {"type": "boolean", "description": "Its cells are the cube grid's, one mesh unit each (bricks, sliding, stacking): a layer of the editor's plane is one unit thick, and a mesh's cells are its unit cubes."},
+                "cellToMesh": {"$ref": "#/$defs/Matrix3", "description": "Where a cell lies in mesh units (the original's recalcSpaceCoordinates): this matrix times the cell's coordinates. Linear, so a cell minus a hotspot maps as one: where a placed piece's mesh goes."},
+                "extent": {
+                  "type": "object",
+                  "description": "The size in mesh units of a space of size s (the original's calculateSize: the box the meshes lie in, from 0): offset + matrix · u, where u is s in whole blocks of `unit` cells per axis, rounded up.",
+                  "properties": {
+                    "unit": {"type": "integer", "minimum": 1, "description": "Cells per block: 5 on the rhombic grid, 3 on the tetra-octa grid, else 1."},
+                    "matrix": {"$ref": "#/$defs/Matrix3"},
+                    "offset": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+                  },
+                  "required": ["unit", "matrix", "offset"],
+                  "additionalProperties": false
+                }
               },
-              "required": ["grid", "label", "assemble", "disassemble", "supported", "defaultSize", "sizeUnit", "convertsTo"],
+              "required": ["grid", "label", "assemble", "disassemble", "supported", "defaultSize", "sizeUnit", "convertsTo", "cubeLike", "cellToMesh", "extent"],
               "additionalProperties": false
             }
           },
@@ -131,6 +144,7 @@
     }
   },
   "$defs": {
+    "Matrix3": {"type": "array", "items": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}, "minItems": 3, "maxItems": 3, "description": "A 3x3 matrix by rows: row i times a vector [x, y, z] gives the result's axis i."},
     "LogSetting": {"type": "string", "enum": ["off", "info", "debug"], "description": "How much of the application's log the engine writes (Settings.log)."},
     "Settings": {
       "type": "object",

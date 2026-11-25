@@ -7,7 +7,9 @@
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/base/version.h"
+#include "shapelogic/grid/grid_traits.h"
 #include "shapelogic/grid/grid_type.h"
+#include "shapelogic/mesh/grid_geometry.h"
 #include "shapelogic/model/grid_convert.h"
 
 #include <limits>
@@ -19,6 +21,15 @@ namespace {
 
 // The protocol this engine speaks (engine.hello, engine.info).
 constexpr int kProtocol = 1;
+
+// A matrix as rows of numbers.
+Json matrixJson(const mesh::Matrix3& m) {
+  Json rows = Json::array();
+  for (const auto& row : m) {
+    rows.push_back(Json{row[0], row[1], row[2]});
+  }
+  return rows;
+}
 
 // The stacking solvers' labels: the original's menu (syncSolverTypeMenu).
 std::string_view stackingSolverLabel(stacking::StackingSolver s) {
@@ -42,6 +53,7 @@ Reply engineInfo(State& s, Params& p) {
   Json grids = Json::array();
   for (const auto& [name, kind] : gridNames()) {
     const unsigned int caps = GridType(kind).getCapabilities();
+    const mesh::SpaceRule space = mesh::spaceRule(kind);
     Json convertsTo = Json::array();
     for (const GridKind to : convertTargets(kind)) {
       convertsTo.push_back(nameOf(gridNames(), to));
@@ -53,7 +65,14 @@ Reply engineInfo(State& s, Params& p) {
                          {"supported", true},
                          {"defaultSize", app::defaultShapeSize(kind)},
                          {"sizeUnit", app::sizeUnit(kind)},
-                         {"convertsTo", std::move(convertsTo)}});
+                         {"convertsTo", std::move(convertsTo)},
+                         {"cubeLike", gridTraits(kind).cubeLike},
+                         {"cellToMesh", matrixJson(space.cellToMesh)},
+                         {"extent",
+                          Json{{"unit", space.extentUnit},
+                               {"matrix", matrixJson(space.extentMatrix)},
+                               {"offset", Json{space.extentOffset[0], space.extentOffset[1],
+                                               space.extentOffset[2]}}}}});
   }
   Json solvers = Json::array();
   for (const auto& [name, type] : solverNames()) {

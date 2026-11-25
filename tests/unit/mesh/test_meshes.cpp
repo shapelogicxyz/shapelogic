@@ -6,6 +6,7 @@
 #include "../grid/grid_test_helpers.h"
 
 #include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/types.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/mesh/draw_mesh.h"
 #include "shapelogic/mesh/grid_geometry.h"
@@ -14,6 +15,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <memory>
 #include <set>
@@ -210,4 +213,55 @@ TEST_CASE("meshes: sizes and coordinates in mesh units", "[mesh]") {
   recalcSpaceCoordinates(*test::makeVoxel(rhombic, 10, 5, 5), &x, &y, &z);
   CHECK(x == 2.0F);
   CHECK(z == 4.0F);
+}
+
+// engine.info sends spaceRule for the front end, which places and frames
+// meshes by it: on every grid, it gives what the two functions give
+TEST_CASE("meshes: spaceRule is calculateSize and recalcSpaceCoordinates", "[mesh]") {
+  const auto near = [](double a, float b) {
+    return std::abs(a - static_cast<double>(b)) <= 1e-5 * std::max(1.0, std::abs(a));
+  };
+  for (const GridKind kind : test::kAllGrids) {
+    const SpaceRule r = spaceRule(kind);
+    const GridType gt(kind);
+    CAPTURE(static_cast<int>(kind));
+    for (unsigned int sx = 1; sx <= 13; sx += 3) {
+      for (unsigned int sy = 1; sy <= 13; sy += 2) {
+        for (unsigned int sz = 1; sz <= 7; sz += 3) {
+          const auto voxel = test::makeVoxel(gt, sx, sy, sz);
+          float x = 0;
+          float y = 0;
+          float z = 0;
+          calculateSize(*voxel, &x, &y, &z);
+          const std::array<double, 3> u = {static_cast<double>(wholeUnits(sx, r.extentUnit)),
+                                           static_cast<double>(wholeUnits(sy, r.extentUnit)),
+                                           static_cast<double>(wholeUnits(sz, r.extentUnit))};
+          const std::array<float, 3> got = {x, y, z};
+          for (std::size_t i = 0; i < 3; i++) {
+            const auto& row = r.extentMatrix[i];
+            CAPTURE(sx, sy, sz, i);
+            CHECK(near(r.extentOffset[i] + row[0] * u[0] + row[1] * u[1] + row[2] * u[2],
+                       got[i]));
+          }
+        }
+      }
+    }
+    const auto voxel = test::makeVoxel(gt, 4, 4, 4);
+    for (int cx = -5; cx <= 5; cx += 2) {
+      for (int cy = -4; cy <= 6; cy += 3) {
+        for (int cz = -3; cz <= 3; cz += 3) {
+          auto x = static_cast<float>(cx);
+          auto y = static_cast<float>(cy);
+          auto z = static_cast<float>(cz);
+          recalcSpaceCoordinates(*voxel, &x, &y, &z);
+          const std::array<float, 3> got = {x, y, z};
+          for (std::size_t i = 0; i < 3; i++) {
+            const auto& row = r.cellToMesh[i];
+            CAPTURE(cx, cy, cz, i);
+            CHECK(near(row[0] * cx + row[1] * cy + row[2] * cz, got[i]));
+          }
+        }
+      }
+    }
+  }
 }

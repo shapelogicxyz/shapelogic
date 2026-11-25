@@ -199,6 +199,15 @@ def engine_info_and_settings(e):
     check(info["hardwareThreads"] >= 1, "hardware threads")
     supported = {g["grid"]: g["supported"] for g in info["grids"]}
     check(all(supported.values()), f"what is solved {supported}")
+    cube = {g["grid"] for g in info["grids"] if g["cubeLike"]}
+    check(cube == {"bricks", "sliding", "stacking"}, f"the cube-like grids {cube}")
+    by = {g["grid"]: g for g in info["grids"]}
+    identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    check(by["bricks"]["cellToMesh"] == identity
+          and by["bricks"]["extent"] == {"unit": 1, "matrix": identity, "offset": [0, 0, 0]},
+          f"the cube grid's space {by['bricks']}")
+    check(by["rhombic"]["extent"]["unit"] == 5 and by["tetraOcta"]["extent"]["unit"] == 3,
+          "the cut grids' blocks")
     check(info["slidingSolvers"] == [{"solver": "sliding", "label": "Sliding Puzzle Solver"}],
           f"the sliding solver {info['slidingSolvers']}")
     check(info["stackingSolvers"] == [{"solver": "stacking", "label": "Stacking Solver"},

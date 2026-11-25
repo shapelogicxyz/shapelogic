@@ -136,4 +136,46 @@ void recalcSpaceCoordinates(const Voxel& v, float* x, float* y, float* z) {
   BT_ASSERT_MSG(false, "unknown grid");
 }
 
+namespace {
+
+constexpr Matrix3 diagonal(double x, double y, double z) {
+  return {{{x, 0, 0}, {0, y, 0}, {0, 0, z}}};
+}
+
+}  // namespace
+
+SpaceRule spaceRule(GridKind kind) {
+  const double half = std::sqrt(0.5);
+  switch (kind) {
+    case GridKind::Bricks:
+    case GridKind::Sliding:
+    case GridKind::Stacking:
+      return {diagonal(1, 1, 1), 1, diagonal(1, 1, 1), {0, 0, 0}};
+    case GridKind::TriangularPrism:
+      // x: 1 + (x - 1) / 2
+      return {diagonal(0.5, std::sqrt(3) / 2, 1), 1, diagonal(0.5, std::sqrt(3) / 2, 1),
+              {0.5, 0, 0}};
+    case GridKind::Spheres:
+      // 1 + (s - 1) sqrt(1/2) on each axis
+      return {diagonal(half, half, half), 1, diagonal(half, half, half),
+              {1 - half, 1 - half, 1 - half}};
+    case GridKind::Rhombic:
+      return {diagonal(0.4, 0.4, 0.4), 5, diagonal(2, 2, 2), {0, 0, 0}};
+    case GridKind::TetraOcta:
+      return {diagonal(1.0 / 3, 1.0 / 3, 1.0 / 3), 3, diagonal(1, 1, 1), {0, 0, 0}};
+    case GridKind::Hexagonal:
+      // x + (y - 1) / 2, and 2 kRadius + (y - 1) kRow
+      return {{{{1, 0.5, 0}, {0, hex::kRow, 0}, {0, 0, 1}}},
+              1,
+              {{{1, 0.5, 0}, {0, hex::kRow, 0}, {0, 0, 1}}},
+              {-0.5, 2 * hex::kRadius - hex::kRow, 0}};
+    case GridKind::Cairo:
+      // (s + 1) kScale in x and y
+      return {diagonal(cairo::kScale, cairo::kScale, 1), 1, diagonal(cairo::kScale, cairo::kScale, 1),
+              {cairo::kScale, cairo::kScale, 0}};
+  }
+  BT_ASSERT_MSG(false, "unknown grid");
+  return {};
+}
+
 }  // namespace bt::mesh
