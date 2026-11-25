@@ -66,9 +66,10 @@ const NO_SCROLLBARS = '::-webkit-scrollbar{display:none}';
 /**
  * Launches the app and waits for its engine to run; `callLog` is
  * BT_CALL_LOG's file, `autosave` the Solver's autosave interval in seconds
- * (BT_AUTOSAVE_SECONDS; 20 minutes without), `userData` the app's data
- * directory (a new one, removed on close, unless given: a restart keeps
- * its settings in the one given), `args` the app's command line after its
+ * (BT_AUTOSAVE_SECONDS; without it solver/cadence.ts's, a minute at least),
+ * `userData` the app's data directory (a new one, removed on close, unless
+ * given: a restart keeps its settings in the one given), `args` the app's
+ * command line after its
  * main script (a file to open), `scale` the device pixel ratio to draw at
  * whatever the display's (1 without: the guide's screenshots are taken at
  * 2, so a non-Retina monitor does not halve them), `engine` the engine to

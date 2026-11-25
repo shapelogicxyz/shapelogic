@@ -140,8 +140,8 @@ again, and comes last.
 
 - [x] Stage 1: checks that cannot pass on nothing, and that end
 - [x] Stage 2: startup health: logs and messages that tell why the app cannot work
-- [ ] Stage 3: the agent docs: trimmed, and true (decided: D2)
-- [ ] Checkpoint A (Fable): review of stage 3
+- [x] Stage 3: the agent docs: trimmed, and true (decided: D2)
+- [x] Checkpoint A (Fable): review of stage 3
 - [ ] Stage 4: bugs that lose work: the small fixes
 - [ ] Checkpoint B (Fable): review of stage 4
 - [ ] Stage 5: smaller bugs: core, engine, Python, CLI
@@ -1061,7 +1061,7 @@ the area's decisions before any task. A front-end task adds
 over 100,000 tokens before work starts, and `ARCHITECTURE.md` alone is
 about 43,000.
 
-- [ ] **3.1 AGENTS.md: what to read, and how a piece of work ends** (docs; S)
+- [x] **3.1 AGENTS.md: what to read, and how a piece of work ends** (docs; S)
   - *Where:* `AGENTS.md`: lines 9-14 (the read list), 66 (".xmpuzzle compatible both ways"),
     81 (the SolveStateCell rule; see 3.3), "Finishing a stage" (the stage-era
     conditions such as "from stage 3", "from stage 8"), "The web front end"
@@ -1092,8 +1092,35 @@ about 43,000.
        this plan" above, in AGENTS.md's words), and decision 0006 gets a
        line "Amended 2026-11-21: compatibility is one way…".
   - *Keep:* AGENTS.md's code rules, test rules, commands and SIMD rules.
+  Done (2026-11-24): AGENTS.md's read list is now this file, the active
+  plan, the ARCHITECTURE.md sections of the modules the work changes and
+  the decisions they name; PLAN.md and handoff/ are history, and
+  FRONTEND-PLAN.md, webui-spec.md and API.md are references to search (the
+  web section says the same). "Finishing a stage" is now "Finishing a piece
+  of work". It lists the C++ gates once, without stage numbers (test-all,
+  asan, tsan for threaded code, the oracle runs the change can touch,
+  check on the changed files, the benchmarks for solver changes), then
+  ARCHITECTURE.md's map lines and rules, the plan's Status and Done lines,
+  and the work left ready to commit. The front end's list: app-check,
+  app-test, the e2e specs the change touches (the whole suite only when
+  asked), the C++ steps after a core change, the screenshots. The stage
+  labels in the command list went. Rule 5 is now the one-way rule, and
+  decision 0006 has an "Amended 2026-11-21" paragraph. The SolveStateCell
+  rule uses 3.3's wording. Beyond the item: the guide's code-base pages
+  (`site/src/content/docs/docs/code-base/conventions.md`, `index.md`,
+  `testing.md`, `file-structure.md`) quoted the old read order and
+  "Finishing a stage", and now say the same as AGENTS.md (no link changed).
+  Gates: the spelling test passes (`just app-test`: 61 files, 618 tests).
+  Review (2026-11-24, Fable): OK. The read list and both finishing lists
+  keep every rule of CLAUDE.md and of "How to work through this plan"
+  (rules 3, 4, 5, 8, 9, 10, 12 and 14 are there in AGENTS.md's words; the
+  oracle's baseline steps the old list named are in `tests/oracle/README.md`
+  and the justfile). One pointer was left behind and is fixed:
+  `tests/bench/README.md` named "Finishing a stage". `docs/PLAN.md` and
+  `docs/FRONTEND-PLAN.md` still name the old lists; they are history and
+  stay.
 
-- [ ] **3.2 ARCHITECTURE.md: a map and the rules** (docs; M)
+- [x] **3.2 ARCHITECTURE.md: a map and the rules** (docs; M)
   - *Where:* `docs/ARCHITECTURE.md` (2,556 lines; edited in 44 of the 88
     commits of November 2026, so parallel sessions collide there).
   - *Change:* rewrite it as:
@@ -1129,8 +1156,105 @@ about 43,000.
   - *Branches:* open branches that edit this file will conflict at their
     merge. Record them as rule 11 says. The merge's fix is to take the new
     file and add the branch's map lines.
+  Done (2026-11-24): ARCHITECTURE.md is rewritten, from 2,572 lines to
+  791. It keeps the big picture, the layout table, and for each module
+  (base, grid, model, io, solve, mesh, app, engine, cli, python, web) a map
+  and its rules with the decisions. The map has 325 lines naming 475 paths,
+  each the file's header comment shortened. Testing against the original,
+  the rules that hold everywhere, and build and test are kept as facts
+  without the history.
+  - Dropped: "Current state", the stage labels, and the catalog of what
+    each web test covers (the tests say it). Per-file prose was dropped
+    only where the file's own comments state it: each such fact was looked
+    up (`grep`) in the files it concerns, for example the slide search's
+    mechanics in `sliding_search.h`, the take-apart's in its headers, the
+    web modules' in theirs.
+  - Kept: what only the old text said, every rule that spans files, the
+    file formats and compatibility, the thread rules and the lock order.
+  - The test: `tests/docs/test_architecture_map.py` (ctest
+    `architecture-map`), also run by `web/tests/unit/architecture-map.test.ts`
+    (skipped without Python 3). It fails on a source file (`.h`, `.cpp`,
+    `.ts`, `.html`, `.css` under `core/`, `engine/`, `cli/`, `python/src/`,
+    `web/src/`) without a map line, on a map line that names a missing
+    path, on a path named twice, and on more than 500 lines besides the
+    map (466 now).
+  - Differs from the item: the cap is on the prose, not 800 lines for the
+    whole file. The map alone takes 325 lines and grows by one with every
+    new file, so a cap on the whole file would force prose out each time a
+    file is added; the prose is what must not grow back.
+  - Branches (rule 11): `feature/v2-idea-3-cutting-plane-editor` edits
+    ARCHITECTURE.md (its mesh, engine, view3d and entities paragraphs). At
+    its merge, take the new file and add map lines for
+    `core/shapelogic/mesh/cell_section.{h,cpp}`,
+    `web/src/renderer/view3d/cut.ts` and `web/src/renderer/entities/cut-plane.ts`
+    (the map test names them); its `grid.cuts` and `grid.section` are in
+    `methods_shape.cpp`, already mapped. `feature/cell-search` has no
+    commits past main.
+  Gates: `architecture-map` passes in `just test` (14 of 14) and in `just app-test`; the checker was also seen to fail on a missing map line and on the old prose cap while the text was being written.
+  Review (2026-11-24, Fable): the rewrite kept the facts; fourteen
+  statements were wrong or too wide and are corrected.
+  - How it was checked: six readers took the old text section by section
+    (`git show 0ac5312:docs/ARCHITECTURE.md`), about 620 facts in all
+    (invariants, rules across files, thread and lock rules, formats,
+    differences from the original, decision pointers). Each was looked up
+    in the new text, then in the comments of the file it concerns, then in
+    the decisions the new text names. Every finding below was read again
+    in the code before anything was changed.
+  - Lost, now restored:
+    - decision 0019 was named nowhere (the original's BurrTools 2 solver
+      is not kept, and 0019 holds where 0009 to 0011 describe it): on
+      `solver_type`'s map line;
+    - a quit goes on when a window closes by itself meanwhile: a comment
+      in `web/src/main/index.ts`.
+  - Wrong in the new text, corrected there:
+    - "`core/` reads no environment variable" (the rewrite's addition):
+      `base/system.h`'s `userCacheDirectory()` does, for the programs; and
+      "no global state" has decision 0020's exception;
+    - "the grid module has no geometry": the hexagonal and cairo lattices
+      have theirs;
+    - the `constinit` rule held for the table sets only;
+    - unknown elements of `<voxel>` are not kept, only its attributes (the
+      old text had this right);
+    - `SetStore` is not in `slide_levels.h`; `extent.ts` has no
+      `cellScale` (`gridExtent`, `cellToMesh`, `placedAt`);
+    - the web rule on the frozen state: every shape edit is refused while
+      anything solves, a new or duplicated problem is not, a problem's own
+      edits only while it is solved or analysed;
+    - "into every solve's options": not a `solve.continue` without options
+      (decision 0043);
+    - the app rules named decision 0036 (the front end's) and not 0033 and
+      0039.
+  - Wrong in the old text and carried over, corrected:
+    - "Manifold is the core's only third-party library" (zlib and zstd
+      are linked too);
+    - "the STL files are the original's bytes": the test compares box,
+      area and volume, not triangles (`stl_invariants.h`);
+    - the version "is CMakeLists.txt's" and "a unit test keeps
+      `package.json`'s equal": it is the git tag's, and `package.json`
+      stays 0.0.0;
+    - sliding: New, Copy and Delete problem are allowed though the
+      original grayed them out;
+    - tilted trays: a tray change that leaves a piece no whole-cell place
+      leaves it where it was, it is not refused.
+  - Narrowed, a few words put back: the lock order (the disassemblers'
+    times, outside their own locks), an analysis's end before its
+    `document.changed`, Open Recent among the path grants, the client's
+    extent tables, `solving()` covering a tray's placement fit,
+    `movesText()`'s 256-byte cut, decision 0044 in the slide rules,
+    decisions 0024, 0034 and 0043 on the journal's map line, the missing
+    `tests/data` and `cmake` entries, the harness paragraph (the imports
+    and the Python transcript are not `shapelogic_cli` against `burrTxt`).
+  - Twenty map lines picked at random (seed 20261124) match their files'
+    header comments.
+  - The test: run on scratch copies of the doc it fails for a removed map
+    line, a missing file, a file named twice and prose past the cap. A
+    wrapped or misspelled item ended a map without a word and showed only
+    as "no map line" for the files after it; the checker now names the
+    line.
+  - The prose is now 490 lines of the 500 allowed: a later rule has to be
+    short, or replace one.
 
-- [ ] **3.3 Docs that contradict the code** (docs; S)
+- [x] **3.3 Docs that contradict the code** (docs; S)
   - Each of these is wrong today; fix the text (code changes that go with
     some of them are in the items named):
     - The SolveStateCell rule. "Only the run's worker writes a
@@ -1205,6 +1329,80 @@ about 43,000.
   - *Verify:* `python3 api/gen_api_md.py` and `just app-gen` after the
     schema text changes (the api-docs and staleness tests); the spelling
     test.
+  Done (2026-11-24): each finding confirmed, then fixed:
+  - SolveStateCell: the owner's writes are confirmed:
+    `solve_session.cpp`'s first move in `launch` and `launchStacking`, the
+    moves to Idle there and in `abort`, all under `controlMutex_` with no
+    run thread. The rule is now "one writer at a time…" in AGENTS.md,
+    `solve_state.h` (the file and the class), ARCHITECTURE.md (base) and
+    decision 0004 (an "Amended" sentence). The code check stays 5.11.
+  - The Panex autosave: `stack_search.h`, `methods_solve.cpp`,
+    `api/solve.json` (so `docs/API.md` and `api.generated.ts`) and decision
+    0015 (both places, amended) now say SaveCadence. The same stale fact was
+    in `web/src/main/index.ts`'s comment on BT_AUTOSAVE_SECONDS ("20
+    minutes"); it now names the journal's floor of a minute.
+  - `api/types.json`'s Grid: hexagonal and cairo are assembled and taken
+    apart (decision 0025).
+  - CROWELL.md:
+    - item 15 is "not needed": nodes compare places relative to piece 0;
+    - item 18: Classic caches its cells too (`loadSubset`);
+    - the constants are `kArcSteps`, `kBevelRemove` and `kHalfThick`.
+  - `simd_exact_cover.h`: the larger sizes serve only the unit tests.
+  - Decision 0012 has two "Amended" sentences: `explore.openAssembly` is
+    not a job until 18.1, and the assembly explorer opens sliding puzzles.
+  - ARCHITECTURE.md's stale lines went with 3.2. The rewrite says saves
+    compare `withoutUids`, gives the engine's four settings, describes
+    neither `pausedBt2` nor `ws.kind`, and gives the shared-search guard as
+    the legacy case.
+  - `TABLES.md`: the mesh tables are in `mesh/`.
+  - The shared-search guard: the legacy case can happen. `giveUids` keeps
+    uid 0 only for the first of each definition paused before uids, and a
+    definition holds more than the folder's name looks at (the rules, the
+    stacks and the uid): two such problems with other stored Solver
+    settings, or on two rod sets with equal rules, name one folder.
+    - The comments are reworded: `document.h` (four places) and
+      `document.cpp` (three).
+    - New test: "stacking document: problems paused before uids share their
+      saved search" (`[app][stacking][parallel]`). With the guard off it
+      fails: the twin's Solve is then refused only by the file lock, as
+      `IoError`, and its Abort goes through under the run. The guard stays.
+  - `chooseWorkers`'s comment is one paragraph and says what the code does.
+    The comment stranded above `logMutex_` moved to `workerError_`.
+  - `web/README.md`: the demo opens one of eleven `examples/demo/<key>.xmpuzzle`.
+  - Four doc comments moved to their declarations (`prefs.ts`, `app.ts`,
+    `puzzle/workspace.ts`, `view.ts`).
+  Gates: `python3 api/gen_api_md.py` and `just app-gen` rerun; `just test` (14 of 14, `api-docs` among them), the `[stacking]` cases (64 passed), `just app-check`, `just app-test` (618 passed, the spelling and staleness tests among them) and `just check` on the four C++ files changed all pass. Not run: `just test-tsan` for the new `[parallel]` case, and `just site-build` (the guide's text changed, no link).
+  Review (2026-11-24, Fable): OK; each fix matches the code it describes
+  (the state's five writes by the owner, `SaveCadence`'s rule,
+  `getCapabilities`, the node's hash and `operator==`, `loadSubset`, the
+  three constants, the larger covers' only users, the explorers' and the
+  analysis's refusals, `giveUids`, `takeApartThreads`, the demo's eleven
+  examples, the four moved comments).
+  - The new test fails without the guard: with `sharedSearchActive`
+    answering false, the twin's Solve is refused as `IoError` and its Abort
+    goes through (2 of 33 assertions fail). The guard was put back and
+    `document_stacking.cpp` is as committed.
+  - `[stacking][parallel]` under ThreadSanitizer: 11 cases pass, the new
+    one among them.
+  - The same stale facts in places the item did not list, fixed here:
+    - "every 20 minutes" in the CLI's help for stacking puzzles
+      (`cli/options.cpp`: users see this text), in `docs/webui-spec.md`
+      and in `web/tests/e2e/app.ts`'s comment;
+    - "undo depth, threads" as the engine's settings in comments of
+      `state/store.ts` and `shell/persist.ts`;
+    - "CMakeLists.txt's" version in `web/electron.vite.config.ts`.
+  - Stale comments the review met, fixed: `document.h` (new, copied and
+    deleted problems "refused" on a sliding puzzle; the mark limit as the
+    63rd place, which is the 255th, also in `document_commands.cpp`;
+    `exportPuzzlecad` allowed while solving), `symmetries_derived.h`
+    ("at start-up": at first use), `engine/output.h` (base64 is base's),
+    `solver/player.ts` (`cellScale`), `puzzle/counts.ts`.
+  - Not changed: decision 0013's "20-minute autosave" (decision 0024 says
+    it went) and FRONTEND-PLAN.md's, both history.
+  Gates after the review's fixes: `just test` (14 of 14), `just check` on
+  the five C++ files touched (clean), `just app-check`, `just app-test`
+  (61 files, 618 tests). Not run: `just site-build` (no link changed), and
+  no e2e spec (comments only under `web/src`).
 
 **Gates for stage 3:** the map test of 3.2, `ctest -R api-docs`,
 `just app-test` (the spelling and staleness tests), `just site-build` if the
@@ -1225,6 +1423,15 @@ The procedure is in "Fable checkpoints". What to look at:
 - AGENTS.md's new read list and finishing steps keep every rule of
   CLAUDE.md and of this plan's "How to work through this plan".
 - Each fix of 3.3 matches the code it describes.
+
+Done (2026-11-24): see the Review lines under 3.1, 3.2 and 3.3. No bug that
+a test should have caught: the code changes of stage 3 are comments and one
+test, and the test holds. What was found is doc text: two facts lost, nine
+statements the rewrite got wrong, five it took over wrong from the old
+text, and stale comments. One pattern is worth knowing for later doc work:
+the rewrite trusted the old text where it should have looked at the code.
+Checkpoints C and E are still decided by B and D. The fixes are in the
+tree with stage 3, ready for one commit.
 
 ## Stage 4: bugs that lose work: the small fixes
 

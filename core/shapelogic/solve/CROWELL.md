@@ -124,7 +124,7 @@ SAT, then stepped arc). Do not fork a second geometry copy unless you are
 matching a Fortran discrepancy; change rotation_rules.cpp so both engines
 stay consistent.
 NOT separately tunable: NrotSteps, remove=0.0405, HALFTHICK, wiggle
-amounts live in rotation_rules.cpp (ARC_STEPS, BEVEL_REMOVE). To expose
+amounts live in rotation_rules.cpp (kArcSteps, kBevelRemove, kHalfThick). To expose
 Fortran PuzzleInp "Remove for Bevel" / NrotSteps: add parameters on
 RotationRules and pass them from RotationMovesCrowell only.
 
@@ -193,14 +193,13 @@ GUI/CLI timeout later; until then Classic/Fortran both rely on the
 existing abort() from the solve thread Stop button.
 
 ### 15. State canonicalization (subtract min xyz)
-NOT IMPLEMENTED.
+NOT NEEDED: the same effect is already there.
 Fortran shifts every state so min x,y,z is 0 before hashing into States.
-Our nodeHash uses absolute piece coordinates from disassemblerNode_c.
-Translation-identical poses can be stored twice, inflating the BFS.
-To implement: before insert/contains, subtract min hotspot (or min voxel)
-from all piece positions on a copy used only for hashing/equality, OR
-add a canonical hash in disassemblerNode_c used only by the Fortran
-disassembler. Changing node equality globally would affect Classic.
+DisassemblerNode's hash() and operator== (disassembler_node.cpp) compare
+every piece's place relative to piece 0's, as the original's
+disassemblerNode_c did, so a position and the same position translated
+are one node in both engines. (Corrected 2026-11-24, cleanup item 3.3:
+this said the nodes hashed absolute coordinates.)
 
 ### 16. Unbounded BFS memory (MaxStates / LvlMax)
 NOT IMPLEMENTED as a cap.
@@ -216,8 +215,9 @@ idea as Classic tryCurrentCandidate and Fortran PID voxel count == 1.
 ### 18. Cache moving/static cells per subset
 IMPLEMENTED. loadSubsetCells fills cachedStart / cachedOccupied once per
 bitmask so axis prune and every pivot share the same vectors. Classic
-rebuilds cells inside every tryCurrentCandidate. Safe to extend with a
-voxel-count cache for countFilled.
+caches them the same way (RotationMovesClassic::loadSubset, once per
+group for every axis, pivot and sense; each piece's cells once per
+position). Safe to extend with a voxel-count cache for countFilled.
 
 ### 19. Compound (multi-piece) rotations
 IMPLEMENTED as rigid rotation of each allowed subset (all bits except

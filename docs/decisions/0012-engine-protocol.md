@@ -203,7 +203,11 @@ ids, a paused stacking solve being its search saved in the engine's
 `panexFolder`, which `solve.status` describes, `solve.abort` throws away
 without a session, and `solve.savePoint` refuses as `unsupported`).
 Analysing and the explorers refuse both, as the original did (they have
-no take-apart and no assembler). The original's "Enable High Memory" box
+no take-apart and no assembler). (Amended 2026-11-24, cleanup item 3.3:
+the assembly explorer opens a sliding puzzle, its placements those the
+solve makes, `app/explorers.cpp`'s `AssemblyExplorer::make`; analysing
+and the movement explorer refuse it, having no take-apart; all three
+refuse a stacking puzzle.) The original's "Enable High Memory" box
 (`highMemory` in `SolverSettings`) maps to `SolveOptions.sliding.highMemory`
 or `SolveOptions.stacking.highMemory`. `engine.info.grids[].supported`
 and `problem.kind.supported` are true for every grid; they stay for
@@ -214,7 +218,10 @@ clients that read them.
   can switch to reading L bytes; a JavaScript client wraps frames in typed
   arrays directly.
 - Requests are serial: a client wanting a responsive UI keeps long work in
-  jobs (solves, analyses), which is how the API is shaped.
+  jobs (solves, analyses), which is how the API is shaped. (Amended
+  2026-11-24, cleanup item 3.3: `explore.openAssembly` is not one yet: it
+  builds and reduces the matrix on the request thread; cleanup item 18.1
+  moves it into a job.)
 - The schema is the contract: a method added to the engine and not to
   `api/` (or the reverse) fails the contract tests.
 - Windows: stdout must be put in binary mode for frames (stage 8 builds

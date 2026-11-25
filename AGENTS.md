@@ -5,12 +5,21 @@ with an engine process for a future web front end. The original application
 (`../burr-tools`, override with `BT_OLD_REPO`) is the **reference**:
 ported code must give the same answers on the comparison corpus.
 
-Read before starting any task (for the web front end, see "The web front
-end" below instead):
-1. [docs/PLAN.md](docs/PLAN.md): the stages, what is done, what is next.
-2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): the layout and the rules.
-3. The newest note in [docs/handoff/](docs/handoff/).
-4. The decision records in [docs/decisions/](docs/decisions/) that touch your area.
+Read before starting any task:
+1. This file.
+2. The active plan for the work: the `docs/*-PLAN.md` the user names, or
+   the one whose Status has open stages.
+3. In [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), the section of each
+   module the work changes: its map says which file holds what, and its
+   rules what must stay true. Not the whole file.
+4. The decision records in [docs/decisions/](docs/decisions/) that those
+   sections name.
+
+[docs/PLAN.md](docs/PLAN.md) is the finished porting plan and
+[docs/handoff/](docs/handoff/) the notes of its stages: history, read only
+when a question needs it. For the front end, docs/FRONTEND-PLAN.md,
+docs/webui-spec.md and docs/API.md are references to search (by method,
+section or term), not documents to read whole.
 
 ## Commands
 
@@ -22,14 +31,14 @@ just test               # unit + contract tests without [slow], side by side; th
 just test-all           # everything; run before calling a stage done
 just gate [groups]      # every suite one after another, with a table of what passed (tests/gate.sh; ~75 min)
 just test-asan          # Address + UB sanitizers
-just test-tsan          # ThreadSanitizer on [parallel] cases (from stage 3)
+just test-tsan          # ThreadSanitizer on [parallel] cases
 just oracle [--tier …]  # compare the new bt with the original burrTxt
 just oracle-resume      # pause searches in one program, continue in the other
 just oracle-roundtrip   # load + save every corpus file in both programs, compare
-just oracle-files       # solve as burrTxt2 does, compare the solved files (stage 4)
-just oracle-text        # bt's text output against burrTxt's, byte for byte (stage 8)
-just oracle-imports     # imports, Puzzlecad export, grid conversion against the original's (deferred part 6)
-just oracle-python      # the Python module's transcripts against the original module's (deferred part 7)
+just oracle-files       # solve as burrTxt2 does, compare the solved files
+just oracle-text        # bt's text output against burrTxt's, byte for byte
+just oracle-imports     # imports, Puzzlecad export, grid conversion against the original's
+just oracle-python      # the Python module's transcripts against the original module's
 just python-test [preset] # the Python module's tests (python/tests; the module builds when Python's headers are found)
 just python-wheel       # its wheel in build/wheel, installed into a fresh venv and tested there
 just oracle-baseline    # re-record the original's answers (rarely needed)
@@ -63,7 +72,13 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
    come across (adapted to the new API), then new ones are added.
 4. **Gate on the harness** (`tests/oracle/`). Where it cannot reach yet,
    write a unit test that compares against values taken from the original.
-5. **Keep `.xmpuzzle` compatible both ways** (decision 0006).
+5. **File compatibility is one way** (decision 0006, amended). ShapeLogic
+   must open every file the original wrote (convert on load); the original
+   need not read ShapeLogic's saves, for any feature. Never add shims, dual
+   encodings or limits so that the old program can read new files; the
+   oracle round trip's "the original reads the new save" check is not a
+   requirement. Saved searches (sliding level files, `state.bin`, Panex
+   folders) and their folder names stay readable by the new code.
 
 ## Code rules
 
@@ -78,8 +93,10 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
   has a stop flag of its own, and nothing resets a token (decision 0004). A
   search that must end its own run makes a `StopSource` from the token it
   was given, one per run (decision 0009).
-- Solve state: only the run's worker writes a `SolveStateCell`; other threads
-  read it and stop runs through a `StopSource`.
+- Solve state: one writer at a time for a `SolveStateCell`: the run's
+  worker while it runs, the owner under the session's control lock before
+  the run's thread starts and after it is joined; other threads read it and
+  stop runs through a `StopSource`.
 - No global state and no environment-variable switches inside `core/`.
   Options are passed in explicitly (A/B switches for benchmarking become
   fields of the options struct, set by the CLI).
@@ -155,37 +172,41 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
   a scalar fallback. Supported: macOS arm64/x86-64, Linux x86-64, Windows
   x86-64 (MinGW).
 
-## Finishing a stage
+## Finishing a piece of work
 
-Every stage ends with, in this order:
-1. `just test-all`, `just test-asan` (and `just test-tsan` from stage 3),
-   `just oracle` for what is ported (from stage 3 on the fast, full and slow
-   tiers, with all threads and with `--threads 1`; from stage 4 every field,
-   for `--solver classic` and `crowell`), `just oracle-resume`
-   (from stage 3), `just oracle-files --tier all` (from stage 4),
-   `just oracle-text --tier all` (from stage 8; after
-   `oracle.py baseline-text --tier all`),
-   `just oracle-roundtrip` (from stage 2; run
-   `oracle.py baseline-files --tier all` once so the original's solved
-   files are included), `just check` if LLVM is installed, and from
-   stage 8 the benchmarks (`tests/bench/bench.py`: the default set,
-   `--plain`, `--set glar`; within 5% of the original or faster, on a
-   quiet machine, never beside a sanitizer run). Run the quick
-   suite a few times: a rare hang shows only so.
-2. `docs/ARCHITECTURE.md` updated to describe what now exists.
-3. `docs/handoff/stage-N.md`: what was done, gate results, known issues,
-   and the brief for the next stage.
-4. `docs/PLAN.md`: tick the stage.
-5. One commit for the stage (message: `Stage N: <summary>`).
+The C++ side, in this order:
+1. `just test-all`; `just test-asan`; `just test-tsan` for changes to
+   threaded code. Run the quick suite (`just test`) a few times: a rare
+   hang shows only so.
+2. The oracle runs the change can touch (`tests/oracle/README.md`): `just
+   oracle` (the fast, full and slow tiers, with all threads and with
+   `--threads 1`, every field, `--solver classic` and `crowell`), `just
+   oracle-resume`, `just oracle-files --tier all`, `just oracle-text --tier
+   all`, `just oracle-roundtrip`, `just oracle-imports`, `just
+   oracle-python`.
+3. `just check` on the changed files.
+4. For solver changes, the benchmarks (`tests/bench/bench.py`: the default
+   set, `--plain`, `--set glar`): within 5% of the original or faster, one
+   solve at a time on a quiet machine, never beside a sanitizer run.
+
+Then, for any work:
+- `docs/ARCHITECTURE.md`: a map line for each file added, moved or
+  removed, and the module's rules changed where an invariant changed (no
+  new prose sections; the map test fails on a source file without a line).
+- The active plan's Status and Done lines.
+- The work left ready to commit, with the message it would get (CLAUDE.md:
+  no commits unless the user asks).
 
 ## The web front end (`web/`)
 
 Electron + TypeScript over `shapelogic_engine` (decisions 0003, 0012, 0013), built
 in the stages of [docs/FRONTEND-PLAN.md](docs/FRONTEND-PLAN.md) on Girish
 Sharma's mockup ([docs/mockup/](docs/mockup/)). Read before a front-end
-task: this file, docs/ARCHITECTURE.md (its `web` section), the plan,
-docs/webui-spec.md, docs/API.md, decisions 0012 and 0013, and the newest
-`docs/handoff/web-*.md`. `web/README.md` says how to run it.
+task what the list at the top says (the `web` section of
+docs/ARCHITECTURE.md for the folders the work changes), and decisions
+0012 and 0013. docs/webui-spec.md (what each screen does) and docs/API.md
+(every method and event) are searched, not read whole. `web/README.md`
+says how to run it.
 
 **Rules.**
 - The engine is the truth: the UI never computes what the engine can
@@ -225,18 +246,17 @@ engine's sessions again. A timing assumption in an engine test is scaled
 to the release build (the 2x4x5 dominoes box runs about 9 s on one
 thread).
 
-**Finishing a front-end stage**, in this order:
+**Finishing a piece of front-end work**, in this order:
 1. `just app-check`, `just app-test` (with the release engine built, so
-   the engine tests run) and `just app-e2e` (from stage 1b), each three
-   times (a flaky test is a bug of the stage); after a core or engine
-   change, the C++ finishing steps above for what changed (`just
-   test-all`, the contract tests, `python3 api/gen_api_md.py`, the oracle
-   tiers it could touch), then `just app-gen` and the staleness test.
-2. The reference screenshots reviewed when they changed (from stage 1b).
-3. `docs/ARCHITECTURE.md` updated (its `web` section: what exists).
-4. `docs/handoff/web-N.md`: what was done, gate results, what the mockup
-   did differently and why, known issues, the brief for the next stage.
-5. docs/FRONTEND-PLAN.md: tick the stage.
-6. One commit for the stage (`Web N: <summary>`); engine additions in
-   their own commits before it (`Engine: <method>`); an audit's fixes in a
-   commit of their own after it.
+   the engine tests run) and the e2e spec files the change touches
+   (`npx playwright test tests/e2e/<file>` in `web/` after `npm run
+   build`); the whole e2e suite (`just app-e2e`) only when the user asks,
+   and say what was left unrun. A flaky test is a bug of the work.
+2. After a core or engine change, the C++ steps above for what changed
+   (`just test-all`, the contract tests, `python3 api/gen_api_md.py`, the
+   oracle runs it could touch), then `just app-gen` and the staleness test.
+3. The reference screenshots reviewed when they changed.
+4. Then the steps for any work above (ARCHITECTURE.md's map and rules, the
+   plan, ready to commit). An engine addition is its own commit before the
+   front end's (`Engine: <method>`); an audit's fixes one of their own after
+   it.

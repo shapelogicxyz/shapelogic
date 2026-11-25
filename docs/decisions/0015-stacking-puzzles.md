@@ -51,8 +51,11 @@ search's files for an export, byte for byte the original's packing.
 
 **Stacking runs go through `SolveSession`** (decision 0010).
 `SolveOptions.stacking` (`stacking::StackingOptions`: the solver, high
-memory, the search's own 20-minute autosave, the work folder and disk
-budget, the tower rule) carries what the solve thread's flags did. A run
+memory, the search's own autosave, the work folder and disk
+budget, the tower rule; amended 2026-11-24, cleanup item 3.3: the autosave
+was every 20 minutes and since 4b6a2c8 keeps to `base/save_cadence.h`'s
+rule, a minute in, then each save at least 50 times the last one's time
+after it) carries what the solve thread's flags did. A run
 does what `runStacking` did: the problem's solutions go, one start (the
 file's start stacks) is searched, a path found is the one solution with
 the start stacking as its assembly, the original's notes word for word as
@@ -172,8 +175,8 @@ throwing it away with the problem's results, as the GUI's Abort was
 offered for it (abortable()); decision 0012's rule that an abort needs a
 solve under way stands, a saved search being one. `solve.savePoint` is
 refused (`unsupported`) on a stacking solve rather than answered and
-never paused: the GUI never autosaved one, its search saves itself every
-20 minutes (`StackingOptions.autosave`) and when it stops.
+never paused: the GUI never autosaved one, its search saves itself as it
+runs (`StackingOptions.autosave`, by `SaveCadence`) and when it stops.
 
 **The solver a request does not name is the one the GUI offered**: the
 original's menu had one entry for a stacking problem, the Panex Solver

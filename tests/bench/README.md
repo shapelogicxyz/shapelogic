@@ -37,7 +37,7 @@ script set only the renamed `SHAPELOGIC_NO_SIMD`, which the original does
 not read: the plain rows of the tables before that date compare the plain
 search here with the original's vector search where it has one).
 
-The gate (decision 0007, from stage 8; AGENTS.md "Finishing a stage") is
+The gate (decision 0007; AGENTS.md "Finishing a piece of work") is
 "within 5% of the original or faster" on every row of the three runs.
 
 ## Results

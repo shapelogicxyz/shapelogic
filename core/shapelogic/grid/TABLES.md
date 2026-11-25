@@ -36,5 +36,6 @@ trees create and delete voxel spaces by hand; here every test node is
 original's exact check (transform a copy by `t`, compare it with
 `identicalInBB`). The conversion was done with sed and checked
 to keep every transformation number, every result and the brace structure in
-the same order. The mesh tables (`meshverts.inc`, `tabs_3`, `tabs_4`) come
-over with the meshes in stage 6.
+the same order. The mesh tables (`meshverts.inc` of `tabs_0`, `tabs_1`,
+`tabs_3` and `tabs_4`, and the cube mesher's `tabs_cube/`) are in
+`core/shapelogic/mesh/`, copied unchanged.

@@ -158,7 +158,7 @@ here and `just build-release` in `../burr-tools` (the benchmark uses its
 | a lot, or you are about to release | `just gate` |
 | the app's UI | `just app-check`, `just app-test`, `just app-e2e` (look at changed screenshots first), `just docs-screenshots` if the guide shows it, `just site-demo` (**site-build** fails on a stale demo) |
 | a page of this guide | `just site-build`; do not rename `/docs/` or `/docs/getting-started/`, which the app's Help menu opens |
-| a stage's worth of work | the "Finishing a stage" list in `AGENTS.md`, then `docs/ARCHITECTURE.md`, a hand-off note and the plan |
+| a stage's worth of work | the "Finishing a piece of work" list in `AGENTS.md`: then `docs/ARCHITECTURE.md`'s map lines and rules, and the plan |
 
 The rules for writing tests (tags, fixtures, comparing assemblies) are in
 [Conventions and Further Reading](/docs/code-base/conventions/). The

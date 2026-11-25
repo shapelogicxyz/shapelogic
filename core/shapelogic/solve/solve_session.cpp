@@ -70,13 +70,12 @@ std::uint64_t msSince(std::int64_t originNs) {
   return ns > 0 ? static_cast<std::uint64_t>(ns / 1000000) : 0;
 }
 
-// The take-apart workers (chooseDisasmWorkerCount): asked for, or with a
-// thread count the take-apart share of it, or every core less two (for the
-// assembly and the caller), at most 16 so that a large machine does not run
-// dozens of searches at once.
-// The take-apart's threads: the number asked for, none held back; else
-// takeApartThreads()'s (with a thread limit, every thread of it, a quarter
-// at work while the search runs beside them).
+// The take-apart's threads (chooseDisasmWorkerCount): the number asked
+// for, none held back; else takeApartThreads()'s: with a thread limit a
+// worker for every thread of it, of which the take-apart's share
+// (splitThreads) works while the search runs beside them; without one
+// every core less two (for the search and the caller), at most 16, so that
+// a large machine does not run dozens of take-aparts at once.
 TakeApartThreads chooseWorkers(const SolveOptions& o, unsigned int budget) {
   TakeApartThreads t = takeApartThreads(o.threads, budget);
   if (o.takeApartWorkers > 0) {

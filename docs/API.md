@@ -104,7 +104,7 @@ Result:
 
 | name | type | | description |
 |---|---|---|---|
-| `grids.grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart. |
+| `grids.grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled and taken apart, with movement checks derived from their cells (decision 0025). |
 | `grids.label` | string | required |  |
 | `grids.assemble` | boolean | required | It has an assembler. |
 | `grids.disassemble` | boolean | required | It has a take-apart. |
@@ -209,7 +209,7 @@ Params:
 
 | name | type | | description |
 |---|---|---|---|
-| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart. |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled and taken apart, with movement checks derived from their cells (decision 0025). |
 | `tray` | [TraySettings](#traysettings) |  | A new Tilted Square puzzle (decision 0045), on the bricks grid only: the puzzle has this tray, its board as the first shape and one problem whose result is the board. |
 
 Result: [Snapshot](#snapshot)
@@ -293,7 +293,7 @@ Params:
 
 | name | type | | description |
 |---|---|---|---|
-| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart. |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled and taken apart, with movement checks derived from their cells (decision 0025). |
 
 Result: [Snapshot](#snapshot)
 
@@ -2383,7 +2383,7 @@ Errors: `not_found`, `invalid_state`
 
 ### `solve.savePoint`
 
-Asks the assembly search alone to pause where the solve can be saved; the take-aparts under way finish, then 'paused'. A sliding solve's search stops at the end of the level it is on, saved in its folder (the engine's slideFolder): no level is cut short, and each run that stops here is at least a level further, so saving a long search again and again cannot hold it in place (solve.pause cuts the level under way short, to be searched again). That can take as long as a level does. The autosave: when the run's last progress has atSavePoint, save, then solve.continue. Refused (unsupported) on a stacking solve, which the original never autosaved: its search saves itself every 20 minutes (StackingOptions.autosave) and when it stops.
+Asks the assembly search alone to pause where the solve can be saved; the take-aparts under way finish, then 'paused'. A sliding solve's search stops at the end of the level it is on, saved in its folder (the engine's slideFolder): no level is cut short, and each run that stops here is at least a level further, so saving a long search again and again cannot hold it in place (solve.pause cuts the level under way short, to be searched again). That can take as long as a level does. The autosave: when the run's last progress has atSavePoint, save, then solve.continue. Refused (unsupported) on a stacking solve, which the original never autosaved: its search saves itself as it runs (StackingOptions.autosave: a minute in, then each save at least 50 times the last one's time after it) and when it stops.
 
 Params:
 
@@ -3330,7 +3330,7 @@ number[]
 
 ### Grid
 
-The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart.
+The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled and taken apart, with movement checks derived from their cells (decision 0025).
 
 `"bricks"` \| `"prisms"` \| `"spheres"` \| `"rhombic"` \| `"tetraOcta"` \| `"sliding"` \| `"stacking"` \| `"hexagonal"` \| `"cairo"`
 
@@ -3628,7 +3628,7 @@ Everything a front end shows of the document's lists.
 |---|---|---|---|
 | `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
 | `dirty` | boolean | required |  |
-| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart. |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled and taken apart, with movement checks derived from their cells (decision 0025). |
 | `path` | string or null | required | The file it was opened from or last saved to. |
 | `notes` | string | required |  |
 | `canUndo` | boolean | required |  |

@@ -7,13 +7,13 @@
 // Since stage 6 they are kept across sessions (persist.ts), read back
 // through `validPrefs`.
 
-/** Which way the axes point in the home view (the 3D view's "Z axis direction"). */
 /**
  * The characters per voxel of a piece's width that Show Piece Labels draws
  * by default, and the line length per voxel when it draws all of a name.
  */
 export const LABEL_LINE_PER_VOXEL = 6;
 
+/** Which way the axes point in the home view (the 3D view's "Z axis direction"). */
 export type ZAxis = 'Z Toward' | 'Z Up';
 
 /** The settings and their values. */

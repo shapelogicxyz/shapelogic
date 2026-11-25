@@ -48,7 +48,7 @@
 // every call the renderer makes is written to that file with how it ended
 // (a JSON line: method, errc), so the tests can check that the UI never
 // asked for what the engine refused; BT_AUTOSAVE_SECONDS shortens the
-// Solver's autosave (20 minutes), passed in the page's address. A
+// Solver's autosave (its floor of a minute, solver/cadence.ts), passed in the page's address. A
 // packaged app takes BT_USER_DATA only (security.ts's switches).
 
 import {
@@ -934,6 +934,8 @@ function createWindow(first?: AppCommand): void {
     void cache.forget(contents);
     void host.stop();
     updateMenu();
+    // a quit goes on with the next window however this one closed (its own
+    // close, while the quit waited on another's answer, does not end it)
     if (quitting) {
       closeNextForQuit();
     }

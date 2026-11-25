@@ -53,7 +53,8 @@ export function countText(part: Pick<Part, 'min' | 'max'> | undefined): string {
 /**
  * The count a field or a stepper asks for (the mockup's pzSet): `value`
  * for the minimum or the maximum, with a fixed count (`range` false)
- * moving both ends; a maximum of 0 takes the piece out.
+ * moving both ends; a minimum is never above the maximum, and a maximum
+ * of 0 takes the piece out.
  */
 export function nextCount(
   part: Pick<Part, 'min' | 'max'> | undefined,

@@ -4,10 +4,12 @@
 /// @file
 /// The states a solve goes through, and the only moves allowed between them.
 ///
-/// One thread owns a run's state: the run's worker. Other threads (the engine,
-/// a UI) read it and ask for a stop through a StopSource; they never write the
-/// state. "Stopping…" is shown by combining an active state with a requested
-/// stop, not by a state of its own. See
+/// One writer at a time: the run's worker while it runs, the owner (under the
+/// session's control lock) before the run's thread starts and after it is
+/// joined. Other threads (the engine, a UI) read it and ask for a stop
+/// through a StopSource; they never write the state. "Stopping…" is shown by
+/// combining an active state with a requested stop, not by a state of its
+/// own. See
 /// docs/decisions/0004-cancellation-and-solve-state.md.
 
 #include <atomic>
@@ -43,8 +45,9 @@ enum class SolveState : std::uint8_t {
 /// it is "remove all results".)
 [[nodiscard]] bool canTransition(SolveState from, SolveState to) noexcept;
 
-/// Holds a run's state. Written by one thread only (the run's worker), read
-/// by any thread.
+/// Holds a run's state. One writer at a time (the run's worker while it
+/// runs, the owner under its control lock before and after), read by any
+/// thread.
 class SolveStateCell {
  public:
   [[nodiscard]] SolveState load() const noexcept { return state_.load(std::memory_order_acquire); }

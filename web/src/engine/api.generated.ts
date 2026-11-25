@@ -524,8 +524,8 @@ export type Point2 = [number, number];
 
 /**
  * The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms
- * on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled,
- * not taken apart.
+ * on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled
+ * and taken apart, with movement checks derived from their cells (decision 0025).
  */
 export type Grid =
   | 'bricks'
@@ -4165,7 +4165,8 @@ export interface Methods {
    * place (solve.pause cuts the level under way short, to be searched again). That can take as
    * long as a level does. The autosave: when the run's last progress has atSavePoint, save, then
    * solve.continue. Refused (unsupported) on a stacking solve, which the original never autosaved:
-   * its search saves itself every 20 minutes (StackingOptions.autosave) and when it stops.
+   * its search saves itself as it runs (StackingOptions.autosave: a minute in, then each save at
+   * least 50 times the last one's time after it) and when it stops.
    * (solve.json)
    */
   'solve.savePoint': {

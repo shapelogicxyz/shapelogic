@@ -4,7 +4,8 @@
 /// @file
 /// What the engine writes (decision 0012): one JSON message per line, and
 /// binary frames (an announcement line, then the bytes) made of typed
-/// arrays that a reply describes. Also base64, for bytes inside JSON.
+/// arrays that a reply describes. Bytes inside JSON go as base64
+/// (base/base64.h).
 
 #include "rpc.h"
 #include "shapelogic/base/base64.h"

@@ -253,7 +253,7 @@ export class Store {
     }
   }
 
-  /** Changes engine settings (undo depth, threads); the store mirrors the answer. */
+  /** Changes engine settings (undo depth, threads, search memory, disk); the store mirrors the answer. */
   async setEngineSettings(change: Partial<Settings>): Promise<void> {
     this.settings = await this.engine.call('settings.set', change);
     this.emit({ kind: 'settings' });
@@ -278,7 +278,7 @@ export class Store {
     }
     this.reloadSnapshot(restarted);
     try {
-      // the settings kept from the last session (undo depth, threads) go to each new engine
+      // the settings kept from the last session (undo depth, threads, memory, disk) go to each new engine
       const wanted = this.wantedSettings();
       const [info, settings] = await Promise.all([
         this.engine.call('engine.info'),

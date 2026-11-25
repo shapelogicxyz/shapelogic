@@ -524,13 +524,13 @@ class SolveSession {
   /// load (given away while it waits at a full queue).
   std::atomic<int> assemblyLoad_{0};
 
-  /// The first exception of a run's threads.
   /// The lines for the log (takeLog), written by the search threads.
   mutable std::mutex logMutex_;
   std::vector<LogLine> log_;
   void addLog(LogLevel level, std::string text);
   mutable std::mutex failureMutex_;
   std::optional<SolveFailure> failure_;
+  /// The first exception of a run's threads.
   std::exception_ptr workerError_;
 
   /// The slide searches of a run: the pool the search spreads its levels

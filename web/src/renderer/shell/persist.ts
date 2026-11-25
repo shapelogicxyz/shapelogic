@@ -4,7 +4,8 @@
 // the main process's store before the shell starts (main.ts, then
 // startApp: prefs.ts's `validPrefs`, layout.ts's `restoreLayout`), so the
 // first picture already has them, and stored again whenever they change
-// (here). The engine's settings among them (undo depth, threads) go to
+// (here). The engine's settings among them (undo depth, threads, the
+// search memory, the searches' disk space) go to
 // every engine the window starts (Store.wantedSettings). The settings are
 // the app's: a change in another window is taken here too (decision 0036),
 // and not stored again; the layouts are each window's own.

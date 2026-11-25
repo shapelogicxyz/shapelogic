@@ -787,8 +787,8 @@ disc lies flat, the rods stand up).
   deep. Found N stackings.", "Tracing the path. Traced N of M moves.",
   or "Scanned N stackings."; the solver's note comes in a message
   box when a run ends (through, or paused: where it was saved). The
-  20-minute save point of the other grids is not used (the search saves
-  itself); File ▸ Save while a stacking solve runs offers to pause it (the
+  other grids' save point is not used (the search saves itself as it
+  runs); File ▸ Save while a stacking solve runs offers to pause it (the
   search saves itself as it pauses), saves, and carries it on.
 - **Solutions:** one at most, its moves the transfers; Analyse,
   Movements, Placements and Step are not offered (no take-apart, no

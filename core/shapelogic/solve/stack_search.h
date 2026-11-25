@@ -98,8 +98,10 @@ struct StackingOptions {
   /// the program (the engine from its settings; the CLI leaves it to
   /// highMemory).
   std::uint64_t memoryBytes = 0;
-  /// The Panex search saves itself every 20 minutes; false saves it only
-  /// when it stops (the GUI's Autosave box off).
+  /// The Panex search saves itself as it runs, by base/save_cadence.h's
+  /// rule (a minute in, then each save at least 50 times the last one's
+  /// time after it); false saves it only when it stops (the GUI's Autosave
+  /// box off).
   bool autosave = true;
   /// panex::PanexSearch::workDir and diskBudget: set by the program (the
   /// CLI from --panex-dir, SHAPELOGIC_PANEX_DIR or the user's cache folder,

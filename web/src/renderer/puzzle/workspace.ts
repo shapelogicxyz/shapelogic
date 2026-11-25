@@ -220,12 +220,12 @@ export class PuzzleWorkspace {
     return this.store.snapshot?.shapes.find((s) => s.id === shape)?.label ?? shape;
   }
 
-  /** A shape's chip colors. */
   /** A problem's chip style, by its place in the list. */
   private probChip(p: ProblemSummary): string {
     return problemChipStyle(this.store.snapshot?.problems.findIndex((q) => q.id === p.id) ?? 0);
   }
 
+  /** A shape's chip colors. */
   chip(shape: string): { bg: string; fg: string } {
     const i = this.store.indexOf(shape);
     const c = chipColor(this.store.snapshot?.shapes[i], i);

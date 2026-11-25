@@ -32,6 +32,7 @@
 #include <map>
 #include <optional>
 #include <random>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -67,9 +68,9 @@ SolveOptions findSolutions(const std::filesystem::path& work) {
   return o;
 }
 
-// The classic Panex swap of n discs a tower (test_stacking.cpp's), saved in
-// `folder` and opened: six discs take seconds on one thread.
-Document swapDocument(unsigned int n, const std::filesystem::path& folder) {
+// The classic Panex swap of n discs a tower (test_stacking.cpp's): six
+// discs take seconds on one thread.
+Puzzle swapPuzzle(unsigned int n) {
   Puzzle puz{GridType(GridKind::Stacking)};
   stacking::RodSet& board = puz.getRodSet(0);
   board.rodCount = 3;
@@ -94,6 +95,12 @@ Document swapDocument(unsigned int n, const std::filesystem::path& folder) {
     REQUIRE(stacking::placeDisk(puz, pr, true, i, 2).empty());
   }
   REQUIRE(stacking::setupError(puz, pr).empty());
+  return puz;
+}
+
+// swapPuzzle(n) saved in `folder` and opened.
+Document swapDocument(unsigned int n, const std::filesystem::path& folder) {
+  const Puzzle puz = swapPuzzle(n);
   const std::filesystem::path file = folder / ("swap" + std::to_string(n) + ".xmpuzzle");
   REQUIRE(io::savePuzzle(puz, file).has_value());
   Result<Document> d = Document::open(file);
@@ -804,4 +811,56 @@ TEST_CASE("stacking document: identical problems have their own saved searches",
   REQUIRE(d.solvePause(p2).has_value());
   REQUIRE(d.solveWait(p2).has_value());
   CHECK(d.savedSearch(p2, folder).value().has_value());
+}
+
+// Problems paused by a version before uids (decision 0044) are given none
+// when the file opens (io's giveUids: the first of each definition), so
+// that each finds the search it saved, which was named without one. Two
+// such problems that differ only where the folder's name does not look
+// (here their stored Solver settings) name one folder, as every copy did
+// in the original: the one case left where two problems share a saved
+// search, so one run at a time works on it (Document::sharedSearchActive).
+TEST_CASE("stacking document: problems paused before uids share their saved search",
+          "[app][stacking][parallel]") {
+  const Scratch work;
+  Puzzle puz = swapPuzzle(6);
+  Problem& copy = puz.getProblem(puz.addProblem(puz.getProblem(0)));
+  copy.setName("twin");
+  copy.setSolverOptions({{"highMemory", "1"}});
+  // as a version before uids saved them: paused, no uid
+  const std::string noUids =
+      std::regex_replace(io::writePuzzle(puz), std::regex(R"( uid="[0-9a-f]{16}")"), "");
+  const std::string xml = std::regex_replace(noUids, std::regex(R"( state="0")"), R"( state="1")");
+  Result<Document> opened = Document::openBytes(xml);
+  REQUIRE(opened.has_value());
+  Document& d = *opened;
+  const Id p1 = d.problemIds()[0];
+  const Id p2 = d.problemIds()[1];
+  SolveOptions o = findSolutions(work.path / "panex");
+  o.threads = 1;
+  const std::string& folder = o.stacking.workDir;
+  const Problem& first = d.puzzle().getProblem(0);
+  const Problem& twin = d.puzzle().getProblem(1);
+  REQUIRE(first.getUid() == 0);
+  REQUIRE(twin.getUid() == 0);
+  REQUIRE(panex::searchFolder(d.puzzle(), first, folder) ==
+          panex::searchFolder(d.puzzle(), twin, folder));
+
+  REQUIRE(d.solveStart(p1, o).has_value());
+  // while the first runs on the folder, the twin is refused and told of no
+  // saved search: the run writes it
+  const Result<void> second = d.solveStart(p2, o);
+  REQUIRE_FALSE(second.has_value());
+  CHECK(second.error().code == Errc::InvalidState);
+  const Result<void> abort = d.solveAbort(p2, folder);
+  REQUIRE_FALSE(abort.has_value());
+  CHECK(abort.error().code == Errc::InvalidState);
+  CHECK_FALSE(d.savedSearch(p2, folder).value().has_value());
+
+  REQUIRE(d.solvePause(p1).has_value());
+  REQUIRE(d.solveWait(p1).has_value());
+  REQUIRE(d.solveState(p1) == SolveState::Paused);
+  // paused, the search is the twin's too
+  CHECK(d.savedSearch(p2, folder).value().has_value());
+  CHECK(d.searchFolders(p2, "", folder).value() == d.searchFolders(p1, "", folder).value());
 }

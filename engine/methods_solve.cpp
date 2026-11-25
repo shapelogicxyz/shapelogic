@@ -61,8 +61,8 @@ Reply solveSavePoint(State& s, Params& p) {
   BTE_CHECK(p.finish());
   BTE_CHECK(running(s, problem));
   // the original never autosaved a stacking solve: its search saves itself
-  // (every 20 minutes, and when it stops), and has no point to pause at
-  // for the puzzle's save
+  // (by base/save_cadence.h's rule as it runs, and when it stops), and has
+  // no point to pause at for the puzzle's save
   if (stacking::isStacking(s.document().puzzle())) {
     return coreError(Errc::Unsupported,
                      "a stacking search saves itself: it has no save point (pause it instead)");

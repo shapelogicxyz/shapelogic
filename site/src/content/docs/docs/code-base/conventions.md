@@ -88,18 +88,20 @@ Nothing is "improved" while it is being ported.
 
 The core was built in numbered stages (`docs/PLAN.md`), the app in its own
 (`docs/FRONTEND-PLAN.md`), and the deferred features in parts
-(`docs/DEFERRED-PLAN.md`). Every stage ends the same way: the full test
-and harness gates, `docs/ARCHITECTURE.md` updated to describe what now
-exists, a hand-off note in `docs/handoff/`, the plan ticked, and one
-commit. Decisions that shape the code are written up as numbered records
+(`docs/DEFERRED-PLAN.md`); each of those stages ended with a hand-off
+note in `docs/handoff/`. Today a piece of work ends with the gates of what
+it touched, the map lines and rules of `docs/ARCHITECTURE.md` it changes,
+and its plan's Done lines (`AGENTS.md`, "Finishing a piece of work").
+Decisions that shape the code are written up as numbered records
 in `docs/decisions/` with their context, the decision and its
 consequences.
 
 ## Further reading, in order
 
 1. `AGENTS.md`: the working rules and the command list.
-2. `docs/ARCHITECTURE.md`: every module, what it holds and the rules it
-   keeps. Long, and the most complete description of the code.
+2. `docs/ARCHITECTURE.md`: a map of every module, a line per file, and
+   the rules each module keeps. Read the sections of the modules you
+   change.
 3. `docs/API.md`: the engine's methods and events.
 4. The decision records most worth reading first:
    - `0001-language-and-build.md`: why C++23 and CMake.

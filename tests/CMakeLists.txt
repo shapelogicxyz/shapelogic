@@ -116,9 +116,13 @@ add_test(NAME api-docs COMMAND Python3::Interpreter api/gen_api_md.py --check
          WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 add_test(NAME contract COMMAND Python3::Interpreter tests/contract/test_engine.py
          --engine $<TARGET_FILE:shapelogic_engine> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+# docs/ARCHITECTURE.md's map: a line for every source file, every line a
+# file that exists, the prose capped (cleanup item 3.2)
+add_test(NAME architecture-map COMMAND Python3::Interpreter tests/docs/test_architecture_map.py
+         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 # recorded: the schema and docs checks under a second; the contract suite
 # 4 s, but 41 s beside the unit shards
-bt_test_timeout(120 api-schema api-docs)
+bt_test_timeout(120 api-schema api-docs architecture-map)
 bt_test_timeout(300 contract)
 
 # The shapelogic_cli command line: burrTxt's option rules, the refusals, --save, -a, -x.

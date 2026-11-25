@@ -238,7 +238,8 @@ class Document {
   /// header. InvalidArgument with the original's words for a puzzle not on
   /// the cube or sliding grid, without shapes, or without a cell to write,
   /// for a tray off the sliding grid, and for copies of more than
-  /// io::kMaxPuzzlecadCopies pieces.
+  /// io::kMaxPuzzlecadCopies pieces. Allowed while the problem is being
+  /// solved (read through readProblem: a solve keeps its problem's parts).
   [[nodiscard]] Result<std::string> exportPuzzlecad(std::optional<Id> problem,
                                                     std::string_view sourceName,
                                                     const io::PuzzlecadOptions& options = {}) const;
@@ -456,9 +457,10 @@ class Document {
   /// In a sliding puzzle the result is the start/goal shape, a piece with
   /// starts or goals there keeps at least a copy for each
   /// (sliding::stampedCopies), bulk changes leave such pieces alone, and
-  /// there are no groups: those commands are refused (InvalidArgument), as
-  /// are new, copied and deleted problems (they follow the start/goal
-  /// shapes). Colors and their rules are the user's, as on every grid.
+  /// there are no groups: those commands are refused (InvalidArgument).
+  /// Problems are made, copied and deleted as on other grids (the original
+  /// grayed that out: its problems followed the start/goal shapes). Colors
+  /// and their rules are the user's, as on every grid.
   ///
   /// Stores the Solver tab's settings with a problem (cb_SolverOptions:
   /// the original's names and values, saved in the file; the front end
@@ -631,8 +633,9 @@ class Document {
                          const std::vector<std::vector<unsigned int>>& stacks);
   /// The saved search of a stacking problem in `workDir`, which Continue
   /// carries on and Solve would throw away; none while the problem's run
-  /// is active (the GUI asked only when nothing ran) or an identical
-  /// problem's run on the search they share, and none on other grids.
+  /// is active (the GUI asked only when nothing ran) or another problem's
+  /// run is on the same folder (sharedSearchActive), and none on other
+  /// grids.
   [[nodiscard]] Result<std::optional<SavedSearchInfo>> savedSearch(
       Id problem, const std::string& workDir) const;
   /// The folders that hold this problem's saved searches (solve.searchFolders):
@@ -673,8 +676,9 @@ class Document {
   // ---- solving ----------------------------------------------------------------
 
   /// Solves a problem from the start (solve.start). A stacking problem is
-  /// refused (InvalidState, here and in solveResume) while an identical
-  /// problem's run is active on the saved search they share.
+  /// refused (InvalidState, here and in solveResume) while another
+  /// problem's run is active on the same saved-search folder
+  /// (sharedSearchActive).
   Result<void> solveStart(Id problem, const SolveOptions& options);
   /// Prepares the search and pauses (solve.prepare).
   Result<void> solvePrepare(Id problem, const SolveOptions& options);
@@ -700,8 +704,9 @@ class Document {
   /// in memory is a solve under way too (the GUI's Abort was offered for
   /// it): a problem a file left solving, and a stacking problem whose
   /// search is saved in `stackingWorkDir`; its results, its saved position
-  /// and its saved search go (cb_BtnAbort); refused (InvalidState) while an
-  /// identical problem's run is active on the search they share.
+  /// and its saved search go (cb_BtnAbort); refused (InvalidState) while
+  /// another problem's run is active on the same folder
+  /// (sharedSearchActive).
   Result<void> solveAbort(Id problem, const std::string& stackingWorkDir = {});
   /// Throws away the results of a problem whose solve is over (finished,
   /// stopped at a limit, failed, or left by a change: the GUI's Reset):
@@ -888,7 +893,7 @@ class Document {
   /// sessions first (pieces' locks and parts change).
   void syncSliding();
   /// Moves the boards above the pieces, the marks and ids following; true
-  /// when a piece lost its marks past the 63rd place.
+  /// when a piece lost its marks past the 255th place (a mark is a byte).
   bool boardsAbovePieces();
   /// The sliding part of changeShape, after shape `shape` was edited.
   void slidingShapeChanged(unsigned int shape);
@@ -906,7 +911,7 @@ class Document {
   /// follow the board (syncSliding), with a notice of the pieces that lost
   /// one. Nothing for an empty `edit`.
   void finishBoardEdit(const std::vector<sliding::BoardEdit>& edit);
-  /// After moveShape took piece `shape` past the 63rd place and its marks
+  /// After moveShape took piece `shape` past the 255th place and its marks
   /// off the start/goal shapes `trays` (sliding::noteShapeSwap): the
   /// problems follow, with a notice.
   void slidingMarksLost(Id shape, const std::vector<Id>& trays);
@@ -942,11 +947,16 @@ class Document {
   [[nodiscard]] Result<unsigned int> stackingProblem(Id problem) const;
   /// cb_NewShape's stacking branch: a disc of size 1.
   Result<Id> addDisc();
-  /// Identical stacking problems (a copy, say) share one saved search, a
-  /// folder named by the rules and the stacks, as in the original, which
-  /// never ran two solves at once: true while a run of another problem is
-  /// active on the folder of `problem`'s search in `workDir` (it writes
-  /// the folder, and its end removes it).
+  /// True while a run of another problem is active on the folder of
+  /// `problem`'s saved search in `workDir` (that run writes the folder, and
+  /// its end removes it). Since decision 0044 a problem's uid names its
+  /// folder, so copies have their own. Two problems share one only when
+  /// both were paused by a version before uids, have the same rules and
+  /// stacks, and differ elsewhere (their stored Solver settings, which of
+  /// two rod sets with the same rules): io/puzzle_file.cpp's giveUids
+  /// leaves the first of each definition paused that way without a uid, so
+  /// that it finds the search it saved. Every copy shared one so in the
+  /// original, which never ran two solves at once.
   [[nodiscard]] bool sharedSearchActive(unsigned int problem, const std::string& workDir) const;
   /// sharedSearchActive's refusal (InvalidState), or nothing.
   [[nodiscard]] Result<void> checkSharedSearchFree(unsigned int problem,

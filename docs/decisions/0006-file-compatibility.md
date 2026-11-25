@@ -2,6 +2,16 @@
 
 **Status:** accepted (stage 0); implemented in stage 2
 
+**Amended 2026-11-21: compatibility is one way.** ShapeLogic must open
+every file the original wrote, converting on load; the original need not
+read ShapeLogic's saves, for any feature. No shims, dual encodings or
+limits are added so that the old program can read new files, and the
+oracle round trip's "the original reads the new save" check is not a
+requirement. The bullets below on writing files the original reads, and
+on new data the old program ignores, hold only where nothing is lost by
+them. Saved searches (sliding level files, `state.bin`, Panex folders)
+and their folder names stay readable by the new code.
+
 ## Context
 Users have years of `.xmpuzzle` files (gzip-compressed XML), some with saved
 solutions, paused searches and features this project does not port yet

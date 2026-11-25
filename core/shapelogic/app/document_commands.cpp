@@ -240,7 +240,7 @@ Result<void> Document::moveShape(Id shape, unsigned int toIndex) {
   endSessions();
   // one place at a time, as the buttons did: the problems follow each
   // swap; on a sliding puzzle so do the marks, and a stamped piece that
-  // crosses into the 64th place loses them (noteShapeSwap), which is told
+  // goes past the 255th place loses them (noteShapeSwap), which is told
   const bool slidingPuzzle = sliding::isSliding(*puzzle_);
   Id unmarked = 0;
   std::vector<Id> lostTrays;

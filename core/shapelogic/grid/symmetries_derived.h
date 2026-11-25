@@ -2,7 +2,7 @@
 #pragma once
 
 /// @file
-/// Symmetry tables derived at start-up from a grid's transformation
+/// Symmetry tables derived at first use from a grid's transformation
 /// matrices, for the grids that have no generated tables (decision 0023:
 /// the hexagonal and cairo prism grids). The matrices must form a group;
 /// from them come the composition table, every subgroup (the symmetry

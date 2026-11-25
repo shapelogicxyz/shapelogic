@@ -62,10 +62,6 @@ import { installTheme } from './theme.ts';
 import { installTopBar } from './topbar.ts';
 import { byId, esc } from './dom.ts';
 
-/**
- * What the status bar says: the engine's state, else the workspace's (the
- * mockup's updateStatus: the shape shown; pzStatus: the problem's fit).
- */
 // the solution the Solver shows, when it has its moves stored (Export ▸ Solution Animation)
 function animationSource(solver: SolverWorkspace): AnimationSource | null {
   const p = solver.player;
@@ -79,6 +75,10 @@ function animationSource(solver: SolverWorkspace): AnimationSource | null {
   };
 }
 
+/**
+ * What the status bar says: the engine's state, else the workspace's (the
+ * mockup's updateStatus: the shape shown; pzStatus: the problem's fit).
+ */
 function statusLine(
   store: Store,
   puzzle: PuzzleWorkspace,

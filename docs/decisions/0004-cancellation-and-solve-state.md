@@ -36,7 +36,11 @@ Each assembler also copied its own parallel and resume code.
   table is a bug (`BT_ASSERT`).
 - **Only the run's worker writes the state.** Other threads read it and stop
   runs through the StopSource. "Stopping…" is an active state plus a
-  requested stop, not a state.
+  requested stop, not a state. (Amended 2026-11-24, cleanup item 3.3: one
+  writer at a time. The run's worker writes it while it runs; the session's
+  owner writes it under the control lock before the run's thread starts
+  (its first active state) and after the thread is joined (abort, the move
+  to Idle).)
 - `Finished` is reached only when the search itself reports completion.
 
 **Shared parallel and resume layer** (stage 3)

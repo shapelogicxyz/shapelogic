@@ -120,7 +120,9 @@ copies it into `src/demo/engine/` and builds the renderer's page with
 serves the client to the renderer as the main process does (it refuses a
 search: an analysis, an explorer or another problem's solve would hold
 the page's one thread), and `demo-app.ts` stands in for Electron's menus,
-dialogs and files. The demo opens `../site/public/examples/PelikanBurr.xmpuzzle`
+dialogs and files. The demo opens one of eleven examples,
+`../site/public/examples/demo/<key>.xmpuzzle` (the URL names the key; the
+brick one, PelikanBurr, by default: `EXAMPLES` in `src/demo/main.ts`),
 and takes every edit; nothing is kept. Its problem's Solve plays a run
 without a search (the bridge answers `solve.start` and `main.ts` sends a
 run's events for about three seconds), then opens the puzzle again with

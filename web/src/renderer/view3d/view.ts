@@ -483,11 +483,6 @@ export class View3D {
     );
   }
 
-  /**
-   * The Solver's solution (null: none): its pieces with their meshes, framed
-   * on the result. The player draws in its layer; an explorer's model, while
-   * it has one, is shown over it (the player's comes back when it goes).
-   */
   /** Changes the Display menu's choices (the View menu's display modes and styles). */
   setDisplay(change: Partial<Display>): void {
     Object.assign(this.display, change);
@@ -513,6 +508,11 @@ export class View3D {
     }
   }
 
+  /**
+   * The Solver's solution (null: none): its pieces with their meshes, framed
+   * on the result. The player draws in its layer; an explorer's model, while
+   * it has one, is shown over it (the player's comes back when it goes).
+   */
   setSolution(model: SolutionModel | null, layer: SolutionLayer = 'player'): void {
     this.layers[layer].model = model;
     if (layer !== 'player' && model === null) {

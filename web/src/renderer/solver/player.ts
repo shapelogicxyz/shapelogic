@@ -5,7 +5,7 @@
 // placements (solution.get), each piece drawn as its shape's mesh in the
 // placement's transformation (shape.mesh {transformation}, the view's mesh
 // cache) at its cell minus that mesh's hotspot, in mesh units
-// (extent.ts's cellScale), centerd on the result as the poses are. Once
+// (extent.ts's cellToMesh), centerd on the result as the poses are. Once
 // the choice rests a moment, its playback is opened (playback.open: a
 // solution without its moves is the single pose, steps 0, one path for
 // all): each piece's mesh in its assembly orientation and the chosen style

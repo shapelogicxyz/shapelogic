@@ -109,7 +109,7 @@ comment at the top.
 
 | Path | What it holds |
 |---|---|
-| `ARCHITECTURE.md` | what exists now, module by module, and the rules that hold everywhere; updated at the end of every stage |
+| `ARCHITECTURE.md` | a map of every module (a line per file, checked by a test) and the rules each keeps; a change updates the lines it touches |
 | `PLAN.md`, `FRONTEND-PLAN.md`, `DEFERRED-PLAN.md` | the stages of the core, the app and the deferred features, ticked as they were done |
 | `API.md` | the engine reference, generated from `api/` |
 | `webui-spec.md`, `core-api.md` | the specification of the app and the draft core API |

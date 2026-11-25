@@ -81,6 +81,7 @@ threads of the search and back.
 
 The repository's own documents go further than these pages. Start with
 `AGENTS.md` at the root (the working rules), then `docs/ARCHITECTURE.md`
-(what exists, module by module), the decision records in `docs/decisions/`
-and the hand-off notes in `docs/handoff/`. The engine's methods are
+(a map of every module, file by file, and its rules) and the decision
+records in `docs/decisions/`; the hand-off notes in `docs/handoff/` are the
+history. The engine's methods are
 documented in `docs/API.md`, generated from the schema in `api/`.

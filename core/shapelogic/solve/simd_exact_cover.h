@@ -90,7 +90,9 @@ class SimdExactCoverBase {
 ///
 /// Assembler 0 uses it up to 2048 columns: beyond that the dense masks, the
 /// per-level stack frames and the per-node column counts cost more than the
-/// plain search saves. The larger sizes serve assembler 1's cover and tests.
+/// plain search saves. The larger sizes serve only the unit tests
+/// (test_simd_exact_cover.cpp); assembler 1's vector search is
+/// simd_huang_cover.h's.
 template <typename BitsetType>
 class SimdExactCover : public SimdExactCoverBase {
  public:
