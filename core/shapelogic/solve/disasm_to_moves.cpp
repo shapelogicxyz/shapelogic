@@ -3,6 +3,7 @@
 #include "shapelogic/solve/disasm_to_moves.h"
 
 #include "shapelogic/base/assert.h"
+#include "shapelogic/model/movement_values.h"
 #include "shapelogic/solve/disassembler_node.h"
 
 #include <algorithm>
@@ -298,7 +299,7 @@ int DisasmToMoves::doRecursive(const Separation* tree, int step, float* array,
   }
 
   // Past this node (its last move is the separation, shown as it fits the
-  // screen, not as the state has it: the removed group 10000 units away):
+  // screen, not as the state has it: the removed group movement::kRemovedScale units away):
   // place both groups apart and walk their subtrees. A group of one piece
   // has no subtree.
   if (takeApart) {
@@ -316,22 +317,22 @@ int DisasmToMoves::doRecursive(const Separation* tree, int step, float* array,
     int dz = 0;
     const auto sz = static_cast<int>(size_);
 
-    if (s.getX(pc) > 10000) {
+    if (s.getX(pc) > movement::kRemovedBeyond) {
       dx = sz;
     }
-    if (s.getX(pc) < -10000) {
+    if (s.getX(pc) < -movement::kRemovedBeyond) {
       dx = -sz;
     }
-    if (s.getY(pc) > 10000) {
+    if (s.getY(pc) > movement::kRemovedBeyond) {
       dy = sz;
     }
-    if (s.getY(pc) < -10000) {
+    if (s.getY(pc) < -movement::kRemovedBeyond) {
       dy = -sz;
     }
-    if (s.getZ(pc) > 10000) {
+    if (s.getZ(pc) > movement::kRemovedBeyond) {
       dz = sz;
     }
-    if (s.getZ(pc) < -10000) {
+    if (s.getZ(pc) < -movement::kRemovedBeyond) {
       dz = -sz;
     }
 
@@ -362,9 +363,9 @@ int DisasmToMoves::doRecursive(const Separation* tree, int step, float* array,
         for (unsigned int p = 0; p < tree->getPieceNumber(); p++) {
           if (s.pieceRemoved(p)) {
             const std::size_t b = 4 * std::size_t{tree->getPieceName(p)};
-            array[b + 0] += f(dx + cx + ((std::abs(s.getX(p)) < 10000) ? s.getX(p) : s2.getX(p)));
-            array[b + 1] += f(dy + cy + ((std::abs(s.getY(p)) < 10000) ? s.getY(p) : s2.getY(p)));
-            array[b + 2] += f(dz + cz + ((std::abs(s.getZ(p)) < 10000) ? s.getZ(p) : s2.getZ(p)));
+            array[b + 0] += f(dx + cx + ((std::abs(s.getX(p)) < movement::kRemovedBeyond) ? s.getX(p) : s2.getX(p)));
+            array[b + 1] += f(dy + cy + ((std::abs(s.getY(p)) < movement::kRemovedBeyond) ? s.getY(p) : s2.getY(p)));
+            array[b + 2] += f(dz + cz + ((std::abs(s.getZ(p)) < movement::kRemovedBeyond) ? s.getZ(p) : s2.getZ(p)));
             array[b + 3] += 0;
             if (orientsOut != nullptr) {
               orientsOut[tree->getPieceName(p)] = orientOf(s2, p);

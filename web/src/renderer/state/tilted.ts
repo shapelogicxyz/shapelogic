@@ -8,6 +8,7 @@
 // and the tray's corners in the board's grid). DOM-free, for the unit
 // tests. A tray is width by height squares: a square, or any rectangle.
 
+import { LIMITS } from '../../engine/api.generated.ts';
 import type { ShapeSummary, Snapshot, Tray, TraySettings } from '../../engine/api.generated.ts';
 
 /** Whether the puzzle is a Tilted Square puzzle. */
@@ -27,10 +28,12 @@ export const NEW_TRAY: Readonly<
 
 /** The allowance a switch turned on gives (the research page's 0.05 of a cell). */
 export const ALLOWANCE_ON = 0.05;
-/** The largest allowance (types.json TraySettings). */
-export const ALLOWANCE_MAX = 0.25;
-/** The largest tray side and slope number. */
-export const TRAY_MAX = 64;
+/** The largest allowance (the engine's: types.json TraySettings). */
+export const ALLOWANCE_MAX = LIMITS.tray.allowance;
+/** The largest tray side. */
+export const TRAY_MAX = LIMITS.tray.side;
+/** The largest slope number (over, and so down). */
+export const SLOPE_MAX = LIMITS.tray.slope;
 
 /** The ids of a tilted puzzle's pieces that do not fit its board (ShapeSummary.fits). */
 export function unfitIds(shapes: readonly Pick<ShapeSummary, 'id' | 'fits'>[]): Set<string> {

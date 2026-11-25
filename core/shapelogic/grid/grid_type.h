@@ -42,6 +42,30 @@ enum class GridKind : std::uint8_t {
 inline constexpr int kNumGridKinds = 9;
 
 namespace detail {
+/// True for a value the enum names. The switch has a case for every kind
+/// and no default, so a kind added to the enum must add its case here
+/// (-Wswitch, an error in the build); the assert below then fails until
+/// kNumGridKinds counts it (cleanup item 11.3).
+constexpr bool isGridKind(GridKind k) noexcept {
+  switch (k) {
+    case GridKind::Bricks:
+    case GridKind::TriangularPrism:
+    case GridKind::Spheres:
+    case GridKind::Rhombic:
+    case GridKind::TetraOcta:
+    case GridKind::Sliding:
+    case GridKind::Stacking:
+    case GridKind::Hexagonal:
+    case GridKind::Cairo: return true;
+  }
+  return false;
+}
+}  // namespace detail
+static_assert(detail::isGridKind(static_cast<GridKind>(kNumGridKinds - 1)) &&
+                  !detail::isGridKind(static_cast<GridKind>(kNumGridKinds)),
+              "kNumGridKinds must be one past the last GridKind");
+
+namespace detail {
 /// The symmetries of the hexagonal and cairo grids, derived at first use
 /// from their matrices (symmetries_derived.h).
 const Symmetries& derivedSymmetries(GridKind kind);

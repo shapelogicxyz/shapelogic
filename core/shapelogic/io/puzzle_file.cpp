@@ -1461,8 +1461,10 @@ Puzzle readPuzzleElement(const XmlElement& root) {
     }
   }
   giveUids(puzzle);
-  if (problemMarks) {
-    // the marks are the problems': a shape carries none
+  if (problemMarks || puzzle.getGridType().getType() != GridKind::Sliding) {
+    // the marks are the problems': a shape carries none; and only the
+    // sliding grid has marks at all (its grid classes alone move them as
+    // the cells move: cleanup item 11.4)
     for (unsigned int s = 0; s < puzzle.getNumberOfShapes(); s++) {
       Voxel& v = puzzle.getShape(s);
       for (unsigned int i = 0; i < v.getXYZ() && (v.hasStartPieces() || v.hasGoalPieces()); i++) {

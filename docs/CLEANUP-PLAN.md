@@ -182,7 +182,7 @@ again, and comes last.
 - [x] Checkpoint D (Fable): review of stage 8
 - [x] Stage 9: CI and release pipeline (v2.1's macOS engine needed macOS 26: now 13.0, checked in CI)
 - [x] Stage 10: front-end speed and memory (10.10 waits until 2.2 has reached users)
-- [ ] Stage 11: one source of truth: core, engine, API, Python, CLI
+- [x] Stage 11: one source of truth: core, engine, API, Python, CLI (11.3's engine.info matrices handed to 12.8; a new finding under 11.9)
 - [ ] Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
 - [ ] Stage 12: one source of truth: front end
 - [ ] Stage 13: splits: front end
@@ -4464,7 +4464,7 @@ Done (2026-11-25), the whole stage (10.10 waits for 2.2 to reach users):
 This stage's three items that need Fable (Continue's refusal and the
 folder name, the change audit, the names pinned by tests) are stage 19.
 
-- [ ] **11.1 A test that ties the API schema to the C++** (combine, trap; M)
+- [x] **11.1 A test that ties the API schema to the C++** (combine, trap; M)
   - *Where:*
     - The error table has five copies:
       - `engine/rpc.h:33-45` and `rpc.cpp:10-21`;
@@ -4515,8 +4515,41 @@ folder name, the change audit, the names pinned by tests) are stage 19.
          constants;
        - the error table with `toRpc`.
   - *Tests:* that test; the contract suite; `ctest -R api-docs`.
+  - Done (2026-11-25): `api/errors.json` is the one error table (code, errc,
+    `protocol` for JSON-RPC's own, meaning): `apischema.py` reads it
+    (`error_table`, `error_codes()`, `declarable_errcs()`; its self-check
+    checks the rows and allows the `errors` key in that file alone),
+    `gen_api_md.py` writes docs/API.md's table from it (the page did not
+    change), `gen-api.ts` makes `ERROR_CODES` and the declarable errcs
+    from it (internal moved last in `ERROR_CODES`), and the contract client
+    takes its codes from `Api` (the core's codes must be declared, which
+    replaces the `-32700` special case). Every enum the engine reads or
+    writes has one `Names` table in `convert.{h,cpp}` (new: image fit,
+    border corners and material, log setting, import format, color
+    preset, solution.page's sortBy, solution.delete's which, addTo,
+    analyse's which, the STL parameter types, solve state, solve stage,
+    problem state, the change kinds); the inline tables of
+    `methods_shape`, `methods_solution`, `methods_problem`,
+    `methods_document`, `events` and `methods_export` and the switches of
+    `solveStageName` and the like are gone, and the output names no
+    longer come from the file format's (`imageFitName`,
+    `borderCornersName`, `toString(SolveState)`). `kSolverBoxes` is
+    `solverBoxNames()`; `methods_solution.cpp` uses `kMaxThreads`; the
+    engine's undo depth and search memory bounds are
+    `Settings::kMaxUndoDepth` and `kMaxSearchMemoryGB`, and the schema's
+    `Settings` result got the maxima its `settings.set` params had (the
+    disk settings' were already `kMaxDiskBudgetGB` and 1e6, from 5.12).
+    `tests/unit/engine/test_api_tables.cpp` ([engine][api]) holds 23 Names
+    tables to their schema enums (as sets, each name once), the check
+    boxes to SolverSettings' booleans, 24 maxima to the C++ constants
+    (threads, undo depth, disk and memory, 11.2's limits, the tray's
+    size, slope, allowance and shift), and the error table to
+    `toRpc`, `invalidParams` and the protocol codes. Seen failing: with
+    "crop" renamed in `imageFitNames` and `flipPieces` dropped from the
+    boxes, two of its four cases fail (and pass again restored). Defaults
+    are still description text only: no item here asks more.
 
-- [ ] **11.2 Limits as core constants, emitted for the web** (combine, bug; M)
+- [x] **11.2 Limits as core constants, emitted for the web** (combine, bug; M)
   - *Where:*
     - Disc size 100, rods 16, heights 64: `core/shapelogic/app/document_stacking.cpp:37-39`,
       `engine/methods_stacking.cpp:81-103`, `api/stacking.json:93` and
@@ -4539,8 +4572,32 @@ folder name, the change audit, the names pinned by tests) are stage 19.
       engine does today.
   - *Tests:* 11.1's test; the staleness test of the generated file; the web
     cards' unit tests use `LIMITS`.
+  - Done (2026-11-25): `stacking::kMaxRods`, `kMaxHeight` and `kMaxDiscSize`
+    (`model/stacking_types.h`) and `app::kMaxShapeCells` (`document.h`)
+    are the source: `document_stacking.cpp`, `document_commands.cpp`,
+    `methods_stacking.cpp` and `methods_shape.cpp` use them (the tray's were
+    `tilted::Tray`'s already). 11.1's test checks the schema's maxima
+    against them. `gen-api.ts` emits `LIMITS` (stacking rods, height,
+    discSize; tray side, slope, allowance), each the `maximum` of a field
+    `LIMIT_FIELDS` names, and the web takes them: `state/stacking.ts`
+    (`DISC_MAX`, the refusal's text built from it, the same words),
+    `entities/rods-card.ts` (the three inputs), `state/tilted.ts`
+    (`ALLOWANCE_MAX`, `TRAY_MAX`, a new `SLOPE_MAX` that `tilt-card.ts` uses
+    for over). The document no longer clamps a rod set's rules: a count or
+    height past the bounds is refused (InvalidArgument), as the engine
+    refuses it, except the value the rod set already has (a file may hold
+    more rods than the GUI allowed, up to the reader's `kMaxFileCount`:
+    an edit of another rule keeps it, where the clamp used to cut it to
+    16; decided so that such a file stays editable). `stacking.setRules`
+    reads its defaults from the core's struct (`rodSetFields`, 11.10).
+    Every reader of the old literals: the grep of 16, 64 and 100 in the
+    engine's stacking methods and the web's cards finds none left; the CLI
+    and Python set no rod rules. Tests: the document test (renamed "are
+    bounded") refuses six out-of-range rules and keeps the rod set as it
+    was (it fails on HEAD's document, which clamped); the web's
+    `stacking.test.ts` and `tilted.test.ts` use `LIMITS`.
 
-- [ ] **11.3 Grid kinds: compile-time checks now, one table of traits next** (combine, trap; S then M) ✓
+- [x] **11.3 Grid kinds: compile-time checks now, one table of traits next** (combine, trap; S then M) ✓
   - *Where:*
     - `core/shapelogic/grid/grid_type.h:30-42` holds the `enum GridKind`
       (0 to 8) and, separately, `inline constexpr int kNumGridKinds = 9;`.
@@ -4603,8 +4660,32 @@ folder name, the change audit, the names pinned by tests) are stage 19.
   - *Tests:* the `engine.info` contract test; `ctest -R api-docs`;
     `just oracle-python`; the web engine tests of the client's grid tables
     (`web/tests/engine/editor.test.ts`, `solver.test.ts`).
+  - Done (2026-11-25): Now: `kNumGridKinds` is checked against the enum in
+    `grid_type.h`: `detail::isGridKind` is a switch with every kind and no
+    `default:` (so `-Wswitch -Werror` makes a new kind add its case), and
+    a `static_assert` asks that kind `kNumGridKinds - 1` exists and kind
+    `kNumGridKinds` does not; `grid_test_helpers.h` asserts
+    `kAllGrids` has `kNumGridKinds` entries. The switches the item names
+    list every kind (`taskSet`, both of `layerGeometry`'s,
+    `derivedSymmetries`, which was a ternary); `defaultShapeSize` and
+    `sizeUnit` lost their `default:` by moving to the traits. Next, done
+    in part: `grid/grid_traits.h` has one `GridTraits` row per kind
+    (`kGridTraits`, checked in order by a `static_assert`): the API name,
+    the label, the capabilities, the mesher (`GridMesher`: cubes,
+    Minkowski, spheres, uniform), cube-like, the scale and grid-scale
+    buttons, the default size and the size unit. `toString`,
+    `getCapabilities`, `taskSet`'s buttons, `defaultShapeSize`,
+    `sizeUnit`, `minkHandles`, the mesher choice in `stl.cpp` and
+    `voxel_mesh.cpp` (switches over `GridMesher` now) and the engine's
+    `gridNames()` read it; Python's names were `toString` already, and
+    `Puzzle()`'s docstring is now made from the table. Not done: the
+    symmetry accessor and the conversion targets in the row, and
+    `engine.info` sending each grid's cell-to-mesh matrix and extent rule
+    so that `web/src/renderer/view3d/extent.ts` could go: that is an
+    engine addition and front-end work, handed to 12.8 (written there). Answers unchanged: the grid, mesh and tool tests and
+    the oracle runs of the gates line.
 
-- [ ] **11.4 Code copied between the new grids; marks on grids that have none** (combine, bug; S to M)
+- [x] **11.4 Code copied between the new grids; marks on grids that have none** (combine, bug; S to M)
   - *Where:*
     - `core/shapelogic/grid/voxel_hex.cpp:173-210` is the same as
       `voxel_bricks.cpp:361-397`.
@@ -4639,8 +4720,27 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     the answers are certain to stay identical: otherwise leave them).
   - *Tests:* the grid tests (`test_grid_invariants`, `test_grid_oracle`), the
     mesh tests, the oracle's grid dump.
+  - Done (2026-11-25): `Voxel::rebuildTurned(turn, fit)` (a template in
+    `voxel.h`) is the transform of the hexagonal and cairo grids: the box
+    of the turned cells, the grid's `fit` (hex: never smaller, centered;
+    cairo: moved by a lattice vector), the cells, the marks (`moveMarks`;
+    neither transform moved them before) and the hotspot. The cube
+    `resizeInclude` is `Voxel`'s (no longer pure virtual); bricks and hex
+    dropped their identical copies. `mesh::detail::prismFace(polygon, z,
+    n, …)` in `grid_geometry_tables.h` draws geometries 7 and 8 (the same
+    floats: the corners are the same doubles). One floor division
+    (`intDivFloor` of `grid/types.h`; the mesh's `floorDiv` went) and one
+    `wholeUnits` (moved to `grid/types.h`). Marks: no fixture outside the
+    sliding grid has any (all 174 files of tests/data, gunzipped, were
+    searched); the reader now drops a shape's start and goal marks on
+    every grid but the sliding one, and `recalcBoundingBox` asserts
+    `marksFit()` (each list empty or one mark a cell). Prisms, spheres
+    and the cut grids are left as ported (they never see marks now).
+    Test: `test_puzzle_file.cpp` "marks on a grid other than the sliding
+    one are dropped as it loads" (the cube and hexagonal grids, every
+    turn); on HEAD's `puzzle_file.cpp` it fails (the marks are kept).
 
-- [ ] **11.5 Python and the CLI use the Document's rules** (combine; S to M)
+- [x] **11.5 Python and the CLI use the Document's rules** (combine; S to M)
   - *Where:* `python/src/solution_iterator.cpp:286-313` copies `solveLaunch`'s
     checks (`core/shapelogic/app/document.cpp:793-808`) and
     `prepareShapesForSolving` (714-726). The CLI's `--save`
@@ -4651,8 +4751,24 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     them.
   - *Tests:* `python/tests/`; `tests/cli/test_cli.py`: a problem the app
     refuses is refused by `--save` with the same reason.
+  - Done (2026-11-25): `app/solve_setup.{h,cpp}`: `solveRefusal(puzzle,
+    problem)` (on a sliding puzzle: the start/goal shape's error, a stamp
+    larger than its piece, no result, no pieces, in the words the
+    Document and the session use; nothing elsewhere, where the session
+    refuses alike) and `prepareShapesForSolving(puzzle)`. `Document`
+    calls both (its member is now a one-line call); Python's
+    `runSession` calls both and runs `sliding::prepareForSolving` only on
+    the sliding grid, as the Document does (it ran on any grid but
+    stacking, which set the maximum of holes of a brick problem it
+    solved); the CLI's `--save` refuses a problem with `solveRefusal`'s
+    reason ("Could not start Solver", the reason on stderr, exit 1, as a
+    session's refusal), and keeps its own hotspot loop (burrTxt2's).
+    Tests: `test_cli.py` `test_save_refuses_as_the_app` (piece S1 marked
+    on two starts; HEAD's CLI solved it, 2 assemblies) and
+    `test_alpha.py` `test_a_problem_the_app_refuses` (the same file and
+    reason in Python, which refused it before too).
 
-- [ ] **11.6 Search folders and disk budgets from one helper** (combine; S)
+- [x] **11.6 Search folders and disk budgets from one helper** (combine; S)
   - *Where:* `engine/engine.cpp:27-45` (an empty `SHAPELOGIC_*_DIR` counts as
     unset, so the cache folder is used); `cli/main.cpp:220-245` and 333-342
     (an empty value means "no folder"); `python/src/module.cpp:206`
@@ -4662,8 +4778,21 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     with one rule everywhere: empty means unset, the engine's rule. Use
     5.12's `gbToBytes` for the budgets.
   - *Tests:* `tests/unit/test_search_folders.cpp`; `test_cli.py`.
+  - Done (2026-11-25): `bt::defaultSearchFolder(fromEnvironment, cache, name)`
+    and `bt::diskBudgetFromText(text)` in `base/system.{h,cpp}`: the
+    callers read the variable and `userCacheDirectory()` (the core reads
+    no environment); an empty variable is unset everywhere, the engine's
+    rule. The engine's `defaultSlideFolder`/`defaultPanexFolder` and the
+    CLI's `panexWorkDir`, `slidingOptions` and `panexDiskBudget` use them
+    (the CLI took an empty `SHAPELOGIC_SLIDE_DIR` as "in memory"; now the
+    cache folder). Python's `work_dir=""` is left as it is: it is a
+    parameter, not an environment value, and its doc says empty is in
+    memory (the module reads no variable, and its tests would otherwise
+    write in the user's cache). Tests: a case in `test_search_folders.cpp`
+    ([base]); `test_cli.py` `test_an_empty_folder_variable_is_unset` (a
+    home of its own; HEAD's CLI made no folder).
 
-- [ ] **11.7 Sliding: the order of attempts is written twice** (combine; S)
+- [x] **11.7 Sliding: the order of attempts is written twice** (combine; S)
   - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
     `savedFromStartAlone` (6826-6855) and `findSlidePath` (6892-6923; the
     comment at 6893 reads "what findSlidePath asks…"). The `table` and
@@ -4674,8 +4803,16 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     savedOnly}). `findSlidePath` runs `tableSearch` over them, and
     `savedFromStartAlone` runs `tableProbe` over them.
   - *Tests:* `test_sliding.cpp:4141`, `test_sliding_session.cpp:1511`.
+  - Done (2026-11-25): `slideAttempts(search, nested, resumeSaved)` in
+    `sliding_search.cpp` returns the ordered `SlideAttempt`s (loose,
+    plainKeys, savedOnly, bothEnds; `form(pack)` gives the
+    `TableForm`); `findSlidePath` runs `tableSearch` over them until one
+    searches, `savedFromStartAlone` runs `tableProbe` over the leading
+    saved ones with loose stops and then the both-ends one, which are the
+    probes it made before, in the same order. The `table` and `would`
+    lambdas' copies of the order are gone.
 
-- [ ] **11.8 Sliding: fields set after `build()`, options copied by hand, two compression constants** (trap; S)
+- [x] **11.8 Sliding: fields set after `build()`, options copied by hand, two compression constants** (trap; S)
   - *Where:* `space.partial` and `backMoves` are set after `build()` by both
     builders (`sliding_search.cpp:6256` and 6961). `slideSearchFor` copies
     SlidingOptions field by field (6597-6618). `kSlideCompression`
@@ -4688,8 +4825,17 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     types embed one settings struct that is copied whole; one compression
     constant.
   - *Tests:* `test_sliding.cpp`; the nested both-ends fuzz test.
+  - Done (2026-11-25): `SlideSpace::build` takes `partialNest` and sets
+    `partial` and `backMoves` itself as it ends (`canMoveBack` went;
+    `kMaxBackNested` moved beside `nestedBound`); both builders (nameSpace,
+    checkSlideMovesBack) pass it. `SlideSettings` holds the 17 fields
+    both option types had (with SlideSearch's docs); `SlideSearch` and
+    `SlidingOptions` derive from it, and `slideSearchFor` copies it whole
+    (the grid stays apart: its rule differs). One compression constant:
+    `kSlideCompression`; `levels::kKeptCompression` went (the key sets'
+    default takes it; `slide_levels.h` includes `sliding_search.h`).
 
-- [ ] **11.9 Movement values as named constants** (trap; S)
+- [x] **11.9 Movement values as named constants** (trap; S)
   - *Where:*
     - `kFree` is defined at `core/shapelogic/solve/movement_cache.h:32`, but
       the literal 32000 is used in `movement_cache_bricks.cpp:42-81`,
@@ -4706,8 +4852,22 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     they relate; `BT_ASSERT(v <= kFree)` on `getMoValue`'s cache-miss path.
   - *Keep:* every value.
   - *Tests:* `test_movement_checks`; the oracle's file comparison.
+  - Done (2026-11-25): `model/movement_values.h` (namespace `movement`):
+    `kFree` 32000, `kRemoveStep` 30000, `kRemovedMovement` 10000,
+    `kRemovedScale` 20000, `kRemovedBeyond` 10000, with `static_assert`s of
+    how they relate. `MovementCache::kFree` is `movement::kFree`; the
+    literals in the three caches, the analysator, the disassembler,
+    `State::pieceRemoved`, `disasm_to_moves.cpp` and the explorer use the
+    names. `getMoValue` asserts on its cache-miss path that no value is
+    above `kFree`. Every value kept. Found, not changed (a reading, not
+    run): `MovementExplorer::addNode` drops a child whose position is past
+    `kRemovedBeyond` ("removals are not added"), but a node marks a
+    removed piece by its orientation (`DisassemblerNode::kRemoved`) and
+    keeps only the direction in its position, so the check seems never to
+    hold and an analysed removal would be added as a child; for stage 14
+    or 15 to confirm.
 
-- [ ] **11.10 Small engine copies, and one trap** (combine, trap; S)
+- [x] **11.10 Small engine copies, and one trap** (combine, trap; S)
   - *Where:*
     - The check of a name's control characters appears twice:
       `engine/methods_document.cpp:136-143` and `methods_export.cpp:102-109`.
@@ -4736,8 +4896,23 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     - Remove `bt_busy` (check `site/` and `web/src/demo/` for callers first).
     - `stackingSetRules` takes its defaults from the core's struct.
   - *Tests:* the contract suite; `test_cli.py` with `--limit 10`.
+  - Done (2026-11-25): helpers in `convert.{h,cpp}`: `checkFileName`
+    (`kMaxFileName`), `readShapeIds` (`kMaxShapeList`), `readRgbOrNull`,
+    `rgbOf`, `playProblem(s, problem, isKind, refusal)` and `replayJson`;
+    the copies in `methods_document`, `methods_export`, `methods_shape`,
+    `convert.cpp`, `methods_sliding` and `methods_stacking` call them (the
+    same messages). `trayJson` writes the placement with
+    `trayPlacementNames()`. The CLI's `solutionLimit` is a
+    `std::optional` (`kDefaultSolutionLimit` 10), so `--limit 10` without
+    `--save` is refused too. `bt_busy` is gone from `wasm_main.cpp`, the
+    wasm export list and the demo's `shapelogic_engine.d.ts` (no caller in
+    `site/` or `web/src/demo/`; `host.test.ts`'s fake module dropped it;
+    `Engine::busy` stays, the run loop uses it). `stackingSetRules` takes
+    its defaults from the core's struct through `rodSetFields`, which
+    `rodSetJson` uses too. Tests: the contract suite; `test_cli.py` refuses
+    `--limit 10` and `--limit 3` without `--save`.
 
-- [ ] **11.11 Tray helpers in the undo header; tray math and nudge codes written twice** (combine; S)
+- [x] **11.11 Tray helpers in the undo header; tray math and nudge codes written twice** (combine; S)
   - *Where:*
     - `core/shapelogic/app/document_internal.h:63-90` holds the tray helpers;
       `placement_fit.cpp:5` includes the undo header only for
@@ -4752,8 +4927,16 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     - Export the frame turns from `tilted_tray.h`.
     - Export `isNudge(grid, task)` from `shape_tools.h` and use it.
   - *Tests:* `test_document_tilted.cpp`.
+  - Done (2026-11-25): the tray helpers are in `app/tray_board.h`
+    (`placement_fit.cpp` includes it, not the undo header);
+    `tilted::Turn` (`tilted_tray.h`: the slope's length, cosine and sine,
+    `toGrid`, `toTray`) is the frame turn of `Geometry` and of
+    `boxToTray`/`trayToBox`; `isNudge(grid, task)` (`shape_tools.h`, true
+    when `nudge()` gives a shift) replaces the code ranges in
+    `onTrayAfterTask` (a tilted puzzle is on the cube grid, whose nudges
+    are 0 to 5, so the answers are the same).
 
-- [ ] **11.12 Analysis and PlacementFit: one background-job skeleton** (combine; M)
+- [x] **11.12 Analysis and PlacementFit: one background-job skeleton** (combine; M)
   - *Where:* `core/shapelogic/app/analysis.{h,cpp}` and
     `placement_fit.{h,cpp}` (its header says "the pattern is Analysis");
     `document.h:986-997`; `document.cpp:54-59`, 637-663 and 1190-1250.
@@ -4768,11 +4951,47 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     places walk.
   - *Tests:* the `[parallel]` cases under `just test-tsan`;
     `test_analysis_files.cpp`; the placement-fit tests.
+  - Done (2026-11-25): `app/background_job.{h,cpp}`: `BackgroundJob` (the
+    thread, the `StopSource`, active, the done count, the failure under
+    its mutex, `onStop()`; a job calls `start()` last in its constructor
+    and `finish()` first in its destructor, which the base's destructor
+    asserts). `Analysis` and `PlacementFit` derive from it (their
+    `stopped` is now worked out from done against the total, as both
+    did). The document has one `jobs_` map keyed by (problem,
+    `BackgroundJob::Kind`); `solving()`, `checkProblemFree()` (a switch
+    over the kinds for the messages), `poll()` and `~Document` walk it,
+    and `job<Job>(problem, kind)` (in `document_internal.h`) finds one.
+    `poll()` notes the problems it touched in the map's order (problem,
+    then kind) instead of fits first.
 
 **Gates for stage 11:** `just test-all`, `just test-tsan`, the contract
 suite, `ctest -R api-docs`, `just app-gen` and its staleness test,
 `just python-test`, `just oracle-python`, the CLI tests, the oracle tiers
 the items touch, `just check`.
+
+Run (2026-11-25, stage 11): `just test-all` 75/75 (with the contract
+suite, api-schema, api-docs, architecture-map, cli and python); `just
+test` twice more after the last edit, 30/30 each; `just test-asan` 74/74;
+`just test-tsan` 127/127; `just python-test` 42 OK; `just check` on the 56
+changed C++ files clean (after one fix: an unchecked optional the rewrap
+moved off its NOLINT line); `just app-check` clean; `just app-test` 63
+files, 659 tests (the generator's staleness test, the engine tests and
+`spelling.test.ts` among them); the e2e specs `stacking`, `tilted` and
+`tray-border` on a build of their own (BT_OUT_DIR), 14 passed;
+`just site-demo --check` passed (the demo rebuilt: `bt_busy` is gone from
+the engine). The oracle, on what the reference checkout holds
+(`--allow-missing`: ../burr-tools is incomplete and unbuilt): fast 18 of 19
+compared, 0 differ, with `--threads 1` and `--solver crowell` too;
+sliding 23 of 35 and with `--threads 1` 32 of 35, 0 differ; stacking 38
+of 41, 0 differ; full and slow compare nothing there (their TIC files are
+missing). `just oracle-python` differs in 26 of 37 transcripts, the same
+26 lines as HEAD's module gives (built from `git archive HEAD` in the
+scratchpad), so the original module of that checkout is not the one the
+baselines came from; the new module against HEAD's, 37 of 37 the same.
+`oracle-imports`, `-roundtrip`, `-resume` (and so `-files`, `-text`)
+need the original library, which is not built there: not run. No
+benchmarks: no item changes a search (11.9 adds one assert per cache
+miss, 11.7 and 11.8 only move code).
 
 ## Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
 
@@ -5020,6 +5239,14 @@ The procedure is in "Fable checkpoints". What to look at:
       from a `keyLabel()` beside `accelerator()` in `keys.ts`.
   - *Tests:* `entities.e2e.ts` (it presses 1, 2 and 4); new checks in
     `view3d.test` and `keys.test`.
+  - *From 11.3 (2026-11-25):* the cube-like test is the core's
+    `GridTraits::cubeLike` now; the part of 11.3 left over goes with this
+    item: `engine.info` sends each grid's cell-to-mesh matrix and extent
+    rule (an engine addition: its own `Engine:` commit), then
+    `view3d/extent.ts`, a tested copy of `mesh/grid_geometry.cpp`'s
+    `gridExtent`, either goes or is checked against it in
+    `web/tests/engine`; `isCubeGrid()` can then come from `engine.info`
+    too.
 
 - [ ] **12.9 One shared mesh loader** (combine; M; after 6.10)
   - *Where:* `web/src/renderer/view3d/view.ts` (858-926, 949-1068),

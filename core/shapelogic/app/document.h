@@ -52,6 +52,10 @@
 
 namespace bt::app {
 
+/// The largest space a command makes, in cells: a guard against sizes typed
+/// by mistake, far above any real puzzle (grid.geometry draws no larger).
+inline constexpr std::uint64_t kMaxShapeCells = std::uint64_t{1} << 24;
+
 /// A stable runtime id: names a shape, color or problem while the
 /// document is open, whatever its place in the list (labels like "S1"
 /// follow the place). Never 0, never given twice in a document. A
@@ -591,7 +595,8 @@ class Document {
   /// did; the problems keep theirs (cb_RodExchange).
   Result<void> moveRodSet(Id rodSet, unsigned int toIndex);
   /// Sets a rod set's rules (cb_RodField; `rules.name` is not used): the
-  /// rod count 1 to 16, the heights 1 to 64, the pocket and the outside
+  /// rod count 1 to stacking::kMaxRods, the heights 1 to kMaxHeight (others
+  /// refused, InvalidArgument), the pocket and the outside
   /// channel only with Panex columns (the channel with three rods or more
   /// too), the older "can move over" dropped. The problems on it have
   /// their stacks fitted to the new count and lose their solutions.
@@ -1004,14 +1009,18 @@ class Document {
   std::map<Id, std::unique_ptr<SolveSession>> sessions_;
   /// The problems whose run started since poll() last looked.
   std::set<Id> runsStarted_;
-  /// One analysis per problem, until poll() puts its results in.
-  std::map<Id, std::unique_ptr<Analysis>> analyses_;
+  /// The background jobs, one of each kind per problem: an analysis until
+  /// poll() puts its results in, a fit of the tray's placements (on a
+  /// puzzle of its own) until poll() sees it ended. solving(),
+  /// checkProblemFree(), poll() and the destructor walk them all, so a new
+  /// kind is a new BackgroundJob::Kind (cleanup item 11.12).
+  std::map<std::pair<Id, BackgroundJob::Kind>, std::unique_ptr<BackgroundJob>> jobs_;
+  /// The job of a kind for a problem; null for none.
+  template <class Job>
+  [[nodiscard]] Job* job(Id problem, BackgroundJob::Kind kind) const;
   /// How each problem's last analysis ended, kept by poll() as it puts the
   /// results in: an owner that looks after poll() still learns its counts.
   std::map<Id, AnalyseProgress> analysisEnds_;
-  /// One fit of the tray's placements per problem, until poll() sees it
-  /// ended; they hold puzzles of their own.
-  std::map<Id, std::unique_ptr<PlacementFit>> fits_;
   /// How each problem's last fit ended, kept by poll(): dropped when what
   /// it counted is no longer what the document holds.
   std::map<Id, PlacementFitProgress> fitEnds_;

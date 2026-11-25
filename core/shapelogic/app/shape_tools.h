@@ -87,6 +87,10 @@ struct ShapeTaskInfo {
 /// Whether `task` is in the grid's set.
 [[nodiscard]] bool taskOffered(GridKind grid, ShapeTask task);
 
+/// Whether `task` moves a shape by whole cells on the grid (a nudge), not
+/// turning or changing it: the authority for every caller that asks.
+[[nodiscard]] bool isNudge(GridKind grid, ShapeTask task);
+
 /// What a task did to a shape.
 struct TaskOutcome {
   /// Cells whose state or color changed.

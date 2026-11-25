@@ -9,6 +9,7 @@
 #include "shapelogic/grid/voxel.h"
 
 #include <initializer_list>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -23,6 +24,8 @@ inline constexpr GridKind kAllGrids[] = {
     GridKind::TetraOcta, GridKind::Sliding,         GridKind::Stacking, GridKind::Hexagonal,
     GridKind::Cairo,
 };
+static_assert(static_cast<int>(std::size(kAllGrids)) == kNumGridKinds,
+              "kAllGrids lists every grid kind");
 
 /// The seven grids that have their own geometry (sliding and stacking use cubes).
 inline constexpr GridKind kGeometryGrids[] = {

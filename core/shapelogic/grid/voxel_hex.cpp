@@ -7,8 +7,8 @@
 #include "shapelogic/grid/hex_lattice.h"
 #include "shapelogic/grid/symmetries_derived.h"
 
-#include <algorithm>
-#include <vector>
+#include <array>
+#include <cstddef>
 
 namespace bt {
 
@@ -50,88 +50,18 @@ bool VoxelHex::transform(unsigned int nr) {
     return true;
   }
   BT_ASSERT(nr < detail::hexagonalSymmetries().getNumTransformationsMirror());
-
-  int minx = 100000;
-  int miny = 100000;
-  int minz = 100000;
-  int maxx = -100000;
-  int maxy = -100000;
-  int maxz = -100000;
-
-  unsigned int index = 0;
-  for (int z = 0; z < asInt(sz_); z++) {
-    for (int y = 0; y < asInt(sy_); y++) {
-      for (int x = 0; x < asInt(sx_); x++) {
-        if (!isEmpty(index)) {
-          const hex::HexCell c = turned(x, y, z, nr);
-          maxx = std::max(maxx, c.x);
-          maxy = std::max(maxy, c.y);
-          maxz = std::max(maxz, c.z);
-          minx = std::min(minx, c.x);
-          miny = std::min(miny, c.y);
-          minz = std::min(minz, c.z);
-        }
-        index++;
-      }
-    }
-  }
-
-  // empty space, nothing to do
-  if (minx == 100000) {
-    return true;
-  }
-
-  unsigned int nsx = asUnsigned(maxx - minx + 1);
-  unsigned int nsy = asUnsigned(maxy - miny + 1);
-  unsigned int nsz = asUnsigned(maxz - minz + 1);
-
-  // never make the space smaller than before; center the shape in the old
-  // size instead
-  if (nsx < sx_) {
-    minx -= asInt((sx_ - nsx) / 2);
-    nsx = sx_;
-  }
-  if (nsy < sy_) {
-    miny -= asInt((sy_ - nsy) / 2);
-    nsy = sy_;
-  }
-  if (nsz < sz_) {
-    minz -= asInt((sz_ - nsz) / 2);
-    nsz = sz_;
-  }
-
-  const unsigned int voxelsn = nsx * nsy * nsz;
-  std::vector<VoxelType> s(voxelsn, kEmpty);
-
-  index = 0;
-  for (int z = 0; z < asInt(sz_); z++) {
-    for (int y = 0; y < asInt(sy_); y++) {
-      for (int x = 0; x < asInt(sx_); x++) {
-        if (!isEmpty(index)) {
-          const hex::HexCell c = turned(x, y, z, nr);
-          s[asUnsigned(c.x - minx) + nsx * (asUnsigned(c.y - miny) + nsy * asUnsigned(c.z - minz))] =
-              space_[index];
-        }
-        index++;
-      }
-    }
-  }
-
-  // the new hotspot
-  const hex::HexCell h = turned(hx_, hy_, hz_, nr);
-  hx_ = h.x - minx;
-  hy_ = h.y - miny;
-  hz_ = h.z - minz;
-
-  sx_ = nsx;
-  sy_ = nsy;
-  sz_ = nsz;
-  space_ = std::move(s);
-  voxels_ = voxelsn;
-
-  recalcBoundingBox();
-  invalidateSymmetry();
-
+  rebuildTurned([nr](int x, int y, int z) { return turned(x, y, z, nr); },
+                [this](std::array<int, 3>& low, std::array<unsigned int, 3>& size) {
+                  // never make the space smaller than before; center the
+                  // shape in the old size instead
+                  const std::array<unsigned int, 3> old{sx_, sy_, sz_};
+                  for (std::size_t k = 0; k < 3; k++) {
+                    if (size[k] < old[k]) {
+                      low[k] -= asInt((old[k] - size[k]) / 2);
+                      size[k] = old[k];
+                    }
+                  }
+                });
   return true;
 }
 
@@ -168,45 +98,6 @@ bool VoxelHex::getNeighbor(unsigned int idx, unsigned int typ, int x, int y, int
       // an edge with it: no corner-only neighbors
       return false;
   }
-}
-
-void VoxelHex::resizeInclude(int& px, int& py, int& pz) {
-  // as the cube grid: every move keeps the cells' look
-  int nsx = asInt(getX());
-  int nsy = asInt(getY());
-  int nsz = asInt(getZ());
-  int tx = 0;
-  int ty = 0;
-  int tz = 0;
-
-  if (px < 0) {
-    nsx -= px;
-    tx -= px;
-  }
-  if (py < 0) {
-    nsy -= py;
-    ty -= py;
-  }
-  if (pz < 0) {
-    nsz -= pz;
-    tz -= pz;
-  }
-  if (px >= asInt(getX())) {
-    nsx += px - asInt(getX()) + 1;
-  }
-  if (py >= asInt(getY())) {
-    nsy += py - asInt(getY()) + 1;
-  }
-  if (pz >= asInt(getZ())) {
-    nsz += pz - asInt(getZ()) + 1;
-  }
-
-  resize(asUnsigned(nsx), asUnsigned(nsy), asUnsigned(nsz), 0);
-  translate(tx, ty, tz, 0);
-
-  px += tx;
-  py += ty;
-  pz += tz;
 }
 
 bool VoxelHex::validCoordinate(int /*x*/, int /*y*/, int /*z*/) const { return true; }

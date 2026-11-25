@@ -28,7 +28,7 @@ void MovementCacheDerived::getDirection(unsigned int dir, int* x, int* y, int* z
 // Each cell of the first shape is walked step by step in each direction
 // until a cell it would pass through is one of the second shape, or until
 // it has left the second shape's box for good. The smallest number of
-// free steps over the cells is the value; 32000 when nothing is in the way.
+// free steps over the cells is the value; kFree when nothing is in the way.
 std::vector<unsigned int> MovementCacheDerived::moCalcValues(const Voxel& sh1, const Voxel& sh2,
                                                              int dx, int dy, int dz) {
   // the offset is between the hotspots: make it one between the spaces
@@ -49,7 +49,7 @@ std::vector<unsigned int> MovementCacheDerived::moCalcValues(const Voxel& sh1, c
 
   for (std::size_t dir = 0; dir < directions; dir++) {
     const std::array<int, 3>& step = checks_.directions[dir];
-    unsigned int m = 32000;
+    unsigned int m = kFree;
 
     for (unsigned int x = sh1.boundX1(); x <= sh1.boundX2(); x++) {
       for (unsigned int y = sh1.boundY1(); y <= sh1.boundY2(); y++) {

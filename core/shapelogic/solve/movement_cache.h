@@ -10,6 +10,8 @@
 /// gridType_c::getMovementCache. The cache of the other grids
 /// (MovementCacheDerived) is new: the original had none for them.
 
+#include "shapelogic/model/movement_values.h"
+
 #include <cstddef>
 #include <memory>
 #include <vector>
@@ -29,7 +31,7 @@ class MovementCache {
  public:
   /// The value for two pieces with nothing of each other in the way: the
   /// largest a cache gives.
-  static constexpr unsigned int kFree = 32000;
+  static constexpr unsigned int kFree = movement::kFree;
 
   /// A cache for the pieces of `problem`; puzzle and problem must outlive it.
   MovementCache(const Puzzle& puzzle, const Problem& problem);

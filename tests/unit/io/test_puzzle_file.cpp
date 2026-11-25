@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <string>
@@ -706,6 +707,31 @@ TEST_CASE("file: sliding start marks are read, written and converted from colors
 
 // Decision 0044: a problem's uid names its saved searches, so it is kept
 // through saves, renames and moves, and no two problems of a file share one.
+// Start and goal marks belong to the sliding grid alone: only its grid
+// class moves them with the cells, so marks read on another grid would be
+// left the wrong length by a transform or a scale (cleanup item 11.4).
+TEST_CASE("file: marks on a grid other than the sliding one are dropped as it loads",
+          "[io][sliding]") {
+  for (const char* grid : {"0", "7"}) {
+    INFO("grid " << grid);
+    const Result<Puzzle> p = io::parsePuzzle(
+        std::string("<?xml version=\"1.0\"?><puzzle version=\"2\"><gridType type=\"") + grid +
+        "\"/><shapes><voxel x=\"2\" y=\"2\" z=\"1\" start=\"2,0,0,3\" goal=\"0,2,0,0\" "
+        "type=\"0\">####</voxel></shapes><problems><problem><result id=\"0\"/></problem>"
+        "</problems></puzzle>");
+    REQUIRE(p.has_value());
+    const Voxel& v = p->getShape(0);
+    CHECK_FALSE(v.hasStartPieces());
+    CHECK_FALSE(v.hasGoalPieces());
+    // every turn keeps the shape whole (recalcBoundingBox checks the marks)
+    for (unsigned int t = 1; t < v.getGridType().getSymmetries().getNumTransformationsMirror(); t++) {
+      const std::unique_ptr<Voxel> turned = v.clone();
+      CHECK(turned->transform(t));
+      CHECK(turned->countState(Voxel::kFilled) == 4);
+    }
+  }
+}
+
 TEST_CASE("puzzle file: every problem has a uid of its own, kept as it is saved",
           "[io][file][uid]") {
   const auto problems = [](const std::string& each, int n) {

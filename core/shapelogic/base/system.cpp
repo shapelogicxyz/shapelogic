@@ -217,6 +217,21 @@ std::uint64_t raiseOpenFileLimit(std::uint64_t files) {
 #endif
 }
 
+std::uint64_t diskBudgetFromText(const char* text) {
+  if (text == nullptr || *text == 0) {
+    return 0;
+  }
+  return gbToBytes(std::strtod(text, nullptr)).value_or(0);
+}
+
+std::string defaultSearchFolder(const char* fromEnvironment, const std::string& cache,
+                                std::string_view name) {
+  if (fromEnvironment != nullptr && *fromEnvironment != 0) {
+    return fromEnvironment;
+  }
+  return cache.empty() ? std::string() : (std::filesystem::path(cache) / name).string();
+}
+
 std::string userCacheDirectory() {
 #if defined(_WIN32)
   if (const char* local = std::getenv("LOCALAPPDATA")) {

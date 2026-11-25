@@ -66,6 +66,9 @@ def test_help_and_mistakes() -> None:
                        (["--solver", "nope"], "unknown solver 'nope' for a brick puzzle"),
                        (["-o", "5"], "there is no problem 5"),
                        (["--restart"], "go with --save"),
+                       # given, even as the default, it goes with --save
+                       (["--limit", "10"], "go with --save"),
+                       (["--limit", "3"], "go with --save"),
                        (["--nested-slides"], "--nested-slides is for sliding puzzles; this is a brick"),
                        (["--partial-nested"], "--partial-nested is for sliding puzzles"),
                        (["--high-memory"], "--high-memory is for sliding and stacking puzzles"),
@@ -234,6 +237,20 @@ def test_sliding() -> None:
         check("sliding -x", r.returncode == 0 and r.stdout == "level: 81\n", r.stdout)
 
 
+def test_an_empty_folder_variable_is_unset() -> None:
+    # SHAPELOGIC_SLIDE_DIR set but empty counts as unset, as in the engine
+    # (bt::defaultSearchFolder): the search's folder is the cache folder's,
+    # here under a home of the test's own (cleanup item 11.6)
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {**ENV, "SHAPELOGIC_SLIDE_DIR": "", "HOME": tmp, "XDG_CACHE_HOME": str(Path(tmp) / "xdg"),
+               "LOCALAPPDATA": str(Path(tmp) / "local")}
+        r = subprocess.run([str(BT), "-q", "-d", PUZZLES / "test_sliding_solver.xmpuzzle"],
+                           capture_output=True, text=True, timeout=300, check=False, env=env)
+        made = [p for p in Path(tmp).rglob("sliding") if p.is_dir()]
+        check("empty SHAPELOGIC_SLIDE_DIR", r.returncode == 0 and len(made) == 1,
+              f"{r.returncode} {made} {r.stderr!r}")
+
+
 NO_RESULT = """<?xml version="1.0"?>
 <puzzle version="2">
   <gridType type="0"/>
@@ -264,6 +281,41 @@ def test_no_result() -> None:
         r = run("--save", Path(tmp) / "out.xmpuzzle", f)
         check("no result --save", r.returncode == 1 and "Could not start Solver" in r.stdout and
               "result shape must be defined" in r.stderr, f"{r.returncode} {r.stdout!r} {r.stderr!r}")
+
+
+# A sliding puzzle the app refuses to solve: piece S1 (one cell) has starts
+# on two cells. --save refuses it with the app's reason (cleanup item
+# 11.5: Document::solveLaunch's checks, app::solveRefusal).
+STAMP_OVERFLOW = """<?xml version="1.0"?>
+<puzzle version="2" slideMarks="problem">
+  <gridType type="5"/>
+  <colors/>
+  <shapes>
+    <voxel x="2" y="2" z="1" name="sg:1:" type="0">####</voxel>
+    <voxel x="1" y="1" z="1" type="0">#</voxel>
+  </shapes>
+  <problems>
+    <problem name="two starts">
+      <shapes>
+        <shape id="1" count="1"/>
+      </shapes>
+      <result id="0"/>
+      <bitmap/>
+      <slideMarks start="2,2,0,0"/>
+    </problem>
+  </problems>
+  <comment/>
+</puzzle>
+"""
+
+
+def test_save_refuses_as_the_app() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        f = Path(tmp) / "overflow.xmpuzzle"
+        f.write_text(STAMP_OVERFLOW)
+        r = run("--save", Path(tmp) / "out.xmpuzzle", "--restart", f)
+        check("stamp overflow --save", r.returncode == 1 and "Could not start Solver" in r.stdout and
+              "S1 has 2 starts" in r.stderr and "solutions found" not in r.stdout, f"{r.returncode} {r.stdout!r} {r.stderr!r}")
 
 
 def test_solving() -> None:

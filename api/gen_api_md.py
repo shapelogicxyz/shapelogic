@@ -9,7 +9,7 @@
 import pathlib
 import sys
 
-from apischema import API_DIR, Api
+from apischema import API_DIR, ERRORS_FILE, Api
 
 OUT = API_DIR.parent / "docs" / "API.md"
 
@@ -39,17 +39,7 @@ the reply's `Frame` object.
 
 | code | errc | meaning |
 |---|---|---|
-| -32700 | parse_error | the line is not JSON |
-| -32600 | invalid_request | not a JSON-RPC request (batches are refused) |
-| -32601 | method_not_found | no such method |
-| -32602 | invalid_params | a parameter is missing, of the wrong type, or unknown |
-| -32001 | invalid_argument | a value out of range or malformed |
-| -32002 | not_found | no such shape, color, problem, solution or handle |
-| -32003 | parse_error | a file or bytes that are no puzzle |
-| -32004 | io_error | reading or writing a file failed |
-| -32005 | unsupported | valid, but not for this puzzle (what a grid or a solver lacks: a take-apart, an assembler, Panex columns) |
-| -32006 | invalid_state | not now: pause the solve first, close the edit group... |
-| -32603 | internal | a broken invariant in the engine or the core |
+{errors}
 
 Every mutating method returns the document's new `revision` and is one undo
 step (or part of the `edit.begin` / `edit.end` group); `document.changed`
@@ -139,9 +129,12 @@ class Gen:
         self.fields(s, base, lines)
 
     def render(self):
-        lines = [HEADER]
+        # the error table from errors.json, its rows as they are listed
+        rows = "\n".join(f"| {r['code']} | {r['errc']} | {r['meaning']} |" for r in self.api.error_table)
+        lines = [HEADER.replace("{errors}", rows)]
         files = [f for f in ORDER if f in self.api.files] + \
-                sorted(f for f in self.api.files if f not in ORDER and f != "types.json")
+                sorted(f for f in self.api.files
+                       if f not in ORDER and f not in ("types.json", ERRORS_FILE))
         lines.append("## Contents")
         lines.append("")
         for f in files:

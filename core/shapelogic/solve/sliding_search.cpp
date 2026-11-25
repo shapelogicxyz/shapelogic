@@ -402,6 +402,11 @@ bool sameCells(const Cell3List& a, const Cell3List& b) {
          });
 }
 
+// The most pieces nested in one piece at once for which the moves are made
+// backwards (SlideMover::movesBack tries every part of what a piece holds,
+// twice as many with each piece more).
+constexpr unsigned int kMaxBackNested = 6;
+
 // The most pieces that could ever be nested in one piece at once, those
 // nested in the nested ones too: a bound, never too low. A piece nests in
 // another when its cells lie in the other's outline, so in its holes (the
@@ -1320,9 +1325,12 @@ struct SlideSpace {
   // False when the tables cannot hold this search, or the arrangements do
   // not fit the key. With looseStops the pieces get their loose stops
   // (buildLoose); with plainKeys every position has a code; with pack the
-  // copies of a piece are packed (never with loose stops).
+  // copies of a piece are packed (never with loose stops). partialNest
+  // (with nest) sets `partial`; `backMoves` follows from the tables, so
+  // every builder gets both (cleanup item 11.8).
   bool build(const Voxel& tray, const std::vector<Cell3List>& cells,
-             const std::vector<Cell3List>& outlines, bool nest, const SlideState& init,
+             const std::vector<Cell3List>& outlines, bool nest, bool partialNest,
+             const SlideState& init,
              const GoalCheck& goalCheck, bool likePiecesApart, bool verticalMoves,
              const StopGrid& stopGrid, bool looseStops, bool plainKeys, bool pack) {
     goals = &goalCheck;
@@ -1382,6 +1390,10 @@ struct SlideSpace {
     }
     startKey = encode(startRows.data());
     startCanon = canon(startKey);
+    partial = nest && partialNest;
+    // the moves are made backwards only from arrangements without loose
+    // stops or partly nested pieces
+    backMoves = nested && !loose && !partial && nestedBound(cells, outlines) <= kMaxBackNested;
     return true;
   }
 
@@ -6196,20 +6208,6 @@ constexpr unsigned int kLooseFormat = 0x4c53;
 constexpr unsigned int kCompactFormat = 0x434b;
 constexpr unsigned int kPackedFormat = 0x504b;
 
-// The most pieces nested in one piece at once for which the moves are made
-// backwards (SlideMover::movesBack tries every part of what a piece holds,
-// twice as many with each piece more).
-constexpr unsigned int kMaxBackNested = 6;
-
-// Whether a nested search over these tables can make its moves backwards:
-// not from an arrangement with loose stops, nor with partly nested pieces.
-template <class Key>
-bool canMoveBack(const SlideSpace<Key>& space, const std::vector<Cell3List>& cells,
-                 const std::vector<Cell3List>& outlines) {
-  return space.nested && !space.loose && !space.partial &&
-         nestedBound(cells, outlines) <= kMaxBackNested;
-}
-
 // What tableSearch did: searched; nothing, because the key cannot hold the
 // search (or with savedOnly none is saved), which a wider key may; nothing,
 // because the search asked for is not one these tables can make in any key.
@@ -6254,13 +6252,11 @@ template <class Key>
 std::optional<Tabled> nameSpace(const SlideBoard& b, const TableForm& form,
                                 const SlideSearch& search, NamedSpace<Key>& out) {
   SlideSpace<Key>& space = out.space;
-  if (!space.build(b.tray, b.cells, b.outlines, b.nested, b.initial, b.goals,
-                   search.likePiecesApart, search.verticalMoves, b.stops, form.loose,
+  if (!space.build(b.tray, b.cells, b.outlines, b.nested, search.partialNested, b.initial,
+                   b.goals, search.likePiecesApart, search.verticalMoves, b.stops, form.loose,
                    form.plainKeys, form.pack)) {
     return Tabled::NoFit;
   }
-  space.partial = b.nested && search.partialNested;
-  space.backMoves = canMoveBack(space, b.cells, b.outlines);
   if (form.bothEnds && !(space.backMoves && space.singleGoal())) {
     return Tabled::NotThis;
   }
@@ -6422,6 +6418,60 @@ Tabled eachKey(const SlideSearch& search, bool loose, F&& attempt) {
   tryKey(std::type_identity<BigKey<4>>{}, 256, mayPack);
   tryKey(std::type_identity<BigKey<8>>{}, 512, mayPack);
   return done;
+}
+
+// One table search findSlidePath tries: the tables' form but for packing
+// (eachKey chooses it with the key), and whether only a saved search is
+// carried on.
+struct SlideAttempt {
+  bool loose = false;
+  bool plainKeys = false;
+  bool savedOnly = false;
+  bool bothEnds = false;
+
+  [[nodiscard]] TableForm form(bool pack) const { return TableForm{loose, plainKeys, pack, bothEnds}; }
+};
+
+// The table searches findSlidePath tries for one start, in order, until one
+// searches (cleanup item 11.7). savedFromStartAlone probes the same list,
+// so the advice Continue gives (sliding.resumeAdvice) follows any change of
+// order. `resumeSaved`: a grid, `resume`, and saved searches of the problem
+// in the work folder.
+std::vector<SlideAttempt> slideAttempts(const SlideSearch& search, bool nested, bool resumeSaved) {
+  std::vector<SlideAttempt> out;
+  const bool grid = search.grid > 1;
+  // Loose stops only with nested slides: one-way moves, which the loose
+  // arrangements make more of, are looked for in the levels kept, and only
+  // nested slides keep them.
+  const bool wantLoose = nested && grid && !search.gridStopsApart;
+  // A search saved for this start is carried on as it was begun: with
+  // loose stops or with them apart, and with the keys it has (those saved
+  // by an earlier build have a code for every position). Only a grid
+  // gives the tables more than one form. (A search from both ends is one
+  // with the stops apart.)
+  if (resumeSaved) {
+    for (const bool loose : {true, false}) {
+      for (const bool plainKeys : {false, true}) {
+        if ((wantLoose || !loose) && (plainKeys || !search.plainKeys)) {
+          out.push_back({.loose = loose, .plainKeys = plainKeys, .savedOnly = true});
+        }
+      }
+    }
+  }
+  // From both ends where the search can: the two ends hold the same
+  // arrangements, so the stops are apart, and what that costs (up to
+  // about three times the arrangements a level) is little beside the
+  // levels the meeting saves.
+  if (wantLoose && !search.oneEnd) {
+    out.push_back({.plainKeys = search.plainKeys, .bothEnds = true});
+  }
+  // Loose stops in either key before stops apart: they may take a bit
+  // more a piece than the narrow key has.
+  if (wantLoose) {
+    out.push_back({.loose = true, .plainKeys = search.plainKeys});
+  }
+  out.push_back({.plainKeys = search.plainKeys});
+  return out;
 }
 
 // What a search of a problem from a start works on. Filled in place and
@@ -6602,23 +6652,7 @@ std::uint64_t memoryStates(std::uint64_t stateBytes, bool high, std::uint64_t by
 
 SlideSearch slideSearchFor(const SlidingOptions& options) {
   SlideSearch s;
-  s.highMemory = options.highMemory;
-  s.memoryBytes = options.memoryBytes;
-  s.nested = options.nested;
-  s.partialNested = options.partialNested;
-  s.workDir = options.workDir;
-  s.diskBudget = options.diskBudget;
-  s.legacy = options.legacy;
-  s.likePiecesApart = options.likePiecesApart;
-  s.gridStopsApart = options.gridStopsApart;
-  s.plainKeys = options.plainKeys;
-  s.packing = options.packing;
-  s.minKeyBits = options.minKeyBits;
-  s.oneEnd = options.oneEnd;
-  s.compression = options.compression;
-  s.failWriteAt = options.failWriteAt;
-  s.failWriteOnce = options.failWriteOnce;
-  s.verticalMoves = options.verticalMoves;
+  static_cast<SlideSettings&>(s) = static_cast<const SlideSettings&>(options);
   s.grid = options.grid > 1 ? options.grid : 0;
   return s;
 }
@@ -6818,46 +6852,18 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
   std::vector<SlideState> path;
   bool searched = false;
   if (!search.legacy) {
-    // The tables in the narrowest key that holds them (eachKey).
+    // The tables in the narrowest key that holds them (eachKey), in the
+    // order slideAttempts gives.
     const SlideBoard board{puzzle, problem, tray, cells, outlines, nested, initial, goals, stops};
-    auto table = [&](bool loose, bool plainKeys, bool savedOnly, bool bothEnds) {
-      return eachKey(search, loose, [&]<class Key>(std::type_identity<Key>, bool pack) {
-               return tableSearch<Key>(board, TableForm{loose, plainKeys, pack, bothEnds},
-                                       savedOnly, search, path);
-             }) == Tabled::Searched;
-    };
-    // Loose stops only with nested slides: one-way moves, which the loose
-    // arrangements make more of, are looked for in the levels kept, and only
-    // nested slides keep them.
-    const bool wantLoose = nested && grid && !search.gridStopsApart;
-    // A search saved for this start is carried on as it was begun: with
-    // loose stops or with them apart, and with the keys it has (those saved
-    // by an earlier build have a code for every position). Only a grid
-    // gives the tables more than one form. (A search from both ends is one
-    // with the stops apart.)
-    if (grid && search.resume && !savedFolders(puzzle, problem, search.workDir).empty()) {
-      for (const bool loose : {true, false}) {
-        for (const bool plainKeys : {false, true}) {
-          if (!searched && (wantLoose || !loose) && (plainKeys || !search.plainKeys)) {
-            searched = table(loose, plainKeys, true, false);
-          }
-        }
+    const bool resumeSaved =
+        grid && search.resume && !savedFolders(puzzle, problem, search.workDir).empty();
+    for (const SlideAttempt& a : slideAttempts(search, nested, resumeSaved)) {
+      searched = eachKey(search, a.loose, [&]<class Key>(std::type_identity<Key>, bool pack) {
+                   return tableSearch<Key>(board, a.form(pack), a.savedOnly, search, path);
+                 }) == Tabled::Searched;
+      if (searched) {
+        break;
       }
-    }
-    // From both ends where the search can: the two ends hold the same
-    // arrangements, so the stops are apart, and what that costs (up to
-    // about three times the arrangements a level) is little beside the
-    // levels the meeting saves.
-    if (!searched && wantLoose && !search.oneEnd) {
-      searched = table(false, search.plainKeys, false, true);
-    }
-    // Loose stops in either key before stops apart: they may take a bit
-    // more a piece than the narrow key has.
-    if (!searched && wantLoose) {
-      searched = table(true, search.plainKeys, false, false);
-    }
-    if (!searched) {
-      searched = table(false, search.plainKeys, false, false);
     }
   }
   if (!searched) {
@@ -6911,22 +6917,37 @@ bool savedFromStartAlone(const Puzzle& puzzle, const Problem& problem, const Ass
   }
   setup.shapes(tray, nested, search.grid);
 
-  // the tables in each key, as findSlidePath tries them
+  // the tables in each key, as findSlidePath tries them (slideAttempts)
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
   const GoalCheck& goals = *setup.goals;
   const SlideBoard board{puzzle, problem,       tray,  setup.cells, setup.outlines,
                          nested, setup.initial, goals, setup.stops};
-  auto would = [&](bool loose, bool plainKeys, bool savedOnly, bool bothEnds) {
-    return eachKey(search, loose, [&]<class Key>(std::type_identity<Key>, bool pack) {
-             return tableProbe<Key>(board, TableForm{loose, plainKeys, pack, bothEnds},
-                                    savedOnly, search);
+  auto would = [&](const SlideAttempt& a) {
+    return eachKey(search, a.loose, [&]<class Key>(std::type_identity<Key>, bool pack) {
+             return tableProbe<Key>(board, a.form(pack), a.savedOnly, search);
            }) == Tabled::Searched;
   };
-  // a search saved with loose stops is one from the start alone: those
-  // arrangements have no moves backwards
-  const bool saved = (!search.plainKeys && would(true, false, true, false)) ||
-                     would(true, true, true, false);
-  return saved && would(false, search.plainKeys, false, true);
+  const std::vector<SlideAttempt> attempts = slideAttempts(search, nested, true);
+  // A search saved with loose stops is one from the start alone (those
+  // arrangements have no moves backwards): findSlidePath carries it on when
+  // it is the first attempt that searches. The saved ones with loose stops
+  // come first, so the probes stop at the first that is not one.
+  bool saved = false;
+  for (const SlideAttempt& a : attempts) {
+    if (!a.savedOnly || !a.loose) {
+      break;
+    }
+    if (would(a)) {
+      saved = true;
+      break;
+    }
+  }
+  if (!saved) {
+    return false;
+  }
+  // and nothing saved, it would search from both ends
+  const auto both = std::ranges::find_if(attempts, &SlideAttempt::bothEnds);
+  return both != attempts.end() && would(*both);
 }
 
 bool pendingFromStartAlone(const Puzzle& puzzle, const Problem& problem,
@@ -6959,13 +6980,12 @@ SlideBackCheck checkSlideMovesBack(const Puzzle& puzzle, const Problem& problem,
   setup.shapes(tray, nested, search.grid);
   SlideSpace<Key> space;
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
-  if (!space.build(tray, setup.cells, setup.outlines, nested, setup.initial, *setup.goals,
-                   search.likePiecesApart, search.verticalMoves, setup.stops, false,
-                   search.plainKeys, search.packing == SlidePacking::Always)) {
+  const GoalCheck& goals = *setup.goals;
+  if (!space.build(tray, setup.cells, setup.outlines, nested, search.partialNested,
+                   setup.initial, goals, search.likePiecesApart, search.verticalMoves,
+                   setup.stops, false, search.plainKeys, search.packing == SlidePacking::Always)) {
     return out;
   }
-  space.partial = nested && search.partialNested;
-  space.backMoves = canMoveBack(space, setup.cells, setup.outlines);
   if (!space.backMoves) {
     return out;
   }

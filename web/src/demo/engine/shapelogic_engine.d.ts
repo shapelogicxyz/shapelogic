@@ -9,7 +9,6 @@ export interface EngineModule {
   _bt_start(): void;
   _bt_write(data: number, length: number): void;
   _bt_poll(): void;
-  _bt_busy(): number;
   _bt_take(): void;
   _bt_taken_data(): number;
   _bt_taken_size(): number;

@@ -11,6 +11,7 @@
 #include "shapelogic/app/queries.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/mesh/draw_mesh.h"
+#include "shapelogic/mesh/stl.h"
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/solution.h"
@@ -18,6 +19,8 @@
 #include "shapelogic/solve/solve_progress.h"
 #include "shapelogic/solve/solve_session.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -30,7 +33,10 @@ namespace bt::engine {
 template <class E>
 using Names = std::vector<std::pair<std::string_view, E>>;
 
-/// The names of the schema's enums, each value once.
+/// The names of the schema's enums, each value once: the API's own, apart
+/// from the file format's names (imageFitName and the like), so renaming
+/// one changes neither. Every one the engine reads or writes is here, and
+/// tests/unit/engine/test_api_tables.cpp holds each to the schema's enum.
 [[nodiscard]] const Names<GridKind>& gridNames();
 [[nodiscard]] const Names<SolverType>& solverNames();
 [[nodiscard]] const Names<stacking::StackingSolver>& stackingSolverNames();
@@ -39,6 +45,27 @@ using Names = std::vector<std::pair<std::string_view, E>>;
 [[nodiscard]] const Names<mesh::MeshStyle>& meshStyleNames();
 [[nodiscard]] const Names<SolutionOrder>& sortByNames();
 [[nodiscard]] const Names<tilted::Tray::Placement>& trayPlacementNames();
+[[nodiscard]] const Names<ImageFit>& imageFitNames();
+[[nodiscard]] const Names<BorderCorners>& borderCornersNames();
+[[nodiscard]] const Names<BorderMaterial>& borderMaterialNames();
+[[nodiscard]] const Names<LogSetting>& logSettingNames();
+[[nodiscard]] const Names<app::ImportFormat>& importFormatNames();
+[[nodiscard]] const Names<app::ColorPreset>& colorPresetNames();
+/// solution.page's sortBy: -1 the stored order, else Problem::sortSolutions'
+/// number.
+[[nodiscard]] const Names<int>& solutionPageSortNames();
+[[nodiscard]] const Names<app::SolutionsToDelete>& solutionsToDeleteNames();
+[[nodiscard]] const Names<app::AssemblyImport::AddTo>& assemblyAddToNames();
+[[nodiscard]] const Names<app::AnalyseWhich>& analyseWhichNames();
+[[nodiscard]] const Names<mesh::StlParameterType>& stlParameterTypeNames();
+[[nodiscard]] const Names<SolveState>& solveStateNames();
+[[nodiscard]] const Names<SolveStage>& solveStageNames();
+[[nodiscard]] const Names<ProblemState>& problemStateNames();
+/// document.changed's `what`: a ChangeSet bit each.
+[[nodiscard]] const Names<unsigned int>& changeKindNames();
+/// SolverSettings' check boxes (types.json): stored "1" or "0", sent as
+/// true or false.
+[[nodiscard]] const std::vector<std::string_view>& solverBoxNames();
 /// A Tilted Square puzzle's tray (types.json Tray), or null.
 [[nodiscard]] Json trayJson(const app::Document& d);
 /// A tray and its board (types.json Tray).
@@ -70,6 +97,32 @@ template <class E>
 /// "#rrggbb".
 [[nodiscard]] std::string rgbText(Rgb c);
 [[nodiscard]] std::optional<Rgb> parseRgb(std::string_view text);
+/// A color the core keeps as 0xrrggbb.
+[[nodiscard]] Rgb rgbOf(std::uint32_t packed);
+/// A color field that may be null (none): read from `name`, as 0xrrggbb;
+/// a value that is neither fails the params.
+[[nodiscard]] std::optional<std::uint32_t> readRgbOrNull(Params& p, std::string_view name);
+
+/// The most shapes one call names (a Puzzlecad export, STL file names).
+inline constexpr std::size_t kMaxShapeList = 65536;
+/// A list of 1 to kMaxShapeList shape ids, read from `list`; what is no
+/// such list fails the params (and gives none).
+[[nodiscard]] std::vector<app::Id> readShapeIds(Params& p, const Json& list);
+/// The most bytes of a name that goes into an exported file (a comment
+/// line, an STL solid's name).
+inline constexpr std::size_t kMaxFileName = 255;
+/// Refuses such a name when it is too long or holds control characters.
+[[nodiscard]] RpcResult<void> checkFileName(const std::string& name);
+
+/// The problem a play call names, on a puzzle that `isKind` says the play
+/// is for; Unsupported, `refusal`, on any other.
+[[nodiscard]] RpcResult<const Problem*> playProblem(const State& s, app::Id problem,
+                                                    bool (*isKind)(const Puzzle&),
+                                                    std::string_view refusal);
+/// A replay's reply (sliding.playReplay, stacking.playReplay): whether it
+/// starts solved, the steps made, and the move that could not be made and
+/// why (null when every one was).
+[[nodiscard]] Json replayJson(bool solved, Json steps, const std::string& error);
 
 /// The ids of the document's items, as the API writes them.
 [[nodiscard]] std::string shapeId(const State& s, unsigned int index);
@@ -79,6 +132,10 @@ template <class E>
 
 /// The items (api/types.json).
 [[nodiscard]] Json shapeSummary(const State& s, unsigned int index);
+/// A rod set's rules as the original's fields showed them (loadRodFields,
+/// syncPanexFields): what rodSetJson sends and what stacking.setRules
+/// keeps of a field it is not given.
+[[nodiscard]] stacking::RodSet rodSetFields(const stacking::RodSet& r);
 /// A stacking puzzle's rod set (RodSet): its id, label, name and rules as
 /// the original's fields showed them.
 [[nodiscard]] Json rodSetJson(const State& s, unsigned int index);

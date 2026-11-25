@@ -8,7 +8,7 @@
 /// counted by an ordinary solve on a puzzle of the job's own. On a thread of
 /// its own, with progress and a stop. New code; the pattern is Analysis.
 
-#include "shapelogic/base/stop.h"
+#include "shapelogic/app/background_job.h"
 #include "shapelogic/model/tilted_tray.h"
 #include "shapelogic/solve/solve_session.h"
 
@@ -18,7 +18,6 @@
 #include <mutex>
 #include <optional>
 #include <string>
-#include <thread>
 #include <vector>
 
 namespace bt {
@@ -61,7 +60,7 @@ struct PlacementFitProgress {
 /// One fit: solves the problem on each board in turn, on a thread of its
 /// own. It works on `scratch`, a puzzle of its own, so nothing it does
 /// touches the document.
-class PlacementFit {
+class PlacementFit final : public BackgroundJob {
  public:
   /// Starts at once. `scratch` is a tilted puzzle whose shape 0 is the board
   /// and whose problem 0 is the problem to try, its result the board; the
@@ -70,41 +69,27 @@ class PlacementFit {
   PlacementFit(std::unique_ptr<Puzzle> scratch, const tilted::Placements& boards,
                SolveOptions options);
   /// Stops and waits.
-  ~PlacementFit();
+  ~PlacementFit() override;
 
-  PlacementFit(const PlacementFit&) = delete;
-  PlacementFit& operator=(const PlacementFit&) = delete;
-
-  /// Asks it to stop as soon as it can; does not wait. Any thread.
-  void stop();
-  /// Waits until it has ended.
-  void wait();
-  /// Still trying boards. Any thread.
-  [[nodiscard]] bool active() const { return active_.load(std::memory_order_acquire); }
+  [[nodiscard]] Kind kind() const override { return Kind::PlacementFit; }
   /// Any thread.
   [[nodiscard]] PlacementFitProgress progress() const;
 
  private:
-  void run();
+  void run() override;
+  /// Pauses the solve of the board under way.
+  void onStop() override;
   /// Solves the problem on board `index`; false when the job is to end.
   bool tryBoard(std::size_t index);
 
   std::unique_ptr<Puzzle> puzzle_;
   SolveOptions options_;
   bool complete_;
-  StopSource stop_;
 
-  std::atomic<unsigned int> done_{0};
-  std::atomic<bool> active_{true};
-
-  /// Guards the boards' results, the failure, and the solve under way.
-  mutable std::mutex mutex_;
+  /// Under mutex_: the boards' results and the solve under way (null
+  /// between boards).
   std::vector<BoardFit> boards_;
-  std::optional<std::string> failure_;
-  /// The solve of the board under way; null between boards.
   SolveSession* session_ = nullptr;
-
-  std::thread thread_;
 };
 
 }  // namespace bt::app

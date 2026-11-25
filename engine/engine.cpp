@@ -28,20 +28,12 @@ std::string Settings::defaultSlideFolder() {
   // as the CLI: the variable before the cache folder (the tests give each
   // engine a folder of its own this way; the app sets its folders itself)
   // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-  if (const char* dir = std::getenv("SHAPELOGIC_SLIDE_DIR"); dir != nullptr && *dir != 0) {
-    return dir;
-  }
-  const std::string cache = userCacheDirectory();
-  return cache.empty() ? std::string() : (std::filesystem::path(cache) / "sliding").string();
+  return defaultSearchFolder(std::getenv("SHAPELOGIC_SLIDE_DIR"), userCacheDirectory(), "sliding");
 }
 
 std::string Settings::defaultPanexFolder() {
   // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-  if (const char* dir = std::getenv("SHAPELOGIC_PANEX_DIR"); dir != nullptr && *dir != 0) {
-    return dir;
-  }
-  const std::string cache = userCacheDirectory();
-  return cache.empty() ? std::string() : (std::filesystem::path(cache) / "panex").string();
+  return defaultSearchFolder(std::getenv("SHAPELOGIC_PANEX_DIR"), userCacheDirectory(), "panex");
 }
 
 std::uint64_t Settings::searchMemoryBytes() const {

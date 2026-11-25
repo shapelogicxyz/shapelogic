@@ -44,4 +44,10 @@ template <class T>
   return x / y - ((x % y && (x % y ^ y) < 0) ? 1 : 0);
 }
 
+/// The units of `per` cells that `cells` cells begin: a division in whole
+/// numbers, rounded up (the rhombic and tetra-octa grids' cubes).
+[[nodiscard]] constexpr unsigned int wholeUnits(unsigned int cells, unsigned int per) noexcept {
+  return (cells + per - 1) / per;
+}
+
 }  // namespace bt

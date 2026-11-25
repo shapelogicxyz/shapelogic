@@ -14,6 +14,10 @@
 #include "shapelogic/grid/symmetries.h"
 #include "shapelogic/grid/types.h"
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -316,8 +320,10 @@ class Voxel {
   void resize(unsigned int nsx, unsigned int nsy, unsigned int nsz, VoxelType filler);
 
   /// Grows and shifts the space so that (px, py, pz) is inside it, and
-  /// updates the point to its new coordinates.
-  virtual void resizeInclude(int& px, int& py, int& pz) = 0;
+  /// updates the point to its new coordinates. This one is the cube
+  /// grid's, which any shift keeps the cells' look on (the hexagonal grid
+  /// uses it too); the other grids shift by their lattice's steps.
+  virtual void resizeInclude(int& px, int& py, int& pz);
 
   /// Scales every cell up by `amount`; with `grid` only the outer edges are
   /// kept. Grids that cannot scale (spheres) do nothing.
@@ -451,6 +457,15 @@ class Voxel {
   /// Marks the symmetry as unknown.
   void invalidateSymmetry() { symmetries_ = kSymmetryInvalid; }
 
+  /// The transform of the new grids (hexagonal and cairo), whose turned
+  /// cells need not fill a box: each filled cell goes to turn(x, y, z) (a
+  /// cell with members x, y and z), into the box of the turned cells, which
+  /// fit(low, size) may move or widen (std::array<int, 3> of the low
+  /// corner, std::array<unsigned int, 3> of the sizes); the marks and the
+  /// hotspot go with the cells. An empty space stays as it is.
+  template <class Turn, class Fit>
+  void rebuildTurned(Turn turn, Fit fit);
+
   /// Drops the cached hotspots and bounding boxes of all transformations.
   void invalidateTransformCache();
 
@@ -502,6 +517,11 @@ class Voxel {
       *marks = std::move(moved);
     }
   }
+  /// True when each list of marks is empty or has a mark for every cell.
+  [[nodiscard]] bool marksFit() const {
+    return (startPiece_.empty() || startPiece_.size() == voxels_) &&
+           (goalPiece_.empty() || goalPiece_.size() == voxels_);
+  }
   /// Drops the marks of cell i.
   void clearMarks(unsigned int i) {
     for (std::vector<unsigned char>* marks : {&startPiece_, &goalPiece_}) {
@@ -551,5 +571,79 @@ class Voxel {
   /// z1, z2; see fillTransformCache().
   mutable std::vector<int> bbHsCache_;
 };
+
+template <class Turn, class Fit>
+void Voxel::rebuildTurned(Turn turn, Fit fit) {
+  std::array<int, 3> low{std::numeric_limits<int>::max(), std::numeric_limits<int>::max(),
+                         std::numeric_limits<int>::max()};
+  std::array<int, 3> high{std::numeric_limits<int>::min(), std::numeric_limits<int>::min(),
+                          std::numeric_limits<int>::min()};
+  bool any = false;
+  unsigned int index = 0;
+  for (int z = 0; z < static_cast<int>(sz_); z++) {
+    for (int y = 0; y < static_cast<int>(sy_); y++) {
+      for (int x = 0; x < static_cast<int>(sx_); x++) {
+        if (!isEmpty(index)) {
+          const auto c = turn(x, y, z);
+          low = {std::min(low[0], c.x), std::min(low[1], c.y), std::min(low[2], c.z)};
+          high = {std::max(high[0], c.x), std::max(high[1], c.y), std::max(high[2], c.z)};
+          any = true;
+        }
+        index++;
+      }
+    }
+  }
+  // empty space, nothing to do
+  if (!any) {
+    return;
+  }
+
+  std::array<unsigned int, 3> size{static_cast<unsigned int>(high[0] - low[0] + 1),
+                                   static_cast<unsigned int>(high[1] - low[1] + 1),
+                                   static_cast<unsigned int>(high[2] - low[2] + 1)};
+  fit(low, size);
+  const auto at = [&](const auto& c) {
+    BT_ASSERT(c.x >= low[0] && c.y >= low[1] && c.z >= low[2]);
+    return static_cast<unsigned int>(c.x - low[0]) +
+           size[0] * (static_cast<unsigned int>(c.y - low[1]) +
+                      size[1] * static_cast<unsigned int>(c.z - low[2]));
+  };
+  const unsigned int voxelsn = size[0] * size[1] * size[2];
+  std::vector<VoxelType> s(voxelsn, kEmpty);
+  index = 0;
+  for (int z = 0; z < static_cast<int>(sz_); z++) {
+    for (int y = 0; y < static_cast<int>(sy_); y++) {
+      for (int x = 0; x < static_cast<int>(sx_); x++) {
+        if (!isEmpty(index)) {
+          s[at(turn(x, y, z))] = space_[index];
+        }
+        index++;
+      }
+    }
+  }
+  // the marks of the filled cells (an empty cell has none)
+  moveMarks(voxelsn, [&](std::size_t i) -> long {
+    const auto u = static_cast<unsigned int>(i);
+    if (isEmpty(u)) {
+      return -1;
+    }
+    return static_cast<long>(at(turn(static_cast<int>(u % sx_), static_cast<int>((u / sx_) % sy_),
+                                     static_cast<int>(u / (sx_ * sy_)))));
+  });
+
+  const auto h = turn(hx_, hy_, hz_);
+  hx_ = h.x - low[0];
+  hy_ = h.y - low[1];
+  hz_ = h.z - low[2];
+
+  sx_ = size[0];
+  sy_ = size[1];
+  sz_ = size[2];
+  space_ = std::move(s);
+  voxels_ = voxelsn;
+
+  recalcBoundingBox();
+  invalidateSymmetry();
+}
 
 }  // namespace bt

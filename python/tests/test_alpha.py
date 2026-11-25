@@ -302,6 +302,25 @@ class TestSliding(unittest.TestCase):
         self.assertEqual(len(layouts), 1)
         self.assertFalse(layouts[0].has_disassembly)
 
+    def test_a_problem_the_app_refuses(self):
+        # a piece of one cell with starts on two: refused with the app's
+        # reason (Document::solveLaunch's checks, app::solveRefusal), as the
+        # CLI's --save refuses it (tests/cli/test_cli.py)
+        xml = ('<?xml version="1.0"?><puzzle version="2" slideMarks="problem">'
+               '<gridType type="5"/><colors/><shapes>'
+               '<voxel x="2" y="2" z="1" name="sg:1:" type="0">####</voxel>'
+               '<voxel x="1" y="1" z="1" type="0">#</voxel></shapes><problems>'
+               '<problem name="two starts"><shapes><shape id="1" count="1"/></shapes>'
+               '<result id="0"/><bitmap/><slideMarks start="2,2,0,0"/></problem>'
+               '</problems><comment/></puzzle>')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "overflow.xmpuzzle")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(xml)
+            it = shapelogic.load(path).problems[0].solve()
+            with self.assertRaisesRegex(RuntimeError, "S1 has 2 starts"):
+                next(it)
+
     def test_nested_slides(self):
         # the original's burrTxt -d with and without --nested-slides
         for name, plain, nested in (("test_sliding_nested", [], ["47"]),

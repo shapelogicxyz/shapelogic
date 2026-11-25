@@ -6,11 +6,15 @@
 // same folders (decision 0035), and the tests leave nothing in the cache.
 #include "scratch_dir.h"
 
+#include "shapelogic/base/system.h"
+
+#include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_test_run_info.hpp>
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_registrars.hpp>
 
 #include <cstdlib>
+#include <filesystem>
 #include <optional>
 #include <string>
 
@@ -43,3 +47,21 @@ class SearchFolders : public Catch::EventListenerBase {
 }  // namespace
 
 CATCH_REGISTER_LISTENER(SearchFolders)
+
+// One rule for every program (cleanup item 11.6): the variable when it has
+// a value, an empty one as none, then the cache folder, else in memory.
+TEST_CASE("search folders: the variable, an empty one as none, then the cache folder",
+          "[base]") {
+  const std::string cache = (std::filesystem::path("cache") / "sliding").string();
+  CHECK(bt::defaultSearchFolder("/given", "cache", "sliding") == "/given");
+  CHECK(bt::defaultSearchFolder("", "cache", "sliding") == cache);
+  CHECK(bt::defaultSearchFolder(nullptr, "cache", "sliding") == cache);
+  CHECK(bt::defaultSearchFolder("", "", "panex").empty());
+  CHECK(bt::defaultSearchFolder(nullptr, "", "panex").empty());
+  // the disk budgets, as burrTxt read them
+  CHECK(bt::diskBudgetFromText(nullptr) == 0);
+  CHECK(bt::diskBudgetFromText("") == 0);
+  CHECK(bt::diskBudgetFromText("2.5") == 2500000000ULL);
+  CHECK(bt::diskBudgetFromText("-1") == 0);
+  CHECK(bt::diskBudgetFromText("nan") == 0);
+}

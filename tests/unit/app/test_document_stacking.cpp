@@ -34,6 +34,7 @@
 #include <optional>
 #include <regex>
 #include <string>
+#include <tuple>
 #include <vector>
 
 using namespace bt;
@@ -367,18 +368,33 @@ TEST_CASE("stacking document: rod sets are added, copied, named, moved and delet
   test::refused(d, Errc::NotFound, [panex](Document& x) { return x.renameRodSet(panex, "x"); });
 }
 
-// cb_RodField: the fields as the GUI read them back.
-TEST_CASE("stacking document: a rod set's rules are clamped and follow Panex columns",
+// cb_RodField: the fields as the GUI read them back, in its bounds (past
+// them refused, as the engine refuses them: cleanup item 11.2).
+TEST_CASE("stacking document: a rod set's rules are bounded and follow Panex columns",
           "[app][stacking]") {
   Document d = openFixture("test_stacking_hanoi.xmpuzzle");
   const Id r = d.rodSetIds().front();
-  stacking::RodSet f = d.puzzle().getRodSet(0);
+  const stacking::RodSet before = d.puzzle().getRodSet(0);
+  for (const auto& [rods, height, pocket] :
+       {std::tuple{stacking::kMaxRods + 1, 1U, 1U}, std::tuple{0U, 1U, 1U},
+        std::tuple{3U, stacking::kMaxHeight + 1, 1U}, std::tuple{3U, 0U, 1U},
+        std::tuple{3U, 1U, stacking::kMaxHeight + 1}, std::tuple{3U, 1U, 0U}}) {
+    stacking::RodSet out = before;
+    out.rodCount = rods;
+    out.definedHeight = height;
+    out.pocketHeight = pocket;
+    const Result<void> refused = d.setRodSetRules(r, out);
+    REQUIRE_FALSE(refused.has_value());
+    CHECK(refused.error().code == Errc::InvalidArgument);
+    CHECK(d.puzzle().getRodSet(0) == before);
+  }
+  stacking::RodSet f = before;
   f.name = "not this";
-  f.rodCount = 40;
+  f.rodCount = stacking::kMaxRods;
   f.growHeight = false;
-  f.definedHeight = 0;
+  f.definedHeight = 1;
   f.pocketColumn = true;
-  f.pocketHeight = 99;
+  f.pocketHeight = stacking::kMaxHeight;
   f.outsideChannel = true;
   f.canMoveOver = true;
   test::roundTrip(d, [r, &f](Document& x) { return x.setRodSetRules(r, f); });

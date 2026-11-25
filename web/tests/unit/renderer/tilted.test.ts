@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { LIMITS } from '../../../src/engine/api.generated.ts';
 import type { Tray } from '../../../src/engine/api.generated.ts';
 import { newOrder } from '../../../src/renderer/shell/files-order.ts';
 import { chipColor, setBoardCount, shapeColor } from '../../../src/renderer/shell/piece-colors.ts';
@@ -18,6 +19,7 @@ import {
   writeOptions,
 } from '../../../src/renderer/solver/settings.ts';
 import {
+  TRAY_MAX,
   boardToTray,
   cellState,
   isTiltBoard,
@@ -128,14 +130,16 @@ describe('a tilted tray in words', () => {
     expect(parseAllowance('0.05')).toBe(0.05);
     expect(parseAllowance('0,025')).toBe(0.025);
     expect(parseAllowance('0')).toBe(0);
+    expect(parseAllowance(String(LIMITS.tray.allowance))).toBe(LIMITS.tray.allowance);
     expect(parseAllowance('0.3')).toBeNull();
     expect(parseAllowance('-1')).toBeNull();
     expect(parseAllowance('')).toBeNull();
     expect(parseAllowance('a')).toBeNull();
-    expect(parseWhole('8', 1, 64)).toBe(8);
-    expect(parseWhole('0', 1, 64)).toBeNull();
-    expect(parseWhole('65', 1, 64)).toBeNull();
-    expect(parseWhole('2.5', 1, 64)).toBeNull();
+    expect(TRAY_MAX).toBe(LIMITS.tray.side);
+    expect(parseWhole('8', 1, TRAY_MAX)).toBe(8);
+    expect(parseWhole('0', 1, TRAY_MAX)).toBeNull();
+    expect(parseWhole(String(TRAY_MAX + 1), 1, TRAY_MAX)).toBeNull();
+    expect(parseWhole('2.5', 1, TRAY_MAX)).toBeNull();
     expect(squareOf('3,7')).toEqual([3, 7]);
     expect(squareOf('3')).toBeNull();
     expect(squareOf(undefined)).toBeNull();

@@ -7,6 +7,7 @@
 #include "shapelogic/app/document.h"
 
 #include "shapelogic/app/document_internal.h"
+#include "shapelogic/app/solve_setup.h"
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/int_cast.h"
 #include "shapelogic/grid/voxel.h"
@@ -52,9 +53,8 @@ Document::Document(std::unique_ptr<Puzzle> puzzle, DocumentSettings settings)
 Document::Document(Document&&) noexcept = default;
 
 Document::~Document() {
-  // the analyses and solves first: they hold the puzzle
-  fits_.clear();
-  analyses_.clear();
+  // the background jobs and solves first: they hold the puzzle
+  jobs_.clear();
   sessions_.clear();
 }
 
@@ -626,7 +626,7 @@ Result<void> Document::endGroup() {
 // ---- the guards of decision 0011 ------------------------------------------------------
 
 bool Document::solving() const {
-  return !analyses_.empty() || !fits_.empty() ||
+  return !jobs_.empty() ||
          std::any_of(sessions_.begin(), sessions_.end(),
                      [](const auto& s) { return isActive(s.second->state()); });
 }
@@ -643,12 +643,17 @@ Result<void> Document::checkProblemFree(unsigned int problem) const {
   if (it != sessions_.end() && isActive(it->second->state())) {
     return fail(Errc::InvalidState, "the problem is being solved: pause it first");
   }
-  if (analyses_.contains(ids_.problems[problem])) {
-    return fail(Errc::InvalidState, "the problem's solutions are being taken apart: stop it first");
-  }
-  if (fits_.contains(ids_.problems[problem])) {
-    return fail(Errc::InvalidState,
-                "the tray's placements are being tried with the problem: stop it first");
+  const Id id = ids_.problems[problem];
+  for (auto j = jobs_.lower_bound({id, BackgroundJob::Kind{}}); j != jobs_.end() && j->first.first == id;
+       ++j) {
+    switch (j->first.second) {
+      case BackgroundJob::Kind::Analysis:
+        return fail(Errc::InvalidState,
+                    "the problem's solutions are being taken apart: stop it first");
+      case BackgroundJob::Kind::PlacementFit:
+        return fail(Errc::InvalidState,
+                    "the tray's placements are being tried with the problem: stop it first");
+    }
   }
   return {};
 }
@@ -702,19 +707,7 @@ void Document::problemChanged(unsigned int problem) {
 // A solve only reads the shapes once they are as a run leaves them: the
 // hotspots where a run puts them and the caches warm. Then the document
 // can read them while it runs.
-void Document::prepareShapesForSolving() {
-  // a stacking solve has the discs' hotspots at their centers (cb_BtnCont)
-  const bool stack = stacking::isStacking(*puzzle_);
-  for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
-    Voxel& v = puzzle_->getShape(i);
-    if (stack) {
-      (void)stacking::placeSolvingHotspot(v);
-    } else if (!v.hasInitialHotspot()) {
-      v.initHotspot();
-    }
-    v.warmCaches();
-  }
-}
+void Document::prepareShapesForSolving() { app::prepareShapesForSolving(*puzzle_); }
 
 SolveSession& Document::sessionFor(unsigned int problem, const SolveOptions& options) {
   const Id id = ids_.problems[problem];
@@ -782,31 +775,19 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
   // shape valid, no stamp larger than its piece) and what its solve thread
   // set up as it began (the start locks, the holes), which changes shapes:
   // not while another run reads them. Solving's own change: no undo step.
+  // (solveRefusal: what the session would refuse too, asked before
+  // anything changes)
   bool slidingPrepared = false;
   if (sliding::isSliding(*puzzle_)) {
     const Problem& pr = puzzle_->getProblem(*p);
-    if (pr.resultValid() && sliding::isStartGoalShape(&puzzle_->getShape(pr.getResultId()))) {
-      const std::string why = sliding::startGoalError(*puzzle_, pr.getResultId(), &pr);
-      if (!why.empty()) {
-        return fail(Errc::InvalidArgument, why);
-      }
-    }
-    const std::string overflow = sliding::stampOverflowMessage(*puzzle_, pr);
-    if (!overflow.empty()) {
-      return fail(Errc::InvalidArgument, overflow);
+    if (Result<void> r = solveRefusal(*puzzle_, pr); !r) {
+      return r;
     }
     if (sliding::needsPreparing(*puzzle_, pr)) {
       if (solving()) {
         return fail(Errc::InvalidState,
                     "the pieces' start locks must be set up, which changes shapes another solve "
                     "reads: pause it first");
-      }
-      // what the session would refuse, before anything changes
-      if (!pr.resultValid()) {
-        return fail(Errc::InvalidArgument, "a result shape must be defined");
-      }
-      if (pr.getNumberOfPieces() == 0) {
-        return fail(Errc::InvalidArgument, "the problem has no pieces");
       }
       if (mode == LaunchMode::Resume && solveState(problem) == SolveState::Finished) {
         return fail(Errc::InvalidState, "the problem is solved: start() solves it again");
@@ -886,7 +867,7 @@ Result<void> Document::solveAbort(Id problem, const std::string& stackingWorkDir
   if (!p) {
     return std::unexpected(p.error());
   }
-  if (analyses_.contains(problem)) {
+  if (job<Analysis>(problem, BackgroundJob::Kind::Analysis) != nullptr) {
     return fail(Errc::InvalidState, "the problem's solutions are being taken apart: stop it first");
   }
   // the hard stop of a solve under way (the original's Abort button was
@@ -1153,7 +1134,8 @@ Result<unsigned int> Document::analyseStart(Id problem, const AnalyseOptions& op
     prepareShapesForSolving();
   }
   analysisEnds_.erase(problem);
-  analyses_.emplace(problem, std::make_unique<Analysis>(*puzzle_, pr, std::move(work), options));
+  jobs_.emplace(std::pair{problem, BackgroundJob::Kind::Analysis},
+                std::make_unique<Analysis>(*puzzle_, pr, std::move(work), options));
   return n;
 }
 
@@ -1161,11 +1143,11 @@ Result<void> Document::analyseStop(Id problem) {
   if (Result<unsigned int> p = problemIndex(problem); !p) {
     return std::unexpected(p.error());
   }
-  const auto it = analyses_.find(problem);
-  if (it == analyses_.end()) {
+  Analysis* a = job<Analysis>(problem, BackgroundJob::Kind::Analysis);
+  if (a == nullptr) {
     return fail(Errc::InvalidState, "the problem is not being analysed");
   }
-  it->second->stop();
+  a->stop();
   return {};
 }
 
@@ -1173,54 +1155,55 @@ Result<AnalyseProgress> Document::analyseProgress(Id problem) const {
   if (Result<unsigned int> p = problemIndex(problem); !p) {
     return std::unexpected(p.error());
   }
-  const auto it = analyses_.find(problem);
-  if (it != analyses_.end()) {
-    return it->second->progress();
+  if (const Analysis* a = job<Analysis>(problem, BackgroundJob::Kind::Analysis)) {
+    return a->progress();
   }
   const auto e = analysisEnds_.find(problem);
   return e == analysisEnds_.end() ? AnalyseProgress{} : e->second;
 }
 
-bool Document::analysing(Id problem) const { return analyses_.contains(problem); }
+bool Document::analysing(Id problem) const {
+  return jobs_.contains({problem, BackgroundJob::Kind::Analysis});
+}
 
 bool Document::poll() {
   std::vector<Id> touched;
-  // the fits that ended changed nothing: noted only, so that whoever
-  // mirrors solving() learns it is over
+  // the jobs that ended: a fit changed nothing and is noted only, so that
+  // whoever mirrors solving() learns it is over; an analysis's separations
+  // go in (the problem cannot have changed: it was frozen)
   bool results = false;
-  for (auto it = fits_.begin(); it != fits_.end();) {
+  for (auto it = jobs_.begin(); it != jobs_.end();) {
     if (it->second->active()) {
       ++it;
       continue;
     }
-    fitEnds_[it->first] = it->second->progress();
-    touched.push_back(it->first);
-    it = fits_.erase(it);
-  }
-  // the analyses that ended: their separations go in (the problem cannot
-  // have changed: it was frozen)
-  for (auto it = analyses_.begin(); it != analyses_.end();) {
-    if (it->second->active()) {
-      ++it;
-      continue;
-    }
-    const Result<unsigned int> p = problemIndex(it->first);
-    BT_ASSERT_MSG(p.has_value(), "a problem was removed while being analysed");
-    Problem& pr = puzzle_->getProblem(*p);
-    analysisEnds_[it->first] = it->second->progress();
-    for (auto& [id, separation] : it->second->takeResults()) {
-      for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
-        if (pr.getSavedSolution(i).getId() == id) {
-          pr.getSavedSolution(i).setDisassembly(std::move(separation));
-          break;
+    const Id id = it->first.first;
+    switch (it->first.second) {
+      case BackgroundJob::Kind::PlacementFit:
+        fitEnds_[id] = static_cast<const PlacementFit&>(*it->second).progress();
+        break;
+      case BackgroundJob::Kind::Analysis: {
+        auto& a = static_cast<Analysis&>(*it->second);
+        const Result<unsigned int> p = problemIndex(id);
+        BT_ASSERT_MSG(p.has_value(), "a problem was removed while being analysed");
+        Problem& pr = puzzle_->getProblem(*p);
+        analysisEnds_[id] = a.progress();
+        for (auto& [sol, separation] : a.takeResults()) {
+          for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
+            if (pr.getSavedSolution(i).getId() == sol) {
+              pr.getSavedSolution(i).setDisassembly(std::move(separation));
+              break;
+            }
+          }
         }
+        results = true;
+        break;
       }
     }
-    if (std::find(touched.begin(), touched.end(), it->first) == touched.end()) {
-      touched.push_back(it->first);
+    if (std::find(touched.begin(), touched.end(), id) == touched.end()) {
+      touched.push_back(id);
     }
-    results = true;
-    it = analyses_.erase(it);
+    it = jobs_.erase(it);
   }
   // the runs that ended
   for (auto it = runsStarted_.begin(); it != runsStarted_.end();) {

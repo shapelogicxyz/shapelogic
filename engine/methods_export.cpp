@@ -24,24 +24,8 @@ namespace {
 
 // at most this many values (the sphere grid has eight parameters)
 constexpr std::size_t kMaxValues = 16;
-// the most bytes of a solid's name
-constexpr std::size_t kMaxName = 255;
-// the most shapes named at once
-constexpr std::size_t kMaxShapes = 65536;
 
-std::string_view typeName(mesh::StlParameterType t) {
-  switch (t) {
-    case mesh::StlParameterType::Double:
-      return "number";
-    case mesh::StlParameterType::PositiveDouble:
-      return "positiveNumber";
-    case mesh::StlParameterType::PositiveInteger:
-      return "positiveInteger";
-    case mesh::StlParameterType::Switch:
-      return "switch";
-  }
-  return "number";
-}
+
 
 // The values of the request's parameters, or the grid's defaults when it
 // has none; the count is checked by the core.
@@ -76,7 +60,7 @@ Reply exportStlParameters(State& s, Params& p) {
   Json out = Json::array();
   for (const mesh::StlParameter& q : mesh::stlParameters(grid)) {
     out.push_back(Json{{"name", q.name},
-                       {"type", typeName(q.type)},
+                       {"type", nameOf(stlParameterTypeNames(), q.type)},
                        {"default", q.defaultValue},
                        {"tooltip", q.tooltip}});
   }
@@ -99,14 +83,8 @@ Reply exportStl(State& s, Params& p) {
   const bool binary = p.optBoolean("binary", true);
   const std::string name = p.optString("name").value_or("");
   BTE_CHECK(p.finish());
-  if (name.size() > kMaxName) {
-    return coreError(Errc::InvalidArgument, "the name is longer than 255 bytes");
-  }
-  for (const char c : name) {
-    if (static_cast<unsigned char>(c) < 0x20 || c == 0x7f) {
-      return coreError(Errc::InvalidArgument, "the name cannot hold control characters");
-    }
-  }
+  // the solid's name
+  BTE_CHECK(checkFileName(name));
   BTE_TRY(const mesh::Polyhedron poly, s.document().stlMesh(shape, values));
   const std::vector<std::uint8_t> file = mesh::stlFile(poly, name, binary);
   FrameBuilder f;
@@ -129,21 +107,7 @@ Reply exportSolutionPieces(State& s, Params& p) {
 }
 
 Reply exportStlFileNames(State& s, Params& p) {
-  const Json& list = p.value("shapes");
-  std::vector<app::Id> ids;
-  if (!list.is_array() || list.empty() || list.size() > kMaxShapes) {
-    p.fail("'shapes' must be a list of 1 to 65536 shape ids");
-  } else {
-    for (const Json& v : list) {
-      const std::optional<std::uint64_t> id =
-          v.is_string() ? parseId(IdKind::Shape, v.get<std::string>()) : std::nullopt;
-      if (!id) {
-        p.fail("'shapes' must be a list of shape ids (s1, ...)");
-        break;
-      }
-      ids.push_back(*id);
-    }
-  }
+  const std::vector<app::Id> ids = readShapeIds(p, p.value("shapes"));
   BTE_CHECK(p.finish());
   std::vector<unsigned int> shapes;
   for (const app::Id id : ids) {

@@ -2,13 +2,12 @@
 // New code (decision 0045, stage G of docs/TILTED-SQUARE-PLAN.md).
 #include "shapelogic/app/placement_fit.h"
 
-#include "shapelogic/app/document_internal.h"
+#include "shapelogic/app/tray_board.h"
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 
-#include <exception>
 #include <utility>
 
 namespace bt::app {
@@ -26,25 +25,15 @@ PlacementFit::PlacementFit(std::unique_ptr<Puzzle> scratch, const tilted::Placem
   for (const tilted::Placed& b : boards.boards) {
     boards_.push_back({b, false, 0});
   }
-  thread_ = std::thread([this] { run(); });
+  start();
 }
 
-PlacementFit::~PlacementFit() {
-  stop();
-  wait();
-}
+PlacementFit::~PlacementFit() { finish(); }
 
-void PlacementFit::stop() {
-  stop_.request(StopKind::Abort);
+void PlacementFit::onStop() {
   const std::lock_guard<std::mutex> lock(mutex_);
   if (session_ != nullptr) {
     session_->pause();
-  }
-}
-
-void PlacementFit::wait() {
-  if (thread_.joinable()) {
-    thread_.join();
   }
 }
 
@@ -120,25 +109,20 @@ bool PlacementFit::tryBoard(std::size_t index) {
 }
 
 void PlacementFit::run() {
-  try {
-    for (std::size_t k = 0; k < boards_.size(); k++) {
-      if (stop_.stopRequested() || !tryBoard(k)) {
-        break;
-      }
-      done_.fetch_add(1, std::memory_order_relaxed);
+  // the list's length is fixed once the job is made
+  for (std::size_t k = 0; k < boards_.size(); k++) {
+    if (stop_.stopRequested() || !tryBoard(k)) {
+      break;
     }
-  } catch (const std::exception& e) {
-    const std::lock_guard<std::mutex> lock(mutex_);
-    failure_ = e.what();
+    countDone();
   }
-  active_.store(false, std::memory_order_release);
 }
 
 PlacementFitProgress PlacementFit::progress() const {
   PlacementFitProgress p;
   p.active = active();
   p.complete = complete_;
-  p.done = done_.load(std::memory_order_relaxed);
+  p.done = done();
   const std::lock_guard<std::mutex> lock(mutex_);
   p.boards = boards_;
   p.failure = failure_;

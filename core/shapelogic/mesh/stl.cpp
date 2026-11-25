@@ -6,6 +6,7 @@
 #include "shapelogic/mesh/stl.h"
 
 #include "shapelogic/base/assert.h"
+#include "shapelogic/grid/grid_traits.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/mesh/cube_mesh.h"
 #include "shapelogic/mesh/mink_mesh.h"
@@ -115,7 +116,8 @@ Result<Polyhedron> stl0Mesh(const Voxel& v, std::span<const double> p) {
   const double scaleZ = (cubeScaleZ > kEpsilon) ? cubeScaleZ : cubeScale;
 
   const GridKind kind = v.getGridType().getType();
-  if (uniform || bumpy || kind == GridKind::Hexagonal || kind == GridKind::Cairo) {
+  const GridMesher mesher = gridTraits(kind).mesher;
+  if (uniform || bumpy || mesher == GridMesher::Uniform) {
     // the uniform mesher: the cells stretched to the unit sizes first, so
     // the bevels keep their width, then everything scaled to the unit
     UniformMeshOptions o;
@@ -133,10 +135,16 @@ Result<Polyhedron> stl0Mesh(const Voxel& v, std::span<const double> p) {
     return u;
   }
   Result<Polyhedron> poly = fail(Errc::InvalidArgument, "No mesher for this grid");
-  if (kind == GridKind::Bricks || kind == GridKind::Sliding || kind == GridKind::Stacking) {
-    poly = cubePolyhedron(v, shrink / cubeScale, bevel / cubeScale, interiorChamfers);
-  } else if (minkHandles(v)) {
-    poly = minkPolyhedron(v, shrink / cubeScale, bevel / cubeScale, interiorChamfers);
+  switch (mesher) {
+    case GridMesher::Cubes:
+      poly = cubePolyhedron(v, shrink / cubeScale, bevel / cubeScale, interiorChamfers);
+      break;
+    case GridMesher::Minkowski:
+      poly = minkPolyhedron(v, shrink / cubeScale, bevel / cubeScale, interiorChamfers);
+      break;
+    // the sphere grid has an exporter of its own (stl2Mesh)
+    case GridMesher::Spheres:
+    case GridMesher::Uniform: break;
   }
   if (poly) {
     scalePolyhedron(*poly, static_cast<float>(cubeScale), static_cast<float>(scaleY),

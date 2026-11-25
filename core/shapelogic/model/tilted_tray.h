@@ -18,6 +18,7 @@
 #include "shapelogic/base/stop.h"
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -99,6 +100,26 @@ enum class Cell : std::uint8_t {
 struct Point {
   double x = 0.0;
   double y = 0.0;
+};
+
+/// A tray's turn: the grid's frame against the tray's, by the slope (over,
+/// down), about the origin. The one place its arithmetic is written
+/// (cleanup item 11.11).
+struct Turn {
+  /// The slope's length, and its cosine and sine.
+  double h = 1.0;
+  double c = 1.0;
+  double s = 0.0;
+
+  explicit Turn(const Tray& tray)
+      : h(std::hypot(static_cast<double>(tray.over), static_cast<double>(tray.down))),
+        c(static_cast<double>(tray.over) / h),
+        s(static_cast<double>(tray.down) / h) {}
+
+  /// The grid point of tray point p.
+  [[nodiscard]] Point toGrid(Point p) const { return {(p.x * c) + (p.y * s), (p.y * c) - (p.x * s)}; }
+  /// The tray point of grid point g.
+  [[nodiscard]] Point toTray(Point g) const { return {(g.x * c) - (g.y * s), (g.x * s) + (g.y * c)}; }
 };
 
 /// The board a tray gives at its shift: the box of every cell that reaches

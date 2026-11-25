@@ -4,6 +4,7 @@
 #include "shapelogic/mesh/grid_geometry_tables.h"
 
 #include "shapelogic/base/assert.h"
+#include "shapelogic/grid/types.h"
 
 #include <cmath>
 
@@ -32,9 +33,9 @@ void connectionFaceTetraOcta(int x, int y, int z, int n, double bevel, double of
       6,  -1, -1, -1, -1, 7,  -1, -1, -1, -1, -1, -1, -1, -1, 8,  9,  -1, -1,
   };
 
-  const int xc = floorDiv(x, 3);
-  const int yc = floorDiv(y, 3);
-  const int zc = floorDiv(z, 3);
+  const int xc = intDivFloor(x, 3);
+  const int yc = intDivFloor(y, 3);
+  const int zc = intDivFloor(z, 3);
 
   int xs = x - 3 * xc;
   const int ys = y - 3 * yc;

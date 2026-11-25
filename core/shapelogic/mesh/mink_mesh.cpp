@@ -6,6 +6,7 @@
 
 #include "shapelogic/base/int_cast.h"
 #include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/grid_traits.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/mesh/grid_geometry.h"
 
@@ -1578,8 +1579,7 @@ bool addFaces(Polyhedron& poly, const Manifold& m, const std::vector<vec3>& face
 }  // namespace
 
 bool minkHandles(const Voxel& v) {
-  const GridKind t = v.getGridType().getType();
-  return t == GridKind::TriangularPrism || t == GridKind::Rhombic || t == GridKind::TetraOcta;
+  return gridTraits(v.getGridType().getType()).mesher == GridMesher::Minkowski;
 }
 
 Result<Polyhedron> minkPolyhedron(const Voxel& v, double g, double r, bool fills) {

@@ -8,43 +8,17 @@
 
 namespace bt::mesh::detail {
 
-namespace {
-
-// a corner in mesh units: the plane moved by one lattice unit and scaled
-void push(std::vector<float>& c, const cairo::Point& p, double z) {
-  c.push_back(static_cast<float>((p.x.value() + 1) * cairo::kScale));
-  c.push_back(static_cast<float>((p.y.value() + 1) * cairo::kScale));
-  c.push_back(static_cast<float>(z));
-}
-
-}  // namespace
-
 void connectionFaceCairo(int x, int y, int z, int n, std::vector<float>& corners) {
-  if (n < 0 || n >= 7 || !cairo::isCell(x, y)) {
+  if (!cairo::isCell(x, y)) {
     return;
   }
   const std::array<cairo::Point, 5> p = cairo::pentagon(x, y);
-  const double z0 = z;
-  const double z1 = z + 1;
-  if (n < 5) {
-    // side n, between corners n and n + 1
-    const auto a = static_cast<std::size_t>(n);
-    const std::size_t b = (a + 1) % 5;
-    push(corners, p[a], z0);
-    push(corners, p[b], z0);
-    push(corners, p[b], z1);
-    push(corners, p[a], z1);
-  } else if (n == 5) {
-    // the bottom, clockwise seen from above
-    for (int i = 4; i >= 0; i--) {
-      push(corners, p[static_cast<std::size_t>(i)], z0);
-    }
-  } else {
-    // the top
-    for (const cairo::Point& c : p) {
-      push(corners, c, z1);
-    }
+  // the corners in mesh units: the plane moved by one lattice unit and scaled
+  std::array<std::array<double, 2>, 5> polygon{};
+  for (std::size_t i = 0; i < polygon.size(); i++) {
+    polygon[i] = {(p[i].x.value() + 1) * cairo::kScale, (p[i].y.value() + 1) * cairo::kScale};
   }
+  prismFace(polygon, z, n, corners);
 }
 
 }  // namespace bt::mesh::detail

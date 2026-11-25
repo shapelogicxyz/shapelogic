@@ -19,8 +19,6 @@ namespace {
 
 // the highest tray lip of a Puzzlecad export, in cells
 constexpr std::int64_t kMaxLip = 16;
-// the most shapes a Puzzlecad export is given
-constexpr std::size_t kMaxShapes = 65536;
 
 Reply documentNew(State& s, Params& p) {
   const GridKind grid = p.choice("grid", gridNames());
@@ -95,10 +93,7 @@ Reply documentOpenBytes(State& s, Params& p) {
 }
 
 Reply documentImport(State& s, Params& p) {
-  static const Names<app::ImportFormat> kFormats = {
-      {"puzzleSolver3D", app::ImportFormat::PuzzleSolver3D},
-      {"puzzlecad", app::ImportFormat::Puzzlecad}};
-  const app::ImportFormat format = p.choice("format", kFormats);
+  const app::ImportFormat format = p.choice("format", importFormatNames());
   const std::optional<std::string> path = p.optString("path");
   const std::optional<std::string> data = p.optString("data");
   BTE_CHECK(p.finish());
@@ -131,21 +126,10 @@ Reply documentExportPuzzlecad(State& s, Params& p) {
   options.lip = static_cast<unsigned int>(p.optInteger("lip", 0, 0, kMaxLip));
   std::vector<app::Id> shapes;
   if (p.has("shapes")) {
-    const Json& list = p.value("shapes");
-    if (!list.is_array() || list.empty() || list.size() > kMaxShapes) {
-      p.fail("'shapes' must be a list of 1 to 65536 shape ids");
-    } else if (problem) {
+    shapes = readShapeIds(p, p.value("shapes"));
+    // (a list that is none failed first)
+    if (problem) {
       p.fail("give 'problem' or 'shapes', not both");
-    } else {
-      for (const Json& v : list) {
-        const std::optional<std::uint64_t> id =
-            v.is_string() ? parseId(IdKind::Shape, v.get<std::string>()) : std::nullopt;
-        if (!id) {
-          p.fail("'shapes' must be a list of shape ids (s1, ...)");
-          break;
-        }
-        shapes.push_back(*id);
-      }
     }
   }
   BTE_CHECK(p.finish());
@@ -154,14 +138,7 @@ Reply documentExportPuzzlecad(State& s, Params& p) {
     options.shapes.push_back(index);
   }
   // the name goes into a comment line of the file
-  if (name.size() > 255) {
-    return coreError(Errc::InvalidArgument, "the name is longer than 255 bytes");
-  }
-  for (const char c : name) {
-    if (static_cast<unsigned char>(c) < 0x20 || c == 0x7F) {
-      return coreError(Errc::InvalidArgument, "the name cannot hold control characters");
-    }
-  }
+  BTE_CHECK(checkFileName(name));
   // the puzzle's file, or the export's when it has none (cb_Export_Scad)
   const std::string source = s.path ? s.path->string() : name;
   BTE_TRY(std::string text, s.document().exportPuzzlecad(problem, source, options));

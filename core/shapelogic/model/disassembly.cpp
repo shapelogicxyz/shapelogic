@@ -3,6 +3,8 @@
 
 #include "shapelogic/model/disassembly.h"
 
+#include "shapelogic/model/movement_values.h"
+
 #include <algorithm>
 #include <array>
 #include <cstdlib>
@@ -86,7 +88,8 @@ void State::clearRotationArrival() {
 
 bool State::pieceRemoved(unsigned int i) const {
   BT_ASSERT(i < dx_.size());
-  return std::abs(dx_[i]) > 10000 || std::abs(dy_[i]) > 10000 || std::abs(dz_[i]) > 10000;
+  return std::abs(dx_[i]) > movement::kRemovedBeyond || std::abs(dy_[i]) > movement::kRemovedBeyond ||
+         std::abs(dz_[i]) > movement::kRemovedBeyond;
 }
 
 // ---- Disassembly --------------------------------------------------------------

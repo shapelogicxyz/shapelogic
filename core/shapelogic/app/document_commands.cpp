@@ -17,6 +17,7 @@
 #include "shapelogic/app/document.h"
 
 #include "shapelogic/app/document_internal.h"
+#include "shapelogic/app/tray_board.h"
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/int_cast.h"
 #include "shapelogic/grid/symmetries.h"
@@ -39,15 +40,11 @@ namespace bt::app {
 
 namespace {
 
-// The largest space a command makes (cells): a guard against sizes typed
-// by mistake, far above any real puzzle.
-constexpr std::uint64_t kMaxCells = std::uint64_t{1} << 24;
-
 Result<void> checkSize(unsigned int x, unsigned int y, unsigned int z) {
   if (x == 0 || y == 0 || z == 0) {
     return fail(Errc::InvalidArgument, "a shape needs at least one cell in each direction");
   }
-  if (std::uint64_t{x} * y * z > kMaxCells) {
+  if (std::uint64_t{x} * y * z > kMaxShapeCells) {
     return fail(Errc::InvalidArgument, "the shape would be too large");
   }
   return {};

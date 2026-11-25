@@ -11,11 +11,13 @@
 #include "solution_iterator.h"
 
 #include "shapelogic/base/version.h"
+#include "shapelogic/grid/grid_traits.h"
 #include "shapelogic/grid/voxel.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cstddef>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -24,6 +26,23 @@ namespace py = pybind11;
 using namespace bt::python;
 
 namespace {
+
+// Puzzle()'s doc: the grids by the names it takes (the core's table, so a
+// new grid is named here as it comes).
+const char* newPuzzleDoc() {
+  static const std::string doc = [] {
+    std::string d = "Create a new empty puzzle; grid: ";
+    for (std::size_t i = 0; i < bt::kGridTraits.size(); i++) {
+      d += i == 0 ? "" : i + 1 == bt::kGridTraits.size() ? " or " : ", ";
+      d += "'" + std::string(bt::kGridTraits[i].label) + "'";
+      if (bt::kGridTraits[i].kind == bt::GridKind::Bricks) {
+        d += " (the standard 3D cubic grid)";
+      }
+    }
+    return d;
+  }();
+  return doc.c_str();
+}
 
 bt::stacking::StackingSolver stackingSolverByName(const std::string& name) {
   if (name == "stacking") {
@@ -224,10 +243,7 @@ PYBIND11_MODULE(shapelogic, m) {
   // Puzzle
   py::class_<PyPuzzle, std::shared_ptr<PyPuzzle>>(
       m, "Puzzle", "A ShapeLogic puzzle definition containing shapes and problems")
-      .def(py::init<const std::string&>(), py::arg("grid") = "bricks",
-           "Create a new empty puzzle; grid: 'bricks' (the standard 3D cubic grid), "
-           "'triangular prisms', 'spheres', 'rhombic', 'tetra-octa', 'sliding', 'stacking', "
-           "'hexagonal prisms' or 'cairo prisms'")
+      .def(py::init<const std::string&>(), py::arg("grid") = "bricks", newPuzzleDoc())
       .def_static("load", &PyPuzzle::load, py::arg("filename"),
                   "Load a puzzle from an .xmpuzzle file")
       .def("save", &PyPuzzle::save, py::arg("filename"), "Save the puzzle to an .xmpuzzle file")

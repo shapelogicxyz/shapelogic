@@ -86,9 +86,10 @@ class Geometry {
       : w_(static_cast<int>(tray.width)),
         h_(static_cast<int>(tray.height)),
         t_(tray.allowance),
-        hyp_(std::hypot(static_cast<double>(tray.over), static_cast<double>(tray.down))),
-        c_(static_cast<double>(tray.over) / hyp_),
-        s_(static_cast<double>(tray.down) / hyp_),
+        turn_(tray),
+        hyp_(turn_.h),
+        c_(turn_.c),
+        s_(turn_.s),
         tray_(&tray) {
     buckets_.resize(static_cast<std::size_t>(w_ + 2) * static_cast<std::size_t>(h_ + 2));
     buildBlocks();
@@ -106,13 +107,11 @@ class Geometry {
 
   /// Grid coordinates of tray point (x, y) for a shift.
   [[nodiscard]] Point toGrid(double x, double y, double sx, double sy) const {
-    const double px = x - sx;
-    const double py = y - sy;
-    return {(px * c_) + (py * s_), (py * c_) - (px * s_)};
+    return turn_.toGrid({x - sx, y - sy});
   }
   /// The tray point of grid point (gi, gj) at shift zero.
   [[nodiscard]] Point turned(double gi, double gj) const {
-    return {(gi * c_) - (gj * s_), (gi * s_) + (gj * c_)};
+    return turn_.toTray({gi, gj});
   }
 
   /// The extent of cell (i, j) in the tray's x and y at shift zero.
@@ -294,6 +293,7 @@ class Geometry {
   int w_;
   int h_;
   double t_;
+  Turn turn_;
   double hyp_;
   double c_;
   double s_;

@@ -135,77 +135,16 @@ bool VoxelCairo::transform(unsigned int nr) {
     return true;
   }
   BT_ASSERT(nr < detail::cairoSymmetries().getNumTransformationsMirror());
-
-  int minx = 100000;
-  int miny = 100000;
-  int minz = 100000;
-  int maxx = -100000;
-  int maxy = -100000;
-  int maxz = -100000;
-
-  unsigned int index = 0;
-  for (int z = 0; z < asInt(sz_); z++) {
-    for (int y = 0; y < asInt(sy_); y++) {
-      for (int x = 0; x < asInt(sx_); x++) {
-        if (!isEmpty(index)) {
-          const Cell c = turned(x, y, z, nr);
-          maxx = std::max(maxx, c.x);
-          maxy = std::max(maxy, c.y);
-          maxz = std::max(maxz, c.z);
-          minx = std::min(minx, c.x);
-          miny = std::min(miny, c.y);
-          minz = std::min(minz, c.z);
-        }
-        index++;
-      }
-    }
-  }
-
-  // empty space, nothing to do
-  if (minx == 100000) {
-    return true;
-  }
-
-  // move the shape into the box by a lattice vector, so that the cells
-  // keep their kinds
-  const cairo::Fix f = cairo::fixToLattice(-minx, -miny);
-  minx -= f.a;
-  miny -= f.b;
-
-  const unsigned int nsx = asUnsigned(maxx - minx + 1);
-  const unsigned int nsy = asUnsigned(maxy - miny + 1);
-  const unsigned int nsz = asUnsigned(maxz - minz + 1);
-  const unsigned int voxelsn = nsx * nsy * nsz;
-  std::vector<VoxelType> s(voxelsn, kEmpty);
-
-  index = 0;
-  for (int z = 0; z < asInt(sz_); z++) {
-    for (int y = 0; y < asInt(sy_); y++) {
-      for (int x = 0; x < asInt(sx_); x++) {
-        if (!isEmpty(index)) {
-          const Cell c = turned(x, y, z, nr);
-          s[asUnsigned(c.x - minx) + nsx * (asUnsigned(c.y - miny) + nsy * asUnsigned(c.z - minz))] =
-              space_[index];
-        }
-        index++;
-      }
-    }
-  }
-
-  const Cell h = turned(hx_, hy_, hz_, nr);
-  hx_ = h.x - minx;
-  hy_ = h.y - miny;
-  hz_ = h.z - minz;
-
-  sx_ = nsx;
-  sy_ = nsy;
-  sz_ = nsz;
-  space_ = std::move(s);
-  voxels_ = voxelsn;
-
-  recalcBoundingBox();
-  invalidateSymmetry();
-
+  rebuildTurned([nr](int x, int y, int z) { return turned(x, y, z, nr); },
+                [](std::array<int, 3>& low, std::array<unsigned int, 3>& size) {
+                  // move the shape into the box by a lattice vector, so
+                  // that the cells keep their kinds
+                  const cairo::Fix f = cairo::fixToLattice(-low[0], -low[1]);
+                  low[0] -= f.a;
+                  low[1] -= f.b;
+                  size[0] = asUnsigned(asInt(size[0]) + f.a);
+                  size[1] = asUnsigned(asInt(size[1]) + f.b);
+                });
   return true;
 }
 

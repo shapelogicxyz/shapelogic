@@ -32,11 +32,9 @@ namespace bt::app {
 
 namespace {
 
-// The GUI's bounds: the rod count's input (STACK_ROD_BUTTONS), the
-// heights' inputs, and the disc list's size (onSize's message).
-constexpr unsigned int kMaxRods = 16;
-constexpr unsigned int kMaxHeight = 64;
-constexpr unsigned int kMaxDiscSize = 100;
+using stacking::kMaxDiscSize;
+using stacking::kMaxHeight;
+using stacking::kMaxRods;
 
 // The stacking a command edits: the start's or the goal's.
 const stacking::StackMap& mapOf(const Problem& pr, bool goal) {
@@ -62,22 +60,23 @@ std::size_t rodsAfterSync(const Puzzle& puzzle, const Problem& pr, bool goal) {
                        stacking::totalRods(puzzle.getRodSet(pr.getRodSetId())));
 }
 
-// cb_RodField: the fields as the GUI read them back, clamped, and the
+// cb_RodField: the fields as the GUI read them back (in its bounds,
+// checked first), and the
 // Panex dependencies as syncPanexFields left them (the pocket only with
 // Panex columns, the outside channel with three rods or more too). "Can
 // move over" was only read from older files: an edit writes it off.
 stacking::RodSet rulesFromFields(const stacking::RodSet& fields, const std::string& name) {
   stacking::RodSet r;
   r.name = name;
-  r.rodCount = std::clamp(fields.rodCount, 1U, kMaxRods);
+  r.rodCount = fields.rodCount;
   r.growHeight = fields.growHeight;
-  r.definedHeight = std::clamp(fields.definedHeight, 1U, kMaxHeight);
+  r.definedHeight = fields.definedHeight;
   r.sizeMatters = fields.sizeMatters;
   r.distanceMatters = fields.distanceMatters;
   r.canMoveOver = false;
   r.panexColumns = fields.panexColumns;
   r.pocketColumn = r.panexColumns && fields.pocketColumn;
-  r.pocketHeight = std::clamp(fields.pocketHeight, 1U, kMaxHeight);
+  r.pocketHeight = fields.pocketHeight;
   r.outsideChannel = r.panexColumns && r.rodCount >= 3 && fields.outsideChannel;
   return r;
 }
@@ -376,6 +375,21 @@ Result<void> Document::setRodSetRules(Id rodSet, const stacking::RodSet& rules) 
   const Result<unsigned int> r = rodSetIndex(rodSet);
   if (!r) {
     return std::unexpected(r.error());
+  }
+  // the GUI's inputs' bounds: a value past them is refused, as the engine
+  // refuses it, unless it is the one the rod set has (a file's may be
+  // larger: an edit of another rule keeps it)
+  const stacking::RodSet& now = puzzle_->getRodSet(*r);
+  const auto outside = [](unsigned int v, unsigned int was, unsigned int most) {
+    return v != was && (v < 1 || v > most);
+  };
+  if (outside(rules.rodCount, now.rodCount, kMaxRods)) {
+    return fail(Errc::InvalidArgument, "a rod set has 1 to " + std::to_string(kMaxRods) + " rods");
+  }
+  if (outside(rules.definedHeight, now.definedHeight, kMaxHeight) ||
+      outside(rules.pocketHeight, now.pocketHeight, kMaxHeight)) {
+    return fail(Errc::InvalidArgument,
+                "a rod's height and the pocket's are 1 to " + std::to_string(kMaxHeight));
   }
   const stacking::RodSet next = rulesFromFields(rules, puzzle_->getRodSet(*r).name);
   if (next == puzzle_->getRodSet(*r)) {

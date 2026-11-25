@@ -1,0 +1,17 @@
+{
+  "title": "Errors",
+  "description": "The error codes of decision 0012, the one table every reader takes them from (cleanup item 11.1): apischema.py, gen_api_md.py (docs/API.md's table), web/tools/gen-api.ts (ERROR_CODES), the contract suite's client, and tests/unit/engine/test_api_tables.cpp, which holds the engine's codes (engine/rpc.h, toRpc) to it. Every error reply carries its errc in data.errc. A row with `protocol` is JSON-RPC's own: no method's `errors` lists it. parse_error has two codes: the protocol's for a line that is not JSON, the core's for a file or bytes that are no puzzle.",
+  "errors": [
+    {"code": -32700, "errc": "parse_error", "protocol": true, "meaning": "the line is not JSON"},
+    {"code": -32600, "errc": "invalid_request", "protocol": true, "meaning": "not a JSON-RPC request (batches are refused)"},
+    {"code": -32601, "errc": "method_not_found", "protocol": true, "meaning": "no such method"},
+    {"code": -32602, "errc": "invalid_params", "protocol": true, "meaning": "a parameter is missing, of the wrong type, or unknown"},
+    {"code": -32001, "errc": "invalid_argument", "protocol": false, "meaning": "a value out of range or malformed"},
+    {"code": -32002, "errc": "not_found", "protocol": false, "meaning": "no such shape, color, problem, solution or handle"},
+    {"code": -32003, "errc": "parse_error", "protocol": false, "meaning": "a file or bytes that are no puzzle"},
+    {"code": -32004, "errc": "io_error", "protocol": false, "meaning": "reading or writing a file failed"},
+    {"code": -32005, "errc": "unsupported", "protocol": false, "meaning": "valid, but not for this puzzle (what a grid or a solver lacks: a take-apart, an assembler, Panex columns)"},
+    {"code": -32006, "errc": "invalid_state", "protocol": false, "meaning": "not now: pause the solve first, close the edit group..."},
+    {"code": -32603, "errc": "internal", "protocol": false, "meaning": "a broken invariant in the engine or the core"}
+  ]
+}

@@ -3,6 +3,7 @@
 # through its API (docs/ARCHITECTURE.md).
 add_library(btcore STATIC
   shapelogic/app/analysis.cpp
+  shapelogic/app/background_job.cpp
   shapelogic/app/document.cpp
   shapelogic/app/document_commands.cpp
   shapelogic/app/document_sliding.cpp
@@ -14,6 +15,7 @@ add_library(btcore STATIC
   shapelogic/app/playback.cpp
   shapelogic/app/queries.cpp
   shapelogic/app/shape_tools.cpp
+  shapelogic/app/solve_setup.cpp
   shapelogic/base/assert.cpp
   shapelogic/base/base64.cpp
   shapelogic/base/compress.cpp

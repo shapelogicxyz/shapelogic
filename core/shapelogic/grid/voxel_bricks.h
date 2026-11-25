@@ -27,7 +27,6 @@ class VoxelBricks : public Voxel {
                    int* zn) const override;
   void scale(unsigned int amount, bool grid) override;
   bool scaleDown(unsigned char by, bool action) override;
-  void resizeInclude(int& px, int& py, int& pz) override;
   [[nodiscard]] bool validCoordinate(int x, int y, int z) const override;
   [[nodiscard]] bool onGrid(int x, int y, int z) const override;
 };

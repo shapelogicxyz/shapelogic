@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace bt {
 
@@ -65,6 +66,11 @@ inline constexpr double kMaxDiskBudgetGB = 1e6;
 /// below 0, infinite or above kMaxDiskBudgetGB.
 [[nodiscard]] std::optional<std::uint64_t> gbToBytes(double gb);
 
+/// A disk budget given as text (an environment variable's value, read as
+/// burrTxt read it: atof) as bytes; 0 (automatic) for none, an empty one,
+/// or one that is no budget (gbToBytes; the CLI refuses those first).
+[[nodiscard]] std::uint64_t diskBudgetFromText(const char* text);
+
 /// How a budget was chosen, for a message: "half the 90.0 GB free there",
 /// "as much as the 90.0 GB free there allows", or empty for a budget asked
 /// for and given.
@@ -89,5 +95,15 @@ std::uint64_t raiseOpenFileLimit(std::uint64_t files);
 /// programs that own a search (the CLI, the engine), which pass the folder
 /// into the core's options; nothing in the core calls it.
 [[nodiscard]] std::string userCacheDirectory();
+
+/// Where searches of one kind keep their levels when no option names a
+/// folder, the one rule of every program (cleanup item 11.6):
+/// `fromEnvironment`, the value of the program's variable
+/// (SHAPELOGIC_SLIDE_DIR, SHAPELOGIC_PANEX_DIR), unless it is null or
+/// empty; else `name` ("sliding", "panex") in `cache` (userCacheDirectory);
+/// empty, in memory, when that is empty too. The caller reads both: the
+/// core reads no environment.
+[[nodiscard]] std::string defaultSearchFolder(const char* fromEnvironment, const std::string& cache,
+                                              std::string_view name);
 
 }  // namespace bt

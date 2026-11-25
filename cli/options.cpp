@@ -343,13 +343,17 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.dropDisassemblies = true;
     } else if (a == "--limit" || a == "--vector-memory" || a == "--split-tasks" ||
                a == "--split-depth") {
-      unsigned int* const value = a == "--limit"           ? &o.solutionLimit
+      unsigned int limit = 0;
+      unsigned int* const value = a == "--limit"           ? &limit
                                   : a == "--vector-memory" ? &o.vectorMemoryMb
                                   : a == "--split-tasks"   ? &o.splitTasks
                                                            : &o.splitDepth;
       if (!hasValue || !parseCount(argv[i + 1], value)) {
         std::fprintf(stderr, "shapelogic_cli: %s requires a non-negative number\n", argv[i]);
         return kExitUsage;
+      }
+      if (a == "--limit") {
+        o.solutionLimit = limit;
       }
       i++;
     } else if (a == "--no-simd") {
@@ -543,7 +547,7 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
   // --restart of a stacking puzzle goes without --save too: checked once
   // the puzzle's type is known
   if (o.saveTo == nullptr && (o.countOnly || o.keepMirrors || o.keepRotations ||
-                              o.dropDisassemblies || o.solutionLimit != 10)) {
+                              o.dropDisassemblies || o.solutionLimit.has_value())) {
     std::fputs(
         "shapelogic_cli: --restart, --limit, --count-only, --keep-mirrors, --keep-rotations and\n"
         "    --drop-disassemblies go with --save\n",

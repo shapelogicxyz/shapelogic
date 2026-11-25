@@ -180,10 +180,7 @@ Reply problemSetColorRule(State& s, Params& p) {
 
 Reply problemSetColorRules(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  const app::ColorPreset preset =
-      p.choice("preset", Names<app::ColorPreset>{{"eachOnItself", app::ColorPreset::EachOnItself},
-                                                  {"allowAll", app::ColorPreset::AllowAll},
-                                                  {"clear", app::ColorPreset::Clear}});
+  const app::ColorPreset preset = p.choice("preset", colorPresetNames());
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().setColorRules(problem, preset));
   return s.changed();

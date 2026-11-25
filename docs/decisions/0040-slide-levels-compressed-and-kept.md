@@ -2,7 +2,8 @@
 
 **Status:** accepted; `core/shapelogic/base/compress.h` (`BlockCompressor`,
 `BlockDecompressor`), `core/shapelogic/solve/slide_levels.h` (`FileOptions`,
-`kChunkBytes`, `kLookupChunkBytes`, `kKeptCompression`, `kRunCompression`,
+`kChunkBytes`, `kLookupChunkBytes`, `kRunCompression` (the kept sets' level is
+`kSlideCompression` of `sliding_search.h`),
 `WriteGate`, the chunks of `KeySet`),
 `core/shapelogic/solve/sliding_search.cpp` (`SetStore::make`,
 `takePeakDisk`, `Merge::kept`, `runMerge`, `LevelSearch::run`, `pin`,

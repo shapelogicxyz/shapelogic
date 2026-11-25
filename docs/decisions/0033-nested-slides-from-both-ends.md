@@ -1,7 +1,7 @@
 # 0033: Nested slides searched from both ends
 
 **Status:** accepted; `core/shapelogic/solve/sliding_search.cpp`
-(`SlideMover::movesBack`, `floodShifts`, `canMoveBack`, `nestedBound`,
+(`SlideMover::movesBack`, `floodShifts`, `SlideSpace::build`'s `backMoves`, `nestedBound`,
 `kMaxBackNested`, `SlideSpace::backMoves`, `singleGoal` and `goalWays`,
 `LevelSearch`'s `Side::visited` and `pending`, `kNestedMeetFrom`,
 `kStateMagicBothNested`, `findSlidePath`'s order, `checkSlideMovesBack`),
@@ -54,7 +54,7 @@ end's one-way arrangements against that end's sets. The meeting test is
 unchanged: an arrangement of one end's new level found in the other end's
 newest two.
 
-**When it runs.** `canMoveBack` (kept as `SlideSpace::backMoves`): nested
+**When it runs.** `SlideSpace::backMoves` (set by `build`): nested
 slides, the stops apart, whole nesting only (not `partial`), and no piece
 that could ever hold more than `kMaxBackNested` (6) others, by
 `nestedBound`, a bound from the room in each piece's holes. The parts

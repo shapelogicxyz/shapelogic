@@ -41,39 +41,39 @@ const ASSERTIONS = new Set([
 ]);
 const ANNOTATIONS = new Set(['title', 'description', '$schema', '$id', '$defs']);
 const FILE_KEYS = new Set([...ANNOTATIONS, 'methods', 'events']);
+/** The file of the one error table (decision 0012), and its own top-level key. */
+const ERRORS_FILE = 'errors.json';
 const ENTRY_KEYS = new Set(['summary', 'params', 'result', 'errors']);
 const EVENT_KEYS = new Set(['summary', 'params']);
 /** The keywords that only narrow a value the type already names. */
 const CONSTRAINTS = ['pattern', 'minimum', 'maximum', 'minItems', 'maxItems', 'minLength'] as const;
 
+/** A row of api/errors.json: an error code, its errc, whether it is JSON-RPC's own. */
+interface ErrorRow {
+  code: number;
+  errc: string;
+  protocol: boolean;
+}
+
 /**
- * The error codes of decision 0012, by errc: JSON-RPC's own for the
- * protocol, one each for the core's Errc. The schema names the errcs a
- * method may answer (its "errors") but not their codes, so the table lives
- * here; every errc the schema names must be in it.
+ * The limits the front end holds its inputs to, each the schema's `maximum`
+ * of a field the engine checks (cleanup item 11.2): `file#/json/pointer`.
+ * The engine's bounds are the core's constants, and
+ * tests/unit/engine/test_api_tables.cpp holds the schema's to them, so no
+ * number here is written twice.
  */
-export const ERROR_CODES: Record<string, readonly number[]> = {
-  parse_error: [-32700, -32003],
-  invalid_request: [-32600],
-  method_not_found: [-32601],
-  invalid_params: [-32602],
-  internal: [-32603],
-  invalid_argument: [-32001],
-  not_found: [-32002],
-  io_error: [-32004],
-  unsupported: [-32005],
-  invalid_state: [-32006],
+const LIMIT_FIELDS: Record<string, Record<string, string>> = {
+  stacking: {
+    rods: 'stacking.json#/$defs/Rules/properties/rodCount',
+    height: 'stacking.json#/$defs/Rules/properties/definedHeight',
+    discSize: 'stacking.json#/methods/stacking.setDiscSize/params/properties/size',
+  },
+  tray: {
+    side: 'types.json#/$defs/TraySettings/properties/width',
+    slope: 'types.json#/$defs/TraySettings/properties/over',
+    allowance: 'types.json#/$defs/TraySettings/properties/allowance',
+  },
 };
-/** The errcs a method entry may declare (the core's, not the protocol's). */
-const DECLARABLE_ERRCS = new Set([
-  'invalid_argument',
-  'not_found',
-  'parse_error',
-  'io_error',
-  'unsupported',
-  'invalid_state',
-  'internal',
-]);
 
 /** A schema file of api/. */
 interface ApiFile {
@@ -216,6 +216,39 @@ class Api {
   refName(ref: string, base: string): string {
     const t = this.target(ref, base);
     return this.names.get(`${t.file.name}#${t.def}`) ?? '';
+  }
+
+  /** The rows of the error table (api/errors.json). */
+  errorRows(): ErrorRow[] {
+    const doc = this.files.find((f) => f.name === ERRORS_FILE)?.doc;
+    const rows = doc?.errors;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new GenError(`${ERRORS_FILE}: no error table`);
+    }
+    return rows.map((row, i) => {
+      if (
+        !isObject(row) ||
+        typeof row.code !== 'number' ||
+        typeof row.errc !== 'string' ||
+        typeof row.protocol !== 'boolean'
+      ) {
+        throw new GenError(`${ERRORS_FILE} row ${String(i)}: needs code, errc and protocol`);
+      }
+      return { code: row.code, errc: row.errc, protocol: row.protocol };
+    });
+  }
+
+  /** The `maximum` at a field (`file#/json/pointer`). */
+  maximumAt(field: string): number {
+    const [fileName = '', pointer = ''] = field.split('#');
+    let node: Json | undefined = this.files.find((f) => f.name === fileName)?.doc;
+    for (const part of pointer.split('/').filter((p) => p !== '')) {
+      node = isObject(node) ? node[part] : undefined;
+    }
+    if (!isObject(node) || typeof node.maximum !== 'number') {
+      throw new GenError(`a limit's field ${field} has no maximum`);
+    }
+    return node.maximum;
   }
 }
 
@@ -423,7 +456,10 @@ function framePaths(
 }
 
 /** The generated module's text. */
-export function generate(apiDir: string = API_DIR): string {
+export function generate(
+  apiDir: string = API_DIR,
+  limitFields: Record<string, Record<string, string>> = LIMIT_FIELDS,
+): string {
   const api = new Api(apiDir);
   const out: string[] = [];
   out.push(
@@ -445,9 +481,11 @@ export function generate(apiDir: string = API_DIR): string {
   const eventNames: string[] = [];
   const frames: [string, string[][]][] = [];
 
+  const errorRows = api.errorRows();
+  const declarable = new Set(errorRows.filter((r) => !r.protocol).map((r) => r.errc));
   for (const f of api.files) {
     for (const k of Object.keys(f.doc)) {
-      if (!FILE_KEYS.has(k)) {
+      if (!FILE_KEYS.has(k) && !(f.name === ERRORS_FILE && k === 'errors')) {
         throw new GenError(`${f.name}: top-level key ${k} is not known`);
       }
     }
@@ -490,7 +528,7 @@ export function generate(apiDir: string = API_DIR): string {
       const errors = entry.errors ?? [];
       if (
         !Array.isArray(errors) ||
-        !errors.every((e) => typeof e === 'string' && DECLARABLE_ERRCS.has(e))
+        !errors.every((e) => typeof e === 'string' && declarable.has(e))
       ) {
         throw new GenError(`${f.name} ${m}: errors must be errcs of the core`);
       }
@@ -562,13 +600,33 @@ export function generate(apiDir: string = API_DIR): string {
       ' * bytes that are no puzzle.\n' +
       ' */\n',
   );
+  const codes = new Map<string, number[]>();
+  for (const row of errorRows) {
+    codes.set(row.errc, [...(codes.get(row.errc) ?? []), row.code]);
+  }
   out.push(
-    `export const ERROR_CODES = {\n${Object.entries(ERROR_CODES)
-      .map(([errc, codes]) => `  ${errc}: [${codes.join(', ')}],\n`)
+    `export const ERROR_CODES = {\n${[...codes]
+      .map(([errc, c]) => `  ${errc}: [${c.join(', ')}],\n`)
       .join('')}} as const;\n\n`,
   );
   out.push('/** The errcs the engine answers with. */\n');
   out.push('export type Errc = keyof typeof ERROR_CODES;\n\n');
+  out.push(
+    '/**\n' +
+      " * The engine's limits of the fields a client's inputs are held to (the schema's\n" +
+      " * maxima, which are the core's constants: tools/gen-api.ts's LIMIT_FIELDS).\n" +
+      ' */\n',
+  );
+  out.push(
+    `export const LIMITS = {\n${Object.entries(limitFields)
+      .map(
+        ([group, fields]) =>
+          `  ${group}: {\n${Object.entries(fields)
+            .map(([name, field]) => `    ${name}: ${String(api.maximumAt(field))},\n`)
+            .join('')}  },\n`,
+      )
+      .join('')}} as const;\n\n`,
+  );
   out.push(
     '/** The methods whose result carries a binary frame, and the property that holds it. */\n',
   );

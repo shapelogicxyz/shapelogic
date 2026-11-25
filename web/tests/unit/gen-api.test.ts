@@ -37,12 +37,15 @@ describe('the schema subset', () => {
     }
   });
 
+  // a schema of the files given, with api/'s error table and no limits
+  // (their fields are api/'s)
   function gen(files: Record<string, unknown>): string {
     dir = mkdtempSync(join(tmpdir(), 'gen-api-'));
+    writeFileSync(join(dir, 'errors.json'), readFileSync(join(API_DIR, 'errors.json')));
     for (const [name, doc] of Object.entries(files)) {
       writeFileSync(join(dir, name), JSON.stringify(doc));
     }
-    return generate(dir);
+    return generate(dir, {});
   }
 
   const frame = {
@@ -142,6 +145,16 @@ describe('the schema subset', () => {
     expect(out).toContain('export type Empty = Record<string, never>;');
     // the keywords say what an untyped schema is (never `unknown` in silence)
     expect(out).toContain('export type Untyped = number[];');
+  });
+
+  it('takes the error codes from errors.json and the limits from their fields', () => {
+    const out = generate(API_DIR);
+    expect(out).toContain('  parse_error: [-32700, -32003],\n');
+    expect(out).toContain('  internal: [-32603],\n');
+    expect(out).toMatch(/LIMITS = \{\n {2}stacking: \{\n {4}rods: 16,/);
+    expect(() =>
+      generate(API_DIR, { stacking: { rods: 'stacking.json#/$defs/Rules/properties/name' } }),
+    ).toThrow(/has no maximum/);
   });
 
   it('maps methods, events, errors and the frame marker', () => {

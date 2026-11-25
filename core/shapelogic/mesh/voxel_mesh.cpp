@@ -8,6 +8,7 @@
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/int_cast.h"
 #include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/grid_traits.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/mesh/cube_mesh.h"
 #include "shapelogic/mesh/grid_geometry.h"
@@ -181,8 +182,8 @@ Polyhedron cellMesh(const Voxel& v, double bevel, double offset, bool fast) {
 }
 
 Polyhedron shapeMesh(const Voxel& v, MeshStyle style) {
-  const GridKind kind = v.getGridType().getType();
-  if (kind == GridKind::Hexagonal || kind == GridKind::Cairo) {
+  const GridMesher mesher = gridTraits(v.getGridType().getType()).mesher;
+  if (mesher == GridMesher::Uniform) {
     // the new grids have no bevel tables: the uniform mesher draws every
     // style (the wire frame is the drawing's flagged strips); the plain
     // cells where it cannot
@@ -207,7 +208,7 @@ Polyhedron shapeMesh(const Voxel& v, MeshStyle style) {
     }
     return cellMesh(v, 0, 0, false);
   }
-  if (kind == GridKind::Spheres) {
+  if (mesher == GridMesher::Spheres) {
     if (style == MeshStyle::Flat) {
       return cellMesh(v, 0, 0, false);
     }
@@ -236,10 +237,16 @@ Polyhedron shapeMesh(const Voxel& v, MeshStyle style) {
       // flat mesh of the edge-line style is shown (the original also said
       // why on stderr).
       Result<Polyhedron> p = fail(Errc::Unsupported, "grid without a chamfer mesher");
-      if (kind == GridKind::Bricks || kind == GridKind::Sliding || kind == GridKind::Stacking) {
-        p = cubePolyhedron(v, 0.02, 0.05, true);
-      } else if (minkHandles(v)) {
-        p = minkPolyhedron(v, 0.02, 0.05, true);
+      switch (mesher) {
+        case GridMesher::Cubes:
+          p = cubePolyhedron(v, 0.02, 0.05, true);
+          break;
+        case GridMesher::Minkowski:
+          p = minkPolyhedron(v, 0.02, 0.05, true);
+          break;
+        // drawn above
+        case GridMesher::Spheres:
+        case GridMesher::Uniform: break;
       }
       if (p) {
         return std::move(*p);

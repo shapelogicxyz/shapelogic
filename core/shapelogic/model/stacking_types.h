@@ -16,6 +16,14 @@ namespace bt::stacking {
 /// "No rod set": the value of a problem that has none.
 inline constexpr unsigned int kNoRodSet = 0xFFFFFFFF;
 
+/// The GUI's bounds, which the document and the engine refuse past (and
+/// the schema and the web take: cleanup item 11.2): the rod count's input
+/// (STACK_ROD_BUTTONS), the heights' inputs, and the disc list's size
+/// (onSize's message).
+inline constexpr unsigned int kMaxRods = 16;
+inline constexpr unsigned int kMaxHeight = 64;
+inline constexpr unsigned int kMaxDiscSize = 100;
+
 /// One board: a row of rods and the rules that govern moves (rodSet_c).
 struct RodSet {
   std::string name;

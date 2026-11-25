@@ -111,6 +111,9 @@ void MovementCache::getMoValue(int dx, int dy, int dz, unsigned char t1, unsigne
     const std::vector<unsigned int> values =
         moCalcValues(getTransformedShape(s1, t1), getTransformedShape(s2, t2), dx, dy, dz);
     BT_ASSERT(values.size() >= dirs);
+    // the closure's skips (movement_analysator.cpp) are exact only so
+    BT_ASSERT(std::all_of(values.begin(), values.begin() + dirs,
+                          [](unsigned int v) { return v <= kFree; }));
     std::copy_n(key, kKeyWords, place);
     std::copy_n(values.begin(), dirs, place + kKeyWords);
     std::copy_n(place + kKeyWords, dirs, movements);

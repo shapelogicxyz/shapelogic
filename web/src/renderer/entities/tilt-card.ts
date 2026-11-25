@@ -21,6 +21,7 @@ import { flash } from '../shell/status.ts';
 import {
   ALLOWANCE_MAX,
   ALLOWANCE_ON,
+  SLOPE_MAX,
   TRAY_MAX,
   degreesText,
   isTiltBoard,
@@ -139,7 +140,7 @@ export class TiltCard {
         row(
           'Over',
           'Cells over for the cells down',
-          step('over', t.over, Math.max(1, t.down), TRAY_MAX, 'Over'),
+          step('over', t.over, Math.max(1, t.down), SLOPE_MAX, 'Over'),
         ) +
         `<p class="tline">${esc(sizeText(t.width, t.height))} · ${esc(slopeText(t.down, t.over))} · turned ${esc(degreesText(t.degrees))}</p>` +
         row(
@@ -218,7 +219,7 @@ export class TiltCard {
       case 'down': {
         const side = key === 'width' || key === 'height';
         const min = side ? 1 : key === 'over' ? Math.max(1, t.down) : 0;
-        const max = key === 'down' ? t.over : TRAY_MAX;
+        const max = key === 'down' ? t.over : key === 'over' ? SLOPE_MAX : TRAY_MAX;
         const n = parseWhole(v, min, max);
         if (n === null) {
           flash(

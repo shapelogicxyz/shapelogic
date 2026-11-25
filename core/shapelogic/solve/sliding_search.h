@@ -152,24 +152,19 @@ enum class SlidePacking : std::uint8_t {
   Never,
 };
 
-/// The settings of one slide search, and how it went.
-struct SlideSearch {
-  /// Arrangements' worth of memory the search may fill (memoryStates each)
-  /// before its sets go to files, or with no work folder before it gives
-  /// up; 0 for the memory budget.
-  std::uint64_t maxMemoryStates = 0;
-  /// With maxMemoryStates 0, budget half the physical memory, not 2 GB.
+/// What a slide search and a sliding solve's options both hold: the
+/// search's settings that the options pass on as they are. Both derive from
+/// it, so slideSearchFor copies it whole and a new switch cannot be left
+/// out of the copy (cleanup item 11.8). The program sets memoryBytes,
+/// workDir and diskBudget (the CLI from SHAPELOGIC_SLIDE_DIR or the user's
+/// cache folder, the engine from its settings).
+struct SlideSettings {
+  /// With SlideSearch::maxMemoryStates 0, budget half the physical memory, not 2 GB.
   bool highMemory = false;
-  /// With maxMemoryStates 0, the memory the arrangements may fill, in
-  /// bytes; 0 for the budget highMemory says (memoryBudget). Set, highMemory
+  /// With SlideSearch::maxMemoryStates 0, the memory the arrangements may
+  /// fill, in bytes; 0 for the budget highMemory says (memoryBudget). Set, highMemory
   /// plays no part.
   std::uint64_t memoryBytes = 0;
-  /// When set (and maxMemoryStates is 0), the memory budget is this search's share
-  /// of what the searches running at once share, read again as the search
-  /// goes, so it shrinks when another search starts and grows when one
-  /// ends; memoryBytes and highMemory play no part. The caller holds a
-  /// lease on it for as long as the search runs.
-  const MemoryShare* memoryShare = nullptr;
   /// Let a piece carry what is nested in its outline.
   bool nested = false;
   /// Let a piece also carry what is partly nested in its outline: a piece
@@ -180,6 +175,75 @@ struct SlideSearch {
   /// On a tray more than one layer deep, let a piece also move up and
   /// down; off, every piece stays in its layer.
   bool verticalMoves = false;
+  /// Where the level search keeps its levels once they outgrow the memory
+  /// budget, in a folder of its own that goes when the search ends unless
+  /// the search is saved there (SlideSearch::resume). Empty: everything stays in
+  /// memory, and the budget is the limit.
+  std::string workDir;
+  /// Disk those levels may take, in bytes; 0 for half the free space, at
+  /// most 200 GB. Either way it is held to what the disk has room for
+  /// (diskBudgetFor in base/system.h). Without nested slides the levels
+  /// kept for tracing the path back are thinned (every other one goes)
+  /// once they take half of it, or leave too little of it or of the disk
+  /// for the next level to be made in, so mostly the newest levels count
+  /// against it.
+  std::uint64_t diskBudget = 0;
+  /// A/B switch: the zstd level the files of the levels are compressed
+  /// with as the merge writes them, every thread a part (1 to 19). What is
+  /// read once and deleted (the runs a level is made from) and what one
+  /// thread writes while the search waits (a level leaving memory, a save,
+  /// the merged visited sets of nested slides) always gets the fastest. 0
+  /// writes every file as it is. A saved search is carried on whatever it
+  /// was written with.
+  int compression = kSlideCompression;
+  /// For the tests, a disk that fills: the write that takes the search's
+  /// files past this many bytes fails, and every write after it; with
+  /// failWriteOnce only that one (the disk has room again once the files
+  /// of the level being made are gone). 0 for none.
+  std::uint64_t failWriteAt = 0;
+  bool failWriteOnce = false;
+  /// A/B switch: a new search goes from the start alone. (A saved search
+  /// that has a goal end is carried on with it.)
+  bool oneEnd = false;
+  /// A/B switches: the original search over text keys (the fallback for
+  /// trays the position tables cannot pack into the widest key, 512 bits;
+  /// it finds a path as short, on one thread, with no levels on disk);
+  /// like pieces told apart instead of searched as one.
+  bool legacy = false;
+  bool likePiecesApart = false;
+  /// A/B switch: how the copies of a piece are kept in a key. The level
+  /// search's key holds a code for each piece, in 64 bits or in 128; a
+  /// board that needs more keeps the copies of each piece as one number
+  /// (which of the piece's places they hold, not a place each: four copies
+  /// with 64 places each take 20 bits, not 24), and then goes to wider
+  /// keys, of 192, 256 and 512 bits. The same search either way, level for
+  /// level. Loose stops (SlideSearch::grid) are never kept so.
+  SlidePacking packing = SlidePacking::Auto;
+  /// A/B switch: the narrowest key the level search tries, in bits (64,
+  /// 128, 192, 256 or 512); 0 for the narrowest there is.
+  unsigned int minKeyBits = 0;
+  /// A/B switch: with a grid, every stop of a grid cell told apart instead
+  /// of searched as one.
+  bool gridStopsApart = false;
+  /// A/B switch: with a grid, an arrangement numbers every position of a
+  /// piece, as it does without one, instead of only the positions the grid
+  /// lets it stop at. The same search in more bits: a board that fits a
+  /// key of 128 bits only with the stops numbered takes a wider one.
+  bool plainKeys = false;
+};
+
+/// The settings of one slide search, and how it went.
+struct SlideSearch : SlideSettings {
+  /// Arrangements' worth of memory the search may fill (memoryStates each)
+  /// before its sets go to files, or with no work folder before it gives
+  /// up; 0 for the memory budget.
+  std::uint64_t maxMemoryStates = 0;
+  /// When set (and maxMemoryStates is 0), the memory budget is this search's share
+  /// of what the searches running at once share, read again as the search
+  /// goes, so it shrinks when another search starts and grows when one
+  /// ends; memoryBytes and highMemory play no part. The caller holds a
+  /// lease on it for as long as the search runs.
+  const MemoryShare* memoryShare = nullptr;
   /// Polled as the search runs; a stop request ends it (Stopped). The
   /// level search saves itself as it stops (see resume), unless the stop
   /// is an abort, which throws the search away.
@@ -225,19 +289,6 @@ struct SlideSearch {
   /// Threads for the level search: at most this many of the pool's; 0 for
   /// all of the pool's, or with no pool, every hardware thread.
   unsigned int threads = 0;
-  /// Where the level search keeps its levels once they outgrow the memory
-  /// budget, in a folder of its own that goes when the search ends unless
-  /// the search is saved there (see resume). Empty: everything stays in
-  /// memory, and the budget is the limit.
-  std::string workDir;
-  /// Disk those levels may take, in bytes; 0 for half the free space, at
-  /// most 200 GB. Either way it is held to what the disk has room for
-  /// (diskBudgetFor in base/system.h). Without nested slides the levels
-  /// kept for tracing the path back are thinned (every other one goes)
-  /// once they take half of it, or leave too little of it or of the disk
-  /// for the next level to be made in, so mostly the newest levels count
-  /// against it.
-  std::uint64_t diskBudget = 0;
   /// Free disk the search leaves so that it can always save itself: it
   /// stops (Disk, saved) before the free space falls below this plus what
   /// a save writes (its sets in memory) and what making the next level may
@@ -245,20 +296,6 @@ struct SlideSearch {
   /// most, runs and all, for each byte they came to (decision 0040).
   /// The tests raise it to make a disk look full.
   std::uint64_t diskReserve = kSlideSaveReserve;
-  /// A/B switch: the zstd level the files of the levels are compressed
-  /// with as the merge writes them, every thread a part (1 to 19). What is
-  /// read once and deleted (the runs a level is made from) and what one
-  /// thread writes while the search waits (a level leaving memory, a save,
-  /// the merged visited sets of nested slides) always gets the fastest. 0
-  /// writes every file as it is. A saved search is carried on whatever it
-  /// was written with.
-  int compression = kSlideCompression;
-  /// For the tests, a disk that fills: the write that takes the search's
-  /// files past this many bytes fails, and every write after it; with
-  /// failWriteOnce only that one (the disk has room again once the files
-  /// of the level being made are gone). 0 for none.
-  std::uint64_t failWriteAt = 0;
-  bool failWriteOnce = false;
   /// The smallest level, in bytes on the disk, whose making is measured
   /// for what the next will take (the files of a smaller one are mostly
   /// their indexes). The tests lower it for their small puzzles.
@@ -298,32 +335,12 @@ struct SlideSearch {
   /// from the start alone. With a grid the search from both ends is taken
   /// before the loose stops, which only a search from the start can use.
   std::uint64_t meetFrom = 0;
-  /// A/B switch: a new search goes from the start alone. (A saved search
-  /// that has a goal end is carried on with it.)
-  bool oneEnd = false;
   /// Keep every this-many-th level for tracing the path back from the
   /// start (1: every level; the search thins them further as the disk
   /// fills). Above 1 the gaps are searched when the path is traced: the
   /// tests set it to try that on small puzzles. Not with nested slides.
   unsigned int keepEvery = 1;
 
-  /// A/B switches: the original search over text keys (the fallback for
-  /// trays the position tables cannot pack into the widest key, 512 bits;
-  /// it finds a path as short, on one thread, with no levels on disk);
-  /// like pieces told apart instead of searched as one.
-  bool legacy = false;
-  bool likePiecesApart = false;
-  /// A/B switch: how the copies of a piece are kept in a key. The level
-  /// search's key holds a code for each piece, in 64 bits or in 128; a
-  /// board that needs more keeps the copies of each piece as one number
-  /// (which of the piece's places they hold, not a place each: four copies
-  /// with 64 places each take 20 bits, not 24), and then goes to wider
-  /// keys, of 192, 256 and 512 bits. The same search either way, level for
-  /// level. Loose stops (see grid) are never kept so.
-  SlidePacking packing = SlidePacking::Auto;
-  /// A/B switch: the narrowest key the level search tries, in bits (64,
-  /// 128, 192, 256 or 512); 0 for the narrowest there is.
-  unsigned int minKeyBits = 0;
   /// Optimized paths: with a size above 1, a piece may stop only where its
   /// place, x and y modulo the size, is one of its grid offsets: an offset
   /// at which a piece of the same cells starts or fills a goal, or lies
@@ -338,14 +355,6 @@ struct SlideSearch {
   /// stops, decision 0031): the same moves found, in fewer arrangements.
   /// Only a search from the start alone has them (see meetFrom).
   int grid = 0;
-  /// A/B switch: with a grid, every stop of a grid cell told apart instead
-  /// of searched as one.
-  bool gridStopsApart = false;
-  /// A/B switch: with a grid, an arrangement numbers every position of a
-  /// piece, as it does without one, instead of only the positions the grid
-  /// lets it stop at. The same search in more bits: a board that fits a
-  /// key of 128 bits only with the stops numbered takes a wider one.
-  bool plainKeys = false;
   /// Told each level the level search finishes; empty for none.
   SlideLevelTrace onLevel;
   /// The level search's lines for the application's log, on the search's
@@ -426,12 +435,7 @@ inline constexpr std::string_view kSlidingSolverName = "Sliding Puzzle Solver";
 /// PAR_FULL_SEARCH always on; and vertical moves, which the original, whose
 /// trays were one layer deep, did not have), and where the search keeps
 /// its levels.
-struct SlidingOptions {
-  bool nested = false;
-  /// Implies nested.
-  bool partialNested = false;
-  /// SlideSearch::verticalMoves.
-  bool verticalMoves = false;
+struct SlidingOptions : SlideSettings {
   /// A piece with neither a start nor a goal on the board may be placed in
   /// any quarter turn in its layers, not only as drawn; with
   /// mirroredOrientations, also their mirror images (partTransforms in
@@ -439,27 +443,6 @@ struct SlidingOptions {
   bool anyOrientation = false;
   /// Plays a part only with anyOrientation.
   bool mirroredOrientations = false;
-  bool highMemory = false;
-  /// SlideSearch::memoryBytes: set by the program (the engine from its
-  /// settings; the CLI leaves it to highMemory).
-  std::uint64_t memoryBytes = 0;
-  /// SlideSearch::workDir and diskBudget: set by the program (the CLI from
-  /// SHAPELOGIC_SLIDE_DIR or the user's cache folder, the engine from its
-  /// settings).
-  std::string workDir;
-  std::uint64_t diskBudget = 0;
-  /// The A/B switches (SlideSearch).
-  bool legacy = false;
-  bool likePiecesApart = false;
-  bool gridStopsApart = false;
-  bool plainKeys = false;
-  SlidePacking packing = SlidePacking::Auto;
-  unsigned int minKeyBits = 0;
-  bool oneEnd = false;
-  int compression = kSlideCompression;
-  /// For the tests: SlideSearch::failWriteAt and failWriteOnce.
-  std::uint64_t failWriteAt = 0;
-  bool failWriteOnce = false;
   /// Hold the stops to the grid slideGridFor finds for the problem, when
   /// it finds one (the Solver's Automatically use optimized paths): a
   /// smaller search, whose path may have more than the fewest moves.

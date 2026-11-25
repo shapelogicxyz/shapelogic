@@ -55,6 +55,9 @@ void Voxel::skipRecalcBoundingBox(bool skipit) {
 }
 
 void Voxel::recalcBoundingBox() {
+  // a rebuild of space_ that did not move the marks (moveMarks) leaves
+  // them the wrong length: a stale list, read past its end later
+  BT_ASSERT(marksFit());
   if (!doRecalc_) {
     return;
   }
@@ -249,6 +252,44 @@ void Voxel::resize(unsigned int nsx, unsigned int nsy, unsigned int nsz, VoxelTy
   voxels_ = sx_ * sy_ * sz_;
 
   recalcBoundingBox();
+}
+
+void Voxel::resizeInclude(int& px, int& py, int& pz) {
+  int nsx = asInt(getX());
+  int nsy = asInt(getY());
+  int nsz = asInt(getZ());
+  int tx = 0;
+  int ty = 0;
+  int tz = 0;
+
+  if (px < 0) {
+    nsx -= px;
+    tx -= px;
+  }
+  if (py < 0) {
+    nsy -= py;
+    ty -= py;
+  }
+  if (pz < 0) {
+    nsz -= pz;
+    tz -= pz;
+  }
+  if (px >= asInt(getX())) {
+    nsx += px - asInt(getX()) + 1;
+  }
+  if (py >= asInt(getY())) {
+    nsy += py - asInt(getY()) + 1;
+  }
+  if (pz >= asInt(getZ())) {
+    nsz += pz - asInt(getZ()) + 1;
+  }
+
+  resize(asUnsigned(nsx), asUnsigned(nsy), asUnsigned(nsz), 0);
+  translate(tx, ty, tz, 0);
+
+  px += tx;
+  py += ty;
+  pz += tz;
 }
 
 void Voxel::scale(unsigned int /*amount*/, bool /*grid*/) {

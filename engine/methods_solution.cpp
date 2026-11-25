@@ -3,6 +3,7 @@
 #include "convert.h"
 #include "engine.h"
 
+#include "shapelogic/base/thread_pool.h"
 #include "shapelogic/model/stacking.h"
 
 #include <algorithm>
@@ -17,12 +18,7 @@ constexpr std::int64_t kDefaultPage = 100;
 Reply solutionPage(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   // -1: the stored order; else Problem::sortSolutions' number
-  const int by = p.optChoice("sortBy", Names<int>{{"list", -1},
-                                                  {"assembly", 0},
-                                                  {"level", 1},
-                                                  {"moves", 2},
-                                                  {"pieces", 3}})
-                     .value_or(-1);
+  const int by = p.optChoice("sortBy", solutionPageSortNames()).value_or(-1);
   const bool descending = p.optBoolean("descending", false);
   const auto offset = static_cast<std::size_t>(p.optInteger("offset", 0, 0, 0xFFFFFFFF));
   const auto limit = static_cast<std::size_t>(p.optInteger("limit", kDefaultPage, 1, 10000));
@@ -80,13 +76,7 @@ Reply solutionGet(State& s, Params& p) {
 
 Reply solutionDelete(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  const app::SolutionsToDelete which =
-      p.choice("which", Names<app::SolutionsToDelete>{
-                            {"one", app::SolutionsToDelete::One},
-                            {"before", app::SolutionsToDelete::Before},
-                            {"after", app::SolutionsToDelete::After},
-                            {"withoutDisassembly", app::SolutionsToDelete::WithoutDisassembly},
-                            {"all", app::SolutionsToDelete::All}});
+  const app::SolutionsToDelete which = p.choice("which", solutionsToDeleteNames());
   const std::optional<app::Id> solution = p.optId("solution", IdKind::Solution);
   BTE_CHECK(p.finish());
   const bool relative = which == app::SolutionsToDelete::One ||
@@ -119,11 +109,7 @@ Reply solutionToShapes(State& s, Params& p) {
   o.dropIdentical = p.optBoolean("dropIdentical", false);
   o.minCells = static_cast<unsigned int>(p.optInteger("minCells", 0, 0, 0xFFFFFFFF));
   o.maxCells = static_cast<unsigned int>(p.optInteger("maxCells", 0xFFFFFFFF, 0, 0xFFFFFFFF));
-  o.addTo = p.optChoice("addTo", Names<app::AssemblyImport::AddTo>{
-                                     {"nothing", app::AssemblyImport::AddTo::Nothing},
-                                     {"newProblem", app::AssemblyImport::AddTo::NewProblem},
-                                     {"problem", app::AssemblyImport::AddTo::Problem}})
-                .value_or(app::AssemblyImport::AddTo::Nothing);
+  o.addTo = p.optChoice("addTo", assemblyAddToNames()).value_or(app::AssemblyImport::AddTo::Nothing);
   o.target = p.optId("target", IdKind::Problem);
   o.min = static_cast<unsigned int>(p.optInteger("min", 1, 0, kMaxPartCount));
   o.max = static_cast<unsigned int>(p.optInteger("max", 1, 0, kMaxPartCount));
@@ -139,13 +125,11 @@ Reply solutionToShapes(State& s, Params& p) {
 Reply solutionAnalyse(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   app::AnalyseOptions o;
-  o.which = p.choice("which", Names<app::AnalyseWhich>{{"all", app::AnalyseWhich::All},
-                                                       {"missing", app::AnalyseWhich::Missing},
-                                                       {"one", app::AnalyseWhich::One}});
+  o.which = p.choice("which", analyseWhichNames());
   const std::optional<app::Id> solution = p.optId("solution", IdKind::Solution);
   o.solver = p.optChoice("solver", solverNames()).value_or(s.settings.solver);
   o.rotations = p.optBoolean("rotations", false);
-  o.threads = static_cast<unsigned int>(p.optInteger("threads", s.settings.threads, 0, 256));
+  o.threads = static_cast<unsigned int>(p.optInteger("threads", s.settings.threads, 0, kMaxThreads));
   BTE_CHECK(p.finish());
   if (o.which == app::AnalyseWhich::One) {
     if (!solution) {

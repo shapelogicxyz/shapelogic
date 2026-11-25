@@ -17,13 +17,6 @@ namespace bt::engine {
 
 namespace {
 
-/// The names of Settings::log.
-const Names<LogSetting>& logSettingNames() {
-  static const Names<LogSetting> n = {
-      {"off", LogSetting::Off}, {"info", LogSetting::Info}, {"debug", LogSetting::Debug}};
-  return n;
-}
-
 // The protocol this engine speaks (engine.hello, engine.info).
 constexpr int kProtocol = 1;
 
@@ -116,7 +109,7 @@ Reply settingsGet(State& s, Params& p) {
 }
 
 Reply settingsSet(State& s, Params& p) {
-  const std::optional<std::int64_t> depth = p.maybeInteger("undoDepth", 1, 10000);
+  const std::optional<std::int64_t> depth = p.maybeInteger("undoDepth", 1, Settings::kMaxUndoDepth);
   const std::optional<std::int64_t> threads = p.maybeInteger("threads", 0, kMaxThreads);
   const std::optional<SolverType> solver = p.optChoice("solver", solverNames());
   const std::optional<std::string> slideFolder = p.optString("slideFolder");
@@ -126,8 +119,9 @@ Reply settingsSet(State& s, Params& p) {
   const std::optional<double> panexDiskGB =
       p.has("panexDiskGB") ? std::optional<double>(p.number("panexDiskGB", 0, kMaxDiskBudgetGB)) : std::nullopt;
   const std::optional<double> searchMemoryGB =
-      p.has("searchMemoryGB") ? std::optional<double>(p.number("searchMemoryGB", 0, 1e6))
-                              : std::nullopt;
+      p.has("searchMemoryGB")
+          ? std::optional<double>(p.number("searchMemoryGB", 0, Settings::kMaxSearchMemoryGB))
+          : std::nullopt;
   const std::optional<LogSetting> log = p.optChoice("log", logSettingNames());
   BTE_CHECK(p.finish());
   if (depth) {

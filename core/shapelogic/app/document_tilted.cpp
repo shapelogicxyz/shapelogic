@@ -4,6 +4,7 @@
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/document_internal.h"
+#include "shapelogic/app/tray_board.h"
 #include "shapelogic/base/assert.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/problem.h"
@@ -40,18 +41,11 @@ tilted::Tray resolved(tilted::Tray tray) {
 
 /// A point of a layout's box in the tray's own frame, and back.
 tilted::Point boxToTray(const tilted::Tray& tray, const tilted::Layout& lay, tilted::Point b) {
-  const double h = std::hypot(static_cast<double>(tray.over), static_cast<double>(tray.down));
-  const double c = static_cast<double>(tray.over) / h;
-  const double s = static_cast<double>(tray.down) / h;
-  const double gx = b.x - lay.corners[0].x;
-  const double gy = b.y - lay.corners[0].y;
-  return {(gx * c) - (gy * s), (gx * s) + (gy * c)};
+  return tilted::Turn(tray).toTray({b.x - lay.corners[0].x, b.y - lay.corners[0].y});
 }
 tilted::Point trayToBox(const tilted::Tray& tray, const tilted::Layout& lay, tilted::Point p) {
-  const double h = std::hypot(static_cast<double>(tray.over), static_cast<double>(tray.down));
-  const double c = static_cast<double>(tray.over) / h;
-  const double s = static_cast<double>(tray.down) / h;
-  return {(p.x * c) + (p.y * s) + lay.corners[0].x, (p.y * c) - (p.x * s) + lay.corners[0].y};
+  const tilted::Point g = tilted::Turn(tray).toGrid(p);
+  return {g.x + lay.corners[0].x, g.y + lay.corners[0].y};
 }
 
 /// The tray of a puzzle that has one.
@@ -261,8 +255,7 @@ bool Document::fitsTray(unsigned int index) const {
 Result<std::unique_ptr<Voxel>> Document::onTrayAfterTask(unsigned int shape, const Voxel& after,
                                                          ShapeTask task) const {
   const Voxel& before = puzzle_->getShape(shape);
-  const int code = static_cast<int>(task);
-  const bool nudge = code <= 5 || (code >= 27 && code <= 32);
+  const bool nudge = isNudge(puzzle_->getGridType().getType(), task);
   std::optional<TrayFit> fit = fitToTray(after, cellsMiddle(nudge ? after : before), trayLayout());
   if (!fit || !fit->fits) {
     return fail(Errc::InvalidArgument, "the piece does not fit the board that way");
@@ -443,7 +436,8 @@ Result<unsigned int> Document::fitPlacementsStart(Id problem, const SolveOptions
   (void)scratch->addProblem(pr);
 
   fitEnds_.erase(problem);
-  fits_.emplace(problem, std::make_unique<PlacementFit>(std::move(scratch), boards, options));
+  jobs_.emplace(std::pair{problem, BackgroundJob::Kind::PlacementFit},
+                std::make_unique<PlacementFit>(std::move(scratch), boards, options));
   return static_cast<unsigned int>(boards.boards.size());
 }
 
@@ -451,11 +445,11 @@ Result<void> Document::fitPlacementsStop(Id problem) {
   if (Result<unsigned int> p = problemIndex(problem); !p) {
     return std::unexpected(p.error());
   }
-  const auto it = fits_.find(problem);
-  if (it == fits_.end()) {
+  PlacementFit* f = job<PlacementFit>(problem, BackgroundJob::Kind::PlacementFit);
+  if (f == nullptr) {
     return fail(Errc::InvalidState, "the tray's placements are not being tried with the problem");
   }
-  it->second->stop();
+  f->stop();
   return {};
 }
 
@@ -463,14 +457,15 @@ Result<PlacementFitProgress> Document::fitPlacementsProgress(Id problem) const {
   if (Result<unsigned int> p = problemIndex(problem); !p) {
     return std::unexpected(p.error());
   }
-  const auto it = fits_.find(problem);
-  if (it != fits_.end()) {
-    return it->second->progress();
+  if (const PlacementFit* f = job<PlacementFit>(problem, BackgroundJob::Kind::PlacementFit)) {
+    return f->progress();
   }
   const auto e = fitEnds_.find(problem);
   return e == fitEnds_.end() ? PlacementFitProgress{} : e->second;
 }
 
-bool Document::fittingPlacements(Id problem) const { return fits_.contains(problem); }
+bool Document::fittingPlacements(Id problem) const {
+  return jobs_.contains({problem, BackgroundJob::Kind::PlacementFit});
+}
 
 }  // namespace bt::app

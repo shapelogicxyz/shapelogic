@@ -60,7 +60,7 @@ std::vector<unsigned int> MovementCachePrisms::moCalcValues(const Voxel& sh1, co
   std::vector<unsigned int> move(kDirections);
 
   for (unsigned int dir = 0; dir < kDirections; dir++) {
-    unsigned int m = 32000;
+    unsigned int m = kFree;
 
     for (unsigned int x = sh1.boundX1(); x <= sh1.boundX2(); x++) {
       for (unsigned int y = sh1.boundY1(); y <= sh1.boundY2(); y++) {

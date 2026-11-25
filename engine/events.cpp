@@ -187,13 +187,7 @@ void announceChange(State& s) {
   s.announced = s.revision();
   const app::ChangeSet& c = s.document().lastChange();
   Json what = Json::array();
-  for (const auto& [bit, name] : {std::pair{app::kChangeShapes, "shapes"},
-                                  std::pair{app::kChangeColors, "colors"},
-                                  std::pair{app::kChangeProblems, "problems"},
-                                  std::pair{app::kChangeSolutions, "solutions"},
-                                  std::pair{app::kChangeNotes, "notes"},
-                                  std::pair{app::kChangeRodSets, "rodSets"},
-                                  std::pair{app::kChangeTray, "tray"}}) {
+  for (const auto& [name, bit] : changeKindNames()) {
     if ((c.what & bit) != 0) {
       what.push_back(name);
     }

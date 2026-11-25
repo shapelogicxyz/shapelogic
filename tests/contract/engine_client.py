@@ -19,25 +19,6 @@ sys.path.insert(0, str(ROOT / "api"))
 
 from apischema import Api  # noqa: E402
 
-# the errcs a method's schema entry declares (its "errors" list); the
-# protocol's own (invalid_params, invalid_request, method_not_found and
-# -32700 parse_error) are not listed per method
-DECLARED_ERRCS = {"invalid_argument", "not_found", "parse_error", "io_error", "unsupported",
-                  "invalid_state", "internal"}
-
-# the codes of decision 0012, by errc
-ERROR_CODES = {
-    "parse_error": {-32700, -32003},
-    "invalid_request": {-32600},
-    "method_not_found": {-32601},
-    "invalid_params": {-32602},
-    "internal": {-32603},
-    "invalid_argument": {-32001},
-    "not_found": {-32002},
-    "io_error": {-32004},
-    "unsupported": {-32005},
-    "invalid_state": {-32006},
-}
 
 
 class ContractError(AssertionError):
@@ -82,6 +63,11 @@ class Engine:
 
     def __init__(self, path, api=None, cwd=ROOT):
         self.api = api or Api()
+        # the codes of decision 0012 by errc, and those of the core's errors,
+        # which a method's schema entry must declare (its "errors" list; the
+        # protocol's own are not listed per method): api/errors.json
+        self.error_codes = {errc: set(codes) for errc, codes in self.api.error_codes().items()}
+        self.core_codes = {r["code"] for r in self.api.error_table if not r["protocol"]}
         # search folders of the engine's own, never the user's cache: the
         # tests run side by side, and two solves of one problem cannot work
         # in the same folders (decision 0035)
@@ -185,10 +171,10 @@ class Engine:
                 if set(e) != {"code", "message", "data"} or not isinstance(e["message"], str):
                     raise ContractError(f"a malformed error: {e}")
                 errc = e["data"].get("errc")
-                if errc not in ERROR_CODES or e["code"] not in ERROR_CODES[errc]:
+                if errc not in self.error_codes or e["code"] not in self.error_codes[errc]:
                     raise ContractError(f"error code {e['code']} with errc {errc!r}")
                 # an error of the core must be one the method declares
-                if (method is not None and errc in DECLARED_ERRCS and e["code"] != -32700
+                if (method is not None and e["code"] in self.core_codes
                         and errc not in self.api.methods[method][1].get("errors", [])):
                     raise ContractError(f"{method} answered {errc}, which its schema entry does not "
                                         f"declare: {e['message']}")

@@ -12,6 +12,7 @@
 #include "shapelogic/grid/cairo_lattice.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/hex_lattice.h"
+#include "shapelogic/grid/types.h"
 #include "shapelogic/grid/voxel.h"
 
 #include <algorithm>
@@ -160,12 +161,6 @@ void counterClockwise(Corners& c) {
   }
 }
 
-// The units of `per` cells that `cells` cells begin: a division in whole
-// numbers, rounded up (the rhombic and tetra-octa grids' cubes).
-unsigned int wholeUnits(unsigned int cells, unsigned int per) {
-  return (cells + per - 1) / per;
-}
-
 }  // namespace
 
 LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
@@ -207,7 +202,10 @@ LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
       g.width = (sx + 1) * cairo::kScale;
       g.height = (sy + 1) * cairo::kScale;
       break;
-    default:
+    case GridKind::Bricks:
+    case GridKind::Spheres:
+    case GridKind::Sliding:
+    case GridKind::Stacking:
       g.width = sx;
       g.height = sy;
       break;
@@ -252,7 +250,9 @@ LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
         case GridKind::Cairo:
           c = cairoCorners(x, y);
           break;
-        default:
+        case GridKind::Bricks:
+        case GridKind::Sliding:
+        case GridKind::Stacking:
           c = cubeCorners(x, y);
           break;
       }

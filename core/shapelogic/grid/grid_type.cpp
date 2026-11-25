@@ -4,6 +4,8 @@
 
 #include "shapelogic/grid/grid_type.h"
 
+#include "shapelogic/base/assert.h"
+#include "shapelogic/grid/grid_traits.h"
 #include "shapelogic/grid/symmetries_tables.h"
 #include "shapelogic/grid/voxel_bricks.h"
 #include "shapelogic/grid/voxel_prisms.h"
@@ -17,39 +19,13 @@
 namespace bt {
 
 std::string_view toString(GridKind k) noexcept {
-  switch (k) {
-    case GridKind::Bricks: return "bricks";
-    case GridKind::TriangularPrism: return "triangular prisms";
-    case GridKind::Spheres: return "spheres";
-    case GridKind::Rhombic: return "rhombic";
-    case GridKind::TetraOcta: return "tetra-octa";
-    case GridKind::Sliding: return "sliding";
-    case GridKind::Stacking: return "stacking";
-    case GridKind::Hexagonal: return "hexagonal prisms";
-    case GridKind::Cairo: return "cairo prisms";
+  if (!detail::isGridKind(k)) {
+    return "unknown";
   }
-  return "unknown";
+  return gridTraits(k).label;
 }
 
-unsigned int GridType::getCapabilities() const noexcept {
-  switch (kind_) {
-    case GridKind::Bricks:
-    case GridKind::TriangularPrism:
-    // not in the original: these take apart with movement checks derived
-    // from their cells (solve/movement_checks.h, decision 0025)
-    case GridKind::Rhombic:
-    case GridKind::TetraOcta:
-    case GridKind::Hexagonal:
-    case GridKind::Cairo: return kCapAssemble | kCapDisassemble | kCapStlExport;
-    // balls have no faces to slide along: no movement analysis
-    case GridKind::Spheres: return kCapAssemble | kCapStlExport;
-    // assembling finds the start placements; a sliding search replaces take-apart
-    case GridKind::Sliding: return kCapAssemble | kCapStlExport;
-    // the stacking search is a solver of its own
-    case GridKind::Stacking: return kCapStlExport;
-  }
-  return 0;
-}
+unsigned int GridType::getCapabilities() const noexcept { return gridTraits(kind_).capabilities; }
 
 std::unique_ptr<Voxel> GridType::makeVoxel(unsigned int x, unsigned int y, unsigned int z,
                                            VoxelType init) const {
@@ -69,8 +45,20 @@ std::unique_ptr<Voxel> GridType::makeVoxel(unsigned int x, unsigned int y, unsig
 
 namespace detail {
 const Symmetries& derivedSymmetries(GridKind kind) {
-  return kind == GridKind::Cairo ? static_cast<const Symmetries&>(cairoSymmetries())
-                                 : static_cast<const Symmetries&>(hexagonalSymmetries());
+  switch (kind) {
+    case GridKind::Hexagonal: return hexagonalSymmetries();
+    case GridKind::Cairo: return cairoSymmetries();
+    // the original's grids have tables (GridType::getSymmetries)
+    case GridKind::Bricks:
+    case GridKind::TriangularPrism:
+    case GridKind::Spheres:
+    case GridKind::Rhombic:
+    case GridKind::TetraOcta:
+    case GridKind::Sliding:
+    case GridKind::Stacking: break;
+  }
+  BT_ASSERT_MSG(false, "the grid's symmetries are not derived");
+  return hexagonalSymmetries();
 }
 }  // namespace detail
 

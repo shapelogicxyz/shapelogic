@@ -18,6 +18,7 @@ export interface Settings {
   /**
    * Undo steps kept (default 25).
    * @minimum 1
+   * @maximum 10000
    */
   undoDepth: number;
   /**
@@ -73,6 +74,7 @@ export interface Settings {
    * highMemory plays no part, and a note of a search that ran out of memory or disk names Settings
    * ▸ Solver.
    * @minimum 0
+   * @maximum 1000000
    */
   searchMemoryGB: number;
   /**
@@ -5243,16 +5245,33 @@ export const ERROR_CODES = {
   invalid_request: [-32600],
   method_not_found: [-32601],
   invalid_params: [-32602],
-  internal: [-32603],
   invalid_argument: [-32001],
   not_found: [-32002],
   io_error: [-32004],
   unsupported: [-32005],
   invalid_state: [-32006],
+  internal: [-32603],
 } as const;
 
 /** The errcs the engine answers with. */
 export type Errc = keyof typeof ERROR_CODES;
+
+/**
+ * The engine's limits of the fields a client's inputs are held to (the schema's
+ * maxima, which are the core's constants: tools/gen-api.ts's LIMIT_FIELDS).
+ */
+export const LIMITS = {
+  stacking: {
+    rods: 16,
+    height: 64,
+    discSize: 100,
+  },
+  tray: {
+    side: 64,
+    slope: 64,
+    allowance: 0.25,
+  },
+} as const;
 
 /** The methods whose result carries a binary frame, and the property that holds it. */
 export const FRAME_PATHS = {

@@ -4,6 +4,7 @@
 #include "shapelogic/mesh/grid_geometry_tables.h"
 
 #include "shapelogic/base/assert.h"
+#include "shapelogic/grid/types.h"
 
 #include <cmath>
 
@@ -41,9 +42,9 @@ void connectionFaceRhombic(int x, int y, int z, int n, double bevel, double offs
       -1, -1, -1, -1,
   };
 
-  int xc = floorDiv(x, 5);
-  int yc = floorDiv(y, 5);
-  int zc = floorDiv(z, 5);
+  int xc = intDivFloor(x, 5);
+  int yc = intDivFloor(y, 5);
+  int zc = intDivFloor(z, 5);
 
   const int xs = x - 5 * xc;
   const int ys = y - 5 * yc;

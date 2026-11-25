@@ -36,6 +36,7 @@
 #include "shapelogic/base/compress.h"
 #include "shapelogic/base/system.h"
 #include "shapelogic/io/gzip_file.h"
+#include "shapelogic/solve/sliding_search.h"
 
 #include <algorithm>
 #include <atomic>
@@ -83,9 +84,9 @@ inline constexpr std::size_t kChunkBytes = std::size_t{1} << 18;
 /// of a search with nested slides): a key looked up decompresses its whole
 /// chunk, so the chunks are small, for a few points less off the file.
 inline constexpr std::size_t kLookupChunkBytes = std::size_t{1} << 14;
-/// The zstd level of a set that is kept (a level of the search), and of one
-/// that is read once and deleted (a run of a level being made).
-inline constexpr int kKeptCompression = 9;
+/// The zstd level of a set that is read once and deleted (a run of a level
+/// being made); a set that is kept (a level of the search) has the search's
+/// level, kSlideCompression unless an A/B switch says otherwise.
 inline constexpr int kRunCompression = 1;
 
 /// Why a set's file could not be opened (KeySet::fault).
@@ -120,7 +121,7 @@ struct WriteGate {
 /// How a set's file is written.
 struct FileOptions {
   /// The zstd level of its chunks; 0 writes them as they are.
-  int compression = kKeptCompression;
+  int compression = kSlideCompression;
   /// Bytes of blocks to a chunk.
   std::size_t chunkBytes = kChunkBytes;
   /// The tests' full disk; null for none.

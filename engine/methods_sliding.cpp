@@ -302,11 +302,7 @@ sliding::PlayRules rulesOf(Params& p) {
 
 // The problem of a play call, on a sliding puzzle.
 RpcResult<const Problem*> playProblem(const State& s, app::Id problem) {
-  if (!sliding::isSliding(s.document().puzzle())) {
-    return coreError(Errc::Unsupported, "only sliding puzzles are played");
-  }
-  BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
-  return &s.document().puzzle().getProblem(index);
+  return engine::playProblem(s, problem, sliding::isSliding, "only sliding puzzles are played");
 }
 
 Reply slidingPlayStart(State& s, Params& p) {
@@ -439,11 +435,7 @@ Reply slidingPlayReplay(State& s, Params& p) {
     }
     steps.push_back(Json{{"route", std::move(route)}, {"solved", step.solved}});
   }
-  const bool all = replay.error.empty();
-  return Json{{"solved", replay.solved},
-              {"steps", std::move(steps)},
-              {"illegal", all ? Json(nullptr) : Json(replay.steps.size())},
-              {"why", all ? Json(nullptr) : Json(replay.error)}};
+  return replayJson(replay.solved, std::move(steps), replay.error);
 }
 
 Reply slidingSetLayout(State& s, Params& p) {

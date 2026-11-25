@@ -11,7 +11,7 @@
 /// solution whose assembly does not come apart keeps what it had, as
 /// there.
 
-#include "shapelogic/base/stop.h"
+#include "shapelogic/app/background_job.h"
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/disassembly.h"
 #include "shapelogic/solve/disassembler.h"
@@ -23,7 +23,6 @@
 #include <mutex>
 #include <optional>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -73,23 +72,15 @@ struct AnalyseProgress {
 /// One analysis: takes the given assemblies apart, one after the other, on
 /// a thread of its own. The puzzle and the problem are read while it runs
 /// (the shapes and the problem's parts): nobody may change them.
-class Analysis {
+class Analysis final : public BackgroundJob {
  public:
   /// Starts at once with the assembly of each solution (its id first).
   Analysis(const Puzzle& puzzle, const Problem& problem,
            std::vector<std::pair<std::uint64_t, Assembly>> work, const AnalyseOptions& options);
   /// Stops and waits.
-  ~Analysis();
+  ~Analysis() override;
 
-  Analysis(const Analysis&) = delete;
-  Analysis& operator=(const Analysis&) = delete;
-
-  /// Asks it to stop as soon as it can; does not wait. Any thread.
-  void stop();
-  /// Waits until it has ended.
-  void wait();
-  /// Still taking apart. Any thread.
-  [[nodiscard]] bool active() const { return active_.load(std::memory_order_acquire); }
+  [[nodiscard]] Kind kind() const override { return Kind::Analysis; }
   /// Any thread.
   [[nodiscard]] AnalyseProgress progress() const;
   /// The separations found, by solution id, in the order of the work;
@@ -97,23 +88,15 @@ class Analysis {
   [[nodiscard]] std::vector<std::pair<std::uint64_t, Separation>> takeResults();
 
  private:
-  void run();
+  void run() override;
 
   std::vector<std::pair<std::uint64_t, Assembly>> work_;
   std::unique_ptr<ThreadPool> pool_;
   std::unique_ptr<Disassembler> disassembler_;
-  StopSource stop_;
 
-  std::atomic<unsigned int> done_{0};
   std::atomic<unsigned int> separated_{0};
-  std::atomic<bool> active_{true};
-  std::atomic<bool> stopped_{false};
-
-  mutable std::mutex mutex_;
+  /// Under mutex_.
   std::vector<std::pair<std::uint64_t, Separation>> results_;
-  std::optional<std::string> failure_;
-
-  std::thread thread_;
 };
 
 }  // namespace bt::app

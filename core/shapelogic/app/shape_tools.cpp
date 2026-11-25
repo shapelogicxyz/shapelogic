@@ -7,6 +7,7 @@
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/int_cast.h"
 #include "shapelogic/grid/cairo_lattice.h"
+#include "shapelogic/grid/grid_traits.h"
 #include "shapelogic/grid/hex_lattice.h"
 #include "shapelogic/grid/symmetries_derived.h"
 #include "shapelogic/grid/voxel.h"
@@ -161,9 +162,11 @@ std::optional<unsigned int> turn(GridKind grid, ShapeTask task) {
     case GridKind::Cairo: {
       // by the matrix: a turn over about x or y, a turn about z clockwise
       // (seen from above) or anticlockwise, the flips
+      const bool cairo = grid == GridKind::Cairo;
       const detail::DerivedSymmetries& sym =
-          grid == GridKind::Cairo ? detail::cairoSymmetries() : detail::hexagonalSymmetries();
-      const double a = grid == GridKind::Cairo ? 3.14159265358979323846 / 2 : 3.14159265358979323846 / 3;
+          cairo ? detail::cairoSymmetries() : detail::hexagonalSymmetries();
+      // a quarter turn of the pentagons, a sixth of the hexagons
+      const double a = cairo ? 3.14159265358979323846 / 2 : 3.14159265358979323846 / 3;
       const double c = std::cos(a);
       const double s = std::sin(a);
       switch (t) {
@@ -179,10 +182,6 @@ std::optional<unsigned int> turn(GridKind grid, ShapeTask task) {
     }
   }
   return std::nullopt;
-}
-
-bool isCubeLike(GridKind g) {
-  return g == GridKind::Bricks || g == GridKind::Sliding || g == GridKind::Stacking;
 }
 
 // "To origin" (task 24) of each grid.
@@ -491,32 +490,34 @@ std::vector<ShapeTaskInfo> taskSet(GridKind grid) {
       append(v, kNudgesCairo);
       append(v, kRotationsCairo);
       break;
-    default:
+    case GridKind::Bricks:
+    case GridKind::Rhombic:
+    case GridKind::TetraOcta:
+    case GridKind::Sliding:
+    case GridKind::Stacking:
       append(v, kNudgesCube);
       append(v, kRotations);
       break;
   }
   append(v, kGrid);
   // Minimize: the cube grid only (the others said "not implemented");
-  // spheres have no scale buttons, nor do the new grids (a hexagon or a
-  // cairo pentagon is not made of smaller ones)
-  const bool scales =
-      grid != GridKind::Spheres && grid != GridKind::Hexagonal && grid != GridKind::Cairo;
-  if (isCubeLike(grid)) {
+  // the scale buttons where a cell is made of smaller ones (GridTraits)
+  const GridTraits& traits = gridTraits(grid);
+  if (traits.cubeLike) {
     v.push_back(kMinimize);
   }
-  if (scales) {
+  if (traits.scales) {
     append(v, kScales);
   }
   append(v, kConstrain);
   v.push_back(kFillHoles);
-  // grid scale: not on the sphere and tetra-octa grids (the button did
-  // nothing there), nor on the grids that do not scale
-  if (scales && grid != GridKind::TetraOcta) {
+  if (traits.gridScale) {
     v.push_back(kGridScale);
   }
   return v;
 }
+
+bool isNudge(GridKind grid, ShapeTask task) { return nudge(grid, task).has_value(); }
 
 bool taskOffered(GridKind grid, ShapeTask task) {
   for (const ShapeTaskInfo& t : taskSet(grid)) {
@@ -713,33 +714,8 @@ unsigned int editCells(Voxel& v, CellTool tool, unsigned int color, std::uint8_t
   return changed;
 }
 
-unsigned int defaultShapeSize(GridKind grid) {
-  switch (grid) {
-    case GridKind::Rhombic:
-      return 5;
-    case GridKind::Spheres:
-      return 3;
-    case GridKind::Sliding:
-      return 6;
-    case GridKind::Cairo:
-      // two blocks of the tiling's period
-      return 8;
-    default:
-      return 4;
-  }
-}
+unsigned int defaultShapeSize(GridKind grid) { return gridTraits(grid).defaultSize; }
 
-unsigned int sizeUnit(GridKind grid) {
-  switch (grid) {
-    case GridKind::Rhombic:
-      return 5;
-    case GridKind::TetraOcta:
-      return 3;
-    // the cairo grid's pentagons repeat every four cells in x and y, but a
-    // space of any size holds whole cells, and layers have no period
-    default:
-      return 1;
-  }
-}
+unsigned int sizeUnit(GridKind grid) { return gridTraits(grid).sizeUnit; }
 
 }  // namespace bt::app

@@ -15,6 +15,7 @@ The JSON Schema of every `shapelogic_engine` method and event (decisions 0003 an
 
 | File | Holds |
 |---|---|
+| `errors.json` | the error codes (decision 0012): code, errc, whether JSON-RPC's own, meaning; the one table `apischema.py`, `gen_api_md.py`, `gen-api.ts` and the contract client read, and `tests/unit/engine/test_api_tables.cpp` holds the engine's codes to |
 | `types.json` | the shared definitions (`$defs`): ids, enums, the items |
 | `engine.json` | `engine.*`, `settings.*`, the `frame` announcement |
 | `document.json` | `document.*`, `edit.*`, `document.changed` |
@@ -59,3 +60,11 @@ or result is reported.
 4. `python3 api/gen_api_md.py`.
 5. `just app-gen` (the front end's types; its engine tests compare the
    method list with `engine.info`).
+
+An enum the engine reads or writes has one `Names` table in
+`engine/convert.{h,cpp}` (the API's names, apart from the file format's),
+and a numeric bound is a constant of the core or the engine:
+`tests/unit/engine/test_api_tables.cpp` holds the schema's enums and
+maxima to them (add a row there with a new one). A maximum the front end
+holds its inputs to is emitted as `LIMITS` (`web/tools/gen-api.ts`'s
+`LIMIT_FIELDS`).

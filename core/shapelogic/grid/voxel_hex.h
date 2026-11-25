@@ -31,7 +31,6 @@ class VoxelHex : public Voxel {
   bool transform(unsigned int nr) override;
   bool getNeighbor(unsigned int idx, unsigned int typ, int x, int y, int z, int* xn, int* yn,
                    int* zn) const override;
-  void resizeInclude(int& px, int& py, int& pz) override;
   [[nodiscard]] bool validCoordinate(int x, int y, int z) const override;
   [[nodiscard]] bool onGrid(int x, int y, int z) const override;
 };

@@ -4,6 +4,7 @@
 // new: they run through a SolveSession.
 #include "solution_iterator.h"
 
+#include "shapelogic/app/solve_setup.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/grid/voxel.h"
@@ -300,34 +301,17 @@ void SolutionIterator::runAssembler(Problem& problem) {
 
 void SolutionIterator::runSession(Problem& problem) {
   const bool stack = stacking::isStacking(*puzzle_);
-  if (!stack) {
-    // what the GUI checked before a sliding solve (Document::solveLaunch)
-    if (problem.resultValid() &&
-        sliding::isStartGoalShape(&puzzle_->getShape(problem.getResultId()))) {
-      if (const std::string why = sliding::startGoalError(*puzzle_, problem.getResultId(), &problem);
-          !why.empty()) {
-        pushItem(QueueItem{QueueItem::Type::Error, {}, why});
-        return;
-      }
-    }
-    if (const std::string why = sliding::stampOverflowMessage(*puzzle_, problem); !why.empty()) {
-      pushItem(QueueItem{QueueItem::Type::Error, {}, why});
-      return;
-    }
-    if (sliding::needsPreparing(*puzzle_, problem)) {
-      (void)sliding::prepareForSolving(*puzzle_, problem);
-    }
+  // what the app checks and sets up before a solve (Document::solveLaunch)
+  if (const Result<void> refused = app::solveRefusal(*puzzle_, problem); !refused) {
+    pushItem(QueueItem{QueueItem::Type::Error, {}, refused.error().message});
+    return;
   }
-  // Document::prepareShapesForSolving
-  for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
-    Voxel& v = puzzle_->getShape(i);
-    if (stack) {
-      (void)stacking::placeSolvingHotspot(v);
-    } else if (!v.hasInitialHotspot()) {
-      v.initHotspot();
-    }
-    v.warmCaches();
+  // a sliding problem's holes, as the app sets them up (the session would
+  // too, but after the shapes are prepared); only on the sliding grid
+  if (sliding::isSliding(*puzzle_) && sliding::needsPreparing(*puzzle_, problem)) {
+    (void)sliding::prepareForSolving(*puzzle_, problem);
   }
+  app::prepareShapesForSolving(*puzzle_);
 
   SolveOptions so;
   // a stacking run is its search: Find Solutions is what it does

@@ -10,6 +10,7 @@
 #include "shapelogic/base/stop.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/movement_values.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/sliding.h"
@@ -204,8 +205,9 @@ struct MovementExplorer::Impl {
     const Node& from = nodes[at];
     // removals are not added
     for (unsigned int i = 0; i < from.pieces.size(); i++) {
-      if (std::abs(mv->getX(i)) > 10000 || std::abs(mv->getY(i)) > 10000 ||
-          std::abs(mv->getZ(i)) > 10000) {
+      if (std::abs(mv->getX(i)) > movement::kRemovedBeyond ||
+          std::abs(mv->getY(i)) > movement::kRemovedBeyond ||
+          std::abs(mv->getZ(i)) > movement::kRemovedBeyond) {
         return std::nullopt;
       }
     }

@@ -52,8 +52,6 @@ EMSCRIPTEN_KEEPALIVE void bt_write(const char* data, std::size_t length) {
 /// The events of the background work (the stdio engine's run loop polls between lines).
 EMSCRIPTEN_KEEPALIVE void bt_poll() { browser().engine->poll(); }
 
-EMSCRIPTEN_KEEPALIVE int bt_busy() { return browser().engine->busy() ? 1 : 0; }
-
 /// Takes the output written since the last take: bt_taken_data/size give it.
 EMSCRIPTEN_KEEPALIVE void bt_take() {
   Browser& b = browser();

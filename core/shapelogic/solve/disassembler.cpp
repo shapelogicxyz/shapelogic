@@ -7,6 +7,7 @@
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/model/assembly.h"
+#include "shapelogic/model/movement_values.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/solve/assembler.h"
@@ -586,8 +587,8 @@ std::unique_ptr<Separation> Disassembler::checkSubproblems(const DisassemblerNod
         const DisassemblerNode* before = st2->getComefrom();
         BT_ASSERT(before != nullptr);
 
-        s.set(i, before->getX(i) + 20000 * st2->getX(i), before->getY(i) + 20000 * st2->getY(i),
-              before->getZ(i) + 20000 * st2->getZ(i), before->getTrans(i));
+        s.set(i, before->getX(i) + movement::kRemovedScale * st2->getX(i), before->getY(i) + movement::kRemovedScale * st2->getY(i),
+              before->getZ(i) + movement::kRemovedScale * st2->getZ(i), before->getTrans(i));
       } else {
         s.set(i, st2->getX(i), st2->getY(i), st2->getZ(i), st2->getTrans(i));
       }

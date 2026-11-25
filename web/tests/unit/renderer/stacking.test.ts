@@ -12,6 +12,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { LIMITS } from '../../../src/engine/api.generated.ts';
 import type { BoardLayout, RodSet } from '../../../src/engine/api.generated.ts';
 import { settingsRefusal } from '../../../src/main/path-grants.ts';
 import {
@@ -187,11 +188,13 @@ describe('the board in the 3D view', () => {
 });
 
 describe('the stacking cards', () => {
-  it('take a disc size from 1 to 100 (DiskSelector::onSize)', () => {
+  it("take a disc size from 1 to the engine's largest (DiskSelector::onSize)", () => {
+    const most = LIMITS.stacking.discSize;
+    expect(most).toBe(100);
     expect(discSizeOf('3')).toBe(3);
-    expect(discSizeOf(' 100 ')).toBe(100);
+    expect(discSizeOf(` ${String(most)} `)).toBe(most);
     expect(discSizeOf('0')).toBeNull();
-    expect(discSizeOf('101')).toBeNull();
+    expect(discSizeOf(String(most + 1))).toBeNull();
     expect(discSizeOf('2.5')).toBeNull();
     expect(discSizeOf('')).toBeNull();
     expect(discSizeOf('x')).toBeNull();

@@ -20,6 +20,9 @@ enum class Ask { None, SolutionPieces, SolutionAssemblies, Comment };
 /// The puzzle types burrTxt's help knows (-h TYPE).
 enum class HelpKind { Any, Brick, Sliding, Stacking };
 
+/// The solutions --save keeps when --limit is not given (burrTxt2's).
+inline constexpr unsigned int kDefaultSolutionLimit = 10;
+
 /// Everything the command line says.
 struct Options {
   // burrTxt
@@ -69,7 +72,8 @@ struct Options {
   bool keepMirrors = false;           ///< --keep-mirrors (burrTxt2 -m)
   bool keepRotations = false;         ///< --keep-rotations (burrTxt2 -r)
   bool dropDisassemblies = false;     ///< --drop-disassemblies (burrTxt2 -p)
-  unsigned int solutionLimit = 10;    ///< --limit n (0: all)
+  /// --limit n (0: all); empty when not given, which is kDefaultSolutionLimit
+  std::optional<unsigned int> solutionLimit;
 
   // A/B switches
   bool noSimd = false;

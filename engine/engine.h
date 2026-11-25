@@ -64,6 +64,9 @@ struct Settings {
   /// each gets an equal part of it (decision 0028). It takes the place of
   /// a solve's highMemory, which the original's Enable High Memory box set.
   double searchMemoryGB = 0;
+  /// The most searchMemoryGB may be (a million GB), and undoDepth.
+  static constexpr double kMaxSearchMemoryGB = 1e6;
+  static constexpr unsigned int kMaxUndoDepth = 10000;
   /// Write the lines for the application's log on the log stream
   /// (app_log.h): the app's log file takes them. Off, only what went
   /// wrong in a notification or an analysis is written; Debug adds the

@@ -11,14 +11,15 @@
 // (the list shows the top first), and the paused export's size
 // (mainwindow_file.cpp's sizeText).
 
+import { LIMITS } from '../../engine/api.generated.ts';
 import type { RodSet } from '../../engine/api.generated.ts';
 
-/** The disc list's bounds and its message (DiskSelector::onDelta, onSize). */
+/** The disc list's bounds (the engine's) and its message (DiskSelector::onDelta, onSize). */
 export const DISC_MIN = 1;
-export const DISC_MAX = 100;
-export const DISC_SIZE_REFUSED = 'An invalid size was entered, please pick a value between 1-100.';
+export const DISC_MAX = LIMITS.stacking.discSize;
+export const DISC_SIZE_REFUSED = `An invalid size was entered, please pick a value between ${String(DISC_MIN)}-${String(DISC_MAX)}.`;
 
-/** A disc size typed in the field: the number, or null when it is not one from 1 to 100. */
+/** A disc size typed in the field: the number, or null when it is not one from DISC_MIN to DISC_MAX. */
 export function discSizeOf(text: string): number | null {
   const t = text.trim();
   if (!/^[+-]?\d+$/.test(t)) {

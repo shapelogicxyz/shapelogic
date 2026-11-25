@@ -18,8 +18,6 @@ namespace bt::engine {
 
 namespace {
 
-// The largest space grid.geometry draws (the document's limit for shapes).
-constexpr std::uint64_t kMaxCells = std::uint64_t{1} << 24;
 // The most cells of one layer it draws.
 constexpr std::uint64_t kMaxLayerCells = std::uint64_t{1} << 16;
 
@@ -132,16 +130,7 @@ Reply shapeSetWeight(State& s, Params& p) {
 
 Reply shapeSetColor(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
-  const Json& rgb = p.value("rgb");
-  std::optional<std::uint32_t> color;
-  if (!rgb.is_null()) {
-    const std::optional<Rgb> c = rgb.is_string() ? parseRgb(rgb.get<std::string>()) : std::nullopt;
-    if (!c) {
-      p.fail("'rgb' must be \"#rrggbb\" or null");
-    } else {
-      color = std::uint32_t{c->r} << 16 | std::uint32_t{c->g} << 8 | c->b;
-    }
-  }
+  const std::optional<std::uint32_t> color = readRgbOrNull(p, "rgb");
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().setShapeColor(shape, color));
   return s.changed();
@@ -153,10 +142,12 @@ std::optional<ImageFit> fitOf(const Json& j) {
     return std::nullopt;
   }
   const std::string f = j.get<std::string>();
-  return f == "crop"      ? std::optional{ImageFit::Crop}
-         : f == "stretch" ? std::optional{ImageFit::Stretch}
-         : f == "manual"  ? std::optional{ImageFit::Manual}
-                          : std::nullopt;
+  for (const auto& [name, fit] : imageFitNames()) {
+    if (name == f) {
+      return fit;
+    }
+  }
+  return std::nullopt;
 }
 
 // the part of a picture shown, [x, y, width, height] in pixels: x and y may
@@ -191,8 +182,7 @@ Reply shapeSetImage(State& s, Params& p) {
   if (const std::optional<std::int64_t> id = p.maybeInteger("image", 0, 0x7FFFFFFF)) {
     choice.id = static_cast<unsigned int>(*id);
   }
-  choice.fit = p.choice<ImageFit>(
-      "fit", {{"crop", ImageFit::Crop}, {"stretch", ImageFit::Stretch}, {"manual", ImageFit::Manual}});
+  choice.fit = p.choice("fit", imageFitNames());
   if (const std::optional<std::array<int, 4>> src = srcOf(p.value("src"))) {
     choice.src = *src;
   } else {
@@ -264,26 +254,13 @@ Reply shapeSetBorder(State& s, Params& p) {
   if (p.has("enabled")) {
     change.enabled = p.boolean("enabled");
   }
-  change.corners = p.optChoice<BorderCorners>(
-      "corners", {{"round", BorderCorners::Round}, {"sharp", BorderCorners::Sharp}});
-  change.material = p.optChoice<BorderMaterial>("material", {{"smooth", BorderMaterial::Smooth},
-                                                             {"textured", BorderMaterial::Textured},
-                                                             {"wood", BorderMaterial::Wood}});
+  change.corners = p.optChoice("corners", borderCornersNames());
+  change.material = p.optChoice("material", borderMaterialNames());
   if (p.has("thickness")) {
     change.thickness = static_cast<unsigned int>(p.integer("thickness", 0, kMaxBorderThickness));
   }
   if (p.has("color")) {
-    const Json& rgb = p.value("color");
-    std::optional<std::uint32_t> color;
-    if (!rgb.is_null()) {
-      const std::optional<Rgb> c = rgb.is_string() ? parseRgb(rgb.get<std::string>()) : std::nullopt;
-      if (!c) {
-        p.fail("'color' must be \"#rrggbb\" or null");
-      } else {
-        color = std::uint32_t{c->r} << 16 | std::uint32_t{c->g} << 8 | c->b;
-      }
-    }
-    change.color = color;
+    change.color = readRgbOrNull(p, "color");
   }
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().setTrayBorder(shape, change));
@@ -459,7 +436,7 @@ Reply gridGeometry(State& s, Params& p) {
   BTE_CHECK(p.finish());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): p.finish() passed, so the size was read
   const auto [x, y, z] = *size;
-  if (std::uint64_t{x} * y * z > kMaxCells || std::uint64_t{x} * y > kMaxLayerCells) {
+  if (std::uint64_t{x} * y * z > app::kMaxShapeCells || std::uint64_t{x} * y > kMaxLayerCells) {
     return coreError(Errc::InvalidArgument, "the space would be too large to draw");
   }
   if (layer >= z) {
@@ -497,7 +474,7 @@ Reply gridNeighbor(State& s, Params& p) {
   BTE_CHECK(p.finish());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): p.finish() passed, so the size was read
   const auto [x, y, z] = *size;
-  if (std::uint64_t{x} * y * z > kMaxCells) {
+  if (std::uint64_t{x} * y * z > app::kMaxShapeCells) {
     return coreError(Errc::InvalidArgument, "the space would be too large");
   }
   const auto inside = [&](int cx, int cy, int cz) {

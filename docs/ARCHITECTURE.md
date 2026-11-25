@@ -98,7 +98,8 @@ Rules (decisions 0004, 0009):
 Files in `core/shapelogic/grid/`:
 - `bitfield.h`: `Bitfield<N>`, a constexpr bit set (the sphere tables).
 - `cairo_lattice.{h,cpp}`, `hex_lattice.h`: the cairo and hexagonal prism lattices (decision 0023): where a cell is and which cell holds a point.
-- `grid_type.{h,cpp}`: `GridKind` (the file format's numbers), `GridType` (capabilities, `getSymmetries()`, `makeVoxel()`, the voxel factory).
+- `grid_traits.h`: `GridTraits`, one row per grid kind (`kGridTraits`): the API name and label, capabilities, mesher, cube-like, scale buttons, default size and size unit; what differs by kind and is no geometry goes here, and a switch over `GridKind` lists every kind with no `default:` (`-Wswitch` finds the switches a new kind must join).
+- `grid_type.{h,cpp}`: `GridKind` (the file format's numbers; `kNumGridKinds` checked against the enum), `GridType` (capabilities, `getSymmetries()`, `makeVoxel()`, the voxel factory).
 - `shape_image.h`: `ShapeImage`, a shape's picture (decision 0038), moved with its cells.
 - `symmetries.h`: `Symmetries`, a grid's transformation and symmetry-group tables (`transAdd`, `minimizeTransformation`, `calculateSymmetry`, …).
 - `symmetries_impl.h`, `symmetries_0.cpp`, `symmetries_1.cpp`: the table-driven implementation over `tabs_0/` (cubes, rhombic, tetra-octa) and `tabs_1/` (triangular prisms).
@@ -132,7 +133,7 @@ Rules (decisions 0020, 0023, 0025, 0027, 0038, 0046):
 - A `Voxel` holds its grid by value and is copied with `clone()`. It keeps
   the file attributes it does not know, so files round-trip; its start and
   goal marks only carry a sliding file's or an edited board's marks to the
-  problems (0027).
+  problems (0027), on the sliding grid alone; rebuilds move them (`moveMarks`).
 - **Caches and threads.** `Voxel` computes its symmetry group and each
   transformation's hotspot and box lazily inside const functions: a shape
   read by several threads has `warmCaches()` called first (a split search
@@ -148,6 +149,7 @@ Files in `core/shapelogic/model/`:
 - `assembly.{h,cpp}`: `Placement`, `MirrorInfo`, `Assembly` (`transform`, `smallerRotationExists`, `createSpace`, `sort`, the editing helpers).
 - `disassembly.{h,cpp}`: `Disassembly` (level and move counts), `State`, `Separation` (the tree), `SeparationInfo` (the compact pre-order form), `movesText()` (cut at the original's 256 bytes: the text oracle compares it).
 - `grid_convert.{h,cpp}`: `convertGrid`: a cube-grid puzzle on the rhombic (5x5x5 cells a cube) or tetra-octa (3x3x3) grid, with its colors, notes and problems; `convertTargets`; `kMaxConvertedCells`.
+- `movement_values.h`: the movement analysis' special values (`movement::kFree`, the removal step, the states' mark of a removed piece, the original's), with `static_assert`s of how they relate.
 - `problem.{h,cpp}`: `Problem`: parts (at most `kMaxPartCount` pieces each), result, goal, color rules, holes, state, counts, the saved position, pending assemblies, solutions and their sort orders (`solutionSortOrder`), stored solver options, stacks, slide marks, the uid (decision 0044).
 - `puzzle.{h,cpp}`: `Puzzle`: grid, shapes (`ClonePtr<Voxel>`), constraint colors, problems, comment, rod sets, images, a tilted tray.
 - `puzzle_image.{h,cpp}`: the puzzle's table of pictures (decision 0038).
@@ -392,6 +394,7 @@ Rules (decisions 0016, 0022, 0023, 0025):
 
 Files in `core/shapelogic/app/`:
 - `analysis.{h,cpp}`: `Analysis`, saved assemblies taken apart afterwards on a thread of its own.
+- `background_job.{h,cpp}`: `BackgroundJob`, what `Analysis` and `PlacementFit` share (the thread, the stop, active, the done count, the failure); the document keeps them in one map by (problem, kind).
 - `document.{h,cpp}`: `Document`: the puzzle, ids, revision, dirty flag, undo history, the queries, solving, analyses, files, playback and explorers.
 - `document_commands.cpp`: the editing commands, from the original GUI's callbacks.
 - `document_internal.h`: the undo steps (internal to `document*.cpp`).
@@ -403,7 +406,9 @@ Files in `core/shapelogic/app/`:
 - `placement_fit.{h,cpp}`: `PlacementFit`, a problem's assemblies counted on each board of the tray's placements.
 - `playback.{h,cpp}`: `PlaybackSampler` and `orientedMesh`.
 - `queries.{h,cpp}`: `problemFit`, `shapeTable`, `shapeStatusLine`, `isNotchable`, `isMillable`, `problemKind`, `rodSetLayout`, `stlPieces`.
-- `shape_tools.{h,cpp}`: the tool tabs' tasks per grid and the grid editor's cell tools.
+- `shape_tools.{h,cpp}`: the tool tabs' tasks per grid (`isNudge` the one test of a nudge) and the grid editor's cell tools.
+- `solve_setup.{h,cpp}`: `solveRefusal` and `prepareShapesForSolving`, the Document's rules before a solve, which the Python module and the CLI's `--save` call too.
+- `tray_board.h`: a tilted tray's board and the pieces on it (`fillTrayBoard`, `onTray`, `keepOnTray`, `fitToTray`; internal, defined in `document_tilted.cpp`).
 
 Rules (decisions 0011, 0014, 0015, 0027, 0033, 0039, 0044, 0045):
 - The owner calls the document from one thread. A command checks first and

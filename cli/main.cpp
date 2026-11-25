@@ -15,6 +15,7 @@
 #include "options.h"
 #include "text_print.h"
 
+#include "shapelogic/app/solve_setup.h"
 #include "shapelogic/base/file_lock.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/base/stop.h"
@@ -216,33 +217,26 @@ class InterruptStops {
 
 // Where Panex searches are saved: --panex-dir, else $SHAPELOGIC_PANEX_DIR,
 // else the user's cache folder's "panex" (the original's library read the
-// variable; the core takes the folder as an option).
+// variable; the core takes the folder as an option). An empty variable
+// counts as unset, as in the engine (bt::defaultSearchFolder).
 std::string panexWorkDir(const Options& o) {
   if (o.panexDir != nullptr) {
     return o.panexDir;
   }
   // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-  if (const char* dir = std::getenv("SHAPELOGIC_PANEX_DIR")) {
-    return dir;
-  }
-  if (const std::string cache = bt::userCacheDirectory(); !cache.empty()) {
-    return (std::filesystem::path(cache) / "panex").string();
-  }
-  return "";
+  return bt::defaultSearchFolder(std::getenv("SHAPELOGIC_PANEX_DIR"), bt::userCacheDirectory(),
+                                 "panex");
 }
 
 // The disk saved levels may take: --panex-disk, else
 // $SHAPELOGIC_PANEX_DISK_GB, else 0 (half the free space, at most 200 GB).
 // (main has refused a value that is no budget)
 std::uint64_t panexDiskBudget(const Options& o) {
-  double gb = o.panexDiskGB;
-  if (gb <= 0) {
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-    if (const char* e = std::getenv("SHAPELOGIC_PANEX_DISK_GB")) {
-      gb = std::strtod(e, nullptr);
-    }
+  if (o.panexDiskGB > 0) {
+    return bt::gbToBytes(o.panexDiskGB).value_or(0);
   }
-  return bt::gbToBytes(gb).value_or(0);
+  // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
+  return bt::diskBudgetFromText(std::getenv("SHAPELOGIC_PANEX_DISK_GB"));
 }
 
 // The disk budgets the environment gives, read as burrTxt read them
@@ -343,16 +337,12 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   s.anyOrientation = o.anyOrientation;
   s.mirroredOrientations = o.mirroredOrientations;
   s.highMemory = o.highMemory;
+  // (an empty variable counts as unset, as in the engine)
   // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-  if (const char* dir = std::getenv("SHAPELOGIC_SLIDE_DIR")) {
-    s.workDir = dir;
-  } else if (const std::string cache = bt::userCacheDirectory(); !cache.empty()) {
-    s.workDir = (std::filesystem::path(cache) / "sliding").string();
-  }
+  s.workDir = bt::defaultSearchFolder(std::getenv("SHAPELOGIC_SLIDE_DIR"), bt::userCacheDirectory(),
+                                      "sliding");
   // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-  if (const char* gb = std::getenv("SHAPELOGIC_SLIDE_DISK_GB")) {
-    s.diskBudget = bt::gbToBytes(std::strtod(gb, nullptr)).value_or(0);
-  }
+  s.diskBudget = bt::diskBudgetFromText(std::getenv("SHAPELOGIC_SLIDE_DISK_GB"));
   s.legacy = o.slideLegacy;
   s.likePiecesApart = o.slideApart;
   s.gridStopsApart = o.slideStopsApart;
@@ -1296,7 +1286,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
   so.checkRotations = o.rotations;
   so.justCount = o.countOnly;
   so.dropDisassemblies = o.dropDisassemblies;
-  so.solutionLimit = o.solutionLimit;
+  so.solutionLimit = o.solutionLimit.value_or(bt::cli::kDefaultSolutionLimit);
   so.threads = o.threads;
   setSearchSwitches(o, so.search);
   so.takeApart = takeApartOptions(o, nullptr);
@@ -1323,6 +1313,13 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
       continue;
     }
 
+    // what the app refuses before a solve, in its words
+    if (const bt::Result<void> refused = bt::app::solveRefusal(puzzle, problem); !refused) {
+      std::printf("Could not start Solver\n");
+      std::fprintf(stderr, "shapelogic_cli: %s\n", refused.error().message.c_str());
+      exitCode = kExitError;
+      continue;
+    }
     so.flipPieces = o.flip.value_or(bt::storedFlipPieces(problem));
     bt::SolveSession session(puzzle, problem, so);
     if (const bt::Result<void> r = session.resume(); !r) {

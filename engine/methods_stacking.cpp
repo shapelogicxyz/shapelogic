@@ -73,22 +73,24 @@ Reply stackingSetRules(State& s, Params& p) {
     return std::unexpected(invalidParams("'rules' must be an object"));
   }
   BTE_TRY(const unsigned int index, s.document().rodSetIndex(r));
-  const Json shown = rodSetJson(s, index);
+  // what is not given stays as the fields show it (the core's struct, not
+  // its JSON)
+  const stacking::RodSet shown = rodSetFields(s.document().puzzle().getRodSet(index));
   stacking::RodSet f;
   Params rp(given);
-  // the inputs' own bounds (the document clamps as the GUI did)
+  // the inputs' own bounds, which the document refuses past too
   f.rodCount = static_cast<unsigned int>(
-      rp.optInteger("rodCount", shown["rodCount"].get<std::int64_t>(), 1, 16));
-  f.growHeight = rp.optBoolean("growHeight", shown["growHeight"].get<bool>());
+      rp.optInteger("rodCount", shown.rodCount, 1, stacking::kMaxRods));
+  f.growHeight = rp.optBoolean("growHeight", shown.growHeight);
   f.definedHeight = static_cast<unsigned int>(
-      rp.optInteger("definedHeight", shown["definedHeight"].get<std::int64_t>(), 1, 64));
-  f.sizeMatters = rp.optBoolean("sizeMatters", shown["sizeMatters"].get<bool>());
-  f.distanceMatters = rp.optBoolean("distanceMatters", shown["distanceMatters"].get<bool>());
-  f.panexColumns = rp.optBoolean("panexColumns", shown["panexColumns"].get<bool>());
-  f.pocketColumn = rp.optBoolean("pocketColumn", shown["pocketColumn"].get<bool>());
+      rp.optInteger("definedHeight", shown.definedHeight, 1, stacking::kMaxHeight));
+  f.sizeMatters = rp.optBoolean("sizeMatters", shown.sizeMatters);
+  f.distanceMatters = rp.optBoolean("distanceMatters", shown.distanceMatters);
+  f.panexColumns = rp.optBoolean("panexColumns", shown.panexColumns);
+  f.pocketColumn = rp.optBoolean("pocketColumn", shown.pocketColumn);
   f.pocketHeight = static_cast<unsigned int>(
-      rp.optInteger("pocketHeight", shown["pocketHeight"].get<std::int64_t>(), 1, 64));
-  f.outsideChannel = rp.optBoolean("outsideChannel", shown["outsideChannel"].get<bool>());
+      rp.optInteger("pocketHeight", shown.pocketHeight, 1, stacking::kMaxHeight));
+  f.outsideChannel = rp.optBoolean("outsideChannel", shown.outsideChannel);
   if (RpcResult<void> e = rp.finish(); !e) {
     RpcError err = e.error();
     err.message = "rules: " + err.message;
@@ -100,7 +102,7 @@ Reply stackingSetRules(State& s, Params& p) {
 
 Reply stackingSetDiscSize(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
-  const auto size = static_cast<unsigned int>(p.integer("size", 1, 100));
+  const auto size = static_cast<unsigned int>(p.integer("size", 1, stacking::kMaxDiscSize));
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().setDiscSize(shape, size));
   return s.changed();
@@ -281,11 +283,7 @@ Json restingJson(const stacking::Stacking& stacks, const stacking::Heights& heig
 
 // The problem of a play call, on a stacking puzzle.
 RpcResult<const Problem*> playProblem(const State& s, app::Id problem) {
-  if (!stacking::isStacking(s.document().puzzle())) {
-    return coreError(Errc::Unsupported, "only stacking puzzles have rods");
-  }
-  BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
-  return &s.document().puzzle().getProblem(index);
+  return engine::playProblem(s, problem, stacking::isStacking, "only stacking puzzles have rods");
 }
 
 Reply stackingPlayStart(State& s, Params& p) {
@@ -363,11 +361,7 @@ Reply stackingPlayReplay(State& s, Params& p) {
   for (const stacking::PlayStep& step : replay.steps) {
     steps.push_back(Json{{"disc", step.disc}, {"z", step.z}, {"solved", step.solved}});
   }
-  const bool all = replay.error.empty();
-  return Json{{"solved", replay.solved},
-              {"steps", std::move(steps)},
-              {"illegal", all ? Json(nullptr) : Json(replay.steps.size())},
-              {"why", all ? Json(nullptr) : Json(replay.error)}};
+  return replayJson(replay.solved, std::move(steps), replay.error);
 }
 
 Reply stackingSetStacks(State& s, Params& p) {

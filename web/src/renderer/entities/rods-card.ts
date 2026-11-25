@@ -14,6 +14,7 @@
 // (Snapshot.rodSets). The rod history of the original is the document's
 // undo. Frozen while anything solves (the original grayed the fields).
 
+import { LIMITS } from '../../engine/api.generated.ts';
 import type { RodSet } from '../../engine/api.generated.ts';
 import { rodFieldsOff } from '../state/stacking.ts';
 import type { RodRules } from '../state/stacking.ts';
@@ -121,9 +122,9 @@ export class RodsCard {
       ): string =>
         `<input class="v rodnum" type="number" data-f="${k}" min="${String(min)}" max="${String(max)}" value="${String(value)}" title="${esc(tip)}" aria-label="${esc(tip)}" ${dis(k)}>`;
       fields =
-        `<div class="rodf"><div class="rodline"><span title="${TIP.rodCount}">How many rods</span>${num('rodCount', r.rodCount, 1, 16, TIP.rodCount)}</div>` +
+        `<div class="rodf"><div class="rodline"><span title="${TIP.rodCount}">How many rods</span>${num('rodCount', r.rodCount, 1, LIMITS.stacking.rods, TIP.rodCount)}</div>` +
         `<label class="rodck" title="${TIP.grow}"><input type="radio" name="rodGrow" data-f="growHeight" value="1" ${r.growHeight ? 'checked' : ''} ${frozen ? 'disabled' : ''}><span>Grow to the height of all pieces</span></label>` +
-        `<div class="rodline"><label class="rodck" title="${TIP.defined}"><input type="radio" name="rodGrow" data-f="growHeight" value="0" ${r.growHeight ? '' : 'checked'} ${frozen ? 'disabled' : ''}><span>Defined height</span></label>${num('definedHeight', r.definedHeight, 1, 64, TIP.defined)}</div>` +
+        `<div class="rodline"><label class="rodck" title="${TIP.defined}"><input type="radio" name="rodGrow" data-f="growHeight" value="0" ${r.growHeight ? '' : 'checked'} ${frozen ? 'disabled' : ''}><span>Defined height</span></label>${num('definedHeight', r.definedHeight, 1, LIMITS.stacking.height, TIP.defined)}</div>` +
         check(
           'sizeMatters',
           'Disc size matters - no large on small',
@@ -137,7 +138,7 @@ export class RodsCard {
           r.distanceMatters,
         ) +
         check('panexColumns', 'Panex Style Columns', TIP.panexColumns, r.panexColumns) +
-        `<div class="rodline">${check('pocketColumn', 'Add pocket column', TIP.pocketColumn, r.pocketColumn)}${num('pocketHeight', r.pocketHeight, 1, 64, TIP.pocketHeight)}</div>` +
+        `<div class="rodline">${check('pocketColumn', 'Add pocket column', TIP.pocketColumn, r.pocketColumn)}${num('pocketHeight', r.pocketHeight, 1, LIMITS.stacking.height, TIP.pocketHeight)}</div>` +
         check('outsideChannel', 'Extra outside channel', TIP.outsideChannel, r.outsideChannel) +
         '</div>';
     }

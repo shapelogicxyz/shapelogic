@@ -13,7 +13,7 @@ MovementCacheBricks::MovementCacheBricks(const Puzzle& puzzle, const Problem& pr
     : MovementCache(puzzle, problem) {}
 
 // The smallest gap, along each axis, between a cube of the first piece and
-// a cube of the second after it; 32000 when nothing is in the way.
+// a cube of the second after it; kFree when nothing is in the way.
 std::vector<unsigned int> MovementCacheBricks::moCalcValues(const Voxel& sh1, const Voxel& sh2,
                                                             int dx, int dy, int dz) {
   // the offset is between the hotspots: make it one between the spaces
@@ -39,16 +39,16 @@ std::vector<unsigned int> MovementCacheBricks::moCalcValues(const Voxel& sh1, co
   const int z1u = asInt(sh1.boundZ1());
   const int z2u = std::max(asInt(sh1.boundZ2()), asInt(sh2.boundZ2()) + dz);
 
-  unsigned int mx = 32000;
-  unsigned int my = 32000;
-  unsigned int mz = 32000;
+  unsigned int mx = kFree;
+  unsigned int my = kFree;
+  unsigned int mz = kFree;
 
   // Along each line through both boxes: a cube of piece 1 starts a gap, a
   // cube of piece 2 ends it. The gap starts large so that a cube of piece 2
   // before any of piece 1 counts for nothing.
   for (int y = y1i; y <= y2i; y++) {
     for (int z = z1i; z <= z2i; z++) {
-      unsigned int gap = 32000;
+      unsigned int gap = kFree;
       for (int x = x1u; x <= x2u; x++) {
         if (sh1.isFilled2(x, y, z)) {
           gap = 0;
@@ -63,7 +63,7 @@ std::vector<unsigned int> MovementCacheBricks::moCalcValues(const Voxel& sh1, co
 
   for (int x = x1i; x <= x2i; x++) {
     for (int z = z1i; z <= z2i; z++) {
-      unsigned int gap = 32000;
+      unsigned int gap = kFree;
       for (int y = y1u; y <= y2u; y++) {
         if (sh1.isFilled2(x, y, z)) {
           gap = 0;
@@ -78,7 +78,7 @@ std::vector<unsigned int> MovementCacheBricks::moCalcValues(const Voxel& sh1, co
 
   for (int x = x1i; x <= x2i; x++) {
     for (int y = y1i; y <= y2i; y++) {
-      unsigned int gap = 32000;
+      unsigned int gap = kFree;
       for (int z = z1u; z <= z2u; z++) {
         if (sh1.isFilled2(x, y, z)) {
           gap = 0;

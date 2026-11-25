@@ -536,7 +536,6 @@ describe('a transport’s handlers (cleanup item 7.2)', () => {
       _bt_start: () => undefined,
       _bt_write: () => undefined,
       _bt_poll: () => undefined,
-      _bt_busy: () => 0,
       _bt_take: () => undefined,
       _bt_taken_data: () => 0,
       _bt_taken_size: () => 0,

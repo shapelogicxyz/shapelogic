@@ -8,7 +8,7 @@
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/thread_pool.h"
 
-#include <exception>
+#include <utility>
 
 namespace bt::app {
 
@@ -24,54 +24,37 @@ Analysis::Analysis(const Puzzle& puzzle, const Problem& problem,
   d.pool = pool_.get();
   // made here, on the owner's thread: it warms the shapes' caches
   disassembler_ = std::make_unique<Disassembler>(puzzle, problem, d);
-  thread_ = std::thread([this] { run(); });
+  start();
 }
 
-Analysis::~Analysis() {
-  stop();
-  wait();
-}
-
-void Analysis::stop() { stop_.request(StopKind::Abort); }
-
-void Analysis::wait() {
-  if (thread_.joinable()) {
-    thread_.join();
-  }
-}
+Analysis::~Analysis() { finish(); }
 
 void Analysis::run() {
-  try {
-    for (const auto& [id, assembly] : work_) {
-      if (stop_.stopRequested()) {
-        break;
-      }
-      TakeApartResult r = disassembler_->disassemble(assembly, stop_.token());
-      if (r.stopped) {
-        break;
-      }
-      if (r.separation) {
-        const std::lock_guard<std::mutex> lock(mutex_);
-        results_.emplace_back(id, std::move(*r.separation));
-        separated_.fetch_add(1, std::memory_order_relaxed);
-      }
-      done_.fetch_add(1, std::memory_order_relaxed);
+  for (const auto& [id, assembly] : work_) {
+    if (stop_.stopRequested()) {
+      break;
     }
-  } catch (const std::exception& e) {
-    const std::lock_guard<std::mutex> lock(mutex_);
-    failure_ = e.what();
+    TakeApartResult r = disassembler_->disassemble(assembly, stop_.token());
+    if (r.stopped) {
+      break;
+    }
+    if (r.separation) {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      results_.emplace_back(id, std::move(*r.separation));
+      separated_.fetch_add(1, std::memory_order_relaxed);
+    }
+    countDone();
   }
-  stopped_.store(done_.load() < work_.size(), std::memory_order_relaxed);
-  active_.store(false, std::memory_order_release);
 }
 
 AnalyseProgress Analysis::progress() const {
   AnalyseProgress p;
   p.active = active();
   p.total = static_cast<unsigned int>(work_.size());
-  p.done = done_.load(std::memory_order_relaxed);
+  p.done = done();
   p.separated = separated_.load(std::memory_order_relaxed);
-  p.stopped = !p.active && stopped_.load(std::memory_order_relaxed);
+  // ended before the last: stopped, or by an error
+  p.stopped = !p.active && p.done < p.total;
   if (p.active) {
     p.current = disassembler_->progress();
   }

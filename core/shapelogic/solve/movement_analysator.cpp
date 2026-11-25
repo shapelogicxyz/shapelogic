@@ -7,6 +7,7 @@
 #include "shapelogic/base/assert.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/movement_values.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/solve/movement_cache.h"
@@ -570,7 +571,7 @@ bool MovementAnalysator::checkmovementMasks(unsigned int maxPieces, unsigned int
   BT_ASSERT(nd < dirs_);
 
   // slot 0 is a removal, slots 1 .. kPushSlots - 1 the steps of that length
-  const unsigned int slot = step < kPushSlots ? step : (step == 30000 ? 0 : kPushSlots);
+  const unsigned int slot = step < kPushSlots ? step : (step == movement::kRemoveStep ? 0 : kPushSlots);
   const std::uint64_t* pushes = nullptr;
   if (slot < kPushSlots) {
     const std::size_t entry = std::size_t{nd} * kPushSlots + slot;
@@ -643,7 +644,7 @@ NodeRef MovementAnalysator::newNode(unsigned int amount) {
       int mz = 0;
       cache_->getDirection(nd >> 1, &mx, &my, &mz);
 
-      if (movement_[i] >= 10000) {
+      if (movement_[i] >= movement::kRemovedMovement) {
         if ((nd & 1) != 0) {
           mx = -mx;
           my = -my;
@@ -789,8 +790,8 @@ NodeRef MovementAnalysator::find() {
     switch (nextstate_) {
       case 0:
         // a single piece removed
-        if (checkmovement(1, 30000)) {
-          n = newNode(30000);
+        if (checkmovement(1, movement::kRemoveStep)) {
+          n = newNode(movement::kRemoveStep);
         }
 
         nextpiece_++;
@@ -806,8 +807,8 @@ NodeRef MovementAnalysator::find() {
 
       case 1:
         // a group of pieces removed
-        if (checkmovement(static_cast<unsigned int>(nextPn_ / 2), 30000)) {
-          n = newNode(30000);
+        if (checkmovement(static_cast<unsigned int>(nextPn_ / 2), movement::kRemoveStep)) {
+          n = newNode(movement::kRemoveStep);
         }
 
         nextpiece_++;

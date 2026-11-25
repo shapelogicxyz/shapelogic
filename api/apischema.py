@@ -11,6 +11,8 @@ items, enum, const, pattern, minimum, maximum, minItems, maxItems,
 minLength, oneOf, $ref (within a file or to another file of api/), and
 the annotations title, description, $schema, $id, $defs. A schema using
 anything else fails the self-check, so nothing in it goes unchecked.
+errors.json holds the one table of error codes (`errors`: code, errc,
+protocol, meaning), which every reader of the codes takes.
 """
 
 import json
@@ -27,8 +29,9 @@ ASSERTIONS = {
 ANNOTATIONS = {"title", "description", "$schema", "$id", "$defs"}
 # the keys of a method or event entry (not JSON Schema)
 ENTRY_KEYS = {"summary", "params", "result", "errors"}
-ERRCS = {"invalid_argument", "not_found", "parse_error", "io_error", "unsupported",
-         "invalid_state", "internal"}
+# the file of the error table, and the keys of a row
+ERRORS_FILE = "errors.json"
+ERROR_KEYS = {"code", "errc", "protocol", "meaning"}
 
 
 class SchemaError(Exception):
@@ -61,6 +64,8 @@ class Api:
         for p in sorted(pathlib.Path(api_dir).glob("*.json")):
             with open(p, encoding="utf-8") as f:
                 self.files[p.name] = json.load(f)
+        # the error table (errors.json): rows of code, errc, protocol, meaning
+        self.error_table = self.files.get(ERRORS_FILE, {}).get("errors", [])
         self.methods = {}  # name -> (file, entry)
         self.events = {}
         for name, doc in self.files.items():
@@ -72,6 +77,19 @@ class Api:
                 if e in self.events:
                     raise SchemaError(f"event {e} declared twice")
                 self.events[e] = (name, entry)
+
+    # ---- the error table ------------------------------------------------------------
+
+    def error_codes(self):
+        """The codes of each errc, in the table's order."""
+        out = {}
+        for row in self.error_table:
+            out.setdefault(row["errc"], []).append(row["code"])
+        return out
+
+    def declarable_errcs(self):
+        """The errcs a method entry may list: the core's, not the protocol's."""
+        return {row["errc"] for row in self.error_table if not row["protocol"]}
 
     # ---- references --------------------------------------------------------------
 
@@ -196,9 +214,23 @@ class Api:
                         if t not in ("null", "boolean", "integer", "number", "string", "array", "object"):
                             out.append(f"{file} {where}: unknown type {t!r}")
 
+        if not self.error_table:
+            out.append(f"{ERRORS_FILE}: no error table")
+        codes = set()
+        for i, row in enumerate(self.error_table):
+            if set(row) != ERROR_KEYS or not isinstance(row["code"], int) or \
+                    not isinstance(row["errc"], str) or not isinstance(row["protocol"], bool) or \
+                    not isinstance(row["meaning"], str):
+                out.append(f"{ERRORS_FILE} row {i}: needs code (integer), errc, protocol and meaning")
+            elif row["code"] in codes:
+                out.append(f"{ERRORS_FILE}: code {row['code']} twice")
+            else:
+                codes.add(row["code"])
+        declarable = self.declarable_errcs() if not out else set()
         for file, doc in self.files.items():
             for k in doc:
-                if k not in ANNOTATIONS | {"methods", "events"}:
+                allowed = ANNOTATIONS | {"methods", "events"} | ({"errors"} if file == ERRORS_FILE else set())
+                if k not in allowed:
                     out.append(f"{file}: top-level key {k!r} is not known")
             for name, sub in doc.get("$defs", {}).items():
                 walk(sub, file, f"$defs.{name}")
@@ -210,7 +242,7 @@ class Api:
                     for k in set(entry) - ENTRY_KEYS:
                         out.append(f"{file} {name}: unknown key {k!r}")
                     for e in entry.get("errors", []):
-                        if e not in ERRCS:
+                        if e not in declarable:
                             out.append(f"{file} {name}: unknown error {e!r}")
                     for k in ("params", "result"):
                         if k in entry:

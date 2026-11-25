@@ -7,22 +7,13 @@
 #include "shapelogic/grid/cairo_lattice.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/hex_lattice.h"
+#include "shapelogic/grid/types.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/mesh/grid_geometry_tables.h"
 
 #include <cmath>
 
 namespace bt::mesh {
-
-namespace {
-
-// The units of `per` cells that `cells` cells begin: a division in whole
-// numbers, rounded up (the rhombic and tetra-octa grids' cubes).
-unsigned int wholeUnits(unsigned int cells, unsigned int per) {
-  return (cells + per - 1) / per;
-}
-
-}  // namespace
 
 void connectionFace(const Voxel& v, int x, int y, int z, int n, double bevel, double offset,
                     std::vector<float>& corners) {

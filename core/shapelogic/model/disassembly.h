@@ -126,7 +126,7 @@ class State {
   [[nodiscard]] unsigned int getRotAxis() const { return rotAxis_; }
   [[nodiscard]] unsigned int getRotSense() const { return rotSense_; }
 
-  /// True when the piece has left the puzzle (moved more than 10000 units).
+  /// True when the piece has left the puzzle (moved more than movement::kRemovedBeyond units).
   [[nodiscard]] bool pieceRemoved(unsigned int i) const;
 
   /// The number of pieces.

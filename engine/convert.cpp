@@ -4,6 +4,7 @@
 #include "shapelogic/app/shape_tools.h"
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
+#include "shapelogic/grid/grid_traits.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/sliding.h"
 #include "shapelogic/model/stacking.h"
@@ -18,13 +19,14 @@ namespace bt::engine {
 // ---- names ------------------------------------------------------------------------------
 
 const Names<GridKind>& gridNames() {
-  static const Names<GridKind> n = {
-      {"bricks", GridKind::Bricks},     {"prisms", GridKind::TriangularPrism},
-      {"spheres", GridKind::Spheres},   {"rhombic", GridKind::Rhombic},
-      {"tetraOcta", GridKind::TetraOcta}, {"sliding", GridKind::Sliding},
-      {"stacking", GridKind::Stacking},   {"hexagonal", GridKind::Hexagonal},
-      {"cairo", GridKind::Cairo},
-  };
+  // the core's table of the grids (GridTraits::apiName)
+  static const Names<GridKind> n = [] {
+    Names<GridKind> out;
+    for (const GridTraits& t : kGridTraits) {
+      out.emplace_back(t.apiName, t.kind);
+    }
+    return out;
+  }();
   return n;
 }
 
@@ -113,33 +115,123 @@ const Names<SolutionOrder>& sortByNames() {
   return n;
 }
 
-std::string_view solveStateName(SolveState s) { return toString(s); }
-
-std::string_view solveStageName(SolveStage s) {
-  switch (s) {
-    case SolveStage::Idle: return "idle";
-    case SolveStage::Prepare: return "prepare";
-    case SolveStage::Reduce: return "reduce";
-    case SolveStage::Assemble: return "assemble";
-    case SolveStage::Disassemble: return "disassemble";
-    case SolveStage::Stopping: return "stopping";
-    case SolveStage::Paused: return "paused";
-    case SolveStage::Done: return "done";
-    case SolveStage::Error: return "error";
-    case SolveStage::Other: return "search";
-  }
-  return "idle";
+const Names<ImageFit>& imageFitNames() {
+  static const Names<ImageFit> n = {
+      {"crop", ImageFit::Crop}, {"stretch", ImageFit::Stretch}, {"manual", ImageFit::Manual}};
+  return n;
 }
 
-std::string_view problemStateName(ProblemState s) {
-  switch (s) {
-    case ProblemState::Unsolved: return "unsolved";
-    case ProblemState::Solving: return "solving";
-    case ProblemState::Solved: return "solved";
-    case ProblemState::Unknown: return "unknown";
-  }
-  return "unknown";
+const Names<BorderCorners>& borderCornersNames() {
+  static const Names<BorderCorners> n = {{"round", BorderCorners::Round},
+                                         {"sharp", BorderCorners::Sharp}};
+  return n;
 }
+
+const Names<BorderMaterial>& borderMaterialNames() {
+  static const Names<BorderMaterial> n = {{"smooth", BorderMaterial::Smooth},
+                                          {"textured", BorderMaterial::Textured},
+                                          {"wood", BorderMaterial::Wood}};
+  return n;
+}
+
+const Names<LogSetting>& logSettingNames() {
+  static const Names<LogSetting> n = {
+      {"off", LogSetting::Off}, {"info", LogSetting::Info}, {"debug", LogSetting::Debug}};
+  return n;
+}
+
+const Names<app::ImportFormat>& importFormatNames() {
+  static const Names<app::ImportFormat> n = {{"puzzleSolver3D", app::ImportFormat::PuzzleSolver3D},
+                                             {"puzzlecad", app::ImportFormat::Puzzlecad}};
+  return n;
+}
+
+const Names<app::ColorPreset>& colorPresetNames() {
+  static const Names<app::ColorPreset> n = {{"eachOnItself", app::ColorPreset::EachOnItself},
+                                            {"allowAll", app::ColorPreset::AllowAll},
+                                            {"clear", app::ColorPreset::Clear}};
+  return n;
+}
+
+const Names<int>& solutionPageSortNames() {
+  static const Names<int> n = {
+      {"list", -1}, {"assembly", 0}, {"level", 1}, {"moves", 2}, {"pieces", 3}};
+  return n;
+}
+
+const Names<app::SolutionsToDelete>& solutionsToDeleteNames() {
+  using W = app::SolutionsToDelete;
+  static const Names<W> n = {{"one", W::One},
+                             {"before", W::Before},
+                             {"after", W::After},
+                             {"withoutDisassembly", W::WithoutDisassembly},
+                             {"all", W::All}};
+  return n;
+}
+
+const Names<app::AssemblyImport::AddTo>& assemblyAddToNames() {
+  using A = app::AssemblyImport::AddTo;
+  static const Names<A> n = {
+      {"nothing", A::Nothing}, {"newProblem", A::NewProblem}, {"problem", A::Problem}};
+  return n;
+}
+
+const Names<app::AnalyseWhich>& analyseWhichNames() {
+  using W = app::AnalyseWhich;
+  static const Names<W> n = {{"all", W::All}, {"missing", W::Missing}, {"one", W::One}};
+  return n;
+}
+
+const Names<mesh::StlParameterType>& stlParameterTypeNames() {
+  using T = mesh::StlParameterType;
+  static const Names<T> n = {{"number", T::Double},
+                             {"positiveNumber", T::PositiveDouble},
+                             {"positiveInteger", T::PositiveInteger},
+                             {"switch", T::Switch}};
+  return n;
+}
+
+const Names<SolveState>& solveStateNames() {
+  static const Names<SolveState> n = {
+      {"idle", SolveState::Idle},         {"preparing", SolveState::Preparing},
+      {"assembling", SolveState::Assembling}, {"draining", SolveState::Draining},
+      {"paused", SolveState::Paused},     {"finished", SolveState::Finished},
+      {"error", SolveState::Error}};
+  return n;
+}
+
+const Names<SolveStage>& solveStageNames() {
+  static const Names<SolveStage> n = {
+      {"idle", SolveStage::Idle},         {"prepare", SolveStage::Prepare},
+      {"reduce", SolveStage::Reduce},     {"assemble", SolveStage::Assemble},
+      {"disassemble", SolveStage::Disassemble}, {"stopping", SolveStage::Stopping},
+      {"paused", SolveStage::Paused},     {"done", SolveStage::Done},
+      {"error", SolveStage::Error},       {"search", SolveStage::Other}};
+  return n;
+}
+
+const Names<ProblemState>& problemStateNames() {
+  static const Names<ProblemState> n = {{"unsolved", ProblemState::Unsolved},
+                                        {"solving", ProblemState::Solving},
+                                        {"solved", ProblemState::Solved},
+                                        {"unknown", ProblemState::Unknown}};
+  return n;
+}
+
+const Names<unsigned int>& changeKindNames() {
+  static const Names<unsigned int> n = {
+      {"shapes", app::kChangeShapes},       {"colors", app::kChangeColors},
+      {"problems", app::kChangeProblems},   {"solutions", app::kChangeSolutions},
+      {"notes", app::kChangeNotes},         {"rodSets", app::kChangeRodSets},
+      {"tray", app::kChangeTray}};
+  return n;
+}
+
+std::string_view solveStateName(SolveState s) { return nameOf(solveStateNames(), s); }
+
+std::string_view solveStageName(SolveStage s) { return nameOf(solveStageNames(), s); }
+
+std::string_view problemStateName(ProblemState s) { return nameOf(problemStateNames(), s); }
 
 std::string rgbText(Rgb c) {
   std::array<char, 8> buf{};
@@ -158,6 +250,73 @@ std::optional<Rgb> parseRgb(std::string_view text) {
   }
   return Rgb{static_cast<std::uint8_t>(v >> 16), static_cast<std::uint8_t>(v >> 8),
              static_cast<std::uint8_t>(v)};
+}
+
+Rgb rgbOf(std::uint32_t packed) {
+  return Rgb{static_cast<std::uint8_t>(packed >> 16), static_cast<std::uint8_t>(packed >> 8),
+             static_cast<std::uint8_t>(packed)};
+}
+
+std::optional<std::uint32_t> readRgbOrNull(Params& p, std::string_view name) {
+  const Json& rgb = p.value(name);
+  if (rgb.is_null()) {
+    return std::nullopt;
+  }
+  const std::optional<Rgb> c = rgb.is_string() ? parseRgb(rgb.get<std::string>()) : std::nullopt;
+  if (!c) {
+    p.fail("'" + std::string(name) + "' must be \"#rrggbb\" or null");
+    return std::nullopt;
+  }
+  return std::uint32_t{c->r} << 16 | std::uint32_t{c->g} << 8 | c->b;
+}
+
+std::vector<app::Id> readShapeIds(Params& p, const Json& list) {
+  std::vector<app::Id> ids;
+  if (!list.is_array() || list.empty() || list.size() > kMaxShapeList) {
+    p.fail("'shapes' must be a list of 1 to " + std::to_string(kMaxShapeList) + " shape ids");
+    return ids;
+  }
+  for (const Json& v : list) {
+    const std::optional<std::uint64_t> id =
+        v.is_string() ? parseId(IdKind::Shape, v.get<std::string>()) : std::nullopt;
+    if (!id) {
+      p.fail("'shapes' must be a list of shape ids (s1, ...)");
+      return {};
+    }
+    ids.push_back(*id);
+  }
+  return ids;
+}
+
+RpcResult<void> checkFileName(const std::string& name) {
+  if (name.size() > kMaxFileName) {
+    return coreError(Errc::InvalidArgument,
+                     "the name is longer than " + std::to_string(kMaxFileName) + " bytes");
+  }
+  for (const char c : name) {
+    if (static_cast<unsigned char>(c) < 0x20 || c == 0x7F) {
+      return coreError(Errc::InvalidArgument, "the name cannot hold control characters");
+    }
+  }
+  return {};
+}
+
+RpcResult<const Problem*> playProblem(const State& s, app::Id problem,
+                                      bool (*isKind)(const Puzzle&), std::string_view refusal) {
+  if (!isKind(s.document().puzzle())) {
+    return coreError(Errc::Unsupported, std::string(refusal));
+  }
+  BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
+  return &s.document().puzzle().getProblem(index);
+}
+
+Json replayJson(bool solved, Json steps, const std::string& error) {
+  const bool all = error.empty();
+  const std::size_t made = steps.size();
+  return Json{{"solved", solved},
+              {"steps", std::move(steps)},
+              {"illegal", all ? Json(nullptr) : Json(made)},
+              {"why", all ? Json(nullptr) : Json(error)}};
 }
 
 // ---- items ------------------------------------------------------------------------------
@@ -185,9 +344,7 @@ Json shapeColor(const Voxel& v) {
   if (c < 0) {
     return nullptr;
   }
-  const auto u = static_cast<unsigned int>(c);
-  return rgbText(Rgb{static_cast<std::uint8_t>(u >> 16), static_cast<std::uint8_t>(u >> 8),
-                     static_cast<std::uint8_t>(u)});
+  return rgbText(rgbOf(static_cast<std::uint32_t>(c)));
 }
 
 // A disc's color from the palette: its first colored cell's, the color
@@ -214,7 +371,7 @@ Json shapeImage(const Puzzle& puzzle, const ShapeImage& im) {
               {"hash", file->hash},
               {"width", file->width},
               {"height", file->height},
-              {"fit", imageFitName(im.fit)},
+              {"fit", nameOf(imageFitNames(), im.fit)},
               {"src", im.src},
               {"box", im.box},
               {"turn", im.turn}};
@@ -241,13 +398,11 @@ Json trayBorder(const Puzzle& puzzle, const Voxel& v) {
   const TrayBorder& b = v.getBorder();
   Json color = nullptr;
   if (b.color >= 0) {
-    const auto u = static_cast<unsigned int>(b.color);
-    color = rgbText(Rgb{static_cast<std::uint8_t>(u >> 16), static_cast<std::uint8_t>(u >> 8),
-                        static_cast<std::uint8_t>(u)});
+    color = rgbText(rgbOf(static_cast<std::uint32_t>(b.color)));
   }
   return Json{{"enabled", b.enabled},
-              {"corners", borderCornersName(b.corners)},
-              {"material", borderMaterialName(b.material)},
+              {"corners", nameOf(borderCornersNames(), b.corners)},
+              {"material", nameOf(borderMaterialNames(), b.material)},
               {"color", color},
               {"thickness", b.thickness},
               {"images", shapeImages(puzzle, b.images)}};
@@ -306,25 +461,35 @@ Json shapeSummary(const State& s, unsigned int index) {
   return j;
 }
 
+stacking::RodSet rodSetFields(const stacking::RodSet& r) {
+  stacking::RodSet f = r;
+  // older files canceled the distance rule with "can move over", which an
+  // edit writes off
+  f.distanceMatters = r.distanceMatters && !r.canMoveOver;
+  f.canMoveOver = false;
+  // the pocket and the channel as syncPanexFields left the boxes
+  f.pocketColumn = r.panexColumns && r.pocketColumn;
+  f.outsideChannel = stacking::hasOutsideChannel(r);
+  return f;
+}
+
 Json rodSetJson(const State& s, unsigned int index) {
   const stacking::RodSet& r = s.document().puzzle().getRodSet(index);
+  const stacking::RodSet f = rodSetFields(r);
   Json j = Json::object();
   j["id"] = rodSetId(s, index);
   j["label"] = app::Document::rodSetLabel(index);
-  j["name"] = r.name;
-  j["rodCount"] = r.rodCount;
+  j["name"] = f.name;
+  j["rodCount"] = f.rodCount;
   j["rods"] = stacking::totalRods(r);
-  j["growHeight"] = r.growHeight;
-  j["definedHeight"] = r.definedHeight;
-  j["sizeMatters"] = r.sizeMatters;
-  // what the GUI's box showed (loadRodFields): older files canceled the
-  // distance rule with "can move over", which an edit writes off
-  j["distanceMatters"] = r.distanceMatters && !r.canMoveOver;
-  j["panexColumns"] = r.panexColumns;
-  // the pocket and the channel as syncPanexFields left the boxes
-  j["pocketColumn"] = r.panexColumns && r.pocketColumn;
-  j["pocketHeight"] = r.pocketHeight;
-  j["outsideChannel"] = stacking::hasOutsideChannel(r);
+  j["growHeight"] = f.growHeight;
+  j["definedHeight"] = f.definedHeight;
+  j["sizeMatters"] = f.sizeMatters;
+  j["distanceMatters"] = f.distanceMatters;
+  j["panexColumns"] = f.panexColumns;
+  j["pocketColumn"] = f.pocketColumn;
+  j["pocketHeight"] = f.pocketHeight;
+  j["outsideChannel"] = f.outsideChannel;
   return j;
 }
 
@@ -442,7 +607,7 @@ Json trayJson(const tilted::Tray& t, const tilted::Layout& lay) {
   j["over"] = t.over;
   j["down"] = t.down;
   j["allowance"] = t.allowance;
-  j["placement"] = t.placement == tilted::Tray::Placement::Best ? "best" : "custom";
+  j["placement"] = nameOf(trayPlacementNames(), t.placement);
   j["shiftX"] = t.shiftX;
   j["shiftY"] = t.shiftY;
   Json walls = Json::array();
@@ -595,23 +760,26 @@ Json meshReply(State& s, const mesh::DrawMesh& m) {
 
 // ---- the stored solver settings ---------------------------------------------------------
 
-namespace {
-
 // The original's check boxes (mainwindow_solve.cpp's optionNames), and
 // verticalMoves, which sliding trays of several layers added,
 // anyOrientation and mirroredOrientations (a sliding piece's orientation),
 // keepAssemblies (Always show Assemblies), optimizedPaths (Automatically
 // use optimized paths) and flipPieces (a tilted tray's pieces may be
 // turned over).
-constexpr std::array<std::string_view, 18> kSolverBoxes = {
-    "disassemble",   "checkRotations", "justCount",      "justLevels",
-    "deepSymmetry",  "keepMirrors",    "keepRotations",  "strictColors",
-    "nestedSlides",  "partialNested",  "verticalMoves",  "anyOrientation",
-    "mirroredOrientations",            "highMemory",     "autosave",
-    "keepAssemblies", "optimizedPaths", "flipPieces"};
+const std::vector<std::string_view>& solverBoxNames() {
+  static const std::vector<std::string_view> n = {
+      "disassemble",   "checkRotations", "justCount",      "justLevels",
+      "deepSymmetry",  "keepMirrors",    "keepRotations",  "strictColors",
+      "nestedSlides",  "partialNested",  "verticalMoves",  "anyOrientation",
+      "mirroredOrientations",            "highMemory",     "autosave",
+      "keepAssemblies", "optimizedPaths", "flipPieces"};
+  return n;
+}
+
+namespace {
 
 bool isBox(std::string_view name) {
-  for (const std::string_view b : kSolverBoxes) {
+  for (const std::string_view b : solverBoxNames()) {
     if (b == name) {
       return true;
     }
