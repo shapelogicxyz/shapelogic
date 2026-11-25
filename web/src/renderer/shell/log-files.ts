@@ -27,10 +27,10 @@ import type {
 import { sizeText } from './cache-text.ts';
 import { askChoice, openDialog } from './dialog.ts';
 import { esc } from './dom.ts';
-import { addEscapeStep, ESC_ORDER } from './escape.ts';
 import { exportChoices, REPORT_HTML } from './log-export.ts';
 import { rowHtml, tableHtml } from './log-rows.ts';
 import type { LogView } from './log-rows.ts';
+import { closePop, focusPop, openPop, popOpenFor } from './popover.ts';
 import { flash, reportError } from './status.ts';
 
 const ID = 'logFiles';
@@ -41,16 +41,6 @@ export const SEARCH_WAIT_MS = 200;
 
 /** The view the dialog opens in: the last one picked while the app runs. */
 let lastView: LogView = 'pretty';
-
-/** Export…'s choices open, to be closed by Esc (before the dialog under them). */
-let closeChoices: (() => void) | null = null;
-addEscapeStep(ESC_ORDER.dialog - 3, () => {
-  if (closeChoices === null) {
-    return false;
-  }
-  closeChoices();
-  return true;
-});
 
 /** What the list says when no line matches. */
 export function emptyHtml(query: LogQuery, lines: number): string {
@@ -227,14 +217,19 @@ class LogFilesView {
     this.error(page.error === null ? null : `The log could not be written: ${page.error}`);
   }
 
-  /** Export…: its choices, the last lines or all of the log, in a menu over the button. */
+  /**
+   * Export…: its choices, the last lines or all of the log, in the popover
+   * over the button (a menu of the dialog: the arrow keys, Tab and Esc are
+   * its first, popover.ts).
+   */
   async chooseExport(): Promise<void> {
     if (this.busy) {
       return;
     }
-    if (closeChoices !== null) {
+    const button = this.part('[data-x="export"]');
+    if (popOpenFor(button)) {
       // a second press closes them
-      closeChoices();
+      closePop();
       return;
     }
     if (this.choosing) {
@@ -253,64 +248,21 @@ class LogFilesView {
     if (sizes === null || !this.el.isConnected) {
       return;
     }
-    const button = this.part('[data-x="export"]');
-    const card = this.part('.cfm');
-    const menu = document.createElement('div');
-    menu.className = 'lf-pop';
-    menu.setAttribute('role', 'menu');
-    menu.setAttribute('aria-label', 'Export the log');
-    menu.innerHTML = exportChoices(sizes)
-      .map(
-        (c) =>
-          `<button type="button" role="menuitem" data-lines="${c.lines === undefined ? '' : String(c.lines)}">${esc(c.label)}</button>`,
-      )
-      .join('');
-    card.appendChild(menu);
-    // above the button, its left edge with the button's
-    const b = button.getBoundingClientRect();
-    const c = card.getBoundingClientRect();
-    menu.style.left = `${String(Math.max(8, Math.min(b.left - c.left, c.width - menu.offsetWidth - 8)))}px`;
-    menu.style.bottom = `${String(c.bottom - b.top + 6)}px`;
-    const items = [...menu.querySelectorAll<HTMLButtonElement>('button')];
-    items[0]?.focus();
-    const outside = (e: PointerEvent): void => {
-      if (!menu.contains(e.target as Node) && e.target !== button) {
-        close(false);
-      }
-    };
-    const close = (refocus: boolean): void => {
-      menu.remove();
-      this.el.removeEventListener('pointerdown', outside, true);
-      closeChoices = null;
-      if (refocus) {
+    openPop(
+      button,
+      `<div role="menu" aria-label="Export the log">${exportChoices(sizes)
+        .map(
+          (c) =>
+            `<button type="button" role="menuitem" data-k="${c.lines === undefined ? 'all' : String(c.lines)}">${esc(c.label)}</button>`,
+        )
+        .join('')}</div>`,
+      (k) => {
         button.focus();
-      }
-    };
-    closeChoices = () => {
-      close(true);
-    };
-    this.el.addEventListener('pointerdown', outside, true);
-    menu.addEventListener('keydown', (e) => {
-      const at = items.indexOf(document.activeElement as HTMLButtonElement);
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        const n = items.length;
-        items[(at + (e.key === 'ArrowDown' ? 1 : n - 1)) % n]?.focus();
-      } else if (e.key === 'Tab') {
-        e.preventDefault();
-        e.stopPropagation();
-        close(true);
-      }
-    });
-    menu.addEventListener('click', (e) => {
-      const item = (e.target as Element).closest<HTMLElement>('[data-lines]');
-      if (item === null) {
-        return;
-      }
-      const lines = item.dataset.lines === '' ? undefined : Number(item.dataset.lines);
-      close(true);
-      void this.exportLines(lines);
-    });
+        void this.exportLines(k === 'all' ? undefined : Number(k));
+      },
+      true,
+    );
+    focusPop();
   }
 
   /** Writes the log, all of it or its newest `lines` lines, to a file the save dialog gives. */
@@ -413,9 +365,6 @@ export async function openLogFiles(app: BtApp): Promise<void> {
     ],
     foot: REPORT_HTML,
     onAnswer: (key) => {
-      if (key !== 'export') {
-        closeChoices?.();
-      }
       if (key === 'refresh') {
         void view?.load(false);
         return false;
@@ -453,7 +402,7 @@ export async function openLogFiles(app: BtApp): Promise<void> {
     });
   }
   await shown;
-  closeChoices?.();
+  closePop();
   view?.stopSearch();
   void app.logClosed().catch(() => undefined);
 }

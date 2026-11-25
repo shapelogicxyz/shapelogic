@@ -529,6 +529,7 @@ Playwright 1.64.0, gltf-validator for the tests).
 Files in `web/src/engine/`:
 - `api.generated.ts`: the types of `api/*.json` (`tools/gen-api.ts`, `just app-gen`), committed; a test fails when it is stale.
 - `app-bridge.ts`: what crosses between the main process and the renderer besides the engine (`window.btApp`'s interface and the checks of what crosses).
+- `base64.ts`: `toBase64`, `fromBase64`, without Node (the one copy).
 - `bridge.ts`: the engine's messages between the host and the renderer's proxy (decision 0013).
 - `client-types.ts`: `EngineApi`, `Reply<M>`: what the client and the proxy both offer.
 - `client.ts`: `EngineClient`: `engine.hello` first, typed calls pipelined in order and bounded, errors as `EngineError`, coalescing by key, typed events.
@@ -536,8 +537,10 @@ Files in `web/src/engine/`:
 - `errors.ts`: the errors a call ends with.
 - `frames.ts`: `viewFrame` (typed-array views without copies), `attachFrame`, `meshArrays`, `poseArrays`.
 - `framing.ts`: `FrameParser` (stdout as lines and frames), `StderrRing`.
+- `handlers.ts`: `EventHandlers`, `Listeners`: the one registry of event, status and problem handlers (the client, the host, the proxy), each handler guarded.
 - `node-transport.ts`: `NodeTransport`, the engine as a child process (the only Node file here).
 - `recorder.ts`: `RecordingTransport`, a session recorded byte for byte.
+- `serve.ts`: `serveEngine`: the host's side of the bridge, `admit` for paths (the main process's and the demo's).
 - `spawn-failure.ts`: `SpawnFailure`, `EngineStartError`: a failed start with every field the system gave.
 - `start-diagnosis.ts`: a failed start's likely cause by code, the Windows exit codes.
 - `transport.ts`: `Transport`, the byte pipe the client speaks over; `setOnce`, its handlers set once.
@@ -552,8 +555,7 @@ Files in `web/src/main/`:
 - `diagnostics.ts`: Help ▸ Copy Diagnostics: the report, the system checks on request.
 - `engine-hash.ts`: the engine's SHA-256 against `engine.sha256`.
 - `engine-host.ts`: `EngineHost`: one engine per window, restarted when it dies, its status told.
-- `engine-ipc.ts`: `serveEngine`: the host's side of the bridge, `admit` for paths.
-- `engine-path.ts`: where the app finds `shapelogic_engine`.
+- `engine-path.ts`: where the programs are (`programFile`, `builtProgram`, `findProgram`, `findEngine`): the `.exe` and `build/<preset>/{engine,cli}/` rule of the app, the tools and the tests.
 - `env.d.ts`: what electron-vite puts into the main process at build.
 - `export-file.ts`: `writeFileSafely`, an export written as the core writes a puzzle; `ExportGrants`.
 - `goal-window.ts`: `GoalWindows`, the Play tab's goal picture in a window of its own.
@@ -570,7 +572,7 @@ Files in `web/src/main/`:
 - `security.ts`: the Electron security checklist as data and pure functions.
 - `startup-line.ts`: each window's Startup line.
 - `state-store.ts`: `StateStore`, `state.json`.
-- `updates.ts`: whether a newer ShapeLogic is out (GitHub's latest release).
+- `updates.ts`: whether a newer ShapeLogic is out (GitHub's latest release); `VERSION_PATTERN`, the app's and the tools' one version pattern.
 
 Files in `web/src/preload/`:
 - `index.ts`: exposes `window.bt` and `window.btApp`; keeps the commands that come before the page listens.
@@ -626,14 +628,15 @@ Files in `web/src/renderer/shell/`:
 - `menus.ts`: `Menus`: the menu state sent to the main process; commands to their handlers.
 - `new-grid-images/`: File ▸ New's example pictures.
 - `new-grids.ts`: what File ▸ New says about each grid (`NewKind`).
+- `paths.ts`: `baseName`, `puzzleStem`: file names as the dialogs show and propose them (DOM-free).
 - `panel.ts`: a non-modal window over the workspace (status window, debug statistics).
 - `persist.ts`: the settings and layouts kept across sessions.
 - `picture-keep.ts`: what the picture cache keeps: the hashes and stack keys a snapshot names, the pictures a dialog holds; the rest let go, textures first (DOM-free).
 - `picture-math.ts`: a sliding piece's picture to its cells (DOM-free).
 - `piece-colors.ts`: the original's `pieceColor` table and jitter; board colors.
 - `piece-images.ts`: pictures fetched once per hash and decoded once (decision 0038); `stackPicture`; only what the document names is kept (`keepPicturesOf`).
-- `popover.ts`: the popover menu.
-- `prefs.ts`: the settings as the client holds them; `validPrefs`.
+- `popover.ts`: the popover menu, drawn over the dialogs (a dialog's menu takes the arrow keys, Tab and Esc first).
+- `prefs.ts`: the settings as the client holds them: one record per setting (`PREFS`: default, kind, choices or range, the engine's name), from which the type, the defaults, `validPrefs` and the one engine map (`engineSettingsOf`) come.
 - `release-notes.ts`: a release's notes as HTML for the update dialog.
 - `rescue.ts`: `Rescue`: the rescue copy written and offered.
 - `settings.ts`: the settings dialog.
@@ -643,15 +646,16 @@ Files in `web/src/renderer/shell/`:
 - `topbar.ts`: the file's name, path and dirty mark; the window's title.
 - `tray-border.ts`: a tray's border as the views share it (decision 0046).
 - `updates.ts`: the update check and its dialog.
+- `widgets.ts`: the one stepper (`stepperHtml`, `wireSteppers`), switch (`switchHtml`; Space and Enter by `pressSwitch`), rename in place, list keys and keyboard map (`keysHtml`).
 
 Files in `web/src/renderer/view3d/`:
 - `board.ts`: a stacking board in 3D (`boardBoxes`, `BoardScene`, `BoardView`).
 - `camera.ts`: one orientation quaternion; orbit, pan, zoom, Home and Fit; the arc-ball.
 - `depth-order.ts`: `paintingOrder`, the vector image's back-to-front order (DOM-free).
-- `extent.ts`: a space's size in mesh units (`gridExtent`), `cellToMesh`, `placedAt`.
+- `extent.ts`: a space's size in mesh units (`gridExtent`), `cellToMesh`, `placedAt`, `isCubeGrid`; held to `engine.info`'s rules by `tests/engine/extent.test.ts`.
 - `labels.ts`: the Solver view's piece labels.
 - `material.ts`: the faces' shader: the original's colors and light.
-- `mesh.ts`: a `MeshFrame` as three.js geometry through `meshArrays()`.
+- `mesh.ts`: a `MeshFrame` as three.js geometry through `meshArrays()`; `disposeBuilt`.
 - `meshcache.ts`: meshes by shape, style and transformation with their revision.
 - `overlays.ts`: axes, bounds, the layer's slab, drawn again only when their options change.
 - `picking.ts`: a raycast's triangle to its cell and side.
@@ -659,6 +663,7 @@ Files in `web/src/renderer/view3d/`:
 - `preview.ts`: the 3D edit's preview, made again only when its ghosts change.
 - `renderer.ts`: `ViewRenderer`: three.js, the cameras, render on demand, `capture`, `band`, `tilt`, `turn`.
 - `scene.ts`: `ShapeScene`: one shape, its passes, marks, edge lines, overlays.
+- `shape-meshes.ts`: `ShapeMeshes`, one built copy of each shape mesh, shared and counted; `MeshSlot`, one asker's loads (the shape view, the pieces scene, the trays, the board).
 - `solution.ts`: `SolutionScene`: a solution's pieces posed, framed on the result.
 - `svg.ts`: the vector image (File ▸ Export ▸ Vector Image).
 - `toolbar.ts`: the view's toolbar and Display menu.
@@ -703,6 +708,7 @@ Files in `web/src/renderer/puzzle/`:
 
 Files in `web/src/renderer/solver/`:
 - `autosave.ts`: `Autosave`, the crash recovery journal; `saveAtSavePoint` (decisions 0024, 0034, 0043).
+- `boxes.ts`: the Search Options' check boxes in one ordered table (`BOXES`): where each shows, what stores it, its default and setting (DOM-free).
 - `cache-links.ts`: tells the main process which puzzle and problem each search folder belongs to.
 - `cadence.ts`: when the journal saves (base/save_cadence.h's rule).
 - `live-preview.ts`: `LivePreview`, the newest `solve.preview` on the view's preview layer.
@@ -735,6 +741,7 @@ Files in `web/src/renderer/export/`:
 
 Files in `web/src/renderer/play/`:
 - `board.ts`: a sliding board seen from above as SVG (decision 0039).
+- `board-shell.ts`: `BoardShell`, what both boards share (the frame's resize, the pointer, a drag's end, a move's frame loop `animateFor`), `translate`, and `toggleButton` for the buttons beside them.
 - `follow.ts`: how a dragged piece follows the pointer (DOM-free).
 - `game.ts`: `GameOf`, a game's moves and place in them (DOM-free).
 - `goal-picture.ts`, `goal-places.ts`: the goal's picture for its own window, and what it is told.

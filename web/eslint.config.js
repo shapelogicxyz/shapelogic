@@ -64,13 +64,21 @@ export default defineConfig(
   },
   {
     // src/demo/ (the website's demo) is the renderer over the engine in the
-    // page: it may take the host's server (main/engine-ipc.ts, free of
-    // Electron), never Node
+    // page: it serves the engine as the main process does with
+    // src/engine/serve.ts, never with Node or the main process's modules
     files: ['src/demo/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
-        { patterns: [{ group: nodeModules, message: 'the demo runs in a browser' }] },
+        {
+          patterns: [
+            { group: nodeModules, message: 'the demo runs in a browser' },
+            {
+              group: ['../main/*', '../preload/*'],
+              message: 'the demo takes platform-free modules only (src/engine/)',
+            },
+          ],
+        },
       ],
       'no-restricted-globals': ['error', 'process', 'Buffer', 'require', '__dirname'],
     },

@@ -40,6 +40,7 @@
 // (shape.setImages); from then on it turns and moves with them.
 
 import type { ImageFit, ImageLayer, ShapeImage } from '../../engine/api.generated.ts';
+import { toBase64 } from '../../engine/base64.ts';
 import { closeDialog, openDialog } from '../shell/dialog.ts';
 import { esc } from '../shell/dom.ts';
 import { prefs, setPrefs } from '../shell/prefs.ts';
@@ -116,15 +117,6 @@ export interface ImageDialogOptions {
   apply(a: ImageApply): Promise<boolean>;
   /** Remove the piece's pictures. */
   remove(): void;
-}
-
-/** A file as base64. */
-function toBase64(bytes: Uint8Array): string {
-  let s = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(s);
 }
 
 /**

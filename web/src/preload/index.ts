@@ -14,39 +14,67 @@ import { isAppCommand } from '../engine/app-bridge.ts';
 import type {
   AppCommand,
   BtApp,
-  CacheChoice,
-  CacheDeleteResult,
-  CacheFolderInfo,
-  CacheItem,
-  CacheResult,
-  CliToolResult,
-  DiagnosticsResult,
-  LogExportResult,
-  LogExportSizes,
-  LogPage,
-  RescueCopy,
-  RescueWritten,
-  StoredState,
-  UpdateResult,
+  ChannelArgs,
+  ChannelOf,
+  ChannelResult,
+  WriteResult,
 } from '../engine/app-bridge.ts';
 import type { BridgeMessage, BridgeRequest, BtBridge } from '../engine/bridge.ts';
 
+// Every channel through these three, typed by app-bridge.ts's table
+// (cleanup item 12.2): a name, an argument or a result that main does not
+// have fails the build.
+
+/** Renderer to main, no answer. */
+function send<C extends ChannelOf<'send'>>(channel: C, ...args: ChannelArgs<C>): void {
+  ipcRenderer.send(channel, ...args);
+}
+
+/** Renderer to main, answered as the table says (main answers a window not the app's too). */
+function invoke<C extends ChannelOf<'invoke'>>(
+  channel: C,
+  ...args: ChannelArgs<C>
+): Promise<ChannelResult<C>> {
+  return ipcRenderer.invoke(channel, ...args) as Promise<ChannelResult<C>>;
+}
+
+/**
+ * Main to renderer: the handler hears what came, unchecked (main is
+ * trusted, but each listener still checks: a page reloaded meanwhile).
+ * Returns the unsubscribe.
+ */
+function listen(channel: ChannelOf<'event'>, handler: (value: unknown) => void): () => void {
+  const listener = (_event: IpcRendererEvent, value: unknown): void => {
+    handler(value);
+  };
+  ipcRenderer.on(channel, listener);
+  return () => {
+    ipcRenderer.removeListener(channel, listener);
+  };
+}
+
+/** A write main answered: done, or its reason as the rejection. */
+async function written(r: Promise<WriteResult>): Promise<void> {
+  const w = await r;
+  if (!w.ok) {
+    throw new Error(w.error);
+  }
+}
+
+const NOT_OURS = 'not a ShapeLogic window';
+
 const bridge: BtBridge = {
   send(request: BridgeRequest): void {
-    ipcRenderer.send('bt:call', request);
+    send('bt:call', request);
   },
   onMessage(handler: (message: BridgeMessage) => void): () => void {
-    const listener = (_event: IpcRendererEvent, message: BridgeMessage): void => {
-      handler(message);
-    };
-    ipcRenderer.on('bt:message', listener);
-    return () => {
-      ipcRenderer.removeListener('bt:message', listener);
-    };
+    return listen('bt:message', (m) => {
+      handler(m as BridgeMessage);
+    });
   },
 };
 
-const info = ipcRenderer.sendSync('bt:app-info') as { platform: string; version: string } | null;
+const info = ipcRenderer.sendSync('bt:app-info') as ChannelResult<'bt:app-info'>;
 
 // The main process sends a window's first commands (a file given on the
 // command line or opened from the file manager at the start) when its page
@@ -55,7 +83,7 @@ const info = ipcRenderer.sendSync('bt:app-info') as { platform: string; version:
 // in order, a task after it subscribes (stage 8: they were lost).
 const commandHandlers = new Set<(command: AppCommand) => void>();
 let early: AppCommand[] | null = [];
-ipcRenderer.on('bt:command', (_event: IpcRendererEvent, command: unknown) => {
+listen('bt:command', (command) => {
   if (!isAppCommand(command)) {
     return;
   }
@@ -72,7 +100,7 @@ ipcRenderer.on('bt:command', (_event: IpcRendererEvent, command: unknown) => {
 // here, so a page that subscribes late (or a reload) gets the state now.
 let readOnly = false;
 const readOnlyHandlers = new Set<(readOnly: boolean) => void>();
-ipcRenderer.on('bt:read-only', (_event: IpcRendererEvent, value: unknown) => {
+listen('bt:read-only', (value) => {
   if (typeof value === 'boolean') {
     readOnly = value;
     for (const h of readOnlyHandlers) {
@@ -104,73 +132,67 @@ const btApp: BtApp = {
     };
   },
   setMenuState(state) {
-    ipcRenderer.send('bt:menu-state', state);
+    send('bt:menu-state', state);
   },
   chooseOpen(kind) {
-    return ipcRenderer.invoke('bt:choose-open', kind) as Promise<string | null>;
+    return invoke('bt:choose-open', kind);
   },
   chooseSave(kind, name) {
-    return ipcRenderer.invoke('bt:choose-save', kind, name) as Promise<string | null>;
+    return invoke('bt:choose-save', kind, name);
   },
-  async writeExport(path, data) {
-    const r = (await ipcRenderer.invoke('bt:write-export', path, data)) as {
-      ok?: boolean;
-      error?: string;
-    };
-    if (r.ok !== true) {
-      throw new Error(r.error ?? 'the file could not be written');
-    }
+  writeExport(path, data) {
+    return written(invoke('bt:write-export', path, data));
   },
   chooseFolder(save = false) {
-    return ipcRenderer.invoke('bt:choose-folder', save) as Promise<string | null>;
+    return invoke('bt:choose-folder', save);
   },
-  async existingExports(folder, names) {
-    return ((await ipcRenderer.invoke('bt:existing-exports', folder, names)) as number | null) ?? 0;
+  existingExports(folder, names) {
+    return invoke('bt:existing-exports', folder, names);
   },
-  async writeFolderExport(folder, name, data) {
-    const r = (await ipcRenderer.invoke('bt:write-folder-export', folder, name, data)) as {
-      ok?: boolean;
-      error?: string;
-    };
-    if (r.ok !== true) {
-      throw new Error(r.error ?? 'the file could not be written');
-    }
+  writeFolderExport(folder, name, data) {
+    return written(invoke('bt:write-folder-export', folder, name, data));
   },
   pathOf(file) {
     // a file from the file system (dropped) has a path; one the page made has none
     const path = webUtils.getPathForFile(file);
     if (path !== '') {
       // the window's engine may be given it (main/path-grants.ts)
-      ipcRenderer.send('bt:dropped', path);
+      send('bt:dropped', path);
     }
     return path;
   },
   async loadState() {
-    return ((await ipcRenderer.invoke('bt:load-state')) as StoredState | null) ?? {};
+    return (await invoke('bt:load-state')) ?? {};
   },
   saveState(key, value) {
-    ipcRenderer.send('bt:save-state', key, value);
+    send('bt:save-state', key, value);
   },
   addRecent(path) {
-    ipcRenderer.send('bt:recent', 'add', path);
+    send('bt:recent-add', path);
   },
   removeRecent(path) {
-    ipcRenderer.send('bt:recent', 'remove', path);
+    send('bt:recent-remove', path);
   },
-  writeRescue(rescueInfo) {
-    return ipcRenderer.invoke('bt:rescue', 'write', rescueInfo) as Promise<RescueWritten>;
+  async writeRescue(rescueInfo) {
+    return (
+      (await invoke('bt:rescue-write', rescueInfo)) ?? {
+        ok: false,
+        errc: 'invalid_argument',
+        message: NOT_OURS,
+      }
+    );
   },
   readRescue() {
-    return ipcRenderer.invoke('bt:rescue', 'read') as Promise<RescueCopy | null>;
+    return invoke('bt:rescue-read');
   },
   async clearRescue() {
-    await ipcRenderer.invoke('bt:rescue', 'clear');
+    await invoke('bt:rescue-clear');
   },
   newWindow() {
-    ipcRenderer.send('bt:new-window');
+    send('bt:new-window');
   },
   claimPath(path) {
-    ipcRenderer.send('bt:claim-path', path);
+    send('bt:claim-path', path);
   },
   onReadOnly(handler) {
     readOnlyHandlers.add(handler);
@@ -180,136 +202,104 @@ const btApp: BtApp = {
     };
   },
   onPrefs(handler) {
-    const listener = (_event: IpcRendererEvent, value: unknown): void => {
+    return listen('bt:prefs', (value) => {
       if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         handler(value as Record<string, unknown>);
       }
-    };
-    ipcRenderer.on('bt:prefs', listener);
-    return () => {
-      ipcRenderer.removeListener('bt:prefs', listener);
-    };
+    });
   },
   openHelp(link) {
-    ipcRenderer.send('bt:help', link);
+    send('bt:help', link);
   },
   goalWindow(picture, raise) {
-    ipcRenderer.send('bt:goal-window', picture, raise);
+    send('bt:goal-window', picture, raise);
   },
   checkForUpdates(auto) {
-    return ipcRenderer.invoke('bt:check-updates', auto) as Promise<UpdateResult | null>;
+    return invoke('bt:check-updates', auto);
   },
   skipUpdate(version) {
-    ipcRenderer.send('bt:skip-update', version);
+    send('bt:skip-update', version);
   },
   openReleases() {
-    ipcRenderer.send('bt:open-releases');
+    send('bt:open-releases');
   },
   async cliToolInfo() {
-    const r = (await ipcRenderer.invoke('bt:cli-tool', 'info')) as CliToolResult;
+    const r = await invoke('bt:cli-info');
     if (!r.ok) {
       throw new Error(r.error);
     }
     return r.info;
   },
   installCliTool() {
-    return ipcRenderer.invoke('bt:cli-tool', 'install') as Promise<CliToolResult>;
+    return invoke('bt:cli-install');
   },
   uninstallCliTool() {
-    return ipcRenderer.invoke('bt:cli-tool', 'uninstall') as Promise<CliToolResult>;
+    return invoke('bt:cli-uninstall');
   },
   cacheFolder() {
-    return ipcRenderer.invoke('bt:cache-folder', 'info') as Promise<CacheFolderInfo | null>;
+    return invoke('bt:cache-folder');
   },
   async chooseCacheFolder(useDefault) {
-    return (
-      ((await ipcRenderer.invoke(
-        'bt:cache-folder',
-        'choose',
-        useDefault,
-      )) as CacheChoice | null) ?? {
-        status: 'canceled',
-      }
-    );
+    return (await invoke('bt:cache-choose', useDefault)) ?? { status: 'canceled' };
   },
   async finishCacheFolder(action) {
-    return (
-      ((await ipcRenderer.invoke('bt:cache-folder', 'finish', action)) as CacheResult | null) ?? {
-        ok: false,
-        error: 'not a ShapeLogic window',
-      }
-    );
+    return (await invoke('bt:cache-finish', action)) ?? { ok: false, error: NOT_OURS };
   },
   cacheItems() {
-    return ipcRenderer.invoke('bt:cache-files', 'list') as Promise<CacheItem[] | null>;
+    return invoke('bt:cache-items');
   },
   cacheItemsAtStart() {
-    return ipcRenderer.invoke('bt:cache-files', 'start') as Promise<CacheItem[] | null>;
+    return invoke('bt:cache-items-start');
   },
   async deleteCacheItem(id) {
-    return (
-      ((await ipcRenderer.invoke('bt:cache-files', 'delete', id)) as CacheDeleteResult | null) ?? {
-        ok: false,
-        error: 'not a ShapeLogic window',
-      }
-    );
+    return (await invoke('bt:cache-delete', id)) ?? { ok: false, error: NOT_OURS };
   },
   linkCacheFolders(link) {
-    ipcRenderer.send('bt:cache-link', link);
+    send('bt:cache-link', link);
   },
   logPage(query) {
-    return ipcRenderer.invoke('bt:log', 'page', query) as Promise<LogPage | null>;
+    return invoke('bt:log-page', query);
   },
   async clearLog() {
-    await ipcRenderer.invoke('bt:log', 'clear');
+    await invoke('bt:log-clear');
   },
   async logClosed() {
-    await ipcRenderer.invoke('bt:log', 'closed');
+    await invoke('bt:log-closed');
   },
   logExportSizes() {
-    return ipcRenderer.invoke('bt:log', 'sizes') as Promise<LogExportSizes | null>;
+    return invoke('bt:log-sizes');
   },
   async exportLog(lines) {
     return (
-      ((await ipcRenderer.invoke('bt:log', 'export', lines)) as LogExportResult | null) ?? {
+      (await (lines === undefined ? invoke('bt:log-export') : invoke('bt:log-export', lines))) ?? {
         ok: false,
-        error: 'not a ShapeLogic window',
+        error: NOT_OURS,
       }
     );
   },
   closeWindow() {
-    ipcRenderer.send('bt:close', 'close');
+    send('bt:close-window');
   },
   closeTaken() {
-    ipcRenderer.send('bt:close', 'taken');
+    send('bt:close-taken');
   },
   ready() {
-    ipcRenderer.send('bt:engine-start', 'ready');
+    send('bt:engine-ready');
   },
   retryEngine() {
-    ipcRenderer.send('bt:engine-start', 'retry');
+    send('bt:engine-retry');
   },
   commandHeld(command, dropped) {
-    ipcRenderer.send('bt:engine-start', dropped ? 'dropped' : 'held', command);
+    send('bt:command-held', command, dropped);
   },
   async copyDiagnostics() {
-    return (
-      ((await ipcRenderer.invoke('bt:diagnostics', 'copy')) as DiagnosticsResult | null) ?? {
-        ok: false,
-        error: 'not available',
-      }
-    );
+    return (await invoke('bt:diagnostics-copy')) ?? { ok: false, error: 'not available' };
   },
   async saveDiagnostics() {
-    return (
-      ((await ipcRenderer.invoke('bt:diagnostics', 'save')) as LogExportResult | null) ?? {
-        ok: false,
-        error: 'not available',
-      }
-    );
+    return (await invoke('bt:diagnostics-save')) ?? { ok: false, error: 'not available' };
   },
   closeCanceled() {
-    ipcRenderer.send('bt:close', 'canceled');
+    send('bt:close-canceled');
   },
 };
 

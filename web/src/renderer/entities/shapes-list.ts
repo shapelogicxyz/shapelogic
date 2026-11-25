@@ -23,6 +23,8 @@
 import type { ShapeSummary } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { $$, byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
+import { openColorPicker } from '../shell/color-picker.ts';
+import { renameInPlace } from '../shell/widgets.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
@@ -410,12 +412,28 @@ export class ShapesList {
     }
   }
 
-  // the shape's own color: the system's color picker, for the shape it names
+  // the shape's own color: the color picker by its row, Restore Default as Default color
   private pickColor(s: ShapeSummary): void {
-    const pick = byId<HTMLInputElement>('shapeColorPick');
-    pick.value = hex(chipColor(s, this.shapes.indexOf(s)));
-    pick.dataset.shape = s.id;
-    pick.click();
+    const row = this.row(s.id);
+    if (row === null) {
+      return;
+    }
+    const shape = s.id;
+    const setColor = (rgb: string | null): void => {
+      if (!this.host.refuse()) {
+        void this.host.mutate('Color', () =>
+          this.host.store.engine.call('shape.setColor', { shape, rgb }),
+        );
+      }
+    };
+    openColorPicker(row.querySelector('.chip') ?? row, {
+      rgb: hex(chipColor(s, this.shapes.indexOf(s))),
+      onPick: setColor,
+      onDefault: () => {
+        setColor(null);
+      },
+      isDefault: s.color === null,
+    });
   }
 
   // ---- rename in place ----
@@ -432,24 +450,18 @@ export class ShapesList {
       return;
     }
     // a board without a name starts from the one it shows, to change or delete
-    lbl.innerHTML = `<input value="${esc(shownName(s))}" placeholder="Label" aria-label="Shape name">`;
-    const input = lbl.querySelector('input');
+    const input = renameInPlace(lbl, {
+      value: shownName(s),
+      name: 'Shape name',
+      end: () => {
+        this.endRename(false);
+      },
+    });
     if (input === null) {
       return;
     }
     this.renaming = { id, input, canceled: false };
     this.forgetRows();
-    input.focus();
-    input.select();
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        input.blur();
-      }
-    });
-    input.addEventListener('blur', () => {
-      this.endRename(false);
-    });
   }
 
   // ends a rename: commits unless canceled
@@ -486,16 +498,6 @@ export class ShapesList {
     for (const list of [this.boards, this.list]) {
       this.installList(list);
     }
-    const pick = byId<HTMLInputElement>('shapeColorPick');
-    pick.addEventListener('change', () => {
-      const shape = pick.dataset.shape;
-      const rgb = pick.value.toLowerCase();
-      if (shape !== undefined && !this.host.refuse()) {
-        void this.host.mutate('Color', () =>
-          this.host.store.engine.call('shape.setColor', { shape, rgb }),
-        );
-      }
-    });
     // the collapsed card's rail
     byId('lrail').addEventListener('click', (e) => {
       const t = e.target as Element;
@@ -549,10 +551,10 @@ export class ShapesList {
       void this.action('label', id);
       return true;
     });
-    // Enter renames while the list has the focus (Space is the Solver's)
+    // Enter renames while the list has the focus
     onKey('activate', (e) => {
       const id = selected();
-      if (tab !== 'entities' || id === null || e.key !== 'Enter' || !this.inList(e.target)) {
+      if (tab !== 'entities' || id === null || !this.inList(e.target)) {
         return false;
       }
       void this.action('label', id);

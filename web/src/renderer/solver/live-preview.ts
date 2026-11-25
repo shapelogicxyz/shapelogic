@@ -15,7 +15,7 @@ import type { EventParams } from '../../engine/client-types.ts';
 import { meshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { placedAt } from '../view3d/extent.ts';
-import { buildMesh } from '../view3d/mesh.ts';
+import { buildMesh, disposeBuilt } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
 import type { ScenePose, SolutionModel } from '../view3d/solution.ts';
 import type { View3D } from '../view3d/view.ts';
@@ -186,8 +186,7 @@ export class LivePreview {
       });
       this.setModel();
       for (const b of gone) {
-        b.faces.dispose();
-        b.marks?.dispose();
+        disposeBuilt(b);
       }
       changed = true;
     }
@@ -242,8 +241,7 @@ export class LivePreview {
 
   private dispose(): void {
     for (const d of this.drawn.values()) {
-      d.built.faces.dispose();
-      d.built.marks?.dispose();
+      disposeBuilt(d.built);
     }
     this.drawn.clear();
   }

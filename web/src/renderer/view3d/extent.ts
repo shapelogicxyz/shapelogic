@@ -7,10 +7,36 @@
 // cells', so a shape does not jump as cells are drawn. And the spacing of
 // the cells in mesh units (recalcSpaceCoordinates), which places a piece
 // of an assembly at its cell minus its hotspot (stage 4). Client tables,
-// as the plan allows the cube grid's neighbors: one-line formulas,
-// checked against the engine's playback poses by an engine test.
+// as the plan allows the cube grid's neighbors: one-line formulas, which
+// the view needs at once and the tests without an engine. An engine test
+// (tests/engine/extent.test.ts) holds them, and isCubeGrid, to the rules
+// engine.info sends for every grid it knows (cellToMesh, extent,
+// cubeLike: the core's, cleanup item 12.8), and to the playback's poses.
 
 import type { Grid, Size } from '../../engine/api.generated.ts';
+
+// a new grid fails the build here until it has its row
+const CUBE_LIKE: Record<Grid, boolean> = {
+  bricks: true,
+  sliding: true,
+  stacking: true,
+  prisms: false,
+  spheres: false,
+  rhombic: false,
+  tetraOcta: false,
+  hexagonal: false,
+  cairo: false,
+};
+
+/**
+ * Whether a grid's cells are the cube grid's (engine.info's cubeLike):
+ * one mesh unit each, so a layer of the editor's plane is a unit thick,
+ * the 2D grid has rulers and a click on an empty cell of the layer adds
+ * one.
+ */
+export function isCubeGrid(grid: Grid | undefined | null): boolean {
+  return grid != null && CUBE_LIKE[grid];
+}
 
 /** The space's size in mesh units. */
 export function gridExtent(grid: Grid, size: Size): [number, number, number] {

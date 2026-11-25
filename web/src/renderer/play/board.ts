@@ -25,6 +25,7 @@ import type { Has } from './follow.ts';
 import type { Cell, Move } from './game.ts';
 import { roundedOutline } from './outline.ts';
 import type { Square } from './outline.ts';
+import { BoardShell, translate } from './board-shell.ts';
 import { boardRoom, insetBoard } from './room.ts';
 import type { BoardRoom } from './room.ts';
 
@@ -156,10 +157,7 @@ interface Drag {
   ended: boolean;
 }
 
-export class PlayBoard {
-  private readonly root: HTMLElement;
-  /** What the board has room in: the root hugs its drawing, so Undo and Redo sit right beside it. */
-  private readonly frame: HTMLElement;
+export class PlayBoard extends BoardShell<Drag> {
   private readonly host: BoardHost;
   private model: BoardModel | null = null;
   private places: Cell[] = [];
@@ -170,41 +168,29 @@ export class PlayBoard {
   private groups: SVGGElement[] = [];
   /** The pieces' names, each in its own group, by piece. */
   private labels: SVGGElement[] = [];
-  private drag: Drag | null = null;
   private tokens = 0;
-  private raf = 0;
-  private endAnimation: (() => void) | null = null;
-  /** The root changed size while a piece was dragged or a move drawn: drawn again after. */
-  private resized = false;
   /** Simple Pieces is on. */
   private simple = false;
 
   constructor(root: HTMLElement, frame: HTMLElement, host: BoardHost) {
-    this.root = root;
-    this.frame = frame;
+    super(root, frame);
     this.host = host;
-    new ResizeObserver(() => {
-      // never under a drag or a move being drawn: the pieces would be other elements
-      if (this.busy) {
-        this.resized = true;
-      } else if (this.cellSize() !== this.sc) {
-        this.draw();
-      } else {
-        this.inset();
-      }
-    }).observe(frame);
-    root.addEventListener('pointerdown', (e) => {
-      this.down(e);
-    });
-    root.addEventListener('pointermove', (e) => {
-      this.move(e);
-    });
-    root.addEventListener('pointerup', (e) => {
-      this.up(e, false);
-    });
-    root.addEventListener('pointercancel', (e) => {
-      this.up(e, true);
-    });
+  }
+
+  protected fit(): void {
+    if (this.cellSize() !== this.sc) {
+      this.draw();
+    } else {
+      this.inset();
+    }
+  }
+
+  protected redraw(): void {
+    this.draw();
+  }
+
+  protected dropped(): void {
+    this.place(this.places);
   }
 
   /** Simple Pieces: flat square pieces and a flat square tray. */
@@ -216,11 +202,6 @@ export class PlayBoard {
       this.cancelDrag();
       this.draw();
     }
-  }
-
-  /** A piece is being dragged, or a move is being drawn. */
-  get busy(): boolean {
-    return this.drag !== null || this.endAnimation !== null;
   }
 
   /** Shows a board (null: none) with its pieces at `places`, layer `layer`. */
@@ -260,57 +241,27 @@ export class PlayBoard {
       return back ? [p[0] - (end[0] ?? 0), p[1] - (end[1] ?? 0), p[2] - (end[2] ?? 0)] : p;
     });
     const ms = Math.max(180, Math.min(620, 150 + 70 * cells));
-    const t0 = performance.now();
-    this.root.dataset.anim = '1';
-    return new Promise<boolean>((resolve) => {
-      const done = (whole: boolean): void => {
-        cancelAnimationFrame(this.raf);
-        this.endAnimation = null;
-        delete this.root.dataset.anim;
-        this.catchUp();
-        resolve(whole);
-      };
-      this.endAnimation = () => {
-        done(false);
-      };
-      const tick = (): void => {
-        const t = Math.min(1, (performance.now() - t0) / ms);
-        // ease in and out: a move starts and ends gently
-        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        const by = alongRoute(route, back ? 1 - e : e);
-        movers.forEach((m, k) => {
-          const g = this.groups[m];
-          if (g !== undefined) {
-            this.put(g, base[k] ?? [0, 0, 0], [by[0], by[1]]);
-          }
-        });
-        if (t >= 1) {
-          done(true);
-        } else {
-          this.raf = requestAnimationFrame(tick);
+    return this.animateFor(ms, (e) => {
+      const by = alongRoute(route, back ? 1 - e : e);
+      movers.forEach((m, k) => {
+        const g = this.groups[m];
+        if (g !== undefined) {
+          this.put(g, base[k] ?? [0, 0, 0], [by[0], by[1]]);
         }
-      };
-      this.raf = requestAnimationFrame(tick);
+      });
     });
   }
 
-  /** Cuts a move being drawn short. */
-  stop(): void {
-    this.endAnimation?.();
-  }
-
-  // the size changed meanwhile: drawn again, once the caller has placed the pieces
-  private catchUp(): void {
-    if (this.resized) {
-      this.resized = false;
-      window.setTimeout(() => {
-        if (this.busy) {
-          this.resized = true;
-        } else {
-          this.draw();
-        }
-      }, 0);
-    }
+  /**
+   * The style transform of a piece's group at `at` plus `shift` (in cells),
+   * as the board shown draws it (the goal's picture moves copies so).
+   */
+  transformAt(at: Cell, shift: readonly [number, number] = [0, 0]): string {
+    const Y = this.model?.size[1] ?? 0;
+    return translate(
+      this.at + (at[0] + shift[0]) * this.sc,
+      this.at + (Y - at[1] - shift[1]) * this.sc,
+    );
   }
 
   // the cells' size the root has room for, in pixels (0: no board)
@@ -345,10 +296,7 @@ export class PlayBoard {
 
   // a piece's group at its place plus a shift, in cells
   private put(g: SVGGElement, at: Cell, shift: readonly [number, number]): void {
-    const Y = this.model?.size[1] ?? 0;
-    const x = this.at + (at[0] + shift[0]) * this.sc;
-    const y = this.at + (Y - at[1] - shift[1]) * this.sc;
-    g.style.transform = `translate(${x.toFixed(2)}px,${y.toFixed(2)}px)`;
+    g.style.transform = this.transformAt(at, shift);
     g.dataset.at = at.join(',');
     // its name, over the goals' outlines, goes with it
     const label = this.labels[Number(g.dataset.i)];
@@ -659,8 +607,8 @@ export class PlayBoard {
     return [(e.clientX - d.x0) / this.sc, (d.y0 - e.clientY) / this.sc];
   }
 
-  private down(e: PointerEvent): void {
-    if (e.button !== 0 || this.drag !== null || this.endAnimation !== null || this.sc === 0) {
+  protected down(e: PointerEvent): void {
+    if (e.button !== 0 || this.busy || this.sc === 0) {
       return;
     }
     const g = (e.target as Element).closest<SVGGElement>('.pl-piece');
@@ -721,7 +669,7 @@ export class PlayBoard {
     );
   }
 
-  private move(e: PointerEvent): void {
+  protected move(e: PointerEvent): void {
     const d = this.drag;
     if (d?.pointer !== e.pointerId || d.ended) {
       return;
@@ -734,7 +682,7 @@ export class PlayBoard {
     }
   }
 
-  private up(e: PointerEvent, canceled: boolean): void {
+  protected up(e: PointerEvent, canceled: boolean): void {
     const d = this.drag;
     if (d?.pointer !== e.pointerId) {
       return;
@@ -813,27 +761,10 @@ export class PlayBoard {
     }
   }
 
-  private endDrag(): void {
-    const d = this.drag;
-    if (d === null) {
-      return;
-    }
-    this.drag = null;
-    delete this.root.dataset.drag;
-    if (this.root.hasPointerCapture(d.pointer)) {
-      this.root.releasePointerCapture(d.pointer);
-    }
+  protected override endDrag(): void {
+    super.endDrag();
     for (const g of this.groups) {
       g.classList.remove('drag');
-    }
-    this.catchUp();
-  }
-
-  // the drag is dropped: the pieces go back
-  private cancelDrag(): void {
-    if (this.drag !== null) {
-      this.endDrag();
-      this.place(this.places);
     }
   }
 }

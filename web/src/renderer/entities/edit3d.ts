@@ -24,8 +24,10 @@ import type { Store } from '../state/store.ts';
 import { cursorFor } from '../shell/cursors.ts';
 import type { Tool } from '../shell/cursors.ts';
 import { css } from '../shell/dom.ts';
+import { keyLabel } from '../shell/keys.ts';
 import { contrast, fromHex } from '../shell/piece-colors.ts';
 import { tab } from '../shell/layout.ts';
+import { isCubeGrid } from '../view3d/extent.ts';
 import { FLAG } from '../view3d/mesh.ts';
 import type { Pick } from '../view3d/picking.ts';
 import type { Ghost } from '../view3d/preview.ts';
@@ -37,8 +39,6 @@ import { actFor, brickNeighbor } from './tools.ts';
 
 /** The sphere grid's faces that are no cap of a neighbor (light, or a variable ball's black). */
 const SPHERE_FILL = FLAG.light | FLAG.variableFace;
-
-const isCube = (g: Grid): boolean => g === 'bricks' || g === 'sliding' || g === 'stacking';
 
 /** The view's hint lines for 3D edit mode with a tool (HTML), on a grid. */
 export function editHelp(tool: Tool, grid: Grid | undefined): string[] {
@@ -55,9 +55,7 @@ export function editHelp(tool: Tool, grid: Grid | undefined): string[] {
   return [
     `<b>Edit</b>: click a face's left half to add a <b>${name}</b> voxel beside it`,
     `Its top-right quarter makes the voxel ${name} · bottom-right (red) deletes it`,
-    ...(grid !== undefined && isCube(grid)
-      ? ['Click empty space to add a voxel on the active layer']
-      : []),
+    ...(isCubeGrid(grid) ? ['Click empty space to add a voxel on the active layer'] : []),
   ];
 }
 
@@ -193,7 +191,7 @@ export class Edit3D implements EditHost {
     host.view.renderEditButton({
       tool: shown,
       name: info?.n ?? '',
-      key: info?.k ?? '',
+      key: info === undefined ? '' : keyLabel(info.action),
       color: host.badge(),
       on: st.edit3d,
       tmp: tmp && act !== null,
@@ -260,7 +258,7 @@ export class Edit3D implements EditHost {
     if (pick.face < 0 || (grid === 'spheres' && (pick.flags & SPHERE_FILL) !== 0)) {
       return { ...of, tool, cell: null, pick };
     }
-    if (isCube(grid)) {
+    if (isCubeGrid(grid)) {
       return { ...of, tool, cell: brickNeighbor(pick.cell, pick.face, shape.size), pick };
     }
     return { ...of, tool, cell: await this.neighbor(shape.size, pick.cell, pick.face), pick };
@@ -318,7 +316,7 @@ export class Edit3D implements EditHost {
         : [{ kind: 'face', voxel: t.pick.voxel, face: t.pick.face, fill: off, alpha: 0.45 }];
     }
     const st = host.state;
-    const cube = isCube(grid);
+    const cube = isCubeGrid(grid);
     const out: Ghost[] = [];
     const want = t.tool === 'fixed' ? 'fixed' : 'variable';
     for (const c of expand(t.cell, size, st.mirror, st.span)) {

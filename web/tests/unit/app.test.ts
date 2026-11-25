@@ -27,13 +27,17 @@ import { join } from 'node:path';
 import type { MenuItemConstructorOptions } from 'electron';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { MESH_STYLE_VALUES } from '../../src/engine/api.generated.ts';
 import {
+  EXPORT_KINDS,
   isAppCommand,
   isExportKind,
   isFileKind,
   isMenuState,
   isCacheLink,
   isRescueInfo,
+  OPEN_KINDS,
+  THEMES,
 } from '../../src/engine/app-bridge.ts';
 import type { AppCommand, MenuState } from '../../src/engine/app-bridge.ts';
 import {
@@ -47,13 +51,23 @@ import { PathOwners } from '../../src/main/path-owners.ts';
 import { isTempOf, replaceFile, replaceFileSync, tempName } from '../../src/main/replace-file.ts';
 import { RescueSlots, RescueStore, rescueSlot } from '../../src/main/rescue.ts';
 import { RECENT_MAX, StateStore } from '../../src/main/state-store.ts';
+import { LIMITS } from '../../src/engine/api.generated.ts';
 import {
+  clampPref,
   DEFAULTS,
+  ENGINE_PREFS,
+  engineSettingsOf,
   NEW_SIZE_MAX,
+  PREFS,
+  prefsOfEngine,
   SIDE_MAX,
   SIDE_MIN,
+  validPref,
   validPrefs,
 } from '../../src/renderer/shell/prefs.ts';
+import type { PrefKey } from '../../src/renderer/shell/prefs.ts';
+import { DEFAULT_OPTIONS } from '../../src/renderer/solver/settings.ts';
+import { BOXES, optKey, SETTING_BOXES } from '../../src/renderer/solver/boxes.ts';
 import { toShapesParams } from '../../src/renderer/solver/to-shapes-form.ts';
 
 const dirs: string[] = [];
@@ -588,6 +602,26 @@ describe('the menus', () => {
 });
 
 describe('the bridge’s checks', () => {
+  it('check every field of a menu state, and take every style and theme (cleanup item 12.3)', () => {
+    // NO_STATE is a MenuState (the compiler asks for every key): each of its
+    // switches given a number is refused, so none goes unchecked
+    const switches = Object.entries(NO_STATE).filter(([, v]) => typeof v === 'boolean');
+    expect(switches.map(([k]) => k)).toContain('scad');
+    for (const [k] of switches) {
+      expect(isMenuState({ ...NO_STATE, [k]: 1 }), k).toBe(false);
+    }
+    for (const style of MESH_STYLE_VALUES) {
+      expect(isMenuState({ ...NO_STATE, style }), style).toBe(true);
+      expect(isAppCommand({ cmd: 'style', style }), style).toBe(true);
+    }
+    for (const theme of THEMES) {
+      expect(isMenuState({ ...NO_STATE, theme }), theme).toBe(true);
+    }
+    for (const kind of [...OPEN_KINDS, ...EXPORT_KINDS]) {
+      expect(isFileKind(kind), kind).toBe(true);
+    }
+  });
+
   it('takes the commands and states it knows, nothing else', () => {
     expect(isAppCommand({ cmd: 'save' })).toBe(true);
     expect(isAppCommand({ cmd: 'openPath', path: '' })).toBe(false);
@@ -663,6 +697,63 @@ describe('the stored settings read back', () => {
     // a sliding board starts 6 by 6 by 1
     expect([DEFAULTS.slideX, DEFAULTS.slideY, DEFAULTS.slideZ]).toEqual([6, 6, 1]);
     expect(validPrefs({ ...DEFAULTS })).toEqual(DEFAULTS);
+  });
+
+  it('every default passes its own check, and the values past a range do not', () => {
+    for (const k of Object.keys(PREFS) as PrefKey[]) {
+      const p = PREFS[k];
+      expect(validPref(k, DEFAULTS[k]), k).toBe(true);
+      if (p.kind === 'int') {
+        expect(p.min <= p.def && p.def <= p.max, k).toBe(true);
+        expect(validPref(k, p.min - 1), k).toBe(false);
+        expect(validPref(k, p.max + 1), k).toBe(false);
+        expect(clampPref(k as Parameters<typeof clampPref>[0], p.max + 10), k).toBe(p.max);
+      }
+    }
+  });
+
+  it('maps the engine’s settings once, with the engine’s bounds', () => {
+    expect(Object.fromEntries(ENGINE_PREFS)).toEqual({
+      undo: 'undoDepth',
+      threads: 'threads',
+      memGB: 'searchMemoryGB',
+      slideDiskGB: 'slideDiskGB',
+      panexDiskGB: 'panexDiskGB',
+    });
+    for (const [k, e] of ENGINE_PREFS) {
+      expect(PREFS[k].max, k).toBe(LIMITS.settings[e]);
+    }
+    expect(engineSettingsOf({ undo: 50, tips: false, memGB: 8 })).toEqual({
+      undoDepth: 50,
+      searchMemoryGB: 8,
+    });
+    expect(
+      prefsOfEngine({
+        undoDepth: 30,
+        threads: 2,
+        solver: 'classic',
+        slideFolder: '',
+        slideDiskGB: 10,
+        panexFolder: '',
+        panexDiskGB: 20,
+        searchMemoryGB: 4,
+        log: 'off',
+      }),
+    ).toEqual({ undo: 30, threads: 2, memGB: 4, slideDiskGB: 10, panexDiskGB: 20 });
+  });
+
+  it('takes the Search Options’ defaults from the boxes’ table', () => {
+    for (const b of SETTING_BOXES) {
+      expect(DEFAULTS[optKey(b.name)], b.name).toBe(DEFAULT_OPTIONS[b.name]);
+    }
+    for (const b of BOXES) {
+      expect(DEFAULT_OPTIONS[b.name], b.name).toBe(b.def);
+    }
+    expect(
+      Object.keys(DEFAULTS)
+        .filter((k) => /^opt[A-Z]/.test(k))
+        .sort(),
+    ).toEqual([...SETTING_BOXES.map((b) => optKey(b.name)), 'optKeepAtMost', 'optKeepEach'].sort());
   });
 });
 

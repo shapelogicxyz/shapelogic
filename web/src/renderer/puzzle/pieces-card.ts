@@ -24,6 +24,7 @@ import { ic } from '../shell/icons.ts';
 import { openPop, openPopAt } from '../shell/popover.ts';
 import { isTray, shownName } from '../shell/piece-colors.ts';
 import { flash } from '../shell/status.ts';
+import { stepperHtml, wireSteppers } from '../shell/widgets.ts';
 import { countText, groupOf, groupsOf, inShapeOrder, partOf, rng } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
 
@@ -279,7 +280,16 @@ export class PiecesCard {
     let mn = 0;
     let mx = 1;
     const step = (k: 'mn' | 'mx', label: string, v: number): string =>
-      `<div class="step sz inl"><button data-r="${k}-" title="Decrease">${ic('minus', 12)}</button><span class="il">${label}</span><input class="v" value="${String(v)}" data-r="${k}" aria-label="${label}"><button data-r="${k}+" title="Increase">${ic('plus', 12)}</button></div>`;
+      stepperHtml({
+        key: k,
+        value: v,
+        min: k === 'mn' ? 0 : 1,
+        less: 'Decrease',
+        more: 'Increase',
+        label,
+        inline: label,
+        cls: 'sz inl',
+      });
     const rngs = (): string => `${step('mn', 'Min', mn)}${step('mx', 'Max', mx)}`;
     const fix = (): void => {
       mn = Math.max(0, mn);
@@ -291,7 +301,9 @@ export class PiecesCard {
     // what the fields hold now (Enter in one answers before its change event)
     const read = (el: HTMLElement): void => {
       const v = (r: string): number =>
-        Math.round(Number(el.querySelector<HTMLInputElement>(`input[data-r="${r}"]`)?.value));
+        Math.round(
+          Number(el.querySelector<HTMLInputElement>(`.step[data-step="${r}"] input.v`)?.value),
+        );
       mn = v('mn') || 0;
       mx = v('mx') || 1;
       fix();
@@ -321,26 +333,18 @@ export class PiecesCard {
     const draw = (): void => {
       box.innerHTML = rngs();
     };
-    // the steppers keep the dialog open: they are no answer
-    box.addEventListener('click', (e) => {
-      const r = (e.target as Element).closest<HTMLElement>('[data-r]')?.dataset.r;
-      if (r === 'mn-') {
-        mn--;
-      } else if (r === 'mn+') {
-        mn++;
-      } else if (r === 'mx-') {
-        mx--;
-      } else if (r === 'mx+') {
-        mx++;
-      } else {
-        return;
-      }
-      fix();
-      draw();
-    });
-    box.addEventListener('change', () => {
-      read(d);
-      draw();
+    // the steppers keep the dialog open: they are no answer; the minimum
+    // above the maximum takes the maximum with it
+    wireSteppers(box, {
+      set: (k, v) => {
+        if (k === 'mn') {
+          mn = v;
+        } else {
+          mx = v;
+        }
+        fix();
+        draw();
+      },
     });
   }
 

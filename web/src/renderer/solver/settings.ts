@@ -37,6 +37,7 @@
 
 import type {
   Grid,
+  Methods,
   SolveOptions,
   Solver,
   SolveProgress,
@@ -44,9 +45,13 @@ import type {
   SortBy,
   StackingSolver,
 } from '../../engine/api.generated.ts';
-import { prefs } from '../shell/prefs.ts';
+import { DEFAULTS, prefs } from '../shell/prefs.ts';
 import { sizeText } from '../state/stacking.ts';
+import { BOXES, optKey, SETTING_BOXES, showsOn, storedOn } from './boxes.ts';
+import type { BoxName, PuzzleKind } from './boxes.ts';
 import { formatSpan } from './span.ts';
+
+export type { BoxName, PuzzleKind } from './boxes.ts';
 
 /** The puzzles whose Solver shows its own options: brick (every assembling grid), sliding, stacking. */
 export type Family = 'brick' | 'sliding' | 'stacking';
@@ -56,47 +61,16 @@ export function familyOf(grid: Grid | undefined): Family {
   return grid === 'sliding' ? 'sliding' : grid === 'stacking' ? 'stacking' : 'brick';
 }
 
-/** The check boxes this version shows, by their stored names. */
-export type BoxName =
-  | 'disassemble'
-  | 'checkRotations'
-  | 'justCount'
-  | 'justLevels'
-  | 'deepSymmetry'
-  | 'keepMirrors'
-  | 'keepRotations'
-  | 'strictColors'
-  | 'nestedSlides'
-  | 'partialNested'
-  | 'verticalMoves'
-  | 'anyOrientation'
-  | 'mirroredOrientations'
-  | 'optimizedPaths'
-  | 'keepAssemblies'
-  | 'flipPieces';
+/** The puzzle type of a family's puzzle, a tilted tray's apart (the boxes' table). */
+export function kindOf(family: Family, tilted = false): PuzzleKind {
+  return family === 'brick' && tilted ? 'tilted' : family;
+}
 
-/** The options as the Solver card shows and edits them. */
-export interface SearchOptions {
-  disassemble: boolean;
-  checkRotations: boolean;
-  justCount: boolean;
-  justLevels: boolean;
-  deepSymmetry: boolean;
-  keepMirrors: boolean;
-  keepRotations: boolean;
-  strictColors: boolean;
-  /** Sliding: a piece may carry what is nested in its outline (Allow Nested Slides). */
-  nestedSlides: boolean;
-  /** Sliding: and what is partly nested in it (Allow Partially Nested; needs nestedSlides). */
-  partialNested: boolean;
-  /** Sliding: on a tray of several layers a piece may also move up and down (Allow Vertical Moves). */
-  verticalMoves: boolean;
-  /** Sliding: a piece with neither a start nor a goal may be placed in any quarter turn (Allow any orientation for unplaced pieces). */
-  anyOrientation: boolean;
-  /** Sliding: and mirrored (Include mirrored orientations; needs anyOrientation). */
-  mirroredOrientations: boolean;
-  /** Sliding: hold the stops to the grid the board fits (Automatically use optimized paths). */
-  optimizedPaths: boolean;
+/**
+ * The options as the Solver card shows and edits them: a boolean per box
+ * (solver/boxes.ts; option-text.ts says what each does), and the rest.
+ */
+export type SearchOptions = Record<BoxName, boolean> & {
   /**
    * The original's Autosave box as the problem stored it: read and written
    * back as it was, and not looked at. The crash recovery journal that took
@@ -104,33 +78,14 @@ export interface SearchOptions {
    * puzzle's file (autosave.ts).
    */
   autosave: boolean;
-  /** With the take-apart: also keep the assemblies that do not come apart (Always show Assemblies; not in the original). */
-  keepAssemblies: boolean;
-  /** A Tilted Square puzzle: the pieces may be turned over (Pieces may be turned over; not in the original). */
-  flipPieces: boolean;
   solver: Solver;
   sortBy: SortBy;
-}
+};
 
-/** The defaults of a problem that stored none (the original's widgets as made, but Strict colors on). */
+/** The defaults of a problem that stored none (the boxes' own: the original's widgets as made, but Strict colors on). */
 export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
-  disassemble: false,
-  checkRotations: false,
-  justCount: false,
-  justLevels: false,
-  deepSymmetry: false,
-  keepMirrors: false,
-  keepRotations: false,
-  strictColors: true,
-  nestedSlides: false,
-  partialNested: false,
-  verticalMoves: false,
-  anyOrientation: false,
-  mirroredOrientations: false,
-  optimizedPaths: false,
+  ...(Object.fromEntries(BOXES.map((b) => [b.name, b.def])) as Record<BoxName, boolean>),
   autosave: true,
-  keepAssemblies: false,
-  flipPieces: true,
   solver: 'classic',
   sortBy: 'moves',
 };
@@ -163,19 +118,10 @@ export function defaultsOf(family: Family): Readonly<SearchOptions> {
       : family === 'stacking'
         ? DEFAULT_STACKING
         : DEFAULT_OPTIONS),
-    justCount: prefs.optJustCount,
-    justLevels: prefs.optJustLevels,
-    deepSymmetry: prefs.optDeepSymmetry,
-    keepMirrors: prefs.optKeepMirrors,
-    keepRotations: prefs.optKeepRotations,
-    strictColors: prefs.optStrictColors,
-    nestedSlides: prefs.optNestedSlides,
-    partialNested: prefs.optPartialNested,
-    verticalMoves: prefs.optVerticalMoves,
-    anyOrientation: prefs.optAnyOrientation,
-    mirroredOrientations: prefs.optMirroredOrientations,
-    optimizedPaths: prefs.optOptimizedPaths,
-    keepAssemblies: prefs.optKeepAssemblies,
+    ...(Object.fromEntries(SETTING_BOXES.map((b) => [b.name, prefs[optKey(b.name)]])) as Record<
+      BoxName,
+      boolean
+    >),
     solver: family === 'brick' && prefs.solverType === 'Fast' ? 'crowell' : 'classic',
   };
   return o;
@@ -189,34 +135,15 @@ export function defaultLimits(): Limits {
   };
 }
 
-/** The boxes a sliding puzzle shows (updateSolverOptionCheckboxes' setVis). */
-export const SLIDING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
-  'disassemble',
-  'justCount',
-  'anyOrientation',
-  'mirroredOrientations',
-  'nestedSlides',
-  'partialNested',
-  'verticalMoves',
-  'optimizedPaths',
-]);
-
-/** The boxes only a sliding puzzle shows. */
-export const SLIDING_ONLY: ReadonlySet<BoxName> = new Set<BoxName>([
-  'anyOrientation',
-  'mirroredOrientations',
-  'nestedSlides',
-  'partialNested',
-  'verticalMoves',
-  'optimizedPaths',
-]);
-
-/** The boxes a stacking puzzle shows (updateSolverOptionCheckboxes' setVis). */
-export const STACKING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
-  'disassemble',
-  'justLevels',
-  'justCount',
-]);
+/**
+ * The boxes a puzzle type's card shows, in order (updateSolverOptionCheckboxes'
+ * setVis for sliding and stacking): with the modes, or in the Search Options.
+ */
+export function boxesShown(kind: PuzzleKind, at?: 'mode' | 'options'): BoxName[] {
+  return BOXES.filter((b) => showsOn(b, kind) && (at === undefined || b.at === at)).map(
+    (b) => b.name,
+  );
+}
 
 /**
  * The one solver the original offered a stacking problem
@@ -225,6 +152,51 @@ export const STACKING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
  */
 export function stackingSolverOf(panexColumns: boolean): StackingSolver {
   return panexColumns ? 'panex' : 'stacking';
+}
+
+/** What engine.info says. */
+type EngineInfo = Methods['engine.info']['result'];
+
+/**
+ * The solvers of assembling puzzles to choose from: the engine's list
+ * (engine.info), the Complete one alone before it has said.
+ */
+export function brickSolvers(info: EngineInfo | null): EngineInfo['solvers'] {
+  return info?.solvers ?? [{ solver: 'classic', label: 'Complete (ShapeLogic)' }];
+}
+
+/** A sliding puzzle's one solver, the engine's name of it (the original's before it has said). */
+export function slidingSolver(info: EngineInfo | null): EngineInfo['slidingSolvers'][number] {
+  return info?.slidingSolvers[0] ?? { solver: 'sliding', label: 'Sliding Puzzle Solver' };
+}
+
+/** The name of a stacking puzzle's solver, the engine's (the original's before it has said). */
+export function stackingSolverLabel(info: EngineInfo | null, solver: StackingSolver): string {
+  return (
+    info?.stackingSolvers.find((x) => x.solver === solver)?.label ??
+    (solver === 'panex' ? 'Panex Solver' : 'Stacking Solver')
+  );
+}
+
+/**
+ * The name of the solver a family's options choose, from the engine's
+ * list: a stacking puzzle's by its board, a sliding puzzle's one, else the
+ * Solver type's.
+ */
+export function solverLabel(
+  info: EngineInfo | null,
+  family: Family,
+  o: Pick<SearchOptions, 'solver'>,
+  stackingSolver: StackingSolver,
+): string {
+  if (family === 'stacking') {
+    return stackingSolverLabel(info, stackingSolver);
+  }
+  if (family === 'sliding') {
+    return slidingSolver(info).label;
+  }
+  const all = brickSolvers(info);
+  return (all.find((x) => x.solver === o.solver) ?? all[0])?.label ?? 'Complete (ShapeLogic)';
 }
 
 const SOLVERS: readonly Solver[] = ['classic', 'crowell'];
@@ -253,28 +225,10 @@ export function readOptions(
   canDisassemble = true,
 ): SearchOptions {
   const o: SearchOptions = { ...(base ?? defaultsOf(family)) };
-  const boxes: BoxName[] = [
-    'disassemble',
-    'checkRotations',
-    'justCount',
-    'justLevels',
-    'deepSymmetry',
-    'keepMirrors',
-    'keepRotations',
-    'strictColors',
-    'nestedSlides',
-    'partialNested',
-    'verticalMoves',
-    'anyOrientation',
-    'mirroredOrientations',
-    'optimizedPaths',
-    'keepAssemblies',
-    'flipPieces',
-  ];
-  for (const b of boxes) {
-    const v = stored[b];
+  for (const { name } of BOXES) {
+    const v = stored[name];
     if (typeof v === 'boolean') {
-      o[b] = v;
+      o[name] = v;
     }
   }
   // the original's Autosave box: kept as stored, for the file
@@ -304,38 +258,20 @@ export function writeOptions(
   family: Family = 'brick',
   tilted = false,
 ): SolverSettings {
-  const sliding = family === 'sliding';
-  const out: SolverSettings = {
-    ...stored,
-    disassemble: o.disassemble,
-    checkRotations: o.checkRotations,
-    justCount: o.justCount,
-    justLevels: o.justLevels,
-    deepSymmetry: o.deepSymmetry,
-    keepMirrors: o.keepMirrors,
-    keepRotations: o.keepRotations,
-    strictColors: o.strictColors,
-    autosave: o.autosave,
-    sortBy: o.sortBy,
-  };
+  const kind = kindOf(family, tilted);
+  const out: SolverSettings = { ...stored, autosave: o.autosave, sortBy: o.sortBy };
+  // each box with the puzzle types that store it (the sliding boxes with a
+  // sliding puzzle's problems only, a tilted puzzle's turned pieces,
+  // decision 0045)
+  for (const b of BOXES) {
+    if (storedOn(b, kind)) {
+      out[b.name] = o[b.name];
+    }
+  }
   // a stacking puzzle's one solver was not stored (storeSolverOptions), nor
   // is a sliding puzzle's (a solver type stored before is kept as it was)
   if (family === 'brick') {
     out.solverType = o.solver;
-    out.keepAssemblies = o.keepAssemblies;
-  }
-  // a tilted puzzle's pieces turned over or not (decision 0045)
-  if (tilted) {
-    out.flipPieces = o.flipPieces;
-  }
-  // the sliding boxes go with a sliding puzzle's problems only
-  if (sliding) {
-    out.nestedSlides = o.nestedSlides;
-    out.partialNested = o.partialNested;
-    out.verticalMoves = o.verticalMoves;
-    out.anyOrientation = o.anyOrientation;
-    out.mirroredOrientations = o.mirroredOrientations;
-    out.optimizedPaths = o.optimizedPaths;
   }
   return out;
 }
@@ -476,8 +412,11 @@ export interface Limits {
   keepEach: number;
 }
 
-/** The defaults of the original's two fields. */
-export const DEFAULT_LIMITS: Readonly<Limits> = { keepAtMost: 100, keepEach: 1 };
+/** The defaults of the original's two fields (the settings' defaults). */
+export const DEFAULT_LIMITS: Readonly<Limits> = {
+  keepAtMost: DEFAULTS.optKeepAtMost,
+  keepEach: DEFAULTS.optKeepEach,
+};
 
 /**
  * The SolveOptions of a solve (solve.start, prepare, continue): the

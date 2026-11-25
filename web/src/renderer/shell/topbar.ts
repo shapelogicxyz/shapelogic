@@ -12,10 +12,6 @@ import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';
 
-function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path;
-}
-
 /** The window holds its file read-only (another window owns it). */
 let readOnly = false;
 
@@ -31,7 +27,7 @@ function render(store: Store): void {
     stage.dataset.dirty = '';
     return;
   }
-  const name = snap.path !== null ? baseName(snap.path) : (store.displayName ?? 'Untitled');
+  const name = store.documentName;
   const ro = readOnly && snap.path !== null;
   el.innerHTML =
     esc(name) +

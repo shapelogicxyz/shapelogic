@@ -38,7 +38,7 @@ import { prefs } from '../shell/prefs.ts';
 import { flash, reportError } from '../shell/status.ts';
 import { boardExtent } from '../view3d/board.ts';
 import { gridExtent, placedAt } from '../view3d/extent.ts';
-import { buildMesh } from '../view3d/mesh.ts';
+import { buildMesh, disposeBuilt } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
 import type { PieceMode, ScenePose, SolutionModel } from '../view3d/solution.ts';
 import type { View3D } from '../view3d/view.ts';
@@ -392,8 +392,7 @@ export class Player {
         const size = snap.shapes.find((s) => s.id === shape)?.size ?? [1, 1, 1];
         const b = buildMesh(meshArrays(r), size, style, { kind: 'playback', handle: h, piece: i });
         if (n !== this.token || this.handle !== h) {
-          b.faces.dispose();
-          b.marks?.dispose();
+          disposeBuilt(b);
           return null;
         }
         this.playMeshes.set(key, b);
@@ -688,8 +687,7 @@ export class Player {
 
   private disposeAssembled(): void {
     for (const b of this.assembledMeshes) {
-      b.faces.dispose();
-      b.marks?.dispose();
+      disposeBuilt(b);
     }
     this.assembledMeshes = [];
   }
@@ -697,8 +695,7 @@ export class Player {
   private disposeMeshes(): void {
     this.disposeAssembled();
     for (const b of this.playMeshes.values()) {
-      b.faces.dispose();
-      b.marks?.dispose();
+      disposeBuilt(b);
     }
     this.playMeshes.clear();
   }

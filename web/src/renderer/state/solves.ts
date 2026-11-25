@@ -34,6 +34,7 @@
 //   be paged again is the pager's business (its solutionsVersion).
 
 import type {
+  Snapshot,
   SolveFailure,
   SolveProgress,
   SolveState,
@@ -186,6 +187,15 @@ export class Solves {
   /** The record of a problem, if one was made. */
   peek(problem: string): SolveRecord | undefined {
     return this.records.get(problem);
+  }
+
+  /** The state of a problem's solve: the events', once they told it, else the snapshot's. */
+  stateOf(problem: string, snapshot: Snapshot | null): SolveState {
+    const r = this.records.get(problem);
+    if (r?.told === true) {
+      return r.state;
+    }
+    return snapshot?.problems.find((p) => p.id === problem)?.solve ?? 'idle';
   }
 
   /**

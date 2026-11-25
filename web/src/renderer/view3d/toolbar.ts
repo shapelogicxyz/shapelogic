@@ -21,6 +21,7 @@ import { toolIcon } from '../shell/cursors.ts';
 import type { Tool } from '../shell/cursors.ts';
 import { byId } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
+import { keyLabel } from '../shell/keys.ts';
 import type { IconName } from '../shell/icons.ts';
 import { editorVisible, layout, tab } from '../shell/layout.ts';
 import { closePop, openPop, popOpen, refreshPop } from '../shell/popover.ts';
@@ -92,8 +93,8 @@ export class Toolbar {
   constructor(host: ToolbarHost) {
     this.host = host;
     this.vt.innerHTML =
-      `<button class="tbn on" data-m="orbit" title="Left-drag orbits. Shift-drag pans. Middle-drag always pans.">${tbn('orbit', 'Orbit')}<i class="kb">O</i></button>` +
-      `<button class="tbn" data-m="pan" title="Left-drag pans. Shift-drag orbits. Middle-drag always pans.">${tbn('pan', 'Pan')}<i class="kb">P</i></button><span class="sep"></span>` +
+      `<button class="tbn on" data-m="orbit" title="Left-drag orbits. Shift-drag pans. Middle-drag always pans.">${tbn('orbit', 'Orbit')}<i class="kb">${keyLabel('view.orbit')}</i></button>` +
+      `<button class="tbn" data-m="pan" title="Left-drag pans. Shift-drag orbits. Middle-drag always pans.">${tbn('pan', 'Pan')}<i class="kb">${keyLabel('view.pan')}</i></button><span class="sep"></span>` +
       `<button class="tbn ent-only" id="bEdit" disabled></button><span class="sep ent-only"></span>` +
       `<button class="tbn" id="bDisp" title="Display options" aria-haspopup="menu">${tbn('eye', 'Display')}</button><span class="sep"></span>` +
       `<button class="tbn" id="bF3D" title="Focus 3D viewport (Esc to exit)"></button>`;
@@ -166,7 +167,8 @@ export class Toolbar {
     b.classList.toggle('on', s.on);
     b.classList.toggle('tmp', s.tmp);
     b.setAttribute('aria-pressed', String(s.on));
-    b.title = `${s.tmp ? 'Quick tool — ' : '3D edit mode — '}${s.name} (${s.key}). ${s.on ? 'Click edits with the active tool. Press E to leave edit mode.' : 'Press E to turn edit mode on; or hold Shift/Alt/Ctrl while clicking.'}`;
+    const toggle = keyLabel('edit3d');
+    b.title = `${s.tmp ? 'Quick tool — ' : '3D edit mode — '}${s.name} (${s.key}). ${s.on ? `Click edits with the active tool. Press ${toggle} to leave edit mode.` : `Press ${toggle} to turn edit mode on; or hold Shift/Alt/Ctrl while clicking.`}`;
   }
 
   private displayHtml(): string {

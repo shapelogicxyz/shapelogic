@@ -11,7 +11,6 @@
 
 import { Group, Vector3 } from 'three';
 
-import { meshArrays } from '../../engine/frames.ts';
 import type { MeshStyle } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { esc } from '../shell/dom.ts';
@@ -19,9 +18,8 @@ import { boardColor, hex, viewColor } from '../shell/piece-colors.ts';
 import { borderPicture } from '../shell/piece-images.ts';
 import { borderColor, borderRim, shownBorder } from '../shell/tray-border.ts';
 import type { TrayCopy } from '../entities/tray.ts';
-import { buildMesh } from './mesh.ts';
-import type { BuiltMesh } from './mesh.ts';
-import type { MeshCache } from './meshcache.ts';
+import { MeshSlot } from './shape-meshes.ts';
+import type { MeshAsk, MeshLease, ShapeMeshes } from './shape-meshes.ts';
 import { SolutionScene } from './solution.ts';
 import type { PiecePicture } from '../shell/picture-math.ts';
 import type { ScenePiece, ScenePose, SolutionLook } from './solution.ts';
@@ -40,7 +38,7 @@ export const TRAY_GAP = 4;
 /** What the trays ask of the view. */
 export interface TraysHost {
   store: Store;
-  cache: MeshCache;
+  meshes: ShapeMeshes;
   /** The revision a shape last changed at (its mesh is asked at it). */
   shapeRevision(shape: string): number;
   /** The style the view draws in. */
@@ -59,10 +57,9 @@ export class TrayView {
   private readonly border = new TrayBorderMesh();
   private lit = true;
   private model: TrayModel | null = null;
-  /** The meshes this made (freed when replaced). */
-  private built: BuiltMesh[] = [];
+  /** The meshes shown (given back when replaced). */
+  private readonly slot: MeshSlot;
   private shownKey = '';
-  private loads = 0;
   /** The tray shown: its size, or null when none is. */
   private size: readonly [number, number, number] | null = null;
   /** The room between the two trays, in cells: TRAY_GAP, more round a thick border. */
@@ -70,6 +67,7 @@ export class TrayView {
 
   constructor(host: TraysHost, parent: Group) {
     this.host = host;
+    this.slot = new MeshSlot(host.meshes);
     this.group.add(this.scene.group);
     this.group.add(this.border.group);
     parent.add(this.group);
@@ -139,7 +137,9 @@ export class TrayView {
     const model = this.model;
     const tray = store.snapshot?.shapes.find((s) => s.id === model?.tray) ?? null;
     if (model === null || tray === null || store.snapshot?.grid !== 'sliding') {
-      this.show(++this.loads, null, null, '');
+      this.slot.clear(() => {
+        this.show(null, null, '');
+      });
       return;
     }
     const style = this.host.style();
@@ -148,55 +148,33 @@ export class TrayView {
     const shapes = [tray.id, ...pieces];
     // (the board's color with none of its own follows the theme)
     const key = `${hex(boardColor())}:${String(gen)}:${style}:${shapes.map((s) => `${s}@${String(this.host.shapeRevision(s))}`).join(',')}:${JSON.stringify(model.starts)}:${JSON.stringify(model.goals)}`;
-    // a load in flight for another key is stale now, even when this one is shown already
-    const n = ++this.loads;
     if (key === this.shownKey) {
+      // a load in flight for another key is stale now
+      this.slot.stale();
       return;
     }
     const size = tray.size;
-    Promise.all(
-      shapes.map(async (s): Promise<[string, BuiltMesh, readonly number[]]> => {
-        const rev = this.host.shapeRevision(s);
-        const reply = await this.host.cache.get(s, style, rev);
-        const ssize = store.snapshot?.shapes.find((x) => x.id === s)?.size ?? size;
-        const built = buildMesh(meshArrays(reply), ssize, style, {
-          kind: 'shape',
-          shape: s,
-          revision: rev,
-          transformation: 0,
-        });
-        return [s, built, reply.lo];
-      }),
-    ).then(
-      (list) => {
-        if (n !== this.loads) {
-          for (const [, b] of list) {
-            disposeBuilt(b);
-          }
-          return;
-        }
-        this.show(n, model, list, key, size);
-      },
-      (e: unknown) => {
-        if (n === this.loads) {
-          this.host.failed(e);
-        }
-      },
-    );
+    const asks = shapes.map((s): MeshAsk => ({
+      shape: s,
+      style,
+      revision: this.host.shapeRevision(s),
+      size: store.snapshot?.shapes.find((x) => x.id === s)?.size ?? size,
+    }));
+    this.slot
+      .load(asks, (leases) => {
+        this.show(model, leases, key, size);
+      })
+      .catch((e: unknown) => {
+        this.host.failed(e);
+      });
   }
 
   private show(
-    n: number,
     model: TrayModel | null,
-    meshes: [string, BuiltMesh, readonly number[]][] | null,
+    meshes: readonly MeshLease[] | null,
     key: string,
     size: readonly [number, number, number] | null = null,
   ): void {
-    if (n !== this.loads) {
-      return;
-    }
-    const old = this.built;
-    this.built = meshes?.map((m) => m[1]) ?? [];
     this.shownKey = key;
     this.size = model === null ? null : size;
     if (model === null || meshes === null || size === null) {
@@ -218,7 +196,8 @@ export class TrayView {
         visible: true,
         opacity: 1,
       });
-      const [trayId, trayMesh] = meshes[0] ?? [];
+      const trayId = meshes[0]?.shape;
+      const trayMesh = meshes[0]?.built;
       if (trayId !== undefined && trayMesh !== undefined) {
         // the START tray, then the GOAL tray
         for (const [piece, dx] of [
@@ -238,7 +217,7 @@ export class TrayView {
           poses.push(pose([dx, 0, 0]));
         }
       }
-      const meshOf = new Map(meshes.slice(1).map(([s, b, lo]) => [s, { b, lo }]));
+      const meshOf = new Map(meshes.slice(1).map((l) => [l.shape, { b: l.built, lo: l.reply.lo }]));
       const place = (stamps: TrayModel['starts'], dx: number): void => {
         for (const { piece: id, cells } of stamps) {
           const m = meshOf.get(id);
@@ -249,9 +228,9 @@ export class TrayView {
           // the whole piece moved: its lowest corner onto the stamp's, standing
           // on the tray (a tray of layers is drawn whole, so the pieces stand
           // over it, each as many layers up as its stamp)
-          const x = Math.min(...cells.map((c) => c[0])) - Math.round(m.lo[0] ?? 0);
-          const y = Math.min(...cells.map((c) => c[1])) - Math.round(m.lo[1] ?? 0);
-          const z = Math.min(...cells.map((c) => c[2])) - Math.round(m.lo[2] ?? 0);
+          const x = Math.min(...cells.map((c) => c[0])) - Math.round(m.lo[0]);
+          const y = Math.min(...cells.map((c) => c[1])) - Math.round(m.lo[1]);
+          const z = Math.min(...cells.map((c) => c[2])) - Math.round(m.lo[2]);
           pieces.push({
             piece: pieces.length,
             shape: id,
@@ -283,9 +262,6 @@ export class TrayView {
       this.applyBorder();
       this.scene.set({ key, extent: [2 * size[0] + this.gap, size[1], size[2] + 1], pieces });
       this.scene.setPoses(poses);
-    }
-    for (const b of old) {
-      disposeBuilt(b);
     }
     this.host.changed();
   }
@@ -319,9 +295,4 @@ export class TrayView {
   posesShown(): string {
     return this.scene.posesShown();
   }
-}
-
-function disposeBuilt(b: BuiltMesh): void {
-  b.faces.dispose();
-  b.marks?.dispose();
 }

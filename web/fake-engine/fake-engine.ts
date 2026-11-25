@@ -8,7 +8,7 @@
 // with an error and noted in `mismatches`. Timing is optional: by default
 // every chunk comes in a task of its own, at once.
 
-import { fromBase64, toBase64 } from '../src/engine/recorder.ts';
+import { fromBase64, toBase64 } from '../src/engine/base64.ts';
 import type { Recording, RecordingEntry } from '../src/engine/recorder.ts';
 import { setOnce } from '../src/engine/transport.ts';
 import type { ExitInfo, Transport } from '../src/engine/transport.ts';

@@ -10,12 +10,17 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { APP_CHANNELS } from '../../src/engine/app-bridge.ts';
+import type { AppChannel } from '../../src/engine/app-bridge.ts';
+
 type Listener = (event: unknown, ...args: unknown[]) => void;
 
 const electron = vi.hoisted(() => ({
   listeners: new Map<string, Listener[]>(),
   exposed: new Map<string, unknown>(),
   sent: [] as unknown[][],
+  invoked: [] as string[],
+  synced: [] as string[],
   paths: new Map<object, string>(),
 }));
 
@@ -29,8 +34,14 @@ vi.mock('electron', () => ({
     },
     removeListener: () => undefined,
     send: (...args: unknown[]) => electron.sent.push(args),
-    sendSync: () => ({ platform: 'test', version: '9.9.9' }),
-    invoke: () => Promise.resolve(null),
+    sendSync: (channel: string) => {
+      electron.synced.push(channel);
+      return { platform: 'test', version: '9.9.9' };
+    },
+    invoke: (channel: string) => {
+      electron.invoked.push(channel);
+      return Promise.resolve(null);
+    },
   },
   webUtils: { getPathForFile: (f: object) => electron.paths.get(f) ?? '' },
 }));
@@ -82,5 +93,32 @@ describe('the preload', () => {
     expect(electron.sent.filter((s) => s[0] === 'bt:dropped')).toEqual([
       ['bt:dropped', '/d/x.xmpuzzle'],
     ]);
+  });
+
+  it('uses every channel of the table by its kind, and no other (cleanup item 12.2)', async () => {
+    await import('../../src/preload/index.ts');
+    const bt = electron.exposed.get('bt') as Record<string, (...a: unknown[]) => unknown>;
+    const btApp = electron.exposed.get('btApp') as Record<string, unknown>;
+    // every method once, with arguments of no meaning: main checks them (a
+    // "file" with a path, so pathOf sends it)
+    const arg = (): void => undefined;
+    electron.paths.set(arg, '/d/y.xmpuzzle');
+    const calls: unknown[] = [];
+    for (const api of [bt, btApp]) {
+      for (const v of Object.values(api)) {
+        if (typeof v === 'function') {
+          // a method that throws at once has used its channel already
+          calls.push(Promise.resolve().then(() => (v as (...a: unknown[]) => unknown)(arg, true)));
+        }
+      }
+    }
+    await Promise.allSettled(calls);
+    const want = (kind: string): string[] =>
+      (Object.keys(APP_CHANNELS) as AppChannel[]).filter((c) => APP_CHANNELS[c] === kind).sort();
+    const uniq = (xs: string[]): string[] => [...new Set(xs)].sort();
+    expect(uniq(electron.sent.map((s) => String(s[0])))).toEqual(want('send'));
+    expect(uniq(electron.invoked)).toEqual(want('invoke'));
+    expect(uniq(electron.synced)).toEqual(want('sync'));
+    expect(uniq([...electron.listeners.keys()])).toEqual(want('event'));
   });
 });

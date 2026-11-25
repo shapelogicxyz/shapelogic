@@ -11,8 +11,10 @@
 // renamed over it, as the core saves). The paused solver state's export
 // is File's (stage 6).
 
+import { baseName, puzzleStem } from '../shell/paths.ts';
 import type { BtApp } from '../../engine/app-bridge.ts';
-import type { SolutionRow } from '../../engine/api.generated.ts';
+import type { Snapshot, SolutionRow } from '../../engine/api.generated.ts';
+import { fromBase64 } from '../../engine/base64.ts';
 import { meshArrays, poseArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { openDialog } from '../shell/dialog.ts';
@@ -25,6 +27,40 @@ import { ANIMATION_DEFAULTS, ANIMATION_SAMPLES, animationGlb } from './glb.ts';
 import type { AnimationOptions, AnimationPiece } from './glb.ts';
 import { shapeStlDialog, solutionStlDialog } from './stl-dialogs.ts';
 import type { StlContext } from './stl-dialogs.ts';
+
+/** File ▸ Export's items, as the Solutions card's Export menu offers them too (not the paused solver state). */
+export type FileExport = 'scad' | 'image' | 'vector' | 'stl' | 'glb';
+
+/**
+ * What File ▸ Export allows now, for the menus and the Solver's Export
+ * menu: Puzzlecad and STL need a shape with cells, Puzzlecad a brick or
+ * sliding grid, the animation a solution with its moves stored shown.
+ */
+export function exportsAllowed(
+  snap: Pick<Snapshot, 'grid' | 'shapes'> | null,
+  animation: boolean,
+): Record<FileExport, boolean> {
+  const shapes = snap?.shapes.some((x) => x.fixed + x.variable > 0) ?? false;
+  const scad = shapes && (snap?.grid === 'bricks' || snap?.grid === 'sliding');
+  return { scad, image: true, vector: true, stl: shapes, glb: animation };
+}
+
+/** The solution the Solver's player shows, when it has its moves stored (Export ▸ Solution Animation's). */
+export function animationOf(player: {
+  readonly problem: string | null;
+  readonly row: SolutionRow | null;
+  readonly pieces: readonly { piece: number; color: Rgb3 }[];
+}): AnimationSource | null {
+  const p = player;
+  if (p.problem === null || p.row?.disassembly !== 'tree') {
+    return null;
+  }
+  return {
+    problem: p.problem,
+    row: p.row,
+    colors: new Map(p.pieces.map((x) => [x.piece, x.color])),
+  };
+}
 
 /** The solution the Solver shows with its moves stored, as the animation needs it. */
 export interface AnimationSource {
@@ -42,19 +78,9 @@ export interface ExportsHost {
   animation(): AnimationSource | null;
 }
 
-function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path;
-}
-
 /** The bytes of a data URL (the canvas's PNG). */
 export function dataUrlBytes(url: string): Uint8Array {
-  const b64 = url.slice(url.indexOf(',') + 1);
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) {
-    out[i] = bin.charCodeAt(i);
-  }
-  return out;
+  return fromBase64(url.slice(url.indexOf(',') + 1));
 }
 
 export class Exports {
@@ -75,7 +101,7 @@ export class Exports {
   }
 
   private get base(): string {
-    return this.host.name.replace(/\.xmpuzzle$/i, '');
+    return puzzleStem(this.host.name);
   }
 
   private ready(): boolean {

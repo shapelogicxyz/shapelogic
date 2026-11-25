@@ -12,19 +12,15 @@
 // through osascript. Free of Electron.
 
 import { execFile } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, readlinkSync, symlinkSync, unlinkSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { lstatSync, mkdirSync, readlinkSync, symlinkSync, unlinkSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 import type { CliToolInfo, CliToolResult } from '../engine/app-bridge.ts';
+import { findProgram } from './engine-path.ts';
 import type { EngineSearch } from './engine-path.ts';
 
 /** The tool's name in the shell. */
 export const CLI_NAME = 'shapelogic_cli';
-
-/** The tool's file name on a platform. */
-export function cliFile(platform: NodeJS.Platform): string {
-  return platform === 'win32' ? `${CLI_NAME}.exe` : CLI_NAME;
-}
 
 /**
  * The tool to run or link; null when none is built (or the packaged app
@@ -32,18 +28,7 @@ export function cliFile(platform: NodeJS.Platform): string {
  * else; development takes the repository's dev build, else its release.
  */
 export function findCli(s: Omit<EngineSearch, 'engine'>): string | null {
-  const exe = cliFile(s.platform ?? process.platform);
-  if (s.packaged) {
-    const path = join(s.resources, exe);
-    return existsSync(path) ? path : null;
-  }
-  for (const preset of ['dev', 'release']) {
-    const path = resolve(s.webDir, '..', 'build', preset, 'cli', exe);
-    if (existsSync(path)) {
-      return path;
-    }
-  }
-  return null;
+  return findProgram(s, CLI_NAME);
 }
 
 /** Where Install links the tool; null where this platform has no Install yet. */

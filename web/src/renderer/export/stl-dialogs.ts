@@ -12,6 +12,7 @@
 // by the main process, to the path its save dialog gave, or into the
 // folder its folder dialog gave.
 
+import { baseName } from '../shell/paths.ts';
 import type { StlParameter } from '../../engine/api.generated.ts';
 import type { BtApp } from '../../engine/app-bridge.ts';
 import { EngineError } from '../../engine/errors.ts';
@@ -46,10 +47,6 @@ export interface StlContext {
 /** The values typed last, by grid, and Binary STL: the next dialog starts with them. */
 const remembered = new Map<string, FieldValue[]>();
 let binaryChosen = true;
-
-function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path;
-}
 
 // the engine's words (the original's), without the method in front
 function message(e: unknown): string {
@@ -99,6 +96,69 @@ function setStatus(el: HTMLElement, text: string, error = false): void {
     s.textContent = text;
     s.classList.toggle('err', error);
   }
+}
+
+/** One STL file of an export into a folder: the shape and its file's name. */
+interface StlFile {
+  shape: string;
+  fileName: string;
+}
+
+/**
+ * Writes STL files into a folder, after asking whether to overwrite the
+ * ones already there (null: not asked to, or declined); each file that
+ * fails is told and the rest are written. The counts written and failed.
+ */
+async function writeStlFiles(
+  store: Store,
+  app: BtApp,
+  el: HTMLElement,
+  o: {
+    to: string;
+    files: readonly StlFile[];
+    parameters: number[];
+    binary: boolean;
+    title: string;
+  },
+): Promise<{ exported: number; errors: number } | null> {
+  const existing = await app.existingExports(
+    o.to,
+    o.files.map((f) => f.fileName),
+  );
+  if (existing > 0) {
+    const answer = await askChoice('stlOverwrite', o.title, overwriteQuestion(existing), [
+      { key: 'cancel', label: 'Cancel' },
+      {
+        key: 'overwrite',
+        label: 'Overwrite',
+        kind: 'danger',
+        default: true,
+        tip: 'Replace the files that are already there',
+      },
+    ]);
+    if (answer !== 'overwrite') {
+      return null;
+    }
+  }
+  let exported = 0;
+  let errors = 0;
+  setStatus(el, 'Exporting…');
+  for (const f of o.files) {
+    try {
+      const r = await store.engine.call('export.stl', {
+        shape: f.shape,
+        parameters: o.parameters,
+        binary: o.binary,
+        name: f.fileName,
+      });
+      await app.writeFolderExport(o.to, f.fileName, fileBytes(r));
+      exported++;
+    } catch (e) {
+      tell(`Error exporting ${f.fileName}:\n${message(e)}`);
+      errors++;
+    }
+  }
+  return { exported, errors };
 }
 
 /** The shapes a dialog last exported, by document: the next one starts with them. */
@@ -237,41 +297,17 @@ export async function shapeStlDialog(ctx: StlContext): Promise<void> {
       return;
     }
     const { fileNames } = await store.engine.call('export.stlFileNames', { shapes: ids });
-    const existing = await app.existingExports(to, fileNames);
-    if (existing > 0) {
-      const answer = await askChoice('stlOverwrite', 'Export STL', overwriteQuestion(existing), [
-        { key: 'cancel', label: 'Cancel' },
-        {
-          key: 'overwrite',
-          label: 'Overwrite',
-          kind: 'danger',
-          default: true,
-          tip: 'Replace the files that are already there',
-        },
-      ]);
-      if (answer !== 'overwrite') {
-        return;
-      }
+    const done = await writeStlFiles(store, app, el, {
+      to,
+      files: ids.map((shape, i) => ({ shape, fileName: fileNames[i] ?? `${shape}.stl` })),
+      parameters: values,
+      binary,
+      title: 'Export STL',
+    });
+    if (done === null) {
+      return;
     }
-    let exported = 0;
-    let errors = 0;
-    setStatus(el, 'Exporting…');
-    for (const [i, shape] of ids.entries()) {
-      const fileName = fileNames[i] ?? `${shape}.stl`;
-      try {
-        const r = await store.engine.call('export.stl', {
-          shape,
-          parameters: values,
-          binary,
-          name: fileName,
-        });
-        await app.writeFolderExport(to, fileName, fileBytes(r));
-        exported++;
-      } catch (e) {
-        tell(`Error exporting ${fileName}:\n${message(e)}`);
-        errors++;
-      }
-    }
+    const { exported, errors } = done;
     setStatus(el, exportedLine(exported, errors, 'shape(s)'), errors > 0);
     if (exported > 0) {
       flash(`Exported ${String(exported)} STL file(s) to ${baseName(to)}`);
@@ -441,49 +477,17 @@ export async function solutionStlDialog(
     binaryChosen = binary;
     exporting = true;
     try {
-      const existing = await app.existingExports(
+      const done = await writeStlFiles(store, app, el, {
         to,
-        pieces.map((p) => p.fileName),
-      );
-      if (existing > 0) {
-        const answer = await askChoice(
-          'stlOverwrite',
-          'Export to STL',
-          overwriteQuestion(existing),
-          [
-            { key: 'cancel', label: 'Cancel' },
-            {
-              key: 'overwrite',
-              label: 'Overwrite',
-              kind: 'danger',
-              default: true,
-              tip: 'Replace the files that are already there',
-            },
-          ],
-        );
-        if (answer !== 'overwrite') {
-          return;
-        }
+        files: pieces,
+        parameters: read.values,
+        binary,
+        title: 'Export to STL',
+      });
+      if (done === null) {
+        return;
       }
-      let exported = 0;
-      let errors = 0;
-      setStatus(el, 'Exporting…');
-      for (const p of pieces) {
-        try {
-          const r = await store.engine.call('export.stl', {
-            shape: p.shape,
-            parameters: read.values,
-            binary,
-            name: p.fileName,
-          });
-          await app.writeFolderExport(to, p.fileName, fileBytes(r));
-          exported++;
-        } catch (e) {
-          tell(`Error exporting ${p.fileName}:\n${message(e)}`);
-          errors++;
-        }
-      }
-      setStatus(el, exportedLine(exported, errors), errors > 0);
+      setStatus(el, exportedLine(done.exported, done.errors), done.errors > 0);
       el.dataset.exported = String(Number(el.dataset.exported ?? '0') + 1);
     } catch (e) {
       reportError(e, 'Export the solution to STL');

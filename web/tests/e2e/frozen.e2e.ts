@@ -99,7 +99,7 @@ test('the shapes are frozen while a solve runs', async () => {
     await page.keyboard.up('Shift');
     await page.locator('#btnNew').dispatchEvent('click');
     await page.locator('#cAdd').dispatchEvent('click');
-    await page.locator('#sizeSteppers [data-d="0"][data-s="1"]').dispatchEvent('click');
+    await page.locator('#sizeSteppers [data-step="0"] [data-sd="1"]').dispatchEvent('click');
     await page.locator('#insp [data-task="flip12"]').dispatchEvent('click');
     await expect(page.locator('#stText')).toHaveText('Pause the solve first');
     // the cards are disabled

@@ -18,14 +18,13 @@
 // a reload that keeps the type and the tab, and a tab named in the URL,
 // failing on an error of the page.
 
-import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extname, resolve } from 'node:path';
 
 import { build } from 'vite';
 
 import { DEMO_BASE, DEMO_OUT } from '../demo.vite.config.ts';
+import { DEMO_INPUTS, inputsHash } from './inputs-hash.ts';
 import { projectVersion } from './project-version.ts';
 
 const WEB = resolve(import.meta.dirname, '..');
@@ -33,45 +32,6 @@ const ROOT = resolve(WEB, '..');
 const WASM_BUILD = resolve(ROOT, 'build/wasm/engine');
 const ENGINE_DIR = resolve(WEB, 'src/demo/engine');
 const ENGINE_FILES = ['shapelogic_engine.js', 'shapelogic_engine.wasm'];
-
-/** What the demo is built from (paths from the repository's root; the site's test hashes the same). */
-export const DEMO_INPUTS = [
-  'CMakeLists.txt',
-  'CMakePresets.json',
-  'cmake',
-  'core',
-  'engine',
-  'api',
-  'web/src',
-  'web/demo.vite.config.ts',
-  'web/package-lock.json',
-  'site/public/examples/demo',
-];
-
-/** A hash of the files under the inputs (tracked or not yet, never ignored), as they are in the working tree. */
-export function inputsHash(root: string, inputs: readonly string[]): string {
-  const files = execFileSync(
-    'git',
-    ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ...inputs],
-    { cwd: root },
-  )
-    .toString('utf8')
-    .split('\0')
-    .filter((f) => f !== '')
-    .sort();
-  const h = createHash('sha256');
-  for (const f of files) {
-    const path = resolve(root, f);
-    if (!existsSync(path)) {
-      continue;
-    }
-    h.update(f);
-    h.update('\0');
-    h.update(readFileSync(path));
-    h.update('\0');
-  }
-  return h.digest('hex');
-}
 
 const ORIGIN = 'http://demo.invalid';
 const TYPES: Record<string, string> = {

@@ -78,7 +78,9 @@ test('a board’s tray border: its section, its look, and the border in every vi
     await sec.locator('select[data-bmaterial]').selectOption('wood');
     await settled(page);
     await expect(vp).toHaveAttribute('data-border', '1:sharp:wood:#c9a26b:-');
-    await page.locator('#borderColorPick').fill('#336699');
+    await sec.locator('[data-bcolor]').click();
+    await page.locator('#pop .cpk-hex').fill('#336699');
+    await page.locator('#pop .cpk-hex').press('Enter');
     await settled(page);
     await expect(vp).toHaveAttribute('data-border', '1:sharp:wood:#336699:-');
     await sec.locator('[data-bdefault]').click();

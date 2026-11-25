@@ -18,6 +18,7 @@ import type {
   Reply,
 } from '../engine/client-types.ts';
 import { CLIENT_ERROR_CODE, EngineError } from '../engine/errors.ts';
+import { EventHandlers, Listeners } from '../engine/handlers.ts';
 import { EngineStartError, failureOf } from '../engine/spawn-failure.ts';
 import type { SpawnFailure } from '../engine/spawn-failure.ts';
 import type { ExitInfo, Transport } from '../engine/transport.ts';
@@ -65,10 +66,17 @@ export class EngineHost implements EngineApi {
   private restartTimer: ReturnType<typeof setTimeout> | null = null;
   /** The launch under way, while one is (start() joins it, stop() waits for it). */
   private launching: Promise<void> | null = null;
-  private readonly statusHandlers = new Set<(s: EngineStatus) => void>();
-  private readonly eventHandlers = new Map<string, Set<(params: never) => void>>();
-  private readonly anyHandlers = new Set<(event: string, params: unknown) => void>();
-  private readonly problemHandlers = new Set<(p: ClientProblem) => void>();
+  // a handler that throws must not stop the host (a restart hangs on it),
+  // nor keep the event from the other handlers (cleanup item 12.4)
+  private readonly statusHandlers = new Listeners<EngineStatus>('a status handler', (detail) => {
+    this.report({ reason: 'handler', detail });
+  });
+  private readonly eventHandlers = new EventHandlers((detail) => {
+    this.report({ reason: 'handler', detail });
+  });
+  private readonly problemHandlers = new Listeners<ClientProblem>('a problem handler', (detail) => {
+    console.error(`shapelogic_engine: ${detail}`);
+  });
 
   constructor(options: EngineHostOptions) {
     this.options = options;
@@ -185,39 +193,21 @@ export class EngineHost implements EngineApi {
   }
 
   on<E extends EventName>(event: E, handler: (params: EventParams<E>) => void): () => void {
-    let set = this.eventHandlers.get(event);
-    if (set === undefined) {
-      set = new Set();
-      this.eventHandlers.set(event, set);
-    }
-    const h = handler as (params: never) => void;
-    set.add(h);
-    return () => {
-      set.delete(h);
-    };
+    return this.eventHandlers.on(event, handler);
   }
 
   onEvent(handler: (event: string, params: unknown) => void): () => void {
-    this.anyHandlers.add(handler);
-    return () => {
-      this.anyHandlers.delete(handler);
-    };
+    return this.eventHandlers.onEvent(handler);
   }
 
   /** The engine started, ended, or could not be kept running. */
   onStatus(handler: (status: EngineStatus) => void): () => void {
-    this.statusHandlers.add(handler);
-    return () => {
-      this.statusHandlers.delete(handler);
-    };
+    return this.statusHandlers.on(handler);
   }
 
   /** Protocol problems of every engine the host runs, and handlers that threw. */
   onProblem(handler: (p: ClientProblem) => void): () => void {
-    this.problemHandlers.add(handler);
-    return () => {
-      this.problemHandlers.delete(handler);
-    };
+    return this.problemHandlers.on(handler);
   }
 
   // Read through a call: the checker takes `stopping` for unchanged across
@@ -230,9 +220,7 @@ export class EngineHost implements EngineApi {
     if (this.problemHandlers.size === 0) {
       console.error(`shapelogic_engine: ${p.reason}: ${p.detail}`);
     }
-    for (const h of [...this.problemHandlers]) {
-      h(p);
-    }
+    this.problemHandlers.emit(p);
   }
 
   private failed(reason: string, failure: SpawnFailure | undefined): void {
@@ -246,16 +234,9 @@ export class EngineHost implements EngineApi {
     });
   }
 
-  // A handler that throws must not stop the host (a restart hangs on it).
   private setStatus(status: EngineStatus): void {
     this.status_ = status;
-    for (const h of [...this.statusHandlers]) {
-      try {
-        h(status);
-      } catch (e) {
-        this.report({ reason: 'handler', detail: `a status handler threw: ${String(e)}` });
-      }
-    }
+    this.statusHandlers.emit(status);
   }
 
   private launch(): Promise<void> {
@@ -280,12 +261,7 @@ export class EngineHost implements EngineApi {
     }
     const client = new EngineClient(transport, this.options.client);
     client.onEvent((event, params) => {
-      for (const h of [...(this.eventHandlers.get(event) ?? [])]) {
-        (h as (p: unknown) => void)(params);
-      }
-      for (const h of [...this.anyHandlers]) {
-        h(event, params);
-      }
+      this.eventHandlers.emit(event, params);
     });
     client.onProblem((p) => {
       this.report(p);

@@ -195,7 +195,7 @@ again, and comes last.
 - [x] Stage 10: front-end speed and memory (10.10 waits until 2.2 has reached users)
 - [x] Stage 11: one source of truth: core, engine, API, Python, CLI (11.3's engine.info matrices handed to 12.8; 11.9's finding fixed by checkpoint E)
 - [x] Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
-- [ ] Stage 12: one source of truth: front end
+- [x] Stage 12: one source of truth: front end (12.8's engine.info grid rules are an `Engine:` commit of their own; a contract flake seen there is noted under 12.8)
 - [ ] Stage 13: splits: front end
 - [ ] Stage 14: dead code and the last traps
 - [ ] Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (decided: D1)
@@ -5344,7 +5344,7 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
 
 ## Stage 12: one source of truth: front end
 
-- [ ] **12.1 One record per setting** (combine; M)
+- [x] **12.1 One record per setting** (combine; M)
   - *Where:*
     - `web/src/renderer/shell/prefs.ts`: the type (20-112), the defaults
       (115-170), the choices (202-216), the chain of checks (238-266; 260
@@ -5390,7 +5390,57 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
     run-card shows each BOXES entry for its puzzle types (a DOM test).
     `journal.test.ts` and `tilted.test.ts` use `DEFAULT_OPTIONS`.
 
-- [ ] **12.2 A typed table of the IPC channels** (combine; M)
+  - Done (2026-11-25):
+    - `shell/prefs.ts` holds one record per setting (`PREFS`): its default,
+      its kind (bool, choice, int, color), its choices or range, and for the
+      five the engine keeps the engine's name (`undoDepth`, `threads`,
+      `searchMemoryGB`, `slideDiskGB`, `panexDiskGB`), built by small
+      helpers (`choice(choices, def)` types the default against its
+      choices). The `Prefs` type, `DEFAULTS`, `validPref`/`validPrefs` (the
+      chain of checks), `choicesOf`, `rangeOf`, `clampPref` and the one
+      engine map (`ENGINE_PREFS`, `engineSettingsOf`, `prefsOfEngine`) come
+      from it. The engine's settings' ranges are the schema's: `gen-api.ts`
+      emits `LIMITS.settings` (undo depth 1 to 10000, threads 256, memory
+      and disk 1e6); before, a stored undo depth of 0 and values up to
+      100000 passed (`prefs.ts:260`'s literal is gone). The theme's choices
+      are app-bridge's `THEMES`.
+    - Decided: the names and the help stay in the settings dialog's rows,
+      the one place that shows them; the facts repeated elsewhere (the
+      choices, the ranges, the defaults, the engine's names) are in the
+      record. `shell/settings.ts`' rows lost their `opts` and the number
+      rows their `min`; its clamps (`numValue`, `newSize`, `sideWidth`) and
+      both copies of the engine map are gone, as is `app.ts`' third
+      (`store.wantedSettings` is `engineSettingsOf(prefs)`). Main reads
+      `debugLog` by a key that `satisfies PrefKey` (a type-only import), so
+      a rename fails its build.
+    - The Search Options: `solver/boxes.ts` is the one ordered `BOXES`
+      table (name, where the card shows it: with the modes or in the
+      options, the puzzle types it shows on and is stored for, its
+      default, and whether the settings set its default as `opt<Name>`).
+      `BoxName` and `SearchOptions` come from it; `DEFAULT_OPTIONS`,
+      `defaultsOf`, `readOptions`, `writeOptions`, `DEFAULT_LIMITS` (the
+      settings' defaults), the `opt*` settings and their defaults, the
+      settings page's Search Options rows (their "(Only: …)" from the types)
+      and the run card's switches and "N changed" walk it (`boxesShown`).
+      `SLIDING_BOXES`, `SLIDING_ONLY` and `STACKING_BOXES` are gone (14's
+      dead-code note can drop them). `normalize` stays code. The card's
+      changed list now follows the card's order, and no longer counts
+      Always show Assemblies on a tilted puzzle, whose card does not show
+      it.
+    - The stored names are kept (the board colors' first spelling and `Z Up + Y Away`).
+    - Tests: `app.test.ts` (+3): every default passes its own check and
+      the values one past each range do not; the engine map is the five,
+      with the schema's bounds; the `opt*` defaults are the boxes' and
+      `DEFAULT_OPTIONS` the table's. `solver.e2e.ts` (+1, the DOM test):
+      on a brick, tilted, sliding and stacking puzzle the card's switches
+      are `BOXES`' for that type, in order, and Check Rotations is the
+      mode's with the take-apart. `sliding.test.ts` uses `boxesShown`.
+      Seen failing: the four unit cases with a default out of range, an
+      engine name changed and Strict colors overridden in
+      `DEFAULT_OPTIONS`; the e2e case on a build whose card dropped Keep
+      Mirror Solutions.
+
+- [x] **12.2 A typed table of the IPC channels** (combine; M)
   - *Where:* `web/src/main/app-ipc.ts` (202-661), `web/src/main/index.ts`
     (215, 257, 471, 549, 581), `web/src/preload/index.ts` (32-290),
     `web/src/engine/app-bridge.ts`; 49 channel names written out in
@@ -5420,8 +5470,36 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
     - Item 13.4 then splits `app-ipc.ts` by its groups.
   - *Tests:* `security.test.ts` (built from the table, not the 49 names),
     `preload.test.ts`, the files and logs e2e specs.
+  - Done (2026-11-25):
+    - `app-bridge.ts` holds `AppChannels`: each channel's kind (`send`,
+      `sync`, `invoke`, `event`), arguments and result; `APP_CHANNELS` is
+      the same table as data, held to the type both ways by `satisfies`.
+      51 channels: the seven that carried an `op` string are one channel
+      per operation (decided: one argument list and one result each, no
+      casts), for example `bt:log-page`, `-clear`, `-closed`, `-sizes`,
+      `-export`.
+    - The preload sends only through typed `send`, `invoke` and `listen`
+      helpers: one cast in `invoke` for the 22; `WriteResult` replaces the
+      export result written twice. Main answers a refused write
+      `{ ok: false, error }`.
+    - `installAppIpc` registers every channel through `handle`, `on` or
+      `sync`, each checking the sender once (`ours(e)` is gone). `bt:call`
+      moved from `index.ts` into `app-ipc.ts` (`AppIpcHost.engineCall`) and
+      gets the same window check. `post(contents, channel, …)` types main's
+      four messages to the renderer.
+    - Tests: `security.test.ts` takes only the table's names (a misspelled
+      one fails the type check), and a new case checks that main registers
+      exactly the table's invoke channels with `handle` and its send and
+      sync channels with `on`; another that `bt:call` reaches only an app
+      window's engine. `preload.test.ts` (+1) calls every `bt` and `btApp`
+      method and checks the channels used, by kind. Seen failing: with
+      `bt:log-sizes`' handler removed (the security case) and with
+      `closeCanceled`'s send removed (the preload case); a channel in the
+      type without its `APP_CHANNELS` row fails `tsc`. The files, logs,
+      ipc, cache, windows, engine-failure, security, exports and
+      piece-images e2e specs pass.
 
-- [ ] **12.3 Runtime guards that the compiler checks** (combine, trap; S) ✓
+- [x] **12.3 Runtime guards that the compiler checks** (combine, trap; S) ✓
   - *Where:*
     - `web/src/engine/app-bridge.ts`:
       - `isMenuState` (686-702) checks a hand list of booleans that lacks
@@ -5450,8 +5528,35 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
   - *Tests:* `app.test.ts` (it clicks every menu item); `security.test.ts`'s
     help-link test; a test that `isMenuState` accepts a full MenuState built
     from the type's keys.
+  - Done (2026-11-25):
+    - `isMenuState` checks the switches of `MENU_SWITCHES`, which
+      `satisfies Record<BooleanKeys<MenuState>, true>`: `scad` is checked
+      now. `COMMANDS` `satisfies Record<AppCommandName, true>` and
+      `isAppCommandName` is `Object.hasOwn`. `OPEN_KINDS` and
+      `EXPORT_KINDS` are `as const` arrays the kinds' types come from
+      (`FILE_KINDS` is gone); `THEMES` gives the Theme type (prefs.ts takes
+      it too); `isCacheAction` uses a table.
+    - `gen-api.ts` emits each string enum's values as `<NAME>_VALUES`
+      (`as const satisfies readonly T[]`; 21 enums; decided on `_VALUES`
+      over plurals, which cannot be made reliably); `isMeshStyle` uses
+      `MESH_STYLE_VALUES`.
+    - The help links are one table in `app-bridge.ts`: `HELP_URLS` (site
+      paths and the two GitHub addresses) with `SITE_ORIGIN`, `isHelpLink`
+      by `Object.hasOwn`, `helpUrl(link, origin)`. Main and the demo use
+      it; `security.ts` keeps only `SYSTEM_URLS`; the site's
+      `help-urls.test.mjs` imports the table. Site docs that named the old
+      places were updated.
+    - Tests: `app.test.ts` (+1): every boolean field of `NO_STATE` given a
+      number is refused, every `MESH_STYLE_VALUES` style and theme
+      accepted, every file kind a file kind; `security.test.ts`' help-link
+      case refuses `__proto__`, `toString` and `constructor` and checks
+      the demo's addresses; `gen-api.test.ts` checks the `_VALUES`
+      constant. Seen failing: the `app.test` case on HEAD's hand list
+      (`scad`), the gen-api case with HEAD's `gen-api.ts`; a MenuState
+      boolean, an AppCommand or a channel added without its row fails
+      `tsc`.
 
-- [ ] **12.4 One registry of event handlers** (combine, bug; S)
+- [x] **12.4 One registry of event handlers** (combine, bug; S)
   - *Where:* `web/src/engine/client.ts` (238-256, 513-528),
     `web/src/main/engine-host.ts` (151-177, 232-239: no guard, so one
     throwing host handler skips the rest for that event),
@@ -5467,8 +5572,21 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
       platform-free rule covers it, and drop the lint exception.
   - *Tests:* `client.test.ts`, `bridge.test.ts`, `host.test.ts` (a throwing
     handler does not stop the others).
+  - Done (2026-11-25): `web/src/engine/handlers.ts`: `EventHandlers`
+    (`on`, `onEvent`, `emit`) and `Listeners<T>`, each handler called on
+    its own and what it throws reported to the owner's callback.
+    `EngineClient`, `EngineHost` and `EngineProxy` use it for events,
+    statuses, problems and exits. The host's handlers were not guarded:
+    one that threw skipped the rest for that event; each is now, reported
+    as a `handler` problem. `main/engine-ipc.ts` is `engine/serve.ts`,
+    typing its host structurally (`ServedEngine`), so it imports nothing
+    of `main/`; the demo's lint exception is gone (it refuses `../main/*`
+    and `../preload/*` now). Test: `host.test.ts` (+1, "passes an event
+    to every handler when one throws"), seen failing with HEAD's
+    `engine-host.ts`; `client.test.ts` and `bridge.test.ts` pass. Map
+    lines, `web/README.md` and four site code-base pages updated.
 
-- [ ] **12.5 One set of controls** (combine; M)
+- [x] **12.5 One set of controls** (combine; M)
   - *Where:*
     - Steppers: ten templates in six files (`shell/settings.ts:626`, 631 and
       645; `entities/editor-card.ts:329`; `entities/tilt-card.ts:110`;
@@ -5503,8 +5621,66 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
     popover to take the arrow keys and Tab first (`listKeys` here), and
     Esc to close a menu before the dialog under it; `logs.e2e.ts` checks
     the keys.
+  - Done (2026-11-25): `web/src/renderer/shell/widgets.ts`:
+    - `stepperHtml(spec)` (key, value, min, max or none, step, the
+      buttons' tooltips, label, axis letter, inline label, classes, locked
+      with a reason, strict) and one delegated `wireSteppers(root,
+      {set, restore?, refused?})`: a button steps the value shown, held to
+      the range (the press keeps its focus when the card is drawn again); a
+      field typed in is rounded and held to the range, or with `strict`
+      (a whole number in range, else `refused`) as the tilt card and the
+      editor's sizes had it; text that is no number, or Esc, puts the
+      field back (Esc only when the field differs, so a second Esc goes on
+      to close the dialog); Enter confirms; a field taken selects its text.
+      The ten templates moved over: the settings' number rows, widths and
+      new shape sizes (their ranges `rangeOf`, 12.1's), the editor's size
+      steppers, the tilt card's four, the piece card's count, range and
+      group copies (locked with the start/goal reason), the bulk range
+      dialog's two, and the run card's Keep every n-th and Limit (no upper
+      bound there, as before). Each card's own parsing and clamping is
+      gone; `parseWhole` (`state/tilted.ts`) went into the strict check.
+      The data names are one: `.step[data-step=<key>]`, buttons
+      `[data-sd=±1]`, the field `input.v`; the e2e specs' selectors moved
+      with them (files, puzzle, entities, tilted, frozen, rebuild,
+      sliding, solver).
+    - `switchHtml(spec)` for the switches drawn by code (settings, run
+      card, tilt card, border card, inspector, piece card's range), and
+      `pressSwitch`, which `keyboard.ts` calls first (a capture listener):
+      Space or Enter on a focused `[role=switch]` clicks it (not on a key
+      repeat). The eight keydown handlers are gone; the static switch of
+      `index.html` (Apply to all shapes) is served by it too. Fork note:
+      12.10's session made Space a key action of its own (`play`) and
+      Enter alone `activate`, so `play/workspace.ts` checks no `e.key`
+      (`keys.test.ts`, the keymap, shapes, solver, play and stack-play
+      specs pass).
+    - `renameInPlace` for the problems list and the shapes list;
+      `listKeys(key, at, n, wrap)` for the cache manager, the New dialog's
+      grid list and the popover; `keysHtml(query)` (with `kbKeys`,
+      `kbRowHtml`, moved from `settings.ts`) for the settings dialog's
+      page and search and Help ▸ Keyboard Shortcuts (the settings search
+      now shows the matching shortcuts under their groups).
+    - One color picker: the hidden `#shapeColorPick` and
+      `#borderColorPick` inputs are gone; a shape's Color… and the tray
+      border's swatch open `color-picker.ts` by the row or the swatch,
+      Restore Default being Default color. A popover pick that opens the
+      popover again (Color… opening the picker) keeps it open
+      (`popover.ts`).
+    - From 6.4: the log manager's Export… is the popover's now. The
+      popover is drawn above the dialogs (`z-index` 95 over the dialogs'
+      90), takes the arrow keys (round at the ends), Home, End and Tab
+      (back to its button) before the dialog when a button of it has the
+      focus (its fields keep theirs), and Esc closes a dialog's menu
+      before the dialog (a step at `ESC_ORDER.dialog - 4`, for a popover
+      whose button is inside a dialog); a dialog opened closes the popover.
+      The menu's own code, `closeChoices` and `.lf-pop` are gone.
+    - Tests: `logs.e2e.ts` (+ the keys: Down, Down round to the first, Up,
+      Tab back to Export with the dialog open), seen failing on a build
+      without the popover's key handler; `shapes.e2e.ts` and
+      `tray-border.e2e.ts` pick through the picker's field. The entities,
+      puzzle, solver, keys, keymap, logs, shapes, tray-border, tilted,
+      sliding, stacking, files, frozen, rebuild and tooltips specs pass.
 
-- [ ] **12.6 Menu commands from one table; the shell's helpers once** (combine; S)
+- [x] **12.6 Menu commands from one table; the shell's helpers once** (combine; S)
   - *Where:*
     - `web/src/renderer/shell/menus.ts` (64-98, 232-305: 17 identical switch
       cases) and `shell/app.ts` (272-362: 25 commits, mostly wiring).
@@ -5529,8 +5705,28 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
     - One Save-changes question, one overwrite-and-write loop and one export
       dispatch.
   - *Tests:* `app.test.ts`; the files and exports e2e specs.
+  - Done (2026-11-25):
+    - `MenuHandlers` is a mapped type over the command names: every
+      `AppCommandName` but the keyed ones (`AS_KEY`, now
+      `as const satisfies`) and the three the menus do themselves
+      (colorView, style, theme) needs a handler taking its own command, so
+      a command added to `AppCommand` fails the build until it has one;
+      `run` is `this.commands[c.cmd](c)` over one table (the 17-case switch
+      is gone). The workspaces' answers (animation, the Solver's problem,
+      Play's history, the engine's failure) are `MenuQueries`, apart.
+    - `shell/paths.ts`: `baseName` (the six copies gone) and `puzzleStem`
+      (the five `.xmpuzzle` stems). `Store.documentName` is the name the
+      top bar, `Files.name` and the rescue copy use.
+    - One Save-changes question (`Files.askSave`, for Open/New and for
+      closing the window), one overwrite-and-write loop
+      (`writeStlFiles`, for Export STL… with several shapes and for the
+      solution's pieces), one export dispatch (`fileExport` in `app.ts`, a
+      `Record<FileExport, …>` the menus and the Solver's Export menu call).
+    - Tests: `app.test.ts` passes (it clicks every menu item); the files,
+      exports, imports and windows e2e specs pass. No new test: the
+      compiler checks the table.
 
-- [ ] **12.7 Solver and Play rules in one place** (combine; S)
+- [x] **12.7 Solver and Play rules in one place** (combine; S)
   - *Where:*
     - File ▸ Export's enabling: `shell/menus.ts:191-195`, `shell/app.ts:69-73`
       and `solver/solutions-card.ts:486-489`.
@@ -5544,8 +5740,25 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
     - `problemPieces` and the quiet-error test are 6.13.
   - *Change:* one export each, in the module that owns the idea.
   - *Tests:* the solver unit tests and solver e2e specs.
+  - Done (2026-11-25):
+    - File ▸ Export's enabling: `exportsAllowed(snapshot, animation)` and
+      `animationOf(player)` in `export/exports.ts` (with `FileExport`,
+      moved there): the menus' state and the Solver's Export menu use them
+      (`app.ts`' `animationSource` is `animationOf`).
+    - The solver names with their fallbacks: `brickSolvers`,
+      `slidingSolver`, `stackingSolverLabel` and `solverLabel` in
+      `solver/settings.ts`, for the workspace's Activity line and the run
+      card.
+    - "Ready to solve": `SolverWorkspace.readyToSolve`, which the Activity
+      line and the run card's Solve use.
+    - `stateOf`: `Solves.stateOf(problem, snapshot)`; the workspace's and
+      the autosave's call it.
+    - The transport glyphs: `TRANSPORT` in `shell/icons.ts`, for the
+      Solver's player and Play.
+    - Tests: the solver, sliding, stacking, journal and tilted unit tests;
+      the solver, sliding, stacking, play and stack-play e2e specs pass.
 
-- [ ] **12.8 The front end's grid and tool rules in one place** (combine, trap; S)
+- [x] **12.8 The front end's grid and tool rules in one place** (combine, trap; S)
   - *Where:*
     - The cube-grid test (bricks, sliding, stacking) is written six times:
       `entities/workspace.ts:67`, `entities/edit3d.ts:41`,
@@ -5578,8 +5791,54 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
     `gridExtent`, either goes or is checked against it in
     `web/tests/engine`; `isCubeGrid()` can then come from `engine.info`
     too.
+  - Done (2026-11-25):
+    - One `isCubeGrid()` beside `gridExtent` (`view3d/extent.ts`), from a
+      `Record<Grid, boolean>` (a new grid fails the build until it has its
+      row), for the six copies (`entities/workspace.ts`, `edit3d.ts`,
+      `grid2d.ts`, `view3d/overlays.ts`, `view.ts` twice);
+      `entities/workspace.ts` uses `overlays.ts`' `layerAxis`.
+    - The checker colors are `--tcellA` and `--tcellB` on `:root` (the
+      same in both themes); `CELL_RGB` is gone: `checkerBlocks` and
+      `CheckerCells.geometry` take the colors, which the view reads with
+      `css()` and passes through `TrayScene.setCellColors`.
+    - `TOOLS` has an `action` (a KeyAction); `installKeys` registers
+      `t.action` (reordering `TOOLS` no longer remaps the keys), and the
+      key badges and tooltips come from `keyLabel()` beside
+      `accelerator()` in `keys.ts`, the view toolbar's O, P and E too.
+    - From 11.3 (an engine addition, its own `Engine:` commit):
+      `engine.info` sends for each grid `cubeLike` (GridTraits'),
+      `cellToMesh` (a 3x3 matrix) and `extent` ({unit, matrix, offset}: the
+      size is offset + matrix · ceil(size/unit)), from a new core
+      `mesh::spaceRule(GridKind)`, a switch without default.
+      `calculateSize` and `recalcSpaceCoordinates` are left as they were
+      (rewriting them over the table could move a float: rule 3); a new
+      C++ case holds the rule to both on every grid of `kAllGrids` (250
+      sizes, 99 cells). Decided: `extent.ts` stays, as a client copy the
+      view needs at once and the unit and e2e tests use without an
+      engine, checked against `engine.info` by the new
+      `web/tests/engine/extent.test.ts` (`gridExtent`, `cellToMesh`,
+      `isCubeGrid` on every grid); the contract test checks the cube-like
+      set and the rules of the cube and cut grids.
+    - Tests: `keys.test.ts` (`keyLabel`, each tool's label presses its
+      action); `view3d.test.ts` (+1: every `css('--x')` under
+      `src/renderer` is defined in `styles.css`, comments stripped). Seen
+      failing: the C++ case with the prisms' offset changed; the engine
+      test with prisms marked cube-like and with the prisms' rule broken;
+      the token test with `--tcellB` renamed. Gates (that session):
+      `just build release` and `dev`, `just test-all` 75 of 75, `just
+      test` three times (one run failed in the contract suite, below),
+      contract and api-docs, `just check` on the three C++ files,
+      `just app-gen` current; the entities, sliding, stacking, puzzle,
+      view, tilted, picking, explore, solver, keys, tray-border, shapes,
+      play, stack-play and exports specs and `perf.e2e.ts` alone pass.
+    - Seen there, not this item's: the contract case `solving_session`
+      sometimes finds `explore.node` succeeding on a node after
+      `explore.prune(child)` where it expects `not_found` (twice with this
+      work; once in 12 runs on 6bc6bc7, HEAD, built apart): a flake of
+      11.9's or checkpoint E's movement browser change, left for its own
+      fix (stage 15 or 18).
 
-- [ ] **12.9 One shared mesh loader** (combine; M; after 6.10)
+- [x] **12.9 One shared mesh loader** (combine; M; after 6.10)
   - *Where:* `web/src/renderer/view3d/view.ts` (858-926, 949-1068),
     `view3d/trays.ts` (132-301) and `view3d/board.ts` (271-365).
     `disposeBuilt` is copied at `view.ts:1686`, `trays.ts:323` and
@@ -5600,8 +5859,31 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
   - *Tests:* `sliding.e2e.ts` (`data-tray`), `stacking.e2e.ts`
     (`data-board`), `puzzle.e2e.ts`, `perf.e2e.ts` (exactly one build when a
     shape is selected).
+  - Done (2026-11-25): `web/src/renderer/view3d/shape-meshes.ts`:
+    `ShapeMeshes` hands out one built copy of a shape mesh per
+    (generation, shape, style, shape revision), as counted leases; the
+    mesh is freed with its last lease, even when all went back while it was
+    being built, and a failed request is not kept. `MeshSlot` is one
+    asker's place: each load makes the earlier stale, a stale load gives
+    its leases back unshown, `load(asks, show)` shows and then releases
+    what was shown before, `clear(show)` empties it. The shape view and the
+    pieces scene (`view.ts`), `trays.ts` and `board.ts` use it: their
+    counters, stale checks and three `disposeBuilt` copies are gone, and
+    `ShapeScene.setMesh` no longer frees what it is given (the lease's
+    owner does). The pieces scene's retry on `superseded` stays (checked
+    with `MeshSlot.loads`); perf.e2e's one build stays measured
+    (`MeshAsk.built`). `disposeBuilt` is exported from `mesh.ts` and used
+    in `solver/player.ts` (three), `live-preview.ts` (two), the explorer
+    (its own method is `freeBuilt` now) and `stl-preview.ts`; playback
+    and turned meshes stay with their owners (not shape meshes at a
+    revision). `svg.ts` still frees by hand: it reads the marks between
+    the two frees. Test: `web/tests/engine/shape-meshes.test.ts` (one
+    build for two askers, freed with the last lease, an overtaken load
+    given back unshown, two slots sharing one copy), seen failing with
+    sharing off. `sliding.e2e.ts`, `stacking.e2e.ts`, `puzzle.e2e.ts` and
+    `perf.e2e.ts` pass.
 
-- [ ] **12.10 The two play boards share their frame code** (combine, trap; M)
+- [x] **12.10 The two play boards share their frame code** (combine, trap; M)
   - *Where:*
     - Copies in `web/src/renderer/play/board.ts` (182-224, 262-314, 816-838)
       and `play/stack-board.ts` (77-111, 174-223, 479-498):
@@ -5621,8 +5903,28 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
     - One `toggleButton` helper.
     - `PlayBoard.offsetOf(i)` instead of the regex.
   - *Tests:* the play and stack-play e2e and unit tests.
+  - Done (2026-11-25): `play/board-shell.ts`: `BoardShell<D>`, the
+    boards' base: the frame's ResizeObserver (busy notes `resized`, else
+    `fit()`), the pointer wiring, `busy` and `stop()`, `animateFor(ms, at)`
+    (the frame loop, its easing, `data-anim`, the catch-up redraw),
+    `endDrag()` and `cancelDrag()` (calling `dropped()`), `translate(x, y)`
+    (the one writer of a group's transform) and `toggleButton(id, pressed,
+    {pressed, released})`. `PlayBoard` and `StackBoard` keep their hooks
+    (`fit`, `redraw`, `dropped`; PlayBoard's `endDrag` drops its classes).
+    Decided: `PlayBoard.transformAt(at, shift)` in place of
+    `offsetOf(i)`, so the format is written in one function; the goal
+    picture puts each copied piece at its goal place directly, no longer
+    parsing the transform. `stack-board.ts` had a second copy of the
+    regex (a drag's start): it comes from `discAt` now. The seven toggle
+    buttons (five in `sliding.ts`, two in `stacking.ts`) use
+    `toggleButton`, with the same words, icons and aria-pressed. Test:
+    `play.e2e.ts`' Show Goal Image checks the goal picture's piece at the
+    board's goal cell, seen failing with `transformAt`'s y off by a cell
+    (a refactor: the old code passes it too); the frame code is covered by
+    the drag, click and playback specs. The play, stack-play, keymap,
+    shapes, solver, sliding, stacking and view specs pass.
 
-- [ ] **12.11 Small copies outside the renderer** (combine; S)
+- [x] **12.11 Small copies outside the renderer** (combine; S)
   - *Where:*
     - The binary location rule (the `.exe` suffix, plus
       `build/<preset>/{engine,cli}/`) is written in seven places:
@@ -5651,8 +5953,29 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
     - `inputsHash` in a small module that `site/tests` can import.
     - One version pattern.
   - *Tests:* `dist.test.ts` and the unit tests that use them.
+  - Done (2026-11-25):
+    - `web/src/engine/base64.ts` (`toBase64`, `fromBase64`) for the copies
+      in `recorder.ts`, `store.ts`, `piece-images.ts` (and `blobBase64`'s
+      inline one), `image-dialog.ts`, app-bridge's `goalPage` and
+      `exports.ts`' `dataUrlBytes`.
+    - The binary rule in `main/engine-path.ts`: `programFile` (`.exe` on
+      Windows), `builtProgram` (`build/<preset>/{engine,cli}/`),
+      `sameBuild`, `DEV_PRESETS`, `findProgram`, `findEngine`;
+      `cli-tool.ts`, `tools/dist.ts` and `tests/helpers/engine-path.ts`
+      use it (the test helper's engine now has `.exe` on Windows). The
+      other places the item names had taken that helper in stage 8.
+    - `inputsHash` and `DEMO_INPUTS` in `web/tools/inputs-hash.ts`, which
+      `build-demo.ts` and `site/tests/demo.test.mjs` import (Node strips
+      the types).
+    - One version pattern: `updates.ts`' `VERSION_PATTERN`, used by
+      `project-version.ts`.
+    - Tests: `dist.test.ts` and `cli-tool.test.ts` use `programFile`;
+      `solver-replay.test.ts` and `store.test.ts` pass. `just site-demo
+      --check` rebuilt the demo after the stage's last source edit, and
+      `just site-build` passes (8 of 8, the demo's hash through the shared
+      module among them).
 
-- [ ] **12.12 Status colors as tokens** (combine; S)
+- [x] **12.12 Status colors as tokens** (combine; S)
   - *Where:* `styles.css` and the TS that writes colors. `var(--warn,#c80)`
     names a token that is never defined. The status colors are literals
     (#2e8b57 three times, #c02828 twice, five different oranges) with no dark
@@ -5660,6 +5983,25 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
   - *Change:* `--ok`, `--warn` and `--error` on `:root`, with dark theme
     values; replace the literals.
   - *Tests:* the screenshot tests, light and dark.
+  - Done (2026-11-25): `--ok` (#2e8b57, dark #4bd17f), `--warn`
+    (#b45309, dark #e8820c) and `--error` (`var(--danger)`, so its dark
+    value) in the theme block, with dark values in both dark blocks; two
+    banner fills, `--okFill` and `--errorFill`, the same in both themes,
+    under white text. Replaced: the three #2e8b57, the two #c02828, the
+    five oranges and the undefined `var(--warn,#c80)`, the two #dc2626
+    error texts, the ok uses of `var(--ay)`, and in TS `cli-tool.ts`' and
+    `stacks-card.ts`' colors. Left on purpose: `.lf-lv-info` (a level, not
+    a status), the New dialog's green and blue (highlights). Seen
+    changing: in the light theme the ok icons are #2e8b57 (were #2fa85a)
+    and the warnings one orange; in the dark theme the status texts are
+    readable now. Test: `tests/unit/renderer/css-tokens.test.ts` walks
+    every `.ts`, `.css` and `.html` file under `src/renderer`: every
+    `var(--x)` is set (the sheet, an inline style or `setProperty`; names
+    made at run time listed), the two dark blocks are the same, every
+    light token has a dark value or is listed with its reason; seen
+    failing with HEAD's sheet. The screenshot specs (sliding, stacking,
+    view) pass unchanged; there are light references only, so the dark
+    colors were not compared on screen.
 
 **Gates for stage 12:** `just app-check`, `just app-test`, the e2e specs the
 items name, the screenshot tests, `just site-build` (12.11's demo hash).
@@ -5792,7 +6134,8 @@ each moved area, the screenshot tests (light and dark).
     - From the BurrTools 2 removal (ef67313): `Edits.solves`
       (`state/edits.ts:18-24`) and `SolveRecord.solver` (`state/solves.ts:72`,
       200).
-    - `SLIDING_ONLY` and `STACKING_BOXES`, unless 12.1 uses them;
+    - `SLIDING_ONLY` and `STACKING_BOXES`, unless 12.1 uses them (12.1
+      removed them, with `SLIDING_BOXES`);
       `PROBLEM_CHIP` (`puzzle/counts.ts:17`); `logsViewable`
       (`shell/dialog.ts:97`).
     - `bt_busy` (`engine/wasm_main.cpp`), if 11.10 has not removed it.

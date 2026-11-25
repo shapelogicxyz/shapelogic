@@ -170,13 +170,13 @@ for (const grid of GRIDS) {
       // original's (a tetrahedra-octahedra shape of 4 cells shows 2 blocks of 3)
       const blocks = async (id: string): Promise<number[]> =>
         (await shapeGet(page, id)).shape.size.map((v) => Math.ceil(v / unit));
-      await expect(page.locator('#sizeSteppers .v[data-v="0"]')).toHaveValue(
+      await expect(page.locator('#sizeSteppers [data-step="0"] input')).toHaveValue(
         String((await blocks(s1))[0]),
       );
       if (grid === 'spheres') {
         // a layer of 3 by 3 spheres has no chain of 4 that touch: 5 by 5
         for (const d of [0, 0, 1, 1]) {
-          await page.click(`#sizeSteppers [data-d="${d}"][data-s="1"]`);
+          await page.click(`#sizeSteppers [data-step="${d}"] [data-sd="1"]`);
           await settled(page);
         }
       }
@@ -347,7 +347,7 @@ for (const grid of GRIDS) {
       const sz = async (id: string): Promise<Cell> => (await shapeGet(page, id)).shape.size;
       const s2size = await sz(s2);
       const b1 = await blocks(s1);
-      await page.click('#sizeSteppers [data-d="0"][data-s="1"]');
+      await page.click('#sizeSteppers [data-step="0"] [data-sd="1"]');
       await settled(page);
       expect((await sz(s1))[0]).toBe(((b1[0] ?? 0) + 1) * unit);
       expect(await sz(s2)).toEqual(s2size);
@@ -355,7 +355,7 @@ for (const grid of GRIDS) {
       await page.click('#applyAll');
       await expect(page.locator('#applyAll')).toHaveClass(/\bon\b/);
       const y0 = (await sz(s1))[1];
-      await page.click('#sizeSteppers [data-d="1"][data-s="1"]');
+      await page.click('#sizeSteppers [data-step="1"] [data-sd="1"]');
       await settled(page);
       const y1 = ((b1[1] ?? 0) + 1) * unit;
       expect((await sz(s1))[1]).toBe(y1);
@@ -363,7 +363,7 @@ for (const grid of GRIDS) {
       const s2y = unit * Math.ceil((s2size[1] + (y1 - y0)) / unit);
       expect((await sz(s2))[1]).toBe(s2y);
       // shrinking: this one only, the others never shrink
-      await page.click('#sizeSteppers [data-d="1"][data-s="-1"]');
+      await page.click('#sizeSteppers [data-step="1"] [data-sd="-1"]');
       await settled(page);
       expect((await sz(s1))[1]).toBe(y1 - unit);
       expect((await sz(s2))[1]).toBe(s2y);
@@ -788,7 +788,7 @@ test('a very large grid fits the card and is offered the focus once a document',
   const a: App = await launch();
   const page = a.page;
   const size = async (axis: number, v: number): Promise<void> => {
-    const f = page.locator(`#sizeSteppers input[data-v="${String(axis)}"]`);
+    const f = page.locator(`#sizeSteppers [data-step="${String(axis)}"] input`);
     await f.fill(String(v));
     await f.press('Enter');
     await settled(page);

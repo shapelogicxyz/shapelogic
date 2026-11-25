@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest';
 import { FakeEngine } from '../../fake-engine/fake-engine.ts';
 import { loadRecording, loadTranscript } from '../../fake-engine/recordings.ts';
 import { EngineClient } from '../../src/engine/client.ts';
-import { fromBase64, toBase64 } from '../../src/engine/recorder.ts';
+import { fromBase64, toBase64 } from '../../src/engine/base64.ts';
 import type { Recording, RecordingEntry } from '../../src/engine/recorder.ts';
 import { Driver, SESSIONS } from '../../tools/sessions.ts';
 

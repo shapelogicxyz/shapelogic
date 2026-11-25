@@ -16,6 +16,8 @@
 import type { ShapeSummary, TrayBorder } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
+import { openColorPicker } from '../shell/color-picker.ts';
+import { switchHtml } from '../shell/widgets.ts';
 import { ic } from '../shell/icons.ts';
 import { chipColor, hex, isTray } from '../shell/piece-colors.ts';
 import { BORDER_MATERIALS, MAX_BORDER_THICKNESS, borderColor } from '../shell/tray-border.ts';
@@ -73,7 +75,13 @@ export class BorderCard {
       row(
         'Show tray border',
         'The tray’s edges round the floor, as on the Play tab',
-        `<div class="switch ${b.enabled ? 'on' : ''}" data-bon role="switch" tabindex="0" aria-checked="${String(b.enabled)}" title="${b.enabled ? 'Hide the tray’s border (its look is kept)' : 'Show the tray’s border in every view of the board'}"><span class="tr"></span></div>`,
+        switchHtml({
+          on: b.enabled,
+          data: { bon: '' },
+          tip: b.enabled
+            ? 'Hide the tray’s border (its look is kept)'
+            : 'Show the tray’s border in every view of the board',
+        }),
       );
     if (b.enabled) {
       const seg = (value: TrayBorder['corners'], text: string, tip: string): string =>
@@ -159,7 +167,6 @@ export class BorderCard {
 
   private install(): void {
     const body = byId('borderBody');
-    const pick = byId<HTMLInputElement>('borderColorPick');
     body.addEventListener('click', (e) => {
       const el = e.target as Element;
       const s = borderBoard(this.host.store);
@@ -179,17 +186,22 @@ export class BorderCard {
       } else if (corners !== null) {
         this.set({ corners: corners.dataset.bcorners === 'sharp' ? 'sharp' : 'round' });
       } else if (el.closest('[data-bcolor]') !== null) {
-        // the system's color picker, from the color shown
-        pick.value = hex(borderColor(s.border, chipColor(s, this.host.store.indexOf(s.id))));
-        pick.click();
+        // the color picker, from the color shown; Restore Default is the Default button's
+        openColorPicker(el.closest('[data-bcolor]') ?? el, {
+          rgb: hex(borderColor(s.border, chipColor(s, this.host.store.indexOf(s.id)))),
+          onPick: (rgb) => {
+            this.set({ color: rgb });
+          },
+          onDefault: () => {
+            this.set({ color: null });
+          },
+          isDefault: s.border.color === null,
+        });
       } else if (el.closest('[data-bimage]') !== null) {
         this.host.editImage();
       } else if (el.closest('[data-bdefault]') !== null) {
         this.set({ color: null });
       }
-    });
-    pick.addEventListener('change', () => {
-      this.set({ color: pick.value.toLowerCase() });
     });
     body.addEventListener('change', (e) => {
       const v = (e.target as Element).closest<HTMLSelectElement>('select[data-bvoxels]');
@@ -206,15 +218,6 @@ export class BorderCard {
         if (m !== undefined) {
           this.set({ material: m });
         }
-      }
-    });
-    body.addEventListener('keydown', (e) => {
-      if (
-        (e.key === ' ' || e.key === 'Enter') &&
-        (e.target as Element).closest('[data-bon]') !== null
-      ) {
-        e.preventDefault();
-        this.toggle();
       }
     });
   }

@@ -16,8 +16,8 @@
 import type { Tray, TraySettings } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
-import { ic } from '../shell/icons.ts';
 import { flash } from '../shell/status.ts';
+import { stepperHtml, switchHtml, wireSteppers } from '../shell/widgets.ts';
 import {
   ALLOWANCE_MAX,
   ALLOWANCE_ON,
@@ -27,7 +27,6 @@ import {
   degreesText,
   isTiltBoard,
   parseAllowance,
-  parseWhole,
   sizeText,
   slopeText,
   unfitIds,
@@ -107,7 +106,17 @@ export class TiltCard {
       max: number,
       tip: string,
     ): string =>
-      `<div class="step"><button data-tk="${key}" data-d="-1" ${value <= min ? 'disabled' : ''} title="${esc(tip)} −1">${ic('minus', 12)}</button><input class="v" data-tf="${key}" value="${String(value)}" aria-label="${esc(tip)}" inputmode="numeric"><button data-tk="${key}" data-d="1" ${value >= max ? 'disabled' : ''} title="${esc(tip)} +1">${ic('plus', 12)}</button></div>`;
+      // a value typed out of the range is refused and told, not held to it
+      stepperHtml({
+        key,
+        value,
+        min,
+        max,
+        less: `${tip} −1`,
+        more: `${tip} +1`,
+        label: tip,
+        strict: true,
+      });
     const row = (label: string, small: string, control: string, sub = false): string =>
       `<div class="row2${sub ? ' sub' : ''}"><div class="t">${label}<small>${small}</small></div>${control}</div>`;
     const on = t.allowance > 0;
@@ -130,7 +139,13 @@ export class TiltCard {
         row(
           'Keep square',
           'The width and the height change together',
-          `<div class="switch ${linked ? 'on' : ''}" data-tlink role="switch" tabindex="0" aria-checked="${String(linked)}" title="${linked ? 'Set the width and the height each on its own: a rectangular tray' : 'Make the tray square (the height takes the width) and keep it so'}"><span class="tr"></span></div>`,
+          switchHtml({
+            on: linked,
+            data: { tlink: '' },
+            tip: linked
+              ? 'Set the width and the height each on its own: a rectangular tray'
+              : 'Make the tray square (the height takes the width) and keep it so',
+          }),
           true,
         ) +
         row(
@@ -147,7 +162,13 @@ export class TiltCard {
         row(
           'Allowance',
           'Let a cell reach a little past the tray’s edge or into a wall, as a real tray’s slack does',
-          `<div class="switch ${on ? 'on' : ''}" data-tallow role="switch" tabindex="0" aria-checked="${String(on)}" title="${on ? 'Strict: every cell wholly inside the tray' : `Allow ${String(this.lastAllowance)} of a cell past the edge`}"><span class="tr"></span></div>`,
+          switchHtml({
+            on,
+            data: { tallow: '' },
+            tip: on
+              ? 'Strict: every cell wholly inside the tray'
+              : `Allow ${String(this.lastAllowance)} of a cell past the edge`,
+          }),
         ) +
         (on
           ? row(
@@ -214,24 +235,6 @@ export class TiltCard {
     }
     const v = input.value;
     switch (key) {
-      case 'width':
-      case 'height':
-      case 'over':
-      case 'down': {
-        const side = key === 'width' || key === 'height';
-        const min = side ? 1 : key === 'over' ? Math.max(1, t.down) : 0;
-        const max = key === 'down' ? t.over : key === 'over' ? SLOPE_MAX : TRAY_MAX;
-        const n = parseWhole(v, min, max);
-        if (n === null) {
-          flash(
-            `${key === 'width' ? 'Width' : key === 'height' ? 'Height' : key === 'down' ? 'Down' : 'Over'}: a whole number from ${String(min)} to ${String(max)}`,
-          );
-          this.redraw();
-        } else if (n !== t[key]) {
-          this.set(this.change(key, n));
-        }
-        return;
-      }
       case 'allowance': {
         const a = parseAllowance(v);
         if (a === null) {
@@ -296,15 +299,25 @@ export class TiltCard {
 
   private install(): void {
     const body = byId('tiltBody');
+    // the sides and the slope: stepped, or typed (a whole number in range, else told)
+    wireSteppers(body, {
+      set: (k, v) => {
+        const key = k as 'width' | 'height' | 'over' | 'down';
+        if (this.tray !== null && v !== this.tray[key]) {
+          this.set(this.change(key, v));
+        }
+      },
+      refused: (k, min, max) => {
+        flash(
+          `${k.charAt(0).toUpperCase()}${k.slice(1)}: a whole number from ${String(min)} to ${String(max)}`,
+        );
+      },
+      restore: () => {
+        this.redraw();
+      },
+    });
     body.addEventListener('click', (e) => {
       const el = e.target as Element;
-      const b = el.closest<HTMLButtonElement>('button[data-tk]');
-      const t = this.tray;
-      if (b !== null && !b.disabled && t !== null) {
-        const key = b.dataset.tk as 'width' | 'height' | 'over' | 'down';
-        this.set(this.change(key, t[key] + Number(b.dataset.d)));
-        return;
-      }
       if (el.closest('[data-tplaces]') !== null) {
         this.host.openPlacements();
       } else if (el.closest('[data-tallow]') !== null) {
@@ -327,13 +340,7 @@ export class TiltCard {
     });
     body.addEventListener('keydown', (e) => {
       const el = e.target as Element;
-      if ((e.key === ' ' || e.key === 'Enter') && el.closest('[data-tallow]') !== null) {
-        e.preventDefault();
-        this.toggleAllowance();
-      } else if ((e.key === ' ' || e.key === 'Enter') && el.closest('[data-tlink]') !== null) {
-        e.preventDefault();
-        this.toggleLink();
-      } else if (e.key === 'Enter' && el.matches('input[data-tf]')) {
+      if (e.key === 'Enter' && el.matches('input[data-tf]')) {
         (el as HTMLInputElement).blur();
       }
     });

@@ -59,7 +59,6 @@ import {
   clipboard,
   crashReporter,
   dialog,
-  ipcMain,
   Menu,
   net,
   protocol,
@@ -100,7 +99,7 @@ import type {
 } from '../engine/app-bridge.ts';
 import { NodeTransport } from '../engine/node-transport.ts';
 import { EngineStartError } from '../engine/spawn-failure.ts';
-import { installAppIpc, openHelp } from './app-ipc.ts';
+import { installAppIpc, openHelp, post } from './app-ipc.ts';
 import {
   AppLog,
   EngineLines,
@@ -126,11 +125,11 @@ import {
 } from './diagnostics.ts';
 import type { RunTool } from './diagnostics.ts';
 import { ENGINE_HASH_FILE, sha256File } from './engine-hash.ts';
-import { engineFile, findEngine } from './engine-path.ts';
+import { findEngine, programFile } from './engine-path.ts';
 import { writeFileSafely } from './export-file.ts';
 import { EngineHost } from './engine-host.ts';
-import { serveEngine } from './engine-ipc.ts';
-import type { CallOutcome } from './engine-ipc.ts';
+import { serveEngine } from '../engine/serve.ts';
+import type { CallOutcome } from '../engine/serve.ts';
 import { menuTemplate, NO_STATE } from './menu.ts';
 import { gpuAction, probeFailure, retryArgs, WEBGL2_PROBE } from './gpu-check.ts';
 import { engineHashLine, healthReport } from './health.ts';
@@ -154,8 +153,12 @@ import { failureText, stderrLine } from '../engine/start-diagnosis.ts';
 import { STARTUP_LINE_WAIT_MS, startupText } from './startup-line.ts';
 import type { StartupTimes } from './startup-line.ts';
 import { StateStore } from './state-store.ts';
+import type { PrefKey } from '../renderer/shell/prefs.ts';
 
 const APP_NAME = 'ShapeLogic';
+
+/** The renderer's setting of the log's debug lines, read from the stored settings by name. */
+const DEBUG_LOG = 'debugLog' satisfies PrefKey;
 /** The project's version (CMakeLists.txt's, put in at build): the app's and its engine's. */
 const VERSION = __BT_VERSION__;
 /** The web/ directory, where development looks for the repository's engine builds. */
@@ -271,7 +274,7 @@ let quitting = false;
 const owners = new PathOwners<number>((id, readOnly) => {
   const c = windows.get(id)?.win.webContents;
   if (c !== undefined && !c.isDestroyed()) {
-    c.send('bt:read-only', readOnly);
+    post(c, 'bt:read-only', readOnly);
   }
 });
 /** How far a new window is put from the focused one, right and down. */
@@ -432,7 +435,7 @@ function send(w: WindowState, command: AppCommand): void {
       // a file the menus or the system opened with the app
       paths.grant(w.win.webContents, command.path);
     }
-    w.win.webContents.send('bt:command', command);
+    post(w.win.webContents, 'bt:command', command);
   }
 }
 
@@ -808,7 +811,7 @@ function createWindow(first?: AppCommand): void {
           which: 'version',
           code: 'NO_ENGINE',
           message,
-          path: join(process.resourcesPath, engineFile(process.platform)),
+          path: join(process.resourcesPath, programFile('shapelogic_engine', process.platform)),
           afterMs: 0,
         });
       }
@@ -885,7 +888,7 @@ function createWindow(first?: AppCommand): void {
       host,
       (message) => {
         if (!contents.isDestroyed()) {
-          contents.send('bt:message', message);
+          post(contents, 'bt:message', message);
         }
       },
       logCall,
@@ -1034,7 +1037,7 @@ function createWindow(first?: AppCommand): void {
   contents.on('did-finish-load', () => {
     // a reload: the page is told again that its file is read-only
     if (owners.readOnly(id)) {
-      contents.send('bt:read-only', true);
+      post(contents, 'bt:read-only', true);
     }
   });
   contents.once('did-finish-load', () => {
@@ -1069,10 +1072,6 @@ function createWindow(first?: AppCommand): void {
     void win.loadURL(appUrl('index.html', query));
   }
 }
-
-ipcMain.on('bt:call', (event, call: unknown) => {
-  servers.get(event.sender.id)?.receive(call);
-});
 
 /** A puzzle or paused-solve file given on the command line (Windows, Linux). */
 function argFiles(): string[] {
@@ -1277,7 +1276,7 @@ void app.whenReady().then(async () => {
       appLog.warn('app', 'Settings Not Stored', message);
     },
   });
-  logDebug = store.prefs?.debugLog === true;
+  logDebug = store.prefs?.[DEBUG_LOG] === true;
   appLog = new AppLog(join(app.getPath('userData'), 'logs'), { debug: logDebug });
   appLog.info(
     'app',
@@ -1361,6 +1360,9 @@ void app.whenReady().then(async () => {
     store,
     rescue,
     engine: (sender) => hosts.get(sender.id) ?? null,
+    engineCall: (sender, request) => {
+      servers.get(sender.id)?.receive(request);
+    },
     paths,
     owners,
     version: VERSION,
@@ -1378,7 +1380,7 @@ void app.whenReady().then(async () => {
     log: appLog,
     background: env.background === true,
     prefsChanged: (prefs) => {
-      setLogDebug(prefs.debugLog === true);
+      setLogDebug(prefs[DEBUG_LOG] === true);
     },
     window: (sender) => windows.get(sender.id)?.win ?? null,
     setMenu: (sender, state) => {

@@ -4,10 +4,14 @@
 // docs/mockup/index.html: `openPop`, `openPopAt`, `closePop`, the click
 // handler (a button with data-keep keeps it open) and the mousedown that
 // closes it from outside. The stage is the window here (the mockup scaled
-// a 1600 x 1000 board), so positions are the window's.
+// a 1600 x 1000 board), so positions are the window's. It is drawn above
+// the dialogs, so a dialog's menu is one too (the log manager's Export…):
+// it takes the arrow keys and Tab before the dialog, and Esc closes a
+// dialog's menu before the dialog.
 
 import { byId } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
+import { listKeys } from './widgets.ts';
 
 type Pick = (key: string, button: HTMLButtonElement) => void;
 
@@ -53,6 +57,16 @@ export function openPop(anchor: Element, html: string, onPick: Pick, above = fal
   place(r.left, r.bottom + 6, above ? r.top : null);
 }
 
+/** Whether the popover is open for an element (a second press of its button closes it). */
+export function popOpenFor(anchor: Element): boolean {
+  return popOpen() && owner === anchor;
+}
+
+/** Moves the focus to the popover's first button (a menu opened from the keyboard). */
+export function focusPop(): void {
+  pop().querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+}
+
 /** Opens the popover at a point (a right-click). */
 export function openPopAt(x: number, y: number, html: string, onPick: Pick): void {
   const p = pop();
@@ -86,9 +100,34 @@ export function installPopover(): void {
       return;
     }
     const keep = b.dataset.keep !== undefined;
+    const was = cb;
     cb?.(b.dataset.k ?? '', b);
-    if (!keep) {
+    // a pick that opened the popover again (Color… opens the color picker) keeps it
+    if (!keep && cb === was) {
       closePop();
+    }
+  });
+  // its buttons by the arrow keys, Home and End; Tab leaves it for its button
+  p.addEventListener('keydown', (e) => {
+    // a field of the popover (the color picker's) keeps its keys
+    if ((e.target as Element).matches('input, select, textarea')) {
+      return;
+    }
+    const items = [...p.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = listKeys(e.key, at, items.length, true);
+    if (next !== null) {
+      e.preventDefault();
+      e.stopPropagation();
+      items[at < 0 && e.key === 'ArrowUp' ? items.length - 1 : next]?.focus();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      e.stopPropagation();
+      const back = owner;
+      closePop();
+      if (back instanceof HTMLElement) {
+        back.focus();
+      }
     }
   });
   document.addEventListener('mousedown', (e) => {
@@ -102,6 +141,18 @@ export function installPopover(): void {
       return false;
     }
     closePop();
+    return true;
+  });
+  // a dialog's menu closes before the dialog
+  addEscapeStep(ESC_ORDER.dialog - 4, () => {
+    if (!popOpen() || owner?.closest('.dlg-scrim, #scrim') == null) {
+      return false;
+    }
+    const back = owner;
+    closePop();
+    if (back instanceof HTMLElement) {
+      back.focus();
+    }
     return true;
   });
 }

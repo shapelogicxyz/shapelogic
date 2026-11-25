@@ -18,7 +18,7 @@ import type { EngineStatus } from '../../src/engine/client-types.ts';
 import { EngineError } from '../../src/engine/errors.ts';
 import { meshArrays } from '../../src/engine/frames.ts';
 import { EngineHost } from '../../src/main/engine-host.ts';
-import { serveEngine } from '../../src/main/engine-ipc.ts';
+import { serveEngine } from '../../src/engine/serve.ts';
 import { EngineProxy } from '../../src/renderer/engine-proxy.ts';
 import { checksum } from '../../tools/sessions.ts';
 import { settle, ScriptedTransport } from '../helpers/scripted-transport.ts';

@@ -54,8 +54,10 @@ export type KeyAction =
   | 'shape.earlier'
   | 'shape.later'
   | 'shape.rename'
-  /** Enter, Space: rename the shape (Enter, the list); play or pause; cycle a piece chip. */
+  /** Enter: rename the shape (the list); play or pause (the Solver); a step (an explorer); cycle a piece chip. */
   | 'activate'
+  /** Space: play or pause (the Solver, Play); a step (an explorer); cycle a piece chip. */
+  | 'play'
   /** ←, →: one move back or forward; the previous or next piece chip. */
   | 'move.back'
   | 'move.forward'
@@ -361,7 +363,8 @@ export const KEY_MAP: readonly KeyRow[] = [
     sub: 'focus on the solutions list, solution slider or move seekbar',
     keys: 'Space / Enter',
     does: 'Play / pause the disassembly',
-    chords: [{ chord: { key: ' ', code: 'Space' }, action: 'activate' }],
+    // Enter is the action `activate` of the Shapes row above
+    chords: [{ chord: { key: ' ', code: 'Space' }, action: 'play' }],
   },
   {
     group: 'Solver',
@@ -531,6 +534,16 @@ const ACCEL_KEYS: Readonly<Record<string, string>> = {
   '+': 'Plus',
   '-': '-',
 };
+
+/**
+ * The first chord of an action as a button's key badge or tooltip shows it
+ * ("1", "O", "Ctrl+S"); '' when the table has none. The tools' and the
+ * view's toolbar take theirs from here, so a key changed in the table
+ * changes its label too.
+ */
+export function keyLabel(action: KeyAction): string {
+  return accelerator(action)?.replace('CmdOrCtrl', 'Ctrl') ?? '';
+}
 
 /**
  * The first chord of an action as Electron writes an accelerator

@@ -438,6 +438,16 @@ test('Show Goal Image opens the board with each piece on its goal in a window of
     expect(svg).toMatch(/^<svg /);
     const pieces = [...svg.matchAll(/<g data-i="\d+"[^>]*data-at="([^"]+)"/g)].map((m) => m[1]);
     expect(pieces).toEqual(['2,1,0']);
+    // drawn where the board draws its goal's cell (the piece is one cell: its
+    // group's corner is the cell's lower left, y down)
+    const at = /<g data-i="\d+"[^>]*translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(svg);
+    const cell = await page.locator('#playBoard .pl-goal[data-at="2,1,0"]').evaluate((r) => ({
+      x: Number(r.getAttribute('x')),
+      y: Number(r.getAttribute('y')),
+      sc: Number(r.closest('svg')?.dataset.cell),
+    }));
+    expect(Number(at?.[1])).toBeCloseTo(cell.x, 1);
+    expect(Number(at?.[2])).toBeCloseTo(cell.y + cell.sc, 1);
     expect(svg).not.toContain('class=');
     expect(svg).not.toContain('<script');
     // the window goes with the app's: the menus still act on the app window

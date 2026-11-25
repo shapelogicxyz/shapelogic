@@ -65,6 +65,7 @@ describe('the schema subset', () => {
     $defs: {
       Id: { type: 'string', pattern: '^s[0-9]+$', description: 'An id.' },
       Kind: { enum: ['a', 'b', null] },
+      PaintStyle: { enum: ['dry', 'wet'] },
       One: { const: 'only' },
       MaybeId: { oneOf: [{ $ref: '#/$defs/Id' }, { type: 'null' }] },
       Count: { type: ['integer', 'null'], minimum: 0 },
@@ -132,6 +133,11 @@ describe('the schema subset', () => {
     expect(out).toContain('@pattern ^s[0-9]+$');
     expect(out).toContain("export type Kind = 'a' | 'b' | null;");
     expect(out).toContain("export type One = 'only';");
+    // a string enum's values as data (cleanup item 12.3); not an enum with null
+    expect(out).toContain(
+      "export const PAINT_STYLE_VALUES = ['dry', 'wet'] as const satisfies readonly PaintStyle[];",
+    );
+    expect(out).not.toContain('KIND_VALUES');
     expect(out).toContain('export type MaybeId = Id | null;');
     expect(out).toContain('export type Count = number | null;');
     expect(out).toContain('export type Triple = [number, number, number];');

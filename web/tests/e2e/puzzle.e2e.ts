@@ -170,13 +170,13 @@ test('CubeInCage’s problem built from an empty problem through the UI', async 
     await page.click('#pzSel [data-grp="1"]');
     p = await checkShown(page);
     expect(p.parts[1]?.groups).toEqual([{ group: 1, count: 2 }]);
-    await page.click('#pzSel [data-gc="-1"]');
+    await page.click('#pzSel [data-step^="group:"] [data-sd="-1"]');
     p = await checkShown(page);
     expect(p.parts[1]?.groups).toEqual([{ group: 1, count: 1 }]);
     await expect(page.locator('#pzGroups .pzg[data-g="1"] .ptile[data-u="s3"] .pb')).toHaveText(
       '×1',
     );
-    await page.click('#pzSel [data-gc="1"]');
+    await page.click('#pzSel [data-step^="group:"] [data-sd="1"]');
     await checkShown(page);
     await page.click('#pzGroups [data-delg="1"]');
     p = await checkShown(page);
@@ -312,10 +312,10 @@ test('DemoPieceGenerator’s piece range built through the UI', async () => {
     await page.click('#pzGrpHead');
     await page.click('#pzRangeAll');
     await expect(page.locator('#pzBulk')).toBeVisible();
-    await fillAndLeave(page, '#pzBulk [data-r="mx"]', '10');
-    await expect(page.locator('#pzBulk [data-r="mx"]')).toHaveValue('10');
-    await page.click('#pzBulk [data-r="mn+"]');
-    await page.click('#pzBulk [data-r="mn-"]');
+    await fillAndLeave(page, '#pzBulk [data-step="mx"] input', '10');
+    await expect(page.locator('#pzBulk [data-step="mx"] input')).toHaveValue('10');
+    await page.click('#pzBulk [data-step="mn"] [data-sd="1"]');
+    await page.click('#pzBulk [data-step="mn"] [data-sd="-1"]');
     await page.click('#pzBulk [data-x="apply"]');
     p = await checkShown(page);
     expect(p.parts.map((x) => [x.shape, x.min, x.max])).toEqual([
@@ -327,22 +327,22 @@ test('DemoPieceGenerator’s piece range built through the UI', async () => {
     await page.click('#pzRange');
     p = await checkShown(page);
     expect(p.parts[0]).toMatchObject({ min: 10, max: 10 });
-    await fillAndLeave(page, '#pzSel input[data-sf="max"]', '1');
+    await fillAndLeave(page, '#pzSel [data-step="max"] input', '1');
     p = await checkShown(page);
     expect(p.parts[0]).toMatchObject({ min: 1, max: 1 });
     // S2's minimum up and down by the selected piece's steppers
     await select(page, tile('s2'));
-    await page.click('#pzSel button[data-sf="min"][data-d="1"]');
+    await page.click('#pzSel [data-step="min"] [data-sd="1"]');
     p = await checkShown(page);
     expect(p.parts[1]).toMatchObject({ min: 1, max: 10 });
-    await page.click('#pzSel button[data-sf="min"][data-d="-1"]');
+    await page.click('#pzSel [data-step="min"] [data-sd="-1"]');
     await checkShown(page);
     // a fixed count shown as a range and back: no call, nothing changes
     await select(page, tile('s1'));
     await page.click('#pzRange');
-    await expect(page.locator('#pzSel button[data-sf="min"]').first()).toBeVisible();
+    await expect(page.locator('#pzSel [data-step="min"] button').first()).toBeVisible();
     await page.click('#pzRange');
-    await expect(page.locator('#pzSel button[data-sf="min"]')).toHaveCount(0);
+    await expect(page.locator('#pzSel [data-step="min"] button')).toHaveCount(0);
 
     const built = await problemGet(page, id);
     expect(definition(built)).toEqual(definition(want));
@@ -470,7 +470,7 @@ test('problems, color rules, the frozen problem, sliding and stacking puzzles', 
     await page.click(`#pop [data-k="${box}"]`);
     await checkShown(page);
     await select(page, lib(dom));
-    await fillAndLeave(page, '#pzSel input[data-sf="max"]', '24');
+    await fillAndLeave(page, '#pzSel [data-step="max"] input', '24');
     expect((await checkShown(page)).parts).toEqual([
       { shape: dom, min: 24, max: 24, groups: [], required: false, placed: 0 },
     ]);

@@ -17,6 +17,7 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 
 import type { Grid, Size } from '../../engine/api.generated.ts';
 import type { MeshArrays } from '../../engine/frames.ts';
+import { isCubeGrid } from './extent.ts';
 
 /** The editor's plane: XY is a z layer, XZ a y layer, YZ an x layer. */
 export type Plane = 'XY' | 'XZ' | 'YZ';
@@ -40,7 +41,7 @@ export function layerSlab(
   const ai = layerAxis(plane);
   const lo: V3 = [0, 0, 0];
   const hi: V3 = [...extent];
-  if (grid === 'bricks' || grid === 'sliding' || grid === 'stacking') {
+  if (isCubeGrid(grid)) {
     lo[ai] = layer;
     hi[ai] = layer + 1;
     return { lo, hi };

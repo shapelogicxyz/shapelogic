@@ -23,7 +23,7 @@ import { dirname, join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { engineFile, findEngine } from '../../src/main/engine-path.ts';
+import { findEngine, programFile } from '../../src/main/engine-path.ts';
 import { ENGINE_HASH_FILE, parseHashFile, sha256File } from '../../src/main/engine-hash.ts';
 import {
   binaryArch,
@@ -277,8 +277,22 @@ describe('where the app finds its engine', () => {
   const dir = mkdtempSync(join(tmpdir(), 'bt-find-'));
   const resources = join(dir, 'Resources');
   const web = join(dir, 'repo', 'web');
-  const dev = join(dir, 'repo', 'build', 'dev', 'engine', engineFile(process.platform));
-  const release = join(dir, 'repo', 'build', 'release', 'engine', engineFile(process.platform));
+  const dev = join(
+    dir,
+    'repo',
+    'build',
+    'dev',
+    'engine',
+    programFile('shapelogic_engine', process.platform),
+  );
+  const release = join(
+    dir,
+    'repo',
+    'build',
+    'release',
+    'engine',
+    programFile('shapelogic_engine', process.platform),
+  );
   const put = (p: string): void => {
     mkdirSync(resolve(p, '..'), { recursive: true });
     writeFileSync(p, '');
@@ -290,10 +304,10 @@ describe('where the app finds its engine', () => {
     expect(
       findEngine({ packaged: true, resources, webDir: web, engine: '/x/shapelogic_engine' }),
     ).toBeNull();
-    put(join(resources, engineFile(process.platform)));
+    put(join(resources, programFile('shapelogic_engine', process.platform)));
     expect(
       findEngine({ packaged: true, resources, webDir: web, engine: '/x/shapelogic_engine' }),
-    ).toBe(join(resources, engineFile(process.platform)));
+    ).toBe(join(resources, programFile('shapelogic_engine', process.platform)));
     expect(findEngine({ packaged: true, resources, webDir: web, platform: 'win32' })).toBeNull();
   });
 

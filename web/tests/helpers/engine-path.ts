@@ -10,11 +10,13 @@ import { copyFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 
+import { builtProgram } from '../../src/main/engine-path.ts';
+
 /** The repository's root. */
 export const ROOT = resolve(import.meta.dirname, '../../..');
 
 /** The release build's engine (it may not be built). */
-export const RELEASE_ENGINE = resolve(ROOT, 'build/release/engine/shapelogic_engine');
+export const RELEASE_ENGINE = builtProgram(ROOT, 'release', 'shapelogic_engine');
 
 /** BT_ENGINE (resolved) when set and not empty, else null. */
 export function engineFromEnv(): string | null {

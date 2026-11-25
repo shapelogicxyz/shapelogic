@@ -25,9 +25,17 @@ export const NOTES_MAX = 20_000;
 /** The fetch the check uses (Electron's session.fetch, or a stub). */
 export type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
 
+/**
+ * A version as a tag or the app names it, vX.Y[.Z] (the v and the .Z may
+ * be left out): the one pattern of the app and the tools
+ * (tools/project-version.ts; cleanup item 12.11), as CMake's
+ * (cmake/ProjectVersion.cmake).
+ */
+export const VERSION_PATTERN = /^v?(\d+)\.(\d+)(?:\.(\d+))?$/;
+
 /** A version's numbers (`v1.4` is [1, 4, 0]), or null when it is not vX.Y[.Z]. */
 export function parseVersion(v: string): [number, number, number] | null {
-  const m = /^v?(\d+)\.(\d+)(?:\.(\d+))?$/.exec(v.trim());
+  const m = VERSION_PATTERN.exec(v.trim());
   if (m === null) {
     return null;
   }

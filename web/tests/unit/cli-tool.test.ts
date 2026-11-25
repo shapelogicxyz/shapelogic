@@ -23,7 +23,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   appleScriptString,
-  cliFile,
   cliInfo,
   cliLink,
   findCli,
@@ -32,6 +31,7 @@ import {
   shellQuote,
   uninstallCli,
 } from '../../src/main/cli-tool.ts';
+import { programFile } from '../../src/main/engine-path.ts';
 
 let dir: string;
 let tool: string;
@@ -97,9 +97,9 @@ describe('finding the tool', () => {
   });
 
   it('is named per platform, and linked only on macOS for now', () => {
-    expect(cliFile('darwin')).toBe('shapelogic_cli');
-    expect(cliFile('linux')).toBe('shapelogic_cli');
-    expect(cliFile('win32')).toBe('shapelogic_cli.exe');
+    expect(programFile('shapelogic_cli', 'darwin')).toBe('shapelogic_cli');
+    expect(programFile('shapelogic_cli', 'linux')).toBe('shapelogic_cli');
+    expect(programFile('shapelogic_cli', 'win32')).toBe('shapelogic_cli.exe');
     expect(cliLink('darwin')).toBe('/usr/local/bin/shapelogic_cli');
     expect(cliLink('win32')).toBeNull();
     expect(cliLink('linux')).toBeNull();

@@ -12,7 +12,7 @@
 
 import { EngineProxy } from '../engine-proxy.ts';
 import { Exports } from '../export/exports.ts';
-import type { AnimationSource } from '../export/exports.ts';
+import { animationOf } from '../export/exports.ts';
 import { StatusWindow } from '../entities/status-window.ts';
 import { entitiesStatus, EntitiesWorkspace } from '../entities/workspace.ts';
 import { PlayWorkspace } from '../play/workspace.ts';
@@ -20,6 +20,7 @@ import { PuzzleWorkspace } from '../puzzle/workspace.ts';
 import { CacheLinker } from '../solver/cache-links.ts';
 import { openToShapes } from '../solver/to-shapes.ts';
 import { SolverWorkspace } from '../solver/workspace.ts';
+import type { FileExport } from '../export/exports.ts';
 import { isActive } from '../state/solves.ts';
 import { Edits } from '../state/edits.ts';
 import { Solves } from '../state/solves.ts';
@@ -40,7 +41,7 @@ import { gridInfo, tiltedInfo } from './new-grids.ts';
 import { isTilted } from '../state/tilted.ts';
 import { keepState } from './persist.ts';
 import { keepPicturesOf } from './piece-images.ts';
-import { prefs, setPrefs, validPrefs } from './prefs.ts';
+import { engineSettingsOf, prefs, setPrefs, validPrefs } from './prefs.ts';
 import { Rescue } from './rescue.ts';
 import { stepBack } from './escape.ts';
 import { installKeyboard, onKey, setModal } from './keyboard.ts';
@@ -61,19 +62,6 @@ import { flash, reportError, setHintTeller, setStatusProvider, updateStatus } fr
 import { installTheme } from './theme.ts';
 import { installTopBar } from './topbar.ts';
 import { byId, esc } from './dom.ts';
-
-// the solution the Solver shows, when it has its moves stored (Export ▸ Solution Animation)
-function animationSource(solver: SolverWorkspace): AnimationSource | null {
-  const p = solver.player;
-  if (p.problem === null || p.row?.disassembly !== 'tree') {
-    return null;
-  }
-  return {
-    problem: p.problem,
-    row: p.row,
-    colors: new Map(p.pieces.map((x) => [x.piece, x.color])),
-  };
-}
 
 /**
  * What the status bar says: the engine's state, else the workspace's (the
@@ -142,13 +130,7 @@ export function startApp(saved: StoredState = {}): {
   const engine = new EngineProxy(window.bt);
   const store = new Store(engine);
   // each engine gets the settings kept (undo depth, threads, memory, disk)
-  store.wantedSettings = () => ({
-    undoDepth: prefs.undo,
-    threads: prefs.threads,
-    searchMemoryGB: prefs.memGB,
-    slideDiskGB: prefs.slideDiskGB,
-    panexDiskGB: prefs.panexDiskGB,
-  });
+  store.wantedSettings = () => engineSettingsOf(prefs);
   // settings another window changed (persist.ts) reach this window's
   // engine too; what it has already is not sent again
   const takeEngineSettings = (): void => {
@@ -253,7 +235,7 @@ export function startApp(saved: StoredState = {}): {
     get name() {
       return files.name;
     },
-    animation: () => animationSource(solver),
+    animation: () => animationOf(solver.player),
   });
   const imports = new Imports(store, app, {
     get name() {
@@ -278,100 +260,95 @@ export function startApp(saved: StoredState = {}): {
   solver.exportStl = (problem, row) => {
     void exports.solutionStl(problem, row);
   };
+  // File ▸ Export's formats, from the menu and from the Solver's Export menu
+  const fileExport: Record<FileExport, () => void> = {
+    scad: () => void imports.exportScad(),
+    image: () => void exports.image(),
+    vector: () => void exports.vector(),
+    stl: () => void exports.stlFile(),
+    glb: () => void exports.animation(),
+  };
   solver.fileExport = (k) => {
-    if (k === 'scad') {
-      void imports.exportScad();
-    } else if (k === 'image') {
-      void exports.image();
-    } else if (k === 'vector') {
-      void exports.vector();
-    } else if (k === 'stl') {
-      void exports.stlFile();
-    } else {
-      void exports.animation();
-    }
+    fileExport[k]();
   };
   // the window says when its engine cannot start (cleanup item 2.3)
   const engineFailure = new EngineFailure(store, app);
-  const menus = new Menus(store, app, view, {
-    openPath: (path) => {
-      void files.openPath(path);
+  const menus = new Menus(
+    store,
+    app,
+    view,
+    {
+      openPath: (c) => {
+        void files.openPath(c.path);
+      },
+      close: () => {
+        void files.close();
+      },
+      importPaused: () => {
+        void files.importPaused();
+      },
+      exportPaused: () => {
+        void files.exportPaused();
+      },
+      importPs3d: () => {
+        void imports.importFile('puzzleSolver3D');
+      },
+      importScad: () => {
+        void imports.importFile('puzzlecad');
+      },
+      exportScad: fileExport.scad,
+      exportImage: fileExport.image,
+      exportVector: fileExport.vector,
+      exportStl: fileExport.stl,
+      exportGlb: fileExport.glb,
+      toShapes: () => {
+        openToShapes(store, edits, solver.current);
+      },
+      convertGrid: () => {
+        void imports.convertGrid();
+      },
+      notes: () => {
+        openNotes(store);
+      },
+      statusWindow: () => {
+        status.open();
+      },
+      cacheFiles: () => {
+        void openCacheFiles(app);
+      },
+      logFiles: () => {
+        void openLogFiles(app);
+      },
+      about: () => {
+        openAbout(store, app.version);
+      },
+      cliTool: () => {
+        void openCliTool(app);
+      },
+      checkUpdates: () => {
+        void checkNow(app);
+      },
     },
-    close: () => {
-      void files.close();
+    {
+      animation: () => animationOf(solver.player) !== null,
+      solverProblem: () => {
+        const p = solver.problem;
+        return p === null
+          ? null
+          : {
+              // a stacking problem is paused when its search is saved (problemPaused)
+              paused:
+                (solver.stacking ? solver.savedSearch !== null : p.state === 'solving') &&
+                !isActive(solver.stateOf(p.id)),
+            };
+      },
+      playHistory: () => play.history(),
+      engineFailed: () => engineFailure.failed,
+      showEngineFailure: () => {
+        engineFailure.show();
+      },
     },
-    importPaused: () => {
-      void files.importPaused();
-    },
-    exportPaused: () => {
-      void files.exportPaused();
-    },
-    importPs3d: () => {
-      void imports.importFile('puzzleSolver3D');
-    },
-    importScad: () => {
-      void imports.importFile('puzzlecad');
-    },
-    exportScad: () => {
-      void imports.exportScad();
-    },
-    exportImage: () => {
-      void exports.image();
-    },
-    exportVector: () => {
-      void exports.vector();
-    },
-    exportStl: () => {
-      void exports.stlFile();
-    },
-    exportGlb: () => {
-      void exports.animation();
-    },
-    animation: () => animationSource(solver) !== null,
-    toShapes: () => {
-      openToShapes(store, edits, solver.current);
-    },
-    convertGrid: () => {
-      void imports.convertGrid();
-    },
-    notes: () => {
-      openNotes(store);
-    },
-    statusWindow: () => {
-      status.open();
-    },
-    cacheFiles: () => {
-      void openCacheFiles(app);
-    },
-    logFiles: () => {
-      void openLogFiles(app);
-    },
-    about: () => {
-      openAbout(store, app.version);
-    },
-    cliTool: () => {
-      void openCliTool(app);
-    },
-    checkUpdates: () => {
-      void checkNow(app);
-    },
-    solverProblem: () => {
-      const p = solver.problem;
-      return p === null
-        ? null
-        : {
-            // a stacking problem is paused when its search is saved (problemPaused)
-            paused:
-              (solver.stacking ? solver.savedSearch !== null : p.state === 'solving') &&
-              !isActive(solver.stateOf(p.id)),
-          };
-    },
-    playHistory: () => play.history(),
-    engineFailed: () => engineFailure.failed,
-    showEngineFailure: () => {
-      engineFailure.show();
-    },
-  });
+  );
   // the log's Startup line: the first document shown (cleanup item 2.7)
   const told = store.subscribe((c) => {
     if (c.kind === 'document' && store.snapshot !== null) {

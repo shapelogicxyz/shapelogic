@@ -75,7 +75,7 @@ async function steps(page: Page, shape: string, axis: number, target: number): P
     if (now === target) {
       return;
     }
-    await page.click(`#sizeSteppers [data-d="${axis}"][data-s="${now < target ? 1 : -1}"]`);
+    await page.click(`#sizeSteppers [data-step="${axis}"] [data-sd="${now < target ? 1 : -1}"]`);
     await settled(page);
   }
 }

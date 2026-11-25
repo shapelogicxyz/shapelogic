@@ -113,9 +113,6 @@ export function prismEdges(
   return out;
 }
 
-/** The whole-cell colors of the board's Cells view (styles.css .tp-whole.a, .b). */
-export const CELL_RGB = [0x1919f3, 0x62e03e] as const;
-
 /** The board's cells: the box's size and each cell's state, row by row from the bottom (Snapshot.tray). */
 export type TrayCells = Pick<Tray, 'box' | 'cells'>;
 
@@ -146,11 +143,12 @@ export function wholeSquares(t: TrayCells): { quad: P2[]; tone: 0 | 1 }[] {
 // little to the right and behind, so neighboring sides differ)
 const SHADES = [0.5, 1, 0.72, 0.86, 0.92, 0.64] as const;
 
-/** The board's whole cells as blocks from z0 to z1: positions and colors (r,g,b per corner). */
+/** The board's whole cells as blocks from z0 to z1, in a checker of the colors `rgb`: positions and colors (r,g,b per corner). */
 export function checkerBlocks(
   t: TrayCells,
   z0: number,
   z1: number,
+  rgb: readonly [string, string],
 ): { positions: Float32Array; colors: Float32Array } {
   const squares = wholeSquares(t);
   const positions = prismTriangles(
@@ -159,7 +157,7 @@ export function checkerBlocks(
     z1,
   );
   const colors = new Float32Array(positions.length);
-  const base = CELL_RGB.map((hex) => new Color(hex));
+  const base = rgb.map((c) => new Color(c));
   const c = new Color();
   let i = 0;
   for (const s of squares) {
@@ -190,14 +188,21 @@ export class CheckerCells {
   private key = '';
   private built: { faces: BufferGeometry; edges: LineSegmentsGeometry } | null = null;
 
-  /** The blocks (one layer, z from 0 to 1) and their edges for a board's cells. */
-  geometry(t: TrayCells): { faces: BufferGeometry; edges: LineSegmentsGeometry } {
-    const key = `${t.box.join(',')}:${t.cells}`;
+  /**
+   * The blocks (one layer, z from 0 to 1) and their edges for a board's
+   * cells, in the checker's two colors (the theme's --tcellA and --tcellB,
+   * the board's Cells view's).
+   */
+  geometry(
+    t: TrayCells,
+    rgb: readonly [string, string],
+  ): { faces: BufferGeometry; edges: LineSegmentsGeometry } {
+    const key = `${t.box.join(',')}:${t.cells}:${rgb.join(',')}`;
     if (this.built !== null && key === this.key) {
       return this.built;
     }
     this.dispose();
-    const b = checkerBlocks(t, 0, 1);
+    const b = checkerBlocks(t, 0, 1, rgb);
     const faces = new BufferGeometry();
     faces.setAttribute('position', new BufferAttribute(b.positions, 3));
     faces.setAttribute('color', new BufferAttribute(b.colors, 3));
@@ -236,6 +241,7 @@ export class TrayScene {
     polygonOffsetUnits: 8,
   });
   private readonly checker = new CheckerCells();
+  private cellRgb: readonly [string, string] = ['#000000', '#000000'];
   private readonly cellEdgeMaterial = new LineMaterial({ color: 0x000000, linewidth: 2 });
   private readonly edgeMaterial = new LineMaterial({ color: 0x8a93a3, linewidth: 1.5 });
   private readonly rimMaterial = new LineMaterial({ color: 0x000000, linewidth: 2.5 });
@@ -265,6 +271,11 @@ export class TrayScene {
   /** The outline's color (the theme's text color), #rrggbb. */
   setRimColor(rgb: string): void {
     this.rimMaterial.color = new Color(rgb);
+  }
+
+  /** The board's checker colors (the theme's --tcellA and --tcellB). */
+  setCellColors(rgb: readonly [string, string]): void {
+    this.cellRgb = rgb;
   }
 
   /** How many wall blocks are drawn (the tests read it). */
@@ -320,7 +331,7 @@ export class TrayScene {
     this.group.add(rim);
     this.wallCount = tray.walls.length;
     if (board !== null) {
-      const g = this.checker.geometry(board);
+      const g = this.checker.geometry(board, this.cellRgb);
       const blocks = new Mesh(g.faces, this.checker.material);
       blocks.userData.trayCells = true;
       this.group.add(blocks);

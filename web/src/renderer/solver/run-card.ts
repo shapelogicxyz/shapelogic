@@ -33,7 +33,8 @@
 import { isActive } from '../state/solves.ts';
 import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
-import { prefs, setPrefs } from '../shell/prefs.ts';
+import { prefs, rangeOf, setPrefs } from '../shell/prefs.ts';
+import { stepperHtml, switchHtml, wireSteppers } from '../shell/widgets.ts';
 import { problemChipStyle } from '../puzzle/counts.ts';
 import {
   KEEP_AT_MOST,
@@ -44,14 +45,20 @@ import {
   STACKING_TIP,
   TIP,
 } from './option-text.ts';
+import { isSub } from './boxes.ts';
 import {
+  boxesShown,
+  brickSolvers,
   defaultLimits,
   defaultsOf,
   effectiveSort,
+  kindOf,
   normalize,
   readOptions,
   shortCount,
+  slidingSolver,
   SORT_CHOICES,
+  stackingSolverLabel,
 } from './settings.ts';
 import type { BoxName, SearchOptions } from './settings.ts';
 import { problemNote } from './problem-note.ts';
@@ -123,7 +130,7 @@ export class RunCard {
     }
     const on = prefs.livePreview;
     const tip = LIVE_PREVIEW.tip;
-    return `<div class="row2 live"><div class="t">${LIVE_PREVIEW.label}<small>${tip}</small></div><div class="switch ${on ? 'on' : ''}" data-live="1" role="switch" tabindex="0" aria-checked="${String(on)}" title="${esc(tip)}"><span class="tr"></span></div></div>`;
+    return `<div class="row2 live"><div class="t">${LIVE_PREVIEW.label}<small>${tip}</small></div>${switchHtml({ on, tip, data: { live: '1' } })}</div>`;
   }
 
   /** Draws the problems list (also when another problem's solve changes state). */
@@ -298,7 +305,7 @@ export class RunCard {
       return;
     }
     const sw = (k: BoxName): string =>
-      `<div class="row2"><div class="t">${LABEL[k]}<small>${TIP[k]}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(TIP[k])}"><span class="tr"></span></div></div>`;
+      `<div class="row2"><div class="t">${LABEL[k]}<small>${TIP[k]}</small></div>${switchHtml({ on: o[k], off: disabled.has(k), tip: TIP[k], data: { o: k } })}</div>`;
     setHtml(
       byId('slvMode'),
       `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm" ${o.justLevels ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble Only</b><span class="d">Find every way the pieces fit the result.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount || !ws.canDisassemble ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble and Disassemble</b><span class="d">${ws.canDisassemble ? 'Also check that each assembly can be taken apart, moving pieces along the voxel axes.' : ws.tilted ? 'A tilted tray’s pieces lie flat and lift straight out: the solver finds the assemblies only.' : 'This space grid has no disassembler: the solver finds the assemblies only.'}</span></div></button>` +
@@ -312,31 +319,18 @@ export class RunCard {
     const lim = ws.limits;
     const { disabled } = normalize(o, null, ws.family, ws.canDisassemble);
     const tip = (k: BoxName): string => (ws.stacking ? (STACKING_TIP[k] ?? TIP[k]) : TIP[k]);
-    const sw = (k: BoxName, sub = false): string =>
-      `<div class="row2${sub ? ' sub' : ''}"><div class="t">${LABEL[k]}<small>${tip(k)}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(tip(k))}"><span class="tr"></span></div></div>`;
+    const sw = (k: BoxName): string =>
+      `<div class="row2${isSub(k) ? ' sub' : ''}"><div class="t">${LABEL[k]}<small>${tip(k)}</small></div>${switchHtml({ on: o[k], off: disabled.has(k), tip: tip(k), data: { o: k } })}</div>`;
     // how many differ from the defaults (the settings dialog's Search Options)
     const def = normalize(defaultsOf(ws.family), null, ws.family, ws.canDisassemble).options;
     const defLim = defaultLimits();
     const brick = !ws.sliding && !ws.stacking;
+    // the card's boxes of the puzzle type, in the order it lists them (solver/boxes.ts)
+    const shown = boxesShown(kindOf(ws.family, ws.tilted), 'options');
     // their titles, in the order the card lists them
-    const box = (k: BoxName, on: boolean): string | null =>
-      on && o[k] !== def[k] ? LABEL[k] : null;
     const changed = [
-      box('justCount', true),
-      box('justLevels', !ws.sliding),
-      box('keepMirrors', brick),
-      box('keepRotations', brick),
-      box('deepSymmetry', brick),
-      box('strictColors', brick),
+      ...shown.map((k) => (o[k] !== def[k] ? LABEL[k] : null)),
       brick && o.solver !== def.solver ? 'Solver type' : null,
-      box('keepAssemblies', brick),
-      box('flipPieces', ws.tilted),
-      box('nestedSlides', ws.sliding),
-      box('partialNested', ws.sliding),
-      box('verticalMoves', ws.sliding),
-      box('anyOrientation', ws.sliding),
-      box('mirroredOrientations', ws.sliding),
-      box('optimizedPaths', ws.sliding),
       lim.keepEach !== defLim.keepEach ? KEEP_EACH.label : null,
       lim.keepAtMost !== defLim.keepAtMost ? KEEP_AT_MOST.label : null,
     ].filter((t) => t !== null);
@@ -351,23 +345,40 @@ export class RunCard {
     );
     const opts = byId('slvOpts');
     opts.style.display = ws.optOpen ? '' : 'none';
-    const solvers = ws.store.info?.solvers ?? [
-      { solver: 'classic' as const, label: 'Complete (ShapeLogic)' },
-    ];
+    const switches = shown.map((k) => sw(k)).join('');
+    const solvers = brickSolvers(ws.store.info);
     const limits =
-      `<div class="row2"><div class="t">${KEEP_EACH.label}<small>${KEEP_EACH.tip}</small></div><div class="step"><button data-st="keepEach" data-d="-1" title="Keep more of the solutions: skip one fewer between kept ones">${ic('minus', 12)}</button><input class="v" data-sti="keepEach" title="1 keeps every solution; a higher number skips that many before the next one is kept" value="${String(lim.keepEach)}"><button data-st="keepEach" data-d="1" title="Keep fewer of the solutions: skip one more between kept ones">${ic('plus', 12)}</button></div></div>` +
-      `<div class="row2"><div class="t">${KEEP_AT_MOST.label}<small>${KEEP_AT_MOST.tip}</small></div><div class="step"><button data-st="keepAtMost" data-d="-10" title="Keep 10 fewer solutions">${ic('minus', 12)}</button><input class="v" data-sti="keepAtMost" title="${KEEP_AT_MOST.tip}" value="${String(lim.keepAtMost)}"><button data-st="keepAtMost" data-d="10" title="Keep 10 more solutions">${ic('plus', 12)}</button></div></div>`;
+      `<div class="row2"><div class="t">${KEEP_EACH.label}<small>${KEEP_EACH.tip}</small></div>${stepperHtml(
+        {
+          key: 'keepEach',
+          value: lim.keepEach,
+          min: rangeOf('optKeepEach').min,
+          less: 'Keep more of the solutions: skip one fewer between kept ones',
+          more: 'Keep fewer of the solutions: skip one more between kept ones',
+          label: KEEP_EACH.label,
+          tip: '1 keeps every solution; a higher number skips that many before the next one is kept',
+        },
+      )}</div>` +
+      `<div class="row2"><div class="t">${KEEP_AT_MOST.label}<small>${KEEP_AT_MOST.tip}</small></div>${stepperHtml(
+        {
+          key: 'keepAtMost',
+          value: lim.keepAtMost,
+          min: rangeOf('optKeepAtMost').min,
+          step: 10,
+          less: 'Keep 10 fewer solutions',
+          more: 'Keep 10 more solutions',
+          label: KEEP_AT_MOST.label,
+          tip: KEEP_AT_MOST.tip,
+        },
+      )}</div>`;
     if (ws.stacking) {
       // the one solver of the board
       const solver = ws.stackingSolver;
-      const label =
-        ws.store.info?.stackingSolvers.find((x) => x.solver === solver)?.label ??
-        (solver === 'panex' ? 'Panex Solver' : 'Stacking Solver');
+      const label = stackingSolverLabel(ws.store.info, solver);
       setHtml(
         opts,
         this.liveRow() +
-          sw('justCount') +
-          sw('justLevels') +
+          switches +
           `<div class="row2 wrap"><div class="t">Solver type<small>${STACKING_SOLVER_TIP[solver]}</small></div><select data-o="stackingSolver" title="${esc(STACKING_SOLVER_TIP[solver])}"><option value="${solver}" selected>${esc(label)}</option></select></div>` +
           limits,
       );
@@ -375,20 +386,11 @@ export class RunCard {
     }
     if (ws.sliding) {
       // the sliding boxes in the places of the symmetry options, its one solver
-      const slider = ws.store.info?.slidingSolvers[0] ?? {
-        solver: 'sliding' as const,
-        label: 'Sliding Puzzle Solver',
-      };
+      const slider = slidingSolver(ws.store.info);
       setHtml(
         opts,
         this.liveRow() +
-          sw('justCount') +
-          sw('anyOrientation') +
-          sw('mirroredOrientations', true) +
-          sw('nestedSlides') +
-          sw('partialNested') +
-          sw('verticalMoves') +
-          sw('optimizedPaths') +
+          switches +
           `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver" title="${esc(SLIDING_SOLVER_TIP)}"><option value="${slider.solver}" selected>${esc(slider.label)}</option></select></div>` +
           limits,
       );
@@ -397,13 +399,7 @@ export class RunCard {
     setHtml(
       opts,
       this.liveRow() +
-        (ws.tilted ? sw('flipPieces') : sw('keepAssemblies')) +
-        sw('justCount') +
-        sw('justLevels') +
-        sw('keepMirrors') +
-        sw('keepRotations') +
-        sw('deepSymmetry') +
-        sw('strictColors') +
+        switches +
         `<div class="row2 wrap"><div class="t">Solver type<small>${SOLVER_TYPE_TIP}</small></div><select data-o="solver" title="${SOLVER_TYPE_TIP}">${solvers.map((s) => `<option value="${s.solver}" ${o.solver === s.solver ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>` +
         limits,
     );
@@ -439,11 +435,10 @@ export class RunCard {
     // a sliding puzzle whose start/goal shape is not valid, a stacking one
     // without a board or with invalid stacks (Solve's tooltip in the original)
     const why = ws.slideError ?? ws.stackError;
-    const board = ws.stacking ? p?.rodSet !== null : p?.result !== null;
-    const can = p !== null && board && why === null;
-    const canStart = can && !busy;
+    const canStart = ws.readyToSolve && !busy;
     const saved = ws.savedSearch;
-    const canCont = canStart && (s === 'paused' || p.state === 'solving' || saved !== null);
+    const canCont =
+      canStart && p !== null && (s === 'paused' || p.state === 'solving' || saved !== null);
     const fix = ws.stacking
       ? `Fix the puzzle on the Puzzle tab first: ${why ?? ''}`
       : `Fix the start and goal on the Puzzle tab first: ${why ?? ''}`;
@@ -566,33 +561,23 @@ export class RunCard {
     const opts = byId('slvOpts');
     opts.addEventListener('click', (e) => {
       const t = e.target as Element;
-      if (this.flipLive(t) || this.toggle(t)) {
+      if (this.flipLive(t)) {
         return;
       }
-      const b = t.closest<HTMLButtonElement>('button[data-st]');
-      if (b !== null) {
-        const k = b.dataset.st as 'keepEach' | 'keepAtMost';
-        ws.setLimits({ [k]: ws.limits[k] + Number(b.dataset.d) });
-      }
+      this.toggle(t);
+    });
+    // Keep every n-th and Limit (not stored with the problem)
+    wireSteppers(opts, {
+      set: (k, v) => {
+        ws.setLimits({ [k]: v });
+      },
     });
     opts.addEventListener('change', (e) => {
       const t = e.target as HTMLInputElement | HTMLSelectElement;
       if (t.dataset.o === 'solver') {
         void ws.setOption({ solver: t.value as SearchOptions['solver'] });
-      } else if (t.dataset.sti !== undefined) {
-        const k = t.dataset.sti as 'keepEach' | 'keepAtMost';
-        ws.setLimits({ [k]: Math.round(Number(t.value)) || 0 });
       }
     });
-    // a focused switch toggles with Space or Enter (the dialogs' row of the keyboard map)
-    for (const id of ['slvMode', 'slvOpts']) {
-      byId(id).addEventListener('keydown', (e) => {
-        const t = e.target as Element;
-        if ((e.key === ' ' || e.key === 'Enter') && (this.flipLive(t) || this.toggle(t))) {
-          e.preventDefault();
-        }
-      });
-    }
     const runClicked = (e: MouseEvent): void => {
       const b = (e.target as Element).closest<HTMLButtonElement>('button[data-r]');
       if (b === null || b.disabled) {

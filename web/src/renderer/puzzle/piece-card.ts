@@ -17,6 +17,7 @@
 import type { Color } from '../../engine/api.generated.ts';
 import { byId, esc } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
+import { stepperHtml, switchHtml, wireSteppers } from '../shell/widgets.ts';
 import { countText, groupOf, groupsOf, inGroup, membersOf, partOf } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
 
@@ -52,12 +53,19 @@ export class PieceCard {
     const max = part?.max ?? 0;
     // a sliding piece a start or goal needs keeps its count (Part.required)
     const req = part?.required ?? false;
-    const off = (tip: string): string =>
-      req
-        ? 'disabled title="Its start or goal on the start/goal shape needs exactly this piece"'
-        : `title="${tip}"`;
-    const stp = (fld: string, v: number, lab?: string): string =>
-      `<div class="step sz ${lab !== undefined ? 'inl' : ''}"><button data-sf="${fld}" data-d="-1" ${off('Decrease')}>${ic('minus', 12)}</button>${lab !== undefined ? `<span class="il">${lab}</span>` : ''}<input class="v" data-sf="${fld}" value="${String(v)}" aria-label="${lab ?? 'Copies'}" ${req ? 'disabled' : ''}><button data-sf="${fld}" data-d="1" ${off('Increase')}>${ic('plus', 12)}</button></div>`;
+    const stp = (fld: 'min' | 'max', v: number, lab?: string): string =>
+      stepperHtml({
+        key: fld,
+        value: v,
+        min: 0,
+        less: 'Decrease',
+        more: 'Increase',
+        label: lab ?? 'Copies',
+        ...(lab === undefined ? { cls: 'sz' } : { cls: 'sz inl', inline: lab }),
+        ...(req
+          ? { locked: 'Its start or goal on the start/goal shape needs exactly this piece' }
+          : {}),
+      });
     const sliding = ws.store.snapshot?.grid === 'sliding';
     const c = ws.chip(x.id);
     const count = range
@@ -76,13 +84,24 @@ export class PieceCard {
         .join('');
       const many =
         g > 0 && part.max > 1
-          ? `<div class="gw"><span class="mute" style="font-size:calc(12px + var(--fs))">Copies in G${String(g)}</span><div class="step sz"><button data-gc="-1" data-g="${String(g)}" title="Fewer copies in the group">${ic('minus', 12)}</button><input class="v" data-gc="v" data-g="${String(g)}" value="${String(inGroup(part, g))}" aria-label="Copies in the group"><button data-gc="1" data-g="${String(g)}" title="More copies in the group">${ic('plus', 12)}</button></div></div>`
+          ? `<div class="gw"><span class="mute" style="font-size:calc(12px + var(--fs))">Copies in G${String(g)}</span>${stepperHtml(
+              {
+                key: `group:${String(g)}`,
+                value: inGroup(part, g),
+                min: 0,
+                max: part.max,
+                less: 'Fewer copies in the group',
+                more: 'More copies in the group',
+                label: 'Copies in the group',
+                cls: 'sz',
+              },
+            )}</div>`
           : '';
       group = `<div class="lab">Exclusive group</div><div class="gseg"><button data-grp="0" class="${g === 0 ? 'on' : ''}">None</button>${gs}<button data-grp="new" title="Create a new group and put this piece in it">+ New</button></div>${many}`;
     }
     box.innerHTML = `<div class="hd"><span class="chip" style="background:${c.bg};color:${c.fg}">${esc(x.label)}</span><div><b>${esc(x.name) || 'Piece'}</b><span class="m">${String(x.fixed + x.variable)} voxels · ${String(x.fixed)} fixed · ${String(x.variable)} variable</span></div></div>
  ${count}
- ${req ? '' : `<div class="switch ${range ? 'on' : ''}" id="pzRange" role="switch" tabindex="0" aria-checked="${range}" style="margin-top:12px"><span class="tr"></span><span>Allow a range (min–max) instead of a fixed count</span></div>`}
+ ${req ? '' : switchHtml({ on: range, id: 'pzRange', style: 'margin-top:12px', text: 'Allow a range (min–max) instead of a fixed count', tip: 'Let the puzzle use from a minimum to a maximum of this piece, rather than a fixed count' })}
  ${group}`;
   }
 
@@ -164,42 +183,25 @@ export class PieceCard {
         toggleRange();
         return;
       }
-      const part = partOf(ws.detail, u);
-      const sb = t.closest<HTMLElement>('button[data-sf]');
-      if (sb !== null) {
-        const f = sb.dataset.sf === 'min' ? 'min' : 'max';
-        void ws.setCount(u, f, (part?.[f] ?? 0) + Number(sb.dataset.d));
-        return;
-      }
       const gb = t.closest<HTMLElement>('button[data-grp]');
       if (gb !== null) {
         const v = gb.dataset.grp;
         void ws.setGroup(u, v === 'new' ? 'new' : Number(v));
-        return;
-      }
-      const gc = t.closest<HTMLElement>('button[data-gc]');
-      if (gc !== null) {
-        const g = Number(gc.dataset.g);
-        void ws.setGroupCount(u, g, inGroup(part, g) + Number(gc.dataset.gc));
       }
     });
-    sel.addEventListener('keydown', (e) => {
-      if ((e.key === ' ' || e.key === 'Enter') && (e.target as Element).closest('#pzRange')) {
-        e.preventDefault();
-        toggleRange();
-      }
-    });
-    sel.addEventListener('change', (e) => {
-      const i = e.target as HTMLInputElement;
-      const u = ws.sel;
-      if (u === null) {
-        return;
-      }
-      if (i.dataset.sf === 'min' || i.dataset.sf === 'max') {
-        void ws.setCount(u, i.dataset.sf, Number(i.value));
-      } else if (i.dataset.gc === 'v') {
-        void ws.setGroupCount(u, Number(i.dataset.g), Number(i.value));
-      }
+    // the count or the range, and the copies in the piece's group
+    wireSteppers(sel, {
+      set: (k, v) => {
+        const u = ws.sel;
+        if (u === null) {
+          return;
+        }
+        if (k === 'min' || k === 'max') {
+          void ws.setCount(u, k, v);
+        } else if (k.startsWith('group:')) {
+          void ws.setGroupCount(u, Number(k.slice('group:'.length)), v);
+        }
+      },
     });
     byId('pzGroups').addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('[data-delg]');

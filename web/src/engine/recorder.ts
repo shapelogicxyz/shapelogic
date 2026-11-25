@@ -5,6 +5,7 @@
 // The framing tests replay the stdout in chunks of any size; the fake
 // engine (web/fake-engine/) answers a client with it.
 
+import { fromBase64, toBase64 } from './base64.ts';
 import type { ExitInfo, Transport } from './transport.ts';
 
 /** One thing that happened, `t` milliseconds after the recording began. */
@@ -29,24 +30,6 @@ export interface Recording {
   /** What the session does. */
   note: string;
   entries: RecordingEntry[];
-}
-
-/** Base64 of bytes (btoa works on strings of bytes, so in slices). */
-export function toBase64(bytes: Uint8Array): string {
-  let text = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(text);
-}
-
-export function fromBase64(text: string): Uint8Array {
-  const s = atob(text);
-  const out = new Uint8Array(s.length);
-  for (let i = 0; i < s.length; i++) {
-    out[i] = s.charCodeAt(i);
-  }
-  return out;
 }
 
 /** The engine's whole stdout in a recording, in one piece. */

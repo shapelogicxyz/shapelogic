@@ -27,6 +27,7 @@ import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { installHistory } from '../shell/history.ts';
 import type { GroupState } from '../shell/history.ts';
 import { onKey } from '../shell/keyboard.ts';
+import { keyLabel } from '../shell/keys.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { editorVisible, layout, onLayout, tab } from '../shell/layout.ts';
 import { chipColor, hex, isTray, shapeColor } from '../shell/piece-colors.ts';
@@ -37,6 +38,8 @@ import { flash, reportError, setCursor } from '../shell/status.ts';
 import { onTheme } from '../shell/theme.ts';
 import type { View3D } from '../view3d/view.ts';
 import type { Plane } from '../view3d/overlays.ts';
+import { layerAxis } from '../view3d/overlays.ts';
+import { isCubeGrid } from '../view3d/extent.ts';
 import { Edit3D, editHelp } from './edit3d.ts';
 import { EditorCard, nextColor } from './editor-card.ts';
 import { axesOf, EditorState, expand, planeMap, TOOLS } from './editor-state.ts';
@@ -63,9 +66,6 @@ import { TrayViewCard } from './tray-view.ts';
 import { cellState, isTiltBoard, isTilted } from '../state/tilted.ts';
 import { boardCenter } from '../view3d/board.ts';
 import { Stroke } from './stroke.ts';
-
-const isCube = (g: string | undefined): boolean =>
-  g === 'bricks' || g === 'sliding' || g === 'stacking';
 
 export class EntitiesWorkspace {
   readonly state = new EditorState();
@@ -173,13 +173,12 @@ export class EntitiesWorkspace {
       },
       plane: () => this.planeMap(),
       layersWithCells: () => {
-        const p = this.state.plane;
-        return this.cells.layersWithCells(p === 'XY' ? 2 : p === 'XZ' ? 1 : 0);
+        return this.cells.layersWithCells(layerAxis(this.state.plane));
       },
       unit: () => this.unit(),
       // a sliding puzzle is edited layer by layer in the XY plane: the
       // start/goal editor places a piece's lowest layer on the layer shown
-      allPlanes: () => isCube(store.snapshot?.grid) && store.snapshot?.grid !== 'sliding',
+      allPlanes: () => isCubeGrid(store.snapshot?.grid) && store.snapshot?.grid !== 'sliding',
       setPlane: (p) => {
         this.setPlane(p);
       },
@@ -322,7 +321,8 @@ export class EntitiesWorkspace {
       this.state.layer = 0;
       this.state.color = null;
       // the Grid plane setting's plane, where the grid has more than XY
-      this.state.plane = !isCube(snap?.grid) || snap?.grid === 'sliding' ? 'XY' : prefs.gridPlane;
+      this.state.plane =
+        !isCubeGrid(snap?.grid) || snap?.grid === 'sliding' ? 'XY' : prefs.gridPlane;
       this.geos.clear();
       this.geo = null;
       this.hintGeo = null;
@@ -772,7 +772,7 @@ export class EntitiesWorkspace {
     const grid = this.store.snapshot?.grid;
     if (cell === null || s === null) {
       setCursor('');
-    } else if (isCube(grid)) {
+    } else if (isCubeGrid(grid)) {
       // the cell's coordinates, not its column and row (which run backwards on a
       // flipped axis), counted from 1 as the rulers and the layers are
       const p = planeMap(this.state.plane, s.size);
@@ -788,7 +788,7 @@ export class EntitiesWorkspace {
       this.view.renderEditButton({
         tool,
         name: t?.n ?? '',
-        key: t?.k ?? '',
+        key: t === undefined ? '' : keyLabel(t.action),
         color: this.badge(),
         on: this.state.edit3d,
         tmp: true,
@@ -800,7 +800,7 @@ export class EntitiesWorkspace {
 
   private setPlane(p: Plane): void {
     const grid = this.store.snapshot?.grid;
-    if (p !== 'XY' && (!isCube(grid) || grid === 'sliding')) {
+    if (p !== 'XY' && (!isCubeGrid(grid) || grid === 'sliding')) {
       return;
     }
     this.state.plane = p;
@@ -943,29 +943,26 @@ export class EntitiesWorkspace {
   private installKeys(): void {
     const st = this.state;
     const inEntities = (): boolean => tab === 'entities';
-    TOOLS.forEach((t, i) => {
-      const action = (['tool.fixed', 'tool.variable', 'tool.erase', 'tool.paint'] as const)[i];
-      if (action !== undefined) {
-        onKey(action, () => {
-          if (!inEntities()) {
-            return false;
-          }
-          // Paint only with a restriction color chosen (where its brush shows)
-          if ((t.id === 'paint' && st.color === null) || this.store.snapshot?.grid === 'stacking') {
-            return true;
-          }
-          // a voxel tool keeps the box selection (its Fill uses it); the brush draws
-          if (t.id === 'paint') {
-            st.tool = 'paint';
-            st.boxMode = false;
-          } else {
-            st.setVoxel(t.id);
-          }
-          st.changed();
+    for (const t of TOOLS) {
+      onKey(t.action, () => {
+        if (!inEntities()) {
+          return false;
+        }
+        // Paint only with a restriction color chosen (where its brush shows)
+        if ((t.id === 'paint' && st.color === null) || this.store.snapshot?.grid === 'stacking') {
           return true;
-        });
-      }
-    });
+        }
+        // a voxel tool keeps the box selection (its Fill uses it); the brush draws
+        if (t.id === 'paint') {
+          st.tool = 'paint';
+          st.boxMode = false;
+        } else {
+          st.setVoxel(t.id);
+        }
+        st.changed();
+        return true;
+      });
+    }
     onKey('edit3d', () => {
       if (!inEntities()) {
         return false;

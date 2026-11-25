@@ -4,7 +4,7 @@ import starlight from '@astrojs/starlight';
 import starlightLinksValidator from 'starlight-links-validator';
 
 // The site is served from the root of shapelogic.xyz. The app opens
-// /docs/ and /docs/getting-started/ (web/src/main/security.ts HELP_URLS):
+// /docs/ and /docs/getting-started/ (web/src/engine/app-bridge.ts HELP_URLS):
 // renaming those pages breaks the Help menu, and site/tests/help-urls.test.mjs
 // fails the build check if they go missing.
 // public/demo/ is the app's demo (web/tools/record-demo.ts), a static page

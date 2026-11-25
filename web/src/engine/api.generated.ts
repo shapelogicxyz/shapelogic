@@ -20,6 +20,8 @@ export type Matrix3 = [[number, number, number], [number, number, number], [numb
 
 /** How much of the application's log the engine writes (Settings.log). */
 export type LogSetting = 'off' | 'info' | 'debug';
+/** LogSetting's values, in the schema's order. */
+export const LOG_SETTING_VALUES = ['off', 'info', 'debug'] as const satisfies readonly LogSetting[];
 
 export interface Settings {
   /**
@@ -548,9 +550,13 @@ export type Grid =
   | 'stacking'
   | 'hexagonal'
   | 'cairo';
+/** Grid's values, in the schema's order. */
+export const GRID_VALUES = ['bricks', 'prisms', 'spheres', 'rhombic', 'tetraOcta', 'sliding', 'stacking', 'hexagonal', 'cairo'] as const satisfies readonly Grid[];
 
 /** Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart. */
 export type Solver = 'classic' | 'crowell';
+/** Solver's values, in the schema's order. */
+export const SOLVER_VALUES = ['classic', 'crowell'] as const satisfies readonly Solver[];
 
 /**
  * The one solver of sliding puzzles, the Sliding Puzzle Solver: no limit on the arrangements it
@@ -559,6 +565,8 @@ export type Solver = 'classic' | 'crowell';
  * 250,000 and 1,000,000 arrangements, are not offered.
  */
 export type SlidingSolver = 'sliding';
+/** SlidingSolver's values, in the schema's order. */
+export const SLIDING_SOLVER_VALUES = ['sliding'] as const satisfies readonly SlidingSolver[];
 
 /**
  * The Stacking Solver (the fewest rod transfers: the Panex search whenever the puzzle fits it,
@@ -567,6 +575,8 @@ export type SlidingSolver = 'sliding';
  * reason).
  */
 export type StackingSolver = 'stacking' | 'panex';
+/** StackingSolver's values, in the schema's order. */
+export const STACKING_SOLVER_VALUES = ['stacking', 'panex'] as const satisfies readonly StackingSolver[];
 
 /** decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage). */
 export type SolveState =
@@ -577,6 +587,8 @@ export type SolveState =
   | 'paused'
   | 'finished'
   | 'error';
+/** SolveState's values, in the schema's order. */
+export const SOLVE_STATE_VALUES = ['idle', 'preparing', 'assembling', 'draining', 'paused', 'finished', 'error'] as const satisfies readonly SolveState[];
 
 /**
  * What a solve is doing; search is a sliding puzzle's search from a start to the goal, or a
@@ -594,17 +606,25 @@ export type SolveStage =
   | 'done'
   | 'error'
   | 'search';
+/** SolveStage's values, in the schema's order. */
+export const SOLVE_STAGE_VALUES = ['idle', 'prepare', 'reduce', 'assemble', 'disassemble', 'stopping', 'paused', 'done', 'error', 'search'] as const satisfies readonly SolveStage[];
 
 /**
  * What the problem holds of solving: nothing, a started solve (maybe paused), a finished one, or
  * counts lost by an edit.
  */
 export type ProblemState = 'unsolved' | 'solving' | 'solved' | 'unknown';
+/** ProblemState's values, in the schema's order. */
+export const PROBLEM_STATE_VALUES = ['unsolved', 'solving', 'solved', 'unknown'] as const satisfies readonly ProblemState[];
 
 export type CellState = 'fixed' | 'variable';
+/** CellState's values, in the schema's order. */
+export const CELL_STATE_VALUES = ['fixed', 'variable'] as const satisfies readonly CellState[];
 
 /** The grid editor's tools; paint changes only the color of non-empty cells. */
 export type CellTool = 'fixed' | 'variable' | 'erase' | 'paint';
+/** CellTool's values, in the schema's order. */
+export const CELL_TOOL_VALUES = ['fixed', 'variable', 'erase', 'paint'] as const satisfies readonly CellTool[];
 
 /**
  * Mirror or span axes.
@@ -652,6 +672,8 @@ export type ShapeTask =
   | 'nudge32'
   | 'fillHoles'
   | 'gridScale';
+/** ShapeTask's values, in the schema's order. */
+export const SHAPE_TASK_VALUES = ['nudge0', 'nudge1', 'nudge2', 'nudge3', 'nudge4', 'nudge5', 'rotate6', 'rotate7', 'rotate8', 'rotate9', 'rotate10', 'rotate11', 'flip12', 'flip13', 'flip14', 'prune', 'insideFixed', 'outsideFixed', 'insideVariable', 'outsideVariable', 'insideDecolor', 'outsideDecolor', 'double', 'triple', 'toOrigin', 'center', 'minimize', 'nudge27', 'nudge28', 'nudge29', 'nudge30', 'nudge31', 'nudge32', 'fillHoles', 'gridScale'] as const satisfies readonly ShapeTask[];
 
 /**
  * The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, flat faces with
@@ -666,6 +688,8 @@ export type ShapeTask =
  * for large shapes (seconds in a release build).
  */
 export type MeshStyle = 'drawing' | 'wireframe' | 'flat' | 'stl' | 'uniform';
+/** MeshStyle's values, in the schema's order. */
+export const MESH_STYLE_VALUES = ['drawing', 'wireframe', 'flat', 'stl', 'uniform'] as const satisfies readonly MeshStyle[];
 
 export type ChangeKind =
   | 'shapes'
@@ -675,6 +699,8 @@ export type ChangeKind =
   | 'notes'
   | 'rodSets'
   | 'tray';
+/** ChangeKind's values, in the schema's order. */
+export const CHANGE_KIND_VALUES = ['shapes', 'colors', 'problems', 'solutions', 'notes', 'rodSets', 'tray'] as const satisfies readonly ChangeKind[];
 
 /**
  * A counter the problem moves on every change of its saved list (a solution added, removed,
@@ -686,6 +712,8 @@ export type SolutionsVersion = number;
 
 /** Where a new solution goes in the saved list while solving: the original's sort-by choice. */
 export type SortBy = 'unsorted' | 'moves' | 'level' | 'rotations';
+/** SortBy's values, in the schema's order. */
+export const SORT_BY_VALUES = ['unsorted', 'moves', 'level', 'rotations'] as const satisfies readonly SortBy[];
 
 /** A typed array inside a binary frame, little-endian, its offset a multiple of 4. */
 export interface ArrayRef {
@@ -918,12 +946,16 @@ export interface ShapeSummary {
 
 /** The outer corners of a tray's border: rounded, or square. */
 export type BorderCorners = 'round' | 'sharp';
+/** BorderCorners's values, in the schema's order. */
+export const BORDER_CORNERS_VALUES = ['round', 'sharp'] as const satisfies readonly BorderCorners[];
 
 /**
  * The surface of a tray's border: plain, a fine grain, or wood grain (light brown unless the
  * border has a color or a picture of its own).
  */
 export type BorderMaterial = 'smooth' | 'textured' | 'wood';
+/** BorderMaterial's values, in the schema's order. */
+export const BORDER_MATERIAL_VALUES = ['smooth', 'textured', 'wood'] as const satisfies readonly BorderMaterial[];
 
 /**
  * The border of a sliding puzzle's tray (decision 0046): the tray's body around its floor, a rim
@@ -956,6 +988,8 @@ export interface TrayBorder {
  * squashed to it, or sized and placed by hand (src is then whatever part the user chose).
  */
 export type ImageFit = 'crop' | 'stretch' | 'manual';
+/** ImageFit's values, in the schema's order. */
+export const IMAGE_FIT_VALUES = ['crop', 'stretch', 'manual'] as const satisfies readonly ImageFit[];
 
 /**
  * [x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner.
@@ -1119,6 +1153,8 @@ export interface Snapshot {
  * it.
  */
 export type TrayPlacement = 'best' | 'custom';
+/** TrayPlacement's values, in the schema's order. */
+export const TRAY_PLACEMENT_VALUES = ['best', 'custom'] as const satisfies readonly TrayPlacement[];
 
 /**
  * The settings of a tilted tray a client may give (tray.set, tray.preview, document.new): each
@@ -5310,6 +5346,13 @@ export const LIMITS = {
   },
   solutions: {
     page: 10000,
+  },
+  settings: {
+    undoDepth: 10000,
+    threads: 256,
+    searchMemoryGB: 1000000,
+    slideDiskGB: 1000000,
+    panexDiskGB: 1000000,
   },
 } as const;
 

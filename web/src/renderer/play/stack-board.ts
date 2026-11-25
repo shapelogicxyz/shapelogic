@@ -12,6 +12,7 @@
 // marked meanwhile. A move made again (Undo, Redo, the playback) is drawn
 // as a solution's transfer is: lifted above the rods, across, and down.
 
+import { BoardShell, translate } from './board-shell.ts';
 import { boardRoom, insetBoard } from './room.ts';
 import type { Stacks } from './stack-game.ts';
 import { discAt, levelY, LIFT, rodAt, stackLook, stackSvg } from './stack-look.ts';
@@ -56,58 +57,40 @@ interface Drag {
 /** How far the pointer goes before a press is a drag, in pixels. */
 const DRAG_FROM = 5;
 
-export class StackBoard {
-  private readonly root: HTMLElement;
-  /** What the board has room in: the root hugs its drawing, so the buttons sit right beside it. */
-  private readonly frame: HTMLElement;
+export class StackBoard extends BoardShell<Drag> {
   private readonly host: StackBoardHost;
   private model: StackModel | null = null;
   private stacks: Stacks = [];
   private look: StackLook | null = null;
   /** The discs' groups, by disc. */
   private groups: (SVGGElement | undefined)[] = [];
-  private drag: Drag | null = null;
   /** A disc clicked: lifted over its rod until the rod it goes to is clicked. */
   private held: { rod: number; disc: number; allowed: Allowed[] | null } | null = null;
-  private raf = 0;
-  private endAnimation: (() => void) | null = null;
-  /** The frame changed size while a disc was dragged or a move drawn: drawn again after. */
-  private resized = false;
 
   constructor(root: HTMLElement, frame: HTMLElement, host: StackBoardHost) {
-    this.root = root;
-    this.frame = frame;
+    super(root, frame);
     this.host = host;
-    new ResizeObserver(() => {
-      if (this.model === null) {
-        return;
-      }
-      // never under a drag or a move being drawn: the discs would be other elements
-      if (this.busy) {
-        this.resized = true;
-      } else if (!this.sameLook()) {
-        this.draw();
-      } else {
-        insetBoard(this.frame, this.root);
-      }
-    }).observe(frame);
-    root.addEventListener('pointerdown', (e) => {
-      this.down(e);
-    });
-    root.addEventListener('pointermove', (e) => {
-      this.move(e);
-    });
-    root.addEventListener('pointerup', (e) => {
-      this.up(e, false);
-    });
-    root.addEventListener('pointercancel', (e) => {
-      this.up(e, true);
-    });
   }
 
-  /** A disc is being dragged, or a move is being drawn. */
-  get busy(): boolean {
-    return this.drag !== null || this.endAnimation !== null;
+  protected fit(): void {
+    if (this.model === null) {
+      return;
+    }
+    if (!this.sameLook()) {
+      this.draw();
+    } else {
+      insetBoard(this.frame, this.root);
+    }
+  }
+
+  protected redraw(): void {
+    if (this.model !== null) {
+      this.draw();
+    }
+  }
+
+  protected dropped(): void {
+    this.settle();
   }
 
   /** Shows a board (null: none) with its discs at `stacks`. */
@@ -172,54 +155,12 @@ export class StackBoard {
       return [b[0], lift + (b[1] - lift) * (runs[2] === 0 ? 1 : d / runs[2])];
     };
     const ms = Math.max(240, Math.min(560, 200 + 0.55 * whole));
-    const t0 = performance.now();
-    this.root.dataset.anim = '1';
     // over the discs it passes
     g.parentNode?.appendChild(g);
-    return new Promise<boolean>((resolve) => {
-      const done = (all: boolean): void => {
-        cancelAnimationFrame(this.raf);
-        this.endAnimation = null;
-        delete this.root.dataset.anim;
-        this.catchUp();
-        resolve(all);
-      };
-      this.endAnimation = () => {
-        done(false);
-      };
-      const tick = (): void => {
-        const t = Math.min(1, (performance.now() - t0) / ms);
-        // ease in and out: a move starts and ends gently
-        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        const [x, y] = at(e);
-        g.style.transform = `translate(${x.toFixed(2)}px,${y.toFixed(2)}px)`;
-        if (t >= 1) {
-          done(true);
-        } else {
-          this.raf = requestAnimationFrame(tick);
-        }
-      };
-      this.raf = requestAnimationFrame(tick);
+    return this.animateFor(ms, (e) => {
+      const [x, y] = at(e);
+      g.style.transform = translate(x, y);
     });
-  }
-
-  /** Cuts a move being drawn short. */
-  stop(): void {
-    this.endAnimation?.();
-  }
-
-  // the size changed meanwhile: drawn again, once the caller has placed the discs
-  private catchUp(): void {
-    if (this.resized) {
-      this.resized = false;
-      window.setTimeout(() => {
-        if (this.busy) {
-          this.resized = true;
-        } else if (this.model !== null) {
-          this.draw();
-        }
-      }, 0);
-    }
   }
 
   // the measures the frame has room for
@@ -280,7 +221,7 @@ export class StackBoard {
         }
         const up = this.held?.disc === d.disc;
         const [x, y] = discAt(m, look, size, r, up ? look.levels - 1 + LIFT : d.z);
-        g.style.transform = `translate(${x.toFixed(2)}px,${y.toFixed(2)}px)`;
+        g.style.transform = translate(x, y);
         g.dataset.rod = String(r);
         g.dataset.z = String(d.z);
         g.classList.toggle('top', h === rod.length - 1);
@@ -329,8 +270,10 @@ export class StackBoard {
     }
   }
 
-  private down(e: PointerEvent): void {
-    if (e.button !== 0 || this.busy || this.look === null) {
+  protected down(e: PointerEvent): void {
+    const m = this.model;
+    const look = this.look;
+    if (e.button !== 0 || this.busy || m === null || look === null) {
       return;
     }
     const rod = this.rodUnder(e);
@@ -352,19 +295,21 @@ export class StackBoard {
     }
     const top = this.stacks[rod]?.at(-1);
     const g = top === undefined ? undefined : this.groups[top.disc];
-    if (top === undefined || g === undefined) {
+    const size = top === undefined ? undefined : m.discs[top.disc]?.size;
+    if (top === undefined || g === undefined || size === undefined) {
       return;
     }
     this.root.setPointerCapture(e.pointerId);
-    const where = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(g.style.transform);
+    // where it rests: nothing is held (a click above put it down or moved it)
+    const [gx, gy] = discAt(m, look, size, rod, top.z);
     const d: Drag = {
       pointer: e.pointerId,
       rod,
       disc: top.disc,
       x0: e.clientX,
       y0: e.clientY,
-      gx: Number(where?.[1] ?? 0),
-      gy: Number(where?.[2] ?? 0),
+      gx,
+      gy,
       went: false,
       allowed: null,
       ended: null,
@@ -398,7 +343,7 @@ export class StackBoard {
     );
   }
 
-  private move(e: PointerEvent): void {
+  protected move(e: PointerEvent): void {
     const d = this.drag;
     const look = this.look;
     if (d?.pointer !== e.pointerId || d.ended !== null || look === null) {
@@ -416,11 +361,11 @@ export class StackBoard {
     const x = Math.max(0, Math.min(look.width - w, d.gx + dx));
     const y = Math.max(0, Math.min(look.height - look.pad - look.base - look.v, d.gy + dy));
     if (g !== undefined) {
-      g.style.transform = `translate(${x.toFixed(2)}px,${y.toFixed(2)}px)`;
+      g.style.transform = translate(x, y);
     }
   }
 
-  private up(e: PointerEvent, canceled: boolean): void {
+  protected up(e: PointerEvent, canceled: boolean): void {
     const d = this.drag;
     if (d?.pointer !== e.pointerId) {
       return;
@@ -473,27 +418,6 @@ export class StackBoard {
       this.host.moved(move);
     } else if (allowed !== null) {
       this.host.refused(from, to);
-    }
-  }
-
-  private endDrag(): void {
-    const d = this.drag;
-    if (d === null) {
-      return;
-    }
-    this.drag = null;
-    delete this.root.dataset.drag;
-    if (this.root.hasPointerCapture(d.pointer)) {
-      this.root.releasePointerCapture(d.pointer);
-    }
-    this.catchUp();
-  }
-
-  // the drag is dropped: the disc goes back
-  private cancelDrag(): void {
-    if (this.drag !== null) {
-      this.endDrag();
-      this.settle();
     }
   }
 }

@@ -144,11 +144,12 @@ test('the log tells what was opened and what could not be, newest first, filtere
   const out = join(dir, 'exported');
   await answerDialogs(page, { save: out });
   await dlg.locator('[data-x="export"]').click();
-  const choices = dlg.locator('.lf-pop [role="menuitem"]');
+  // the popover, above the dialog (a menu of the dialog)
+  const choices = page.locator('#pop [role="menuitem"]');
   await expect(choices).toHaveCount(1);
   await expect(choices.first()).toHaveText(/^All \d+ lines \(.+\)$/);
   await page.keyboard.press('Escape');
-  await expect(dlg.locator('.lf-pop')).toHaveCount(0);
+  await expect(page.locator('#pop')).toBeHidden();
   await expect(dlg).toBeVisible();
   // picked: all of it, as plain text, to the file the save dialog gives
   await dlg.locator('[data-x="export"]').click();
@@ -219,11 +220,24 @@ test('a long log comes a hundred lines at a time', async () => {
     const out = join(dir, 'last.txt');
     await answerDialogs(page, { save: out });
     await dlg.locator('[data-x="export"]').click();
-    const choices = dlg.locator('.lf-pop [role="menuitem"]');
+    const choices = page.locator('#pop [role="menuitem"]');
     await expect(choices).toHaveText([
       /^Last 100 lines \(\d.* KB\)$/,
       new RegExp(`^All ${String(all.length)} lines \\(\\d.* KB\\)$`),
     ]);
+    // the menu takes the arrow keys (round at the ends) and Tab before the dialog
+    await expect(choices.first()).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(choices.nth(1)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(choices.first()).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(choices.nth(1)).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.locator('#pop')).toBeHidden();
+    await expect(dlg.locator('[data-x="export"]')).toBeFocused();
+    await expect(dlg).toBeVisible();
+    await dlg.locator('[data-x="export"]').click();
     await choices.first().click();
     await expect(page.locator('#stText')).toContainText('Log exported');
     const text = readFileSync(out, 'utf8');

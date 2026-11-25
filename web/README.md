@@ -160,11 +160,11 @@ Chrome (`--headed` shows it).
   messages and frames), `frames.ts` (typed-array views), `client.ts`
   (`EngineClient`), `dispatch.ts` (replies before their events),
   `client-types.ts`, `errors.ts`, `bridge.ts` (what crosses IPC),
-  `recorder.ts`, `transport.ts`, `api.generated.ts`; and
+  `recorder.ts`, `transport.ts`, `handlers.ts` (the event handlers),
+  `serve.ts` (the host's side of the bridge), `api.generated.ts`; and
   `node-transport.ts` (the child process, Node only).
 - `src/main/`: Electron's main process: `engine-host.ts` (one engine,
-  restarted when it dies), `engine-ipc.ts` (the host's side of the bridge),
-  `engine-path.ts`, `security.ts` (the window's options, the switches a
+  restarted when it dies), `engine-path.ts`, `security.ts` (the window's options, the switches a
   packaged app takes, the requests and permissions allowed, the help
   links), `path-grants.ts` (the files a window's engine may be given),
   `app-ipc.ts`, `menu.ts`, `export-file.ts`, `rescue.ts`,

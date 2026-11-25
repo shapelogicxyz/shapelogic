@@ -23,7 +23,7 @@ import type { MeshArrays } from '../../engine/frames.ts';
 import type { Rgb3 } from '../shell/piece-colors.ts';
 import { arcballStep } from '../view3d/camera.ts';
 import { faceMaterial, faceUniforms, setPiece } from '../view3d/material.ts';
-import { buildMesh } from '../view3d/mesh.ts';
+import { buildMesh, disposeBuilt } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
 
 /** The view's opening turn: a little from above and from the side. */
@@ -126,8 +126,9 @@ export class StlPreview {
     }
     this.faces = null;
     this.outer = null;
-    this.built?.faces.dispose();
-    this.built?.marks?.dispose();
+    if (this.built !== null) {
+      disposeBuilt(this.built);
+    }
     this.built = null;
   }
 

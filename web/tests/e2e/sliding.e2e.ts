@@ -228,14 +228,14 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
     await expect(page.locator('#cRm')).toBeDisabled();
     await expect(page.locator('#toolStrip [data-t="paint"]')).toHaveCount(0);
     // one layer to begin with; more may be added
-    await expect(page.locator('#sizeSteppers [data-d="2"][data-s="-1"]')).toBeDisabled();
-    await expect(page.locator('#sizeSteppers [data-d="2"][data-s="1"]')).toBeEnabled();
+    await expect(page.locator('#sizeSteppers [data-step="2"] [data-sd="-1"]')).toBeDisabled();
+    await expect(page.locator('#sizeSteppers [data-step="2"] [data-sd="1"]')).toBeEnabled();
     for (const [d, n] of [
       [0, 2],
       [1, 1],
     ] as const) {
       for (let i = 0; i < n; i++) {
-        await page.click(`#sizeSteppers [data-d="${String(d)}"][data-s="-1"]`);
+        await page.click(`#sizeSteppers [data-step="${String(d)}"] [data-sd="-1"]`);
         await settled(page);
       }
     }
@@ -594,7 +594,7 @@ test('copies of a piece: a start and a goal for each, placed one by one', async 
       [1, 5],
     ] as const) {
       for (let i = 0; i < n; i++) {
-        await page.click(`#sizeSteppers [data-d="${String(d)}"][data-s="-1"]`);
+        await page.click(`#sizeSteppers [data-step="${String(d)}"] [data-sd="-1"]`);
         await settled(page);
       }
     }
@@ -661,7 +661,7 @@ test('a piece taken out of the puzzle takes its starts and goals off the board',
       [1, 5],
     ] as const) {
       for (let i = 0; i < n; i++) {
-        await page.click(`#sizeSteppers [data-d="${String(d)}"][data-s="-1"]`);
+        await page.click(`#sizeSteppers [data-step="${String(d)}"] [data-sd="-1"]`);
         await settled(page);
       }
     }
@@ -720,7 +720,7 @@ test('problems on one board: a copy has starts and goals of its own; an edited b
       [1, 5],
     ] as const) {
       for (let i = 0; i < n; i++) {
-        await page.click(`#sizeSteppers [data-d="${String(d)}"][data-s="-1"]`);
+        await page.click(`#sizeSteppers [data-step="${String(d)}"] [data-sd="-1"]`);
         await settled(page);
       }
     }
@@ -890,7 +890,7 @@ test('reference screenshots: a board drawn, its Start and goal, its two trays, t
 
 /** Types a size into an axis's grid size field and waits until the engine has it. */
 async function sizeTo(page: Page, shape: string, axis: number, n: number): Promise<void> {
-  const field = page.locator(`#sizeSteppers input[data-v="${String(axis)}"]`);
+  const field = page.locator(`#sizeSteppers [data-step="${String(axis)}"] input`);
   await field.fill(String(n));
   await field.press('Enter');
   await expect.poll(async () => (await shapeGet(page, shape)).shape.size[axis]).toBe(n);
@@ -1722,7 +1722,7 @@ test('a reload of the page while a sliding search runs: the new page takes the r
     // a limit of the page's own (no stored option of the problem): the card
     // of the page that follows shows the default again
     await page.click('#slvOptHead');
-    const limit = page.locator('#slvOpts input[data-sti="keepAtMost"]');
+    const limit = page.locator('#slvOpts [data-step="keepAtMost"] input');
     await limit.fill('7');
     await limit.press('Tab');
     await runButton(page, 'start');

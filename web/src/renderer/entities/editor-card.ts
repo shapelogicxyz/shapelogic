@@ -31,10 +31,12 @@ import type { Color, ShapeSummary } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
+import { keyLabel } from '../shell/keys.ts';
 import { applyLayout, layout, onLayout, tab } from '../shell/layout.ts';
 import { chipColor, contrast, fromHex, hex, isTray } from '../shell/piece-colors.ts';
 import type { Rgb3 } from '../shell/piece-colors.ts';
 import { flash } from '../shell/status.ts';
+import { stepperHtml, wireSteppers } from '../shell/widgets.ts';
 import { openColorPicker } from '../shell/color-picker.ts';
 import { openPopAt } from '../shell/popover.ts';
 import type { Axis, EditorState, PlaneMap, VoxelTool } from './editor-state.ts';
@@ -224,7 +226,7 @@ export class EditorCard {
       tools
         .map(
           (t) =>
-            `<button class="gbtn ${st.voxel === t.id ? 'on' : ''}" data-t="${t.id}" title="${tray ? (WALL_TIP[t.id] ?? t.tip) : t.tip}  (${t.k})" aria-pressed="${st.voxel === t.id}">${G.tool(t.id, 30)}<span>${t.short}</span><i class="kb">${t.k}</i></button>`,
+            `<button class="gbtn ${st.voxel === t.id ? 'on' : ''}" data-t="${t.id}" title="${tray ? (WALL_TIP[t.id] ?? t.tip) : t.tip}  (${keyLabel(t.action)})" aria-pressed="${st.voxel === t.id}">${G.tool(t.id, 30)}<span>${t.short}</span><i class="kb">${keyLabel(t.action)}</i></button>`,
         )
         .join('') + toggle,
     );
@@ -351,7 +353,18 @@ export class EditorCard {
               const v = Math.ceil((s.size[i] ?? 1) / u);
               const tip = (what: string): string =>
                 `${what} ${a}${u > 1 ? ` (blocks of ${String(u)} cells)` : ''}`;
-              return `<div class="step"><b class="ax-${a.toLowerCase()}">${a}</b><button data-d="${i}" data-s="-1" title="${tip('Decrease')}" ${v <= 1 ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-v="${i}" value="${v}" inputmode="numeric" aria-label="Size ${a}" title="${tip('Type the size')}"><button data-d="${i}" data-s="1" title="${tip('Increase')}">${ic('plus', 12)}</button></div>`;
+              // a size typed below 1 is refused: the field shows the size again
+              return stepperHtml({
+                key: String(i),
+                value: v,
+                min: 1,
+                less: tip('Decrease'),
+                more: tip('Increase'),
+                label: `Size ${a}`,
+                tip: tip('Type the size'),
+                axis: a,
+                strict: true,
+              });
             })
             .join(''),
     );
@@ -598,59 +611,29 @@ export class EditorCard {
         this.host.fillBox(b.dataset.x === 'clear');
       }
     });
-    byId('sizeSteppers').addEventListener('click', (e) => {
-      const b = (e.target as Element).closest<HTMLButtonElement>('button[data-d]');
-      if (b !== null && !b.disabled) {
-        this.host.resize(Number(b.dataset.d), Number(b.dataset.s));
-      }
-    });
-    byId('sizeSteppers').addEventListener('change', (e) => {
-      const i = e.target as HTMLInputElement;
-      const s = this.shape;
-      if (i.dataset.v === undefined || s === null) {
-        return;
-      }
-      const axis = Number(i.dataset.v);
-      const was = Math.ceil((s.size[axis] ?? 1) / this.host.unit());
-      const n = Math.round(Number(i.value));
-      if (Number.isFinite(n) && n >= 1 && n !== was) {
-        // drawn again after the resize, even one refused
-        forgetHtml(byId('sizeSteppers'));
-        this.host.resize(axis, n - was);
-      } else {
-        // nothing to change: the field shows the size again
+    // a size stepped or typed: drawn again after the resize, even one refused
+    wireSteppers(byId('sizeSteppers'), {
+      set: (k, v, typed) => {
+        const s = this.shape;
+        if (s === null) {
+          return;
+        }
+        const axis = Number(k);
+        if (typed) {
+          forgetHtml(byId('sizeSteppers'));
+        }
+        this.host.resize(axis, v - Math.ceil((s.size[axis] ?? 1) / this.host.unit()));
+      },
+      restore: () => {
         forgetHtml(byId('sizeSteppers'));
         this.renderSize();
-      }
-    });
-    byId('sizeSteppers').addEventListener('focusin', (e) => {
-      (e.target as Element).closest<HTMLInputElement>('input.v')?.select();
-    });
-    byId('sizeSteppers').addEventListener('keydown', (e) => {
-      const i = (e.target as Element).closest<HTMLInputElement>('input.v');
-      if (i === null) {
-        return;
-      }
-      if (e.key === 'Enter') {
-        i.blur();
-      } else if (e.key === 'Escape') {
-        // back to the size shown, without resizing
-        e.preventDefault();
-        forgetHtml(byId('sizeSteppers'));
-        this.renderSize();
-      }
+      },
     });
     const toggleAll = (): void => {
       st.applyAll = !st.applyAll;
       this.host.changed();
     };
     byId('applyAll').addEventListener('click', toggleAll);
-    byId('applyAll').addEventListener('keydown', (e) => {
-      if (e.key === ' ' || e.key === 'Enter') {
-        e.preventDefault();
-        toggleAll();
-      }
-    });
     const foot = byId('colFoot');
     foot.addEventListener('click', (e) => {
       const t = e.target as Element;

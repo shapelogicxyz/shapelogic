@@ -15,6 +15,9 @@
   --text:#1a1f29; --muted:#667085; --accent:#2f6df6; --accentSoft:rgba(47,109,246,.12);
   --canvas:#e4e8ef; --ax:#e5484d; --ay:#2fa85a; --az:#2f6df6; --danger:#d92d20;
   --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 14px rgba(16,24,40,.06);
+  /* the status colors, for text and icons (an error's is the danger color); the dark themes' below.
+     The banners' fills under white text are the same in both themes */
+  --ok:#2e8b57; --warn:#b45309; --error:var(--danger); --okFill:#2e8b57; --errorFill:#c02828;
   color-scheme:light;
   box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
@@ -23,6 +26,7 @@
     --outer:#08090b; --bg:#111318; --panel:#1a1d24; --panel2:#222630; --line:#2b303b; --line2:#3a4150;
     --text:#e7eaf0; --muted:#8d96a6; --accent:#5b9bff; --accentSoft:rgba(91,155,255,.16);
     --canvas:#0f1115; --ax:#ff6b70; --ay:#4bd17f; --az:#5b9bff; --danger:#ff7066;
+    --ok:#4bd17f; --warn:#e8820c;
     --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.35); color-scheme:dark;
   }
 }
@@ -30,6 +34,7 @@
   --outer:#08090b; --bg:#111318; --panel:#1a1d24; --panel2:#222630; --line:#2b303b; --line2:#3a4150;
   --text:#e7eaf0; --muted:#8d96a6; --accent:#5b9bff; --accentSoft:rgba(91,155,255,.16);
   --canvas:#0f1115; --ax:#ff6b70; --ay:#4bd17f; --az:#5b9bff; --danger:#ff7066;
+  --ok:#4bd17f; --warn:#e8820c;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.35); color-scheme:dark;
 }
 html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -261,7 +266,7 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--line2);border-bottom-width:2px;border-radius:4px;padding:1px 4px;background:var(--panel2);color:var(--text)}
 
 /* popover */
-#pop{position:absolute;max-height:calc(100vh - 16px);overflow-y:auto;z-index:20;min-width:190px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:6px;display:none}
+#pop{position:absolute;max-height:calc(100vh - 16px);overflow-y:auto;z-index:95;min-width:190px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:6px;display:none}
 #pop button{display:flex;width:100%;align-items:center;gap:10px;height:30px;padding:0 10px;border:0;background:transparent;border-radius:6px;cursor:pointer;text-align:left}
 #pop button:hover{background:var(--panel2)}
 #pop button:disabled{opacity:.4;cursor:default}
@@ -443,7 +448,7 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .ptile .pm button:hover{background:rgba(0,0,0,.6)}
 .pz-sum{flex:none;border-top:1px solid var(--line);padding:10px 14px;display:flex;gap:10px;align-items:flex-start;font-size:calc(12px + var(--fs))}
 .pz-sum b{display:block;font-size:calc(12.5px + var(--fs))}.pz-sum span{color:var(--muted)}
-.pz-sum.ok svg{color:var(--ay)}.pz-sum.warn svg{color:#d97706}.pz-sum.warn b{color:#b45309}
+.pz-sum.ok svg{color:var(--ok)}.pz-sum.warn svg,.pz-sum.warn b{color:var(--warn)}
 .pzt{width:100%;border-collapse:collapse;font-size:calc(12px + var(--fs))}
 .pzt th{position:sticky;top:0;background:var(--panel);text-align:center;font-size:calc(11px + var(--fs));font-weight:600;color:var(--muted);padding:4px 2px;text-transform:uppercase;letter-spacing:.3px}
 .pzt td{padding:2px;text-align:center}
@@ -627,7 +632,7 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .lrow.will-del{background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.55);text-decoration:line-through;text-decoration-color:rgba(220,38,38,.6)}
 .lrow .c1{font-weight:700}.lrow .c2{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:calc(11.5px + var(--fs));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lrow .c3{position:relative;height:calc(20px + var(--fh));display:flex;align-items:center;border-radius:5px;overflow:hidden}.lrow .c3 i{position:absolute;left:0;top:3px;bottom:3px;background:var(--accentSoft);border-radius:4px}.lrow.sel .c3 i{background:var(--accent);opacity:.28}.lrow .c3 b{position:relative;padding-left:6px;font-weight:600}
-.lrow .c5{display:grid;place-items:center;color:var(--muted)}.lrow .c5.ok{color:var(--ay)}.lrow .c5.bad{color:#dc2626}
+.lrow .c5{display:grid;place-items:center;color:var(--muted)}.lrow .c5.ok{color:var(--ok)}.lrow .c5.bad{color:var(--error)}
 .lrow .mut{color:var(--muted)}
 .lfoot{flex:none;padding:6px 14px;border-top:1px solid var(--line);font-size:calc(11px + var(--fs));color:var(--muted);display:flex;justify-content:space-between}
 .slv-player{height:calc(124px + var(--fh) * 4);box-sizing:border-box;overflow:hidden}
@@ -962,7 +967,7 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 .slv-run{grid-template-columns:repeat(4,minmax(0,1fr))}
 .slv-run button{padding:0 2px;font-size:calc(13px + var(--fs));font-weight:400}
 .slv-run button.pri:disabled{background:var(--panel);border-color:var(--line2);color:var(--text)}
-.slv-stat .slv-fail{display:flex;gap:6px;align-items:flex-start;color:#dc2626;font-weight:600;margin-top:4px;line-height:1.35}
+.slv-stat .slv-fail{display:flex;gap:6px;align-items:flex-start;color:var(--error);font-weight:600;margin-top:4px;line-height:1.35}
 .slv-stat .slv-fail svg{flex:none;margin-top:1px}
 .slv-opts .switch{margin-top:0}
 .switch.off{opacity:.4;cursor:default}
@@ -1077,7 +1082,7 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .lf-list:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .lf-row{padding:1px 10px 1px calc(10px + 2em);text-indent:-2em;white-space:pre-wrap;overflow-wrap:anywhere}
 .lf-row.lf-debug{color:var(--muted)}
-.lf-row.lf-warn{background:color-mix(in srgb,var(--warn,#c80) 12%,transparent)}
+.lf-row.lf-warn{background:color-mix(in srgb,var(--warn) 12%,transparent)}
 .lf-row.lf-error{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
 .lf-empty{padding:18px 12px;color:var(--muted);text-align:center;font-family:inherit}
 #logFiles .cfm.wide{width:min(1180px,calc(100% - 48px))}
@@ -1086,9 +1091,6 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 #logFiles .cfm{position:relative}
 .lf-mail{color:var(--text);white-space:nowrap}
 /* Export…'s choices, over its button */
-.lf-pop{position:absolute;z-index:2;display:flex;flex-direction:column;min-width:200px;padding:4px;background:var(--panel);border:1px solid var(--line2);border-radius:8px;box-shadow:0 10px 30px rgba(15,20,30,.25)}
-.lf-pop button{display:block;text-align:left;white-space:nowrap;padding:6px 12px;border:0;border-radius:6px;background:none;color:var(--text);font:inherit;cursor:pointer}
-.lf-pop button:hover,.lf-pop button:focus-visible{background:var(--accentSoft);outline:none}
 /* the notice of the cache files at the start (cache-notice.ts) */
 #cacheAtStart .cfm{width:min(560px,calc(100% - 48px))}
 #cacheAtStart .bt [data-x="manage"]{margin-right:auto}
@@ -1110,7 +1112,7 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .lf-table .lf-ev{white-space:nowrap;font-weight:600}
 .lf-table .lf-msg{width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
 .lf-table .lf-lv span{font-weight:700}
-.lf-lv-info{color:var(--ay)}.lf-lv-warn{color:#e8820c}.lf-lv-error{color:var(--danger)}.lf-lv-debug{color:var(--muted)}
+.lf-lv-info{color:var(--ay)}.lf-lv-warn{color:var(--warn)}.lf-lv-error{color:var(--danger)}.lf-lv-debug{color:var(--muted)}
 .lf-table tr.lf-debug td{color:var(--muted)}
 .lf-table tr.lf-error .lf-msg{color:var(--danger)}
 .cfm .lf-more{margin:8px auto 0;display:block}
@@ -1144,9 +1146,9 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 /* + New Piece and + New Board together: tighter, so the header still holds the collapse button */
 .ch:has(#btnNewBoard:not([hidden])){gap:4px}
 .ch:has(#btnNewBoard:not([hidden])) .btn{padding:0 6px;gap:3px}
-.slidevalid{display:none;position:absolute;left:12px;right:12px;bottom:12px;z-index:3;padding:7px 12px;border-radius:8px;background:#2e8b57;color:#fff;font-size:calc(12.5px + var(--fs));font-weight:500;pointer-events:none}
+.slidevalid{display:none;position:absolute;left:12px;right:12px;bottom:12px;z-index:3;padding:7px 12px;border-radius:8px;background:var(--okFill);color:#fff;font-size:calc(12.5px + var(--fs));font-weight:500;pointer-events:none}
 .slidevalid.show{display:block}
-.slidevalid.bad{background:#c02828}
+.slidevalid.bad{background:var(--errorFill)}
 .traytags{position:absolute;inset:0;pointer-events:none;z-index:1}
 .traytags span{position:absolute;transform:translate(-50%,-100%);font-weight:700;font-size:calc(13px + var(--fs));letter-spacing:.6px;color:var(--text);text-shadow:0 1px 2px var(--canvas)}
 #stage[data-tab=puzzle] #vp:has(.slidevalid.show) #vhint{display:none}
@@ -1200,7 +1202,7 @@ html:is([data-density=compact],[data-density=minimal]) #boardList{max-height:cal
 .sgpart{display:flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:2px 6px 2px 2px;color:var(--text);cursor:pointer;font:inherit;font-size:calc(11.5px + var(--fs))}
 .sgpart.on{border-color:var(--accent);background:var(--accentSoft)}
 .sgpart .chip{height:18px;min-width:28px;font-size:calc(10.5px + var(--fs))}
-.sgpart.all .n{color:#2e8b57;font-weight:600}
+.sgpart.all .n{color:var(--ok);font-weight:600}
 .sghint{padding:4px 12px;font-size:calc(11.5px + var(--fs));line-height:1.4;flex:none;min-height:calc(2 * 1.4em + 8px);box-sizing:border-box}
 .sgbody{flex:1;min-height:0;display:flex;gap:4px;padding:0 6px 6px}
 .sglayers{display:flex;flex-direction:column;flex-wrap:nowrap;align-items:center;align-self:stretch;border:1px solid var(--line);border-radius:6px}
@@ -1233,8 +1235,8 @@ html:is([data-density=compact],[data-density=minimal]) #boardList{max-height:cal
 .rodtrack .ticks i{width:2px;height:5px;background:var(--line2)}
 .stackbtns{display:flex;flex-wrap:wrap;gap:4px;padding:0 12px}
 .stackbtns .btn{flex:1 1 auto;min-width:0}
-.stackvalid{margin:0 12px;padding:7px 10px;border-radius:8px;background:#2e8b57;color:#fff;font-weight:600;font-size:calc(12.5px + var(--fs));line-height:1.35}
-.stackvalid.bad{background:#c02828}
+.stackvalid{margin:0 12px;padding:7px 10px;border-radius:8px;background:var(--okFill);color:#fff;font-weight:600;font-size:calc(12.5px + var(--fs));line-height:1.35}
+.stackvalid.bad{background:var(--errorFill)}
 .stacklist{display:flex;flex-direction:column;gap:2px;padding:4px 6px 10px;min-height:60px}
 .stackrow{height:32px;display:flex;align-items:center;gap:8px;padding:0 6px;border-radius:8px;cursor:pointer;border:1px solid transparent}
 .stackrow:hover{background:var(--panel2)}
@@ -1256,7 +1258,7 @@ html:is([data-density=compact],[data-density=minimal]) #boardList{max-height:cal
 .ng-item[aria-selected="true"]:focus-visible{outline:none}
 .ng-info{display:flex;flex-direction:column;min-height:0;overflow:auto;padding-right:4px}
 .ng-info p{margin:0 0 12px;flex:none}
-.cfm .ng-info p.ng-desc b{color:#2e8b2e}.cfm .ng-info p.ng-warn b{color:#d9731a}.cfm .ng-info p.ng-ex b{color:#2f6fd0}
+.cfm .ng-info p.ng-desc b{color:#2e8b2e}.cfm .ng-info p.ng-warn b{color:var(--warn)}.cfm .ng-info p.ng-ex b{color:#2f6fd0}
 .ng-pic{display:block;flex:1 1 0;min-height:120px;width:100%;object-fit:contain}
 
 .stl-dlg{display:grid;grid-template-columns:minmax(320px,380px) minmax(0,1fr);gap:16px;min-height:360px}
@@ -1483,8 +1485,10 @@ html:is([data-density=standard],[data-density=compact]) #boardViews .bv .gbtn{he
 /* a wall square: dark on the light theme, light on the dark one, so it stands out from the panel and the cut cells
    (the 3D view's wall blocks take the same colors, View3D.syncTurn) */
 /* and the Cells view's straight square lines: the text color, half strength on the light theme, near full white on the dark one;
-   and the cut cells around the whole ones in the board's views (--tcut) */
-:root{--twall:#2b2f37;--twallEdge:#8a93a3;--tsqLine:rgba(26,31,41,.45);--tcut:#ffffff}
+   and the cut cells around the whole ones in the board's views (--tcut);
+   the whole cells' checker, the same in both themes (--tcellA, --tcellB:
+   the board's Cells view and its 3D blocks, view3d/tray3d.ts) */
+:root{--tcellA:#1919f3;--tcellB:#62e03e;--twall:#2b2f37;--twallEdge:#8a93a3;--tsqLine:rgba(26,31,41,.45);--tcut:#ffffff}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--twall:#b4bccb;--twallEdge:#5d6676;--tsqLine:rgba(255,255,255,.88);--tcut:#1b1d23}}
 :root[data-theme="dark"]{--twall:#b4bccb;--twallEdge:#5d6676;--tsqLine:rgba(255,255,255,.88);--tcut:#1b1d23}
 .tpic{display:block;max-width:100%;max-height:100%}
@@ -1499,12 +1503,12 @@ html:is([data-density=standard],[data-density=compact]) #boardViews .bv .gbtn{he
 .tpic .tp-sq.opening{fill:var(--accent);fill-opacity:.3}
 /* Cells: vivid turned cells with strong lines, the squares' lines plain but clear */
 .tpic.tp-cells .tp-whole{stroke:#10131a;stroke-width:1.4}
-.tpic.tp-cells .tp-whole.a{fill:#1919f3}.tpic.tp-cells .tp-whole.b{fill:#62e03e}
+.tpic.tp-cells .tp-whole.a{fill:var(--tcellA)}.tpic.tp-cells .tp-whole.b{fill:var(--tcellB)}
 .tpic.tp-cells .tp-cut{stroke:#8a93a3;stroke-width:.8}
 .tpic.tp-cells .tp-sq{stroke:var(--tsqLine);stroke-width:1}
 /* Tray: the straight squares' lines bright orange over the turned cells, the cells' own lines thin */
 .tpic.tp-tray .tp-whole{stroke:#10131a;stroke-width:.6;stroke-opacity:.6}
-.tpic.tp-tray .tp-whole.a{fill:#1919f3}.tpic.tp-tray .tp-whole.b{fill:#62e03e}
+.tpic.tp-tray .tp-whole.a{fill:var(--tcellA)}.tpic.tp-tray .tp-whole.b{fill:var(--tcellB)}
 .tpic.tp-tray .tp-cut{stroke:none}
 .tpic.tp-tray .tp-sq{stroke:#ff6600;stroke-width:2.2}
 .tpic.tp-tray .tp-sq.wall{stroke:#ff6600}

@@ -17,7 +17,7 @@
 
 import type { SolutionRow } from '../../engine/api.generated.ts';
 import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
-import { ic } from '../shell/icons.ts';
+import { ic, TRANSPORT } from '../shell/icons.ts';
 import { openPop } from '../shell/popover.ts';
 import { hex } from '../shell/piece-colors.ts';
 import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
@@ -26,7 +26,9 @@ import type { SortKey } from './pager.ts';
 import type { Family } from './settings.ts';
 import type { SlideForecast } from '../../engine/api.generated.ts';
 import { liveCells, performanceHtml, PICKING_UP_NOTE, pickingUpText } from './performance.ts';
-import type { FileExport, RemoveWhich, SolverWorkspace } from './workspace.ts';
+import type { RemoveWhich, SolverWorkspace } from './workspace.ts';
+import { animationOf, exportsAllowed } from '../export/exports.ts';
+import type { FileExport } from '../export/exports.ts';
 
 /** The sort buttons (the mockup's SVSORT; `assembly` is its search order). */
 const SORTS: readonly [SortKey, string, string, string][] = [
@@ -134,18 +136,6 @@ export function manageMenu(takeApart: boolean): string {
     )
     .join('');
 }
-
-/** The player's buttons (the mockup's TG). */
-const TG = {
-  start:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>',
-  back: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 5v14L7 12z"/></svg>',
-  play: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15L19 12z"/></svg>',
-  pause:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
-  fwd: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5v14l11-7z"/></svg>',
-  end: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>',
-};
 
 /** The disassembly status of a row: class, mark, text (the mockup's svDaCell). */
 export function daCell(row: SolutionRow, inseparable: boolean): [string, string, string] {
@@ -573,11 +563,8 @@ export class SolutionsCard {
   /** The Export menu: the solution's pieces, then File ▸ Export's items (main/menu.ts) but the paused solver state. */
   private exportMenu(): string {
     const ws = this.ws;
-    // File ▸ Export's rules: Puzzlecad and STL need a shape with cells, the animation a disassembly shown
-    const snap = ws.store.snapshot;
-    const shapes = snap?.shapes.some((x) => x.fixed + x.variable > 0) ?? false;
-    const scad = shapes && (snap?.grid === 'bricks' || snap?.grid === 'sliding');
-    const animation = ws.player.problem !== null && ws.player.row?.disassembly === 'tree';
+    // File ▸ Export's rules (exports.ts)
+    const on = exportsAllowed(ws.store.snapshot, animationOf(ws.player) !== null);
     const item = (k: string, label: string, tip: string, on: boolean): string =>
       `<button data-k="${k}" title="${tip}" ${on ? '' : 'disabled'}>${label}</button>`;
     return (
@@ -593,16 +580,16 @@ export class SolutionsCard {
         'scad',
         'Puzzlecad (OpenSCAD)…',
         'Export the shapes as a Puzzlecad file for OpenSCAD (brick and sliding puzzles)',
-        scad,
+        on.scad,
       ) +
-      item('image', 'Image…', 'Save the 3D view as a PNG image', true) +
-      item('vector', 'Vector Image…', 'Save the 3D view as an SVG vector image', true) +
-      item('stl', 'STL…', 'Export shapes as STL files for 3D printing', shapes) +
+      item('image', 'Image…', 'Save the 3D view as a PNG image', on.image) +
+      item('vector', 'Vector Image…', 'Save the 3D view as an SVG vector image', on.vector) +
+      item('stl', 'STL…', 'Export shapes as STL files for 3D printing', on.stl) +
       item(
         'glb',
         'Solution Animation (GLB)…',
         'Save the shown solution’s disassembly as an animated GLB model',
-        animation,
+        on.glb,
       )
     );
   }
@@ -676,7 +663,7 @@ export class SolutionsCard {
     const off = pl.ready ? '' : 'disabled';
     const html =
       head(`<span class="lbl">Move ${t.toFixed(1)} / ${String(steps)}</span>`) +
-      `<div class="tr1"><button class="tb" data-t="start" title="Back to the assembled position" ${off}>${TG.start}</button><button class="tb" data-t="back" title="One move back" ${off}>${TG.back}</button><button class="tb pri" data-t="play" title="${pl.playing ? 'Pause' : 'Play the disassembly'}" ${off}>${pl.playing ? TG.pause : TG.play}</button><button class="tb" data-t="fwd" title="One move forward" ${off}>${TG.fwd}</button><button class="tb" data-t="end" title="Fully disassembled" ${off}>${TG.end}</button><span class="sp"></span><select id="slvSpeed" title="Playback speed">${(
+      `<div class="tr1"><button class="tb" data-t="start" title="Back to the assembled position" ${off}>${TRANSPORT.start}</button><button class="tb" data-t="back" title="One move back" ${off}>${TRANSPORT.back}</button><button class="tb pri" data-t="play" title="${pl.playing ? 'Pause' : 'Play the disassembly'}" ${off}>${pl.playing ? TRANSPORT.pause : TRANSPORT.play}</button><button class="tb" data-t="fwd" title="One move forward" ${off}>${TRANSPORT.fwd}</button><button class="tb" data-t="end" title="Fully disassembled" ${off}>${TRANSPORT.end}</button><span class="sp"></span><select id="slvSpeed" title="Playback speed">${(
         [
           [0.5, '0.5×'],
           [1, '1×'],

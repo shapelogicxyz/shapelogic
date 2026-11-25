@@ -157,13 +157,10 @@ test('the shapes list', async () => {
     await page.click(`#shapeList .row[data-id="${s2}"]`, { button: 'right' });
     await expect(page.locator('#pop [data-k="nocolor"]')).toBeDisabled();
     await page.keyboard.press('Escape');
-    await page.evaluate((id) => {
-      const p = document.getElementById('shapeColorPick');
-      if (p !== null) {
-        p.dataset.shape = id;
-      }
-    }, s2 ?? '');
-    await page.locator('#shapeColorPick').fill('#336699');
+    await page.click(`#shapeList .row[data-id="${s2}"]`, { button: 'right' });
+    await page.click('#pop [data-k="color"]');
+    await page.locator('#pop .cpk-hex').fill('#336699');
+    await page.locator('#pop .cpk-hex').press('Enter');
     await expect
       .poll(async () => (await list(page)).find((s) => s.id === s2)?.color)
       .toBe('#336699');
@@ -171,6 +168,9 @@ test('the shapes list', async () => {
       'background-color',
       'rgb(51, 102, 153)',
     );
+    // the picker closes with Esc; Default color is the menu's
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#pop')).toBeHidden();
     await page.click(`#shapeList .row[data-id="${s2}"]`, { button: 'right' });
     await page.click('#pop [data-k="nocolor"]');
     await expect.poll(async () => (await list(page)).find((s) => s.id === s2)?.color).toBeNull();

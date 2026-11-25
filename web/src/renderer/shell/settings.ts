@@ -21,34 +21,37 @@
 // asking whether to move the data found there or delete it.
 
 import type { CacheAction, CacheFolderInfo } from '../../engine/app-bridge.ts';
-import type { Settings } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
 import { openColorPicker } from './color-picker.ts';
 import { askChoice, closeDialog, openDialog, tell, trapTab } from './dialog.ts';
 import { ic } from './icons.ts';
-import { keyGroups } from './keys.ts';
 import { closePop } from './popover.ts';
-import type { KeyRow } from './keys.ts';
 import {
+  choicesOf,
   DEFAULTS,
+  engineSettingsOf,
   LABEL_CHARS_MAX,
   LABEL_LINE_PER_VOXEL,
-  LIMIT_MAX,
   NEW_SIZE_MAX,
   prefs,
+  prefsOfEngine,
+  rangeOf,
   setPrefs,
   SIDE_MAX,
   SIDE_MIN,
 } from './prefs.ts';
-import type { Prefs } from './prefs.ts';
+import type { ChoiceKey, Prefs } from './prefs.ts';
 import { flash, reportError } from './status.ts';
+import { keysHtml, stepperHtml, switchHtml, wireSteppers } from './widgets.ts';
 import { KEEP_AT_MOST, KEEP_EACH, LABEL, LIVE_PREVIEW, TIP } from '../solver/option-text.ts';
+import { optKey, SETTING_BOXES } from '../solver/boxes.ts';
+import type { PuzzleKind } from '../solver/boxes.ts';
 
 type Row = (
   | { k: keyof Prefs; t: string; d: string; type: 'sw' }
-  | { k: keyof Prefs; t: string; d: string; type: 'seg'; opts: readonly string[] }
+  | { k: ChoiceKey; t: string; d: string; type: 'seg' }
   | { k: keyof Prefs; t: string; d: string; type: 'select'; opts: readonly number[] }
   | { k: keyof Prefs; t: string; d: string; type: 'slider'; min: number }
   | {
@@ -73,9 +76,8 @@ type Row = (
       k: NumKey;
       t: string;
       d: string;
-      /** A whole number with steppers: from `min`, in steps of `step`. */
+      /** A whole number with steppers, in steps of `step` (its range the setting's). */
       type: 'num';
-      min: number;
       step: number;
     }
 ) & {
@@ -204,6 +206,26 @@ const BURRS = 'Normal Burrs';
 const SLIDING = 'Sliding';
 const STACKING = 'Stacking';
 
+/** The puzzle types of "(Only: …)" a box shows on: none when it shows on all. */
+function onlyOf(shows: readonly PuzzleKind[]): string | undefined {
+  const names = [
+    ...new Set(shows.map((k) => (k === 'sliding' ? SLIDING : k === 'stacking' ? STACKING : BURRS))),
+  ];
+  return names.length === 3 ? undefined : names.join(', ');
+}
+
+/** The Search Options' boxes the page sets, in the Solver card's order (solver/boxes.ts). */
+const SEARCH_BOX_ROWS: readonly Row[] = SETTING_BOXES.map((b) => {
+  const only = onlyOf(b.shows);
+  return {
+    k: optKey(b.name),
+    t: LABEL[b.name],
+    d: TIP[b.name],
+    type: 'sw' as const,
+    ...(only === undefined ? {} : { only }),
+  };
+});
+
 const SET: readonly Page[] = [
   {
     id: 'general',
@@ -214,21 +236,18 @@ const SET: readonly Page[] = [
         t: 'Interface density',
         d: 'Standard is the default. Compact is Standard with shorter rows in the scrolling lists (shapes, problems, solutions), so about twice as many fit, and on the Shapes tab each control on one line (its icon beside its caption) with tighter spacing and the action buttons’ descriptions in their tooltips. Minimal shows icons without captions, moves helper text into tooltips, and hides the viewport toolbar until you point at the bottom of the 3D view. Every function stays available in all three, and the text keeps its size (Font size sets it).',
         type: 'seg',
-        opts: ['Standard', 'Compact', 'Minimal'],
       },
       {
         k: 'fontSize',
         t: 'Font size',
         d: 'The size of the text throughout the interface. Medium is the default; Small is about 2 points smaller and Large about 2 points larger. The text keeps its size in every interface density.',
         type: 'seg',
-        opts: ['Small', 'Medium', 'Large'],
       },
       {
         k: 'sidebar',
         t: 'Sidebar width',
         d: `Variable (the default) widens the side cards as the window grows past 1600 pixels: each card and the 3D view take a third of the extra width, until a card is ${String(SIDE_MAX)} pixels wide; the right card is always 10% wider than the left. Static keeps the left and right side cards at the widths you choose.`,
         type: 'seg',
-        opts: ['Static', 'Variable'],
       },
       {
         t: 'Sidebar sizes',
@@ -241,21 +260,18 @@ const SET: readonly Page[] = [
         t: 'Main tab bar location',
         d: 'Where the Shapes, Puzzle, Solver and Play tabs are: Top centers them in the top bar, beside the puzzle’s name; Left keeps them in a rail down the left side of the window.',
         type: 'seg',
-        opts: ['Top', 'Left'],
       },
       {
         k: 'theme',
         t: 'Theme',
         d: 'Light, Dark, or System. System follows the operating system’s light/dark choice when the OS provides one, otherwise Light.',
         type: 'seg',
-        opts: ['Light', 'Dark', 'System'],
       },
       {
         k: 'topBar',
         t: 'Top bar theme',
         d: 'Colorful puts the red, green and blue of the X, Y and Z axes behind the ShapeLogic name, fading into the bar, and gives each tab its own color: Shapes green, Puzzle blue, Solver red. Boring keeps the bar plain, with a small colored square beside the name.',
         type: 'seg',
-        opts: ['Colorful', 'Boring'],
       },
       {
         k: 'undo',
@@ -299,7 +315,6 @@ const SET: readonly Page[] = [
         t: 'Grid plane',
         d: 'The plane the voxel editor’s grid starts in: the XY, XZ and YZ buttons above the grid. XY shows the shape in layers along Z, XZ in layers along Y, YZ in layers along X. The grid is set to it when a puzzle is opened or made, and when you change it here; the buttons still switch the plane at any time. Grids other than cubes have only XY.',
         type: 'seg',
-        opts: ['XY', 'XZ', 'YZ'],
       },
       {
         t: 'New shape size',
@@ -327,7 +342,6 @@ const SET: readonly Page[] = [
         t: 'Hinted layer',
         d: 'The voxel editor shows faintly where the shape has cells in a layer next to the one you edit, so you can see what you build on: a pale fill in the shape’s color under the edited layer’s cells. Below hints the layer under it (the original’s), Above the layer over it. In the XZ and YZ planes the layers are along Y and X. The bottom layer has nothing below it, and the top nothing above.',
         type: 'seg',
-        opts: ['Below', 'Above'],
         group: 'Voxel hint layer',
       },
     ],
@@ -353,14 +367,12 @@ const SET: readonly Page[] = [
         t: 'Rotation method',
         d: 'Free Spin has no limits: the shape turns whichever way you drag it, as far as you like, and can end up upside down (the original’s arc-ball). Top Up spins the shape around its vertical axis without limit, but tilts it only until you look straight down or straight up, so it never turns upside down. The vertical axis is the one Z axis direction stands up.',
         type: 'seg',
-        opts: ['Free Spin', 'Top Up'],
       },
       {
         k: 'zAxis',
         t: 'Z axis direction',
         d: 'Which way the axes point in the home view (the view cube’s house, or Home) and in the first view when the app starts. Z Toward: X across, Y up, Z coming toward you. Z Up: X across, Z up, Y going away from you. The home view looks from a little above and to one side. A stacking puzzle always stands its stack up.',
         type: 'seg',
-        opts: ['Z Toward', 'Z Up'],
       },
       {
         k: 'lights',
@@ -439,91 +451,12 @@ const SET: readonly Page[] = [
         d: `${LIVE_PREVIEW.tip}. One setting for every problem, not saved with the puzzle: the switch at the top of the Solver's Search Options is this one. Not on spheres, which have nothing to show.`,
         type: 'sw',
       },
-      {
-        k: 'optKeepAssemblies',
-        t: LABEL.keepAssemblies,
-        d: TIP.keepAssemblies,
-        type: 'sw',
-        only: BURRS,
-      },
-      { k: 'optJustCount', t: LABEL.justCount, d: TIP.justCount, type: 'sw' },
-      {
-        k: 'optJustLevels',
-        t: LABEL.justLevels,
-        d: TIP.justLevels,
-        type: 'sw',
-        only: `${BURRS}, ${STACKING}`,
-      },
-      { k: 'optKeepMirrors', t: LABEL.keepMirrors, d: TIP.keepMirrors, type: 'sw', only: BURRS },
-      {
-        k: 'optKeepRotations',
-        t: LABEL.keepRotations,
-        d: TIP.keepRotations,
-        type: 'sw',
-        only: BURRS,
-      },
-      {
-        k: 'optDeepSymmetry',
-        t: LABEL.deepSymmetry,
-        d: TIP.deepSymmetry,
-        type: 'sw',
-        only: BURRS,
-      },
-      {
-        k: 'optStrictColors',
-        t: LABEL.strictColors,
-        d: TIP.strictColors,
-        type: 'sw',
-        only: BURRS,
-      },
-      {
-        k: 'optAnyOrientation',
-        t: LABEL.anyOrientation,
-        d: TIP.anyOrientation,
-        type: 'sw',
-        only: SLIDING,
-      },
-      {
-        k: 'optMirroredOrientations',
-        t: LABEL.mirroredOrientations,
-        d: TIP.mirroredOrientations,
-        type: 'sw',
-        only: SLIDING,
-      },
-      {
-        k: 'optNestedSlides',
-        t: LABEL.nestedSlides,
-        d: TIP.nestedSlides,
-        type: 'sw',
-        only: SLIDING,
-      },
-      {
-        k: 'optPartialNested',
-        t: LABEL.partialNested,
-        d: TIP.partialNested,
-        type: 'sw',
-        only: SLIDING,
-      },
-      {
-        k: 'optVerticalMoves',
-        t: LABEL.verticalMoves,
-        d: TIP.verticalMoves,
-        type: 'sw',
-        only: SLIDING,
-      },
-      {
-        k: 'optOptimizedPaths',
-        t: LABEL.optimizedPaths,
-        d: TIP.optimizedPaths,
-        type: 'sw',
-        only: SLIDING,
-      },
+      ...SEARCH_BOX_ROWS,
       {
         k: 'solverType',
         t: 'Solver type',
         d: 'The Solver type a problem starts with when it has none saved: Complete (ShapeLogic) or Fast (Crowell). A problem that saved its own keeps it. Sliding and stacking puzzles have solvers of their own.',
         type: 'seg',
-        opts: ['Complete', 'Fast'],
         only: BURRS,
       },
       {
@@ -531,7 +464,6 @@ const SET: readonly Page[] = [
         t: KEEP_EACH.label,
         d: `${KEEP_EACH.tip}. No problem saves this: the Solver starts with it each time ShapeLogic starts.`,
         type: 'num',
-        min: 1,
         step: 1,
       },
       {
@@ -539,7 +471,6 @@ const SET: readonly Page[] = [
         t: KEEP_AT_MOST.label,
         d: `${KEEP_AT_MOST.tip}. No problem saves this: the Solver starts with it each time ShapeLogic starts.`,
         type: 'num',
-        min: 0,
         step: 10,
       },
     ],
@@ -595,16 +526,6 @@ const descHtml = (r: Row): string =>
 const nameHtml = (r: Row): string =>
   `<b>${esc(r.t)}</b>${r.only === undefined ? '' : `<em class="only">(Only: ${esc(r.only)})</em>`}`;
 
-/** A number held to a number row's range. */
-const numValue = (r: { min: number }, n: number): number =>
-  Math.min(LIMIT_MAX, Math.max(r.min, Math.round(n)));
-
-/** The number row of a setting. */
-function numRow(k: string): (Row & { type: 'num' }) | undefined {
-  const row = SET.flatMap((p) => p.rows).find((x) => x.type === 'num' && x.k === k);
-  return row?.type === 'num' ? row : undefined;
-}
-
 /** The cache folder's row: the folder in use, under it its buttons. */
 function cacheRowHtml(r: Row): string {
   const info = cacheInfo;
@@ -621,15 +542,31 @@ function rowHtml(r: Row): string {
     return cacheRowHtml(r);
   }
   if (r.type === 'num') {
-    const v = prefs[r.k];
     const what = r.t.toLowerCase();
-    return `<div class="setrow"><div class="t">${nameHtml(r)}${descHtml(r)}</div><div class="step"><button data-num="${r.k}" data-s="-1" title="${esc(`Decrease ${what} by ${String(r.step)}`)}" ${v <= r.min ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-num="${r.k}" value="${String(v)}" inputmode="numeric" aria-label="${esc(r.t)}" title="${esc(r.d)}"><button data-num="${r.k}" data-s="1" title="${esc(`Increase ${what} by ${String(r.step)}`)}" ${v >= LIMIT_MAX ? 'disabled' : ''}>${ic('plus', 12)}</button></div></div>`;
+    return `<div class="setrow"><div class="t">${nameHtml(r)}${descHtml(r)}</div>${stepperHtml({
+      key: r.k,
+      value: prefs[r.k],
+      ...rangeOf(r.k),
+      step: r.step,
+      less: `Decrease ${what} by ${String(r.step)}`,
+      more: `Increase ${what} by ${String(r.step)}`,
+      label: r.t,
+      tip: r.d,
+    })}</div>`;
   }
   if (r.type === 'widths') {
-    const steps = WIDTHS.map(({ k, name }) => {
-      const v = prefs[k];
-      return `<div class="step"><button data-w="${k}" data-s="-1" title="Narrow the ${name.toLowerCase()} side card" ${v <= SIDE_MIN ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-w="${k}" value="${String(v)}" inputmode="numeric" aria-label="${esc(`${name} sidebar width`)}" title="Type the ${name.toLowerCase()} side card’s width in pixels"><button data-w="${k}" data-s="1" title="Widen the ${name.toLowerCase()} side card" ${v >= SIDE_MAX ? 'disabled' : ''}>${ic('plus', 12)}</button></div>`;
-    });
+    const steps = WIDTHS.map(({ k, name }) =>
+      stepperHtml({
+        key: k,
+        value: prefs[k],
+        ...rangeOf(k),
+        step: WIDTH_STEP,
+        less: `Narrow the ${name.toLowerCase()} side card`,
+        more: `Widen the ${name.toLowerCase()} side card`,
+        label: `${name} sidebar width`,
+        tip: `Type the ${name.toLowerCase()} side card’s width in pixels`,
+      }),
+    );
     const sets = WIDTHS.map(
       (x, i) => `<small>${esc(x.name)}</small><div class="size3">${steps[i] ?? ''}</div>`,
     ).join('');
@@ -641,8 +578,16 @@ function rowHtml(r: Row): string {
         const steps = x.k
           .map((k, i) => {
             const a = 'XYZ'[i] ?? '';
-            const v = prefs[k];
-            return `<div class="step"><b class="ax-${a.toLowerCase()}">${a}</b><button data-n="${k}" data-s="-1" title="Decrease ${a}" ${v <= 1 ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-n="${k}" value="${String(v)}" inputmode="numeric" aria-label="${esc(`${r.t} ${x.name} ${a}`)}" title="Type the size in ${a}"><button data-n="${k}" data-s="1" title="Increase ${a}" ${v >= NEW_SIZE_MAX ? 'disabled' : ''}>${ic('plus', 12)}</button></div>`;
+            return stepperHtml({
+              key: k,
+              value: prefs[k],
+              ...rangeOf(k),
+              less: `Decrease ${a}`,
+              more: `Increase ${a}`,
+              label: `${r.t} ${x.name} ${a}`,
+              tip: `Type the size in ${a}`,
+              axis: a,
+            });
           })
           .join('');
         return `<small>${esc(x.name)}</small><div class="size3">${steps}</div>`;
@@ -657,7 +602,7 @@ function rowHtml(r: Row): string {
       c = `<button class="swatch" data-color="${r.k}" aria-label="${esc(r.t)}" title="Pick the color: ${esc(String(v))}" style="width:60px;height:28px;border-radius:6px;border:1px solid var(--line2);cursor:pointer;background:${esc(String(v))}"></button>`;
       break;
     case 'sw':
-      c = `<div class="switch ${v === true ? 'on' : ''}" role="switch" aria-checked="${v === true}" aria-label="${esc(r.t)}" title="${esc(r.d)}" tabindex="0" data-k="${r.k}"><span class="tr"></span></div>`;
+      c = switchHtml({ on: v === true, tip: r.d, label: r.t, data: { k: r.k } });
       break;
     case 'select': {
       const opts = r.opts.includes(v as number)
@@ -687,39 +632,18 @@ function rowHtml(r: Row): string {
       break;
     }
     case 'seg':
-      c = `<div class="seg">${r.opts.map((o) => `<button class="${o === v ? 'on' : ''}" data-k="${r.k}" data-o="${esc(o)}" aria-pressed="${o === v}" title="${esc(`${r.t}: ${o}`)}">${esc(o)}</button>`).join('')}</div>`;
+      c = `<div class="seg">${choicesOf(r.k)
+        .map(
+          (o) =>
+            `<button class="${o === v ? 'on' : ''}" data-k="${r.k}" data-o="${esc(o)}" aria-pressed="${o === v}" title="${esc(`${r.t}: ${o}`)}">${esc(o)}</button>`,
+        )
+        .join('')}</div>`;
       break;
   }
   // more than three choices do not fit beside the text: they go under it
-  const under = r.type === 'seg' && r.opts.length > 3;
+  const under = r.type === 'seg' && choicesOf(r.k).length > 3;
   return `<div class="setrow${under ? ' under' : ''}"><div class="t">${nameHtml(r)}${descHtml(r)}</div>${c}</div>`;
 }
-
-/** The keys of a row as kbd chips (the mockup's kbKeys). */
-export function kbKeys(spec: string): string {
-  return spec
-    .split(' / ')
-    .map((alt) =>
-      alt
-        .split(' · ')
-        .map((part) =>
-          part.startsWith('@')
-            ? `<em>${esc(part.slice(1))}</em>`
-            : part
-                .split(/\+(?=.)/)
-                .map((t) =>
-                  t.startsWith('@') ? `<em>${esc(t.slice(1))}</em>` : `<kbd>${esc(t)}</kbd>`,
-                )
-                .join('<i>+</i>'),
-        )
-        .join('<i>·</i>'),
-    )
-    .join('<i>/</i>');
-}
-
-/** A row of the keyboard map as the help prints it. */
-export const kbRowHtml = (r: KeyRow): string =>
-  `<div class="kbrow"><span>${esc(r.does)}</span><span class="k">${kbKeys(r.keys)}</span></div>`;
 
 /** Rows with the headings of their groups before them. */
 function rowsHtml(rows: readonly Row[]): string {
@@ -750,13 +674,9 @@ export function renderSettings(): void {
         h += `<h3>${esc(p.name)}</h3>` + rowsHtml(rs);
       }
     }
-    const hk = keyGroups()
-      .flatMap((g) =>
-        g.rows.filter((r) => `${r.keys} ${r.does} ${g.group}`.toLowerCase().includes(q)),
-      )
-      .map(kbRowHtml);
-    if (hk.length > 0) {
-      h += '<h3>Keyboard shortcuts</h3>' + hk.join('');
+    const hk = keysHtml(q);
+    if (hk !== '') {
+      h += '<h3>Keyboard shortcuts</h3>' + hk;
     }
     if (h === '') {
       h = `<div class="mute" style="padding:60px 0;text-align:center">No settings or shortcuts match “${esc(query)}”</div>`;
@@ -764,13 +684,7 @@ export function renderSettings(): void {
   } else if (page === 'keys') {
     h =
       '<div class="pgh"><h3>Keyboard shortcuts</h3></div><div class="kbnote">Grouped by workspace. In the application this list lives in <b>Help ▸ Keyboard shortcuts</b> (F1). Keys act when focus is not in a text field; menu shortcuts (File, Edit, …) are shown in the menus.</div>' +
-      keyGroups()
-        .map(
-          (g) =>
-            `<div class="kbgrp">${esc(g.group)}${g.sub === undefined ? '' : `<small>${esc(g.sub)}</small>`}</div>` +
-            g.rows.map(kbRowHtml).join(''),
-        )
-        .join('');
+      keysHtml();
   } else {
     const p = SET.find((x) => x.id === page) ?? SET[0];
     if (p !== undefined) {
@@ -826,22 +740,7 @@ export function closeSettings(): void {
 function change(c: Partial<Prefs>): void {
   setPrefs(c);
   renderSettings();
-  const engine: Partial<Settings> = {};
-  if (c.undo !== undefined) {
-    engine.undoDepth = c.undo;
-  }
-  if (c.threads !== undefined) {
-    engine.threads = c.threads;
-  }
-  if (c.memGB !== undefined) {
-    engine.searchMemoryGB = c.memGB;
-  }
-  if (c.slideDiskGB !== undefined) {
-    engine.slideDiskGB = c.slideDiskGB;
-  }
-  if (c.panexDiskGB !== undefined) {
-    engine.panexDiskGB = c.panexDiskGB;
-  }
+  const engine = engineSettingsOf(c);
   if (store !== null && Object.keys(engine).length > 0) {
     store.setEngineSettings(engine).catch((e: unknown) => {
       reportError(e, 'The setting was not taken');
@@ -946,12 +845,6 @@ export function chooseCacheFolder(): Promise<boolean> {
   return changeCache(false);
 }
 
-/** A new shape size held to the settings' range. */
-const newSize = (n: number): number => Math.min(NEW_SIZE_MAX, Math.max(1, n));
-
-/** A side card width held to the settings' range. */
-const sideWidth = (n: number): number => Math.min(SIDE_MAX, Math.max(SIDE_MIN, n));
-
 function defaultsOf(rows: readonly Row[]): Partial<Prefs> {
   return Object.fromEntries(rows.flatMap(keysOf).map((k) => [k, DEFAULTS[k]]));
 }
@@ -961,13 +854,7 @@ export function installSettings(s: Store): void {
   store = s;
   s.subscribe((c) => {
     if (c.kind === 'settings' && s.settings !== null) {
-      setPrefs({
-        undo: s.settings.undoDepth,
-        threads: s.settings.threads,
-        memGB: s.settings.searchMemoryGB,
-        slideDiskGB: s.settings.slideDiskGB,
-        panexDiskGB: s.settings.panexDiskGB,
-      });
+      setPrefs(prefsOfEngine(s.settings));
       if (settingsOpen()) {
         renderSettings();
       }
@@ -1047,22 +934,6 @@ export function installSettings(s: Store): void {
         },
         isDefault: prefs[k] === DEFAULTS[k],
       });
-    } else if (b.dataset.w !== undefined && b.dataset.s !== undefined) {
-      const k = b.dataset.w as (typeof WIDTHS)[number]['k'];
-      change({ [k]: sideWidth(prefs[k] + WIDTH_STEP * Number(b.dataset.s)) });
-      pg.querySelector<HTMLElement>(`button[data-w="${k}"][data-s="${b.dataset.s}"]`)?.focus();
-    } else if (b.dataset.num !== undefined && b.dataset.s !== undefined) {
-      const row = numRow(b.dataset.num);
-      if (row !== undefined) {
-        change({ [row.k]: numValue(row, prefs[row.k] + row.step * Number(b.dataset.s)) });
-        pg.querySelector<HTMLElement>(
-          `button[data-num="${row.k}"][data-s="${b.dataset.s}"]`,
-        )?.focus();
-      }
-    } else if (b.dataset.n !== undefined && b.dataset.s !== undefined) {
-      const k = b.dataset.n as XyzKey;
-      change({ [k]: newSize(prefs[k] + Number(b.dataset.s)) });
-      pg.querySelector<HTMLElement>(`button[data-n="${k}"][data-s="${b.dataset.s}"]`)?.focus();
     } else if (b.dataset.reset !== undefined) {
       const p = SET.find((x) => x.id === b.dataset.reset);
       if (p !== undefined) {
@@ -1074,34 +945,6 @@ export function installSettings(s: Store): void {
   });
   pg.addEventListener('change', (e) => {
     const t = e.target as HTMLInputElement | HTMLSelectElement;
-    if (t.dataset.w !== undefined) {
-      // a width typed in: whole pixels, held to the range; anything else shows the width again
-      const n = Number(t.value.trim());
-      if (t.value.trim() !== '' && Number.isFinite(n)) {
-        change({ [t.dataset.w]: sideWidth(Math.round(n)) });
-      }
-      renderSettings();
-      return;
-    }
-    if (t.dataset.num !== undefined) {
-      // a number typed in: whole, in the row's range; anything else shows the number again
-      const row = numRow(t.dataset.num);
-      const n = Number(t.value.trim());
-      if (row !== undefined && t.value.trim() !== '' && Number.isFinite(n)) {
-        change({ [row.k]: numValue(row, n) });
-      }
-      renderSettings();
-      return;
-    }
-    if (t.dataset.n !== undefined) {
-      // a size typed in: whole, 1 to NEW_SIZE_MAX; anything else shows the size again
-      const n = Number(t.value.trim());
-      if (t.value.trim() !== '' && Number.isFinite(n)) {
-        change({ [t.dataset.n]: newSize(Math.round(n)) });
-      }
-      renderSettings();
-      return;
-    }
     if (t.dataset.k !== undefined && t.dataset.steps !== undefined) {
       const steps = t.dataset.steps.split(',').map(Number);
       change({ [t.dataset.k]: steps[Number(t.value)] ?? 0 });
@@ -1136,17 +979,11 @@ export function installSettings(s: Store): void {
       t.nextElementSibling.textContent = t.value;
     }
   });
-  pg.addEventListener('keydown', (e) => {
-    const v = (e.target as Element).closest<HTMLInputElement>('input[data-n],input[data-num]');
-    if (v !== null && e.key === 'Enter') {
-      v.blur();
-      return;
-    }
-    const sw = (e.target as Element).closest<HTMLElement>('.switch');
-    if (sw !== null && (e.key === ' ' || e.key === 'Enter')) {
-      e.preventDefault();
-      toggle(sw.dataset.k ?? '');
-    }
+  // the number rows, the widths and the new shape sizes: held to the settings' ranges
+  wireSteppers(pg, {
+    set: (k, v) => {
+      change({ [k]: v });
+    },
   });
   // the dialog keeps the keyboard: Tab cycles inside it
   byId('scrim').addEventListener('keydown', (e) => {

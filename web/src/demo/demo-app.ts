@@ -3,9 +3,9 @@
 // The demo's window.btApp: what Electron's main process gives the app,
 // for a page on the website. There are no menus, dialogs or files: the
 // settings start from the defaults and are not kept, nothing is written,
-// Help opens the site's guide, and the Play tab's goal window is a popup.
+// Help opens the site's pages, and the Play tab's goal window is a popup.
 
-import { goalPage, goalWindowSize } from '../engine/app-bridge.ts';
+import { goalPage, goalWindowSize, helpUrl } from '../engine/app-bridge.ts';
 import type { AppCommand, BtApp, CliToolResult } from '../engine/app-bridge.ts';
 
 /** The demo's app, with a way to send it a command as the menus would. */
@@ -64,19 +64,8 @@ export function demoApp(version: string): DemoApp {
     },
     onPrefs: () => nothing,
     openHelp(link) {
-      const page =
-        link === 'author'
-          ? 'https://github.com/hypnoz/'
-          : link === 'issues'
-            ? 'https://github.com/shapelogicxyz/shapelogic/issues'
-            : link === 'tutorial'
-              ? '/docs/getting-started/'
-              : link === 'tilted'
-                ? '/research/tilted-square-geometry.html'
-                : link === 'troubleshooting'
-                  ? '/docs/windows-troubleshooting/'
-                  : '/docs/';
-      window.open(page, '_blank', 'noopener');
+      // the site's pages on the demo's own site
+      window.open(helpUrl(link, location.origin), '_blank', 'noopener');
     },
     goalWindow(picture, raise) {
       // a popup of the page's own, its page a blob: URL of this origin

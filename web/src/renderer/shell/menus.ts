@@ -17,6 +17,7 @@
 import type { AppCommand, AppCommandName, BtApp, MenuState } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import type { View3D } from '../view3d/view.ts';
+import { exportsAllowed } from '../export/exports.ts';
 import { CommandGate } from './command-gate.ts';
 import { dialogOpen, onDialogsClosed } from './dialog.ts';
 import { runAction } from './keyboard.ts';
@@ -26,7 +27,7 @@ import { layout, onLayout, tab } from './layout.ts';
 import { onPrefs, prefs, setPrefs } from './prefs.ts';
 
 /** The menu commands that are actions of the keyboard table. */
-const AS_KEY: Partial<Record<AppCommandName, KeyAction>> = {
+const AS_KEY = {
   new: 'file.new',
   newWindow: 'file.newWindow',
   open: 'file.open',
@@ -37,7 +38,25 @@ const AS_KEY: Partial<Record<AppCommandName, KeyAction>> = {
   settings: 'settings',
   keys: 'help.keys',
   focus3d: 'focus3d',
-};
+} as const satisfies Partial<Record<AppCommandName, KeyAction>>;
+
+/** The commands that run a key's handlers. */
+type KeyCommand = keyof typeof AS_KEY;
+
+/** The commands the menus do themselves: the 3D view's display and the theme. */
+type DisplayCommand = 'colorView' | 'style' | 'theme';
+
+/** The command of a name, with its arguments. */
+type CommandOf<K extends AppCommandName> = Extract<AppCommand, { cmd: K }>;
+
+/** A handler for each of some commands: the compiler asks for every one. */
+type HandlersOf<K extends AppCommandName> = { [C in K]: (c: CommandOf<C>) => void };
+
+/**
+ * What the commands without a key do, one handler a command (a command
+ * added to AppCommand fails the build until it has one).
+ */
+export type MenuHandlers = HandlersOf<Exclude<AppCommandName, KeyCommand | DisplayCommand>>;
 
 /** The keys the menus show: the table's, for the commands that have one. */
 export function menuKeys(): MenuState['keys'] {
@@ -55,37 +74,10 @@ export function menuKeys(): MenuState['keys'] {
   return keys;
 }
 
-/** What the commands without a key do. */
-export interface MenuHandlers {
-  openPath(path: string): void;
-  close(): void;
-  importPaused(): void;
-  exportPaused(): void;
-  /** File ▸ Import ▸ PuzzleSolver3D, Puzzlecad; File ▸ Export ▸ Puzzlecad (deferred part 6). */
-  importPs3d(): void;
-  importScad(): void;
-  exportScad(): void;
-  /** File ▸ Export ▸ Image, Vector Image, STL, Solution Animation (stage 7). */
-  exportImage(): void;
-  exportVector(): void;
-  exportStl(): void;
-  exportGlb(): void;
+/** What the menus ask the workspaces. */
+export interface MenuQueries {
   /** Whether the Solver shows a solution with its moves stored (the animation's export). */
   animation(): boolean;
-  toShapes(): void;
-  /** Edit ▸ Convert Brick Grid Type to Other (deferred part 6). */
-  convertGrid(): void;
-  notes(): void;
-  statusWindow(): void;
-  /** View ▸ Manage Cache and Autosave Files…. */
-  cacheFiles(): void;
-  /** View ▸ Log File Manager…. */
-  logFiles(): void;
-  about(): void;
-  /** ShapeLogic ▸ Install Command Line Tool… (Help ▸ Command Line Tool… elsewhere). */
-  cliTool(): void;
-  /** Check for Updates… (ShapeLogic on macOS, Help elsewhere): ask GitHub now. */
-  checkUpdates(): void;
   /** The Solver's problem: a paused solve, saved solutions. */
   solverProblem(): { paused: boolean } | null;
   /** The Play workspace's Undo and Redo, as Edit names them there (null: nothing to undo or redo). */
@@ -100,7 +92,9 @@ export class Menus {
   private readonly store: Store;
   private readonly app: BtApp;
   private readonly view: View3D;
-  private readonly h: MenuHandlers;
+  private readonly q: MenuQueries;
+  /** Every command without a key, and what it does. */
+  private readonly commands: HandlersOf<Exclude<AppCommandName, KeyCommand>>;
   private readonly keys = menuKeys();
   private labels: { undo: string | null; redo: string | null } = { undo: null, redo: null };
   private historyLoads = 0;
@@ -109,14 +103,32 @@ export class Menus {
   /** Commands that came before the first document (command-gate.ts). */
   private readonly gate: CommandGate;
 
-  constructor(store: Store, app: BtApp, view: View3D, handlers: MenuHandlers) {
+  constructor(
+    store: Store,
+    app: BtApp,
+    view: View3D,
+    handlers: MenuHandlers,
+    queries: MenuQueries,
+  ) {
     this.store = store;
     this.app = app;
     this.view = view;
-    this.h = handlers;
+    this.q = queries;
+    this.commands = {
+      ...handlers,
+      colorView: (c) => {
+        view.setDisplay({ colorView: c.on });
+      },
+      style: (c) => {
+        view.setDisplay({ style: c.style });
+      },
+      theme: (c) => {
+        setPrefs({ theme: c.theme });
+      },
+    };
     this.gate = new CommandGate({
       hasDocument: () => store.snapshot !== null,
-      engineFailed: () => handlers.engineFailed(),
+      engineFailed: () => queries.engineFailed(),
       run: (c) => {
         this.run(c);
       },
@@ -124,7 +136,7 @@ export class Menus {
         app.commandHeld(cmd, dropped);
       },
       showFailure: () => {
-        handlers.showEngineFailure();
+        queries.showEngineFailure();
       },
       dialogOpen,
       whenDialogsClosed: onDialogsClosed,
@@ -173,9 +185,10 @@ export class Menus {
   /** What the menus show now. */
   state(): MenuState {
     const snap = this.store.running ? this.store.snapshot : null;
-    const p = this.h.solverProblem();
+    const p = this.q.solverProblem();
     // on the Play tab Undo and Redo are the game's moves (decision 0039)
-    const game = tab === 'play' ? this.h.playHistory() : null;
+    const game = tab === 'play' ? this.q.playHistory() : null;
+    const allowed = exportsAllowed(snap, snap !== null && this.q.animation());
     return {
       document: snap !== null,
       dirty: snap?.dirty ?? false,
@@ -195,11 +208,10 @@ export class Menus {
       solving: snap?.solving ?? false,
       paused: p?.paused ?? false,
       solutions: snap?.problems.some((x) => x.saved > 0) ?? false,
-      shapes: snap?.shapes.some((x) => x.fixed + x.variable > 0) ?? false,
-      scad:
-        (snap?.grid === 'bricks' || snap?.grid === 'sliding') &&
-        snap.shapes.some((x) => x.fixed + x.variable > 0),
-      animation: snap !== null && this.h.animation(),
+      // File ▸ Export's rules (exports.ts)
+      shapes: allowed.stl,
+      scad: allowed.scad,
+      animation: allowed.glb,
       colorView: this.view.display.colorView,
       style: this.view.display.style,
       focus3d: layout.focus === '3d',
@@ -229,86 +241,16 @@ export class Menus {
     );
   }
 
-  /** Does what a command asks. */
+  /** Does what a command asks: a key's handlers, or its own. */
   run(c: AppCommand): void {
-    const action = AS_KEY[c.cmd];
+    const action = (AS_KEY as Partial<Record<AppCommandName, KeyAction>>)[c.cmd];
     if (action !== undefined) {
       runAction(action);
       return;
     }
-    switch (c.cmd) {
-      case 'openPath':
-        this.h.openPath(c.path);
-        break;
-      case 'close':
-        this.h.close();
-        break;
-      case 'importPaused':
-        this.h.importPaused();
-        break;
-      case 'exportPaused':
-        this.h.exportPaused();
-        break;
-      case 'importPs3d':
-        this.h.importPs3d();
-        break;
-      case 'importScad':
-        this.h.importScad();
-        break;
-      case 'exportScad':
-        this.h.exportScad();
-        break;
-      case 'exportImage':
-        this.h.exportImage();
-        break;
-      case 'exportVector':
-        this.h.exportVector();
-        break;
-      case 'exportStl':
-        this.h.exportStl();
-        break;
-      case 'exportGlb':
-        this.h.exportGlb();
-        break;
-      case 'toShapes':
-        this.h.toShapes();
-        break;
-      case 'convertGrid':
-        this.h.convertGrid();
-        break;
-      case 'notes':
-        this.h.notes();
-        break;
-      case 'statusWindow':
-        this.h.statusWindow();
-        break;
-      case 'cacheFiles':
-        this.h.cacheFiles();
-        break;
-      case 'logFiles':
-        this.h.logFiles();
-        break;
-      case 'about':
-        this.h.about();
-        break;
-      case 'cliTool':
-        this.h.cliTool();
-        break;
-      case 'checkUpdates':
-        this.h.checkUpdates();
-        break;
-      case 'colorView':
-        this.view.setDisplay({ colorView: c.on });
-        break;
-      case 'theme':
-        setPrefs({ theme: c.theme });
-        break;
-      case 'style':
-        this.view.setDisplay({ style: c.style });
-        break;
-      default:
-        // the commands with a key ran above
-        break;
-    }
+    const run = this.commands[c.cmd as Exclude<AppCommandName, KeyCommand>] as (
+      c: AppCommand,
+    ) => void;
+    run(c);
   }
 }

@@ -10,6 +10,7 @@
 // before its first call and loads everything again when `restarts` grows
 // (a new engine has a new, empty document).
 
+import { baseName } from '../shell/paths.ts';
 import type {
   Grid,
   Methods,
@@ -19,6 +20,7 @@ import type {
   TraySettings,
 } from '../../engine/api.generated.ts';
 import type { EngineApi, EngineStatus, EventParams } from '../../engine/client-types.ts';
+import { toBase64 } from '../../engine/base64.ts';
 import { EngineError } from '../../engine/errors.ts';
 import { setBoardCount, isTray } from '../shell/piece-colors.ts';
 import { RevisionWaits } from './revision-waits.ts';
@@ -55,6 +57,12 @@ export class Store {
   selected: string | null = null;
   /** The name of a document without a file that the top bar shows (opened from bytes, a rescue copy), or null. */
   displayName: string | null = null;
+
+  /** The name the document goes by: its file's, else the one shown (Untitled for none). */
+  get documentName(): string {
+    const path = this.snapshot?.path ?? null;
+    return path !== null ? baseName(path) : (this.displayName ?? 'Untitled');
+  }
   /**
    * Counts the documents: grows when another is opened or the engine was
    * restarted, so ids (s1, s2...) of the old one are not taken for the new.
@@ -337,14 +345,4 @@ export class Store {
       }
     }
   }
-}
-
-/** Bytes as base64 (document.openBytes), without Node. */
-export function toBase64(bytes: Uint8Array): string {
-  let s = '';
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    s += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(s);
 }

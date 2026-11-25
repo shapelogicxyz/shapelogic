@@ -148,7 +148,7 @@ EngineProxy.call  ──bt:call──▶ window.bt.send ──ipc──▶ serve
                   ◀bt:message─ onMessage      ◀─ipc── post(reply/event)   ◀── OrderedInbox      ◀─stdout──
 ```
 
-`serveEngine` in `web/src/main/engine-ipc.ts` checks that the method is one
+`serveEngine` in `web/src/engine/serve.ts` checks that the method is one
 of the schema's, refuses a call naming a file the window was never handed
 (`path-grants.ts`), and forwards the rest. Replies, events and the engine's
 status come back on one ordered channel, so the page sees the same order

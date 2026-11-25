@@ -18,13 +18,12 @@
 import { BufferAttribute, BufferGeometry, Group, Mesh, Vector3 } from 'three';
 
 import type { BoardLayout, MeshStyle } from '../../engine/api.generated.ts';
-import { meshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import type { Rgb3 } from '../shell/piece-colors.ts';
 import { faceMaterial, faceUniforms, setPiece } from './material.ts';
-import { buildMesh } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
-import type { MeshCache } from './meshcache.ts';
+import { MeshSlot } from './shape-meshes.ts';
+import type { MeshAsk, ShapeMeshes } from './shape-meshes.ts';
 import { SolutionScene } from './solution.ts';
 import type { ScenePiece, ScenePose, SolutionLook } from './solution.ts';
 
@@ -221,7 +220,7 @@ export interface BoardModel {
 /** What the board view asks of the view. */
 export interface BoardHost {
   store: Store;
-  cache: MeshCache;
+  meshes: ShapeMeshes;
   /** The revision a shape last changed at (its mesh is asked at it). */
   shapeRevision(shape: string): number;
   style(): MeshStyle;
@@ -241,12 +240,13 @@ export class BoardView {
   private readonly board = new BoardScene();
   private readonly discs = new SolutionScene();
   private model: BoardModel | null = null;
-  private built: BuiltMesh[] = [];
+  /** The discs' meshes shown (given back when replaced). */
+  private readonly slot: MeshSlot;
   private shownKey = '';
-  private loads = 0;
 
   constructor(host: BoardHost) {
     this.host = host;
+    this.slot = new MeshSlot(host.meshes);
     this.group.add(this.board.group);
     this.group.add(this.discs.group);
   }
@@ -282,68 +282,45 @@ export class BoardView {
     const model = this.model;
     const store = this.host.store;
     if (model === null) {
-      this.show(++this.loads, null, [], '');
+      this.slot.clear(() => {
+        this.show(null, new Map(), '');
+      });
       return;
     }
     const style = this.host.style();
     const shapes = [...new Set(model.discs.map((d) => d.shape))];
     const key = `${String(store.generation)}:${style}:${model.key}:${shapes.map((s) => `${s}@${String(this.host.shapeRevision(s))}`).join(',')}`;
-    // a load in flight for another key is stale now, even when this one is shown already
-    const n = ++this.loads;
     if (key === this.shownKey) {
+      // a load in flight for another key is stale now
+      this.slot.stale();
       return;
     }
-    Promise.all(
-      shapes.map(async (s): Promise<[string, BuiltMesh]> => {
-        const rev = this.host.shapeRevision(s);
-        const reply = await this.host.cache.get(s, style, rev);
-        const size = store.snapshot?.shapes.find((x) => x.id === s)?.size ?? [1, 1, 1];
-        return [
-          s,
-          buildMesh(meshArrays(reply), size, style, {
-            kind: 'shape',
-            shape: s,
-            revision: rev,
-            transformation: 0,
-          }),
-        ];
-      }),
-    ).then(
-      (list) => {
-        if (n !== this.loads) {
-          for (const [, b] of list) {
-            disposeBuilt(b);
-          }
-          return;
-        }
-        this.show(n, model, list, key);
-      },
-      (e: unknown) => {
-        if (n === this.loads) {
-          this.host.failed(e);
-        }
-      },
-    );
+    const asks = shapes.map((s): MeshAsk => ({
+      shape: s,
+      style,
+      revision: this.host.shapeRevision(s),
+      size: store.snapshot?.shapes.find((x) => x.id === s)?.size ?? [1, 1, 1],
+    }));
+    this.slot
+      .load(asks, (leases) => {
+        this.show(model, new Map(leases.map((l) => [l.shape, l.built])), key);
+      })
+      .catch((e: unknown) => {
+        this.host.failed(e);
+      });
   }
 
   private show(
-    n: number,
     model: BoardModel | null,
-    meshes: [string, BuiltMesh][],
+    meshOf: ReadonlyMap<string, BuiltMesh>,
     key: string,
   ): void {
-    if (n !== this.loads) {
-      return;
-    }
-    const old = this.built;
-    this.built = meshes.map((m) => m[1]);
     this.shownKey = key;
     if (model === null) {
       this.board.set(null, [0, 0, 0]);
       this.discs.set(null);
     } else {
       this.board.set(model.layout, model.center);
-      const meshOf = new Map(meshes);
       const pieces: ScenePiece[] = [];
       const poses: ScenePose[] = [];
       for (const d of model.discs) {
@@ -368,9 +345,6 @@ export class BoardView {
       this.discs.set({ key, extent: boardExtent(model.layout), pieces });
       this.discs.setPoses(poses);
     }
-    for (const b of old) {
-      disposeBuilt(b);
-    }
     this.host.changed();
   }
 
@@ -394,9 +368,4 @@ export class BoardView {
     const c = this.model?.center ?? [0, 0, 0];
     return new Vector3(p[0] - c[0], p[1] - c[1], p[2] - c[2]);
   }
-}
-
-function disposeBuilt(b: BuiltMesh): void {
-  b.faces.dispose();
-  b.marks?.dispose();
 }

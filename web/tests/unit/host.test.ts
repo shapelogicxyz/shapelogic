@@ -161,6 +161,25 @@ describe('the engine host', () => {
     expect(problems.map((p) => p.reason)).toEqual(['handler']);
   });
 
+  it('passes an event to every handler when one throws, and reports it (cleanup item 12.4)', async () => {
+    const { host: h, engines } = host();
+    const problems: ClientProblem[] = [];
+    h.onProblem((p) => problems.push(p));
+    const seen: string[] = [];
+    h.on('solve.state', () => {
+      throw new Error('a window gone');
+    });
+    h.on('solve.state', (p) => seen.push(`after ${p.state}`));
+    h.onEvent((event) => seen.push(`any ${event}`));
+    await h.start();
+    engines[0]?.event('solve.state', { problem: 'p1', state: 'finished' });
+    await until(() => seen.length === 2);
+    expect(seen).toEqual(['after finished', 'any solve.state']);
+    expect(problems).toEqual([
+      { reason: 'handler', detail: 'a solve.state handler threw: Error: a window gone' },
+    ]);
+  });
+
   it('tells each engine its setup before the window may call it; a failed setup fails the start', async () => {
     const seen: string[] = [];
     const {

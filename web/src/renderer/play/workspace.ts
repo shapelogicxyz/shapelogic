@@ -19,6 +19,7 @@
 // document's. A position saved as the Start or the Goal is a change of the
 // document, one undo step there, refused while a solve runs.
 
+import { puzzleStem } from '../shell/paths.ts';
 import type { ProblemSummary } from '../../engine/api.generated.ts';
 import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Edits } from '../state/edits.ts';
@@ -28,7 +29,7 @@ import { askConfirm } from '../shell/confirm.ts';
 import { tell } from '../shell/dialog.ts';
 import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
-import { ic } from '../shell/icons.ts';
+import { ic, TRANSPORT } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onLayout, setTab, setWorkspaceShown, tab } from '../shell/layout.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
@@ -37,18 +38,6 @@ import type { AnyGame } from './game.ts';
 import type { PlayKind } from './kind.ts';
 import { SlidingPlay } from './sliding.ts';
 import { StackingPlay } from './stacking.ts';
-
-/** The playback's glyphs (the Solver player's, solver/solutions-card.ts). */
-const TG = {
-  start:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>',
-  back: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 5v14L7 12z"/></svg>',
-  play: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15L19 12z"/></svg>',
-  pause:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
-  fwd: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5v14l11-7z"/></svg>',
-  end: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>',
-};
 
 /** The pause between two moves played back, in ms. */
 const PLAY_GAP_MS = 160;
@@ -466,7 +455,7 @@ export class PlayWorkspace {
       flash('No moves to export yet');
       return;
     }
-    const base = this.host.name.replace(/\.xmpuzzle$/i, '');
+    const base = puzzleStem(this.host.name);
     const path = await this.app.chooseSave('moves', `${base} ${p.label}.slmoves`);
     if (path === null) {
       return;
@@ -625,7 +614,7 @@ export class PlayWorkspace {
     bar.hidden = g === null;
     setHtml(
       byId('plTransport'),
-      `<button class="tb" data-t="start" title="Back to the Start  (Shift+←)" ${at === 0 ? 'disabled' : ''}>${TG.start}</button><button class="tb" data-t="back" title="One move back  (←)" ${at === 0 ? 'disabled' : ''}>${TG.back}</button><button class="tb" data-t="play" title="${this.playing ? 'Pause' : 'Play the moves'}  (Space)" ${n === 0 ? 'disabled' : ''}>${this.playing ? TG.pause : TG.play}</button><button class="tb" data-t="fwd" title="One move forward  (→)" ${at >= n ? 'disabled' : ''}>${TG.fwd}</button><button class="tb" data-t="end" title="To the last move  (Shift+→)" ${at >= n ? 'disabled' : ''}>${TG.end}</button>`,
+      `<button class="tb" data-t="start" title="Back to the Start  (Shift+←)" ${at === 0 ? 'disabled' : ''}>${TRANSPORT.start}</button><button class="tb" data-t="back" title="One move back  (←)" ${at === 0 ? 'disabled' : ''}>${TRANSPORT.back}</button><button class="tb" data-t="play" title="${this.playing ? 'Pause' : 'Play the moves'}  (Space)" ${n === 0 ? 'disabled' : ''}>${this.playing ? TRANSPORT.pause : TRANSPORT.play}</button><button class="tb" data-t="fwd" title="One move forward  (→)" ${at >= n ? 'disabled' : ''}>${TRANSPORT.fwd}</button><button class="tb" data-t="end" title="To the last move  (Shift+→)" ${at >= n ? 'disabled' : ''}>${TRANSPORT.end}</button>`,
     );
     const range = byId<HTMLInputElement>('plSeek');
     range.max = String(n);
@@ -831,10 +820,10 @@ export class PlayWorkspace {
       true,
     );
     onKey(
-      'activate',
-      (e) => {
-        // Space plays and pauses; Enter stays a focused control's
-        if (e.key !== ' ' || !onBoard(false) || this.game === null) {
+      'play',
+      () => {
+        // Space plays and pauses (Enter, `activate`, stays a focused control's)
+        if (!onBoard(false) || this.game === null) {
           return false;
         }
         if (!this.pause()) {

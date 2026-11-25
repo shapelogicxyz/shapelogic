@@ -14,7 +14,10 @@
 // own save dialog gave for that kind. Plain types and checks, free of
 // Electron and Node.
 
+import { MESH_STYLE_VALUES } from './api.generated.ts';
 import type { MeshStyle } from './api.generated.ts';
+import { toBase64 } from './base64.ts';
+import type { BridgeMessage, BridgeRequest } from './bridge.ts';
 
 /** A command of the menus (or the window: close), sent to the renderer. */
 export type AppCommand =
@@ -55,7 +58,7 @@ export type AppCommand =
   | { cmd: 'style'; style: MeshStyle }
   | { cmd: 'focus3d' }
   /** View ▸ Color Theme: the Theme setting. */
-  | { cmd: 'theme'; theme: 'Light' | 'Dark' | 'System' }
+  | { cmd: 'theme'; theme: Theme }
   | { cmd: 'keys' }
   /** ShapeLogic ▸ Command Line Tool… (Help on Windows and Linux): the dialog that explains and installs shapelogic_cli. */
   | { cmd: 'cliTool' }
@@ -65,6 +68,12 @@ export type AppCommand =
 
 /** The names of the commands. */
 export type AppCommandName = AppCommand['cmd'];
+
+/** The Theme setting's choices. */
+export const THEMES = ['Light', 'Dark', 'System'] as const;
+
+/** One of the Theme setting's choices. */
+export type Theme = (typeof THEMES)[number];
 
 /** What the menus show; the renderer sends it when it changes. */
 export interface MenuState {
@@ -91,7 +100,7 @@ export interface MenuState {
   colorView: boolean;
   style: MeshStyle;
   focus3d: boolean;
-  theme: 'Light' | 'Dark' | 'System';
+  theme: Theme;
   /** The menus' keys as the one keyboard table has them, by command (shown, not registered). */
   keys: Partial<Record<AppCommandName, string>>;
 }
@@ -152,9 +161,14 @@ export type CacheChoice =
 /** What `finishCacheFolder` does with the data in the folders in use. */
 export type CacheAction = 'move' | 'purge' | 'cancel';
 
+const CACHE_ACTIONS = { move: true, purge: true, cancel: true } as const satisfies Record<
+  CacheAction,
+  true
+>;
+
 /** Whether a value is a cache action. */
 export function isCacheAction(v: unknown): v is CacheAction {
-  return v === 'move' || v === 'purge' || v === 'cancel';
+  return typeof v === 'string' && Object.hasOwn(CACHE_ACTIONS, v);
 }
 
 /** The answer of `finishCacheFolder`: the folders now in use, or why nothing changed. */
@@ -312,12 +326,43 @@ export type DiagnosticsResult = { ok: true; bytes: number } | { ok: false; error
 export type LogExportResult =
   { ok: true; path: string } | { ok: false; canceled: true } | { ok: false; error: string };
 
+/** The website: the app's help links are its pages (the demo's are its own site's). */
+export const SITE_ORIGIN = 'https://shapelogic.xyz';
+
 /**
- * The links of the Help menu (the main process holds the addresses), the
- * research page on tilted trays (the Tilt & tolerance section's link), and
- * the guide's page on an engine that does not start (the engine's dialog).
+ * The links of the Help menu, the research page on tilted trays (the Tilt
+ * & tolerance section's link), and the guide's page on an engine that does
+ * not start (the engine's dialog): a page of the site by its path, or an
+ * address elsewhere. The renderer names a link, never a URL; the main
+ * process opens only these (shell.openExternal), and the demo opens its
+ * own site's (cleanup item 12.3: the table was written in four places).
+ * The site's pages must exist (site/tests/help-urls.test.mjs).
  */
-export type HelpLink = 'tutorial' | 'guide' | 'author' | 'issues' | 'tilted' | 'troubleshooting';
+export const HELP_URLS = {
+  guide: '/docs/',
+  tutorial: '/docs/getting-started/',
+  // the About page's link to the author's GitHub page
+  author: 'https://github.com/hypnoz/',
+  // the Log File Manager's link for reporting a problem
+  issues: 'https://github.com/shapelogicxyz/shapelogic/issues',
+  // the Tilt & tolerance section's link: the research page on tilted trays
+  tilted: '/research/tilted-square-geometry.html',
+  // the engine's dialog when it cannot start (cleanup item 2.9)
+  troubleshooting: '/docs/windows-troubleshooting/',
+} as const satisfies Record<string, string>;
+
+/** A help link's name. */
+export type HelpLink = keyof typeof HELP_URLS;
+
+/** Whether a value names a help link. */
+export function isHelpLink(v: unknown): v is HelpLink {
+  return typeof v === 'string' && Object.hasOwn(HELP_URLS, v);
+}
+
+/** A help link's address: a page of the site at `origin` (the website's by default), or its own. */
+export function helpUrl(link: HelpLink, origin: string = SITE_ORIGIN): string {
+  return new URL(HELP_URLS[link], origin).toString();
+}
 
 /**
  * What the update check found (main/updates.ts): the latest release
@@ -329,43 +374,39 @@ export type UpdateResult =
   | { status: 'current'; current: string; latest: string }
   | { status: 'error'; current: string; error: string };
 
+/** The kinds of file the open dialog asks for (a Puzzlecad file is imported and exported). */
+export const OPEN_KINDS = ['puzzle', 'paused', 'ps3d', 'scad'] as const;
+
+/** The kinds of file an export writes (through `writeExport`). */
+export const EXPORT_KINDS = ['image', 'vector', 'stl', 'glb', 'scad', 'moves'] as const;
+
+/** A kind of file the open dialog asks for. */
+export type OpenKind = (typeof OPEN_KINDS)[number];
+
+/** A kind of file an export writes. */
+export type ExportKind = (typeof EXPORT_KINDS)[number];
+
 /** The kinds of file the dialogs ask for. */
 export type FileKind = OpenKind | ExportKind;
 
-/** The kinds of file the open dialog asks for (a Puzzlecad file is imported and exported). */
-export type OpenKind = 'puzzle' | 'paused' | 'ps3d' | 'scad';
-
-/** The kinds of file an export writes (through `writeExport`). */
-export type ExportKind = 'image' | 'vector' | 'stl' | 'glb' | 'scad' | 'moves';
-
-/** The kinds of file, for the checks. */
-export const FILE_KINDS: readonly FileKind[] = [
-  'puzzle',
-  'paused',
-  'ps3d',
-  'image',
-  'vector',
-  'stl',
-  'glb',
-  'scad',
-  'moves',
-];
+/** Whether a value is in a list of strings. */
+function oneOf<T extends string>(list: readonly T[], v: unknown): v is T {
+  return typeof v === 'string' && (list as readonly string[]).includes(v);
+}
 
 /** Whether a value is a kind of file. */
 export function isFileKind(v: unknown): v is FileKind {
-  return typeof v === 'string' && (FILE_KINDS as readonly string[]).includes(v);
+  return oneOf(OPEN_KINDS, v) || oneOf(EXPORT_KINDS, v);
 }
 
 /** Whether a kind of file is an export's. */
 export function isExportKind(v: unknown): v is ExportKind {
-  return (
-    v === 'image' || v === 'vector' || v === 'stl' || v === 'glb' || v === 'scad' || v === 'moves'
-  );
+  return oneOf(EXPORT_KINDS, v);
 }
 
 /** Whether a kind of file is one the open dialog asks for. */
 export function isOpenKind(v: unknown): v is OpenKind {
-  return v === 'puzzle' || v === 'paused' || v === 'ps3d' || v === 'scad';
+  return oneOf(OPEN_KINDS, v);
 }
 
 /** A record of the rescue copy: what it stands for. */
@@ -455,11 +496,6 @@ export function goalPage(p: GoalPicture): string {
       /[&<>"]/g,
       (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c,
     );
-  const bytes = new TextEncoder().encode(p.svg);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
   const ink = p.dark ? '#ffffff' : '#000000';
   return (
     '<!doctype html><html><head><meta charset="utf-8">' +
@@ -469,7 +505,7 @@ export function goalPage(p: GoalPicture): string {
     `body{display:flex;flex-direction:column}` +
     `h1{flex:none;box-sizing:border-box;height:${String(GOAL_CAPTION)}px;margin:0;padding:12px 12px 0;font:bold 18px/18px system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.08em;text-align:center;color:${ink};user-select:none}` +
     `img{display:block;flex:1 1 auto;min-height:0;box-sizing:border-box;width:100%;padding:12px;object-fit:contain;user-select:none;-webkit-user-drag:none}</style>` +
-    `</head><body><h1>GOAL</h1><img alt="${esc(p.title)}" src="data:image/svg+xml;base64,${btoa(bin)}"></body></html>`
+    `</head><body><h1>GOAL</h1><img alt="${esc(p.title)}" src="data:image/svg+xml;base64,${toBase64(new TextEncoder().encode(p.svg))}"></body></html>`
   );
 }
 
@@ -482,6 +518,176 @@ export function goalWindowSize(p: GoalPicture, max = 640): { width: number; heig
     height: Math.max(160, Math.round(p.height * k + pad + GOAL_CAPTION)),
   };
 }
+
+/** How an export's file was written: or why not (`writeExport`, `writeFolderExport`). */
+export type WriteResult = { ok: true } | { ok: false; error: string };
+
+/** The platform and the version the preload reads at once (`bt:app-info`); null for a page not the app's. */
+export type AppInfo = { platform: string; version: string } | null;
+
+/**
+ * Every IPC channel between the renderer and the main process, by name
+ * (cleanup item 12.2): its kind, its arguments and its result.
+ * - `send`: renderer to main (ipcRenderer.send, ipcMain.on), no answer;
+ * - `sync`: renderer to main, answered at once (sendSync);
+ * - `invoke`: renderer to main, answered (ipcRenderer.invoke,
+ *   ipcMain.handle); `result` is what main answers, a window that is not
+ *   the app's too (main/app-ipc.ts's `handle` gives each channel's refusal);
+ * - `event`: main to renderer (webContents.send, ipcRenderer.on).
+ * The preload sends only through these types and main registers through
+ * them; `APP_CHANNELS` is the same table as data, which the unit tests
+ * hold to what main registers and the preload uses. Main checks every
+ * argument it is sent: the renderer is not trusted.
+ */
+export interface AppChannels {
+  // the engine's bridge (bridge.ts)
+  'bt:call': { kind: 'send'; args: [request: BridgeRequest] };
+  'bt:message': { kind: 'event'; args: [message: BridgeMessage] };
+  // the menus, the window, its file and the settings
+  'bt:app-info': { kind: 'sync'; args: []; result: AppInfo };
+  'bt:command': { kind: 'event'; args: [command: AppCommand] };
+  'bt:menu-state': { kind: 'send'; args: [state: MenuState] };
+  'bt:read-only': { kind: 'event'; args: [readOnly: boolean] };
+  'bt:prefs': { kind: 'event'; args: [prefs: Record<string, unknown>] };
+  'bt:load-state': { kind: 'invoke'; args: []; result: StoredState | null };
+  'bt:save-state': {
+    kind: 'send';
+    args: [key: keyof StoredState, value: Record<string, unknown>];
+  };
+  'bt:recent-add': { kind: 'send'; args: [path: string] };
+  'bt:recent-remove': { kind: 'send'; args: [path: string] };
+  'bt:new-window': { kind: 'send'; args: [] };
+  'bt:claim-path': { kind: 'send'; args: [path: string] };
+  'bt:dropped': { kind: 'send'; args: [path: string] };
+  'bt:help': { kind: 'send'; args: [link: HelpLink] };
+  'bt:goal-window': { kind: 'send'; args: [picture: GoalPicture, raise: boolean] };
+  'bt:close-window': { kind: 'send'; args: [] };
+  'bt:close-taken': { kind: 'send'; args: [] };
+  'bt:close-canceled': { kind: 'send'; args: [] };
+  'bt:engine-ready': { kind: 'send'; args: [] };
+  'bt:engine-retry': { kind: 'send'; args: [] };
+  'bt:command-held': { kind: 'send'; args: [command: AppCommandName, dropped: boolean] };
+  // the dialogs and the exports
+  'bt:choose-open': { kind: 'invoke'; args: [kind: OpenKind]; result: string | null };
+  'bt:choose-save': { kind: 'invoke'; args: [kind: FileKind, name: string]; result: string | null };
+  'bt:write-export': {
+    kind: 'invoke';
+    args: [path: string, data: Uint8Array];
+    result: WriteResult;
+  };
+  'bt:choose-folder': { kind: 'invoke'; args: [save: boolean]; result: string | null };
+  'bt:existing-exports': {
+    kind: 'invoke';
+    args: [folder: string, names: readonly string[]];
+    result: number;
+  };
+  'bt:write-folder-export': {
+    kind: 'invoke';
+    args: [folder: string, name: string, data: Uint8Array];
+    result: WriteResult;
+  };
+  // the rescue copy
+  'bt:rescue-write': { kind: 'invoke'; args: [info: RescueInfo]; result: RescueWritten | null };
+  'bt:rescue-read': { kind: 'invoke'; args: []; result: RescueCopy | null };
+  'bt:rescue-clear': { kind: 'invoke'; args: []; result: null };
+  // the update check
+  'bt:check-updates': { kind: 'invoke'; args: [auto: boolean]; result: UpdateResult | null };
+  'bt:skip-update': { kind: 'send'; args: [version: string] };
+  'bt:open-releases': { kind: 'send'; args: [] };
+  // the command line tool
+  'bt:cli-info': { kind: 'invoke'; args: []; result: CliToolResult };
+  'bt:cli-install': { kind: 'invoke'; args: []; result: CliToolResult };
+  'bt:cli-uninstall': { kind: 'invoke'; args: []; result: CliToolResult };
+  // the cache folder and the cache manager
+  'bt:cache-folder': { kind: 'invoke'; args: []; result: CacheFolderInfo | null };
+  'bt:cache-choose': { kind: 'invoke'; args: [useDefault: boolean]; result: CacheChoice | null };
+  'bt:cache-finish': { kind: 'invoke'; args: [action: CacheAction]; result: CacheResult | null };
+  'bt:cache-items': { kind: 'invoke'; args: []; result: CacheItem[] | null };
+  'bt:cache-items-start': { kind: 'invoke'; args: []; result: CacheItem[] | null };
+  'bt:cache-delete': { kind: 'invoke'; args: [id: string]; result: CacheDeleteResult | null };
+  'bt:cache-link': { kind: 'send'; args: [link: CacheLink] };
+  // the log manager and the diagnostics
+  'bt:log-page': { kind: 'invoke'; args: [query: LogQuery]; result: LogPage | null };
+  'bt:log-clear': { kind: 'invoke'; args: []; result: null };
+  'bt:log-closed': { kind: 'invoke'; args: []; result: null };
+  'bt:log-sizes': { kind: 'invoke'; args: []; result: LogExportSizes | null };
+  'bt:log-export': { kind: 'invoke'; args: [lines?: number]; result: LogExportResult | null };
+  'bt:diagnostics-copy': { kind: 'invoke'; args: []; result: DiagnosticsResult | null };
+  'bt:diagnostics-save': { kind: 'invoke'; args: []; result: LogExportResult | null };
+}
+
+/** A channel's name. */
+export type AppChannel = keyof AppChannels;
+
+/** The channels of a kind. */
+export type ChannelOf<K extends AppChannels[AppChannel]['kind']> = {
+  [C in AppChannel]: AppChannels[C]['kind'] extends K ? C : never;
+}[AppChannel];
+
+/** What a channel carries. */
+export type ChannelArgs<C extends AppChannel> = AppChannels[C]['args'];
+
+/** What a `sync` or `invoke` channel answers. */
+export type ChannelResult<C extends ChannelOf<'sync' | 'invoke'>> = AppChannels[C] extends {
+  result: infer R;
+}
+  ? R
+  : never;
+
+/** The table as data: each channel's kind (the compiler holds it to AppChannels, both ways). */
+export const APP_CHANNELS = {
+  'bt:call': 'send',
+  'bt:message': 'event',
+  'bt:app-info': 'sync',
+  'bt:command': 'event',
+  'bt:menu-state': 'send',
+  'bt:read-only': 'event',
+  'bt:prefs': 'event',
+  'bt:load-state': 'invoke',
+  'bt:save-state': 'send',
+  'bt:recent-add': 'send',
+  'bt:recent-remove': 'send',
+  'bt:new-window': 'send',
+  'bt:claim-path': 'send',
+  'bt:dropped': 'send',
+  'bt:help': 'send',
+  'bt:goal-window': 'send',
+  'bt:close-window': 'send',
+  'bt:close-taken': 'send',
+  'bt:close-canceled': 'send',
+  'bt:engine-ready': 'send',
+  'bt:engine-retry': 'send',
+  'bt:command-held': 'send',
+  'bt:choose-open': 'invoke',
+  'bt:choose-save': 'invoke',
+  'bt:write-export': 'invoke',
+  'bt:choose-folder': 'invoke',
+  'bt:existing-exports': 'invoke',
+  'bt:write-folder-export': 'invoke',
+  'bt:rescue-write': 'invoke',
+  'bt:rescue-read': 'invoke',
+  'bt:rescue-clear': 'invoke',
+  'bt:check-updates': 'invoke',
+  'bt:skip-update': 'send',
+  'bt:open-releases': 'send',
+  'bt:cli-info': 'invoke',
+  'bt:cli-install': 'invoke',
+  'bt:cli-uninstall': 'invoke',
+  'bt:cache-folder': 'invoke',
+  'bt:cache-choose': 'invoke',
+  'bt:cache-finish': 'invoke',
+  'bt:cache-items': 'invoke',
+  'bt:cache-items-start': 'invoke',
+  'bt:cache-delete': 'invoke',
+  'bt:cache-link': 'send',
+  'bt:log-page': 'invoke',
+  'bt:log-clear': 'invoke',
+  'bt:log-closed': 'invoke',
+  'bt:log-sizes': 'invoke',
+  'bt:log-export': 'invoke',
+  'bt:diagnostics-copy': 'invoke',
+  'bt:diagnostics-save': 'invoke',
+} as const satisfies { [C in AppChannel]: AppChannels[C]['kind'] };
 
 /** What the preload exposes as `window.btApp`. */
 export interface BtApp {
@@ -645,55 +851,59 @@ export interface BtApp {
   closeCanceled(): void;
 }
 
-const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
-  'new',
-  'newWindow',
-  'open',
-  'openPath',
-  'save',
-  'saveAs',
-  'importPaused',
-  'exportPaused',
-  'importPs3d',
-  'importScad',
-  'exportScad',
-  'exportImage',
-  'exportVector',
-  'exportStl',
-  'exportGlb',
-  'close',
-  'undo',
-  'redo',
-  'toShapes',
-  'convertGrid',
-  'notes',
-  'settings',
-  'statusWindow',
-  'cacheFiles',
-  'logFiles',
-  'colorView',
-  'style',
-  'focus3d',
-  'theme',
-  'keys',
-  'cliTool',
-  'checkUpdates',
-  'about',
-]);
+/**
+ * Every command's name (cleanup item 12.3): the compiler holds the table to
+ * AppCommand, so a command added there is refused until it is here too.
+ */
+const COMMANDS = {
+  new: true,
+  newWindow: true,
+  open: true,
+  openPath: true,
+  save: true,
+  saveAs: true,
+  importPaused: true,
+  exportPaused: true,
+  importPs3d: true,
+  importScad: true,
+  exportScad: true,
+  exportImage: true,
+  exportVector: true,
+  exportStl: true,
+  exportGlb: true,
+  close: true,
+  undo: true,
+  redo: true,
+  toShapes: true,
+  convertGrid: true,
+  notes: true,
+  settings: true,
+  statusWindow: true,
+  cacheFiles: true,
+  logFiles: true,
+  colorView: true,
+  style: true,
+  focus3d: true,
+  theme: true,
+  keys: true,
+  cliTool: true,
+  checkUpdates: true,
+  about: true,
+} as const satisfies Record<AppCommandName, true>;
 
 /** Whether a value is the name of a menu command. */
 export function isAppCommandName(v: unknown): v is AppCommandName {
-  return typeof v === 'string' && COMMANDS.has(v);
+  return typeof v === 'string' && Object.hasOwn(COMMANDS, v);
 }
 
 /** Whether a value is one of the Theme setting's choices. */
-function isTheme(v: unknown): v is MenuState['theme'] {
-  return v === 'Light' || v === 'Dark' || v === 'System';
+function isTheme(v: unknown): v is Theme {
+  return oneOf(THEMES, v);
 }
 
-/** Whether a value is one of the 3D view's styles. */
+/** Whether a value is one of the 3D view's styles (the schema's: api.generated.ts). */
 function isMeshStyle(v: unknown): v is MeshStyle {
-  return v === 'drawing' || v === 'flat' || v === 'wireframe' || v === 'stl' || v === 'uniform';
+  return oneOf(MESH_STYLE_VALUES, v);
 }
 
 /** Whether a message from the main process is a command the renderer knows. */
@@ -702,7 +912,7 @@ export function isAppCommand(v: unknown): v is AppCommand {
     return false;
   }
   const c = v as Record<string, unknown>;
-  if (typeof c.cmd !== 'string' || !COMMANDS.has(c.cmd)) {
+  if (!isAppCommandName(c.cmd)) {
     return false;
   }
   switch (c.cmd) {
@@ -733,26 +943,36 @@ export function isRescueInfo(v: unknown): v is RescueInfo {
   );
 }
 
+/** The keys of a type whose values are booleans. */
+type BooleanKeys<T> = { [K in keyof T]: T[K] extends boolean ? K : never }[keyof T];
+
+/**
+ * MenuState's switches (cleanup item 12.3): the compiler holds the table to
+ * the type, so a switch added there is checked here too (`scad`, added
+ * later, was left unchecked).
+ */
+const MENU_SWITCHES = {
+  document: true,
+  dirty: true,
+  solving: true,
+  paused: true,
+  solutions: true,
+  shapes: true,
+  scad: true,
+  animation: true,
+  colorView: true,
+  focus3d: true,
+} as const satisfies Record<BooleanKeys<MenuState>, true>;
+
 /** Whether a menu state is well formed (the main process checks what the renderer sends). */
 export function isMenuState(v: unknown): v is MenuState {
   if (typeof v !== 'object' || v === null) {
     return false;
   }
   const s = v as Record<string, unknown>;
-  const bools = [
-    'document',
-    'dirty',
-    'solving',
-    'paused',
-    'solutions',
-    'shapes',
-    'animation',
-    'colorView',
-    'focus3d',
-  ];
   const label = (x: unknown): boolean => x === null || typeof x === 'string';
   return (
-    bools.every((k) => typeof s[k] === 'boolean') &&
+    Object.keys(MENU_SWITCHES).every((k) => typeof s[k] === 'boolean') &&
     (s.path === null || typeof s.path === 'string') &&
     label(s.undo) &&
     label(s.redo) &&

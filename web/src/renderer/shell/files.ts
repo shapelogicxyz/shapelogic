@@ -17,6 +17,7 @@
 // here, so Save is Save As, under another name; Shift+Ctrl+N asks the main
 // process for a new window.
 
+import { baseName, puzzleStem } from './paths.ts';
 import type { BtApp } from '../../engine/app-bridge.ts';
 import { newOrder } from './files-order.ts';
 import { newGridBody, newGridInfoHtml } from './new-grids.ts';
@@ -29,6 +30,7 @@ import { askChoice, dialogOpen, onDialogsClosed, openDialog } from './dialog.ts'
 import { byId } from './dom.ts';
 import { onKey } from './keyboard.ts';
 import { flash, reportError } from './status.ts';
+import { listKeys } from './widgets.ts';
 
 /** What the files need of the Solver. */
 export interface FilesSolver {
@@ -42,10 +44,6 @@ export interface FilesSolver {
   saveAtSavePoint(path?: string): Promise<string | null>;
   /** The saved search of the stacking problem the Solver shows (null: none). */
   readonly savedSearch: { levelBytes: number } | null;
-}
-
-function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path;
 }
 
 const isPaused = (path: string): boolean => /\.slsolve$/i.test(path);
@@ -104,8 +102,7 @@ export class Files {
 
   /** The name a document goes by: its file's, else the one shown. */
   get name(): string {
-    const snap = this.store.snapshot;
-    return snap?.path != null ? baseName(snap.path) : (this.store.displayName ?? 'Untitled');
+    return this.store.documentName;
   }
 
   // read through a call: the checker keeps a narrowing of the snapshot across awaits
@@ -129,16 +126,7 @@ export class Files {
     if (this.store.snapshot?.dirty !== true) {
       return true;
     }
-    const k = await askChoice(
-      'discard',
-      'Unsaved changes',
-      `The puzzle “${this.name}” has unsaved changes.\nSave before you ${action}?`,
-      [
-        { key: 'cancel', label: 'Cancel' },
-        { key: 'drop', label: 'Don’t Save', kind: 'danger', tip: 'Throw the unsaved changes away' },
-        { key: 'save', label: 'Save', kind: 'pri', default: true, tip: 'Save the puzzle first' },
-      ],
-    );
+    const k = await this.askSave('discard', action);
     if (k === 'drop') {
       return true;
     }
@@ -146,6 +134,20 @@ export class Files {
       return (await this.save()) && this.clean();
     }
     return false;
+  }
+
+  /** The question about unsaved changes before something: Save, Don't Save or Cancel (null). */
+  private askSave(id: string, before: string): Promise<string | null> {
+    return askChoice(
+      id,
+      'Unsaved changes',
+      `The puzzle “${this.name}” has unsaved changes.\nSave before you ${before}?`,
+      [
+        { key: 'cancel', label: 'Cancel' },
+        { key: 'drop', label: 'Don’t Save', kind: 'danger', tip: 'Throw the unsaved changes away' },
+        { key: 'save', label: 'Save', kind: 'pri', default: true, tip: 'Save the puzzle first' },
+      ],
+    );
   }
 
   // New's Tilted Square: the tray a new puzzle starts with, drawn as its example
@@ -226,8 +228,11 @@ export class Files {
       }
     });
     dlg.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') {
+        return;
+      }
       const i = grids.indexOf(chosen);
-      const next = e.key === 'ArrowDown' ? i + 1 : e.key === 'ArrowUp' ? i - 1 : i;
+      const next = listKeys(e.key, i, grids.length) ?? i;
       const g = grids[next];
       if (next !== i && g !== undefined && (e.target as Element).closest('[data-grid]') !== null) {
         e.preventDefault();
@@ -315,7 +320,7 @@ export class Files {
     if (!this.ready()) {
       return false;
     }
-    const base = this.name.replace(/\.xmpuzzle$/i, '');
+    const base = puzzleStem(this.name);
     // a read-only copy proposes another name: the file is another window's
     const name = `${base}${this.readOnly ? ' copy' : ''}.xmpuzzle`;
     const path = await this.app.chooseSave('puzzle', name);
@@ -419,27 +424,7 @@ export class Files {
           return;
         }
       } else if (snap?.dirty === true) {
-        const k = await askChoice(
-          'closeAsk',
-          'Unsaved changes',
-          `The puzzle “${this.name}” has unsaved changes.\nSave before you close the window?`,
-          [
-            { key: 'cancel', label: 'Cancel' },
-            {
-              key: 'drop',
-              label: 'Don’t Save',
-              kind: 'danger',
-              tip: 'Throw the unsaved changes away',
-            },
-            {
-              key: 'save',
-              label: 'Save',
-              kind: 'pri',
-              default: true,
-              tip: 'Save the puzzle first',
-            },
-          ],
-        );
+        const k = await this.askSave('closeAsk', 'close the window');
         if (k === 'save') {
           if (!(await this.save()) || !this.clean()) {
             this.app.closeCanceled();
@@ -512,7 +497,7 @@ export class Files {
       }
       withLevels = k === 'include';
     }
-    const base = this.name.replace(/\.xmpuzzle$/i, '');
+    const base = puzzleStem(this.name);
     const path = await this.app.chooseSave('paused', `${base}.slsolve`);
     if (path === null) {
       return;

@@ -21,6 +21,7 @@ import { ic } from '../shell/icons.ts';
 import { copyColor } from '../shell/piece-colors.ts';
 import { flash, reportError } from '../shell/status.ts';
 import { onTheme } from '../shell/theme.ts';
+import { toggleButton } from './board-shell.ts';
 import type { AnyGame } from './game.ts';
 import type { Loaded, PlayKind, PlayKindHost } from './kind.ts';
 import { StackBoard } from './stack-board.ts';
@@ -423,21 +424,31 @@ export class StackingPlay implements PlayKind {
 
   // the goal's picture and the discs' labels shown or hidden, and the buttons that say which they will do
   private showButtons(): void {
-    const goal = this.goalHidden;
-    const g = byId('plGoalShow');
-    g.innerHTML = `${ic(goal ? 'outline' : 'outlineOff', 22)}<span>${goal ? 'Show Goal' : 'Hide Goal'}</span>`;
-    g.title = goal
-      ? 'Show Goal: the picture of where the discs must end, beside the board, again'
-      : 'Hide Goal: leave the picture of where the discs must end off the page';
-    g.setAttribute('aria-pressed', String(goal));
-    const labels = this.labelsHidden;
-    byId('stackBoard').classList.toggle('nolabels', labels);
-    const l = byId('plDiscLabels');
-    l.innerHTML = `${ic(labels ? 'tag' : 'tagOff', 22)}<span>${labels ? 'Show Disc Labels' : 'Hide Disc Labels'}</span>`;
-    l.title = labels
-      ? 'Show Disc Labels: write each disc’s name, or its size, on it again'
-      : 'Hide Disc Labels: leave the discs’ names and sizes off them';
-    l.setAttribute('aria-pressed', String(labels));
+    toggleButton('plGoalShow', this.goalHidden, {
+      pressed: {
+        icon: 'outline',
+        label: 'Show Goal',
+        does: 'the picture of where the discs must end, beside the board, again',
+      },
+      released: {
+        icon: 'outlineOff',
+        label: 'Hide Goal',
+        does: 'leave the picture of where the discs must end off the page',
+      },
+    });
+    byId('stackBoard').classList.toggle('nolabels', this.labelsHidden);
+    toggleButton('plDiscLabels', this.labelsHidden, {
+      pressed: {
+        icon: 'tag',
+        label: 'Show Disc Labels',
+        does: 'write each disc’s name, or its size, on it again',
+      },
+      released: {
+        icon: 'tagOff',
+        label: 'Hide Disc Labels',
+        does: 'leave the discs’ names and sizes off them',
+      },
+    });
   }
 
   save(

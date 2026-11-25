@@ -14,7 +14,7 @@ npm test          # the app's Help URLs are pages of dist/ (build first)
 ## Rules
 
 - The app's Help menu opens `/docs/` and `/docs/getting-started/`
-  (`HELP_URLS` in `web/src/main/security.ts`). Do not rename those pages;
+  (`HELP_URLS` in `web/src/engine/app-bridge.ts`). Do not rename those pages;
   `npm test` fails if they go missing.
 - Screenshots are made by the app itself, not by hand: `just docs-screenshots`
   (needs `just build release`) drives the built app and writes

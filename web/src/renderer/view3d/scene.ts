@@ -90,7 +90,10 @@ export class ShapeScene {
     return this.xray;
   }
 
-  /** Shows another mesh (null: none); the old one is freed. */
+  /**
+   * Shows another mesh (null: none). The meshes are the view's shared ones
+   * (shape-meshes.ts): their owner frees them, this only lets go.
+   */
   setMesh(built: BuiltMesh | null): void {
     this.clearMesh();
     this.built = built;
@@ -166,8 +169,6 @@ export class ShapeScene {
         this.parent.remove(o);
       }
     }
-    this.built?.faces.dispose();
-    this.built?.marks?.dispose();
     this.edges?.geometry.dispose();
     this.faces = null;
     this.outer = null;

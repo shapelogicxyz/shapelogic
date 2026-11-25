@@ -560,17 +560,17 @@ test('settings and layouts survive a restart', async () => {
     await page.click('#setNav [data-p="grid"]');
     await expect(page.locator('#setPg [data-k="gridPlane"][data-o="XY"]')).toHaveClass(/\bon\b/);
     for (const k of ['newX', 'newY', 'newZ']) {
-      await expect(page.locator(`#setPg input[data-n="${k}"]`)).toHaveValue('4');
+      await expect(page.locator(`#setPg [data-step="${k}"] input`)).toHaveValue('4');
     }
     for (const [k, v] of [
       ['slideX', '6'],
       ['slideY', '6'],
       ['slideZ', '1'],
     ] as const) {
-      await expect(page.locator(`#setPg input[data-n="${k}"]`)).toHaveValue(v);
+      await expect(page.locator(`#setPg [data-step="${k}"] input`)).toHaveValue(v);
     }
-    await page.click('#setPg button[data-n="newZ"][data-s="-1"]');
-    await expect(page.locator('#setPg input[data-n="newZ"]')).toHaveValue('3');
+    await page.click('#setPg [data-step="newZ"] [data-sd="-1"]');
+    await expect(page.locator('#setPg [data-step="newZ"] input')).toHaveValue('3');
     await page.click('#setNav [data-p="perf"]');
     await page.locator('#setPg input[data-k="threads"]').fill('1');
     await page.keyboard.press('Escape');
@@ -621,7 +621,7 @@ test('settings and layouts survive a restart', async () => {
     await expect(page.locator('#setPg [data-k="zAxis"][data-o="Z Up"]')).toHaveClass(/\bon\b/);
     await expect(page.locator('#setPg .switch[data-k="cube"]')).not.toHaveClass(/\bon\b/);
     await page.click('#setNav [data-p="grid"]');
-    await expect(page.locator('#setPg input[data-n="newZ"]')).toHaveValue('3');
+    await expect(page.locator('#setPg [data-step="newZ"] input')).toHaveValue('3');
     await page.keyboard.press('Escape');
   } finally {
     await b.close();
@@ -661,23 +661,23 @@ test('Sidebar width: Static widths as chosen; Variable grows past a 1600 pixel w
       /\bon\b/,
     );
     await page.click('#setPg [data-k="sidebar"][data-o="Static"]');
-    await expect(page.locator('#setPg input[data-w="sideL"]')).toHaveValue('340');
-    await expect(page.locator('#setPg input[data-w="sideR"]')).toHaveValue('374');
+    await expect(page.locator('#setPg [data-step="sideL"] input')).toHaveValue('340');
+    await expect(page.locator('#setPg [data-step="sideR"] input')).toHaveValue('374');
     await expect.poll(columns).toBe('340px 374px');
-    await page.fill('#setPg input[data-w="sideL"]', '450');
+    await page.fill('#setPg [data-step="sideL"] input', '450');
     await page.keyboard.press('Tab');
-    await page.click('#setPg button[data-w="sideR"][data-s="1"]');
-    await expect(page.locator('#setPg input[data-w="sideR"]')).toHaveValue('384');
+    await page.click('#setPg [data-step="sideR"] [data-sd="1"]');
+    await expect(page.locator('#setPg [data-step="sideR"] input')).toHaveValue('384');
     await expect.poll(columns).toBe('450px 384px');
     // out of range: held to 200 to 600
-    await page.fill('#setPg input[data-w="sideL"]', '9000');
+    await page.fill('#setPg [data-step="sideL"] input', '9000');
     await page.keyboard.press('Tab');
-    await expect(page.locator('#setPg input[data-w="sideL"]')).toHaveValue('600');
+    await expect(page.locator('#setPg [data-step="sideL"] input')).toHaveValue('600');
     // a wide window leaves Static as it is
     await resize(1900);
     await expect.poll(columns).toBe('600px 384px');
     await page.click('#setPg [data-k="sidebar"][data-o="Variable"]');
-    await expect(page.locator('#setPg input[data-w="sideL"]')).toHaveCount(0);
+    await expect(page.locator('#setPg [data-step="sideL"] input')).toHaveCount(0);
     // 300 pixels past 1600: a third each (the right card 10% wider)
     await expect.poll(columns).toBe('440px 484px');
     await resize(1500);

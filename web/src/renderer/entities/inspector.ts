@@ -22,6 +22,7 @@ import type { Store } from '../state/store.ts';
 import { $$, byId, esc, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { flash, reportError } from '../shell/status.ts';
+import { switchHtml } from '../shell/widgets.ts';
 import type { Axis, EditorState } from './editor-state.ts';
 import { G } from './glyphs.ts';
 import type { SurfOp } from './glyphs.ts';
@@ -361,7 +362,12 @@ export class Inspector {
 
   private fitHtml(byTask: Map<ShapeTask, TaskInfo>, empty: boolean): string {
     const st = this.host.state;
-    let h = `<div class="switch ${st.applyAll ? 'on' : ''}" data-applyall="1" role="switch" tabindex="0" aria-checked="${st.applyAll}" title="Prune, center, to origin, minimize and scale every shape at once; grid size changes grow the other shapes as much (they never shrink)"><span class="tr"></span><span>Apply to all shapes</span></div>`;
+    let h = switchHtml({
+      on: st.applyAll,
+      data: { applyall: '1' },
+      text: 'Apply to all shapes',
+      tip: 'Prune, center, to origin, minimize and scale every shape at once; grid size changes grow the other shapes as much (they never shrink)',
+    });
     h += '<div class="sub2">Fit to grid</div>' + this.abtn(byTask.get('prune'), empty);
     h += `<div class="two" style="margin-top:6px">${this.abtn(byTask.get('center'))}${this.abtn(byTask.get('toOrigin'))}</div>`;
     const mul = (['double', 'triple'] as const)
@@ -477,15 +483,6 @@ export class Inspector {
       const b = (e.target as Element).closest<HTMLButtonElement>('button[data-task]');
       if (b !== null && !b.contains(e.relatedTarget as Node | null)) {
         this.preview(null);
-      }
-    });
-    byId('insp').addEventListener('keydown', (e) => {
-      if (
-        (e.key === ' ' || e.key === 'Enter') &&
-        (e.target as Element).closest('[data-applyall]') !== null
-      ) {
-        e.preventDefault();
-        this.toggleAll();
       }
     });
     for (const c of $$('#insp .sec>button.sh .chev')) {

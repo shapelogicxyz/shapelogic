@@ -11,12 +11,14 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
+import { VERSION_PATTERN } from '../src/main/updates.ts';
+
 /** The repository's root (above web/). */
 export const REPO_ROOT = resolve(import.meta.dirname, '../..');
 
 /** The version a tag names (`v1.4` is 1.4.0, `v1.4.2` is 1.4.2), or null when it names none. */
 export function versionFromTag(tag: string): string | null {
-  const m = /^v?(\d+)\.(\d+)(?:\.(\d+))?$/.exec(tag.trim());
+  const m = VERSION_PATTERN.exec(tag.trim());
   if (m === null) {
     return null;
   }

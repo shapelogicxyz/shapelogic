@@ -2,7 +2,7 @@
 //
 // The demo's window.bt: the engine client over the browser engine
 // (wasm-transport.ts), served to the renderer's proxy as Electron's main
-// process serves a window (main/engine-ipc.ts). A call that would start a
+// process serves a window (engine/serve.ts). A call that would start a
 // search is refused before it reaches the engine: a solve, an analysis, a
 // fit of a tilted tray's placements or an explorer would run on the page's
 // one thread for as long as it took.
@@ -15,7 +15,7 @@ import type { SolveProgress, SolveState } from '../engine/api.generated.ts';
 import type { BridgeCall, BridgeMessage, BridgeRequest, BtBridge } from '../engine/bridge.ts';
 import type { EngineClient } from '../engine/client.ts';
 import type { EngineStatus } from '../engine/client-types.ts';
-import { serveEngine } from '../main/engine-ipc.ts';
+import { serveEngine } from '../engine/serve.ts';
 
 /** What a refused search says (shown after what was being done). */
 export const SEARCH_REFUSED =

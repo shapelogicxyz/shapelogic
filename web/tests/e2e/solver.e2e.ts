@@ -36,6 +36,8 @@ import {
   readCallLog,
   tmpLog,
 } from './app.ts';
+import { BOXES, showsOn } from '../../src/renderer/solver/boxes.ts';
+import type { PuzzleKind } from '../../src/renderer/solver/boxes.ts';
 import { pzSettled } from './puzzle.ts';
 import {
   btJson,
@@ -511,8 +513,8 @@ test('Analyse: what does not come apart is marked, the rest removed; a stop keep
     await toSolver(page);
     expect(await shownProblem(page)).toBe(box.problem);
     await page.click('#slvOptHead');
-    await page.fill('#slvOpts input[data-sti="keepAtMost"]', '0');
-    await page.locator('#slvOpts input[data-sti="keepAtMost"]').press('Tab');
+    await page.fill('#slvOpts [data-step="keepAtMost"] input', '0');
+    await page.locator('#slvOpts [data-step="keepAtMost"] input').press('Tab');
     await runButton(page, 'start');
     await runEnded(page, 'finished');
     const total = (
@@ -858,6 +860,51 @@ test('the crash recovery journal keeps a puzzle without a file in the rescue cop
   }
 });
 
+test('the card shows each box of the boxes’ table on the puzzle types it names, in its order', async () => {
+  const a = await launch();
+  const page = a.page;
+  /** The switches the card shows in a section. */
+  const switches = (section: string) =>
+    page
+      .locator(`#${section} .switch[data-o]`)
+      .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.o));
+  const wanted = (kind: PuzzleKind, at: 'mode' | 'options') =>
+    BOXES.filter((b) => b.at === at && showsOn(b, kind) && b.name !== 'disassemble').map(
+      (b) => b.name,
+    );
+  try {
+    const kinds: [PuzzleKind, () => Promise<unknown>][] = [
+      ['brick', () => newDocument(page, 'bricks').then(() => dominoBox(page, 2, 2, 2))],
+      ['tilted', () => openFixture(page, 'tilted/TriplePlay.xmpuzzle')],
+      ['sliding', () => openFixture(page, 'test_sliding_solver.xmpuzzle')],
+      ['stacking', () => openFixture(page, 'test_stacking_hanoi.xmpuzzle')],
+    ];
+    for (const [kind, open] of kinds) {
+      await open();
+      await toSolver(page);
+      if (!(await page.locator('#slvOpts').isVisible())) {
+        await page.click('#slvOptHead');
+      }
+      expect(await switches('slvOpts'), kind).toEqual(wanted(kind, 'options'));
+      // the take-apart is the mode cards'; with it, what goes with it
+      await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveCount(1);
+      if (kind === 'brick') {
+        await page.click('#slvMode [data-m="dis"]');
+        await solverSettled(page);
+      }
+      if (
+        await page
+          .locator('#slvMode .mcard[data-m="dis"]')
+          .evaluate((e) => e.classList.contains('on'))
+      ) {
+        expect(await switches('slvMode'), kind).toEqual(wanted(kind, 'mode'));
+      }
+    }
+  } finally {
+    await a.close();
+  }
+});
+
 test('the settings’ Search Options are what a problem’s search options start at', async () => {
   const a = await launch();
   const page = a.page;
@@ -867,7 +914,7 @@ test('the settings’ Search Options are what a problem’s search options start
     await toSolver(page);
     await page.click('#slvOptHead');
     const mirrors = page.locator('#slvOpts .switch[data-o="keepMirrors"]');
-    const limit = page.locator('#slvOpts input[data-sti="keepAtMost"]');
+    const limit = page.locator('#slvOpts [data-step="keepAtMost"] input');
     await expect(mirrors).toHaveAttribute('aria-checked', 'false');
     await expect(limit).toHaveValue('100');
 
@@ -923,11 +970,11 @@ test('the settings’ Search Options are what a problem’s search options start
     await expect(live).toHaveAttribute('aria-checked', 'true');
     await page.click('#setPg .switch[data-k="livePreview"]');
     await page.click('#setPg .switch[data-k="optKeepMirrors"]');
-    await page.locator('#setPg input[data-num="optKeepAtMost"]').fill('250');
-    await page.locator('#setPg input[data-num="optKeepAtMost"]').press('Enter');
-    await expect(page.locator('#setPg input[data-num="optKeepAtMost"]')).toHaveValue('250');
-    await page.click('#setPg button[data-num="optKeepAtMost"][data-s="1"]');
-    await expect(page.locator('#setPg input[data-num="optKeepAtMost"]')).toHaveValue('260');
+    await page.locator('#setPg [data-step="optKeepAtMost"] input').fill('250');
+    await page.locator('#setPg [data-step="optKeepAtMost"] input').press('Enter');
+    await expect(page.locator('#setPg [data-step="optKeepAtMost"] input')).toHaveValue('250');
+    await page.click('#setPg [data-step="optKeepAtMost"] [data-sd="1"]');
+    await expect(page.locator('#setPg [data-step="optKeepAtMost"] input')).toHaveValue('260');
     await page.keyboard.press('Escape');
     await expect(mirrors).toHaveAttribute('aria-checked', 'true');
     await expect(limit).toHaveValue('260');
@@ -952,10 +999,10 @@ test('the settings’ Search Options are what a problem’s search options start
       'aria-checked',
       'true',
     );
-    await expect(page.locator('#setPg input[data-num="optKeepAtMost"]')).toHaveValue('260');
+    await expect(page.locator('#setPg [data-step="optKeepAtMost"] input')).toHaveValue('260');
     // the default moved again: the problem keeps what it stored, the limit what was typed
     await page.click('#setPg .switch[data-k="optKeepRotations"]');
-    await page.click('#setPg button[data-num="optKeepAtMost"][data-s="-1"]');
+    await page.click('#setPg [data-step="optKeepAtMost"] [data-sd="-1"]');
     await page.keyboard.press('Escape');
     await expect(mirrors).toHaveAttribute('aria-checked', 'false');
     await expect(page.locator('#slvOpts .switch[data-o="keepRotations"]')).toHaveAttribute(
@@ -972,7 +1019,7 @@ test('the settings’ Search Options are what a problem’s search options start
       'aria-checked',
       'false',
     );
-    await expect(page.locator('#setPg input[data-num="optKeepAtMost"]')).toHaveValue('100');
+    await expect(page.locator('#setPg [data-step="optKeepAtMost"] input')).toHaveValue('100');
     await page.keyboard.press('Escape');
   } finally {
     await a.close();

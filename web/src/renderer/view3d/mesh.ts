@@ -175,6 +175,12 @@ export function buildMesh(
   };
 }
 
+/** Frees a built mesh's GPU buffers: its faces and its variable marks. */
+export function disposeBuilt(b: BuiltMesh): void {
+  b.faces.dispose();
+  b.marks?.dispose();
+}
+
 type V3 = [number, number, number];
 
 /**

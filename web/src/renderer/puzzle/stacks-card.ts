@@ -69,7 +69,7 @@ export class StacksCard {
     const own = sets.find((r) => r.id === ws.detail?.rodSet);
     const head =
       own === undefined
-        ? '<span class="chip" style="background:var(--muted)">–</span><div class="meta"><b style="color:var(--danger)">No Start/Goal Rods</b><span>Choose a rod set and Set Start/Goal Rods</span></div>'
+        ? '<span class="chip" style="background:var(--muted)">–</span><div class="meta"><b style="color:var(--error)">No Start/Goal Rods</b><span>Choose a rod set and Set Start/Goal Rods</span></div>'
         : `<span class="chip" style="background:${ROD_CHIP};color:#fff">${esc(own.label)}</span><div class="meta"><b>Result: ${esc(rodSetText(own))}</b><span>${String(own.rodCount)} rod${own.rodCount === 1 ? '' : 's'}${own.panexColumns ? ', Panex columns' : ''}${own.pocketColumn ? ', a pocket' : ''}</span></div>`;
     const rows = sets
       .map(

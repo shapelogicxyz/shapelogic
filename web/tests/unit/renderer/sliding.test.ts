@@ -25,7 +25,7 @@ import {
   savedDetails,
   searchActive,
   shortCount,
-  SLIDING_BOXES,
+  boxesShown,
   slidingDetails,
   solveOptions,
   stopDetails,
@@ -172,7 +172,7 @@ describe('the sliding options', () => {
   it('use optimized paths only when asked: the stored box, or one solve', () => {
     const o = readOptions({}, undefined, 'sliding');
     expect(o.optimizedPaths).toBe(false);
-    expect(SLIDING_BOXES.has('optimizedPaths')).toBe(true);
+    expect(boxesShown('sliding').includes('optimizedPaths')).toBe(true);
     const on = readOptions({ optimizedPaths: true }, undefined, 'sliding');
     expect(on.optimizedPaths).toBe(true);
     expect(solveOptions(on, DEFAULT_LIMITS, 'sliding').sliding?.optimizedPaths).toBe(true);
@@ -194,8 +194,8 @@ describe('the sliding options', () => {
   it('place every piece as drawn unless unplaced ones may turn; mirrored only with that', () => {
     const o = readOptions({}, undefined, 'sliding');
     expect(o).toMatchObject({ anyOrientation: false, mirroredOrientations: false });
-    expect(SLIDING_BOXES.has('anyOrientation')).toBe(true);
-    expect(SLIDING_BOXES.has('mirroredOrientations')).toBe(true);
+    expect(boxesShown('sliding').includes('anyOrientation')).toBe(true);
+    expect(boxesShown('sliding').includes('mirroredOrientations')).toBe(true);
     // the sub-option is grayed, its tick kept, until its parent is on
     const mirrored = { ...o, mirroredOrientations: true };
     const n = normalize(mirrored, null, 'sliding');

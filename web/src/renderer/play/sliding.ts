@@ -32,6 +32,7 @@ import { shownBorder } from '../shell/tray-border.ts';
 import { onTheme } from '../shell/theme.ts';
 import { readOptions } from '../solver/settings.ts';
 import { PlayBoard } from './board.ts';
+import { toggleButton } from './board-shell.ts';
 import type { BoardModel, BoardPiece, ReachGroup } from './board.ts';
 import { made, newGame, placesAt, withMoves } from './game.ts';
 import type { AnyGame, Cell, Game, Move } from './game.ts';
@@ -345,27 +346,20 @@ export class SlidingPlay implements PlayKind {
     if (!this.goalWindow || start === null || !start.hasGoal || g === null || svg === null) {
       return;
     }
-    const sc = Number(svg.dataset.cell);
-    const places = placesAt(mine(g));
     const onGoal = goalPlaces(start);
     const p = this.store.snapshot?.problems.find((q) => q.id === this.host.problem());
     const picture = goalPicture(goalTitle(p), svg, {
       // the goals' tint and outlines lie under the pieces: left out
       drop: ['.pl-goals', '.pl-marks', '.pl-hit'],
       edit: (copy) => {
-        // each piece moved from where it is to its goal; a piece with none left out
+        // each piece put on its goal; a piece with none left out
         for (const e of copy.querySelectorAll<SVGGElement>('.pl-piece, .pl-label')) {
-          const i = Number(e.dataset.i);
-          const to = onGoal.get(i);
-          const at = places[i];
-          const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(e.style.transform);
-          if (to === undefined || at === undefined || m === null) {
+          const to = onGoal.get(Number(e.dataset.i));
+          if (to === undefined) {
             e.remove();
             continue;
           }
-          const x = Number(m[1]) + (to[0] - at[0]) * sc;
-          const y = Number(m[2]) - (to[1] - at[1]) * sc;
-          e.style.transform = `translate(${x.toFixed(2)}px,${y.toFixed(2)}px)`;
+          e.style.transform = this.board.transformAt(to);
           if (e.dataset.at !== undefined) {
             e.dataset.at = to.join(',');
           }
@@ -489,58 +483,83 @@ export class SlidingPlay implements PlayKind {
   // the goal's tint and outlines shown on the board or hidden, and the buttons that say which they will do
   private showGoalButtons(): void {
     const board = byId('playBoard');
-    const shades = this.shadesHidden;
-    board.classList.toggle('noshades', shades);
-    const s = byId('plShades');
-    s.innerHTML = `${ic(shades ? 'shade' : 'shadeOff', 22)}<span>${shades ? 'Show Goal Shadows' : 'Hide Goal Shadows'}</span>`;
-    s.title = shades
-      ? 'Show Goal Shadows: tint the goal’s cells on the tray’s floor again'
-      : 'Hide Goal Shadows: leave the goal’s tint off the tray’s floor';
-    s.setAttribute('aria-pressed', String(shades));
-    const lines = this.linesHidden;
-    board.classList.toggle('nolines', lines);
-    const l = byId('plLines');
-    l.innerHTML = `${ic(lines ? 'outline' : 'outlineOff', 22)}<span>${lines ? 'Show Goal Lines' : 'Hide Goal Lines'}</span>`;
-    l.title = lines
-      ? 'Show Goal Lines: outline where each piece must end again'
-      : 'Hide Goal Lines: leave the outlines of where the pieces must end off the board';
-    l.setAttribute('aria-pressed', String(lines));
+    board.classList.toggle('noshades', this.shadesHidden);
+    toggleButton('plShades', this.shadesHidden, {
+      pressed: {
+        icon: 'shade',
+        label: 'Show Goal Shadows',
+        does: 'tint the goal’s cells on the tray’s floor again',
+      },
+      released: {
+        icon: 'shadeOff',
+        label: 'Hide Goal Shadows',
+        does: 'leave the goal’s tint off the tray’s floor',
+      },
+    });
+    board.classList.toggle('nolines', this.linesHidden);
+    toggleButton('plLines', this.linesHidden, {
+      pressed: {
+        icon: 'outline',
+        label: 'Show Goal Lines',
+        does: 'outline where each piece must end again',
+      },
+      released: {
+        icon: 'outlineOff',
+        label: 'Hide Goal Lines',
+        does: 'leave the outlines of where the pieces must end off the board',
+      },
+    });
   }
 
   // the pieces and tray simple (flat and square) or not, and the button that says which it will do
   private showSimpleButton(): void {
-    const on = this.simplePieces;
-    this.board.setSimple(on);
-    const b = byId('plSimple');
-    b.innerHTML = `${ic(on ? 'cube' : 'square', 22)}<span>${on ? '3D Pieces' : 'Simple Pieces'}</span>`;
-    b.title = on
-      ? '3D Pieces: rounded pieces with their sides showing, in a tray with walls'
-      : 'Simple Pieces: flat, square pieces in plain colors, in a flat square tray';
-    b.setAttribute('aria-pressed', String(on));
+    this.board.setSimple(this.simplePieces);
+    toggleButton('plSimple', this.simplePieces, {
+      pressed: {
+        icon: 'cube',
+        label: '3D Pieces',
+        does: 'rounded pieces with their sides showing, in a tray with walls',
+      },
+      released: {
+        icon: 'square',
+        label: 'Simple Pieces',
+        does: 'flat, square pieces in plain colors, in a flat square tray',
+      },
+    });
   }
 
   // the pieces' names shown or hidden, and the button that says which it will do
   private showLabelsButton(): void {
-    const hidden = this.labelsHidden;
-    byId('playBoard').classList.toggle('nolabels', hidden);
-    const b = byId('plLabels');
-    b.innerHTML = `${ic(hidden ? 'tag' : 'tagOff', 22)}<span>${hidden ? 'Show Piece Labels' : 'Hide Piece Labels'}</span>`;
-    b.title = hidden
-      ? 'Show Piece Labels: write each piece’s name on it again'
-      : 'Hide Piece Labels: leave the pieces’ names off them';
-    b.setAttribute('aria-pressed', String(hidden));
+    byId('playBoard').classList.toggle('nolabels', this.labelsHidden);
+    toggleButton('plLabels', this.labelsHidden, {
+      pressed: {
+        icon: 'tag',
+        label: 'Show Piece Labels',
+        does: 'write each piece’s name on it again',
+      },
+      released: {
+        icon: 'tagOff',
+        label: 'Hide Piece Labels',
+        does: 'leave the pieces’ names off them',
+      },
+    });
   }
 
   // the floor's grid shown or hidden, and the button that says which it will do
   private showGridButton(): void {
-    const hidden = this.gridHidden;
-    byId('playBoard').classList.toggle('nogrid', hidden);
-    const b = byId('plGrid');
-    b.innerHTML = `${ic(hidden ? 'grid' : 'gridOff', 22)}<span>${hidden ? 'Show Grid' : 'Hide Grid'}</span>`;
-    b.title = hidden
-      ? 'Show Grid: draw the lines between the cells on the tray’s floor again'
-      : 'Hide Grid: leave the lines between the cells off the tray’s floor';
-    b.setAttribute('aria-pressed', String(hidden));
+    byId('playBoard').classList.toggle('nogrid', this.gridHidden);
+    toggleButton('plGrid', this.gridHidden, {
+      pressed: {
+        icon: 'grid',
+        label: 'Show Grid',
+        does: 'draw the lines between the cells on the tray’s floor again',
+      },
+      released: {
+        icon: 'gridOff',
+        label: 'Hide Grid',
+        does: 'leave the lines between the cells off the tray’s floor',
+      },
+    });
   }
 
   save(

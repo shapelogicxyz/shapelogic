@@ -12,7 +12,8 @@ import { describe, expect, it } from 'vitest';
 import type { EngineStatus } from '../../../src/engine/client-types.ts';
 import { EngineError } from '../../../src/engine/errors.ts';
 import { MeshCache } from '../../../src/renderer/view3d/meshcache.ts';
-import { Store, toBase64 } from '../../../src/renderer/state/store.ts';
+import { toBase64 } from '../../../src/engine/base64.ts';
+import { Store } from '../../../src/renderer/state/store.ts';
 import type { EngineLink } from '../../../src/renderer/state/store.ts';
 
 interface Call {

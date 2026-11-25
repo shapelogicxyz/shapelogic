@@ -16,6 +16,7 @@
 
 import type { ProblemSummary } from '../../engine/api.generated.ts';
 import { $$, byId, esc, forgetHtml, markSelected, setHtml } from '../shell/dom.ts';
+import { renameInPlace } from '../shell/widgets.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { flash } from '../shell/status.ts';
@@ -148,25 +149,18 @@ export class ProblemsList {
     if (this.ws.edits.refuse(solveActive(q.solve) || q.analysing)) {
       return;
     }
-    lbl.innerHTML = `<input value="${esc(q.name)}" placeholder="Label" aria-label="Problem name">`;
+    const input = renameInPlace(lbl, {
+      value: q.name,
+      name: 'Problem name',
+      end: () => {
+        this.endRename(false);
+      },
+    });
     // the row holds a field now: the next render draws the list again
     forgetHtml(this.list);
-    const input = lbl.querySelector('input');
-    if (input === null) {
-      return;
+    if (input !== null) {
+      this.renaming = { id, input, canceled: false };
     }
-    this.renaming = { id, input, canceled: false };
-    input.focus();
-    input.select();
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        input.blur();
-      }
-    });
-    input.addEventListener('blur', () => {
-      this.endRename(false);
-    });
   }
 
   private endRename(cancel: boolean): void {

@@ -34,6 +34,7 @@ import { esc } from '../shell/dom.ts';
 import { boardColor, dark, hex, light } from '../shell/piece-colors.ts';
 import type { Rgb3 } from '../shell/piece-colors.ts';
 import { isDarkTheme } from '../shell/theme.ts';
+import { isCubeGrid } from '../view3d/extent.ts';
 import { key } from './editor-state.ts';
 import { effectiveTool, modsOf } from './tools.ts';
 import type { Mods } from './tools.ts';
@@ -302,7 +303,7 @@ export class Grid2D {
     const YO = this.Y(rowsFlipped ? hy : ly, ey).toFixed(1);
     b += `<line x1="${X0}" y1="${YO}" x2="${this.X(hx).toFixed(1)}" y2="${YO}" stroke="${axis(input.plane.ca)}" stroke-width="3" pointer-events="none"/><line x1="${XO}" y1="${this.Y(ly, ey).toFixed(1)}" x2="${XO}" y2="${this.Y(hy, ey).toFixed(1)}" stroke="${axis(input.plane.ra)}" stroke-width="3" pointer-events="none"/>`;
     // the cube editor's rulers: the column and row numbers, the columns' along the origin's edge
-    if (input.grid === 'bricks' || input.grid === 'sliding' || input.grid === 'stacking') {
+    if (isCubeGrid(input.grid)) {
       let t = '';
       // cells too small for a number each: every second, fifth… one
       const every = Math.ceil(14 / this.sc);

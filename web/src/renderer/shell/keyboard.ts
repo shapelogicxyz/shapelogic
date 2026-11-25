@@ -12,6 +12,7 @@
 import { isTyping } from './dom.ts';
 import { actionOf, IN_TEXT } from './keys.ts';
 import type { KeyAction } from './keys.ts';
+import { pressSwitch } from './widgets.ts';
 
 /** What an action does; false: it did nothing (the press goes on to the next handler). */
 export type KeyHandler = (e: KeyboardEvent) => boolean | undefined;
@@ -73,8 +74,18 @@ export function runAction(action: KeyAction): boolean {
   return (handlers.get(action) ?? []).some((h) => h(e) !== false);
 }
 
-/** Listens to the document's key presses. */
+/** Listens to the document's key presses; a focused switch takes Space and Enter first. */
 export function installKeyboard(): void {
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (pressSwitch(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true,
+  );
   document.addEventListener('keydown', (e) => {
     if (!e.defaultPrevented) {
       dispatchKey(e);

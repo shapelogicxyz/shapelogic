@@ -79,6 +79,7 @@ import {
   searchActive,
   shortCount,
   slidingDetails,
+  solverLabel,
   solveOptions,
   stackingDetails,
   stackingSolverOf,
@@ -87,6 +88,7 @@ import {
   writeOptions,
 } from './settings.ts';
 import type { BoxName, Family, Limits, SearchOptions } from './settings.ts';
+import type { FileExport } from '../export/exports.ts';
 import { SolutionsCard } from './solutions-card.ts';
 import { StatsPanel } from './stats-panel.ts';
 import { ic } from '../shell/icons.ts';
@@ -98,9 +100,6 @@ export type Board = Methods['stacking.board']['result'];
 
 /** A stacking problem's saved search (solve.status.savedSearch). */
 export type SavedSearch = NonNullable<Methods['solve.status']['result']['savedSearch']>;
-
-/** File ▸ Export's items, as the Solutions card's Export menu offers them (not the paused solver state). */
-export type FileExport = 'scad' | 'image' | 'vector' | 'stl' | 'glb';
 
 /** What the Remove menu removes (solution.delete's `which`). */
 export type RemoveWhich = 'one' | 'before' | 'after' | 'withoutDisassembly' | 'all';
@@ -421,11 +420,7 @@ export class SolverWorkspace {
 
   /** The state of a problem's solve: the events', else the snapshot's. */
   stateOf(problem: string): SolveState {
-    const r = this.solves.peek(problem);
-    if (r?.told === true) {
-      return r.state;
-    }
-    return this.store.snapshot?.problems.find((p) => p.id === problem)?.solve ?? 'idle';
+    return this.solves.stateOf(problem, this.store.snapshot);
   }
 
   /**
@@ -843,8 +838,7 @@ export class SolverWorkspace {
         return this.continueStartsOver ? 'Search paused, its saved search gone' : 'Search paused';
       default: {
         // what Solve's tooltip says when it is grayed (run-card.ts)
-        const board = this.stacking ? p.rodSet !== null : p.result !== null;
-        if (!board || (this.slideError ?? this.stackError) !== null) {
+        if (!this.readyToSolve) {
           return 'Not ready to solve';
         }
         return p.state === 'unknown' ? 'Ready to Solve (the puzzle changed)' : 'Ready to Solve';
@@ -902,21 +896,20 @@ export class SolverWorkspace {
       : savedDetails(this.family, p.searched, p.searchDepth, p.triedApart, p.state === 'solving');
   }
 
+  /**
+   * Whether the problem shown can be solved: it has its result (a stacking
+   * one its board), and a sliding puzzle's start and goal or a stacking
+   * one's stacks are valid (Solve is grayed otherwise, its tooltip saying why).
+   */
+  get readyToSolve(): boolean {
+    const p = this.problem;
+    const board = this.stacking ? p?.rodSet != null : p?.result != null;
+    return p !== null && board && (this.slideError ?? this.stackError) === null;
+  }
+
   /** The name of the solver the options choose, from the engine's list. */
   private get solverLabel(): string {
-    const info = this.store.info;
-    const o = this.options;
-    if (this.stacking) {
-      const solver = this.stackingSolver;
-      return (
-        info?.stackingSolvers.find((x) => x.solver === solver)?.label ??
-        (solver === 'panex' ? 'Panex Solver' : 'Stacking Solver')
-      );
-    }
-    if (this.sliding) {
-      return info?.slidingSolvers[0]?.label ?? 'Sliding Puzzle Solver';
-    }
-    return info?.solvers.find((x) => x.solver === o.solver)?.label ?? 'Complete (ShapeLogic)';
+    return solverLabel(this.store.info, this.family, this.options, this.stackingSolver);
   }
 
   // ---- loading ----
@@ -2115,16 +2108,19 @@ export class SolverWorkspace {
         true,
       );
     };
-    on('activate', (ctx, e) => {
-      if (ctx === 'chip') {
-        const p = Number((e.target as HTMLElement).dataset.p);
-        this.player.cycle(p);
-        this.solCard.focusChip(p);
+    // Space and Enter alike
+    for (const action of ['play', 'activate'] as const) {
+      on(action, (ctx, e) => {
+        if (ctx === 'chip') {
+          const p = Number((e.target as HTMLElement).dataset.p);
+          this.player.cycle(p);
+          this.solCard.focusChip(p);
+          return true;
+        }
+        this.player.togglePlay();
         return true;
-      }
-      this.player.togglePlay();
-      return true;
-    });
+      });
+    }
     on('move.back', (ctx, e) => {
       if (ctx === 'chip') {
         this.solCard.moveChipFocus(e.target as HTMLElement, -1);

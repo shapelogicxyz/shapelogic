@@ -15,8 +15,10 @@ import {
   IN_TEXT,
   KEY_MAP,
   keyGroups,
+  keyLabel,
   matches,
 } from '../../../src/renderer/shell/keys.ts';
+import { TOOLS } from '../../../src/renderer/entities/editor-state.ts';
 
 const press = (
   key: string,
@@ -130,7 +132,8 @@ describe('the keyboard map', () => {
   });
 
   it('has the Solver rows: Space and Enter play, the arrows step and jump, Home and End', () => {
-    expect(actionOf(press(' ', {}, 'Space'))).toBe('activate');
+    // two actions: Play takes Space alone, Enter staying a focused control's
+    expect(actionOf(press(' ', {}, 'Space'))).toBe('play');
     expect(actionOf(press('Enter'))).toBe('activate');
     expect(actionOf(press('ArrowLeft'))).toBe('move.back');
     expect(actionOf(press('ArrowRight'))).toBe('move.forward');
@@ -177,6 +180,19 @@ describe('the keyboard map', () => {
     expect(accelerator('focus3d')).toBe(null);
     expect(accelerator('file.close')).toBe('CmdOrCtrl+W');
     expect(accelerator('home')).toBe(null);
+  });
+
+  it('labels the buttons’ keys from the table, each tool by its own action', () => {
+    expect(keyLabel('tool.fixed')).toBe('1');
+    expect(keyLabel('view.orbit')).toBe('O');
+    expect(keyLabel('edit3d')).toBe('E');
+    expect(keyLabel('file.save')).toBe('Ctrl+S');
+    expect(keyLabel('focus3d')).toBe('');
+    // a tool's key is the chord of its action, whatever the order of TOOLS
+    for (const t of TOOLS) {
+      expect(t.action).toBe(`tool.${t.id}`);
+      expect(actionOf(press(keyLabel(t.action)))).toBe(t.action);
+    }
   });
 
   it('prints in the mockup’s groups', () => {

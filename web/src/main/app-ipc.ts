@@ -5,8 +5,8 @@
 // file that then exists is asked about, as the original's Save As did),
 // the store of settings, layouts and recent files, the rescue copy, the
 // command line tool (cli-tool.ts: the renderer names an operation, never a
-// path), the help links (the addresses are the main process's: the renderer
-// names a link, never a URL), the menus' state and the window's close; from stage
+// path), the help links (app-bridge.ts's table: the renderer names a link,
+// never a URL), the menus' state and the window's close; from stage
 // 7 the exports' files, written here (export-file.ts) and only to a path
 // this process's save dialog gave the same window for that kind, once,
 // and from deferred part 5 into the folder its folder dialog gave last,
@@ -29,7 +29,9 @@
 // window to hold a file owns it, another holds it read-only), New Window
 // asks for another, and a change of the settings in one reaches the others.
 // Every message is checked before it is used, and only the app's windows
-// are answered.
+// are answered: each channel of app-bridge.ts's table (cleanup item 12.2)
+// is registered through `handle`, `on` or `sync`, which check the sender
+// once; the engine's bridge (`bt:call`) goes to main/index.ts's server.
 
 import { app, dialog, ipcMain, shell } from 'electron';
 import type { BrowserWindow, IpcMainEvent, IpcMainInvokeEvent, WebContents } from 'electron';
@@ -37,6 +39,7 @@ import { existsSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 
 import {
+  helpUrl,
   isAppCommandName,
   isCacheAction,
   isCacheLink,
@@ -46,11 +49,14 @@ import {
   isMenuState,
   isOpenKind,
   isGoalPicture,
+  isHelpLink,
   isRescueInfo,
 } from '../engine/app-bridge.ts';
 import type {
   AppCommandName,
-  CliToolResult,
+  ChannelArgs,
+  ChannelOf,
+  ChannelResult,
   DiagnosticsResult,
   FileKind,
   HelpLink,
@@ -58,7 +64,7 @@ import type {
   MenuState,
   OpenKind,
   StoredState,
-  UpdateResult,
+  WriteResult,
 } from '../engine/app-bridge.ts';
 import { isEngineError } from '../engine/errors.ts';
 import { writeHint } from '../engine/write-hint.ts';
@@ -73,7 +79,7 @@ import type { EngineHost } from './engine-host.ts';
 import type { PathGrants } from './path-grants.ts';
 import type { PathOwners } from './path-owners.ts';
 import type { RescueSlots } from './rescue.ts';
-import { HELP_URLS, SYSTEM_URLS } from './security.ts';
+import { SYSTEM_URLS } from './security.ts';
 import type { StateStore } from './state-store.ts';
 import { checkForUpdate, parseVersion } from './updates.ts';
 import type { FetchFn } from './updates.ts';
@@ -84,9 +90,21 @@ function logStamp(d: Date): string {
   return `${String(d.getFullYear())}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+/** What a handler is handed of a channel's arguments: as many, each unchecked (the renderer is not trusted). */
+type Unchecked<A extends readonly unknown[]> = { [K in keyof A]-?: unknown };
+
+/** Sends a window's renderer a message of a main-to-renderer channel (app-bridge.ts's table). */
+export function post<C extends ChannelOf<'event'>>(
+  contents: Pick<WebContents, 'send'>,
+  channel: C,
+  ...args: ChannelArgs<C>
+): void {
+  contents.send(channel, ...args);
+}
+
 /** Opens a help page in the system's browser. */
 export function openHelp(link: HelpLink): void {
-  void shell.openExternal(HELP_URLS[link]);
+  void shell.openExternal(helpUrl(link));
 }
 
 /** Each kind's extension, the dialog's filter and its title. */
@@ -206,6 +224,8 @@ export interface AppIpcHost {
   saveDiagnostics(sender: WebContents): Promise<LogExportResult>;
   /** Whether windows are kept hidden (security.ts's BT_BACKGROUND). */
   background: boolean;
+  /** A message of a window's engine bridge (`bt:call`): to its engine (main/index.ts's server). */
+  engineCall(sender: WebContents, request: unknown): void;
 }
 
 /** Installs the handlers. */
@@ -218,7 +238,47 @@ export function installAppIpc(h: AppIpcHost): void {
       h.log.warn('app', 'Write Refused', `${message} in the folder ${dirname(path)}. ${hint}`);
     }
   };
-  const ours = (e: IpcMainEvent | IpcMainInvokeEvent): BrowserWindow | null => h.window(e.sender);
+  // The three ways a channel is registered (cleanup item 12.2): each checks
+  // once that the sender is one of the app's windows (a window that is not
+  // is answered the channel's `refused`, or not at all), and is typed by
+  // app-bridge.ts's table.
+  const handle = <C extends ChannelOf<'invoke'>>(
+    channel: C,
+    refused: NoInfer<ChannelResult<C>>,
+    fn: NoInfer<
+      (
+        e: IpcMainInvokeEvent,
+        win: BrowserWindow,
+        ...args: Unchecked<ChannelArgs<C>>
+      ) => ChannelResult<C> | Promise<ChannelResult<C>>
+    >,
+  ): void => {
+    ipcMain.handle(channel, (e, ...args: unknown[]) => {
+      const win = h.window(e.sender);
+      return win === null ? refused : fn(e, win, ...(args as Unchecked<ChannelArgs<C>>));
+    });
+  };
+  const on = <C extends ChannelOf<'send'>>(
+    channel: C,
+    fn: (e: IpcMainEvent, win: BrowserWindow, ...args: Unchecked<ChannelArgs<C>>) => void,
+  ): void => {
+    ipcMain.on(channel, (e, ...args: unknown[]) => {
+      const win = h.window(e.sender);
+      if (win !== null) {
+        fn(e, win, ...(args as Unchecked<ChannelArgs<C>>));
+      }
+    });
+  };
+  const sync = <C extends ChannelOf<'sync'>>(
+    channel: C,
+    refused: ChannelResult<C>,
+    fn: (e: IpcMainEvent, win: BrowserWindow) => ChannelResult<C>,
+  ): void => {
+    ipcMain.on(channel, (e) => {
+      const win = h.window(e.sender);
+      e.returnValue = win === null ? refused : fn(e, win);
+    });
+  };
   // where a dialog starts: the folder a dialog gave last, kept across runs
   // (the store), unless it is gone since; else the documents folder
   const lastDir = (): string | null => {
@@ -226,10 +286,15 @@ export function installAppIpc(h: AppIpcHost): void {
     return d !== undefined && existsSync(d) ? d : null;
   };
 
+  // the engine's bridge: a window's calls go to its engine (main/index.ts serves it)
+  on('bt:call', (e, _win, request) => {
+    h.engineCall(e.sender, request);
+  });
+
   // the update check at startup runs once a run, whichever window asks first
   let autoChecked = false;
-  ipcMain.handle('bt:check-updates', async (e, auto: unknown): Promise<UpdateResult | null> => {
-    if (ours(e) === null || typeof auto !== 'boolean') {
+  handle('bt:check-updates', null, async (_e, _win, auto) => {
+    if (typeof auto !== 'boolean') {
       return null;
     }
     if (auto) {
@@ -247,25 +312,20 @@ export function installAppIpc(h: AppIpcHost): void {
     return r;
   });
 
-  ipcMain.on('bt:skip-update', (e, version: unknown) => {
-    if (ours(e) !== null && typeof version === 'string' && parseVersion(version) !== null) {
+  on('bt:skip-update', (_e, _win, version) => {
+    if (typeof version === 'string' && parseVersion(version) !== null) {
       h.store.setSkipVersion(version);
     }
   });
 
-  ipcMain.on('bt:open-releases', (e) => {
-    if (ours(e) !== null) {
-      void shell.openExternal(SYSTEM_URLS.releases);
-    }
+  on('bt:open-releases', () => {
+    void shell.openExternal(SYSTEM_URLS.releases);
   });
 
-  ipcMain.on('bt:app-info', (e) => {
-    e.returnValue = ours(e) === null ? null : { platform: process.platform, version: h.version };
-  });
+  sync('bt:app-info', null, () => ({ platform: process.platform, version: h.version }));
 
-  ipcMain.handle('bt:choose-open', async (e, kind: unknown) => {
-    const win = ours(e);
-    if (win === null || !isOpenKind(kind)) {
+  handle('bt:choose-open', null, async (e, win, kind) => {
+    if (!isOpenKind(kind)) {
       return null;
     }
     const k = KINDS[kind];
@@ -284,9 +344,8 @@ export function installAppIpc(h: AppIpcHost): void {
     return path;
   });
 
-  ipcMain.handle('bt:choose-save', async (e, kind: unknown, name: unknown) => {
-    const win = ours(e);
-    if (win === null || !isFileKind(kind) || typeof name !== 'string') {
+  handle('bt:choose-save', null, async (e, win, kind, name) => {
+    if (!isFileKind(kind) || typeof name !== 'string') {
       return null;
     }
     const k = KINDS[kind];
@@ -326,13 +385,14 @@ export function installAppIpc(h: AppIpcHost): void {
     return path;
   });
 
-  // an export's bytes: { ok } or { error } (an invoke's own rejection would carry Electron's wording)
-  ipcMain.handle('bt:write-export', async (e, path: unknown, data: unknown) => {
-    if (ours(e) === null || typeof path !== 'string' || !(data instanceof Uint8Array)) {
-      return { error: 'nothing to write' };
+  // an export's bytes: ok, or the reason (an invoke's own rejection would carry Electron's wording)
+  const nothingToWrite: WriteResult = { ok: false, error: 'nothing to write' };
+  handle('bt:write-export', nothingToWrite, async (e, _win, path, data) => {
+    if (typeof path !== 'string' || !(data instanceof Uint8Array)) {
+      return nothingToWrite;
     }
     if (grants.take(e.sender, path) === null) {
-      return { error: `${basename(path)} was not chosen in the export's dialog` };
+      return { ok: false, error: `${basename(path)} was not chosen in the export's dialog` };
     }
     try {
       await writeFileSafely(path, data);
@@ -340,7 +400,7 @@ export function installAppIpc(h: AppIpcHost): void {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logRefusedWrite(path, message);
-      return { error: message };
+      return { ok: false, error: message };
     }
   });
 
@@ -348,11 +408,7 @@ export function installAppIpc(h: AppIpcHost): void {
   // Export ▸ STL): the folder dialog, then files of the engine's names in
   // the folder it gave; its button says Save when the files are written
   // straight away
-  ipcMain.handle('bt:choose-folder', async (e, save: unknown) => {
-    const win = ours(e);
-    if (win === null) {
-      return null;
-    }
+  handle('bt:choose-folder', null, async (e, win, save) => {
     const r = await dialog.showOpenDialog(win, {
       title: save === true ? 'Export STL Files to a Folder' : 'Choose the Output Folder',
       ...(save === true ? { buttonLabel: 'Save' } : {}),
@@ -368,13 +424,8 @@ export function installAppIpc(h: AppIpcHost): void {
     return folder;
   });
 
-  ipcMain.handle('bt:existing-exports', (e, folder: unknown, names: unknown) => {
-    if (
-      ours(e) === null ||
-      typeof folder !== 'string' ||
-      !folders.has(e.sender, folder) ||
-      !Array.isArray(names)
-    ) {
+  handle('bt:existing-exports', 0, (e, _win, folder, names) => {
+    if (typeof folder !== 'string' || !folders.has(e.sender, folder) || !Array.isArray(names)) {
       return 0;
     }
     return names.filter(
@@ -383,38 +434,27 @@ export function installAppIpc(h: AppIpcHost): void {
     ).length;
   });
 
-  ipcMain.handle(
-    'bt:write-folder-export',
-    async (e, folder: unknown, name: unknown, data: unknown) => {
-      if (
-        ours(e) === null ||
-        typeof folder !== 'string' ||
-        typeof name !== 'string' ||
-        !(data instanceof Uint8Array)
-      ) {
-        return { error: 'nothing to write' };
-      }
-      if (!folders.has(e.sender, folder)) {
-        return { error: "the folder was not chosen in the export's dialog" };
-      }
-      if (!isPieceFileName(name)) {
-        return { error: `${name} is not a piece's file name` };
-      }
-      try {
-        await writeFileSafely(join(folder, name), data);
-        return { ok: true };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        logRefusedWrite(join(folder, name), message);
-        return { error: message };
-      }
-    },
-  );
-
-  ipcMain.handle('bt:load-state', (e): StoredState | null => {
-    if (ours(e) === null) {
-      return null;
+  handle('bt:write-folder-export', nothingToWrite, async (e, _win, folder, name, data) => {
+    if (typeof folder !== 'string' || typeof name !== 'string' || !(data instanceof Uint8Array)) {
+      return nothingToWrite;
     }
+    if (!folders.has(e.sender, folder)) {
+      return { ok: false, error: "the folder was not chosen in the export's dialog" };
+    }
+    if (!isPieceFileName(name)) {
+      return { ok: false, error: `${name} is not a piece's file name` };
+    }
+    try {
+      await writeFileSafely(join(folder, name), data);
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logRefusedWrite(join(folder, name), message);
+      return { ok: false, error: message };
+    }
+  });
+
+  handle('bt:load-state', null, () => {
     const s: StoredState = {};
     if (h.store.prefs !== undefined) {
       s.prefs = h.store.prefs;
@@ -425,287 +465,229 @@ export function installAppIpc(h: AppIpcHost): void {
     return s;
   });
 
-  ipcMain.on('bt:save-state', (e, key: unknown, value: unknown) => {
+  on('bt:save-state', (e, _win, key, value) => {
     if (
-      ours(e) !== null &&
       (key === 'prefs' || key === 'layout') &&
       typeof value === 'object' &&
       value !== null &&
       !Array.isArray(value)
     ) {
-      h.store.set(key, value as Record<string, unknown>);
+      const v = value as Record<string, unknown>;
+      h.store.set(key, v);
       if (key === 'prefs') {
-        h.prefsChanged(value as Record<string, unknown>);
+        h.prefsChanged(v);
         // the settings are the app's: every window shows them (a layout is the window's own)
         for (const c of h.others(e.sender)) {
-          c.send('bt:prefs', value);
+          post(c, 'bt:prefs', v);
         }
       }
     }
   });
 
   // the window opened this file: it holds it, owned or read-only (path-owners.ts)
-  ipcMain.on('bt:claim-path', (e, path: unknown) => {
-    if (ours(e) !== null && typeof path === 'string' && h.paths.allows(e.sender, path)) {
+  on('bt:claim-path', (e, _win, path) => {
+    if (typeof path === 'string' && h.paths.allows(e.sender, path)) {
       h.owners.claim(e.sender.id, path);
     }
   });
 
-  ipcMain.on('bt:new-window', (e) => {
-    if (ours(e) !== null) {
-      h.newWindow();
+  on('bt:new-window', () => {
+    h.newWindow();
+  });
+
+  // only a file the window was handed: Open Recent hands it back (path-grants.ts)
+  on('bt:recent-add', (e, _win, path) => {
+    if (typeof path === 'string' && path !== '' && h.paths.allows(e.sender, path)) {
+      h.store.addRecent(path);
+      h.store.setLastDir(dirname(path));
     }
   });
 
-  ipcMain.on('bt:recent', (e, op: unknown, path: unknown) => {
-    if (ours(e) === null || typeof path !== 'string' || path === '') {
-      return;
-    }
-    if (op === 'add') {
-      // only a file the window was handed: Open Recent hands it back (path-grants.ts)
-      if (h.paths.allows(e.sender, path)) {
-        h.store.addRecent(path);
-        h.store.setLastDir(dirname(path));
-      }
-    } else if (op === 'remove') {
+  on('bt:recent-remove', (_e, _win, path) => {
+    if (typeof path === 'string' && path !== '') {
       h.store.removeRecent(path);
     }
   });
 
-  ipcMain.handle('bt:rescue', async (e, op: unknown, info: unknown) => {
-    if (ours(e) === null) {
+  handle('bt:rescue-write', null, async (e, _win, info) => {
+    if (!isRescueInfo(info)) {
       return null;
     }
-    switch (op) {
-      case 'write': {
-        if (!isRescueInfo(info)) {
-          return null;
-        }
-        const engine = h.engine(e.sender);
-        if (engine === null) {
-          return { ok: false, errc: 'disconnected', message: 'the window has no engine' };
-        }
-        // the record's file is handed to the window that reads it: only
-        // one this window was handed itself, else the copy has no file
-        const path = info.path !== null && h.paths.allows(e.sender, info.path) ? info.path : null;
-        const store = h.rescue.of(e.sender.id);
-        try {
-          // the engine writes the copy itself (cleanup item 10.11). The call
-          // is made before this handler first awaits, so it goes ahead of
-          // the window's later calls: the copy is of the document at the
-          // revision the window saw, or refused (another one is open)
-          await store.write(
-            (file) =>
-              engine
-                .call('document.saveRescue', { path: file, revision: info.revision })
-                .then((r) => r.revision),
-            { ...info, path },
-          );
-          return { ok: true };
-        } catch (err) {
-          if (isEngineError(err)) {
-            if (err.errc === 'io_error') {
-              logRefusedWrite(store.file, err.detail);
-            }
-            return { ok: false, errc: err.errc, message: err.detail };
-          }
-          const message = err instanceof Error ? err.message : String(err);
-          logRefusedWrite(store.record, message);
-          return { ok: false, errc: 'io_error', message };
-        }
-      }
-      case 'read': {
-        const copy = await h.rescue.of(e.sender.id).read();
-        if (copy !== null) {
-          // the engine opens the copy itself, as the document of its file
-          h.paths.grant(e.sender, copy.file);
-          if (copy.info.path !== null) {
-            h.paths.grant(e.sender, copy.info.path);
-          }
-        }
-        return copy;
-      }
-      case 'clear':
-        await h.rescue.of(e.sender.id).clear();
-        return null;
-      default:
-        return null;
+    const engine = h.engine(e.sender);
+    if (engine === null) {
+      return { ok: false, errc: 'disconnected', message: 'the window has no engine' };
     }
+    // the record's file is handed to the window that reads it: only
+    // one this window was handed itself, else the copy has no file
+    const path = info.path !== null && h.paths.allows(e.sender, info.path) ? info.path : null;
+    const store = h.rescue.of(e.sender.id);
+    try {
+      // the engine writes the copy itself (cleanup item 10.11). The call
+      // is made before this handler first awaits, so it goes ahead of
+      // the window's later calls: the copy is of the document at the
+      // revision the window saw, or refused (another one is open)
+      await store.write(
+        (file) =>
+          engine
+            .call('document.saveRescue', { path: file, revision: info.revision })
+            .then((r) => r.revision),
+        { ...info, path },
+      );
+      return { ok: true };
+    } catch (err) {
+      if (isEngineError(err)) {
+        if (err.errc === 'io_error') {
+          logRefusedWrite(store.file, err.detail);
+        }
+        return { ok: false, errc: err.errc, message: err.detail };
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      logRefusedWrite(store.record, message);
+      return { ok: false, errc: 'io_error', message };
+    }
+  });
+
+  handle('bt:rescue-read', null, async (e) => {
+    const copy = await h.rescue.of(e.sender.id).read();
+    if (copy !== null) {
+      // the engine opens the copy itself, as the document of its file
+      h.paths.grant(e.sender, copy.file);
+      if (copy.info.path !== null) {
+        h.paths.grant(e.sender, copy.info.path);
+      }
+    }
+    return copy;
+  });
+
+  handle('bt:rescue-clear', null, async (e) => {
+    await h.rescue.of(e.sender.id).clear();
+    return null;
   });
 
   // the path of a file dropped on the window (the preload's pathOf: only a
   // file the user dropped has one)
-  ipcMain.on('bt:dropped', (e, path: unknown) => {
-    if (ours(e) !== null && typeof path === 'string' && path !== '') {
+  on('bt:dropped', (e, _win, path) => {
+    if (typeof path === 'string' && path !== '') {
       h.paths.grant(e.sender, path);
     }
   });
 
   // the Play tab's goal picture in its own window (goal-window.ts)
   const goals = new GoalWindows(h.background);
-  ipcMain.on('bt:goal-window', (e, picture: unknown, raise: unknown) => {
-    const win = ours(e);
-    if (win !== null && isGoalPicture(picture)) {
+  on('bt:goal-window', (_e, win, picture, raise) => {
+    if (isGoalPicture(picture)) {
       goals.show(win, picture, raise === true);
     }
   });
 
-  ipcMain.on('bt:help', (e, link: unknown) => {
-    if (
-      ours(e) !== null &&
-      (link === 'tutorial' ||
-        link === 'guide' ||
-        link === 'author' ||
-        link === 'issues' ||
-        link === 'tilted' ||
-        link === 'troubleshooting')
-    ) {
+  on('bt:help', (_e, _win, link) => {
+    if (isHelpLink(link)) {
       openHelp(link);
     }
   });
 
   // the command line tool: the renderer names an operation, never a path
-  ipcMain.handle('bt:cli-tool', async (e, op: unknown): Promise<CliToolResult> => {
-    if (ours(e) === null) {
-      return { ok: false, error: 'not a ShapeLogic window' };
-    }
-    switch (op) {
-      case 'info':
-        return { ok: true, info: cliInfo(h.cliPath, h.cliLink) };
-      case 'install':
-        return installCli(h.cliPath, h.cliLink, macPrivileged);
-      case 'uninstall':
-        return uninstallCli(h.cliPath, h.cliLink, macPrivileged);
-      default:
-        return { ok: false, error: 'unknown operation' };
-    }
-  });
+  const notOurs = { ok: false, error: 'not a ShapeLogic window' } as const;
+  handle('bt:cli-info', notOurs, () => ({ ok: true, info: cliInfo(h.cliPath, h.cliLink) }));
+  handle('bt:cli-install', notOurs, () => installCli(h.cliPath, h.cliLink, macPrivileged));
+  handle('bt:cli-uninstall', notOurs, () => uninstallCli(h.cliPath, h.cliLink, macPrivileged));
 
   // the cache folder: the renderer names an operation, never a path
-  ipcMain.handle('bt:cache-folder', async (e, op: unknown, arg: unknown) => {
-    const win = ours(e);
-    if (win === null) {
+  handle('bt:cache-folder', null, () => h.cache.info());
+  handle('bt:cache-choose', null, async (e, win, useDefault) => {
+    if (typeof useDefault !== 'boolean') {
       return null;
     }
-    switch (op) {
-      case 'info':
-        return h.cache.info();
-      case 'choose': {
-        if (typeof arg !== 'boolean') {
-          return null;
-        }
-        if (arg) {
-          return h.cache.choose(e.sender, undefined);
-        }
-        const r = await dialog.showOpenDialog(win, {
-          title: 'Choose the Cache Folder',
-          buttonLabel: 'Use This Folder',
-          message:
-            'ShapeLogic makes a ShapeLogic folder for its cache data in the folder you choose.',
-          properties: ['openDirectory', 'createDirectory'],
-          defaultPath: h.cache.chosen ?? app.getPath('home'),
-        });
-        const folder = r.canceled ? undefined : r.filePaths[0];
-        if (folder === undefined) {
-          return { status: 'canceled' };
-        }
-        return h.cache.choose(e.sender, folder);
-      }
-      case 'finish':
-        return isCacheAction(arg) ? h.cache.finish(e.sender, arg) : null;
-      default:
-        return null;
+    if (useDefault) {
+      return h.cache.choose(e.sender, undefined);
     }
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Choose the Cache Folder',
+      buttonLabel: 'Use This Folder',
+      message: 'ShapeLogic makes a ShapeLogic folder for its cache data in the folder you choose.',
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: h.cache.chosen ?? app.getPath('home'),
+    });
+    const folder = r.canceled ? undefined : r.filePaths[0];
+    if (folder === undefined) {
+      return { status: 'canceled' };
+    }
+    return h.cache.choose(e.sender, folder);
   });
+  handle('bt:cache-finish', null, (e, _win, action) =>
+    isCacheAction(action) ? h.cache.finish(e.sender, action) : null,
+  );
 
   // the cache manager: the renderer names an item by its id, never a path
   let startListed = false;
-  ipcMain.handle('bt:cache-files', async (e, op: unknown, arg: unknown) => {
-    if (ours(e) === null) {
-      return null;
-    }
+  handle('bt:cache-items', null, async () => {
     await h.cache.start();
-    const folders = h.cache.folders;
-    switch (op) {
-      case 'list':
-        return listItems(folders, h.rescue.all(), h.cacheLinks);
-      case 'start':
-        // the notice at the start: once a run, to the first window that asks
-        if (startListed) {
-          return [];
-        }
-        startListed = true;
-        return listItems(folders, h.rescue.all(), h.cacheLinks);
-      case 'delete':
-        return typeof arg === 'string'
-          ? deleteItem(arg, folders, h.rescue.all(), h.cacheLinks, () => h.cache.solving())
-          : { ok: false, error: 'unknown item' };
-      default:
-        return null;
+    return listItems(h.cache.folders, h.rescue.all(), h.cacheLinks);
+  });
+  handle('bt:cache-items-start', null, async () => {
+    await h.cache.start();
+    // the notice at the start: once a run, to the first window that asks
+    if (startListed) {
+      return [];
     }
+    startListed = true;
+    return listItems(h.cache.folders, h.rescue.all(), h.cacheLinks);
+  });
+  handle('bt:cache-delete', null, async (_e, _win, id) => {
+    await h.cache.start();
+    return typeof id === 'string'
+      ? deleteItem(id, h.cache.folders, h.rescue.all(), h.cacheLinks, () => h.cache.solving())
+      : { ok: false, error: 'unknown item' };
   });
 
   // the log manager: a page, Clear, its close, and Export to the file this process's
   // own save dialog gives (the renderer never names a path)
-  ipcMain.handle('bt:log', async (e, op: unknown, arg: unknown) => {
-    const win = ours(e);
-    if (win === null) {
+  handle('bt:log-page', null, (_e, _win, query) => (isLogQuery(query) ? h.log.page(query) : null));
+  handle('bt:log-clear', null, async () => {
+    await h.log.clear();
+    return null;
+  });
+  handle('bt:log-closed', null, () => {
+    // the manager closed: the lines it read go (cleanup item 10.9)
+    h.log.forget();
+    return null;
+  });
+  handle('bt:log-sizes', null, () => h.log.exportSizes());
+  handle('bt:log-export', null, async (_e, win, lines) => {
+    // all of the log, or its newest lines
+    if (
+      lines !== undefined &&
+      (typeof lines !== 'number' || !Number.isInteger(lines) || lines < 1 || lines > 1_000_000)
+    ) {
       return null;
     }
-    switch (op) {
-      case 'page':
-        return isLogQuery(arg) ? h.log.page(arg) : null;
-      case 'clear':
-        await h.log.clear();
-        return null;
-      case 'closed':
-        // the manager closed: the lines it read go (cleanup item 10.9)
-        h.log.forget();
-        return null;
-      case 'sizes':
-        return h.log.exportSizes();
-      case 'export': {
-        // all of the log, or its newest lines
-        if (
-          arg !== undefined &&
-          (typeof arg !== 'number' || !Number.isInteger(arg) || arg < 1 || arg > 1_000_000)
-        ) {
-          return null;
-        }
-        const r = await dialog.showSaveDialog(win, {
-          title: 'Export Log',
-          defaultPath: join(
-            lastDir() ?? defaultDir(),
-            `shapelogic-log-${logStamp(new Date())}.txt`,
-          ),
-          filters: [
-            { name: 'Text Files', extensions: ['txt', 'log'] },
-            { name: 'All Files', extensions: ['*'] },
-          ],
-          properties: ['showOverwriteConfirmation', 'createDirectory'],
-        });
-        if (r.canceled || r.filePath === '') {
-          return { ok: false, canceled: true } satisfies LogExportResult;
-        }
-        const path = extname(r.filePath) === '' ? `${r.filePath}.txt` : r.filePath;
-        try {
-          await h.log.exportTo(path, arg);
-          h.store.setLastDir(dirname(path));
-          return { ok: true, path } satisfies LogExportResult;
-        } catch (err) {
-          return {
-            ok: false,
-            error: err instanceof Error ? err.message : String(err),
-          } satisfies LogExportResult;
-        }
-      }
-      default:
-        return null;
+    const r = await dialog.showSaveDialog(win, {
+      title: 'Export Log',
+      defaultPath: join(lastDir() ?? defaultDir(), `shapelogic-log-${logStamp(new Date())}.txt`),
+      filters: [
+        { name: 'Text Files', extensions: ['txt', 'log'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+      properties: ['showOverwriteConfirmation', 'createDirectory'],
+    });
+    if (r.canceled || r.filePath === '') {
+      return { ok: false, canceled: true } satisfies LogExportResult;
+    }
+    const path = extname(r.filePath) === '' ? `${r.filePath}.txt` : r.filePath;
+    try {
+      await h.log.exportTo(path, lines);
+      h.store.setLastDir(dirname(path));
+      return { ok: true, path } satisfies LogExportResult;
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      } satisfies LogExportResult;
     }
   });
 
-  ipcMain.on('bt:cache-link', (e, link: unknown) => {
-    if (ours(e) === null || !isCacheLink(link)) {
+  on('bt:cache-link', (e, _win, link) => {
+    if (!isCacheLink(link)) {
       return;
     }
     // the puzzle's file only when the window was handed it, as the rescue record's
@@ -713,47 +695,36 @@ export function installAppIpc(h: AppIpcHost): void {
     void h.cache.start().then(() => h.cacheLinks.record({ ...link, path }, h.cache.folders));
   });
 
-  ipcMain.on('bt:menu-state', (e, state: unknown) => {
-    if (ours(e) !== null && isMenuState(state)) {
+  on('bt:menu-state', (e, _win, state) => {
+    if (isMenuState(state)) {
       h.setMenu(e.sender, state);
     }
   });
 
-  ipcMain.on('bt:close', (e, op: unknown) => {
-    if (ours(e) === null) {
-      return;
-    }
-    if (op === 'taken') {
-      h.closeTaken(e.sender);
-    } else if (op === 'close') {
-      h.closeWindow(e.sender);
-    } else if (op === 'canceled') {
-      h.cancelQuit(e.sender);
+  on('bt:close-taken', (e) => {
+    h.closeTaken(e.sender);
+  });
+  on('bt:close-window', (e) => {
+    h.closeWindow(e.sender);
+  });
+  on('bt:close-canceled', (e) => {
+    h.cancelQuit(e.sender);
+  });
+
+  on('bt:engine-ready', (e) => {
+    h.ready(e.sender);
+  });
+  on('bt:engine-retry', (e) => {
+    h.retryEngine(e.sender);
+  });
+  on('bt:command-held', (e, _win, command, dropped) => {
+    if (isAppCommandName(command) && typeof dropped === 'boolean') {
+      h.commandHeld(e.sender, command, dropped);
     }
   });
 
-  ipcMain.on('bt:engine-start', (e, op: unknown, command: unknown) => {
-    if (ours(e) === null) {
-      return;
-    }
-    if (op === 'ready') {
-      h.ready(e.sender);
-    } else if (op === 'retry') {
-      h.retryEngine(e.sender);
-    } else if ((op === 'held' || op === 'dropped') && isAppCommandName(command)) {
-      h.commandHeld(e.sender, command, op === 'dropped');
-    }
-  });
-
-  ipcMain.handle('bt:diagnostics', (e, op: unknown) => {
-    if (ours(e) === null) {
-      return null;
-    }
-    if (op === 'copy') {
-      return h.copyDiagnostics(e.sender);
-    }
-    return op === 'save' ? h.saveDiagnostics(e.sender) : null;
-  });
+  handle('bt:diagnostics-copy', null, (e) => h.copyDiagnostics(e.sender));
+  handle('bt:diagnostics-save', null, (e) => h.saveDiagnostics(e.sender));
 }
 
 function defaultDir(): string {

@@ -7,7 +7,7 @@
 // (mainwindow_layout.cpp); the names are the original's, so they match its
 // documentation. DOM-free.
 
-import type { BoxName } from './settings.ts';
+import type { BoxName } from './boxes.ts';
 
 /** The switches' help (the mockup's SVTIP, the original's tooltips for the rest). */
 export const TIP: Record<BoxName, string> = {

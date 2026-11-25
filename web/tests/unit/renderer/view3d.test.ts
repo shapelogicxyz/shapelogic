@@ -8,6 +8,9 @@
 // axis directions' upright frames, its animations, and the text drawn on a
 // solution's piece (its label, its name cut short, or both).
 
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { BufferAttribute, BufferGeometry, Quaternion, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 
@@ -719,5 +722,27 @@ describe('the edit preview and the overlays drawn again only on a change (cleanu
     expect(o.group.children[0]).not.toBe(shown[0]);
     expect(o.group.children.map(mat)).toEqual(shown.map(mat));
     o.dispose();
+  });
+});
+
+describe('the colors the view reads from the sheet', () => {
+  // the 3D view takes its colors from the theme's custom properties
+  // (css('--name')): a name the sheet lacks reads as '' and draws black
+  it('names only custom properties styles.css defines', () => {
+    const root = join(import.meta.dirname, '../../../src/renderer');
+    // its rules, not its comments
+    const sheet = readFileSync(join(root, 'styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const read = new Set<string>();
+    for (const f of readdirSync(root, { recursive: true, encoding: 'utf8' })) {
+      if (f.endsWith('.ts')) {
+        for (const m of readFileSync(join(root, f), 'utf8').matchAll(/\bcss\('(--[\w-]+)'\)/g)) {
+          read.add(m[1] ?? '');
+        }
+      }
+    }
+    expect(read.size).toBeGreaterThan(5);
+    expect(read).toContain('--tcellA');
+    const missing = [...read].filter((name) => !new RegExp(`${name}\\s*:`).test(sheet));
+    expect(missing).toEqual([]);
   });
 });

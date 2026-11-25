@@ -27,7 +27,7 @@
 
 import type { SolveProgress, SolveState } from '../engine/api.generated.ts';
 import { EngineClient } from '../engine/client.ts';
-import { fromBase64 } from '../engine/recorder.ts';
+import { fromBase64 } from '../engine/base64.ts';
 import { startApp } from '../renderer/shell/app.ts';
 import { onLayout, setTab, tab, workspaceShown } from '../renderer/shell/layout.ts';
 import type { Workspace } from '../renderer/shell/layout.ts';

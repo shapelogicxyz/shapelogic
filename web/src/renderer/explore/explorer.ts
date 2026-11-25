@@ -52,7 +52,7 @@ import { shapeColor } from '../shell/piece-colors.ts';
 import type { Rgb3 } from '../shell/piece-colors.ts';
 import { flash, reportError } from '../shell/status.ts';
 import { cellToMesh, gridExtent, placedAt } from '../view3d/extent.ts';
-import { buildMesh } from '../view3d/mesh.ts';
+import { buildMesh, disposeBuilt } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
 import type { PieceMode, ScenePose, SolutionModel } from '../view3d/solution.ts';
 import type { View3D } from '../view3d/view.ts';
@@ -314,7 +314,7 @@ export class Explorer {
     d.dataset.mode = '';
     d.dataset.handle = '';
     this.host.view.setSolution(null, 'explorer');
-    this.disposeBuilt();
+    this.freeBuilt();
     this.modelKey = '';
     this.host.changed();
   }
@@ -1104,10 +1104,9 @@ export class Explorer {
     void this.draw();
   }
 
-  private disposeBuilt(): void {
+  private freeBuilt(): void {
     for (const b of this.built.values()) {
-      b.faces.dispose();
-      b.marks?.dispose();
+      disposeBuilt(b);
     }
     this.built.clear();
   }
@@ -1203,16 +1202,19 @@ export class Explorer {
       }
       return this.mode === 'movements' ? moveRow(Number.MAX_SAFE_INTEGER) : false;
     });
-    on('activate', () => {
-      if (this.mode === 'step') {
-        void this.stepBy(1);
-        return true;
-      }
-      if (this.mode === 'movements') {
-        void this.analyse();
-        return true;
-      }
-      return false;
-    });
+    // Space and Enter alike
+    for (const action of ['play', 'activate'] as const) {
+      on(action, () => {
+        if (this.mode === 'step') {
+          void this.stepBy(1);
+          return true;
+        }
+        if (this.mode === 'movements') {
+          void this.analyse();
+          return true;
+        }
+        return false;
+      });
+    }
   }
 }

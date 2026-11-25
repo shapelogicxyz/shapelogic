@@ -84,7 +84,7 @@ function body(info: CliToolInfo): string {
     `<table style="border-collapse:collapse;margin:0 0 10px">${optionRows()}</table>` +
     where(info) +
     command(info) +
-    `<p class="mute" data-cli-error style="color:var(--danger,#c0392b)" hidden></p>`
+    `<p class="mute" data-cli-error style="color:var(--error)" hidden></p>`
   );
 }
 

@@ -28,6 +28,7 @@ import { CLIENT_ERROR_CODE, EngineError } from './errors.ts';
 import type { ClientErrc } from './errors.ts';
 import { attachFrame, FrameError } from './frames.ts';
 import { FrameParser, isReply, StderrRing } from './framing.ts';
+import { EventHandlers, Listeners } from './handlers.ts';
 import type { Inbound, ParserOptions, ProblemReason } from './framing.ts';
 import type { ExitInfo, Transport } from './transport.ts';
 
@@ -100,10 +101,15 @@ export class EngineClient implements EngineApi {
   private readonly queue: Call[] = [];
   private readonly inFlight = new Map<number, Call>();
   private readonly slots = new Map<string, Slot>();
-  private readonly handlers = new Map<string, Set<(params: never) => void>>();
-  private readonly anyHandlers = new Set<(event: string, params: unknown) => void>();
-  private readonly problemHandlers = new Set<(p: ClientProblem) => void>();
-  private readonly exitHandlers = new Set<(info: ExitInfo) => void>();
+  private readonly handlers = new EventHandlers((detail) => {
+    this.problem('handler', detail);
+  });
+  private readonly problemHandlers = new Listeners<ClientProblem>('a problem handler', (detail) => {
+    console.error(`shapelogic_engine client: ${detail}`);
+  });
+  private readonly exitHandlers = new Listeners<ExitInfo>('an exit handler', (detail) => {
+    this.problem('handler', detail);
+  });
   /** Why the client stopped talking to the engine before it ended (a refused hello, a lost stream). */
   private refusal: EngineError | null = null;
   private exitInfo: ExitInfo | null = null;
@@ -237,39 +243,21 @@ export class EngineClient implements EngineApi {
   }
 
   on<E extends EventName>(event: E, handler: (params: EventParams<E>) => void): () => void {
-    let set = this.handlers.get(event);
-    if (set === undefined) {
-      set = new Set();
-      this.handlers.set(event, set);
-    }
-    const h = handler as (params: never) => void;
-    set.add(h);
-    return () => {
-      set.delete(h);
-    };
+    return this.handlers.on(event, handler);
   }
 
   onEvent(handler: (event: string, params: unknown) => void): () => void {
-    this.anyHandlers.add(handler);
-    return () => {
-      this.anyHandlers.delete(handler);
-    };
+    return this.handlers.onEvent(handler);
   }
 
   /** Protocol problems and handlers that threw (default: logged to the console). */
   onProblem(handler: (p: ClientProblem) => void): () => void {
-    this.problemHandlers.add(handler);
-    return () => {
-      this.problemHandlers.delete(handler);
-    };
+    return this.problemHandlers.on(handler);
   }
 
   /** The engine ended (after every call has been failed as disconnected). */
   onExit(handler: (info: ExitInfo) => void): () => void {
-    this.exitHandlers.add(handler);
-    return () => {
-      this.exitHandlers.delete(handler);
-    };
+    return this.exitHandlers.on(handler);
   }
 
   /** Closes the engine's stdin (it pauses its solves and ends); kills it when the transport cannot. */
@@ -512,35 +500,15 @@ export class EngineClient implements EngineApi {
   }
 
   private dispatch(event: string, params: unknown): void {
-    for (const h of [...(this.handlers.get(event) ?? [])]) {
-      try {
-        (h as (p: unknown) => void)(params);
-      } catch (e) {
-        this.problem('handler', `a ${event} handler threw: ${String(e)}`);
-      }
-    }
-    for (const h of [...this.anyHandlers]) {
-      try {
-        h(event, params);
-      } catch (e) {
-        this.problem('handler', `an event handler threw on ${event}: ${String(e)}`);
-      }
-    }
+    this.handlers.emit(event, params);
   }
 
   private problem(reason: ClientProblem['reason'], detail: string): void {
-    const p: ClientProblem = { reason, detail };
     if (this.problemHandlers.size === 0) {
       console.error(`shapelogic_engine client: ${reason}: ${detail}`);
       return;
     }
-    for (const h of [...this.problemHandlers]) {
-      try {
-        h(p);
-      } catch (e) {
-        console.error(`shapelogic_engine client: a problem handler threw: ${String(e)}`);
-      }
-    }
+    this.problemHandlers.emit({ reason, detail });
   }
 
   // ---- the end ---------------------------------------------------------------------------
@@ -601,12 +569,6 @@ export class EngineClient implements EngineApi {
     this.exitInfo = info;
     this.state = 'closed';
     this.failAll((method) => this.refused(method));
-    for (const h of [...this.exitHandlers]) {
-      try {
-        h(info);
-      } catch (e) {
-        this.problem('handler', `an exit handler threw: ${String(e)}`);
-      }
-    }
+    this.exitHandlers.emit(info);
   }
 }

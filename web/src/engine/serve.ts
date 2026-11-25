@@ -5,18 +5,24 @@
 // engine's status go back on one channel, in the order the client
 // delivers them (a reply before the events behind it). A call the main
 // process does not admit (from stage 8: one naming a file the window was
-// not handed, path-grants.ts) is refused here, never sent. Free of
-// Electron: main/index.ts connects it to ipcMain and webContents.
+// not handed, main/path-grants.ts) is refused here, never sent.
+// Platform-free (cleanup item 12.4: it was main/engine-ipc.ts):
+// main/index.ts connects it to ipcMain and webContents, and the website's
+// demo serves the engine in the page with it (demo/engine-bridge.ts).
 
-import { ERROR_CODES, FRAME_PATHS, METHOD_NAMES } from '../engine/api.generated.ts';
-import { isBridgeCall, isStatusRequest } from '../engine/bridge.ts';
-import type { BridgeMessage } from '../engine/bridge.ts';
-import type { CallOptions, EngineStatus } from '../engine/client-types.ts';
-import { CLIENT_ERROR_CODE, isEngineError } from '../engine/errors.ts';
-import type { FrameView } from '../engine/frames.ts';
-import type { EngineHost } from './engine-host.ts';
+import { ERROR_CODES, FRAME_PATHS, METHOD_NAMES } from './api.generated.ts';
+import { isBridgeCall, isStatusRequest } from './bridge.ts';
+import type { BridgeMessage } from './bridge.ts';
+import type { CallOptions, EngineApi, EngineStatus } from './client-types.ts';
+import { CLIENT_ERROR_CODE, isEngineError } from './errors.ts';
+import type { FrameView } from './frames.ts';
 
-type Host = Pick<EngineHost, 'call' | 'onEvent' | 'onStatus' | 'status'>;
+/** What is served: the main process's engine host (main/engine-host.ts), or the demo's client. */
+export interface ServedEngine extends Pick<EngineApi, 'call' | 'onEvent'> {
+  readonly status: EngineStatus;
+  /** The engine started, ended, or could not be kept running. */
+  onStatus(handler: (status: EngineStatus) => void): () => void;
+}
 type UntypedCall = (method: string, params?: unknown, options?: CallOptions) => Promise<unknown>;
 
 const methods: ReadonlySet<string> = new Set(METHOD_NAMES);
@@ -35,7 +41,7 @@ export interface CallOutcome {
  * words), or null.
  */
 export function serveEngine(
-  host: Host,
+  host: ServedEngine,
   post: (message: BridgeMessage) => void,
   log?: (outcome: CallOutcome) => void,
   admit?: (method: string, params: unknown) => string | null,

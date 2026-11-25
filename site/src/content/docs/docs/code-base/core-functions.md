@@ -150,8 +150,8 @@ and `Solution` with the original module's names.
 |---|---|---|
 | Windows and IPC | `index.ts` | `createWindow`, the `bt:call` and `bt:message` channels, the app's own URL scheme, menus rebuilt from the focused window's state |
 | One engine per window | `engine-host.ts` | `EngineHost`: start, restart after a death, status |
-| The host's side of the bridge | `engine-ipc.ts` | `serveEngine`: checks the method name, admits or refuses paths, forwards the call |
-| Security | `security.ts`, `path-grants.ts` | `windowOptions`, `allowedRequest`, `HELP_URLS`; `PathGrants` |
+| The host's side of the bridge | `serve.ts` (in `web/src/engine/`) | `serveEngine`: checks the method name, admits or refuses paths, forwards the call |
+| Security | `security.ts`, `path-grants.ts` | `windowOptions`, `allowedRequest`, `SYSTEM_URLS` (the help links: `app-bridge.ts`'s `HELP_URLS`); `PathGrants` |
 | Menus, dialogs, files | `menu.ts`, `app-ipc.ts`, `export-file.ts`, `state-store.ts`, `rescue.ts` | the menu template, the file dialogs, safe writes, `state.json`, the rescue copy |
 
 ## The app: the renderer (`web/src/renderer/`)

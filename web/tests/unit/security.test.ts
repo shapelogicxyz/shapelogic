@@ -20,17 +20,18 @@ import { pathToFileURL } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { APP_CHANNELS, HELP_URLS, helpUrl, isHelpLink } from '../../src/engine/app-bridge.ts';
+import type { AppChannel, ChannelOf, HelpLink } from '../../src/engine/app-bridge.ts';
 import type { BridgeMessage } from '../../src/engine/bridge.ts';
 import { EngineError } from '../../src/engine/errors.ts';
 import type { Errc } from '../../src/engine/api.generated.ts';
-import { serveEngine } from '../../src/main/engine-ipc.ts';
+import { serveEngine } from '../../src/engine/serve.ts';
 import { callPaths, PATH_METHODS, PathGrants } from '../../src/main/path-grants.ts';
 import {
   allowedRequest,
   APP_SCHEME,
   appFile,
   appUrl,
-  HELP_URLS,
   SYSTEM_URLS,
   permissionAllowed,
   switches,
@@ -359,7 +360,8 @@ describe('the page', () => {
 
 describe('the addresses opened outside the app', () => {
   it('are the help links, https on the original guide or the releases, opened in one place', () => {
-    for (const url of [...Object.values(HELP_URLS), ...Object.values(SYSTEM_URLS)]) {
+    const help = (Object.keys(HELP_URLS) as HelpLink[]).map((l) => helpUrl(l));
+    for (const url of [...help, ...Object.values(SYSTEM_URLS)]) {
       const u = new URL(url);
       expect(u.protocol).toBe('https:');
       if (u.hostname === 'github.com') {
@@ -383,7 +385,7 @@ describe('the addresses opened outside the app', () => {
       'src/main/index.ts',
     ]);
     const ipc = SRC.find((s) => s.file === 'src/main/app-ipc.ts')?.text ?? '';
-    expect(ipc).toContain('shell.openExternal(HELP_URLS[link])');
+    expect(ipc).toContain('shell.openExternal(helpUrl(link))');
     expect(ipc).toContain('shell.openExternal(SYSTEM_URLS.releases)');
     const main = SRC.find((s) => s.file === 'src/main/index.ts')?.text ?? '';
     expect(main).toContain('shell.openExternal(SYSTEM_URLS.linuxGraphics)');
@@ -544,6 +546,7 @@ describe('the IPC handlers', () => {
   const updateOutcomes: string[] = [];
   const toOthers: [string, unknown][] = [];
   const prefsStored: unknown[] = [];
+  const engineRequests: [object, unknown][] = [];
   // the update check: GitHub's latest release, and what Skip This Version stored
   let latestTag = 'v1.4';
   let skipped: string | undefined;
@@ -634,6 +637,7 @@ describe('the IPC handlers', () => {
       copyDiagnostics: () => Promise.resolve({ ok: true, bytes: 10 }),
       saveDiagnostics: () => Promise.resolve({ ok: false, canceled: true }),
       prefsChanged: (prefs: unknown) => prefsStored.push(prefs),
+      engineCall: (sender: object, request: unknown) => engineRequests.push([sender, request]),
     } as unknown as Parameters<typeof installAppIpc>[0]);
   });
 
@@ -641,13 +645,32 @@ describe('the IPC handlers', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  const invoke = (channel: string, sender: object, ...args: unknown[]): unknown => {
+  // the channels by app-bridge.ts's table (cleanup item 12.2): a name it
+  // lacks fails the type check
+  const invoke = (channel: ChannelOf<'invoke'>, sender: object, ...args: unknown[]): unknown => {
     const h = electron.handle.get(channel);
     if (h === undefined) {
       throw new Error(`no handler ${channel}`);
     }
     return h({ sender }, ...args);
   };
+  const on = (channel: ChannelOf<'send' | 'sync'>): Handler | undefined => electron.on.get(channel);
+
+  it('register every channel of the table from the renderer, by its kind, and no other', () => {
+    const want = (kinds: string[]): string[] =>
+      (Object.keys(APP_CHANNELS) as AppChannel[])
+        .filter((c) => kinds.includes(APP_CHANNELS[c]))
+        .sort();
+    expect([...electron.handle.keys()].sort()).toEqual(want(['invoke']));
+    expect([...electron.on.keys()].sort()).toEqual(want(['send', 'sync']));
+  });
+
+  it('pass a window’s engine calls to its engine, only an app window’s', () => {
+    engineRequests.length = 0;
+    on('bt:call')?.({ sender: ours }, { kind: 'status' });
+    on('bt:call')?.({ sender: foreign }, { kind: 'status' });
+    expect(engineRequests).toEqual([[ours, { kind: 'status' }]]);
+  });
 
   it('answer only the app’s windows', async () => {
     electron.openPaths = [join(dir, 'a.xmpuzzle')];
@@ -656,24 +679,22 @@ describe('the IPC handlers', () => {
     expect(await invoke('bt:choose-open', foreign, 'puzzle')).toBeNull();
     expect(await invoke('bt:choose-save', foreign, 'puzzle', 'b')).toBeNull();
     expect(await invoke('bt:write-export', foreign, join(dir, 'x.png'), new Uint8Array(1))).toEqual(
-      {
-        error: 'nothing to write',
-      },
+      { ok: false, error: 'nothing to write' },
     );
     expect(await invoke('bt:load-state', foreign)).toBeNull();
-    expect(await invoke('bt:rescue', foreign, 'read')).toBeNull();
+    expect(await invoke('bt:rescue-read', foreign)).toBeNull();
     const info = { sender: foreign, returnValue: undefined as unknown };
-    electron.on.get('bt:app-info')?.(info);
+    on('bt:app-info')?.(info);
     expect(info.returnValue).toBeNull();
-    electron.on.get('bt:dropped')?.({ sender: foreign }, join(dir, 'd.xmpuzzle'));
-    electron.on.get('bt:help')?.({ sender: foreign }, 'guide');
-    electron.on.get('bt:open-releases')?.({ sender: foreign });
+    on('bt:dropped')?.({ sender: foreign }, join(dir, 'd.xmpuzzle'));
+    on('bt:help')?.({ sender: foreign }, 'guide');
+    on('bt:open-releases')?.({ sender: foreign });
     expect(electron.opened).toEqual([]);
     expect(await invoke('bt:check-updates', foreign, false)).toBeNull();
-    electron.on.get('bt:skip-update')?.({ sender: foreign }, 'v1.4');
+    on('bt:skip-update')?.({ sender: foreign }, 'v1.4');
     expect(skipped).toBeUndefined();
     // nor does a foreign window install the command line tool
-    expect(await invoke('bt:cli-tool', foreign, 'install')).toMatchObject({ ok: false });
+    expect(await invoke('bt:cli-install', foreign)).toMatchObject({ ok: false });
     expect(existsSync(join(dir, 'bin'))).toBe(false);
     for (const p of ['a', 'b', 'r', 'd']) {
       expect(paths.allows(foreign, join(dir, `${p}.xmpuzzle`))).toBe(false);
@@ -694,9 +715,9 @@ describe('the IPC handlers', () => {
     // once a run, whichever window asks
     expect(await invoke('bt:check-updates', ours, true)).toBeNull();
     // the menu's check always answers, a skipped version too
-    electron.on.get('bt:skip-update')?.({ sender: ours }, 'not a version');
+    on('bt:skip-update')?.({ sender: ours }, 'not a version');
     expect(skipped).toBeUndefined();
-    electron.on.get('bt:skip-update')?.({ sender: ours }, 'v1.4');
+    on('bt:skip-update')?.({ sender: ours }, 'v1.4');
     expect(skipped).toBe('v1.4');
     expect(await invoke('bt:check-updates', ours, false)).toMatchObject({ status: 'newer' });
     latestTag = 'v1.3';
@@ -706,29 +727,27 @@ describe('the IPC handlers', () => {
     // the startup check and the two asked for (the second startup ask ran none)
     expect(updateOutcomes).toHaveLength(3);
     // Download opens the releases page, whatever the page passes
-    electron.on.get('bt:open-releases')?.({ sender: ours }, 'https://example.com/');
+    on('bt:open-releases')?.({ sender: ours }, 'https://example.com/');
     expect(electron.opened).toEqual([
       'https://github.com/shapelogicxyz/shapelogic/releases/latest',
     ]);
   });
 
-  it('install and remove the command line tool by its operation’s name, never a path', async () => {
+  it('install and remove the command line tool by its channel, never a path', async () => {
     const tool = join(dir, 'tool', 'shapelogic_cli');
     const link = join(dir, 'bin', 'shapelogic_cli');
-    expect(await invoke('bt:cli-tool', ours, 'info')).toEqual({
+    expect(await invoke('bt:cli-info', ours)).toEqual({
       ok: true,
       info: { path: tool, link, state: 'none' },
     });
     // a page cannot name what to link, or what to remove: extra arguments are not read
-    expect(await invoke('bt:cli-tool', ours, 'install', '/bin/ls', '/etc/passwd')).toEqual({
+    expect(await invoke('bt:cli-install', ours, '/bin/ls', '/etc/passwd')).toEqual({
       ok: true,
       info: { path: tool, link, state: 'linked' },
     });
     expect(readlinkSync(link)).toBe(tool);
-    expect(await invoke('bt:cli-tool', ours, 'rm -rf')).toMatchObject({ ok: false });
-    expect(await invoke('bt:cli-tool', ours, { op: 'uninstall' })).toMatchObject({ ok: false });
-    expect(readlinkSync(link)).toBe(tool);
-    expect(await invoke('bt:cli-tool', ours, 'uninstall', '/etc/passwd')).toEqual({
+    expect(electron.handle.has('bt:cli-tool')).toBe(false);
+    expect(await invoke('bt:cli-uninstall', ours, '/etc/passwd')).toEqual({
       ok: true,
       info: { path: tool, link, state: 'none' },
     });
@@ -744,9 +763,9 @@ describe('the IPC handlers', () => {
     electron.savePath = join(dir, 'b');
     expect(await invoke('bt:choose-save', ours, 'puzzle', 'b')).toBe(join(dir, 'b.xmpuzzle'));
     rescueInfo = { path: join(dir, 'r.xmpuzzle') };
-    await invoke('bt:rescue', ours, 'read');
-    electron.on.get('bt:dropped')?.({ sender: ours }, join(dir, 'd.xmpuzzle'));
-    electron.on.get('bt:dropped')?.({ sender: ours }, 42);
+    await invoke('bt:rescue-read', ours);
+    on('bt:dropped')?.({ sender: ours }, join(dir, 'd.xmpuzzle'));
+    on('bt:dropped')?.({ sender: ours }, 42);
     for (const p of [
       'a.xmpuzzle',
       'p.slsolve',
@@ -766,6 +785,7 @@ describe('the IPC handlers', () => {
     expect(
       await invoke('bt:write-export', ours, join(dir, 'other.png'), new Uint8Array(1)),
     ).toEqual({
+      ok: false,
       error: "other.png was not chosen in the export's dialog",
     });
     expect(
@@ -783,25 +803,23 @@ describe('the IPC handlers', () => {
   it('keep only handed files as recent files and as the rescue record’s', async () => {
     electron.openPaths = [join(dir, 'chosen.xmpuzzle')];
     await invoke('bt:choose-open', ours, 'puzzle');
-    const add = electron.on.get('bt:recent');
-    add?.({ sender: ours }, 'add', join(dir, 'chosen.xmpuzzle'));
-    add?.({ sender: ours }, 'add', '/etc/elsewhere.xmpuzzle');
-    add?.({ sender: foreign }, 'add', join(dir, 'chosen.xmpuzzle'));
+    const add = on('bt:recent-add');
+    add?.({ sender: ours }, join(dir, 'chosen.xmpuzzle'));
+    add?.({ sender: ours }, '/etc/elsewhere.xmpuzzle');
+    add?.({ sender: foreign }, join(dir, 'chosen.xmpuzzle'));
     expect(recent).toEqual([join(dir, 'chosen.xmpuzzle')]);
     const info = (path: string | null): unknown => ({ path, name: 'n', revision: 1, time: 2 });
     engineCalls.length = 0;
-    expect(await invoke('bt:rescue', ours, 'write', info(join(dir, 'chosen.xmpuzzle')))).toEqual({
+    expect(await invoke('bt:rescue-write', ours, info(join(dir, 'chosen.xmpuzzle')))).toEqual({
       ok: true,
     });
-    await invoke('bt:rescue', ours, 'write', info('/etc/elsewhere.xmpuzzle'));
-    await invoke('bt:rescue', ours, 'write', info(null));
-    expect(await invoke('bt:rescue', foreign, 'write', info(join(dir, 'chosen.xmpuzzle')))).toBe(
-      null,
-    );
-    expect(await invoke('bt:rescue', ours, 'write', 'not a record')).toBeNull();
+    await invoke('bt:rescue-write', ours, info('/etc/elsewhere.xmpuzzle'));
+    await invoke('bt:rescue-write', ours, info(null));
+    expect(await invoke('bt:rescue-write', foreign, info(join(dir, 'chosen.xmpuzzle')))).toBe(null);
+    expect(await invoke('bt:rescue-write', ours, 'not a record')).toBeNull();
     // the engine's refusal is the answer (the renderer keeps quiet on invalid_state)
     engineRefuses = 'invalid_state';
-    expect(await invoke('bt:rescue', ours, 'write', info(null))).toEqual({
+    expect(await invoke('bt:rescue-write', ours, info(null))).toEqual({
       ok: false,
       errc: 'invalid_state',
       message: 'refused',
@@ -824,31 +842,30 @@ describe('the IPC handlers', () => {
     newWindows = 0;
     electron.openPaths = [join(dir, 'mine.xmpuzzle')];
     await invoke('bt:choose-open', ours, 'puzzle');
-    const claim = electron.on.get('bt:claim-path');
+    const claim = on('bt:claim-path');
     claim?.({ sender: ours }, join(dir, 'mine.xmpuzzle'));
     claim?.({ sender: ours }, '/etc/elsewhere.xmpuzzle');
     claim?.({ sender: ours }, 42);
     claim?.({ sender: foreign }, join(dir, 'mine.xmpuzzle'));
     expect(claimed).toEqual([[1, join(dir, 'mine.xmpuzzle')]]);
-    electron.on.get('bt:new-window')?.({ sender: foreign });
-    electron.on.get('bt:new-window')?.({ sender: ours });
+    on('bt:new-window')?.({ sender: foreign });
+    on('bt:new-window')?.({ sender: ours });
     expect(newWindows).toBe(1);
     // the start's messages and the diagnostics (cleanup items 2.3, 2.4, 2.7)
-    const start = electron.on.get('bt:engine-start');
-    start?.({ sender: foreign }, 'retry');
-    start?.({ sender: ours }, 'ready');
-    start?.({ sender: ours }, 'retry');
-    start?.({ sender: ours }, 'something else');
-    start?.({ sender: ours }, 'held', 'open');
-    start?.({ sender: ours }, 'dropped', 'new');
-    start?.({ sender: ours }, 'held', 'not a command');
-    start?.({ sender: foreign }, 'held', 'open');
+    on('bt:engine-retry')?.({ sender: foreign });
+    on('bt:engine-ready')?.({ sender: ours });
+    on('bt:engine-retry')?.({ sender: ours });
+    const held = on('bt:command-held');
+    held?.({ sender: ours }, 'open', false);
+    held?.({ sender: ours }, 'new', true);
+    held?.({ sender: ours }, 'not a command', false);
+    held?.({ sender: ours }, 'open', 'yes');
+    held?.({ sender: foreign }, 'open', false);
     expect(startOps).toEqual(['ready', 'retry', 'held open', 'dropped new']);
-    expect(await invoke('bt:diagnostics', foreign, 'copy')).toBeNull();
-    expect(await invoke('bt:diagnostics', ours, 'copy')).toEqual({ ok: true, bytes: 10 });
-    expect(await invoke('bt:diagnostics', ours, 'save')).toEqual({ ok: false, canceled: true });
-    expect(await invoke('bt:diagnostics', ours, 'other')).toBeNull();
-    const save = electron.on.get('bt:save-state');
+    expect(await invoke('bt:diagnostics-copy', foreign)).toBeNull();
+    expect(await invoke('bt:diagnostics-copy', ours)).toEqual({ ok: true, bytes: 10 });
+    expect(await invoke('bt:diagnostics-save', ours)).toEqual({ ok: false, canceled: true });
+    const save = on('bt:save-state');
     save?.({ sender: ours }, 'prefs', { theme: 'Dark' });
     // a layout is the window's own
     save?.({ sender: ours }, 'layout', { focus: '3d' });
@@ -859,11 +876,27 @@ describe('the IPC handlers', () => {
   });
 
   it('open only the help links, by name', () => {
-    const help = electron.on.get('bt:help');
+    const help = on('bt:help');
     help?.({ sender: ours }, 'guide');
     help?.({ sender: ours }, 'tutorial');
     help?.({ sender: ours }, 'https://example.com/');
     help?.({ sender: ours }, 'toString');
-    expect(electron.opened).toEqual([HELP_URLS.guide, HELP_URLS.tutorial]);
+    help?.({ sender: ours }, '__proto__');
+    expect(electron.opened).toEqual([
+      'https://shapelogic.xyz/docs/',
+      'https://shapelogic.xyz/docs/getting-started/',
+    ]);
+    // every link of the table, and nothing else (cleanup item 12.3: one table)
+    for (const link of Object.keys(HELP_URLS)) {
+      expect(isHelpLink(link)).toBe(true);
+    }
+    expect([isHelpLink('toString'), isHelpLink('constructor'), isHelpLink(3)]).toEqual([
+      false,
+      false,
+      false,
+    ]);
+    // the demo's are its own site's pages, the others' the same addresses
+    expect(helpUrl('guide', 'https://demo.example')).toBe('https://demo.example/docs/');
+    expect(helpUrl('author', 'https://demo.example')).toBe(HELP_URLS.author);
   });
 });

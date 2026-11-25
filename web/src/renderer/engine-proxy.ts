@@ -22,11 +22,17 @@ import { OrderedInbox } from '../engine/dispatch.ts';
 import type { Defer } from '../engine/dispatch.ts';
 import { CLIENT_ERROR_CODE, EngineError } from '../engine/errors.ts';
 import { attachFrame, FrameError } from '../engine/frames.ts';
+import { EventHandlers, Listeners } from '../engine/handlers.ts';
 
 interface Pending {
   method: string;
   resolve: (value: unknown) => void;
   reject: (error: EngineError) => void;
+}
+
+/** A handler that threw: the console says so (the page has no log of its own). */
+function threw(detail: string): void {
+  console.error(`bt engine proxy: ${detail}`);
 }
 
 /** The engine host of this window, over the bridge. */
@@ -36,9 +42,8 @@ export class EngineProxy implements EngineApi {
   private readonly off: () => void;
   private nextId = 1;
   private readonly pending = new Map<number, Pending>();
-  private readonly handlers = new Map<string, Set<(params: never) => void>>();
-  private readonly anyHandlers = new Set<(event: string, params: unknown) => void>();
-  private readonly statusHandlers = new Set<(status: EngineStatus) => void>();
+  private readonly handlers = new EventHandlers(threw);
+  private readonly statusHandlers = new Listeners<EngineStatus>('a status handler', threw);
   private status_: EngineStatus | null = null;
 
   constructor(bridge: BtBridge, defer?: Defer) {
@@ -73,31 +78,16 @@ export class EngineProxy implements EngineApi {
   }
 
   on<E extends EventName>(event: E, handler: (params: EventParams<E>) => void): () => void {
-    let set = this.handlers.get(event);
-    if (set === undefined) {
-      set = new Set();
-      this.handlers.set(event, set);
-    }
-    const h = handler as (params: never) => void;
-    set.add(h);
-    return () => {
-      set.delete(h);
-    };
+    return this.handlers.on(event, handler);
   }
 
   onEvent(handler: (event: string, params: unknown) => void): () => void {
-    this.anyHandlers.add(handler);
-    return () => {
-      this.anyHandlers.delete(handler);
-    };
+    return this.handlers.onEvent(handler);
   }
 
   /** The engine started, ended, was restarted (a new document: reload), or could not be kept running. */
   onStatus(handler: (status: EngineStatus) => void): () => void {
-    this.statusHandlers.add(handler);
-    return () => {
-      this.statusHandlers.delete(handler);
-    };
+    return this.statusHandlers.on(handler);
   }
 
   /** Stops listening; calls still waiting fail as disconnected. */
@@ -143,33 +133,12 @@ export class EngineProxy implements EngineApi {
         return 'reply';
       }
       case 'event':
-        for (const h of [...(this.handlers.get(m.event) ?? [])]) {
-          this.guard(() => {
-            (h as (p: unknown) => void)(m.params);
-          });
-        }
-        for (const h of [...this.anyHandlers]) {
-          this.guard(() => {
-            h(m.event, m.params);
-          });
-        }
+        this.handlers.emit(m.event, m.params);
         return 'other';
       case 'status':
         this.status_ = m.status;
-        for (const h of [...this.statusHandlers]) {
-          this.guard(() => {
-            h(m.status);
-          });
-        }
+        this.statusHandlers.emit(m.status);
         return 'other';
-    }
-  }
-
-  private guard(f: () => void): void {
-    try {
-      f();
-    } catch (e) {
-      console.error('bt engine proxy: a handler threw', e);
     }
   }
 }

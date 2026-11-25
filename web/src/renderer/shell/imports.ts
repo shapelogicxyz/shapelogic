@@ -13,6 +13,7 @@
 // where, never over the source); a converted one keeps the document's, as
 // the original kept its file name.
 
+import { baseName, puzzleStem } from './paths.ts';
 import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Grid } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
@@ -33,10 +34,6 @@ export interface ImportsHost {
   confirmDiscard(action: string): Promise<boolean>;
   /** Brings the Entities workspace forward (the original's selectEntitiesTab). */
   showEntities(): void;
-}
-
-function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path;
 }
 
 /** What an imported puzzle is shown as: its file's name without the extension. */
@@ -318,10 +315,7 @@ export class Imports {
       }
       return;
     }
-    const path = await this.app.chooseSave(
-      'scad',
-      `${this.host.name.replace(/\.xmpuzzle$/i, '')}.scad`,
-    );
+    const path = await this.app.chooseSave('scad', `${puzzleStem(this.host.name)}.scad`);
     if (path === null) {
       return;
     }

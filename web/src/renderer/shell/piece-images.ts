@@ -15,6 +15,7 @@
 // first, then its bitmap closed, except a picture an open dialog holds.
 
 import type { ShapeImage, TrayBorder } from '../../engine/api.generated.ts';
+import { fromBase64, toBase64 } from '../../engine/base64.ts';
 import type { EngineLink, Store } from '../state/store.ts';
 import { inside, namedPictures, PictureKeep, stackKey } from './picture-keep.ts';
 import type { PiecePicture } from './picture-math.ts';
@@ -36,16 +37,6 @@ const ready = cache.ready;
 const loading = new Set<string>();
 const failed = cache.failed;
 const listeners = new Set<(hash: string) => void>();
-
-/** The bytes of base64 text. */
-export function fromBase64(data: string): Uint8Array<ArrayBuffer> {
-  const bin = atob(data);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) {
-    out[i] = bin.charCodeAt(i);
-  }
-  return out;
-}
 
 /** A picture from its file's bytes (the dialog's, before the engine has it). */
 export async function decodeImage(hash: string, type: string, data: string): Promise<PieceImage> {
@@ -137,12 +128,7 @@ export function stackSize(images: readonly ShapeImage[]): [number, number] {
 
 /** The bytes of a blob as base64. */
 async function blobBase64(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let s = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(s);
+  return toBase64(new Uint8Array(await blob.arrayBuffer()));
 }
 
 /**

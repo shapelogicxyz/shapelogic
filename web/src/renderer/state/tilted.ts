@@ -101,12 +101,6 @@ export function parseAllowance(text: string): number | null {
   return text.trim() === '' || !Number.isFinite(v) || v < 0 || v > ALLOWANCE_MAX ? null : v;
 }
 
-/** A whole number typed in a field, from `min` to `max`; null for anything else. */
-export function parseWhole(text: string, min: number, max: number): number | null {
-  const v = Number(text.trim());
-  return text.trim() === '' || !Number.isInteger(v) || v < min || v > max ? null : v;
-}
-
 /** A point [x, y]. */
 export type Pt = readonly [number, number];
 

@@ -13,6 +13,7 @@
 
 import { byId, esc } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
+import { closePop } from './popover.ts';
 
 /** A button of a dialog. */
 export interface DialogButton {
@@ -184,6 +185,8 @@ export function openDialog(options: DialogOptions): Promise<string | null> {
     if (same !== undefined) {
       close(same, null);
     }
+    // a menu open under it would be drawn over it (the popover is above the dialogs)
+    closePop();
     const active = document.activeElement;
     const el = document.createElement('div');
     el.className = 'cfm-scrim dlg-scrim';

@@ -110,12 +110,12 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     await expect(page.locator('#tiltBody [data-tf="allowance"]')).toHaveValue('0.05');
     // typed: a 6 by 6 tray at 1 down 3 over (Keep square is on: the width sets both sides)
     await expect(page.locator('#tiltBody [data-tlink]')).toHaveAttribute('aria-checked', 'true');
-    await page.fill('#tiltBody [data-tf="width"]', '6');
-    await page.press('#tiltBody [data-tf="width"]', 'Enter');
+    await page.fill('#tiltBody [data-step="width"] input', '6');
+    await page.press('#tiltBody [data-step="width"] input', 'Enter');
     await settled(page);
-    await expect(page.locator('#tiltBody [data-tf="height"]')).toHaveValue('6');
-    await page.fill('#tiltBody [data-tf="over"]', '3');
-    await page.press('#tiltBody [data-tf="over"]', 'Enter');
+    await expect(page.locator('#tiltBody [data-step="height"] input')).toHaveValue('6');
+    await page.fill('#tiltBody [data-step="over"] input', '3');
+    await page.press('#tiltBody [data-step="over"] input', 'Enter');
     await settled(page);
     snap = await docOf(page);
     expect(snap.tray?.width).toBe(6);
@@ -128,13 +128,13 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     // a rectangular tray (stage E): Keep square off, the height alone, 6 by 8
     await page.click('#tiltBody [data-tlink]');
     await expect(page.locator('#tiltBody [data-tlink]')).toHaveAttribute('aria-checked', 'false');
-    await page.fill('#tiltBody [data-tf="height"]', '8');
-    await page.press('#tiltBody [data-tf="height"]', 'Enter');
+    await page.fill('#tiltBody [data-step="height"] input', '8');
+    await page.press('#tiltBody [data-step="height"] input', 'Enter');
     await settled(page);
     snap = await docOf(page);
     expect(snap.tray?.width).toBe(6);
     expect(snap.tray?.height).toBe(8);
-    await expect(page.locator('#tiltBody [data-tf="width"]')).toHaveValue('6');
+    await expect(page.locator('#tiltBody [data-step="width"] input')).toHaveValue('6');
     await expect(page.locator('#boardViews .tsize')).toHaveText('Tray: 6 by 8');
     await expect(page.locator('#tiltBody .tline')).toContainText('6 by 8');
     // the board's picture is the rectangle: 6 by 8 squares, higher than wide
@@ -144,7 +144,7 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     const tall = await page.locator('#trayArea svg').boundingBox();
     expect(tall !== null && tall.height > tall.width * 1.2).toBe(true);
     // the width's stepper: 7 by 8, the height stays; one step back
-    await page.click('#tiltBody [data-tk="width"][data-d="1"]');
+    await page.click('#tiltBody [data-step="width"] [data-sd="1"]');
     await settled(page);
     snap = await docOf(page);
     expect([snap.tray?.width, snap.tray?.height]).toEqual([7, 8]);
@@ -162,17 +162,17 @@ test('a Tilted Square puzzle: New, the board, Tilt & tolerance, walls, a piece, 
     await expect(page.locator('#boardViews .tsize')).toHaveText('Tray: 6 by 6');
     await expect(page.locator('#boardViews .tread')).toHaveText('Whole cells: 26');
     // down above over is refused, the field put back
-    await page.fill('#tiltBody [data-tf="down"]', '4');
-    await page.press('#tiltBody [data-tf="down"]', 'Enter');
+    await page.fill('#tiltBody [data-step="down"] input', '4');
+    await page.press('#tiltBody [data-step="down"] input', 'Enter');
     await expect(page.locator('#stText')).toContainText('Down: a whole number from 0 to 3');
-    await expect(page.locator('#tiltBody [data-tf="down"]')).toHaveValue('1');
+    await expect(page.locator('#tiltBody [data-step="down"] input')).toHaveValue('1');
     // Delete on the board says why it stays
     await page.keyboard.press('Delete');
     await expect(page.locator('#stText')).toContainText('not copied, deleted or moved');
     expect((await docOf(page)).shapes.length).toBe(1);
 
     // Over +1: 1 down 4 over, one undo step
-    await page.click('#tiltBody [data-tk="over"][data-d="1"]');
+    await page.click('#tiltBody [data-step="over"] [data-sd="1"]');
     await settled(page);
     await expect(page.locator('#boardViews .tangle')).toHaveText('Tilt angle: 14.04°');
     expect((await docOf(page)).tray?.over).toBe(4);

@@ -21,32 +21,12 @@ import type { BrowserWindow, BrowserWindowConstructorOptions, WebPreferences } f
 import { isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { HelpLink } from '../engine/app-bridge.ts';
-
 /**
- * The user guide and its Getting started page (site/src/content/docs/docs),
- * and the author's GitHub page: the only addresses the app hands the
- * system's browser
- * (shell.openExternal). The renderer names a link, never a URL. The pages
- * must exist in the site (site/tests/help-urls.test.mjs checks them).
- */
-export const HELP_URLS: Readonly<Record<HelpLink, string>> = {
-  guide: 'https://shapelogic.xyz/docs/',
-  tutorial: 'https://shapelogic.xyz/docs/getting-started/',
-  // the About page's link to the author's GitHub page
-  author: 'https://github.com/hypnoz/',
-  // the Log File Manager's link for reporting a problem
-  issues: 'https://github.com/shapelogicxyz/shapelogic/issues',
-  // the Tilt & tolerance section's link: the research page on tilted trays
-  tilted: 'https://shapelogic.xyz/research/tilted-square-geometry.html',
-  // the engine's dialog when it cannot start (cleanup item 2.9)
-  troubleshooting: 'https://shapelogic.xyz/docs/windows-troubleshooting/',
-};
-
-/**
- * The page shown when WebGL2 is not available (gpu-check.ts), also handed to
- * the system's browser; the site has the page too (site/tests/help-urls).
- * And the latest release's page, the update dialog's Download (updates.ts).
+ * Beside the help links (app-bridge.ts's HELP_URLS, the renderer names
+ * one), the only addresses the app hands the system's browser
+ * (shell.openExternal): the page shown when WebGL2 is not available
+ * (gpu-check.ts; the site has the page: site/tests/help-urls), and the
+ * latest release's page, the update dialog's Download (updates.ts).
  */
 export const SYSTEM_URLS = {
   linuxGraphics: 'https://shapelogic.xyz/docs/linux/',

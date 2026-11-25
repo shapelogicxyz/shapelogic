@@ -36,6 +36,7 @@ import { Arch, build, Platform } from 'electron-builder';
 import type { Configuration } from 'electron-builder';
 
 import { ENGINE_HASH_FILE, hashFileText, sha256File } from '../src/main/engine-hash.ts';
+import { builtProgram, sameBuild } from '../src/main/engine-path.ts';
 import { projectVersion, REPO_ROOT } from './project-version.ts';
 
 const WEB = resolve(import.meta.dirname, '..');
@@ -72,16 +73,14 @@ export function binaryArch(path: string): 'x64' | 'arm64' | null {
 
 /** The release engine for a platform and architecture. */
 export function releaseEngine(platform: NodeJS.Platform, arch: 'x64' | 'arm64'): string {
-  const exe = platform === 'win32' ? 'shapelogic_engine.exe' : 'shapelogic_engine';
   // the macOS host builds its own architecture in `release`, Intel in `release-x64`
   const preset = platform === 'darwin' && arch !== process.arch ? `release-${arch}` : 'release';
-  return resolve(REPO_ROOT, 'build', preset, 'engine', exe);
+  return builtProgram(REPO_ROOT, preset, 'shapelogic_engine', platform);
 }
 
 /** The command line tool beside an engine in the same build (`build/<preset>/cli/`). */
 export function releaseCli(engine: string): string {
-  const exe = engine.endsWith('.exe') ? 'shapelogic_cli.exe' : 'shapelogic_cli';
-  return resolve(engine, '..', '..', 'cli', exe);
+  return sameBuild(engine, 'shapelogic_cli');
 }
 
 /** A program is there, of that architecture and version; else why not. */

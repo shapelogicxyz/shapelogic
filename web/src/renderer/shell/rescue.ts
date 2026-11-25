@@ -25,6 +25,7 @@
 // and removals run one at a time, in order, so a removal is never
 // overtaken by a write that started before it.
 
+import { baseName } from './paths.ts';
 import type { BtApp, RescueInfo } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import { askChoice, VIEW_LOGS } from './dialog.ts';
@@ -35,10 +36,6 @@ import { flash, reportError } from './status.ts';
 const EVERY_MS = 2000;
 /** The wait after a change before it is written (ms): a burst of changes is one write. */
 const AFTER_MS = 300;
-
-function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path;
-}
 
 function ago(time: number): string {
   const s = Math.max(0, Math.round((Date.now() - time) / 1000));
@@ -205,7 +202,7 @@ export class Rescue {
     }
     const info: RescueInfo = {
       path: snap.path,
-      name: snap.path === null ? (this.store.displayName ?? 'Untitled') : baseName(snap.path),
+      name: this.store.documentName,
       revision: snap.revision,
       time: Date.now(),
     };

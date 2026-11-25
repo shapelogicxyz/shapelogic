@@ -39,12 +39,13 @@ import { onPrefs, prefs } from '../shell/prefs.ts';
 import { reportError, setCursor } from '../shell/status.ts';
 import { isDarkTheme, onTheme } from '../shell/theme.ts';
 import { baseOf, Camera, EYE_DISTANCE, HOME, pixelsPerUnit } from './camera.ts';
-import { gridExtent } from './extent.ts';
+import { gridExtent, isCubeGrid } from './extent.ts';
 import { BoardView } from './board.ts';
 import type { BoardModel } from './board.ts';
-import { buildMesh } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
 import { MeshCache } from './meshcache.ts';
+import { MeshSlot, ShapeMeshes } from './shape-meshes.ts';
+import type { MeshAsk, MeshLease } from './shape-meshes.ts';
 import { layerAxis, layerSlab } from './overlays.ts';
 import type { Plane } from './overlays.ts';
 import { describePick, pickAt } from './picking.ts';
@@ -190,6 +191,11 @@ export class View3D {
 
   private readonly store: Store;
   private readonly cache: MeshCache;
+  /** The shape meshes built, one copy each for every part of the view that draws them. */
+  private readonly meshes: ShapeMeshes;
+  /** The shape view's mesh, and the pieces scene's. */
+  private readonly shapeSlot: MeshSlot;
+  private readonly piecesSlot: MeshSlot;
   private readonly renderer: ViewRenderer;
   private readonly scene: ShapeScene;
   /** A sliding board's START and GOAL trays and pieces (the Puzzle view). */
@@ -220,7 +226,6 @@ export class View3D {
   private extent: V3 = [1, 1, 1];
   /** What the mesh shown is of: shape, style, generation, revision. */
   private shownKey = '';
-  private loading = 0;
   private drag: Drag | null = null;
   private hoverAt: { x: number; y: number } | null = null;
   private readonly pieces: PiecesScene;
@@ -258,9 +263,6 @@ export class View3D {
   private shownLayer: SolutionLayer = 'player';
   /** What the pieces scene shows: the model's key and the style. */
   private piecesShown = '';
-  private piecesLoading = 0;
-  /** The pieces scene's meshes by shape, with what they were made of. */
-  private pieceMeshes = new Map<string, PieceMesh & { key: string }>();
   /** The revision each shape last changed at (document.changed), per document. */
   private readonly shapeRev = new Map<string, number>();
   private revGeneration = -1;
@@ -271,13 +273,16 @@ export class View3D {
     // the settings are read before the view is made: the first view is the home of theirs
     this.camera.setBase(this.upright());
     this.cache = new MeshCache(store.engine);
+    this.meshes = new ShapeMeshes(this.cache, () => store.generation);
+    this.shapeSlot = new MeshSlot(this.meshes);
+    this.piecesSlot = new MeshSlot(this.meshes);
     this.canvas = byId<HTMLCanvasElement>('cv');
     this.renderer = new ViewRenderer(this.canvas);
     this.scene = new ShapeScene(this.renderer.model);
     this.trays = new TrayView(
       {
         store,
-        cache: this.cache,
+        meshes: this.meshes,
         shapeRevision: (s) => this.shapeRevision(s),
         style: () => this.display.style,
         changed: () => {
@@ -301,7 +306,7 @@ export class View3D {
     this.trays.group.visible = false;
     this.board = new BoardView({
       store,
-      cache: this.cache,
+      meshes: this.meshes,
       shapeRevision: (s) => this.shapeRevision(s),
       style: () => this.display.style,
       changed: () => {
@@ -763,6 +768,7 @@ export class View3D {
     const wallEdge = css('--twallEdge') || '#8a93a3';
     this.shapeTray.setWallColor(wall, wallEdge);
     this.solutionTray.setWallColor(wall, wallEdge);
+    this.shapeTray.setCellColors(cellColors());
     const shape = this.store.shape;
     this.shapeTray.set(t3, 1, [0, 0, 0], shape?.board === true && tray != null ? tray : null);
     const [bx, by] = tray?.box ?? [1, 1];
@@ -902,13 +908,11 @@ export class View3D {
     this.renderTag();
     this.trays.load();
     this.board.load();
-    // any mesh still on its way is stale now, even when what is shown is
-    // already right (wire frame, then back to the shown style: the wire
-    // frame's mesh must not land over it)
-    const n = ++this.loading;
     if (snap === null || shape === null) {
-      this.shownKey = '';
-      this.scene.setMesh(null);
+      this.shapeSlot.clear(() => {
+        this.shownKey = '';
+        this.scene.setMesh(null);
+      });
       delete byId('vp').dataset.shown;
       this.lookChanged();
       return;
@@ -921,6 +925,9 @@ export class View3D {
     const revision = this.shapeRevision(shape.id);
     const key = `${store.generation}:${shape.id}:${style}:${String(revision)}`;
     if (key === this.shownKey) {
+      // any mesh still on its way is stale now (wire frame, then back to the
+      // shown style: the wire frame's mesh must not land over it)
+      this.shapeSlot.stale();
       byId('vp').dataset.revision = String(snap.revision);
       this.lookChanged();
       return;
@@ -930,39 +937,36 @@ export class View3D {
     // a Tilted Square board is drawn by its tray (syncTurn), its whole
     // cells as checker blocks: its mesh would show variable cells
     if (snap.tray != null && shape.board) {
-      this.shownKey = key;
-      this.scene.setMesh(null);
+      this.shapeSlot.clear(() => {
+        this.shownKey = key;
+        this.scene.setMesh(null);
+      });
       byId('vp').dataset.shown = `${shape.id}:${style}`;
       byId('vp').dataset.revision = String(snapRevision);
       this.lookChanged();
       return;
     }
-    this.cache.get(shape.id, style, revision).then(
-      (reply) => {
-        if (n !== this.loading) {
-          return;
-        }
-        const t0 = performance.now();
-        const built = buildMesh(meshArrays(reply), size, style, {
-          kind: 'shape',
-          shape: shape.id,
-          revision,
-          transformation: 0,
-        });
+    const ask: MeshAsk = {
+      shape: shape.id,
+      style,
+      revision,
+      size,
+      built: (t0, reply) => {
         measureMeshBuild(t0, { cells: shape.fixed + shape.variable, triangles: reply.triangles });
+      },
+    };
+    this.shapeSlot
+      .load([ask], ([lease]) => {
         this.shownKey = key;
-        this.scene.setMesh(built);
+        this.scene.setMesh(lease?.built ?? null);
         byId('vp').dataset.shown = `${shape.id}:${style}`;
         byId('vp').dataset.revision = String(snapRevision);
         this.lookChanged();
         this.repick();
-      },
-      (e: unknown) => {
-        if (n === this.loading) {
-          reportError(e, 'The shape could not be drawn');
-        }
-      },
-    );
+      })
+      .catch((e: unknown) => {
+        reportError(e, 'The shape could not be drawn');
+      });
     this.lookChanged();
   }
 
@@ -996,108 +1000,54 @@ export class View3D {
     const shown = `${model?.key ?? ''}:${style}`;
     if (shown === this.piecesShown) {
       // a scene still on its way is stale: this one is already shown
-      ++this.piecesLoading;
+      this.piecesSlot.stale();
       return;
     }
-    const n = ++this.piecesLoading;
     if (model === null) {
-      this.showPieces(n, null, new Map(), shown);
+      this.piecesSlot.clear(() => {
+        this.showPieces(null, new Map(), shown);
+      });
       return;
     }
     const store = this.store;
-    const gen = store.generation;
     const shapes = [...new Set(model.items.map((i) => i.shape))];
-    Promise.all(
-      shapes.map(async (s): Promise<[string, PieceMesh & { key: string }]> => {
-        const rev = this.shapeRevision(s);
-        const key = `${String(gen)}:${s}:${style}:${String(rev)}`;
-        const have = this.pieceMeshes.get(s);
-        if (have?.key === key) {
-          return [s, have];
-        }
-        const size = store.snapshot?.shapes.find((x) => x.id === s)?.size ?? [1, 1, 1];
-        const reply = await this.cache.get(s, style, rev);
-        const built = buildMesh(meshArrays(reply), size, style, {
-          kind: 'shape',
-          shape: s,
-          revision: rev,
-          transformation: 0,
-        });
-        // the mesh's own box (the frame's lo and hi may be larger: a grid's
-        // cells need not fill it), so the piece is centerd on what is drawn
-        built.faces.computeBoundingBox();
-        const bb = built.faces.boundingBox;
-        const lo = bb === null || bb.isEmpty() ? reply.lo : bb.min.toArray();
-        const hi = bb === null || bb.isEmpty() ? reply.hi : bb.max.toArray();
-        const c = [0, 1, 2].map((i) => ((lo[i] ?? 0) + (hi[i] ?? 0)) / 2) as [
-          number,
-          number,
-          number,
-        ];
-        const radius = Math.max(
-          0.5,
-          Math.hypot(...[0, 1, 2].map((i) => Math.max(0, (hi[i] ?? 0) - (lo[i] ?? 0)))) / 2,
-        );
-        const half = [0, 1, 2].map((i) => Math.max(0, (hi[i] ?? 0) - (lo[i] ?? 0)) / 2) as [
-          number,
-          number,
-          number,
-        ];
-        return [s, { built, center: c, radius, half, key }];
-      }),
-    ).then(
-      (list) => {
-        if (n !== this.piecesLoading) {
-          // a newer scene took its place: free what only this one made
-          for (const [s, m] of list) {
-            if (this.pieceMeshes.get(s) !== m) {
-              disposeBuilt(m.built);
-            }
+    const asks = shapes.map((s): MeshAsk => ({
+      shape: s,
+      style,
+      revision: this.shapeRevision(s),
+      size: store.snapshot?.shapes.find((x) => x.id === s)?.size ?? [1, 1, 1],
+    }));
+    // a scene stale by the time its meshes come gives them back (the
+    // shared meshes keep what another scene still shows)
+    const loading = this.piecesSlot.load(asks, (leases) => {
+      this.showPieces(model, new Map(leases.map((l) => [l.shape, pieceMesh(l)])), shown);
+    });
+    const n = this.piecesSlot.loads;
+    loading.catch((e: unknown) => {
+      if (e instanceof EngineError && e.errc === 'superseded') {
+        // a newer request of a mesh took this one's place: ask again (it is cached now)
+        queueMicrotask(() => {
+          if (this.piecesSlot.loads === n) {
+            this.loadPieces();
           }
-          return;
-        }
-        this.showPieces(n, model, new Map(list), shown);
-      },
-      (e: unknown) => {
-        if (n !== this.piecesLoading) {
-          return;
-        }
-        if (e instanceof EngineError && e.errc === 'superseded') {
-          // a newer request of a mesh took this one's place: ask again (it is cached now)
-          queueMicrotask(() => {
-            if (n === this.piecesLoading) {
-              this.loadPieces();
-            }
-          });
-          return;
-        }
-        reportError(e, 'The pieces could not be drawn');
-      },
-    );
+        });
+        return;
+      }
+      reportError(e, 'The pieces could not be drawn');
+    });
   }
 
   private showPieces(
-    n: number,
     model: PiecesModel | null,
-    meshes: Map<string, PieceMesh & { key: string }>,
+    meshes: Map<string, PieceMesh>,
     shown: string,
   ): void {
-    if (n !== this.piecesLoading) {
-      return;
-    }
-    const old = this.pieceMeshes;
-    this.pieceMeshes = meshes;
     this.pieces.set(
       model ?? { key: '', items: [], hidden: 0, selected: null, names: new Map() },
       meshes,
       this.piecesLook(),
       this.camera.fromAngles(HOME),
     );
-    for (const [s, m] of old) {
-      if (meshes.get(s) !== m) {
-        disposeBuilt(m.built);
-      }
-    }
     this.piecesShown = shown;
     const vp = byId('vp');
     vp.dataset.scene = this.pieces.describe();
@@ -1135,7 +1085,10 @@ export class View3D {
         if (tray == null || s?.board !== true) {
           return null;
         }
-        return { ...this.boardCells.geometry(tray), material: this.boardCells.material };
+        return {
+          ...this.boardCells.geometry(tray, cellColors()),
+          material: this.boardCells.material,
+        };
       },
       pictureOf: (shape) => this.pictureOf(shape),
     };
@@ -1590,7 +1543,7 @@ export class View3D {
       this.solverMode ||
       this.rodSetShown ||
       this.store.shape === null ||
-      (grid !== 'bricks' && grid !== 'sliding' && grid !== 'stacking')
+      !isCubeGrid(grid)
     ) {
       return null;
     }
@@ -1624,8 +1577,7 @@ export class View3D {
     this.overSpace = over;
     this.lastLayerCell = layerCell;
     const grid = this.store.snapshot?.grid;
-    const cube = grid === 'bricks' || grid === 'sliding' || grid === 'stacking';
-    setCursor(p === null ? '' : describePick(p, cube));
+    setCursor(p === null ? '' : describePick(p, isCubeGrid(grid)));
     byId('vp').dataset.quarter = p?.quarter ?? '';
     // 3D editing is the Entities workspace's: elsewhere its cursor would
     // replace the view's own (the Solver's Alt-hover grab, cleanup item 10.1)
@@ -1782,10 +1734,25 @@ export class View3D {
   }
 }
 
-function disposeBuilt(b: BuiltMesh): void {
-  b.faces.dispose();
-  b.marks?.dispose();
+// a piece's mesh with its box: the mesh's own (the frame's lo and hi may
+// be larger: a grid's cells need not fill it), so the piece is centerd on
+// what is drawn
+function pieceMesh(l: MeshLease): PieceMesh {
+  const built = l.built;
+  const bb = built.faces.boundingBox;
+  const lo = bb === null || bb.isEmpty() ? l.reply.lo : bb.min.toArray();
+  const hi = bb === null || bb.isEmpty() ? l.reply.hi : bb.max.toArray();
+  const center = [0, 1, 2].map((i) => ((lo[i] ?? 0) + (hi[i] ?? 0)) / 2) as V3;
+  const radius = Math.max(
+    0.5,
+    Math.hypot(...[0, 1, 2].map((i) => Math.max(0, (hi[i] ?? 0) - (lo[i] ?? 0)))) / 2,
+  );
+  const half = [0, 1, 2].map((i) => Math.max(0, (hi[i] ?? 0) - (lo[i] ?? 0)) / 2) as V3;
+  return { built, center, radius, half };
 }
+
+// a Tilted Square board's checker colors, the board's Cells view's
+const cellColors = (): readonly [string, string] => [css('--tcellA'), css('--tcellB')];
 
 // the width and height, in units, a box of `extent` takes on the screen
 // turned by `q` (orthographic; the perspective adds a little, which the

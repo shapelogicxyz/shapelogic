@@ -16,6 +16,7 @@ import { itemMeta, sizeText, when } from './cache-text.ts';
 import { askChoice, openDialog } from './dialog.ts';
 import { esc } from './dom.ts';
 import { flash, reportError } from './status.ts';
+import { listKeys } from './widgets.ts';
 
 const ID = 'cacheFiles';
 
@@ -97,17 +98,12 @@ class CacheFilesView {
       }
     });
     list.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') {
+      const at = this.items.findIndex((i) => i.id === this.selected);
+      const next = listKeys(e.key, at, this.items.length);
+      if (next === null) {
         return;
       }
       e.preventDefault();
-      const at = this.items.findIndex((i) => i.id === this.selected);
-      const next =
-        e.key === 'Home'
-          ? 0
-          : e.key === 'End'
-            ? this.items.length - 1
-            : Math.max(0, Math.min(this.items.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)));
       const item = this.items[next];
       if (item !== undefined) {
         this.select(item.id);

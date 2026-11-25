@@ -26,7 +26,6 @@ import {
   isTiltBoard,
   isTilted,
   parseAllowance,
-  parseWhole,
   sizeText,
   slopeText,
   squareOf,
@@ -138,10 +137,6 @@ describe('a tilted tray in words', () => {
     expect(parseAllowance('a')).toBeNull();
     expect(TRAY_MAX).toBe(LIMITS.tray.side);
     expect(SHIFT_MAX).toBe(LIMITS.tray.shift);
-    expect(parseWhole('8', 1, TRAY_MAX)).toBe(8);
-    expect(parseWhole('0', 1, TRAY_MAX)).toBeNull();
-    expect(parseWhole(String(TRAY_MAX + 1), 1, TRAY_MAX)).toBeNull();
-    expect(parseWhole('2.5', 1, TRAY_MAX)).toBeNull();
     expect(squareOf('3,7')).toEqual([3, 7]);
     expect(squareOf('3')).toBeNull();
     expect(squareOf(undefined)).toBeNull();
@@ -369,7 +364,7 @@ describe('the tray in 3D', () => {
       [0, 1],
     ]);
     expect(sq.map((s) => s.tone)).toEqual([0, 1, 1]);
-    const b = checkerBlocks(t, 0, 1);
+    const b = checkerBlocks(t, 0, 1, ['#1919f3', '#62e03e']);
     expect(b.positions.length).toBe(3 * 12 * 9);
     expect(b.colors.length).toBe(b.positions.length);
     // the top faces (the second six corners of a block) in the two colors, unshaded

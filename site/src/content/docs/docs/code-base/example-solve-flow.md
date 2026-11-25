@@ -93,7 +93,7 @@ over Electron IPC as `ipcRenderer.send('bt:call', request)`.
 
 In the main process `web/src/main/index.ts` has registered
 `ipcMain.on('bt:call', ...)`, which hands the message to the window's
-`serveEngine` (`web/src/main/engine-ipc.ts`). It checks that the method is
+`serveEngine` (`web/src/engine/serve.ts`). It checks that the method is
 one of the schema's (`METHOD_NAMES` from `api.generated.ts`), lets
 `admit` refuse a call naming a file the window was never given (not the
 case here), and calls `host.call(method, params)`.

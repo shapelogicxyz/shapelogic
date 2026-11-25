@@ -8,6 +8,7 @@
 // rows and layers in x, y, z).
 
 import type { CellTool as Tool, Size } from '../../engine/api.generated.ts';
+import type { KeyAction } from '../shell/keys.ts';
 import type { Plane } from '../view3d/overlays.ts';
 
 /** An axis of mirror and span. */
@@ -16,22 +17,37 @@ export type Axis = 'x' | 'y' | 'z';
 /** A cell of the grid's own coordinates. */
 export type Cell = [number, number, number];
 
-/** The tools of the strip (the mockup's TOOLS). */
-export const TOOLS: readonly { id: Tool; n: string; short: string; k: string; tip: string }[] = [
-  { id: 'fixed', n: 'Fixed voxel', short: 'Fixed', k: '1', tip: 'Place a fixed (solid) voxel' },
+/**
+ * The tools of the strip (the mockup's TOOLS), each with the key table's
+ * action that picks it (its key label is keyLabel(action), keys.ts).
+ */
+export const TOOLS: readonly {
+  id: Tool;
+  n: string;
+  short: string;
+  action: KeyAction;
+  tip: string;
+}[] = [
+  {
+    id: 'fixed',
+    n: 'Fixed voxel',
+    short: 'Fixed',
+    action: 'tool.fixed',
+    tip: 'Place a fixed (solid) voxel',
+  },
   {
     id: 'variable',
     n: 'Variable voxel',
     short: 'Variable',
-    k: '2',
+    action: 'tool.variable',
     tip: 'Place a variable (optional) voxel',
   },
-  { id: 'erase', n: 'Erase voxel', short: 'Erase', k: '3', tip: 'Erase the voxel' },
+  { id: 'erase', n: 'Erase voxel', short: 'Erase', action: 'tool.erase', tip: 'Erase the voxel' },
   {
     id: 'paint',
     n: 'Paint color',
     short: 'Paint',
-    k: '4',
+    action: 'tool.paint',
     tip: 'Apply the drawing color to an existing voxel',
   },
 ];

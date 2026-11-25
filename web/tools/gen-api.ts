@@ -77,6 +77,13 @@ const LIMIT_FIELDS: Record<string, Record<string, string>> = {
   solutions: {
     page: 'solution.json#/methods/solution.page/params/properties/limit',
   },
+  settings: {
+    undoDepth: 'engine.json#/$defs/Settings/properties/undoDepth',
+    threads: 'engine.json#/$defs/Settings/properties/threads',
+    searchMemoryGB: 'engine.json#/$defs/Settings/properties/searchMemoryGB',
+    slideDiskGB: 'engine.json#/$defs/Settings/properties/slideDiskGB',
+    panexDiskGB: 'engine.json#/$defs/Settings/properties/panexDiskGB',
+  },
 };
 
 /** A schema file of api/. */
@@ -103,6 +110,20 @@ function literal(v: Json): string {
     return String(v);
   }
   throw new GenError(`a literal must be a string, number, boolean or null: ${JSON.stringify(v)}`);
+}
+
+/** A schema's values when it is an enum of strings, else null. */
+function stringEnum(s: Json): string[] | null {
+  if (!isObject(s) || !Array.isArray(s.enum) || s.enum.length === 0) {
+    return null;
+  }
+  const values = s.enum;
+  return values.every((v) => typeof v === 'string') ? values : null;
+}
+
+/** The constant that holds a string enum's values: MeshStyle's are MESH_STYLE_VALUES. */
+export function valuesName(type: string): string {
+  return `${type.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase()}_VALUES`;
 }
 
 function propertyKey(name: string): string {
@@ -508,6 +529,15 @@ export function generate(
           ? `export interface ${name} ${t}\n`
           : `export type ${name} =${wrapUnion(t, '', 14 + name.length)};\n`,
       );
+      const values = stringEnum(schema);
+      if (values !== null) {
+        // the values as data, for the checks of what crosses a boundary
+        // (cleanup item 12.3: a value the schema adds is in them at once)
+        out.push(
+          `/** ${name}'s values, in the schema's order. */\n` +
+            `export const ${valuesName(name)} = [${values.map(literal).join(', ')}] as const satisfies readonly ${name}[];\n`,
+        );
+      }
     }
 
     const fileMethods = f.doc.methods ?? {};

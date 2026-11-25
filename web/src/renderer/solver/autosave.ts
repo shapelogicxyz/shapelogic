@@ -247,10 +247,7 @@ export class Autosave {
 
   // The state of a problem's solve: the events', else the snapshot's.
   private stateOf(problem: string): string {
-    const r = this.solves.peek(problem);
-    return r?.told === true
-      ? r.state
-      : (this.store.snapshot?.problems.find((p) => p.id === problem)?.solve ?? 'idle');
+    return this.solves.stateOf(problem, this.store.snapshot);
   }
 
   // Carries on a solve paused at a save point that no save of this page
