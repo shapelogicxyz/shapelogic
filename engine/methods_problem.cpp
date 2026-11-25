@@ -9,8 +9,6 @@ namespace bt::engine {
 
 namespace {
 
-constexpr std::int64_t kMaxPieces = 0xFFFF;
-
 Json made(State& s, app::Id problem) {
   return Json{{"problem", formatId(IdKind::Problem, problem)}, {"revision", s.revision()}};
 }
@@ -85,8 +83,8 @@ Reply problemClearResult(State& s, Params& p) {
 Reply problemSetPieceCount(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id shape = p.id("shape", IdKind::Shape);
-  const auto min = static_cast<unsigned int>(p.integer("min", 0, kMaxPieces));
-  const auto max = static_cast<unsigned int>(p.integer("max", 0, kMaxPieces));
+  const auto min = static_cast<unsigned int>(p.integer("min", 0, kMaxPartCount));
+  const auto max = static_cast<unsigned int>(p.integer("max", 0, kMaxPartCount));
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().setPieceCount(problem, shape, min, max));
   return s.changed();
@@ -110,8 +108,8 @@ Reply problemRemovePiece(State& s, Params& p) {
 
 Reply problemSetRangeAll(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  const auto min = static_cast<unsigned int>(p.integer("min", 0, kMaxPieces));
-  const auto max = static_cast<unsigned int>(p.integer("max", 0, kMaxPieces));
+  const auto min = static_cast<unsigned int>(p.integer("min", 0, kMaxPartCount));
+  const auto max = static_cast<unsigned int>(p.integer("max", 0, kMaxPartCount));
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().setRangeAll(problem, min, max));
   return s.changed();
@@ -146,7 +144,7 @@ Reply problemMovePart(State& s, Params& p) {
 Reply problemSetGroup(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id shape = p.id("shape", IdKind::Shape);
-  const auto group = static_cast<unsigned int>(p.integer("group", 0, kMaxPieces));
+  const auto group = static_cast<unsigned int>(p.integer("group", 0, kMaxPartGroup));
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().setGroup(problem, shape, group));
   return s.changed();
@@ -155,8 +153,8 @@ Reply problemSetGroup(State& s, Params& p) {
 Reply problemSetGroupCount(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id shape = p.id("shape", IdKind::Shape);
-  const auto group = static_cast<unsigned int>(p.integer("group", 1, kMaxPieces));
-  const auto count = static_cast<unsigned int>(p.integer("count", 0, kMaxPieces));
+  const auto group = static_cast<unsigned int>(p.integer("group", 1, kMaxPartGroup));
+  const auto count = static_cast<unsigned int>(p.integer("count", 0, kMaxPartCount));
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().setGroupCount(problem, shape, group, count));
   return s.changed();
@@ -164,7 +162,7 @@ Reply problemSetGroupCount(State& s, Params& p) {
 
 Reply problemDeleteGroup(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  const auto group = static_cast<unsigned int>(p.integer("group", 1, kMaxPieces));
+  const auto group = static_cast<unsigned int>(p.integer("group", 1, kMaxPartGroup));
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().deleteGroup(problem, group));
   return s.changed();

@@ -203,6 +203,29 @@ TEST_CASE("uniform mesh: a cube's chamfer is as wide as asked, a prism's too", "
   }
 }
 
+TEST_CASE("uniform mesh: vertices closer than the lookup's cells stay apart and weld",
+          "[mesh]") {
+  // Bumpy bevels of a few 1e-5 without a gap: corners of neighboring
+  // cells lie farther apart than the tolerance that makes them one vertex
+  // (1e-5) but often in one cell of the vertex lookup (1e-4), which must
+  // keep every vertex of a cell, not only the first (else a corner is
+  // made twice and the faces do not weld).
+  for (const GridKind kind : {GridKind::Bricks, GridKind::TriangularPrism, GridKind::Rhombic}) {
+    const GridType gt(kind);
+    std::unique_ptr<Voxel> v = test::legalShape(gt, 3, 5);
+    REQUIRE(v != nullptr);
+    for (const double bevel : {2e-5, 5e-5, 9e-5}) {
+      INFO(toString(kind) << ", bevel " << bevel);
+      UniformMeshOptions o;
+      o.bevel = bevel;
+      o.bumpy = true;
+      const Result<Polyhedron> m = uniformMesh(*v, o);
+      REQUIRE(m);
+      requireWatertight(*m);
+    }
+  }
+}
+
 TEST_CASE("uniform mesh: two cubes side by side share a flat gap, an L has a concave edge",
           "[mesh]") {
   const GridType gt(GridKind::Bricks);

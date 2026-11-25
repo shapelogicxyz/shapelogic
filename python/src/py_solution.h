@@ -4,6 +4,7 @@
 // Ported from src/python/py_solution.h.
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -23,10 +24,10 @@ struct PyPlacement {
 /// An assembly the solver found, with its take-apart when one was asked for.
 struct PySolution {
   /// The assembly's number in the order they were found (from 1).
-  unsigned int assemblyNumber = 0;
+  std::uint64_t assemblyNumber = 0;
   /// Its number among the solutions (from 1); the assembly's number when no
   /// take-apart was asked for.
-  unsigned int solutionNumber = 0;
+  std::uint64_t solutionNumber = 0;
   std::vector<PyPlacement> placements;
   bool hasDisassembly = false;
   /// The level text, e.g. "99.3.4.2".

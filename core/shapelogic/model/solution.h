@@ -22,14 +22,14 @@ namespace bt {
 class Solution {
  public:
   /// An assembly without disassembly.
-  Solution(Assembly assm, unsigned int assmNum);
+  Solution(Assembly assm, std::uint64_t assmNum);
   /// An assembly without disassembly that still carries a solution number
   /// (a file can have one).
-  Solution(Assembly assm, unsigned int assmNum, unsigned int solNum);
+  Solution(Assembly assm, std::uint64_t assmNum, std::uint64_t solNum);
   /// An assembly with its full disassembly.
-  Solution(Assembly assm, unsigned int assmNum, Separation tree, unsigned int solNum);
+  Solution(Assembly assm, std::uint64_t assmNum, Separation tree, std::uint64_t solNum);
   /// An assembly with the summary of its disassembly.
-  Solution(Assembly assm, unsigned int assmNum, SeparationInfo info, unsigned int solNum);
+  Solution(Assembly assm, std::uint64_t assmNum, SeparationInfo info, std::uint64_t solNum);
 
   [[nodiscard]] const Assembly& getAssembly() const { return assembly_; }
   [[nodiscard]] Assembly& getAssembly() { return assembly_; }
@@ -54,8 +54,8 @@ class Solution {
   [[nodiscard]] std::uint64_t getId() const { return id_; }
   void setId(std::uint64_t id) { id_ = id; }
 
-  [[nodiscard]] unsigned int getAssemblyNumber() const { return assemblyNum_; }
-  [[nodiscard]] unsigned int getSolutionNumber() const { return solutionNum_; }
+  [[nodiscard]] std::uint64_t getAssemblyNumber() const { return assemblyNum_; }
+  [[nodiscard]] std::uint64_t getSolutionNumber() const { return solutionNum_; }
 
   /// Replaces the full disassembly by its summary.
   void removeDisassembly();
@@ -80,8 +80,8 @@ class Solution {
   Assembly assembly_;
   std::optional<Separation> tree_;
   std::optional<SeparationInfo> treeInfo_;
-  unsigned int assemblyNum_;
-  unsigned int solutionNum_;
+  std::uint64_t assemblyNum_;
+  std::uint64_t solutionNum_;
   std::uint64_t id_ = 0;
   PreservedXml preserved_;
 };

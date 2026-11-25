@@ -44,6 +44,13 @@ namespace bt::panex {
 [[nodiscard]] std::string unsupported(const Puzzle& puzzle, const Problem& problem,
                                       bool anyRules = false);
 
+/// Whether a stacking solve of this problem runs on the Panex search: the
+/// Panex Solver always (once it takes the problem), the Stacking Solver
+/// whenever the search can hold the puzzle (else it runs on
+/// findStackPath). That search saves itself and traces its path back.
+[[nodiscard]] bool runsOnPanexSearch(const Puzzle& puzzle, const Problem& problem,
+                                     bool panexSolver);
+
 /// A saved search of this problem in workDir that a search with `resume`
 /// carries on, described for the user ("a saved search 200 moves deep,
 /// 3.4M stackings"); empty when there is none.

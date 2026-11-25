@@ -105,21 +105,34 @@ unsigned int ThreadPool::run(unsigned int maxThreads,
       k = static_cast<unsigned int>(want);
       lent_ += k;
       latch.left = k;
-      for (unsigned int j = 1; j <= k; j++) {
-        tasks_.emplace_back([&latch, &job, j] {
-          std::exception_ptr e;
-          try {
-            job(j);
-          } catch (...) {
-            e = std::current_exception();
-          }
-          const std::lock_guard<std::mutex> l(latch.m);
-          if (e && !latch.error) {
-            latch.error = e;
-          }
-          latch.left--;
-          latch.cv.notify_all();
-        });
+      unsigned int pushed = 0;
+      try {
+        for (unsigned int j = 1; j <= k; j++) {
+          tasks_.emplace_back([&latch, &job, j] {
+            std::exception_ptr e;
+            try {
+              job(j);
+            } catch (...) {
+              e = std::current_exception();
+            }
+            const std::lock_guard<std::mutex> l(latch.m);
+            if (e && !latch.error) {
+              latch.error = e;
+            }
+            latch.left--;
+            latch.cv.notify_all();
+          });
+          pushed++;
+        }
+      } catch (...) {
+        // Out of memory while queueing: the tasks pushed point into this
+        // frame, which the exception unwinds. m_ is still held, so no
+        // thread has taken one: take them back and give the threads back.
+        for (; pushed > 0; pushed--) {
+          tasks_.pop_back();
+        }
+        lent_ -= k;
+        throw;
       }
     }
   }

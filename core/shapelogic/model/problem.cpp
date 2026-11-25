@@ -205,6 +205,7 @@ void Problem::setShapeMinimum(const Puzzle& puzzle, unsigned int shape, unsigned
 }
 
 void Problem::setShapeMinimumUnchecked(unsigned int shape, unsigned int count) {
+  BT_ASSERT(count <= kMaxPartCount);
   editProblem();
 
   unsigned int pieceIdx = 0;
@@ -253,6 +254,7 @@ void Problem::setShapeMaximum(const Puzzle& puzzle, unsigned int shape, unsigned
 }
 
 void Problem::setShapeMaximumUnchecked(unsigned int shape, unsigned int count) {
+  BT_ASSERT(count <= kMaxPartCount);
   unsigned int pieceIdx = 0;
 
   for (std::size_t id = 0; id < parts_.size(); id++) {
@@ -607,7 +609,7 @@ void Problem::addSolution(Assembly assm) { addSolution(std::move(assm), numAssem
 
 void Problem::addSolution(Assembly assm, std::uint64_t assemblyNumber) {
   BT_ASSERT(state_ == ProblemState::Solving);
-  solutions_.emplace_back(std::move(assm), static_cast<unsigned int>(assemblyNumber));
+  solutions_.emplace_back(std::move(assm), assemblyNumber);
   solutions_.back().setId(nextSolutionId_++);
   touchSolutions();
 }
@@ -616,8 +618,7 @@ void Problem::addSolution(Assembly assm, Separation disasm, std::uint64_t assemb
                           std::uint64_t solutionNumber, unsigned int pos) {
   BT_ASSERT(state_ == ProblemState::Solving);
 
-  Solution sol(std::move(assm), static_cast<unsigned int>(assemblyNumber), std::move(disasm),
-               static_cast<unsigned int>(solutionNumber));
+  Solution sol(std::move(assm), assemblyNumber, std::move(disasm), solutionNumber);
   sol.setId(nextSolutionId_++);
   if (pos < solutions_.size()) {
     solutions_.insert(solutions_.begin() + pos, std::move(sol));
@@ -632,8 +633,7 @@ void Problem::addSolution(Assembly assm, SeparationInfo disasm, std::uint64_t as
                           std::uint64_t solutionNumber, unsigned int pos) {
   BT_ASSERT(state_ == ProblemState::Solving);
 
-  Solution sol(std::move(assm), static_cast<unsigned int>(assemblyNumber), std::move(disasm),
-               static_cast<unsigned int>(solutionNumber));
+  Solution sol(std::move(assm), assemblyNumber, std::move(disasm), solutionNumber);
   sol.setId(nextSolutionId_++);
   if (pos < solutions_.size()) {
     solutions_.insert(solutions_.begin() + pos, std::move(sol));

@@ -120,10 +120,10 @@ Reply settingsSet(State& s, Params& p) {
   const std::optional<SolverType> solver = p.optChoice("solver", solverNames());
   const std::optional<std::string> slideFolder = p.optString("slideFolder");
   const std::optional<double> slideDiskGB =
-      p.has("slideDiskGB") ? std::optional<double>(p.number("slideDiskGB", 0, 1e9)) : std::nullopt;
+      p.has("slideDiskGB") ? std::optional<double>(p.number("slideDiskGB", 0, kMaxDiskBudgetGB)) : std::nullopt;
   const std::optional<std::string> panexFolder = p.optString("panexFolder");
   const std::optional<double> panexDiskGB =
-      p.has("panexDiskGB") ? std::optional<double>(p.number("panexDiskGB", 0, 1e9)) : std::nullopt;
+      p.has("panexDiskGB") ? std::optional<double>(p.number("panexDiskGB", 0, kMaxDiskBudgetGB)) : std::nullopt;
   const std::optional<double> searchMemoryGB =
       p.has("searchMemoryGB") ? std::optional<double>(p.number("searchMemoryGB", 0, 1e6))
                               : std::nullopt;

@@ -540,6 +540,45 @@ void SimdExactCover<BitsetType>::search(unsigned int depth, const BitsetType& oc
   }
 }
 
+template <typename BitsetType>
+std::size_t SimdExactCover<BitsetType>::stackPerLevel() {
+  static const std::size_t bytes = [] {
+    // `pieces` columns, a row for each: one cover, reported from the level
+    // below the last row placed
+    const auto reportedAt = [](unsigned int pieces) {
+      SimdExactCover solver(pieces, pieces);
+      for (unsigned int i = 0; i < pieces; i++) {
+        solver.setRequiredColumn(i);
+      }
+      for (unsigned int i = 0; i < pieces; i++) {
+        (void)solver.addRow(1 + i, i, {i});
+      }
+      std::uintptr_t at = 0;
+      std::atomic<std::uint64_t> iterations{0};
+      solver.solve(
+          [&at](const std::vector<unsigned int>&) {
+            // the frame's address, not a local's: a sanitizer may keep
+            // locals off the stack
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): an address as a number, to subtract
+            at = reinterpret_cast<std::uintptr_t>(__builtin_frame_address(0));
+            return true;
+          },
+          StopToken(), iterations);
+      return at;
+    };
+    const std::uintptr_t shallow = reportedAt(4);
+    const std::uintptr_t deep = reportedAt(20);
+    BT_ASSERT(shallow != 0 && deep != 0);
+    const std::size_t measured =
+        static_cast<std::size_t>(std::max(shallow, deep) - std::min(shallow, deep)) / 16;
+    // Nothing to measure where the levels are kept off this stack
+    // (WebAssembly keeps what it can in its own): then a level is taken to
+    // hold a mask and as much again as the smallest masks' levels take.
+    return measured > 0 ? measured : sizeof(BitsetType) + 256;
+  }();
+  return bytes;
+}
+
 template class SimdExactCover<SimdBitset256>;
 template class SimdExactCover<SimdBitset512>;
 template class SimdExactCover<SimdBitset1024>;
@@ -548,6 +587,31 @@ template class SimdExactCover<SimdBitset4096>;
 template class SimdExactCover<SimdBitset8192>;
 template class SimdExactCover<SimdBitset16384>;
 template class SimdExactCover<SimdBitset32768>;
+
+std::size_t simdExactStackPerLevel(unsigned int numColumns) {
+  if (numColumns <= 256) {
+    return SimdExactCover256::stackPerLevel();
+  }
+  if (numColumns <= 512) {
+    return SimdExactCover512::stackPerLevel();
+  }
+  if (numColumns <= 1024) {
+    return SimdExactCover1024::stackPerLevel();
+  }
+  if (numColumns <= 2048) {
+    return SimdExactCover2048::stackPerLevel();
+  }
+  if (numColumns <= 4096) {
+    return SimdExactCover4096::stackPerLevel();
+  }
+  if (numColumns <= 8192) {
+    return SimdExactCover8192::stackPerLevel();
+  }
+  if (numColumns <= 16384) {
+    return SimdExactCover16384::stackPerLevel();
+  }
+  return SimdExactCover32768::stackPerLevel();
+}
 
 std::unique_ptr<SimdExactCoverBase> makeSimdExactCover(unsigned int numColumns,
                                                        unsigned int numPieces,

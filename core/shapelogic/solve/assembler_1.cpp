@@ -2311,6 +2311,38 @@ bool Assembler1::simdFits(const SearchOptions& options) const {
     }
   }
 
+  // The stack. The vector search recurses once for each piece it places,
+  // on a thread whose stack may be half a megabyte, and a level takes more
+  // the wider the masks are: a result of 8000 cells holds some 600 pieces
+  // that way, and the process ends past that. The plain search keeps its
+  // levels in its own stacks, so it takes the problems with more pieces.
+  // The depth is at most the pieces the parts may give (far more than fit,
+  // where the parts have ranges), at most the pieces of the smallest part
+  // that fit in the result, and at most the columns.
+  {
+    const Voxel& result = problem_.resultShape(puzzle_);
+    const std::uint64_t cells =
+        result.countState(Voxel::kFilled) + result.countState(Voxel::kVariable);
+    std::uint64_t pieces = 0;
+    std::uint64_t smallest = 0;
+    for (unsigned int s = 0; s < problem_.getNumberOfParts(); s++) {
+      if (problem_.getPartMaximum(s) == 0) {
+        continue;
+      }
+      pieces += problem_.getPartMaximum(s);
+      const std::uint64_t size = problem_.partShape(puzzle_, s).countState(Voxel::kFilled);
+      smallest = smallest == 0 ? size : std::min(smallest, size);
+    }
+    std::uint64_t depth = std::min<std::uint64_t>(pieces, headerNodes_ - 1);
+    if (smallest > 0) {
+      depth = std::min(depth, cells / smallest);
+    }
+    if ((depth + kVectorSpareLevels) * simdHuangStackPerLevel(headerNodes_ - 1) >
+        options.vectorStackBudget) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -2457,6 +2489,7 @@ RunEnd Assembler1::assemble(const AssemblyCallback& callback, const SearchOption
     SearchOptions vectorAnyway = options;
     vectorAnyway.vectorSearch = true;
     vectorAnyway.vectorMemoryBudget = std::numeric_limits<std::uint64_t>::max();
+    vectorAnyway.vectorStackBudget = std::numeric_limits<std::uint64_t>::max();
     if (split_.vectorSkip > 0 && canUseSimd(vectorAnyway)) {
       simdSearch(run, vectorAnyway);
     } else if (atRoot() && (threads > 1 || !split_.tasks.empty() ||

@@ -55,10 +55,11 @@ struct SolveProgress {
   /// other stages.
   PrepareProgress prepare;
 
-  /// The assembly search: how far (0..1), search steps, threads.
+  /// The assembly search: how far (0..1), search steps, threads (0 until
+  /// it starts; a stacking run has none).
   float assemblyFraction = 0;
   std::uint64_t iterations = 0;
-  unsigned int assemblerThreads = 1;
+  unsigned int assemblerThreads = 0;
 
   std::uint64_t assemblies = 0;
   std::uint64_t solutions = 0;
@@ -73,9 +74,9 @@ struct SolveProgress {
   /// search) are `searched`, how many moves deep both ends together are
   /// `searchDepth`, and once the ends have met, how many moves of the path
   /// are traced back (the GUI's "Panex search, tracing the path. Traced N
-  /// of M moves."). panexSearch: the Panex Solver runs ("Panex search, N
-  /// moves deep. Found N stackings."), not the Stacking Solver ("Stacking
-  /// search. Scanned N stackings.").
+  /// of M moves."). panexSearch: the run is on the Panex search, the Panex
+  /// Solver's or the Stacking Solver's on a puzzle that search holds
+  /// (panex::runsOnPanexSearch): it saves itself and traces its path.
   std::uint64_t searchTraced = 0;
   /// A sliding solve: how long each move deep of the slide search under way
   /// (or paused) took (Problem::getSlideLevelMs), and how long the move it

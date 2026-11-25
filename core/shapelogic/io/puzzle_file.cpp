@@ -746,8 +746,9 @@ SeparationInfo readSeparationInfo(const XmlElement& e) {
 }
 
 Solution readSolution(const XmlElement& e, unsigned int pieces, GridType gt) {
-  const auto assemblyNum = asUnsigned(atoiOf(e.attribute("asmNum")));
-  const auto solutionNum = asUnsigned(atoiOf(e.attribute("solNum")));
+  // 64 bits, as the counts: a solve can find more than 2^32 assemblies
+  const std::uint64_t assemblyNum = strtoullOf(e.attribute("asmNum"));
+  const std::uint64_t solutionNum = strtoullOf(e.attribute("solNum"));
 
   std::optional<Assembly> assembly;
   std::optional<Separation> tree;
@@ -1212,8 +1213,8 @@ Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
         if (assembly) {
           prob.addPending(PendingAssembly{std::move(*assembly),
                                           atoiOf(item.attribute("counted")) != 0,
-                                          strtoulOf(item.attribute("assembly")),
-                                          strtoulOf(item.attribute("solution"))});
+                                          strtoullOf(item.attribute("assembly")),
+                                          strtoullOf(item.attribute("solution"))});
         }
       }
     } else if (c.name == "assembler") {

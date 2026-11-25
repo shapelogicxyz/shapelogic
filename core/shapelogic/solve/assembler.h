@@ -83,6 +83,16 @@ struct MatrixOptions {
 [[nodiscard]] bool transformAllowed(const std::vector<std::uint64_t>& partTransforms,
                                     unsigned int part, unsigned int t);
 
+/// The stack a vector search may take by default: three quarters of the
+/// smallest stack a thread starts with on a supported system (512 KiB,
+/// macOS's threads but the first). The rest is for the frames above the
+/// search and for what is done with an assembly found.
+inline constexpr std::uint64_t kVectorStackBudget = std::uint64_t{384} << 10;
+/// Levels counted on top of a problem's pieces when its vector search is
+/// held against the stack budget: the search's entry, and the level that
+/// reports a cover.
+inline constexpr std::uint64_t kVectorSpareLevels = 16;
+
 /// How a run searches. Kept by nobody between runs: a continued search may
 /// run with other options (a stopped split or vector search goes on the way
 /// it ran, whatever the thread count).
@@ -102,6 +112,13 @@ struct SearchOptions {
   /// it the plain search runs (SHAPELOGIC_HUANG_MEM_MB in the original, 256
   /// MB when not given). 0 turns that vector search off.
   std::uint64_t vectorMemoryBudget = std::uint64_t{256} << 20;
+  /// The most stack, in bytes, a vector search may take. It recurses once
+  /// for each piece it places, and how much a level takes is measured
+  /// (simdHuangStackPerLevel, simdExactStackPerLevel); a problem whose
+  /// pieces would need more is searched by the plain search, which keeps
+  /// its levels on the heap. A search stopped as a vector search carries on
+  /// as one whatever this says.
+  std::uint64_t vectorStackBudget = kVectorStackBudget;
   /// Check found assemblies against their rotations on the matrix rows
   /// (RowRotationCheck) where that applies; off, every one is built and
   /// turned (Assembly::smallerRotationExists). An A/B switch for benchmarks

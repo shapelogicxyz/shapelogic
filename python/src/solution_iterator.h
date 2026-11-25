@@ -59,7 +59,7 @@ class SolutionIterator {
  public:
   /// Starts the solve of problem `problemIdx` of a copy of `puzzle`.
   SolutionIterator(const Puzzle& puzzle, unsigned int problemIdx, IteratorOptions options);
-  /// Stops the solve and waits for its thread.
+  /// Stops the solve and waits for its thread (as stop()).
   ~SolutionIterator();
 
   SolutionIterator(const SolutionIterator&) = delete;
@@ -70,8 +70,9 @@ class SolutionIterator {
   /// released, and stops on Ctrl-C (the pending KeyboardInterrupt raised).
   PySolution next();
 
-  /// Stops the solve and waits for its thread; solutions already queued
-  /// are still handed out.
+  /// Stops the solve and waits for its thread, with the GIL released when
+  /// it is held (the other Python threads go on); solutions already
+  /// queued are still handed out.
   void stop();
   /// The assembler's search steps (the run's, for a session), live.
   [[nodiscard]] std::uint64_t getIterations() const;

@@ -1739,6 +1739,10 @@ std::string unsupported(const Puzzle& puzzle, const Problem& problem, bool anyRu
   return "";
 }
 
+bool runsOnPanexSearch(const Puzzle& puzzle, const Problem& problem, bool panexSolver) {
+  return panexSolver || unsupported(puzzle, problem, true).empty();
+}
+
 std::string searchFolder(const Puzzle& puzzle, const Problem& problem,
                          const std::string& workDir) {
   Rules rules;

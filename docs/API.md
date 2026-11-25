@@ -3905,7 +3905,7 @@ One take-apart under way.
 | `searched` | integer | required | A sliding solve: the arrangements its searches have visited, its runs before this one included (ProblemSummary.searched, which a run's end sets to it; a search carried on from its folder adds only what it visits now); the stacking search: the stackings it has searched (found, for the Panex search). |
 | `searchDepth` | integer | required | How many moves deep a sliding solve's searches have gone, the deepest (0 before the first one's first level, and for the other searches); how many moves deep both ends of the Panex search are together. |
 | `searchTraced` | integer | required | Once the ends of the Panex search have met: how many moves of the path are traced back (of searchDepth); 0 before. |
-| `panexSearch` | boolean | required | The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search'). |
+| `panexSearch` | boolean | required | The run is on the Panex search: the Panex Solver's, or the Stacking Solver's on a puzzle that search can hold. It saves itself as it pauses, and traces its path back once its ends meet (searchTraced). |
 | `stopKind` | `"pause"` \| `"abort"` \| `null` | required | Stage stopping: what the stop was asked for, a pause (solve.pause: the solve is kept, to be continued) or an abort (solve.abort); null in every other stage. |
 | `slideStop` | object or null | required |  |
 | `atSavePoint` | boolean | required | Stage paused: the run paused at the save point asked for (solve.savePoint) and for no other reason, so the one who asked saves and carries it on (solve.continue). False when it paused for anything else meanwhile (solve.pause, a slide search that ran out of disk), which is the user's to see, and in every other stage. |

@@ -71,12 +71,22 @@ def test_help_and_mistakes() -> None:
                        (["--high-memory"], "--high-memory is for sliding and stacking puzzles"),
                        (["--optimized-paths"], "--optimized-paths is for sliding puzzles"),
                        (["--slide-grid", "3"], "--slide-grid is for sliding puzzles"),
-                       (["--slide-grid", "1"], "--slide-grid requires a number from 2 to 1024")):
+                       (["--slide-grid", "1"], "--slide-grid requires a number from 2 to 1024"),
+                       # a disk budget is a number of GB from 0 to 1000000
+                       (["--panex-disk", "-1"], "--panex-disk requires a number of GB from 0 to 1000000"),
+                       (["--panex-disk", "inf"], "--panex-disk requires a number of GB"),
+                       (["--panex-disk", "nan"], "--panex-disk requires a number of GB"),
+                       (["--panex-disk", "2e7"], "--panex-disk requires a number of GB")):
         r = run(*args, CUBE)
         check(f"refused {args}", r.returncode == 2 and text in r.stderr, f"{r.returncode} {r.stderr!r}")
     # burrTxt ignored the Panex options on other puzzles
     r = run("-q", "--panex-dir", "x", "--panex-disk", "1", CUBE)
     check("--panex-dir on a brick puzzle", r.returncode == 0, f"{r.returncode} {r.stderr!r}")
+    for name in ("SHAPELOGIC_SLIDE_DISK_GB", "SHAPELOGIC_PANEX_DISK_GB"):
+        r = subprocess.run([str(BT), "-q", str(CUBE)], capture_output=True, text=True, timeout=300,
+                           check=False, env={**ENV, name: "-1"})
+        check(f"{name}=-1 refused", r.returncode == 2 and f'{name} is "-1"' in r.stderr,
+              f"{r.returncode} {r.stderr!r}")
     r = run("-t", "x", CUBE)
     check("-t not a number", r.returncode == 2 and r.stdout == "-t requires a non-negative number\n",
           repr(r.stdout))

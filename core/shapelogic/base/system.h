@@ -57,6 +57,14 @@ struct DiskBudget {
 [[nodiscard]] DiskBudget diskBudgetFor(const std::filesystem::path& dir, std::uint64_t wanted,
                                        std::uint64_t own = 0);
 
+/// The most GB a disk budget may be given as (a million GB, a petabyte).
+inline constexpr double kMaxDiskBudgetGB = 1e6;
+
+/// A disk budget given in GB (decimal, as the settings and the options
+/// read) as bytes; 0 stays 0 (automatic). None for what is no budget: NaN,
+/// below 0, infinite or above kMaxDiskBudgetGB.
+[[nodiscard]] std::optional<std::uint64_t> gbToBytes(double gb);
+
 /// How a budget was chosen, for a message: "half the 90.0 GB free there",
 /// "as much as the 90.0 GB free there allows", or empty for a budget asked
 /// for and given.

@@ -78,7 +78,7 @@ Files in `core/shapelogic/base/`:
 - `save_cadence.h`: `SaveCadence`, when a long search saves itself as it runs.
 - `solve_state.{h,cpp}`: `SolveState`, `SolveStateCell` and the transition table (decision 0004).
 - `stop.h`: `StopSource`, `StopToken`, `StopKind` (decision 0004).
-- `system.{h,cpp}`: the machine: memory, free disk, `diskBudgetFor`, `folderWriteError`, the cache folder.
+- `system.{h,cpp}`: the machine: memory, free disk, `diskBudgetFor`, `gbToBytes`, `folderWriteError`, the cache folder.
 - `thread_pool.{h,cpp}`: `ThreadPool`, the threads of one solve; `kMaxThreads` (256), `hardwareThreads()`, `splitThreads()`, `takeApartThreads()`.
 - `version.h`: `kVersion`, from CMake.
 
@@ -88,6 +88,7 @@ Rules (decisions 0004, 0009):
 - A `SolveStateCell` has one writer at a time: the run's worker while it
   runs, the owner under the session's control lock before the run's thread
   starts and after it is joined. Others read it and stop runs by the source.
+  `advance()` asserts that no other thread moved it meanwhile.
 - `ThreadPool`s are made by a solve's owner with its budget, never global (no
   process-wide limit, no `SHAPELOGIC_THREADS`); nesting cannot deadlock.
 - `SaveCadence`'s rule is also the front end journal's (`solver/cadence.ts`).
@@ -147,10 +148,10 @@ Files in `core/shapelogic/model/`:
 - `assembly.{h,cpp}`: `Placement`, `MirrorInfo`, `Assembly` (`transform`, `smallerRotationExists`, `createSpace`, `sort`, the editing helpers).
 - `disassembly.{h,cpp}`: `Disassembly` (level and move counts), `State`, `Separation` (the tree), `SeparationInfo` (the compact pre-order form), `movesText()` (cut at the original's 256 bytes: the text oracle compares it).
 - `grid_convert.{h,cpp}`: `convertGrid`: a cube-grid puzzle on the rhombic (5x5x5 cells a cube) or tetra-octa (3x3x3) grid, with its colors, notes and problems; `convertTargets`; `kMaxConvertedCells`.
-- `problem.{h,cpp}`: `Problem`: parts, result, goal, color rules, holes, state, counts, the saved position, pending assemblies, solutions and their sort orders (`solutionSortOrder`), stored solver options, stacks, slide marks, the uid (decision 0044).
+- `problem.{h,cpp}`: `Problem`: parts (at most `kMaxPartCount` pieces each), result, goal, color rules, holes, state, counts, the saved position, pending assemblies, solutions and their sort orders (`solutionSortOrder`), stored solver options, stacks, slide marks, the uid (decision 0044).
 - `puzzle.{h,cpp}`: `Puzzle`: grid, shapes (`ClonePtr<Voxel>`), constraint colors, problems, comment, rod sets, images, a tilted tray.
 - `puzzle_image.{h,cpp}`: the puzzle's table of pictures (decision 0038).
-- `slide_marks.h`: per cell of a sliding board a start mark and a goal mark, per problem (decisions 0021, 0027).
+- `slide_marks.h`: per cell of a sliding board a start mark and a goal mark (at most `SlideMarks::kMaxMark`), per problem (decisions 0021, 0027).
 - `sliding.{h,cpp}`: sliding puzzles (decision 0014): start/goal shapes, stamps, the problems kept in step, start locks, layouts, `prepareForSolving`.
 - `solution.{h,cpp}`: `Solution`: an assembly, an optional `Separation` or `SeparationInfo`, its numbers, a runtime id.
 - `stacking.{h,cpp}`: stacking puzzles (decision 0015): discs, stacks, `setupError`, `layoutBoard`, what the searches read and make; `stacking_play.h`'s functions at its end.
@@ -186,7 +187,7 @@ Rules (decisions 0014, 0015, 0021, 0027, 0042, 0044, 0045):
 Files in `core/shapelogic/io/`:
 - `blockpack.{h,cpp}`: files packed in chunks on a pool's threads, sorted 16-byte keys as variable-length gaps: byte for byte the original's packing.
 - `gzip_file.{h,cpp}`: whole files through zlib (level 9) and the same in memory (`gzipCompress`, `gunzipIfCompressed`); `readPlainFile`; `writeFileWhole`, `writeFileStreamed`, `replaceWith`, `saveTarget`, `syncDescriptor`.
-- `imports.h`, `ps3d_file.cpp`, `scad_file.cpp`: other programs' files (decision 0017): `readPuzzleSolver3D`, `readPuzzlecad`, `writePuzzlecad` (puzzlecad's `burr_plate`), line for line the original's loaders; `kMaxImportCells`.
+- `imports.h`, `ps3d_file.cpp`, `scad_file.cpp`: other programs' files (decision 0017): `readPuzzleSolver3D`, `readPuzzlecad`, `writePuzzlecad` (puzzlecad's `burr_plate`) and `puzzlecadRefusal` (every caller's refusals), line for line the original's loaders; `kMaxImportCells`.
 - `paused_solve.{h,cpp}`: the paused solve file (`.slsolve`, the original's BTSOLVE2), both ways, streamed.
 - `puzzle_file.{h,cpp}`: `loadPuzzle`, `parsePuzzle`, `readPuzzle`, `savePuzzle`, `writePuzzle`; `giveUids`.
 - `xml_document.{h,cpp}`: the tree built from the parser, and a tree written back.
@@ -246,7 +247,7 @@ Files in `core/shapelogic/solve/`:
 - `movement_cache.{h,cpp}`, `movement_cache_{bricks,prisms,derived}.cpp`: `MovementCache` and its grids' kinds, `makeMovementCache()`.
 - `movement_checks.{h,cpp}`: the movement checks derived from the cells (decision 0025): `movementDirections`, `deriveMovementChecks`, `movementChecks`.
 - `node_hash.{h,cpp}`: `NodeHash`, `CountingNodeHash`: sets of take-apart positions.
-- `panex_search.{h,cpp}`: the Panex search (`panex::solve`, `PanexSearch`, `Outcome`) and its saved searches (decision 0015).
+- `panex_search.{h,cpp}`: the Panex search (`panex::solve`, `PanexSearch`, `Outcome`), `runsOnPanexSearch` (which stacking solves run on it) and its saved searches (decision 0015).
 - `placement_finder.{h,cpp}`: `PlacementFinder`, a rotated piece's placements in the result, in the original's order.
 - `prepare_progress.h`: `PrepareCounters` / `PrepareProgress`, the preparation's counts for progress displays.
 - `resume_state.h`: `SplitSearchState<Task>` and the saved position's tail (`K` / `T C S`, then the weights `W`).
@@ -283,6 +284,9 @@ Rules of the assemblers (decisions 0009, 0024, 0041, 0048):
   asked for are not found again. The assembler never writes the `Problem`.
 - A position that cannot be restored is an error; the problem keeps it and
   what was found (0041: Solve starts over).
+- The vector searches recurse a level for each piece: past
+  `SearchOptions::vectorStackBudget` (a level's stack is measured,
+  `stackPerLevel()`) the plain search runs, which keeps its own stacks.
 - `DlxMatrix::reduce` removes only rows the placement check after it
   removes, so the reduced matrix is the original's (0048).
 

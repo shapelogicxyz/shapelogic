@@ -131,6 +131,11 @@ class SimdExactCover : public SimdExactCoverBase {
   [[nodiscard]] unsigned int getNumPieces() const override { return numPieces_; }
   [[nodiscard]] SimdKernel kernel() const override { return kernel_; }
 
+  /// The stack, in bytes, one level of this size's search takes (a level
+  /// for each row placed), in this build: measured once, by where a cover
+  /// of 4 rows and one of 20 are reported.
+  [[nodiscard]] static std::size_t stackPerLevel();
+
  private:
   /// How many levels below the start of a search its progress is taken from.
   static constexpr unsigned int kProgressLevels = 8;
@@ -264,5 +269,9 @@ extern template class SimdExactCover<SimdBitset32768>;
 [[nodiscard]] std::unique_ptr<SimdExactCoverBase> makeSimdExactCover(unsigned int numColumns,
                                                                      unsigned int numPieces,
                                                                      SimdKernels kernels);
+
+/// SimdExactCover::stackPerLevel() of the size makeSimdExactCover() picks
+/// for `numColumns` columns.
+[[nodiscard]] std::size_t simdExactStackPerLevel(unsigned int numColumns);
 
 }  // namespace bt

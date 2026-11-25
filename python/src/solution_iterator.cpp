@@ -85,7 +85,15 @@ SolutionIterator::SolutionIterator(const Puzzle& puzzle, unsigned int problemIdx
   worker_ = std::thread(&SolutionIterator::workerRun, this);
 }
 
-SolutionIterator::~SolutionIterator() { stop(); }
+SolutionIterator::~SolutionIterator() {
+  try {
+    stop();
+  } catch (...) {
+    // a destructor has no one to tell, and the worker may be left running
+    // on this object: the end an exception out of a destructor always had
+    std::terminate();
+  }
+}
 
 std::uint64_t SolutionIterator::getIterations() const {
   if (const Assembler* a = activeAssembler_.load(std::memory_order_acquire)) {
@@ -109,7 +117,16 @@ void SolutionIterator::stop() {
     canPop_.notify_all();
   }
   if (worker_.joinable()) {
-    worker_.join();
+    // The worker can take a while to see the stop (building the matrix,
+    // the wait after an abort): the other Python threads go on meanwhile.
+    // Called with the GIL (the binding, next(), the destructor as Python
+    // drops the iterator) or without it; the join touches no Python object.
+    if (PyGILState_Check() != 0) {
+      const py::gil_scoped_release release;
+      worker_.join();
+    } else {
+      worker_.join();
+    }
   }
 }
 
@@ -243,8 +260,8 @@ void SolutionIterator::runAssembler(Problem& problem) {
   search.threads = budget;
   search.pool = &pool;
 
-  unsigned int assemblies = 0;
-  unsigned int solutions = 0;
+  std::uint64_t assemblies = 0;
+  std::uint64_t solutions = 0;
   const StopToken stop = stopSource_.token();
 
   (void)assembler_->assemble(

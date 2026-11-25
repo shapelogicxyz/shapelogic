@@ -463,7 +463,7 @@ TEST_CASE("sliding: a shorter path keeps the solution number", "[sliding]") {
   bool saw0 = false;
   bool saw1 = false;
   for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
-    const unsigned int n = pr.getSavedSolution(i).getSolutionNumber();
+    const std::uint64_t n = pr.getSavedSolution(i).getSolutionNumber();
     REQUIRE(pr.getSavedSolution(i).getDisassembly()->getMoves() == 1);
     if (n == 0) {
       saw0 = true;

@@ -114,6 +114,14 @@ DiskBudget diskBudgetFor(const std::filesystem::path& dir, std::uint64_t wanted,
   return b;
 }
 
+std::optional<std::uint64_t> gbToBytes(double gb) {
+  // NaN fails both comparisons
+  if (!(gb >= 0 && gb <= kMaxDiskBudgetGB)) {
+    return std::nullopt;
+  }
+  return static_cast<std::uint64_t>(gb * 1e9);
+}
+
 std::string diskBudgetReason(const DiskBudget& budget) {
   if (!budget.free || (!budget.automatic && !budget.heldToFree)) {
     return "";

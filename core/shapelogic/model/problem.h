@@ -19,6 +19,7 @@
 #include "shapelogic/model/xml_element.h"
 
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <set>
 #include <string>
@@ -64,6 +65,20 @@ struct Part {
   std::vector<PartGroup> groups;
   bool operator==(const Part&) const = default;
 };
+
+/// The most pieces a part holds: its minimum, maximum and group counts
+/// are this wide (a part's piece numbers, and the saved files' counts).
+inline constexpr unsigned int kMaxPartCount = std::numeric_limits<unsigned short>::max();
+static_assert(kMaxPartCount == std::numeric_limits<decltype(Part::max)>::max() &&
+                  kMaxPartCount == std::numeric_limits<decltype(Part::min)>::max() &&
+                  kMaxPartCount == std::numeric_limits<decltype(PartGroup::count)>::max(),
+              "a part's counts are kMaxPartCount wide");
+/// The highest group number of a part's pieces.
+inline constexpr unsigned int kMaxPartGroup = std::numeric_limits<decltype(PartGroup::group)>::max();
+
+/// Why a part cannot take one more piece: it holds kMaxPartCount.
+inline constexpr const char* kPartFullText = "a part holds at most 65535 pieces";
+static_assert(kMaxPartCount == 65535, "kPartFullText names the number");
 
 /// An assembly a paused solve had found but not finished with (still to be
 /// taken apart). The next run does it first.

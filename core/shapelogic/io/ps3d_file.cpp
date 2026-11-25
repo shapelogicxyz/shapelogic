@@ -152,6 +152,12 @@ Result<Puzzle> readPuzzleSolver3D(std::string_view text, std::uint64_t maxCells)
       if (pr.partShape(p, s1).identicalWithRots(pr.partShape(p, s2), false, false)) {
         const unsigned int sh1 = pr.getShapeIdOfPart(s1);
         const unsigned int sh2 = pr.getShapeIdOfPart(s2);
+        // a part's count has its bound (the original's unsigned short
+        // wrapped past it)
+        if (pr.getShapeMaximum(sh1) + pr.getShapeMaximum(sh2) > kMaxPartCount) {
+          return fail(Errc::ParseError, "more than " + std::to_string(kMaxPartCount) +
+                                            " pieces of one shape");
+        }
         pr.setShapeMaximum(p, sh1, pr.getShapeMaximum(sh1) + pr.getShapeMaximum(sh2));
         pr.setShapeMinimum(p, sh1, pr.getShapeMinimum(sh1) + pr.getShapeMinimum(sh2));
         p.getShape(sh2).setName("Duplicate");

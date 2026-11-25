@@ -865,6 +865,27 @@ TEST_CASE("stacking session: the progress of a Panex search", "[stacking][parall
   (void)sawOther;
 }
 
+TEST_CASE("stacking session: the Stacking Solver on the Panex search says so",
+          "[stacking][parallel]") {
+  // the Stacking Solver runs on the Panex search wherever it can hold the
+  // puzzle: that search saves itself as it pauses and traces its path
+  Puzzle puz = panexSwap(3);
+  Problem& pr = puz.getProblem(0);
+  REQUIRE(panex::unsupported(puz, pr, true).empty());
+  SolveOptions o = findSolutions(2);
+  REQUIRE(o.stacking.solver == StackingSolver::Shortest);
+  REQUIRE(panex::runsOnPanexSearch(puz, pr, false));
+  SolveSession s(puz, pr, o);
+  REQUIRE(s.start().has_value());
+  while (isActive(s.state())) {
+    CHECK(s.progress().panexSearch);
+    std::this_thread::sleep_for(std::chrono::microseconds(500));
+  }
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK(s.progress().panexSearch);
+}
+
 // One solve of a problem at a time works in its search folder (decision
 // 0035): while another holds the problem's lock, Solve and Continue are
 // refused; the lock is the run's while it goes.

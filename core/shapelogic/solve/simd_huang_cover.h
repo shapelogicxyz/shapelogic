@@ -136,6 +136,11 @@ class SimdHuangCover : public SimdHuangCoverBase {
   [[nodiscard]] unsigned int getNumShapes() const override { return numShapes_; }
   [[nodiscard]] SimdKernel kernel() const override { return kernel_; }
 
+  /// The stack, in bytes, one level of this size's search takes (a level
+  /// for each row placed), in this build: measured once, by where a cover
+  /// of 4 rows and one of 20 are reported.
+  [[nodiscard]] static std::size_t stackPerLevel();
+
  private:
   static constexpr unsigned int kProgressLevels = 8;
 
@@ -335,6 +340,10 @@ using SimdHuangCover32768 = SimdHuangCover<SimdBitset32768>;
                                               std::uint64_t budget) noexcept {
   return simdHuangMemoryEstimate(numColumns, numRows, numNodes) <= budget;
 }
+
+/// SimdHuangCover::stackPerLevel() of the size class makeSimdHuangCover()
+/// picks for `numColumns` columns.
+[[nodiscard]] std::size_t simdHuangStackPerLevel(unsigned int numColumns);
 
 extern template class SimdHuangCover<SimdBitset256>;
 extern template class SimdHuangCover<SimdBitset512>;

@@ -84,7 +84,8 @@ stacking::RodSet rulesFromFields(const stacking::RodSet& fields, const std::stri
 
 // The GUI's placeOneDisk: one more copy when every copy is on the edited
 // stacking, then the next free copy on top of the rod, the rules not
-// enforced; the count back when the disc could not go.
+// enforced; the count back when the disc could not go. Refused, with
+// nothing changed, for a part that holds kMaxPartCount already.
 std::string placeOneDisk(const Puzzle& puzzle, Problem& pr, unsigned int shape, unsigned int rod,
                          bool goal) {
   const unsigned int before = pr.getShapeMaximum(shape);
@@ -98,6 +99,9 @@ std::string placeOneDisk(const Puzzle& puzzle, Problem& pr, unsigned int shape, 
       }
     }
     added = used;
+  }
+  if (added && before >= kMaxPartCount) {
+    return kPartFullText;
   }
   if (added) {
     pr.setShapeMaximum(puzzle, shape, before + 1);
@@ -449,8 +453,12 @@ Result<void> Document::placeDisc(Id problem, Id shape, unsigned int rod, bool go
   StepGuard g(*this, goal ? "Place goal disc" : "Place start disc");
   touchProblem(*p);
   const std::string err = placeOneDisk(*puzzle_, puzzle_->getProblem(*p), *s, rod, goal);
-  // a rod on the board and a free copy: nothing else stops a disc
-  BT_ASSERT_MSG(err.empty(), "a disc placed without its rules did not go");
+  if (!err.empty()) {
+    // a rod on the board: only a full part stops a disc placed without
+    // its rules (what was touched goes back with the guard)
+    BT_ASSERT_MSG(err == kPartFullText, "a disc placed without its rules did not go");
+    return fail(Errc::InvalidArgument, err);
+  }
   endSession(*p);
   lastChange_.problems = {problem};
   g.commit(kChangeProblems | kChangeSolutions);

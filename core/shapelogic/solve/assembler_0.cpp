@@ -12,7 +12,9 @@
 #include "shapelogic/solve/simd_exact_cover.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <string>
 
 namespace bt {
@@ -948,6 +950,13 @@ bool Assembler0::simdFits(const SearchOptions& options) const {
   if (matrix_.varivoxelEnd == 0 || matrix_.varivoxelEnd - 1 > 2048) {
     return false;
   }
+  // The stack: the vector search recurses once for each piece (see
+  // Assembler1::simdFits); the plain search takes the problems with more.
+  if ((std::uint64_t{matrix_.pieces} + kVectorSpareLevels) *
+          simdExactStackPerLevel(matrix_.varivoxelEnd - 1) >
+      options.vectorStackBudget) {
+    return false;
+  }
   return true;
 }
 
@@ -1082,6 +1091,7 @@ RunEnd Assembler0::assemble(const AssemblyCallback& callback, const SearchOption
   // search by itself would have to begin again.
   SearchOptions vectorAnyway = options;
   vectorAnyway.vectorSearch = true;
+  vectorAnyway.vectorStackBudget = std::numeric_limits<std::uint64_t>::max();
   if (split_.vectorSkip > 0 && canUseSimd(vectorAnyway)) {
     simdSearch(run, vectorAnyway);
   } else if (atStart() && (threads > 1 || !split_.tasks.empty() || canUseSimd(options))) {

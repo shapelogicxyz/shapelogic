@@ -779,6 +779,33 @@ Result<Puzzle> readPuzzlecad(std::string_view text, std::uint64_t maxCells) {
   return p;
 }
 
+std::string puzzlecadRefusal(const Puzzle& puzzle, const Problem* problem,
+                             const PuzzlecadOptions& options) {
+  // a sliding puzzle's tray is a brick grid one layer or more deep: its
+  // pieces export as bricks
+  const GridKind grid = puzzle.getGridType().getType();
+  if (grid != GridKind::Bricks && grid != GridKind::Sliding) {
+    return "Puzzlecad export is only available for cube-grid puzzles.";
+  }
+  if (puzzle.getNumberOfShapes() == 0) {
+    return "Nothing to export.";
+  }
+  if (options.tray && grid != GridKind::Sliding) {
+    return "A tray is exported only for sliding puzzles.";
+  }
+  if (problem != nullptr && options.copies) {
+    std::uint64_t copies = 0;
+    for (unsigned int i = 0; i < problem->getNumberOfParts(); i++) {
+      copies += problem->getPartMaximum(i);
+    }
+    if (copies > kMaxPuzzlecadCopies) {
+      return "The problem has too many pieces to export (at most " +
+             std::to_string(kMaxPuzzlecadCopies) + ").";
+    }
+  }
+  return "";
+}
+
 std::optional<std::string> writePuzzlecad(const Puzzle& p, const Problem* problem,
                                           std::string_view sourceName,
                                           const PuzzlecadOptions& options) {

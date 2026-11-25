@@ -2,6 +2,7 @@
 #include "convert.h"
 
 #include "shapelogic/app/shape_tools.h"
+#include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/sliding.h"
@@ -666,9 +667,10 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   // where a sliding search keeps its levels and a Panex search is
   // saved: the engine's settings
   o.sliding.workDir = s.settings.slideFolder;
-  o.sliding.diskBudget = static_cast<std::uint64_t>(s.settings.slideDiskGB * 1e9);
+  // (the settings' ranges keep them budgets)
+  o.sliding.diskBudget = gbToBytes(s.settings.slideDiskGB).value_or(0);
   o.stacking.workDir = s.settings.panexFolder;
-  o.stacking.diskBudget = static_cast<std::uint64_t>(s.settings.panexDiskGB * 1e9);
+  o.stacking.diskBudget = gbToBytes(s.settings.panexDiskGB).value_or(0);
   // the memory of both: a share of what the searches running at once
   // share (decision 0028); memoryBytes is the whole of it, for a search
   // that runs without the share

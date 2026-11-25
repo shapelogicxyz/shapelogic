@@ -140,16 +140,8 @@ Result<Document> Document::convertGrid(GridKind target) const {
 Result<std::string> Document::exportPuzzlecad(std::optional<Id> problem,
                                               std::string_view sourceName,
                                               const io::PuzzlecadOptions& options) const {
-  // a sliding puzzle's tray is a brick grid one layer or more deep: its pieces export as bricks
-  const GridKind grid = puzzle_->getGridType().getType();
-  if (grid != GridKind::Bricks && grid != GridKind::Sliding) {
-    return fail(Errc::InvalidArgument, "Puzzlecad export is only available for cube-grid puzzles.");
-  }
-  if (puzzle_->getNumberOfShapes() == 0) {
-    return fail(Errc::InvalidArgument, "Nothing to export.");
-  }
-  if (options.tray && grid != GridKind::Sliding) {
-    return fail(Errc::InvalidArgument, "A tray is exported only for sliding puzzles.");
+  if (const std::string why = io::puzzlecadRefusal(*puzzle_, nullptr, options); !why.empty()) {
+    return fail(Errc::InvalidArgument, why);
   }
   std::optional<std::string> text;
   if (problem) {
@@ -157,16 +149,10 @@ Result<std::string> Document::exportPuzzlecad(std::optional<Id> problem,
     if (!p) {
       return std::unexpected(p.error());
     }
-    if (options.copies) {
-      std::uint64_t copies = 0;
-      const Problem& pr = puzzle_->getProblem(*p);
-      for (unsigned int i = 0; i < pr.getNumberOfParts(); i++) {
-        copies += pr.getPartMaximum(i);
-      }
-      if (copies > io::kMaxPuzzlecadCopies) {
-        return fail(Errc::InvalidArgument, "The problem has too many pieces to export (at most " +
-                                               std::to_string(io::kMaxPuzzlecadCopies) + ").");
-      }
+    // the copies' cap, now that the problem is known
+    if (const std::string why = io::puzzlecadRefusal(*puzzle_, &puzzle_->getProblem(*p), options);
+        !why.empty()) {
+      return fail(Errc::InvalidArgument, why);
     }
     // a problem being solved keeps its parts; its solve writes the rest
     text = readProblem(*p, [this, sourceName, &options](const Problem& pr) {

@@ -667,6 +667,57 @@ TEST_CASE("sliding session: copies of a piece share their starts and goals",
   }
 }
 
+TEST_CASE("sliding: more than 64 pieces with goals for some of their copies", "[sliding]") {
+  // 70 unit pieces, two copies each, in a 71x2 tray: both copies of piece
+  // k start in column k, a goal for one of them at its top. The goal check
+  // counts each piece's copies on its goals, one count per piece: more
+  // than 64 of them (marks go to 255). Piece A, at the top of the last
+  // column, has its goal below. The search starts from the starts (a
+  // solve's assembler would place all 141 pieces first, one level of its
+  // recursion each).
+  constexpr unsigned int kParts = 70;
+  Puzzle puz{GridType(GridKind::Sliding)};
+  const unsigned int trayId = addStartGoalShape(puz, kParts + 1, 2);
+  const unsigned int a = addBlock(puz, 1, 1);
+  std::vector<unsigned int> unit;
+  for (unsigned int k = 0; k < kParts; k++) {
+    unit.push_back(addBlock(puz, 1, 1));
+  }
+  Voxel& tray = puz.getShape(trayId);
+  for (unsigned int k = 0; k < kParts; k++) {
+    tray.setStartPiece(k, 0, 0, unit[k] + 1);
+    tray.setStartPiece(k, 1, 0, unit[k] + 1);
+    tray.setGoalPiece(tray.getIndex(k, 0, 0), unit[k] + 1);
+  }
+  tray.setStartPiece(kParts, 0, 0, a + 1);
+  tray.setGoalPiece(tray.getIndex(kParts, 1, 0), a + 1);
+  syncSlidingProblems(puz);
+  Problem& pr = puz.getProblem(0);
+  for (const unsigned int u : unit) {
+    pr.setShapeMaximum(puz, u, 2);
+    pr.setShapeMinimum(puz, u, 2);
+  }
+  syncSlidingProblems(puz);
+  REQUIRE(startGoalError(puz, 0).empty());
+
+  std::string why;
+  const std::optional<std::vector<TrayCell>> at = startLayout(puz, pr, &why);
+  INFO(why);
+  REQUIRE(at.has_value());
+  const std::vector<LayoutPiece> pieces = layoutPieces(pr);
+  REQUIRE(pieces.size() == 2 * kParts + 1);
+  Assembly start(puz.getGridType());
+  for (std::size_t i = 0; i < pieces.size(); i++) {
+    const Voxel& v = puz.getShape(pieces[i].shapeId);
+    start.addPlacement(0, (*at)[i][0] + v.getHx(), (*at)[i][1] + v.getHy(),
+                       (*at)[i][2] + v.getHz());
+  }
+  // one move: A down
+  const std::optional<Separation> path = findSlidePath(puz, pr, start);
+  REQUIRE(path.has_value());
+  CHECK(path->getMoves() == 1);
+}
+
 namespace {
 
 // Two copies of a vertical domino whose starts and goals are one 2x2 block
@@ -1098,6 +1149,26 @@ TEST_CASE("sliding session: a saved search that cannot be read pauses the solve 
     CHECK_FALSE(std::filesystem::exists(folder));
   }
   std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("sliding session: a run after a resume that threw is not picking up a search",
+          "[sliding][session][resume]") {
+  // The slide search sets the "picking up" clock in resume() and clears it
+  // once resume() returns: one that threw left it set, and every run after
+  // it said it was picking up a saved search.
+  Puzzle p = swapped(3);
+  SolveSession s(p, p.getProblem(0), findSolutions(1));
+  SolveSessionTestAccess::resumeThrew(s);
+  REQUIRE(s.start().has_value());
+  // the run is active from start() on (Preparing), so the first look sees it
+  bool pickingUp = false;
+  do {
+    pickingUp = pickingUp || s.progress().slidePickingUp;
+    std::this_thread::yield();
+  } while (isActive(s.state()));
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK_FALSE(pickingUp);
 }
 
 // The starts a search gave up on are the solve's, not the run's: a solve

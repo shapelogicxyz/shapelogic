@@ -126,12 +126,9 @@ PyProblem PyPuzzle::getProblem(unsigned int idx) const { return {puzzle_, idx}; 
 
 std::string PyPuzzle::exportPuzzlecad(std::optional<unsigned int> problem,
                                       const std::string& name) const {
-  // Document::exportPuzzlecad's refusals, in the original's words
-  if (puzzle_->getGridType().getType() != GridKind::Bricks) {
-    throw std::runtime_error("Puzzlecad export is only available for cube-grid puzzles.");
-  }
-  if (puzzle_->getNumberOfShapes() == 0) {
-    throw std::runtime_error("Nothing to export.");
+  // the app's refusals (io::puzzlecadRefusal), in the original's words
+  if (const std::string why = io::puzzlecadRefusal(*puzzle_, nullptr); !why.empty()) {
+    throw std::runtime_error(why);
   }
   const Problem* pr = nullptr;
   if (problem) {

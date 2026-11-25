@@ -460,6 +460,50 @@ TEST_CASE("engine: shared search memory, and a search folder that cannot be writ
   CHECK(h.result("solution.page", {{"problem", p}})["rows"].size() == 1);
 }
 
+TEST_CASE("engine: the log line of a Continue without options names the paused solve's",
+          "[engine]") {
+  // solve.continue without options carries a solve paused in memory on as
+  // it ran: its log line names those options, not the defaults
+  std::random_device rd;
+  const std::filesystem::path work =
+      std::filesystem::temp_directory_path() /
+      ("bt_test_engine_continue_log_" + std::to_string(rd()) + "_" + std::to_string(rd()));
+  struct Remove {
+    std::filesystem::path path;
+    ~Remove() {
+      std::error_code ec;
+      std::filesystem::remove_all(path, ec);
+    }
+  } remove{work};
+  std::filesystem::create_directories(work);
+  const std::filesystem::path file = work / "not-a-folder";
+  { std::ofstream(file) << "x"; }
+
+  Harness h;
+  // a folder that cannot be written pauses the run before it begins
+  h.result("settings.set", {{"panexFolder", file.string()}, {"log", "info"}});
+  const Json snap = h.result(
+      "document.open", {{"path", "tests/data/puzzles/stacking/stack_panex_swap_5.xmpuzzle"}});
+  const std::string p = snap["problems"][0]["id"];
+  const app::Id id = *parseId(IdKind::Problem, p);
+  h.result("solve.start", {{"problem", p}, {"options", {{"disassemble", true}, {"threads", 3}}}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  h.engine.poll();
+  REQUIRE(h.result("solve.status", {{"problem", p}})["state"] == "paused");
+
+  h.log.str("");
+  h.result("solve.continue", {{"problem", p}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  const std::string log = h.log.str();
+  INFO(log);
+  const std::size_t at = log.find("Solve Continued: ");
+  REQUIRE(at != std::string::npos);
+  const std::string line = log.substr(at, log.find('\n', at) - at);
+  CHECK(line.find("options {}; ") != std::string::npos);
+  CHECK(line.find("threads 3,") != std::string::npos);
+  CHECK(line.find("automatic: every hardware thread") == std::string::npos);
+}
+
 TEST_CASE("engine: a run that ends before the next poll still tells its end", "[engine]") {
   Harness h;
   h.result("document.new", {{"grid", "bricks"}});

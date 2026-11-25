@@ -13,6 +13,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <set>
@@ -261,6 +262,18 @@ TEST_CASE("puzzle file: a paused solve keeps its position and pending assemblies
                                     " slideGrid=\"6\" slideLevelMs=\"0 12 340\""));
   CHECK(io::writePuzzle(parse(out)) == out);
 
+  // a pending assembly's numbers are 64 bits, as the counts are (read
+  // with strtoul they stopped at 2^32 - 1 on Windows)
+  std::string big = out;
+  const std::string item = "<item counted=\"1\" assembly=\"4\" solution=\"2\">";
+  big.replace(big.find(item), item.size(),
+              "<item counted=\"1\" assembly=\"4294967301\" solution=\"4294967302\">");
+  const Puzzle bigPuzzle = parse(big);
+  REQUIRE(bigPuzzle.getProblem(0).getPending().size() == 1);
+  CHECK(bigPuzzle.getProblem(0).getPending()[0].assemblyNumber == (std::uint64_t{1} << 32U) + 5);
+  CHECK(bigPuzzle.getProblem(0).getPending()[0].solutionNumber == (std::uint64_t{1} << 32U) + 6);
+  CHECK(io::writePuzzle(bigPuzzle) == big);
+
   // once solved, neither is written
   Puzzle solved = p;
   solved.getProblem(0).finishedSolving();
@@ -304,6 +317,23 @@ TEST_CASE("puzzle file: numbers are read as the original reads them", "[io][file
   CHECK(p.getProblem(1).getNumAssemblies() == 12);
   CHECK(p.getProblem(1).getUsedMs() == 2000);
   CHECK_FALSE(p.getProblem(1).resultValid());  // shape 5 does not exist
+}
+
+TEST_CASE("puzzle file: solution numbers past 2^32 are read and written whole", "[io][file]") {
+  // a solve may find more than 2^32 assemblies: the numbers are 64 bits,
+  // as the counts are, and written in decimal as before
+  const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
+  std::string xml = io::writePuzzle(p);
+  // the first solution's tag, with both numbers (it has a take-apart)
+  const std::size_t at = xml.find("<solution ");
+  REQUIRE(at != std::string::npos);
+  xml.replace(at, xml.find('>', at) - at, R"(<solution asmNum="4294967301" solNum="4294967302")");
+  const Puzzle big = parse(xml);
+  REQUIRE(big.getProblem(0).getSavedSolution(0).getDisassemblyInfo() != nullptr);
+  const Solution& s = big.getProblem(0).getSavedSolution(0);
+  CHECK(s.getAssemblyNumber() == (std::uint64_t{1} << 32U) + 5);
+  CHECK(s.getSolutionNumber() == (std::uint64_t{1} << 32U) + 6);
+  CHECK(io::writePuzzle(big) == xml);
 }
 
 TEST_CASE("puzzle file: voxel content, colors and goal marks", "[io][file]") {

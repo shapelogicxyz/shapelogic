@@ -15,6 +15,7 @@
 #include "shapelogic/solve/assembler_1.h"
 #include "shapelogic/solve/dlx_matrix.h"
 #include "shapelogic/solve/rotation_filter.h"
+#include "shapelogic/solve/simd_exact_cover.h"
 #include "shapelogic/solve/solver_type.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -30,6 +31,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#include <utility>
 
 using namespace bt;
 using test::Fingerprints;
@@ -370,6 +372,34 @@ TEST_CASE("Assembler 0: the vector and the plain search find the same assemblies
   // if no puzzle took the vector search, this compared the plain search with
   // itself
   CHECK(tookTheVectorSearch == 6);
+}
+
+// As Assembler 1's: a problem whose pieces would need more stack than the
+// budget is searched by the plain search.
+TEST_CASE("Assembler 0: the vector search is refused past its stack budget",
+          "[solve][assembler][simd]") {
+  for (const unsigned int columns : {256U, 512U, 1024U, 2048U, 4096U, 8192U, 16384U, 32768U}) {
+    INFO(columns << " columns");
+    CHECK(simdExactStackPerLevel(columns) >= 32);
+    CHECK(simdExactStackPerLevel(columns) <= 64U << 10);
+  }
+  const auto searched = [](std::uint64_t stackBudget, bool vector) {
+    const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
+    Assembler0 a(p, p.getProblem(0));
+    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    SearchOptions o = searchOptions(1, nullptr, vector);
+    o.vectorStackBudget = stackBudget;
+    const test::RunResult r = runOnce(a, o);
+    CHECK(r.end == RunEnd::Finished);
+    return std::pair(r.found, a.iterations());
+  };
+  const auto plain = searched(kVectorStackBudget, false);
+  const auto vector = searched(kVectorStackBudget, true);
+  const auto noStack = searched(0, true);
+  CHECK(vector.first == plain.first);
+  CHECK(noStack.first == plain.first);
+  CHECK(vector.second != plain.second);
+  CHECK(noStack.second == plain.second);
 }
 
 namespace {

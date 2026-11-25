@@ -143,6 +143,10 @@ struct State {
   std::map<app::Id, Watch> watches;
   /// The revision document.changed last told.
   std::uint64_t announced = 0;
+  /// The options the solve.start, solve.prepare or solve.continue being
+  /// run launched its solve with (a Continue without options goes on with
+  /// the paused solve's): set once it succeeds, taken by its log line.
+  std::optional<SolveOptions> launchedWith;
 
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): the engine always holds a document
   [[nodiscard]] app::Document& document() { return *doc; }

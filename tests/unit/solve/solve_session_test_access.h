@@ -8,6 +8,7 @@
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/solve/solve_session.h"
 
+#include <atomic>
 #include <cstdint>
 #include <utility>
 
@@ -29,6 +30,12 @@ struct SolveSessionTestAccess {
     s.slideStartsCut_ = starts;
     s.slideMemoryCut_ = true;
     s.slideMemoryStates_ = states;
+  }
+
+  // As if a slide search's resume() had thrown: it set the "picking up"
+  // clock and never cleared it (between two runs only).
+  static void resumeThrew(SolveSession& s) {
+    s.slidePickingUpSince_.store(1, std::memory_order_relaxed);
   }
 };
 

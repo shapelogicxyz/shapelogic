@@ -476,6 +476,16 @@ TEST_CASE("document: the pieces of a problem", "[app][document]") {
     const Id result = d.shapeIds()[resultIdx];
     refused(d, Errc::InvalidArgument, [p, result](Document& x) { return x.setPieceCount(p, result, 1, 1); });
   }
+  SECTION("a part holds at most 65535 pieces: one more is refused, never wrapped to 0") {
+    roundTrip(d, [p, spare](Document& x) { return x.setPieceCount(p, spare, 0, kMaxPartCount); });
+    CHECK(problem0(d).getShapeMaximum(spareIdx) == kMaxPartCount);
+    refused(d, Errc::InvalidArgument, [p](Document& x) { return x.addOneOfEach(p); });
+    CHECK(d.addOneOfEach(p).error().message == kPartFullText);
+    refused(d, Errc::InvalidArgument, [p, spare](Document& x) { return x.addPiece(p, spare); });
+    refused(d, Errc::InvalidArgument,
+            [p, spare](Document& x) { return x.setPieceCount(p, spare, 0, kMaxPartCount + 1); });
+    CHECK(problem0(d).getShapeMaximum(spareIdx) == kMaxPartCount);
+  }
   SECTION("the result: a piece made the result stops being one") {
     roundTrip(d, [p, piece](Document& x) { return x.setResult(p, piece); });
     CHECK(problem0(d).getResultId() == pieceIdx);

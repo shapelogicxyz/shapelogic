@@ -290,7 +290,8 @@ namespace {
 // The assemblies of problem 0 of a fixture, and the iterations it took.
 Fingerprints searched(const std::string& fixture, unsigned int threads, ThreadPool* pool,
                       bool reduce, bool vector, std::uint64_t* iterations,
-                      std::uint64_t memoryBudget = SearchOptions{}.vectorMemoryBudget) {
+                      std::uint64_t memoryBudget = SearchOptions{}.vectorMemoryBudget,
+                      std::uint64_t stackBudget = SearchOptions{}.vectorStackBudget) {
   const Puzzle p = test::loadFixture(fixture);
   auto a = made(p);
   if (reduce) {
@@ -298,6 +299,7 @@ Fingerprints searched(const std::string& fixture, unsigned int threads, ThreadPo
   }
   SearchOptions o = searchOptions(threads, pool, vector);
   o.vectorMemoryBudget = memoryBudget;
+  o.vectorStackBudget = stackBudget;
   const test::RunResult r = runOnce(*a, o);
   CHECK(r.end == RunEnd::Finished);
   CHECK(a->finished() >= 1.0F);
@@ -440,6 +442,77 @@ TEST_CASE("Assembler 1: the vector search is refused past its memory budget",
   const Fingerprints b = searched("CubeInCage.xmpuzzle", 1, nullptr, false, true, &without, 0);
   CHECK(a == b);
   CHECK(withBudget != without);
+}
+
+// The vector search recurses once for each piece it places, on a thread
+// whose stack may be half a megabyte: the stack a level takes is measured,
+// and a problem whose pieces would need more than the budget is searched
+// by the plain search.
+TEST_CASE("Assembler 1: the vector search is refused past its stack budget",
+          "[solve][assembler][simd]") {
+  CHECK(SearchOptions{}.vectorStackBudget == std::uint64_t{384} << 10);
+  // every size class: a level takes some stack, and far less than the budget
+  for (const unsigned int columns : {256U, 512U, 1024U, 2048U, 4096U, 8192U, 16384U, 32768U}) {
+    INFO(columns << " columns");
+    CHECK(simdHuangStackPerLevel(columns) >= 32);
+    CHECK(simdHuangStackPerLevel(columns) <= 64U << 10);
+    // measured once
+    CHECK(simdHuangStackPerLevel(columns) == simdHuangStackPerLevel(columns));
+  }
+  // through the option: with no stack to recurse on, the plain search does
+  // the work, with the same answer
+  std::uint64_t withStack = 0;
+  std::uint64_t without = 0;
+  const std::uint64_t memory = SearchOptions{}.vectorMemoryBudget;
+  const Fingerprints a = searched("CubeInCage.xmpuzzle", 1, nullptr, false, true, &withStack);
+  const Fingerprints b =
+      searched("CubeInCage.xmpuzzle", 1, nullptr, false, true, &without, memory, 0);
+  CHECK(a == b);
+  CHECK(withStack != without);
+  // a budget for these few pieces: the vector search again; one for the
+  // spare levels alone: the plain search
+  const Puzzle p = test::loadFixture("CubeInCage.xmpuzzle");
+  std::uint64_t pieces = 0;
+  for (unsigned int s = 0; s < p.getProblem(0).getNumberOfParts(); s++) {
+    pieces += p.getProblem(0).getPartMaximum(s);
+  }
+  const std::uint64_t level = simdHuangStackPerLevel(256);
+  std::uint64_t enough = 0;
+  std::uint64_t spareOnly = 0;
+  (void)searched("CubeInCage.xmpuzzle", 1, nullptr, false, true, &enough, memory,
+                 (pieces + kVectorSpareLevels) * level);
+  (void)searched("CubeInCage.xmpuzzle", 1, nullptr, false, true, &spareOnly, memory,
+                 kVectorSpareLevels * level);
+  CHECK(enough == withStack);
+  CHECK(spareOnly == without);
+}
+
+// Parts with ranges may give far more pieces than fit in the result (150
+// here, of which a cover holds at most seven): the depth held against the
+// stack budget is what fits, so a budget for a few levels is enough.
+TEST_CASE("Assembler 1: the stack budget counts the pieces that fit", "[solve][assembler][simd]") {
+  const Puzzle p = test::loadFixture("PiecesOfEight.xmpuzzle");
+  const Problem& pr = p.getProblem(0);
+  std::uint64_t pieces = 0;
+  std::uint64_t smallest = 0;
+  for (unsigned int s = 0; s < pr.getNumberOfParts(); s++) {
+    pieces += pr.getPartMaximum(s);
+    const std::uint64_t size = pr.partShape(p, s).countState(Voxel::kFilled);
+    smallest = smallest == 0 ? size : std::min(smallest, size);
+  }
+  const std::uint64_t fit = pr.resultShape(p).countState(Voxel::kFilled) / smallest;
+  INFO(pieces << " pieces may be given, " << fit << " fit");
+  REQUIRE(fit < pieces);
+  std::uint64_t plain = 0;
+  std::uint64_t vector = 0;
+  std::uint64_t forWhatFits = 0;
+  const std::uint64_t memory = SearchOptions{}.vectorMemoryBudget;
+  (void)searched("PiecesOfEight.xmpuzzle", 1, nullptr, false, false, &plain);
+  (void)searched("PiecesOfEight.xmpuzzle", 1, nullptr, false, true, &vector);
+  (void)searched("PiecesOfEight.xmpuzzle", 1, nullptr, false, true, &forWhatFits, memory,
+                 (fit + kVectorSpareLevels) * simdHuangStackPerLevel(256));
+  REQUIRE(vector != plain);
+  CHECK(forWhatFits == vector);
 }
 
 // ---- the run layer (decision 0009) ------------------------------------------------

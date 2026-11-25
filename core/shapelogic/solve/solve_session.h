@@ -403,6 +403,10 @@ class SolveSession {
 
   Result<void> launch(Mode mode);
   Result<void> launchStacking(Mode mode);
+  /// What every run, of either kind, starts from: a new stop, no failure,
+  /// the run's counts and clocks at zero. Under controlMutex_ with no run
+  /// active; the kind's own resets stay in launch and launchStacking.
+  void resetRun(const SolveOptions& o, Plan& plan);
   void joinRunner();
   void dropAssembler();
 
@@ -499,6 +503,9 @@ class SolveSession {
   /// What the current run does with an assembly; set before it searches.
   Action action_ = Action::CountAssemblies;
   SolveOptions runOptions_;
+  /// The current stacking run runs on the Panex search
+  /// (panex::runsOnPanexSearch); under runMutex_.
+  bool runOnPanex_ = false;
 
   /// The take-apart queue: tasks, the workers' stop, the workers.
   std::mutex queueMutex_;
@@ -618,7 +625,7 @@ class SolveSession {
 
   // counts and times of the run (disasmPending and the others of the
   // original)
-  std::atomic<unsigned int> assemblerThreads_{1};
+  std::atomic<unsigned int> assemblerThreads_{0};  ///< 0 until the assembler starts
   std::atomic<unsigned int> workerCount_{0};
   std::atomic<unsigned int> pending_{0};
   std::atomic<unsigned int> peakPending_{0};

@@ -1106,8 +1106,8 @@ Result<void> Document::setPieceCount(Id problem, Id shape, unsigned int min, uns
   if (min > max) {
     return fail(Errc::InvalidArgument, "the minimum is above the maximum");
   }
-  if (max > 0xFFFF) {
-    return fail(Errc::InvalidArgument, "too many pieces");
+  if (max > kMaxPartCount) {
+    return fail(Errc::InvalidArgument, kPartFullText);
   }
   Problem& pr = puzzle_->getProblem(*p);
   if (max > 0 && pr.resultValid() && pr.getResultId() == *s) {
@@ -1200,8 +1200,8 @@ Result<void> Document::setRangeAll(Id problem, unsigned int min, unsigned int ma
   }
   // the bulk range window: a maximum below the minimum is raised to it
   max = std::max(max, min);
-  if (max > 0xFFFF) {
-    return fail(Errc::InvalidArgument, "too many pieces");
+  if (max > kMaxPartCount) {
+    return fail(Errc::InvalidArgument, kPartFullText);
   }
   StepGuard g(*this, "Set range for all pieces");
   problemChanged(*p);
@@ -1237,12 +1237,20 @@ Result<void> Document::addOneOfEach(Id problem) {
     return r;
   }
   Problem& pr = puzzle_->getProblem(*p);
+  // not the result, nor a sliding piece with a start or goal, nor a board
+  const auto takes = [&](unsigned int j) {
+    return !((pr.resultValid() && j == pr.getResultId()) || slidingRequired(*p, j) ||
+             (sliding::isSliding(*puzzle_) && sliding::isStartGoalShape(&puzzle_->getShape(j))));
+  };
+  for (unsigned int j = 0; j < puzzle_->getNumberOfShapes(); j++) {
+    if (takes(j) && pr.getShapeMaximum(j) >= kMaxPartCount) {
+      return fail(Errc::InvalidArgument, kPartFullText);
+    }
+  }
   StepGuard g(*this, "Add one of each");
   touchProblem(*p);
   for (unsigned int j = 0; j < puzzle_->getNumberOfShapes(); j++) {
-    // not the result, nor a sliding piece with a start or goal, nor a board
-    if ((pr.resultValid() && j == pr.getResultId()) || slidingRequired(*p, j) ||
-        (sliding::isSliding(*puzzle_) && sliding::isStartGoalShape(&puzzle_->getShape(j)))) {
+    if (!takes(j)) {
       continue;
     }
     pr.setShapeMaximum(*puzzle_, j, pr.getShapeMaximum(j) + 1);
@@ -1352,7 +1360,7 @@ Result<void> Document::setGroupCount(Id problem, Id shape, unsigned int group,
   if (pr.getShapeMaximum(*s) == 0) {
     return fail(Errc::InvalidArgument, "the shape is no piece of the problem");
   }
-  if (group == 0 || group > 0xFFFF || count > 0xFFFF) {
+  if (group == 0 || group > kMaxPartGroup || count > kMaxPartCount) {
     return fail(Errc::InvalidArgument, "groups are numbered from 1");
   }
   StepGuard g(*this, "Group");
@@ -1387,7 +1395,7 @@ Result<void> Document::setGroup(Id problem, Id shape, unsigned int group) {
   if (pr.getShapeMaximum(*s) == 0) {
     return fail(Errc::InvalidArgument, "the shape is no piece of the problem");
   }
-  if (group > 0xFFFF) {
+  if (group > kMaxPartGroup) {
     return fail(Errc::InvalidArgument, "no such group");
   }
   const unsigned int part = pr.getPartIdForShape(*s);
@@ -1640,7 +1648,7 @@ Result<std::vector<Id>> Document::assembliesToShapes(Id problem, const AssemblyI
     }
     target = *t;
   }
-  if (opt.addTo != AssemblyImport::AddTo::Nothing && (opt.min > opt.max || opt.max > 0xFFFF)) {
+  if (opt.addTo != AssemblyImport::AddTo::Nothing && (opt.min > opt.max || opt.max > kMaxPartCount)) {
     return fail(Errc::InvalidArgument, "the minimum is above the maximum");
   }
 

@@ -886,6 +886,46 @@ void SimdHuangCover<BitsetType>::search(unsigned int depth, SearchContext& ctx,
   }
 }
 
+template <typename BitsetType>
+std::size_t SimdHuangCover<BitsetType>::stackPerLevel() {
+  static const std::size_t bytes = [] {
+    // one shape with `pieces` copies, a voxel for each: one cover, reported
+    // from the level below the last row placed
+    const auto reportedAt = [](unsigned int pieces) {
+      SimdHuangCover solver(pieces + 1, 1);
+      solver.setColumnBounds(1, pieces, pieces, false, true, false, false);
+      for (unsigned int i = 0; i < pieces; i++) {
+        solver.setColumnBounds(2 + i, 1, 1, true, false, false, false);
+      }
+      for (unsigned int i = 0; i < pieces; i++) {
+        (void)solver.addRow(1 + i, 0, 1, i, 0, {1, 2 + i}, {1, 1});
+      }
+      std::uintptr_t at = 0;
+      std::atomic<std::uint64_t> iterations{0};
+      solver.solve(
+          [&at](const std::vector<unsigned int>&) {
+            // the frame's address, not a local's: a sanitizer may keep
+            // locals off the stack
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): an address as a number, to subtract
+            at = reinterpret_cast<std::uintptr_t>(__builtin_frame_address(0));
+            return true;
+          },
+          StopToken(), iterations);
+      return at;
+    };
+    const std::uintptr_t shallow = reportedAt(4);
+    const std::uintptr_t deep = reportedAt(20);
+    BT_ASSERT(shallow != 0 && deep != 0);
+    const std::size_t measured =
+        static_cast<std::size_t>(std::max(shallow, deep) - std::min(shallow, deep)) / 16;
+    // Nothing to measure where the levels are kept off this stack
+    // (WebAssembly keeps what it can in its own): then a level is taken to
+    // hold a mask and as much again as the smallest masks' levels take.
+    return measured > 0 ? measured : sizeof(BitsetType) + 256;
+  }();
+  return bytes;
+}
+
 template class SimdHuangCover<SimdBitset256>;
 template class SimdHuangCover<SimdBitset512>;
 template class SimdHuangCover<SimdBitset1024>;
@@ -894,6 +934,31 @@ template class SimdHuangCover<SimdBitset4096>;
 template class SimdHuangCover<SimdBitset8192>;
 template class SimdHuangCover<SimdBitset16384>;
 template class SimdHuangCover<SimdBitset32768>;
+
+std::size_t simdHuangStackPerLevel(unsigned int numColumns) {
+  if (numColumns <= 256) {
+    return SimdHuangCover256::stackPerLevel();
+  }
+  if (numColumns <= 512) {
+    return SimdHuangCover512::stackPerLevel();
+  }
+  if (numColumns <= 1024) {
+    return SimdHuangCover1024::stackPerLevel();
+  }
+  if (numColumns <= 2048) {
+    return SimdHuangCover2048::stackPerLevel();
+  }
+  if (numColumns <= 4096) {
+    return SimdHuangCover4096::stackPerLevel();
+  }
+  if (numColumns <= 8192) {
+    return SimdHuangCover8192::stackPerLevel();
+  }
+  if (numColumns <= 16384) {
+    return SimdHuangCover16384::stackPerLevel();
+  }
+  return SimdHuangCover32768::stackPerLevel();
+}
 
 std::unique_ptr<SimdHuangCoverBase> makeSimdHuangCover(unsigned int numColumns,
                                                        unsigned int numShapes,

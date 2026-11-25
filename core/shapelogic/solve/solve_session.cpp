@@ -446,27 +446,12 @@ Result<void> SolveSession::launch(Mode mode) {
   plan.prepare = !reuse;
   plan.prepareOnly = mode == Mode::Prepare;
 
-  // a new run: its own stop, nothing carried over from the last one
-  {
-    const std::lock_guard<std::mutex> lock(runMutex_);
-    runStop_ = StopSource();
-    assemblyStop_ = runStop_.child();
-    runOptions_ = o;
-    plan.assemblyToken = assemblyStop_.token();
-  }
+  resetRun(o, plan);
   if (o.justCount) {
     action_ = o.disassemble ? Action::CountSolutions : Action::CountAssemblies;
   } else {
     action_ = o.disassemble ? Action::SaveSolutions : Action::SaveAssemblies;
   }
-  {
-    const std::lock_guard<std::mutex> lock(failureMutex_);
-    failure_.reset();
-    workerError_ = nullptr;
-    note_.clear();
-    folderFailure_.reset();
-  }
-  memoryShared_ = false;
   // a sliding run's searches count on from the solve's runs before it
   // (nothing, once Solve has dropped them): the searches add what they
   // visit, so the count while it runs and once it stops is one
@@ -474,7 +459,6 @@ Result<void> SolveSession::launch(Mode mode) {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     slideProgress_.store(sliding_ ? problem_.getSearched() : 0, std::memory_order_relaxed);
   }
-  searchDepth_.store(0, std::memory_order_relaxed);
   // The starts not searched completely are the solve's, not the run's: a
   // solve carried on after a pause (the crash recovery copy's save point
   // pauses and carries on by itself) still has them, and its last run
@@ -494,27 +478,6 @@ Result<void> SolveSession::launch(Mode mode) {
   slideResume_ = mode == Mode::Resume;
   slideDiskHalted_ = false;
   slideSavePointCut_ = false;
-  atSavePoint_.store(false, std::memory_order_relaxed);
-  assemblerThreads_.store(1, std::memory_order_relaxed);
-  workerCount_.store(0, std::memory_order_relaxed);
-  pending_.store(0, std::memory_order_relaxed);
-  peakPending_.store(0, std::memory_order_relaxed);
-  completed_.store(0, std::memory_order_relaxed);
-  disasmMsTotal_.store(0, std::memory_order_relaxed);
-  inseparable_.store(0, std::memory_order_relaxed);
-  prepareMs_.store(0, std::memory_order_relaxed);
-  reduceMs_.store(0, std::memory_order_relaxed);
-  assemblyMs_.store(0, std::memory_order_relaxed);
-  drainMs_.store(0, std::memory_order_relaxed);
-  phase_.store(Phase::None, std::memory_order_relaxed);
-  progressShown_.store(0, std::memory_order_relaxed);
-  // the last solve's assembler is gone; this run's has done nothing yet
-  lastFinished_.store(0, std::memory_order_relaxed);
-  runOriginNs_.store(nowNs(), std::memory_order_relaxed);
-  {
-    const std::lock_guard<std::mutex> lock(resultsMutex_);
-    runTimeAdded_ = false;
-  }
 
   // The first move is made here, before the thread exists, so that the
   // caller sees an active state as soon as this returns.
@@ -566,11 +529,26 @@ Result<void> SolveSession::launchStacking(Mode mode) {
 
   Plan plan;
   plan.options = options_;
+  resetRun(options_, plan);
+  {
+    const std::lock_guard<std::mutex> lock(runMutex_);
+    runOnPanex_ = panex::runsOnPanexSearch(
+        puzzle_, problem_, options_.stacking.solver == stacking::StackingSolver::Panex);
+  }
+  slideProgress_.store(0, std::memory_order_relaxed);
+
+  state_.advance(SolveState::Preparing);
+  runner_ = std::thread([this, plan = std::move(plan)] { run(plan); });
+  return {};
+}
+
+void SolveSession::resetRun(const SolveOptions& o, Plan& plan) {
+  // a new run: its own stop, nothing carried over from the last one
   {
     const std::lock_guard<std::mutex> lock(runMutex_);
     runStop_ = StopSource();
     assemblyStop_ = runStop_.child();
-    runOptions_ = options_;
+    runOptions_ = o;
     plan.assemblyToken = assemblyStop_.token();
   }
   {
@@ -581,9 +559,13 @@ Result<void> SolveSession::launchStacking(Mode mode) {
     folderFailure_.reset();
   }
   memoryShared_ = false;
-  slideProgress_.store(0, std::memory_order_relaxed);
   searchDepth_.store(0, std::memory_order_relaxed);
   searchTraced_.store(0, std::memory_order_relaxed);
+  // the slide search clears its clock only once resume() returns, so a
+  // resume that threw left it set
+  slidePickingUpSince_.store(0, std::memory_order_relaxed);
+  atSavePoint_.store(false, std::memory_order_relaxed);
+  // none until the assembler starts (a stacking run has none)
   assemblerThreads_.store(0, std::memory_order_relaxed);
   workerCount_.store(0, std::memory_order_relaxed);
   pending_.store(0, std::memory_order_relaxed);
@@ -597,16 +579,13 @@ Result<void> SolveSession::launchStacking(Mode mode) {
   drainMs_.store(0, std::memory_order_relaxed);
   phase_.store(Phase::None, std::memory_order_relaxed);
   progressShown_.store(0, std::memory_order_relaxed);
+  // the last solve's assembler is gone; this run's has done nothing yet
   lastFinished_.store(0, std::memory_order_relaxed);
   runOriginNs_.store(nowNs(), std::memory_order_relaxed);
   {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     runTimeAdded_ = false;
   }
-
-  state_.advance(SolveState::Preparing);
-  runner_ = std::thread([this, plan = std::move(plan)] { run(plan); });
-  return {};
 }
 
 // ---- the run -----------------------------------------------------------------------
@@ -975,7 +954,7 @@ void SolveSession::runStacking(const Plan& plan) {
   const SolveOptions& o = plan.options;
   const bool panexSolver = o.stacking.solver == stacking::StackingSolver::Panex;
   const bool countOnly = o.justCount;
-  const bool panexSearch = panexSolver || panex::unsupported(puzzle_, problem_, true).empty();
+  const bool panexSearch = panex::runsOnPanexSearch(puzzle_, problem_, panexSolver);
   // The Panex search saves itself in its folder: one it cannot write
   // pauses the run before it begins (the results as they were), and
   // Continue tries again.
@@ -1937,8 +1916,9 @@ FileLock::Outcome SolveSession::lockSearches(FileLock& lock) const {
   if (sliding_ && options_.disassemble) {
     folder = options_.sliding.workDir;
     path = sliding::solveLockPath(puzzle_, problem_, folder);
-  } else if (stacking_ && (options_.stacking.solver == stacking::StackingSolver::Panex ||
-                           panex::unsupported(puzzle_, problem_, true).empty())) {
+  } else if (stacking_ &&
+             panex::runsOnPanexSearch(puzzle_, problem_,
+                                      options_.stacking.solver == stacking::StackingSolver::Panex)) {
     folder = options_.stacking.workDir;
     path = panex::solveLockPath(puzzle_, problem_, folder);
   }
@@ -1989,7 +1969,7 @@ SolveProgress SolveSession::progress() const {
     p.pausing = stopping && runStop_.kind() == StopKind::Pause;
     rotations = runOptions_.checkRotations;
     slideRun = runOptions_.disassemble;
-    p.panexSearch = stacking_ && runOptions_.stacking.solver == stacking::StackingSolver::Panex;
+    p.panexSearch = stacking_ && runOnPanex_;
     if (published_ != nullptr) {
       af = published_->finished();
       p.iterations = published_->iterations();

@@ -60,6 +60,11 @@ int PyProblem::getResult() const {
 void PyProblem::setPieceRange(unsigned int shapeIdx, unsigned int minCount,
                               unsigned int maxCount) {
   checkShape(shapeIdx);
+  // the problem asserts the bound: a count above it is refused here (the
+  // original's unsigned short wrapped it)
+  if (minCount > kMaxPartCount || maxCount > kMaxPartCount) {
+    throw std::invalid_argument(kPartFullText);
+  }
   Problem& p = problem();
   p.setShapeMinimum(*puzzle_, shapeIdx, minCount);
   p.setShapeMaximum(*puzzle_, shapeIdx, maxCount);

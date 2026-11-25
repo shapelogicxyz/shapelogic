@@ -9,6 +9,7 @@
 /// own (decision 0027). The rules that read them are bt/model/sliding.h.
 
 #include <cstddef>
+#include <limits>
 #include <vector>
 
 namespace bt {
@@ -21,6 +22,10 @@ namespace bt {
 /// (sliding::BoardEdit).
 class SlideMarks {
  public:
+  /// The highest mark a cell holds (a byte), so the most shapes that can
+  /// have starts and goals.
+  static constexpr unsigned int kMaxMark = std::numeric_limits<unsigned char>::max();
+
   /// The start (goal false) or goal mark of cell i; 0 for none.
   [[nodiscard]] unsigned int get(std::size_t i, bool goal) const {
     const std::vector<unsigned char>& m = goal ? goal_ : start_;

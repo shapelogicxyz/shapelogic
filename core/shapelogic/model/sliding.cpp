@@ -36,8 +36,7 @@ bool isFloor(const Voxel& tray, int x, int y) {
   return tray.getState(asUnsigned(x), asUnsigned(y), 0) != Voxel::kEmpty;
 }
 
-// The highest start or goal mark a cell holds (a byte; 0 is none).
-constexpr unsigned int kMaxMark = 255;
+constexpr unsigned int kMaxMark = SlideMarks::kMaxMark;
 
 // Color indices (from 1) that follow the piece's part order are preferred.
 unsigned int findOrAddColor(Puzzle& puzzle, unsigned int preferredIndex) {
@@ -1163,8 +1162,9 @@ void syncTrayProblem(Puzzle& puzzle, Problem& pr, unsigned int s) {
       continue;
     }
     if (hasMark(pr.slideMarks(), i + 1)) {
-      // a copy for each start and each goal
-      const unsigned int least = std::max(1U, stampedCopies(puzzle, pr, i));
+      // a copy for each start and each goal, as far as a part's count
+      // goes (startGoalError then names the stamps without a copy)
+      const unsigned int least = std::clamp(stampedCopies(puzzle, pr, i), 1U, kMaxPartCount);
       if (pr.getShapeMaximum(i) < least) {
         pr.setShapeMaximum(puzzle, i, least);
       }

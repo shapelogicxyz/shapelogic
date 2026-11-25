@@ -540,7 +540,7 @@ TEST_CASE("problem: removeSolution drops exactly the addressed solution",
   Problem& pr = puzzle.getProblem(0);
   const unsigned int before = pr.getNumberOfSavedSolutions();
   REQUIRE(before > 5);
-  const unsigned int survivor = pr.getSavedSolution(5).getAssemblyNumber();
+  const std::uint64_t survivor = pr.getSavedSolution(5).getAssemblyNumber();
   pr.removeSolution(4);
   REQUIRE(pr.getNumberOfSavedSolutions() == before - 1);
   REQUIRE(pr.getSavedSolution(4).getAssemblyNumber() == survivor);

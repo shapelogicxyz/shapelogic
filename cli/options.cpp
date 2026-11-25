@@ -4,6 +4,7 @@
 // burrTxt2's options (src/burrTxt2.cpp) as long options for --save.
 #include "options.h"
 
+#include "shapelogic/base/system.h"
 #include "shapelogic/base/version.h"
 
 #include <cstdio>
@@ -454,12 +455,17 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       }
       o.panexDir = argv[++i];
     } else if (a == "--panex-disk") {
-      // burrTxt read it with atof
       if (!hasValue) {
         std::fputs("shapelogic_cli: --panex-disk requires a number of GB\n", stderr);
         return kExitUsage;
       }
+      // burrTxt read it with atof; a value that is no budget is refused
       o.panexDiskGB = std::strtod(argv[++i], nullptr);
+      if (!gbToBytes(o.panexDiskGB)) {
+        std::fputs("shapelogic_cli: --panex-disk requires a number of GB from 0 to 1000000\n",
+                   stderr);
+        return kExitUsage;
+      }
     } else if (a == "--no-tower-rule") {
       o.noTowerRule = true;
     } else if (a == "--panex-log") {

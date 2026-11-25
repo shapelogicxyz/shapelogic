@@ -18,6 +18,7 @@
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/slide_marks.h"
 #include "shapelogic/model/sliding.h"
 #include "shapelogic/solve/disasm_to_moves.h"
 #include "shapelogic/solve/search_sample.h"
@@ -183,6 +184,8 @@ class GoalCheck {
         }
       }
     }
+    // reached() counts the groups in an array of that size
+    BT_ASSERT(need_.size() <= kMaxGroups);
   }
 
   // Whether a piece has goals for only some of its copies (then the
@@ -252,8 +255,11 @@ class GoalCheck {
   // Whether pieces whose `at` answers are given reach the goal.
   template <class At>
   [[nodiscard]] bool reached(At atOf) const {
-    // a group is a shape's, and only the first 63 shapes have marks
-    std::array<unsigned int, 64> filled{};
+    // Only the groups in use are zeroed: this runs for every arrangement
+    // the search emits.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): the first need_.size() entries are zeroed here and no others are read
+    std::array<unsigned int, kMaxGroups> filled;
+    std::fill_n(filled.begin(), need_.size(), 0U);
     for (std::size_t i = 0; i < pieces_.size(); i++) {
       const char a = atOf(i);
       if (a == 0) {
@@ -299,6 +305,9 @@ class GoalCheck {
   bool startGoal_ = false;
   // The goal color of each piece; 0 when the goal does not place it.
   std::vector<unsigned int> color_;
+  // A group is a part's whose shape has marks, and only the shapes up to
+  // the highest mark have them: so at most this many groups.
+  static constexpr std::size_t kMaxGroups = SlideMarks::kMaxMark + 1;
   // Each piece's group (-1: none) and each group's count of goals.
   std::vector<int> group_;
   std::vector<unsigned int> need_;

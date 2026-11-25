@@ -7,19 +7,19 @@
 
 namespace bt {
 
-Solution::Solution(Assembly assm, unsigned int assmNum)
+Solution::Solution(Assembly assm, std::uint64_t assmNum)
     : assembly_(std::move(assm)), assemblyNum_(assmNum), solutionNum_(0) {}
 
-Solution::Solution(Assembly assm, unsigned int assmNum, unsigned int solNum)
+Solution::Solution(Assembly assm, std::uint64_t assmNum, std::uint64_t solNum)
     : assembly_(std::move(assm)), assemblyNum_(assmNum), solutionNum_(solNum) {}
 
-Solution::Solution(Assembly assm, unsigned int assmNum, Separation tree, unsigned int solNum)
+Solution::Solution(Assembly assm, std::uint64_t assmNum, Separation tree, std::uint64_t solNum)
     : assembly_(std::move(assm)),
       tree_(std::move(tree)),
       assemblyNum_(assmNum),
       solutionNum_(solNum) {}
 
-Solution::Solution(Assembly assm, unsigned int assmNum, SeparationInfo info, unsigned int solNum)
+Solution::Solution(Assembly assm, std::uint64_t assmNum, SeparationInfo info, std::uint64_t solNum)
     : assembly_(std::move(assm)),
       treeInfo_(std::move(info)),
       assemblyNum_(assmNum),

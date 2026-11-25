@@ -79,7 +79,9 @@ struct CornerVectors {
 
 // Finds or adds vertices by position, points within the tables' tolerance
 // being one vertex (VertexList matches exactly; the corners here are
-// computed).
+// computed). A lookup cell is wider than the tolerance, so it may hold
+// several vertices (bevels and gaps of a few 1e-5 put them there), and
+// a point near its edge may match one in the next cell.
 class NearVertices {
  public:
   explicit NearVertices(Polyhedron& poly) : poly_(poly) {}
@@ -90,14 +92,19 @@ class NearVertices {
       for (long long dy = -1; dy <= 1; dy++) {
         for (long long dz = -1; dz <= 1; dz++) {
           const auto it = known_.find({key[0] + dx, key[1] + dy, key[2] + dz});
-          if (it != known_.end() && samePoint(poly_.vertex(it->second).pos, p)) {
-            return it->second;
+          if (it == known_.end()) {
+            continue;
+          }
+          for (const int id : it->second) {
+            if (samePoint(poly_.vertex(id).pos, p)) {
+              return id;
+            }
           }
         }
       }
     }
     const int idx = poly_.addVertex(p);
-    known_.emplace(key, idx);
+    known_[key].push_back(idx);
     return idx;
   }
 
@@ -110,7 +117,7 @@ class NearVertices {
   }
 
   Polyhedron& poly_;
-  std::map<std::array<long long, 3>, int> known_;
+  std::map<std::array<long long, 3>, std::vector<int>> known_;
 };
 
 // Collects the loose side edges of the bevel and gap strips and chains

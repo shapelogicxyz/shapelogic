@@ -111,6 +111,18 @@ user's standing instructions.
      is called done. Docker's `ubuntu:24.04` does both: GCC and the quick
      suite for Linux, `g++-mingw-w64-x86-64-posix -fsyntax-only` for
      Windows. Say in the Done line what was only compiled and never run.
+   Two things checkpoint C found after stage 5:
+   - **The other users.** An item that adds a bound, an assert or a wider
+     type greps every caller and reader of what it bounds or widens (the
+     setter's callers, every reader of the number's attribute, every range
+     given for the same setting). Its Done line names the ones it changed
+     and says why the others need nothing.
+   - **A new test is seen failing.** Before an item is called done, its
+     new test is run once without the fix: in a scratch copy (rsync the
+     tree without `build`), put `git show HEAD:<file>` in place of the
+     fixed file and build `bt_tests` or the module. A test whose check
+     sits under a condition (a time, a size) says in its Done line how
+     often the condition held.
 9. **Checks.** `just check <regex of the changed C++ files>` stays green; a
    suppression needs its reason on the line
    (`// NOLINTNEXTLINE(check): reason`). The front end: `just app-check`.
@@ -154,8 +166,8 @@ again, and comes last.
 - [x] Checkpoint A (Fable): review of stage 3
 - [x] Stage 4: bugs that lose work: the small fixes
 - [x] Checkpoint B (Fable): review of stage 4
-- [ ] Stage 5: smaller bugs: core, engine, Python, CLI
-- [ ] Checkpoint C (Fable; needed, decided by checkpoint B): review of stage 5
+- [x] Stage 5: smaller bugs: core, engine, Python, CLI (its three new findings are 15.6, 15.7 and 16.6)
+- [x] Checkpoint C (Fable; needed, decided by checkpoint B): review of stage 5
 - [ ] Stage 6: renderer bugs
 - [ ] Stage 7: main-process bugs
 - [ ] Stage 8: test and build speed; tests that cannot clash
@@ -163,12 +175,12 @@ again, and comes last.
 - [ ] Stage 9: CI and release pipeline
 - [ ] Stage 10: front-end speed and memory
 - [ ] Stage 11: one source of truth: core, engine, API, Python, CLI
-- [ ] Checkpoint E (Fable, only if needed): review of stage 11
+- [ ] Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
 - [ ] Stage 12: one source of truth: front end
 - [ ] Stage 13: splits: front end
 - [ ] Stage 14: dead code and the last traps
 - [ ] Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (decided: D1)
-- [ ] Stage 16: damaged and hostile files
+- [ ] Stage 16: damaged and hostile files (16.6 done on 2026-11-25)
 - [ ] Stage 17: core speed
 - [ ] Stage 18: the engine stays responsive
 - [ ] Stage 19: names and audits that must not drift
@@ -186,7 +198,7 @@ again, and comes last.
 | 4 | The small fixes for bugs that lose work: saved-search writes, Panex's failed save and Abort, the "saved" flag, rescue size | Low to medium: each comes with a test that shows a mistake | Opus 5.5 High |
 | B | Review of stage 4 | Medium | Fable 5.2 High |
 | 5 | Small core, engine, Python and CLI bugs | Low to medium | Opus 5.5 High |
-| C | Review of stage 5, only if needed | Low to medium | Fable 5.2 High |
+| C | Review of stage 5 (needed: checkpoint B) | Low to medium | Fable 5.2 High |
 | 6 | Renderer bugs | Medium | Opus 5.5 High |
 | 7 | Main-process bugs | Medium | Opus 5.5 High |
 | 8 | Test shards, the version define, scratch folders, per-run copies, helpers | Low to medium | Opus 5.5 High |
@@ -194,7 +206,7 @@ again, and comes last.
 | 9 | CI pinning and automatic re-runs | Low | Opus 5.5 High |
 | 10 | Front-end speed and memory | Medium | Opus 5.5 High |
 | 11 | Single sources in core, engine, API, Python, CLI | Medium | Opus 5.5 High |
-| E | Review of stage 11, only if needed | Medium | Fable 5.2 High |
+| E | Review of stage 11 (needed: checkpoint C) | Medium | Fable 5.2 High |
 | 12 | Single sources in the front end | Medium | Opus 5.5 High |
 | 13 | Front-end splits | Medium | Opus 5.5 High |
 | 14 | Dead code; tests that keep the page and the code in step | Low | Opus 5.5 High |
@@ -210,7 +222,7 @@ The rule behind the choice is the one of `docs/TILTED-SQUARE-PLAN.md`: Fable
 where a wrong answer is hard to see (a saved search that carries on
 wrongly, an assembly lost, a race, a missed bound), Opus where a mistake
 shows in a failing test or on the screen. That gives 107 items to Opus and
-36 to Fable, plus the checkpoints. The five fixes in stage 4 are small, and
+39 to Fable (three of them found in stage 5), plus the checkpoints. The five fixes in stage 4 are small, and
 each comes with a test that shows a mistake, so they stay early with Opus.
 The two bugs that lose work and need Fable are 15.1 and 15.2.
 
@@ -1895,7 +1907,7 @@ Small bugs, each with a test of its own. The three that need Fable
 15.3 to 15.5. Item 5.12 came from the damaged-files work; 11.6 uses its
 helper.
 
-- [ ] **5.1 The goal check can write past its array** (bug, UB; S) ✓
+- [x] **5.1 The goal check can write past its array** (bug, UB; S) ✓
   - *Where:* `core/shapelogic/solve/sliding_search.cpp` `GoalCheck::reached()`
     (252-270: `std::array<unsigned int, 64> filled{}` indexed by
     `idx(group_[i])`); the constructor (145-170 makes a group for each part
@@ -1913,8 +1925,28 @@ helper.
   - *Tests:* a unit test with 70 parts that each have goals for some of
     their copies, solved to its goal; `just test-asan` (it would have
     reported the overflow).
+  - Done (2026-11-24): confirmed (groups are per part whose shape has marks,
+    up to 256 of them). `SlideMarks::kMaxMark` (from the byte the marks are
+    stored in) replaces sliding.cpp's private constant; `GoalCheck` sizes
+    its array `kMaxMark + 1`, zeroes only `need_.size()` entries with
+    `fill_n`, and asserts the bound in its constructor. Test
+    (`test_sliding_session.cpp`, "more than 64 pieces with goals for some
+    of their copies"): 70 parts of two copies, a goal for one each; under
+    ASan the old code reports a stack-buffer-overflow in `reached()`, the
+    new passes. It runs `findSlidePath` from the starts rather than a solve:
+    a solve's assembler recurses once per piece, and 141 pieces overflow
+    the solve thread's stack under ASan (new finding 5.13). Benchmarks not
+    run (`../burr-tools` is not built); the change per arrangement is a
+    `fill_n` of the groups in use where a 64-entry zeroing was.
+  - Review (2026-11-24, Fable): OK. At most 255 shapes have marks and a
+    group is one part's, so `need_` holds at most 255 groups. The work per
+    arrangement is a `fill_n` of the groups in use, less than the 64
+    entries zeroed before. The file's other 64-wide arrays are indexed by
+    pieces and belong to nested moves, which are refused above 64 pieces
+    (`nested && n > 64`). In an ASan build of the scratch copy the test
+    fails without the fix.
 
-- [ ] **5.2 `ThreadPool::run` leaves tasks that point into a dead stack frame when queueing runs out of memory** (bug; S)
+- [x] **5.2 `ThreadPool::run` leaves tasks that point into a dead stack frame when queueing runs out of memory** (bug; S)
   - *Where:* `core/shapelogic/base/thread_pool.cpp` `run()` (104-123):
     `lent_ += k`, the latch, then an `emplace_back` per task under `m_`.
   - *Problem:* a `bad_alloc` while the queue grows unwinds `run()` with some
@@ -1927,8 +1959,16 @@ helper.
     and rethrow.
   - *Tests:* forcing `bad_alloc` there is not worth a hook; review, plus
     `just test-tsan`.
+  - Done (2026-11-24): confirmed. The pushes are in a try block that counts
+    them; on an exception it pops that many from the back of `tasks_`
+    (still under `m_`, so no thread took one), takes `k` off `lent_` and
+    rethrows. No test (as the item says); `just test-tsan` passes.
+  - Review (2026-11-24, Fable): OK. The catch runs under `m_` (the
+    lock's scope holds the try), pops from the back exactly the tasks this
+    call pushed, and takes `k` off `lent_`. Nothing was notified yet, so no
+    thread woke for them. No test, as the item says.
 
-- [ ] **5.3 The session's two run-reset blocks have drifted** (bug, combine; S)
+- [x] **5.3 The session's two run-reset blocks have drifted** (bug, combine; S)
   - *Where:* `core/shapelogic/solve/solve_session.cpp` `launch()` (450-518)
     and `launchStacking()` (568-606).
   - *Problem:* about 30 identical lines, already different:
@@ -1948,8 +1988,27 @@ helper.
     `test_sliding_session.cpp` and `test_stacking_session.cpp`; add a case:
     after a sliding resume that fails (a damaged state, as the damage cases
     make), a fresh Solve reports no "picking up" phase.
+  - Done (2026-11-24): confirmed. `SolveSession::resetRun(options, plan)`
+    holds the common lines, now also `searchTraced_`, `atSavePoint_` and
+    `slidePickingUpSince_`; `action_` and the slide search's own resets stay
+    in `launch`, `slideProgress_` and `runOnPanex_` (5.4) in each caller.
+    `assemblerThreads_` resets to 0, and its default (the member's and
+    `SolveProgress`'s) is 0: before a run's threads start, the assembler
+    has none, and a stacking run never has one; `stats()` still shows at
+    least 1, as the original's window did. The demo's played progress
+    follows (0 while preparing, 1 while assembling). A resume that throws
+    cannot be made without a hook, so the test uses a seam
+    (`SolveSessionTestAccess::resumeThrew`, the clock left set) and checks
+    that no progress of the next Solve says "picking up"; it fails without
+    the reset.
+  - Review (2026-11-24, Fable): OK. `resetRun` is called where the first
+    reset block was, after the last check that can refuse the launch, so a
+    refused launch still clears nothing. Readers of a thread count of 0:
+    the overall progress's weight counts 0 as 1, `stats()` shows at least
+    1, and the renderer shows only `stats()`'s. The test fails without the
+    clock's reset.
 
-- [ ] **5.4 A Stacking Solver run on the Panex search says it waits for the search to stop** (bug; S; confirm first)
+- [x] **5.4 A Stacking Solver run on the Panex search says it waits for the search to stop** (bug; S; confirm first)
   - *Where:* the rule "this stacking solve runs on the Panex search" is written
     in three places: `core/shapelogic/solve/solve_session.cpp:979`, 1941-1942
     and `cli/main.cpp:570-571`. `progress().panexSearch` (`solve_session.cpp:1993`)
@@ -1968,8 +2027,24 @@ helper.
     (`api/solve.json`; rule 10).
   - *Tests:* `test_stacking_session.cpp`: `panexSearch` is true for a stacking run
     that runs on the Panex search; a web unit test of `settings.ts`'s text.
+  - Done (2026-11-24): confirmed. `panex::runsOnPanexSearch(puzzle, problem,
+    panexSolver)` is used by `runStacking`, `lockSearches` and the CLI; it
+    takes the solver choice as a flag, not `SolveOptions`, since the CLI has
+    none. `launchStacking` stores it (`runOnPanex_`, under `runMutex_`) and
+    `progress().panexSearch` reads that, so progress does not inspect the
+    puzzle while a run uses it. The front end needs no change: both of its
+    uses mean "runs on the Panex search", which the field now says
+    (`api/types.json` text, `docs/API.md` and `api.generated.ts`
+    regenerated). The text functions already have their web tests
+    (`sliding.test.ts` "saving itself", `stacking.test.ts` "Tracing the
+    path"). Test: "the Stacking Solver on the Panex search says so", every
+    progress and the one after the end.
+  - Review (2026-11-24, Fable): OK. The front end reads `panexSearch` in
+    two places (`stopDetails`, `stackingDetails`); both mean "the search
+    saves itself and traces its path", neither names the solver. The test
+    fails with the old expression.
 
-- [ ] **5.5 Piece counts wrap at 65535** (bug; S)
+- [x] **5.5 Piece counts wrap at 65535** (bug; S)
   - *Where:* `core/shapelogic/app/document_commands.cpp`: the 0xFFFF checks at
     1109, 1203, 1355, 1390 and 1643. `addOneOfEach` (1248) and
     `document_stacking.cpp` `placeOneDisk` (103) have none.
@@ -1985,8 +2060,36 @@ helper.
     `engine/methods_solution.cpp:128-129` use the constant.
   - *Tests:* `test_document.cpp`: `addOneOfEach` on a part at 65535 is refused
     and leaves the document as it was.
+  - Done (2026-11-24): confirmed. `kMaxPartCount` (with a `static_assert`
+    against `Part::min`, `Part::max` and `PartGroup::count`),
+    `kMaxPartGroup` for group numbers and `kPartFullText` in
+    `model/problem.h`, used at the seven places and by the engine's
+    methods (its `kMaxPieces` is gone). `addOneOfEach` refuses before its
+    undo step; `placeOneDisk` refuses, and `placeDisc` returns that refusal
+    (the guard puts back what it touched) instead of asserting.
+    `setShapeMinimum` and `setShapeMaximum` assert the bound. The refusal
+    of a count above the maximum now says "a part holds at most 65535
+    pieces" (was "too many pieces"). Test: "a part holds at most 65535
+    pieces" (`addOneOfEach`, `addPiece` and a count of 65536 refused, the
+    document unchanged). `placeOneDisk` at the cap has no test: a stacking
+    problem with 65535 copies of a disc placed cannot be built in a test.
+  - Review (2026-11-24, Fable): the item's change is right, and its test
+    fails without the refusal. It left three callers that could still pass
+    a count above the bound to the setters. Those wrapped before; with the
+    new asserts they ended in an internal error. Fixed:
+    - Python's `set_piece_count` and `set_piece_range`: a `ValueError`,
+      nothing changed (the minimum was set before the maximum failed).
+      Test: `test_a_piece_count_above_the_most_a_part_holds`.
+    - The PuzzleSolver3D import, merging more than 65535 pieces alike
+      (`ps3d_file.cpp`): a parse error.
+    - `syncTrayProblem` (`model/sliding.cpp`), more than 65535 starts or
+      goals of one piece: the count is held to the bound, and
+      `startGoalError` names the starts without a copy.
+    A test of the last two needs 65536 pieces or stamps and takes 44 s and
+    96 s in the debug build. Each was run once with its fix and once
+    without (an internal error), and not kept.
 
-- [ ] **5.6 Solution numbers are 32-bit while the counts are 64-bit** (bug; S to M)
+- [x] **5.6 Solution numbers are 32-bit while the counts are 64-bit** (bug; S to M)
   - *Where:* `core/shapelogic/model/solution.h:83-84`;
     `core/shapelogic/model/problem.cpp:610`, 619-620, 635-636
     (`static_cast<unsigned>`); `core/shapelogic/io/puzzle_file.cpp:749-750`
@@ -1999,8 +2102,26 @@ helper.
     The output is the same below 2^32.
   - *Tests:* a solution numbered 2^32 + 5 round-trips through write and
     read; `just oracle-files --tier fast` is unchanged.
+  - Done (2026-11-24): `Solution`'s numbers, constructors and getters,
+    `Problem::addSolution`'s casts removed, the reader with `strtoull`
+    (which also ends Windows' `strtol` stopping at 2^31 - 1), the Python
+    module's `PySolution` and its iterator's counters, all 64 bits. Test:
+    "solution numbers past 2^32 are read and written whole" (2^32 + 5 and
+    + 6 read, and the file written back byte for byte). Every fixture still
+    saves byte for byte as the original saves it. `just oracle-files`
+    compared nothing: there is no baseline of the original's solved files
+    (`../burr-tools` has no burrTxt2).
+  - Review (2026-11-24, Fable): OK for solutions. One reader was left: a
+    paused solve's pending assemblies (`<pending><item assembly= solution=>`)
+    read their numbers with `strtoul`, which is 32 bits on Windows. They
+    now use `strtoullOf`, and so does `readSolution`. The pending test
+    reads 2^32 + 5 and + 6 and writes them back; it passes on macOS either
+    way, so only Windows shows the difference. The other users of the
+    numbers hold 64 bits: the writer's `newAttrib`, the engine's JSON, the
+    sort orders, Python's fields. The solutions' test fails with the
+    numbers read through `atoi`.
 
-- [ ] **5.7 The uniform mesher loses vertices that lie close together** (bug; S)
+- [x] **5.7 The uniform mesher loses vertices that lie close together** (bug; S)
   - *Where:* `core/shapelogic/mesh/uniform_mesh.cpp` `NearVertices` (83-114):
     one id per 1e-4 key cell (`emplace` ignores a second id). Vertices
     match within 1e-5 (`core/shapelogic/mesh/cell_geometry.cpp:23`).
@@ -2013,8 +2134,24 @@ helper.
   - *Tests:* a mesh with two vertices 5e-5 apart in one key cell welds
     correctly (`tests/unit/mesh/`); the STL tests and the oracle's STL dumps
     are unchanged.
+  - Done (2026-11-24): confirmed; the neighbor search did look in the 26
+    adjacent key cells. Each key holds a vector of ids, every one checked
+    within 1e-5. A cell's own corners are cached per (cell, face, corner),
+    so the lookup only meets vertices of neighboring cells: a cube alone
+    never showed the bug. A sweep over four grids, 2-6 cells, bevels 1.5e-5
+    to 9e-5, offsets 0 to 3e-5, plain and bumpy found 93 meshes with holes
+    before the fix, all bumpy with no gap, and 24 after, all on the
+    tetra-octa grid; those 24 fail at every bevel up to 0.03, so they are
+    another bug (new finding 5.14). Returning the nearest match instead of
+    the first changed nothing. Test: "vertices closer than the lookup's
+    cells stay apart and weld" (bricks, prisms, rhombic; five cells, bumpy,
+    bevels 2e-5, 5e-5, 9e-5). The STL tests pass; the oracle's STL dumps
+    were not run.
+  - Review (2026-11-24, Fable): OK. The lookup still covers the 27 key
+    cells, and a cell's list stays short. The test fails with the old
+    lookup.
 
-- [ ] **5.8 The app log names the wrong options for `solve.continue`** (bug; S)
+- [x] **5.8 The app log names the wrong options for `solve.continue`** (bug; S)
   - *Where:* `engine/app_log.cpp:174-189` works the options out again with
     `solveOptionsFrom`. Since 9034b03, `launch` (`engine/methods_solve.cpp:24-27`)
     uses `pausedOptions()` when `solve.continue` gives none.
@@ -2024,8 +2161,20 @@ helper.
     `logCall` prints those for `solve.start` and `solve.continue`.
   - *Tests:* in `tests/unit/engine/`, continue a paused solve without options;
     the logged line names the paused options.
+  - Done (2026-11-24): confirmed. `State::launchedWith` holds the options a
+    successful `solve.start`, `prepare` or `continue` launched with;
+    `logCall` takes it (`std::exchange`) for the line. Test: "the log line
+    of a Continue without options names the paused solve's" (a run paused
+    by a folder that cannot be written, continued without options, logs
+    "threads 3"); it fails without the fix. Found while writing it: a
+    Continue without options keeps the paused run's folders even after the
+    settings changed them (new finding 5.15).
+  - Review (2026-11-24, Fable): OK. `launchedWith` is set only by a
+    launch that succeeded and taken by that call's log line. A launch
+    while the log is off leaves it set until the next launch replaces it;
+    a failed call never reads it. The test fails with the old log line.
 
-- [ ] **5.9 Python: `stop()` and the iterator's destructor wait for the worker while holding the GIL** (bug; S)
+- [x] **5.9 Python: `stop()` and the iterator's destructor wait for the worker while holding the GIL** (bug; S)
   - *Where:* `python/src/module.cpp:105`; `python/src/solution_iterator.cpp`
     (100-114, `stop`; 161-163, the destructor).
   - *Problem:* `createMatrix`, and the wait after an abort, cannot be
@@ -2037,8 +2186,32 @@ helper.
   - *Tests:* `python/tests/`: start a slow solve, call `stop()` from a second
     thread while a third Python thread counts; the count goes on during the
     stop.
+  - Done (2026-11-24): confirmed. `stop()` itself releases the GIL around
+    the join when the calling thread holds it (`PyGILState_Check`), which
+    covers the binding, `next()`'s Ctrl-C path and the destructor in one
+    place instead of a call guard plus the destructor. Nothing between the
+    release and the join touches a Python object. The destructor catches
+    an exception from `stop()` and calls `std::terminate()` (what an
+    exception out of a destructor always did; clang-tidy's
+    exception-escape check). Test: `test_other_threads_run_while_a_stop_waits`
+    (a 26x26x26 box of dominoes, `stop()` and `del`): during a 0.13 s stop
+    the counter moved once before, 83 times after.
+  - Review (2026-11-24, Fable): the fix holds; **its test tested
+    nothing**.
+    - The fix: only the first `stop()` joins (the `stopRequested_`
+      exchange), so two threads never join at once; a bound method keeps
+      the iterator alive while its `stop()` waits; the worker never takes
+      the GIL. Tried by hand, all ending cleanly: an iterator alive as the
+      interpreter ends, two stops and a `next()` at once, the iterator
+      dropped on another thread.
+    - The test checked the counter only when the stop took over 50 ms. The
+      26x26x26 box stops in about 20 ms on this machine, so the test
+      passed without the fix. Now it uses a 50x50x50 box (a stop of about
+      0.37 s in the debug build), checks above 30 ms, and is skipped, not
+      passed, when both stops are seen at once. Without the fix it fails
+      ("the counter stood still for 0.367 s").
 
-- [ ] **5.10 Python refuses to export sliding puzzles to Puzzlecad** (bug; S)
+- [x] **5.10 Python refuses to export sliding puzzles to Puzzlecad** (bug; S)
   - *Where:* `python/src/py_puzzle.cpp:129-146` (refuses sliding puzzles);
     `core/shapelogic/app/document.cpp:143-180` (has allowed them since
     1991b14).
@@ -2046,8 +2219,17 @@ helper.
     sits inside `Document`, move it to a free function that both call (see
     11.5).
   - *Tests:* `python/tests/`: exporting a sliding fixture to Puzzlecad works.
+  - Done (2026-11-24): `io::puzzlecadRefusal(puzzle, problem, options)` in
+    `io/imports.h` holds the rule (the grids, no shapes, a tray off the
+    sliding grid, the copies' cap); `Document::exportPuzzlecad` and the
+    Python module call it. The document now resolves the problem's id
+    before the copies' check, so a call wrong in two ways names the other
+    fault first. Test: `test_export_puzzlecad_of_a_sliding_puzzle`.
+  - Review (2026-11-24, Fable): OK. Python passes no problem to the
+    refusal: its export never writes copies, so their cap does not apply.
+    The test fails with the old checks.
 
-- [ ] **5.11 `SolveStateCell::advance()` checks that it is the only writer** (trap; S)
+- [x] **5.11 `SolveStateCell::advance()` checks that it is the only writer** (trap; S)
   - *Where:* `core/shapelogic/base/solve_state.{h,cpp}`: `advance()` loads,
     asserts the transition, then stores. The writers are listed in 3.3.
   - *Problem:* a second concurrent writer would pass unnoticed.
@@ -2055,8 +2237,18 @@ helper.
     loaded, with `BT_ASSERT` on failure ("two writers of a solve state").
     The rule's text is in 3.3.
   - *Tests:* `just test-tsan`; the session tests.
+  - Done (2026-11-24): `advance()` loads relaxed as before, asserts the
+    transition, then `compare_exchange_strong(from, to, release, relaxed)`
+    (release, as the store was) and asserts it succeeded ("two writers of
+    a solve state"), outside the assert. ARCHITECTURE.md's rule says so.
+    `just test-tsan` and the session tests pass.
+  - Review (2026-11-24, Fable): OK. Every writer was read: `launch` and
+    `launchStacking` before the run's thread starts, the run's thread,
+    `abort` after the join. A stop request writes no state, so the new
+    assert cannot fail on today's paths. The orders are right: release on
+    success, as the store was; relaxed on failure.
 
-- [ ] **5.12 Disk-budget arguments are cast without bounds** (stability; S)
+- [x] **5.12 Disk-budget arguments are cast without bounds** (stability; S)
   - *Where:* `cli/main.cpp:244` and 341 cast with
     `static_cast<uint64_t>(strtod(gb) * 1e9)`. That is undefined for:
     - negative values (0 on arm64, 2^63 on x86-64);
@@ -2070,6 +2262,30 @@ helper.
     too.
   - *Tests:* `tests/cli/test_cli.py`: the disk option (find its name in
     `cli/options.cpp`) with -1 is refused with exit code 2.
+  - Done (2026-11-24): `gbToBytes` and `kMaxDiskBudgetGB` in
+    `base/system.h`. `--panex-disk` refuses a value that is no budget
+    (exit 2, "requires a number of GB from 0 to 1000000"); text that is no
+    number still reads as 0, as burrTxt's atof did. `main` refuses
+    `SHAPELOGIC_PANEX_DISK_GB` or `SHAPELOGIC_SLIDE_DISK_GB` set to one
+    (exit 2, naming the variable). The engine uses it with `value_or(0)`.
+    Tests in `test_cli.py`: -1, inf, nan and 2e7 refused, and each
+    variable at -1.
+  - Review (2026-11-24, Fable): `gbToBytes` is right. One range was left
+    above the new cap: `settings.set` took budgets up to 1e9 GB, and a
+    value between 1e6 and 1e9 became 0 (automatic) silently, against the
+    comment beside it. `settings.set` now refuses a budget above
+    `kMaxDiskBudgetGB` (`api/engine.json`'s maximum, two contract checks).
+    The app's own choices end at 5000 GB. The CLI's refusal fails without
+    the fix (exit 0 for `--panex-disk -1`).
+
+- [x] **5.13 The assembler's recursion can overflow a thread's stack** (found 2026-11-24 in 5.1)
+  - Moved (2026-11-25): now 16.6.
+
+- [x] **5.14 Tetra-octa meshes with the bumpy look and no gap have holes** (found 2026-11-24 in 5.7)
+  - Moved (2026-11-25): now 15.6.
+
+- [x] **5.15 A Continue without options keeps the paused run's folders** (found 2026-11-24 in 5.8)
+  - Moved (2026-11-25): now 15.7.
 
 **Gates for stage 5:** `just test-all`, `just test-asan`, `just test-tsan`
 (5.2, 5.11), `just oracle --tier sliding` (5.1), `just oracle-files --tier fast`
@@ -2077,7 +2293,39 @@ helper.
 contract suite, the CLI tests (5.12), `just check` on the changed files,
 and for 5.4 `just app-test` and the stacking e2e spec.
 
-## Checkpoint C (Fable, only if needed): review of stage 5
+Gates run (2026-11-24), after the last source edit but the destructor's
+catch in 5.9 (checked by `just check` and `just python-test` after it):
+- `just test-all`: 22 of 22 (299 s); `just test`: 14 of 14;
+- `just test-asan`: 21 of 21 (19 min);
+- `just test-tsan`: 127 `[parallel]` cases, and the contract suite on the
+  TSan engine;
+- `just check` on the 32 changed C++ files: clean;
+- `just python-test`: 39 of 39; the CLI tests pass;
+- `just app-check`: clean; `just app-test`: 619 of 619;
+- e2e `stacking.e2e.ts` and `stack-play.e2e.ts`: 9 of 10. The one failure
+  is the `stacking-player.png` reference screenshot, last taken on
+  2026-11-09, before the Play tab, the problem's move count and the
+  folding explorer (678c328); the Details and Activity lines match. The
+  rest of the e2e suite was not run;
+- `just site-demo --check`: rebuilt; every puzzle type opens and plays;
+- `just oracle --tier sliding --allow-missing`: 23 of 23 compared match;
+- `just oracle-python --allow-missing`: 26 of 37 transcripts differ (search
+  steps of one thread, the order of solutions with all threads, and the
+  original module crashing on one), the same 26, line for line, as HEAD's
+  build gives: not this stage's;
+- `just oracle-files`: nothing compared (no baseline: `../burr-tools` has
+  no burrTxt2). The benchmarks were not run (no original to compare with);
+- Linux (Docker, Ubuntu's GCC 13): built, quick suite 14 of 14. The
+  contract suite failed once, in the first run, while the Mac ran the e2e
+  and demo builds beside it; that run's output was cut off, so which
+  test failed is unknown. It then passed four times in a row. No GCC
+  warning on a changed line. The dev preset does not build there with
+  `-Werror`: 27 older files warn (sign conversions; `document_tilted.cpp`,
+  `grid/bitfield.h` among them), so the check ran with `BT_WERROR=OFF`;
+- Windows: the 22 changed C++ sources compile with
+  `x86_64-w64-mingw32-g++-posix -fsyntax-only`; nothing was run there.
+
+## Checkpoint C (Fable; needed, decided by checkpoint B): review of stage 5
 
 The procedure is in "Fable checkpoints". What to look at:
 - **5.1:** nothing is added to the work per arrangement; only `need_.size()`
@@ -2089,6 +2337,54 @@ The procedure is in "Fable checkpoints". What to look at:
 - **5.6:** numbers at and above 2^32 read and write in decimal, and old files
   read as before.
 - **5.7:** the neighbor search still looks in the adjacent key cells.
+
+Done (2026-11-24): see the Review lines under 5.1 to 5.12.
+- **The twelve fixes hold.** Each problem was real and each fix does what
+  its item says. Ten have a test; nine of those fail with the fix taken
+  out, tried one at a time in a scratch copy (5.1 under ASan). 5.2 and 5.11
+  have no test, as their items say, and were read.
+- **What got past the stage:**
+  - **A test that tested nothing (5.9).** Its check ran only when a stop
+    took over 50 ms, and the stop takes about 20 ms on this machine. It
+    passed without the fix. Now it uses a larger box and fails without it.
+  - **Asserts added without every caller guarded (5.5).** Three callers
+    could pass a count above 65535 (Python, the PuzzleSolver3D import, a
+    sliding tray's stamps). They wrapped before; after the stage they
+    ended in an internal error. Each now refuses or holds the count.
+  - **One reader left at 32 bits (5.6):** the numbers of a paused solve's
+    pending assemblies, on Windows only.
+  - **A range above a new cap (5.12):** `settings.set` took disk budgets
+    up to 1e9 GB, and one above the new cap of 1e6 became automatic
+    silently. It is refused now.
+  None of these loses work or gives a wrong answer. All four are of one
+  kind: the other users of what an item changes, and a new test that was
+  never seen failing. Rule 8 now asks for both.
+- **Checkpoint E runs.** These are problems the stage's tests did not
+  catch, which is this plan's condition, and stage 11 (one source of
+  truth) is made of items of this kind: a constant or a helper takes the
+  place of copies, and every user must be found. No item moves to Fable.
+- **The three findings the stage left open** (5.13 to 5.15) were not
+  looked at. On 2026-11-25 they became 16.6, 15.6 and 15.7, so that a
+  session working by stages meets them.
+- **Gates**, after the review's fixes:
+  - `just test-all`: 22 of 22 (305 s); `just test` twice: 14 of 14;
+  - `just test-asan`: 21 of 21 (18 min);
+  - `just test-tsan`: 127 `[parallel]` cases, and the contract suite on
+    the TSan engine (152 methods called);
+  - `just check` on the six C++ files the review changed: clean;
+  - `just python-test`: 40 of 40;
+  - `just app-check`: clean; `just app-test`: 619 of 619, after
+    `python3 api/gen_api_md.py` and `just app-gen` (the schema's two new
+    maximums);
+  - `just oracle --tier sliding --allow-missing`: 23 of 23 compared match;
+  - `just site-demo --check`: rebuilt; every puzzle type opens and plays.
+  - Not run: the e2e specs (the review changed no front-end source but
+    the generated types), `just oracle-python` (the original module
+    crashes on one transcript; the stage's run stands), the benchmarks
+    and `just oracle-files` (`../burr-tools` is not built), and Linux and
+    Windows builds (the review added no system call and no `#ifdef`; its
+    fix for 5.6 changes what Windows reads and was not run there).
+- The review's fixes are in the tree with stage 5, ready for one commit.
 
 ## Stage 6: renderer bugs
 
@@ -2698,6 +2994,19 @@ items name.
   - *Change:* add both to the pattern, and fix what clang-tidy reports (or
     suppress with reasons, as AGENTS.md says). `just check` must be green
     again in the same change.
+
+- [ ] **8.8 A sliding pause test asserts on timing** (stability; S; found 2026-11-25)
+  - *Where:* `tests/unit/solve/test_sliding_session.cpp`, "sliding
+    session: pausing and continuing finds every solution once":
+    `CHECK(paused > 0)`.
+  - *Problem:* the check holds only when a pause lands before the solve
+    ends, which a loaded machine does not promise: it failed once in
+    `just test-asan` (four threads, no pause landed) and passed 8 of 8
+    run alone under ASan. AGENTS.md: only the timed e2e project may assert
+    on time.
+  - *Change:* a solve long enough that the first pause always lands (a
+    larger tray), or a pause asked for before `start()` returns control to
+    the search; keep the check that every solution is found once.
 
 **Gates for stage 8:** `just test-all` (twice, timed), `just app-test`, the
 e2e specs touched one by one, `just check`, the CLI tests, one oracle tier
@@ -3350,7 +3659,7 @@ suite, `ctest -R api-docs`, `just app-gen` and its staleness test,
 `just python-test`, `just oracle-python`, the CLI tests, the oracle tiers
 the items touch, `just check`.
 
-## Checkpoint E (Fable, only if needed): review of stage 11
+## Checkpoint E (Fable; needed, decided by checkpoint C): review of stage 11
 
 The procedure is in "Fable checkpoints". What to look at:
 - **11.1:** the test compares what it says it compares. Break one Names table
@@ -3364,6 +3673,9 @@ The procedure is in "Fable checkpoints". What to look at:
 - **11.5 and 11.6:** Python, the CLI and the app give the same refusals and
   use the same folders.
 - **11.7 and 11.8:** `just oracle --tier sliding` gives the same results.
+- **Every item (from checkpoint C):** each new constant, bound or helper
+  has every user of the old copies behind it (grep the old literal and the
+  old function), and each new test fails with its change taken out.
 
 ## Stage 12: one source of truth: front end
 
@@ -3836,7 +4148,8 @@ each moved area, the screenshot tests (light and dark).
 
 Each of these can pass its tests and still lose a user's work or give a
 wrong answer later, so they need Fable. 15.1 and 15.2 are the bugs that
-lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs.
+lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
+15.6 and 15.7 were found while stage 5 was done.
 
 - [ ] **15.1 The engine ends without pausing its solves** (bug; M)
   - *Where:*
@@ -4054,6 +4367,41 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs.
     - Contract: the undo label after `solve.start`.
   - *Model:* Fable (undo exactness).
 
+- [ ] **15.6 Tetra-octa meshes with the bumpy look and no gap have holes** (bug; S to M; found in 5.7, was 5.14)
+  - *Where:* `core/shapelogic/mesh/uniform_mesh.cpp`, `bumpy` with
+    `offset` 0 on the tetra-octa grid.
+  - *Problem:* `test::legalShape(gt, 3, n)` for n of 3 to 5 meshes with
+    missing twins at every bevel from 2e-5 to 0.03. The existing test
+    ("plain and bumpy, is watertight") always sets an offset, so it never
+    showed this. Not the vertex lookup of 5.7: the nearest match changes
+    nothing. What a user gets from such a mesh (an STL with holes, or the
+    flat cells) is not known yet: find out first.
+  - *Change:* find what does not weld (a neck's corners between a
+    tetrahedron and an octahedron are the likely place) and fix it.
+  - *Keep:* every mesh that is watertight today stays byte for byte the
+    same (the STL tests, the oracle's STL dumps).
+  - *Tests:* offset 0 added to the watertight test, on every grid.
+  - *Model:* Fable (a wrong result with no known cause).
+
+- [ ] **15.7 A Continue without options keeps the paused run's folders** (bug; S; found in 5.8, was 5.15)
+  - *Where:* `engine/methods_solve.cpp` `launch`: `solve.continue` without
+    options takes `Document::pausedOptions()` whole.
+  - *Problem:* those options hold the search folders, disk budgets and
+    memory as they were when the run started. A run paused because its
+    folder could not be written pauses again after another folder is set,
+    when it is continued without options. The app does not show this: its
+    Continue button sends the options, and the autosave's Continue follows
+    its own save point at once. A caller of the API meets it.
+  - *Change* (decided 2026-11-25): on a Continue without options, the
+    paused run's options with the folders, disk budgets and memory share
+    of the current settings (what `solveOptionsFrom` takes from
+    `s.settings`); the solver, the threads and the rest stay the paused
+    run's.
+  - *Tests:* `tests/unit/engine/`: a run paused by a folder that cannot be
+    written, `settings.set` with a folder that can, `solve.continue`
+    without options: the run goes on, and its log line names the new
+    folder's settings and the paused run's threads.
+
 **Gates for stage 15:** `just test-all`, `just test-asan`,
 `just test-tsan`, the contract suite, `just oracle --tier fast` and
 `--tier sliding`, `just python-test`, `just oracle-python`, `just check`
@@ -4189,6 +4537,117 @@ a message: never a crash, a hang or all the memory.
       tests.
   - *Tests:* a truncated gzip file is refused with that message;
     `test_analysis_files.cpp` runs the app's reader.
+
+- [x] **16.6 The assembler's recursion can overflow a thread's stack** (stability; S to M; found in 5.1, was 5.13)
+  - *Where:* the assembler's search (`SimdHuangCover::search<true>`, one
+    level per piece; check the other assemblers' searches too) on the
+    solve's thread (`SolveSession::runner_`) and the pool's threads:
+    `std::thread`s with the system's default stack (512 KiB on macOS).
+  - *Problem:* under ASan a sliding problem of 141 pieces overflows that
+    stack, which ends the process. A release build has smaller frames, but
+    the depth grows with the piece count of any puzzle, and a file can ask
+    for thousands of pieces.
+  - *Measured (2026-11-25, Fable):* the release engine on macOS arm64,
+    driven as the app drives it (`solve.start`, one thread and all
+    threads), on boxes filled with copies of one block (so Assembler 1 and
+    `SimdHuangCover`). The engine dies (SIGBUS, the stack's guard region,
+    in `SimdHuangCover::search<true>`) at a piece count that falls as the
+    result grows, because the frame grows with the bitset:
+
+    | Cells of the result | Bitset | Solves with | Dies with |
+    |---|---|---|---|
+    | up to 2048 | 4 to 32 | 1000 pieces | 2000 pieces |
+    | 2049 to 4096 | 64 | 1500 | 1600 |
+    | 4097 to 8192 | 128 | 600 | 650 |
+    | 8193 to 16384 | 256 | 250 | 300 |
+    | 16385 to 32768 | 512 | 100 | 150 |
+
+    Above 32768 cells the vector search is not used, and 140 pieces
+    solved. Not measured: Assembler 0 (`SimdExactCover`, every part one
+    piece), Windows (a 1 MiB stack, so about twice these counts) and
+    Linux. The Python module's worker and the CLI's pool threads have the
+    same 512 KiB; the CLI's main thread has 8 MiB.
+  - *Change:* one of: threads with a stack sized for the most pieces a
+    problem may have (a system call per platform: rule 8); a search that
+    keeps its levels on the heap (under the benchmarks: rule 5); or the
+    plain search, which keeps its own stacks, for a problem whose piece
+    count is above what the vector search's frames allow. Write the choice
+    and its numbers in the Done line.
+  - *Tests:* the boxes of the table's "dies with" column solve (a 2x2
+    box of 1600 dominoes; 650 blocks of 2x2x2; 300 of 2x2x8; 150 of
+    2x2x32), in the release build and under ASan.
+  - Done (2026-11-25, Fable, ahead of the stage at the user's request: it
+    is a crash in the app): the third choice, the plain search for a
+    problem with more pieces than the vector search's stack allows.
+    - **What a level takes is measured, not assumed:**
+      `SimdHuangCover::stackPerLevel()` and `SimdExactCover`'s run a cover
+      of 4 rows and one of 20 once per process and take the difference of
+      the frames they are reported from (`simdHuangStackPerLevel`,
+      `simdExactStackPerLevel` by column count). In the release build on
+      macOS arm64: 272 bytes up to 1024 columns, 576 at 2048, 352 at 4096,
+      864 at 8192, 2368 at 16384, 4416 at 32768, which is where the engine
+      died. Debug and sanitizer builds take two to ten times that, and the
+      measure follows. Where nothing can be measured (WebAssembly keeps
+      its levels off the stack that is seen) a level counts as a mask and
+      256 bytes.
+    - **The gate:** `SearchOptions::vectorStackBudget`, by default
+      `kVectorStackBudget`, 384 KiB: three quarters of the smallest stack
+      a thread starts with (macOS, 512 KiB). `Assembler1::simdFits` and
+      `Assembler0::simdFits` refuse the vector search when the depth plus
+      16 spare levels, times a level, is above it. Assembler 1's depth is
+      the least of: the pieces its parts may give, the pieces of the
+      smallest part that fit in the result, and the columns. (The first
+      alone is 150 for Solid Six Piece Burrs, whose covers hold seven: the
+      first version of this fix used it, and that puzzle lost the vector
+      search under ASan.) Assembler 0's depth is its pieces.
+    - **Kept:** a search stopped as a vector search carries on as one
+      whatever the budget (`vectorAnyway`, and the tasks a vector search
+      handed on), as with the memory budget. No change in the search
+      itself, so no benchmark: the fast tier's iteration counts are the
+      original's still. No fixture is near the limit (the nearest uses a
+      tenth of it).
+    - **In the release build the vector search now ends at** about 1400
+      pieces up to 1024 columns, 650 at 2048, 1100 at 4096, 440 at 8192,
+      150 at 16384 and 70 at 32768. Above, the plain search: at 800
+      dominoes it found 64541 assemblies in six seconds where the vector
+      search found 64623.
+    - **Tests:** "Assembler 1: the vector search is refused past its stack
+      budget" and Assembler 0's (the measure in every size class; the
+      option decides, with the same assemblies); "Assembler 1: the stack
+      budget counts the pieces that fit"; "solve session: more pieces than
+      the vector search's stack holds" (400 cubes in a 2x2x800 box on the
+      run's thread). In a scratch copy without the budget the session test
+      ends in a bus error, and the pieces-that-fit test fails with the
+      first version's depth.
+    - **By hand, the release engine driven as the app drives it:** every
+      box of the table's "dies with" column solves, and so do 6400
+      dominoes, 700 cubes, 450 blocks of 2x2x8, 250 of 2x2x32 and 2000
+      unit cubes, on one thread and on all.
+    - **Not done:** the same recursion in WebAssembly (the demo) is
+      bounded by the browser's own call stack, which this cannot measure;
+      the demo's examples are small.
+    - **Gates**, after the last source edit:
+      - `just test-all`: 22 of 22 (295 s); `just test` twice: 14 of 14;
+      - `just test-asan`: 21 of 21 (16 min). The run before the depth was
+        tightened failed twice: Solid Six Piece Burrs (above) and the
+        sliding pause test of 8.8, which passed 8 of 8 alone;
+      - `just test-tsan`: the `[parallel]` cases and the contract suite on
+        the TSan engine;
+      - `just oracle --tier fast --allow-missing`, with all threads and
+        with `--threads 1`: 18 of 18 compared match, every field;
+      - `just check` on the seven changed C++ sources: clean;
+      - `just python-test`: 40 of 40; `just app-test`: 619 of 619;
+      - `just site-demo --check`: rebuilt; every puzzle type opens and
+        plays (the WebAssembly build takes the measure's code);
+      - Linux (Docker, Ubuntu's GCC 13, a debug build): built, the new
+        tests and the `[simd]` cases pass, and the measure gives 544 to
+        4496 bytes a level; Windows: the four changed sources compile with
+        `x86_64-w64-mingw32-g++-posix -fsyntax-only`, nothing run there.
+        Both before the last two edits (the WebAssembly fallback and the
+        tighter depth), which add no system call and no builtin.
+      - Not run: the oracle's full and slow tiers (their puzzles are in
+        `../burr-tools`, which is incomplete), the benchmarks (no change
+        in a search), the e2e specs (no front-end change).
 
 **Gates for stage 16:** `just test-all`, `just test-asan`,
 `just oracle-roundtrip`, `just oracle-resume`, `just check` on the changed

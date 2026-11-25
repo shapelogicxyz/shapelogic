@@ -233,6 +233,7 @@ std::string panexWorkDir(const Options& o) {
 
 // The disk saved levels may take: --panex-disk, else
 // $SHAPELOGIC_PANEX_DISK_GB, else 0 (half the free space, at most 200 GB).
+// (main has refused a value that is no budget)
 std::uint64_t panexDiskBudget(const Options& o) {
   double gb = o.panexDiskGB;
   if (gb <= 0) {
@@ -241,7 +242,19 @@ std::uint64_t panexDiskBudget(const Options& o) {
       gb = std::strtod(e, nullptr);
     }
   }
-  return gb > 0 ? static_cast<std::uint64_t>(gb * 1e9) : 0;
+  return bt::gbToBytes(gb).value_or(0);
+}
+
+// The disk budgets the environment gives, read as burrTxt read them
+// (atof): an error for one that is no budget (bt::gbToBytes), else empty.
+std::string diskEnvironmentError() {
+  for (const char* name : {"SHAPELOGIC_PANEX_DISK_GB", "SHAPELOGIC_SLIDE_DISK_GB"}) {
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
+    if (const char* e = std::getenv(name); e != nullptr && !bt::gbToBytes(std::strtod(e, nullptr))) {
+      return std::string(name) + " is \"" + e + "\": a number of GB from 0 to 1000000";
+    }
+  }
+  return "";
 }
 
 // A stacking solve's options from the command line (the session's).
@@ -338,7 +351,7 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   }
   // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
   if (const char* gb = std::getenv("SHAPELOGIC_SLIDE_DISK_GB")) {
-    s.diskBudget = static_cast<std::uint64_t>(std::strtod(gb, nullptr) * 1e9);
+    s.diskBudget = bt::gbToBytes(std::strtod(gb, nullptr)).value_or(0);
   }
   s.legacy = o.slideLegacy;
   s.likePiecesApart = o.slideApart;
@@ -568,7 +581,7 @@ std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
   px.highMemory = o.highMemory;
   px.threads = o.threads;
   const bool usePanex =
-      o.disassemble && (o.panexSolver || bt::panex::unsupported(puzzle, problem, true).empty());
+      o.disassemble && bt::panex::runsOnPanexSearch(puzzle, problem, o.panexSolver);
   // held till the search is over
   bt::FileLock searchLock;
   if (usePanex) {
@@ -1380,6 +1393,10 @@ int main(int argc, char** argv) {
   Options o;
   if (const std::optional<int> code = bt::cli::parseArgs(argc, argv, o)) {
     return *code;
+  }
+  if (const std::string err = diskEnvironmentError(); !err.empty()) {
+    std::fprintf(stderr, "shapelogic_cli: %s\n", err.c_str());
+    return kExitUsage;
   }
   // a slide search reads many level files at once
   (void)bt::raiseOpenFileLimit(4096);

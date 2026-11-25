@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 
@@ -162,6 +163,48 @@ class TestSolve(unittest.TestCase):
         del it
         self.assertLess(time.monotonic() - started, 10)
 
+    def test_other_threads_run_while_a_stop_waits(self):
+        # stop() and dropping the iterator wait for the solve's thread
+        # with the GIL let go: building a large box's search takes a while
+        # to see the stop (some tenths of a second for this box in a debug
+        # build; a 26x26x26 one is through in 20 ms, too soon to tell), and
+        # a thread that counts goes on meanwhile
+        waits = []
+        for drop in (False, True):
+            with self.subTest(drop=drop):
+                it = dominoes(50, 50, 50).problems[0].solve(disassemble=False)
+                count = [0]
+                done = threading.Event()
+
+                def counter():
+                    while not done.is_set():
+                        count[0] += 1
+                        time.sleep(0.001)
+
+                t = threading.Thread(target=counter)
+                t.start()
+                # the solve's thread has begun building by now
+                time.sleep(0.01)
+                before = count[0]
+                started = time.monotonic()
+                if drop:
+                    del it
+                else:
+                    it.stop()
+                waited = time.monotonic() - started
+                moved = count[0] - before
+                done.set()
+                t.join()
+                # a stop the solve saw at once says nothing; one that took
+                # a while had the counter going (it holds the GIL only
+                # while it counts, about a millisecond a turn)
+                waits.append(waited)
+                if waited > 0.03:
+                    self.assertGreater(moved, 5, "the counter stood still for %.3f s" % waited)
+        # a build fast enough to see both stops at once has told nothing
+        if max(waits) <= 0.03:
+            self.skipTest("both stops were seen at once: %r" % waits)
+
     def test_a_stopped_take_apart(self):
         # stop while the take-apart of each assembly is the work
         it = self.problem.solve(disassemble=True)
@@ -207,6 +250,19 @@ class TestSolve(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Pieces contain too many units"):
             next(it)
         self.assertTrue(it.is_finished)
+
+    def test_a_piece_count_above_the_most_a_part_holds(self):
+        # a part holds at most 65535 pieces: a count above is refused (the
+        # original wrapped it), the counts left as they were
+        puzzle = dominoes(2, 2, 2)
+        problem = puzzle.problems[0]
+        problem.set_piece_count(1, 65535)
+        for call in (lambda: problem.set_piece_count(1, 65536),
+                     lambda: problem.set_piece_range(1, 0, 65536),
+                     lambda: problem.set_piece_range(1, 70000, 3)):
+            with self.assertRaisesRegex(ValueError, "at most 65535 pieces"):
+                call()
+        self.assertEqual(problem.get_piece_max(1), 65535)
 
     def test_unknown_solver_names(self):
         with self.assertRaises(ValueError):
@@ -293,6 +349,17 @@ class TestImports(unittest.TestCase):
         with open(os.path.join(BY_ORIGINAL, "PelikanBurr.p1.scad")) as f:
             self.assertEqual(puzzle.export_puzzlecad(name="PelikanBurr.xmpuzzle"), f.read())
         self.assertIn("unknown", puzzle.export_puzzlecad(0))
+
+    def test_export_puzzlecad_of_a_sliding_puzzle(self):
+        # the app's rule: a sliding puzzle's pieces export as bricks, on
+        # beveled units scaled for print (its trays only with the app's
+        # tray option)
+        puzzle = shapelogic.load(puzzle_path("sliding", "slide_corridor.xmpuzzle"))
+        for problem in (0, None):
+            with self.subTest(problem=problem):
+                text = puzzle.export_puzzlecad(problem, name="slide_corridor.xmpuzzle")
+                self.assertIn("burr_plate", text)
+                self.assertIn("[16, 16, 5.6]", text)
 
     def test_export_refusals(self):
         with self.assertRaisesRegex(RuntimeError, "only available for cube-grid"):

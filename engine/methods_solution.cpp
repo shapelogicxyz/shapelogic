@@ -125,8 +125,8 @@ Reply solutionToShapes(State& s, Params& p) {
                                      {"problem", app::AssemblyImport::AddTo::Problem}})
                 .value_or(app::AssemblyImport::AddTo::Nothing);
   o.target = p.optId("target", IdKind::Problem);
-  o.min = static_cast<unsigned int>(p.optInteger("min", 1, 0, 0xFFFF));
-  o.max = static_cast<unsigned int>(p.optInteger("max", 1, 0, 0xFFFF));
+  o.min = static_cast<unsigned int>(p.optInteger("min", 1, 0, kMaxPartCount));
+  o.max = static_cast<unsigned int>(p.optInteger("max", 1, 0, kMaxPartCount));
   BTE_CHECK(p.finish());
   BTE_TRY(const std::vector<app::Id> shapes, s.document().assembliesToShapes(problem, o));
   Json ids = Json::array();

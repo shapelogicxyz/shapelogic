@@ -43,6 +43,7 @@ export interface Settings {
    * reserve (2 GB or a twentieth of it). On macOS the free space counts what the system frees on
    * demand, as Finder does.
    * @minimum 0
+   * @maximum 1000000
    */
   slideDiskGB: number;
   /**
@@ -60,6 +61,7 @@ export interface Settings {
    * longer finding the path at the end takes. More than the disk has room for is held to its free
    * space but a reserve, as slideDiskGB is.
    * @minimum 0
+   * @maximum 1000000
    */
   panexDiskGB: number;
   /**
@@ -1666,8 +1668,9 @@ export interface SolveProgress {
    */
   searchTraced: number;
   /**
-   * The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking
-   * search').
+   * The run is on the Panex search: the Panex Solver's, or the Stacking Solver's on a puzzle that
+   * search can hold. It saves itself as it pauses, and traces its path back once its ends meet
+   * (searchTraced).
    */
   panexSearch: boolean;
   /**
@@ -2378,10 +2381,16 @@ export interface Methods {
       threads?: number;
       solver?: Solver;
       slideFolder?: string;
-      /** @minimum 0 */
+      /**
+       * @minimum 0
+       * @maximum 1000000
+       */
       slideDiskGB?: number;
       panexFolder?: string;
-      /** @minimum 0 */
+      /**
+       * @minimum 0
+       * @maximum 1000000
+       */
       panexDiskGB?: number;
       /**
        * @minimum 0

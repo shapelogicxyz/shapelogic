@@ -267,6 +267,35 @@ TEST_CASE("solve session: an autosave pause saves a solve that carries on to the
   CHECK(paused >= 1);
 }
 
+TEST_CASE("solve session: more pieces than the vector search's stack holds", "[solve][session]") {
+  // 400 cubes of 2x2x2 in a box of 2x2x800: one assembly, every piece a
+  // level of the vector search's recursion. On the run's thread (half a
+  // megabyte of stack on macOS) that ended the process; the plain search
+  // takes a problem with so many pieces.
+  constexpr unsigned int kCubes = 400;
+  Puzzle p{GridType{GridKind::Bricks}};
+  const auto block = [&p](unsigned int z) {
+    const unsigned int id = p.addShape(2, 2, z);
+    for (unsigned int i = 0; i < 4 * z; i++) {
+      p.getShape(id).setState(i % 2, (i / 2) % 2, i / 4, Voxel::kFilled);
+    }
+    return id;
+  };
+  const unsigned int box = block(2 * kCubes);
+  const unsigned int cube = block(2);
+  Problem& pr = p.getProblem(p.addProblem());
+  pr.setResultId(p, box);
+  pr.setShapeMaximum(p, cube, kCubes);
+  pr.setShapeMinimum(p, cube, kCubes);
+  SolveOptions o;
+  o.disassemble = false;
+  SolveSession s(p, pr, o);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK(pr.getNumAssemblies() == 1);
+}
+
 TEST_CASE("solve session: no solution limit keeps every solution", "[solve][session]") {
   // No limit and a drop of 0, as a typed-in value can give: the solve
   // starts (the original once looped for ever) and keeps every solution.

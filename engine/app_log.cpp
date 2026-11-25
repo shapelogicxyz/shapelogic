@@ -17,6 +17,7 @@
 #include <optional>
 #include <string>
 #include <system_error>
+#include <utility>
 
 namespace bt::engine {
 
@@ -180,14 +181,9 @@ void logCall(State& s, std::string_view method, const Json& params, const Reply&
     const char* event = method == "solve.start"      ? "Solve Started"
                         : method == "solve.continue" ? "Solve Continued"
                                                      : "Solve Prepared";
-    // the options as the solve read them: they parsed, as the call
-    // succeeded
-    RpcResult<SolveOptions> options = solveOptionsFrom(s, given);
-    const std::string problem = stringParam(params, "problem");
-    const std::optional<std::uint64_t> id = parseId(IdKind::Problem, problem);
-    if (options && id && s.document().problemIndex(*id)) {
-      defaultStackingSolver(s, *id, given, *options);
-    }
+    // the options the solve was launched with (a Continue without any
+    // goes on with the paused solve's, not the defaults)
+    const std::optional<SolveOptions> options = std::exchange(s.launchedWith, std::nullopt);
     logLine(s, LogLevel::Info, event,
             problemOf(s, params) + " of " + fileOf(s, Json()) + ", options " +
                 (given.is_null() ? std::string("{}") : given.dump()) +

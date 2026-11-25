@@ -4,6 +4,7 @@
 #include "engine.h"
 
 #include <optional>
+#include <utility>
 
 namespace bt::engine {
 
@@ -32,6 +33,7 @@ Reply launch(State& s, Params& p, Launch how) {
             : how == Launch::Prepare ? d.solvePrepare(problem, options)
                                      : d.solveResume(problem, options));
   s.watches[problem].launched = true;
+  s.launchedWith = std::move(options);
   return s.changed();
 }
 

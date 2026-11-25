@@ -99,4 +99,12 @@ struct PuzzlecadOptions {
                                                         std::string_view sourceName,
                                                         const PuzzlecadOptions& options = {});
 
+/// Why writePuzzlecad is not asked for this puzzle, `problem` (null for
+/// every shape) and options, in the original's words; empty when it may
+/// be: grids other than cubes and sliding trays, a puzzle without shapes,
+/// a tray off the sliding grid, more copies than kMaxPuzzlecadCopies.
+/// Every caller refuses with it (the app, the Python module).
+[[nodiscard]] std::string puzzlecadRefusal(const Puzzle& puzzle, const Problem* problem,
+                                           const PuzzlecadOptions& options = {});
+
 }  // namespace bt::io
