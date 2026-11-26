@@ -277,6 +277,28 @@ class TestSolve(unittest.TestCase):
         self.assertEqual(len(found), 1)
         self.assertFalse(found[0].has_disassembly)
 
+    def test_a_tilted_tray_keeps_its_pieces_face_up_as_stored(self):
+        # Triple Play's second problem stores "Pieces may be turned over"
+        # off, its first on. The counts are shapelogic_cli's (--json -o 1,
+        # and with --flip on; -o 0, and with --flip off): 2 and 1, 1 and 0.
+        # (The module had no tray rule: it solved the second problem with
+        # the pieces turned over, 1 where the app and the CLI find 2.)
+        puzzle = shapelogic.load(puzzle_path("tilted", "TriplePlay.xmpuzzle"))
+        face_up, turned = puzzle.problems[1], puzzle.problems[0]
+
+        def count(problem, **kw):
+            return len(list(problem.solve(disassemble=False, **kw)))
+
+        self.assertEqual(count(face_up), 2)
+        self.assertEqual(count(face_up, flip_pieces=None), 2)
+        self.assertEqual(count(face_up, flip_pieces=False), 2)
+        self.assertEqual(count(face_up, flip_pieces=True), 1)
+        self.assertEqual(count(turned), 1)
+        self.assertEqual(count(turned, flip_pieces=False), 0)
+        # no part on a puzzle without a tray
+        plain = dominoes(2, 2, 2).problems[0]
+        self.assertEqual(count(plain, flip_pieces=False), count(plain, flip_pieces=True))
+
 
 class TestSliding(unittest.TestCase):
     def test_sliding_solver(self):

@@ -130,6 +130,7 @@ import { ENGINE_HASH_FILE, sha256File } from './engine-hash.ts';
 import { findEngine, programFile } from './engine-path.ts';
 import { writeFileSafely } from './export-file.ts';
 import { EngineHost } from './engine-host.ts';
+import { EngineStops } from './engine-stops.ts';
 import { serveEngine } from '../engine/serve.ts';
 import type { CallOutcome } from '../engine/serve.ts';
 import { menuTemplate, NO_STATE } from './menu.ts';
@@ -222,6 +223,10 @@ const servers = new Map<number, ReturnType<typeof serveEngine>>();
 const windows = new Map<number, WindowState>();
 /** Each window's engine host: a change of the cache folder reaches them all. */
 const hosts = new Map<number, EngineHost>();
+/** The engines of closed windows, until they have ended; a quit waits for them. */
+const engineStops = new EngineStops(() => {
+  app.quit();
+});
 let store: StateStore;
 /** The app's log (app-log.ts), made at the start. */
 let appLog: AppLog;
@@ -852,6 +857,11 @@ function createWindow(first?: AppCommand): void {
     },
   });
   hosts.set(id, host);
+  // a window opened while a quit waited for the engines: the app goes on
+  // (the quit is over: this window's close ends nothing but itself)
+  if (engineStops.cancelQuit()) {
+    quitting = false;
+  }
   logEngineProblems(host, appLog, source);
   host.onStatus((status) => {
     if (status.state === 'exited') {
@@ -1004,7 +1014,8 @@ function createWindow(first?: AppCommand): void {
     // a copy the window left (not answered, or not saved) stays for the next window
     rescue.release(id);
     void cache.forget(contents);
-    void host.stop();
+    // its solves pause first: a quit waits for it (before-quit)
+    engineStops.stop(host);
     updateMenu();
     // a quit goes on with the next window however this one closed (its own
     // close, while the quit waited on another's answer, does not end it)
@@ -1142,6 +1153,13 @@ app.on('open-file', (e, path) => {
 // one leaves the others open; with none left it goes through
 app.on('before-quit', (e) => {
   if (![...windows.values()].some((w) => !w.win.isDestroyed())) {
+    // The engines of the windows that closed are still pausing and saving
+    // their solves: the quit waits for them (capped), then is asked for
+    // again. Quitting at once left them behind, their output unread and
+    // nobody to end one that hung (cleanup item 15.1).
+    if (engineStops.holdQuit()) {
+      e.preventDefault();
+    }
     return;
   }
   e.preventDefault();

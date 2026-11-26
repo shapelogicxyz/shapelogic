@@ -8,6 +8,10 @@ tier of the harness. Decision 0014 records the shape of it. Next: the
 audit of this part (Fable 5.1, extra high effort), then part 2, the
 sliding front end.
 
+**Note (2026-11-25, cleanup item 15.4):** `sliding::needsPreparing`, named
+below, is gone: `prepareForSolving` only sets the problem's maximum of
+holes, and the solve session calls it as a run starts.
+
 ## Done
 
 Four commits: `ab15050` "Core: sliding puzzles: the tray model, the slide

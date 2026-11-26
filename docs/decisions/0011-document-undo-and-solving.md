@@ -84,5 +84,44 @@ the end does not need the sessions to end and goes on.
   undo depth bounds it.
 - Solving does not record undo steps; aborting a solve cannot be undone
   (as in the original), and undoing an older step can bring back the
-  solutions it saved.
+  solutions it saved. (Amended below: solving records a step.)
 - The engine (stage 7) maps `InvalidState` to "pause first" in the UI.
+
+## Amendment: solving records an undo step (decided 2026-11-24)
+Solving records an undo step at each run's start (decided 2026-11-24 by
+the user; built 2026-11-25, cleanup item 15.5). Without one, an undo after
+a solve could throw its results away: the undo of an older step that held
+the problem (a Solver option, any change of the lists) put the problem
+back as it was before the solve and moved the solutions into the redo
+stack, where the next edit dropped them; and the undo of an edit of a
+shape whose problem was unsolved gave the old shape back under the
+solutions found for the new one.
+
+- A run that starts (Solve, Prepare, Continue) records "Solve P1", and a
+  take-apart of saved solutions "Take apart P1" (the problem's label as it
+  is then): a step that holds the problem as it was, solutions and all, as
+  any step that touches a problem does, and the shapes whose hotspot the
+  start reset. Undo is last in, first out, so it takes a run's results out
+  before the edits made before the run, and gives `writePuzzle` byte for
+  byte; redo brings them back. Undo while a run or a take-apart works is
+  refused as before.
+- While that step is on top of the undo stack, the problem's next run of
+  the same kind records no other: the state to go back to is the one the
+  step holds. A solve carried on run after run (the autosave) so copies
+  its solutions once, and the undo of a solve that was paused and carried
+  on takes all of it out. A solve does not only add solutions (Solve
+  drops the old ones, the sorted orders insert, the limit thins), so the
+  step keeps the whole problem, not a count to cut the list back to.
+- A run that starts leaves nothing to redo, whether it recorded a step or
+  not: a redone edit of a shape would stand beside this run's solutions.
+- A launch that is refused records nothing.
+- A problem swapped in by undo or redo counts its solution ids and its
+  `solutionsVersion()` on from the one it replaces, so a solve undone and
+  run again gives its solutions no id an undone one had.
+- Still not undoable: aborting a solve, and what a search keeps in its
+  folders (a sliding solve's levels, a Panex search). A paused solve
+  undone and redone carries on from the position in its problem; a search
+  whose folder a later Solve emptied starts over, as after any Solve.
+- The document stays changed after the undo of a run (`solveDirty_`): a
+  run with its step already on top records none, so the steps alone
+  cannot say whether a file has what the document holds.

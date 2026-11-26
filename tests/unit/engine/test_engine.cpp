@@ -7,6 +7,8 @@
 #include "rpc.h"
 #include "../scratch_dir.h"
 
+#include "shapelogic/base/assert.h"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -16,7 +18,9 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <ostream>
 #include <sstream>
+#include <streambuf>
 #include <thread>
 #include <string>
 #include <vector>
@@ -271,6 +275,105 @@ TEST_CASE("engine: the run loop ends at the end of input or on shutdown", "[engi
   CHECK(c.messages[0]["id"] == 1);
 }
 
+namespace {
+
+// An output that takes `lines` lines and refuses every write after them,
+// as a pipe does once its reader is gone (and SIGPIPE is ignored).
+class ClosingBuf : public std::streambuf {
+ public:
+  explicit ClosingBuf(int lines) : left_(lines) {}
+  [[nodiscard]] const std::string& taken() const { return taken_; }
+
+ protected:
+  int_type overflow(int_type c) override {
+    if (left_ <= 0 || traits_type::eq_int_type(c, traits_type::eof())) {
+      return traits_type::eof();
+    }
+    const char ch = traits_type::to_char_type(c);
+    taken_ += ch;
+    if (ch == '\n') {
+      left_--;
+    }
+    return c;
+  }
+
+ private:
+  int left_;
+  std::string taken_;
+};
+
+}  // namespace
+
+// Cleanup item 15.1: an app that crashed or was force-quit leaves the
+// engine's output without a reader. The write that fails ends the run
+// loop, so the caller lets the engine go and its document pauses the
+// solves; nothing more is read or run.
+TEST_CASE("engine: the run loop ends when its output is refused", "[engine][parallel]") {
+  ClosingBuf buf(1);
+  std::ostream out(&buf);
+  std::ostringstream log;
+  // (static: see the case above)
+  static std::istringstream in(R"({"jsonrpc":"2.0","id":1,"method":"settings.get"})"
+                               "\n"
+                               R"({"jsonrpc":"2.0","id":2,"method":"settings.get"})"
+                               "\n"
+                               R"({"jsonrpc":"2.0","id":3,"method":"engine.shutdown"})"
+                               "\n");
+  Engine e(out, log);
+  // not at the end of the input: the third line is never run
+  CHECK_FALSE(e.run(in));
+  CHECK_FALSE(e.stopped());
+  const Captured c = parse(buf.taken());
+  REQUIRE(c.messages.size() == 1);
+  CHECK(c.messages[0]["id"] == 1);
+}
+
+// Cleanup item 15.1: an exception outside a method's handler (a failed
+// BT_ASSERT in Document::poll, say) used to reach std::terminate, and the
+// solves were never paused. It is logged, once while it repeats, and the
+// engine goes on answering.
+TEST_CASE("engine: a broken invariant in a poll is logged and the run loop goes on",
+          "[engine][parallel]") {
+  std::ostringstream out;
+  std::ostringstream log;
+  static std::istringstream in(R"({"jsonrpc":"2.0","id":1,"method":"settings.get"})"
+                               "\n"
+                               R"({"jsonrpc":"2.0","id":2,"method":"settings.get"})"
+                               "\n"
+                               R"({"jsonrpc":"2.0","id":3,"method":"settings.get"})"
+                               "\n"
+                               R"({"jsonrpc":"2.0","id":4,"method":"settings.get"})"
+                               "\n");
+  Engine e(out, log);
+  // the polls after the first, second and fourth reply fail; those after
+  // the third are clean (by the replies written, not by counting polls:
+  // the loop also polls while it waits for a line)
+  e.setPollHook([&out] {
+    const std::string written = out.str();
+    const auto replies = std::count(written.begin(), written.end(), '\n');
+    BT_ASSERT_MSG(replies == 3, "the test broke an invariant");
+  });
+  CHECK(e.run(in));
+  const Captured c = parse(out.str());
+  REQUIRE(c.messages.size() == 4);
+  for (std::size_t i = 0; i < 4; i++) {
+    CHECK(c.messages[i]["id"] == i + 1);
+    CHECK(c.messages[i].contains("result"));
+  }
+  // told once for the first two (the same failure, repeated), and again
+  // after the clean poll
+  const std::string logged = log.str();
+  INFO(logged);
+  std::size_t lines = 0;
+  for (std::size_t at = logged.find("shapelogic_engine: ERROR: Internal Error: the run loop: ");
+       at != std::string::npos;
+       at = logged.find("shapelogic_engine: ERROR: Internal Error: the run loop: ", at + 1)) {
+    lines++;
+  }
+  CHECK(lines == 2);
+  CHECK(logged.find("the test broke an invariant") != std::string::npos);
+}
+
 TEST_CASE("engine: a solve's events, polled while it runs", "[engine][parallel]") {
   Harness h;
   h.result("document.new", {{"grid", "bricks"}});
@@ -476,6 +579,53 @@ TEST_CASE("engine: the log line of a Continue without options names the paused s
   CHECK(line.find("options {}; ") != std::string::npos);
   CHECK(line.find("threads 3,") != std::string::npos);
   CHECK(line.find("automatic: every hardware thread") == std::string::npos);
+}
+
+// Cleanup item 15.7: a Continue without options takes the paused run's
+// options, but the folders, the disk and the memory of the settings as
+// they are now: a run paused because its folder could not be written goes
+// on once another folder is set (it paused again in the old one).
+TEST_CASE("engine: a Continue without options works in the folders the settings name now",
+          "[engine]") {
+  const ScratchDir scratch("engine_continue_folder");
+  const std::filesystem::path& work = scratch.path();
+  std::filesystem::create_directories(work);
+  const std::filesystem::path file = work / "not-a-folder";
+  { std::ofstream(file) << "x"; }
+  const std::filesystem::path good = work / "panex";
+
+  Harness h;
+  h.result("settings.set", {{"panexFolder", file.string()}, {"log", "info"}});
+  const Json snap = h.result(
+      "document.open", {{"path", "tests/data/puzzles/stacking/stack_panex_swap_5.xmpuzzle"}});
+  const std::string p = snap["problems"][0]["id"];
+  const app::Id id = *parseId(IdKind::Problem, p);
+  h.result("solve.start", {{"problem", p}, {"options", {{"disassemble", true}, {"threads", 3}}}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  h.engine.poll();
+  Json st = h.result("solve.status", {{"problem", p}});
+  REQUIRE(st["state"] == "paused");
+  REQUIRE(st["folderFailure"].is_object());
+
+  h.result("settings.set", {{"panexFolder", good.string()}, {"panexDiskGB", 7}});
+  h.log.str("");
+  h.result("solve.continue", {{"problem", p}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  h.engine.poll();
+  st = h.result("solve.status", {{"problem", p}});
+  CHECK(st["state"] == "finished");
+  CHECK(st["folderFailure"].is_null());
+  CHECK(h.result("solution.page", {{"problem", p}})["rows"].size() == 1);
+  // it ran with the paused run's Find Solutions (a stacking run without
+  // it is refused) and threads, in the folder set since
+  const std::string log = h.log.str();
+  INFO(log);
+  const std::size_t at = log.find("Solve Continued: ");
+  REQUIRE(at != std::string::npos);
+  const std::string line = log.substr(at, log.find('\n', at) - at);
+  CHECK(line.find("options {}; ") != std::string::npos);
+  CHECK(line.find("threads 3,") != std::string::npos);
+  CHECK(line.find(good.string()) != std::string::npos);
 }
 
 TEST_CASE("engine: a run that ends before the next poll still tells its end", "[engine]") {

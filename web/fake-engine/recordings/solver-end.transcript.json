@@ -199,7 +199,7 @@
      },
      "assemblyFraction": 0,
      "iterations": 0,
-     "assemblerThreads": 1,
+     "assemblerThreads": 0,
      "assemblies": 0,
      "solutions": 0,
      "disassembly": false,
@@ -249,7 +249,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 51,
+     "elapsedMs": 53,
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,

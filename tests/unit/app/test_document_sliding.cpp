@@ -6,6 +6,7 @@
 // of more than one layer, and a sliding solve played back. Every command is
 // checked to undo and redo byte for byte.
 #include "app_test_helpers.h"
+#include "../scratch_dir.h"
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/shape_tools.h"
@@ -14,15 +15,18 @@
 #include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/model/sliding.h"
 #include "shapelogic/model/solution.h"
+#include "shapelogic/solve/sliding_search.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -30,6 +34,7 @@ using namespace bt;
 using namespace bt::app;
 using bt::test::refused;
 using bt::test::roundTrip;
+using bt::test::ScratchDir;
 
 namespace {
 
@@ -907,6 +912,62 @@ TEST_CASE("sliding document: Solve checks the start/goal shape and sets up the l
   CHECK(ex->placements(0).size() == 1);
 }
 
+// Cleanup item 15.4: what a sliding solve sets up as it starts is its own
+// problem's maximum of holes, so a second problem's solve starts while the
+// first runs (it was refused: "changes shapes another solve reads"), each
+// in search folders of its own (decision 0035).
+TEST_CASE("sliding document: two problems are solved at once", "[app][sliding][parallel]") {
+  const ScratchDir scratch("two_sliding_solves");
+  // a search with no solution, far too large to end while this runs
+  Document d = test::openFixture("sliding/slide_swapped_fifteen.xmpuzzle");
+  const Id p = d.problemIds()[0];
+  const Id q = d.duplicateProblem(p).value();
+  REQUIRE(d.puzzle().getProblem(0).getUid() != d.puzzle().getProblem(1).getUid());
+  // the holes not set, as in a file of the original: both solves set theirs up
+  SolveOptions o;
+  o.disassemble = true;
+  o.threads = 2;
+  o.sliding.workDir = (scratch.path() / "sliding").string();
+  REQUIRE(d.solveStart(p, o).has_value());
+  const std::uint64_t rev = d.revision();
+  const Result<void> second = d.solveStart(q, o);
+  INFO((second ? std::string() : second.error().message));
+  REQUIRE(second.has_value());
+  // told as the second problem's change alone
+  CHECK(d.revision() == rev + 1);
+  CHECK(d.lastChange().what == (kChangeSolutions | kChangeProblems));
+  CHECK(d.lastChange().problems == std::vector<Id>{q});
+  CHECK(isActive(d.solveState(p)));
+  CHECK(isActive(d.solveState(q)));
+  // both search for a while, side by side, then stop where they are
+  for (int i = 0; i < 60000 && (d.solveProgress(p).value().searched == 0 ||
+                                d.solveProgress(q).value().searched == 0);
+       i++) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  CHECK(d.solveProgress(p).value().searched > 0);
+  CHECK(d.solveProgress(q).value().searched > 0);
+  CHECK(isActive(d.solveState(p)));
+  CHECK(isActive(d.solveState(q)));
+  REQUIRE(d.solvePause(p).has_value());
+  REQUIRE(d.solvePause(q).has_value());
+  REQUIRE(d.solveWait(p).has_value());
+  REQUIRE(d.solveWait(q).has_value());
+  CHECK(d.solveState(p) == SolveState::Paused);
+  CHECK(d.solveState(q) == SolveState::Paused);
+  // each works in search folders of its own, under a lock of its own
+  // (what a pause saved, when it saved anything, is not the other's)
+  CHECK(sliding::solveLockPath(d.puzzle(), d.puzzle().getProblem(0), o.sliding.workDir) !=
+        sliding::solveLockPath(d.puzzle(), d.puzzle().getProblem(1), o.sliding.workDir));
+  const std::vector<std::string> mine = d.searchFolders(p, o.sliding.workDir, "").value();
+  const std::vector<std::string> theirs = d.searchFolders(q, o.sliding.workDir, "").value();
+  for (const std::string& f : mine) {
+    CHECK(std::find(theirs.begin(), theirs.end(), f) == theirs.end());
+  }
+  REQUIRE(d.solveAbort(p).has_value());
+  REQUIRE(d.solveAbort(q).has_value());
+}
+
 TEST_CASE("sliding document: opening a file keeps deeper shapes", "[app][sliding]") {
   // the original made them flat on load; here they keep their layers
   Puzzle p = test::openFixture("test_sliding_solver.xmpuzzle").puzzle();
@@ -1020,6 +1081,11 @@ TEST_CASE("sliding document: a piece taken out of the puzzle takes its starts an
   CHECK(at(3, 1, true) == static_cast<unsigned int>(-1));
   CHECK(at(1, 0, false) == index(d, b));
   roundTrip(d, [=](Document& x) { return x.setPieceCount(p, b, 0, 0); });
+  // (the round trip ends with a redo, which tells what the step told: the
+  // parts followed the marks, so everything is news, the shapes too:
+  // cleanup item 15.3, the command's own bits went over them)
+  CHECK((d.lastChange().what & kChangeShapes) != 0);
+  CHECK((d.lastChange().what & kChangeSolutions) != 0);
   CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, b)) == 0);
   CHECK(marks(d, tray) == "0/0 0/0 0/0 0/0 0/0 0/0 0/0 0/0 ");
   // undone: the piece is back with its start

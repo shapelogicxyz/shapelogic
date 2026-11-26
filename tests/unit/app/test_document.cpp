@@ -578,6 +578,52 @@ TEST_CASE("document: the stored solver settings", "[app][document]") {
   CHECK(d.setSolverOptions(0, o).error().code == Errc::NotFound);
 }
 
+// Cleanup item 15.3: document.changed's `what` is what the front end
+// refreshes its mirrors by. A command's own bits are added to what its
+// helpers reported (they were assigned over them), a deleted shape tells of
+// the solutions it took along, and a piece group, which leaves the
+// solutions alone, no longer names them.
+TEST_CASE("document: a change says what it changed, no less and no more", "[app][document]") {
+  Document d = openFixture("PelikanBurr.xmpuzzle");
+  const Id p = firstProblem(d);
+  const unsigned int pieceIdx = problem0(d).getShapeIdOfPart(0);
+  const Id piece = d.shapeIds()[pieceIdx];
+  const unsigned int saved = problem0(d).getNumberOfSavedSolutions();
+  REQUIRE(saved > 0);
+
+  SECTION("a shape deleted out of a solved problem") {
+    REQUIRE(d.deleteShape(piece).has_value());
+    CHECK(problem0(d).getNumberOfSavedSolutions() == 0);
+    CHECK((d.lastChange().what & kChangeSolutions) != 0);
+    CHECK((d.lastChange().what & kChangeShapes) != 0);
+    CHECK((d.lastChange().what & kChangeProblems) != 0);
+    // the step tells the same when it is undone and redone
+    REQUIRE(d.undo().has_value());
+    CHECK(problem0(d).getNumberOfSavedSolutions() == saved);
+    CHECK((d.lastChange().what & kChangeSolutions) != 0);
+    REQUIRE(d.redo().has_value());
+    CHECK((d.lastChange().what & kChangeSolutions) != 0);
+  }
+  SECTION("a shape no problem uses") {
+    const Id spare = d.createShape().value();
+    REQUIRE(d.deleteShape(spare).has_value());
+    CHECK(problem0(d).getNumberOfSavedSolutions() == saved);
+    CHECK(d.lastChange().what == (kChangeShapes | kChangeProblems));
+  }
+  SECTION("the piece groups") {
+    REQUIRE(d.setGroupCount(p, piece, 1, 1).has_value());
+    CHECK(d.lastChange().what == kChangeProblems);
+    REQUIRE(d.setGroup(p, piece, 2).has_value());
+    CHECK(d.lastChange().what == kChangeProblems);
+    REQUIRE(d.deleteGroup(p, 2).has_value());
+    CHECK(d.lastChange().what == kChangeProblems);
+    CHECK(problem0(d).getNumberOfSavedSolutions() == saved);
+    CHECK(problem0(d).getSolveState() == ProblemState::Solved);
+    REQUIRE(d.undo().has_value());
+    CHECK(d.lastChange().what == kChangeProblems);
+  }
+}
+
 TEST_CASE("document: what undo and redo changed is not the last command's", "[app][document]") {
   Document d(GridKind::Bricks);
   const Id s = d.createShape().value();

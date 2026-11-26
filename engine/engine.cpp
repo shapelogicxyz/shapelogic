@@ -200,6 +200,32 @@ std::expected<Request, RpcError> readRequest(const Json& m) {
 
 }  // namespace
 
+void Engine::failedOutside(std::string_view where, const char* what) {
+  // once while it repeats: a poll that fails fails again 50 ms later
+  std::string line = "shapelogic_engine: ERROR: Internal Error: ";
+  line += where;
+  line += ": ";
+  line += what;
+  if (line == lastFailure_) {
+    return;
+  }
+  lastFailure_ = line;
+  log_ << line << '\n';
+  log_.flush();
+}
+
+template <class F>
+bool Engine::guarded(std::string_view where, F&& f) {
+  try {
+    std::forward<F>(f)();
+    return true;
+  } catch (const std::exception& e) {
+    // InternalError (a failed BT_ASSERT) among them
+    failedOutside(where, e.what());
+    return false;
+  }
+}
+
 void Engine::handleLine(std::string_view line) {
   if (line.size() > kMaxLine) {
     out_.send(errorReply(nullptr, {kInvalidRequestCode, "invalid_request", "the line is too long"}));
@@ -255,29 +281,38 @@ void Engine::handleLine(std::string_view line) {
     }
     state_.inNotification = false;
   }
-  logCall(state_, request->method, request->params != nullptr ? *request->params : Json(), reply);
+  // What follows the handler has no reply to put a failure into: a broken
+  // invariant there is logged, and the engine goes on (cleanup item 15.1;
+  // it used to end the process, the solves unpaused).
+  (void)guarded("the request's log line", [&] {
+    logCall(state_, request->method, request->params != nullptr ? *request->params : Json(), reply);
+  });
 
-  if (request->notification) {
-    if (!reply) {
-      log_ << "shapelogic_engine: ERROR: Notification Failed: " << request->method << ": "
-           << reply.error().message << '\n';
+  (void)guarded("the reply", [&] {
+    if (request->notification) {
+      if (!reply) {
+        log_ << "shapelogic_engine: ERROR: Notification Failed: " << request->method << ": "
+             << reply.error().message << '\n';
+      }
+    } else if (reply) {
+      Json m = Json::object();
+      m["jsonrpc"] = "2.0";
+      m["id"] = request->id;
+      m["result"] = std::move(*reply);
+      out_.send(m);
+    } else {
+      out_.send(errorReply(request->id, reply.error()));
     }
-  } else if (reply) {
-    Json m = Json::object();
-    m["jsonrpc"] = "2.0";
-    m["id"] = request->id;
-    m["result"] = std::move(*reply);
-    out_.send(m);
-  } else {
-    out_.send(errorReply(request->id, reply.error()));
-  }
-  state_.flushEvents();
-  announceChange(state_);
+  });
+  (void)guarded("the request's events", [&] {
+    state_.flushEvents();
+    announceChange(state_);
+  });
 }
 
 void Engine::poll() {
   state_.flushEvents();
-  pollEvents(state_, std::chrono::steady_clock::now());
+  pollEvents(state_, std::chrono::steady_clock::now(), pollHook_);
 }
 
 bool Engine::busy() const { return state_.document().solving(); }
@@ -407,16 +442,30 @@ bool Engine::run(std::istream& in) {
     queue->close();
   });
   bool ended = false;
-  while (!state_.shutdown && !ended) {
-    const std::chrono::milliseconds wait(busy() ? 50 : 500);
-    if (std::optional<Line> line = queue->pop(wait, ended)) {
-      if (line->tooLong) {
-        out_.send(errorReply(nullptr, {kInvalidRequestCode, "invalid_request", "the line is too long"}));
-      } else {
-        handleLine(line->text);
+  // A reader that is gone (the app crashed or was force-quit: Output::failed)
+  // ends the loop as the end of the input does, so the caller lets the
+  // document go, which pauses and saves the solves.
+  while (!state_.shutdown && !ended && !out_.failed()) {
+    // a broken invariant outside a handler (Document::poll's, an event's)
+    // is logged and the loop goes on: the solves stay the document's to pause
+    const bool clean = guarded("the run loop", [&] {
+      const std::chrono::milliseconds wait(busy() ? 50 : 500);
+      if (std::optional<Line> line = queue->pop(wait, ended)) {
+        if (line->tooLong) {
+          out_.send(errorReply(nullptr, {kInvalidRequestCode, "invalid_request", "the line is too long"}));
+        } else {
+          handleLine(line->text);
+        }
       }
+      // nothing is told once the input has ended: nobody asks any more
+      if (!ended) {
+        poll();
+      }
+    });
+    if (clean) {
+      // the next failure is told, the same one as before too
+      lastFailure_.clear();
     }
-    poll();
   }
   queue->stop();
   if (ended || queue->waitClosed(std::chrono::milliseconds(100))) {

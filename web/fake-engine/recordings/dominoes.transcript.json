@@ -22,13 +22,13 @@
    "state": "solving",
    "solve": "paused",
    "analysing": false,
-   "assemblies": 835,
-   "solutions": 769,
+   "assemblies": 903,
+   "solutions": 838,
    "saved": 5,
-   "timeMs": 55,
-   "searched": 6824,
+   "timeMs": 60,
+   "searched": 7079,
    "searchDepth": 0,
-   "triedApart": 769,
+   "triedApart": 838,
    "slideGrid": 0,
    "parts": [
     {
@@ -210,7 +210,7 @@
      },
      "assemblyFraction": 0,
      "iterations": 0,
-     "assemblerThreads": 1,
+     "assemblerThreads": 0,
      "assemblies": 0,
      "solutions": 0,
      "disassembly": false,
@@ -267,21 +267,21 @@
     "state": "paused",
     "progress": {
      "stage": "paused",
-     "elapsedMs": 110,
-     "usedMs": 55,
+     "elapsedMs": 118,
+     "usedMs": 60,
      "piece": 0,
      "pieces": 0,
      "prepare": null,
-     "assemblyFraction": 0.00036992583773098886,
-     "iterations": 6824,
+     "assemblyFraction": 0.0004102128150407225,
+     "iterations": 7079,
      "assemblerThreads": 1,
-     "assemblies": 835,
-     "solutions": 769,
+     "assemblies": 903,
+     "solutions": 838,
      "disassembly": true,
-     "disasmCompleted": 769,
+     "disasmCompleted": 838,
      "disasmPending": 0,
      "disasmWorkers": 1,
-     "overall": 0.00035531100002117455,
+     "overall": 0.0003954544081352651,
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
@@ -305,9 +305,9 @@
    "params": {
     "problem": "p3",
     "saved": 5,
-    "solutionsVersion": 1536,
-    "assemblies": 835,
-    "solutions": 769
+    "solutionsVersion": 1674,
+    "assemblies": 903,
+    "solutions": 838
    }
   },
   {
@@ -378,7 +378,7 @@
      "piece": 0,
      "pieces": 0,
      "prepare": null,
-     "assemblyFraction": 0.5000925064086914,
+     "assemblyFraction": 0.5001025795936584,
      "iterations": 0,
      "assemblerThreads": 1,
      "assemblies": 0,
@@ -411,7 +411,7 @@
    "params": {
     "problem": "p3",
     "saved": 0,
-    "solutionsVersion": 1538,
+    "solutionsVersion": 1676,
     "assemblies": 0,
     "solutions": 0
    }

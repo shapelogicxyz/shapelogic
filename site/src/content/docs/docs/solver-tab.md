@@ -395,6 +395,12 @@ Closing the question leaves the solve paused; **Continue** tries again.
 | **Abort** | Shown while the solve runs or is paused, a paused solve opened from a file included. Stops at once and throws away everything kept of this problem's solve: its results, the paused state and any saved search. This can't be undone. |
 | **Reset** | Shown in place of Abort once the solve is over. Throws away this problem's results, so it is unsolved again; **Undo** brings them back. |
 
+A solve is a step of its own in **Edit ▸ Undo** (**Undo Solve P1**), and so
+is an **Analyse** of saved solutions (**Undo Take apart P1**). Once the
+solve is over or paused, Undo takes out what it found, before the edits you
+made before it, and **Redo** brings it back. A solve you pause and carry on
+is one step, unless you changed something else in between.
+
 Below the buttons:
 
 - the **progress bar** and its percentage;

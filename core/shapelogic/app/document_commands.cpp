@@ -195,12 +195,24 @@ Result<void> Document::deleteShape(Id shape) {
     // the marks of the start/goal shapes follow the shapes' numbers
     sliding::noteShapeRemoved(*puzzle_, *s);
   }
+  // a problem that used the shape loses the solutions that place it
+  // (Problem::removeShape counts its list as changed): told as solutions
+  std::vector<std::uint64_t> versions;
+  versions.reserve(puzzle_->getNumberOfProblems());
+  for (unsigned int i = 0; i < puzzle_->getNumberOfProblems(); i++) {
+    versions.push_back(puzzle_->getProblem(i).solutionsVersion());
+  }
   puzzle_->removeShape(*s);
   ids_.shapes.erase(ids_.shapes.begin() + static_cast<std::ptrdiff_t>(*s));
+  for (unsigned int i = 0; i < puzzle_->getNumberOfProblems(); i++) {
+    if (puzzle_->getProblem(i).solutionsVersion() != versions[i]) {
+      lastChange_.what |= kChangeSolutions;
+    }
+  }
   if (slidingPuzzle) {
     syncSliding();
   }
-  g.commit(kChangeShapes | kChangeProblems | lastChange_.what);
+  g.commit(kChangeShapes | kChangeProblems);
   return {};
 }
 
@@ -1366,7 +1378,9 @@ Result<void> Document::setGroupCount(Id problem, Id shape, unsigned int group,
                   static_cast<unsigned short>(count));
   endSession(*p);
   lastChange_.problems = {problem};
-  g.commit(kChangeProblems | kChangeSolutions);
+  // a group is part of the definition: the solutions and the solve's
+  // results stay as they are
+  g.commit(kChangeProblems);
   return {};
 }
 
@@ -1408,7 +1422,9 @@ Result<void> Document::setGroup(Id problem, Id shape, unsigned int group) {
   }
   endSession(*p);
   lastChange_.problems = {problem};
-  g.commit(kChangeProblems | kChangeSolutions);
+  // a group is part of the definition: the solutions and the solve's
+  // results stay as they are
+  g.commit(kChangeProblems);
   return {};
 }
 
@@ -1439,7 +1455,9 @@ Result<void> Document::deleteGroup(Id problem, unsigned int group) {
     }
   }
   lastChange_.problems = {problem};
-  g.commit(kChangeProblems | kChangeSolutions);
+  // a group is part of the definition: the solutions and the solve's
+  // results stay as they are
+  g.commit(kChangeProblems);
   return {};
 }
 

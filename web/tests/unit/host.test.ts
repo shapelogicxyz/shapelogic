@@ -17,6 +17,7 @@ import type { Transport } from '../../src/engine/transport.ts';
 import { WasmTransport } from '../../src/demo/wasm-transport.ts';
 import { EngineLines, logEngineProblems, teeStderr } from '../../src/main/app-log.ts';
 import { EngineHost } from '../../src/main/engine-host.ts';
+import { EngineStops } from '../../src/main/engine-stops.ts';
 import { FakeEngine } from '../../fake-engine/fake-engine.ts';
 import { settle, ScriptedTransport } from '../helpers/scripted-transport.ts';
 
@@ -608,5 +609,109 @@ describe('a transport’s handlers (cleanup item 7.2)', () => {
     inner.stderr('Assertion failed: x\nlibc++abi: terminating');
     inner.exit({ code: null, signal: 'SIGABRT' });
     expect(order).toEqual(['line Assertion failed: x', 'line libc++abi: terminating', 'exit']);
+  });
+});
+
+/** A host whose engine ends when the test says so. */
+function slowHost(): {
+  stop: () => Promise<void>;
+  end: () => void;
+  fail: () => void;
+  stops: number;
+} {
+  let end: () => void = () => undefined;
+  let fail: () => void = () => undefined;
+  const h = {
+    stops: 0,
+    stop: (): Promise<void> => {
+      h.stops++;
+      return new Promise<void>((resolve, reject) => {
+        end = resolve;
+        fail = () => {
+          reject(new Error('the stop failed'));
+        };
+      });
+    },
+    end: (): void => {
+      end();
+    },
+    fail: (): void => {
+      fail();
+    },
+  };
+  return h;
+}
+
+describe('a quit waits for the engines being ended (cleanup item 15.1)', () => {
+  it('holds the quit until every engine has ended, then asks for it once', async () => {
+    let quits = 0;
+    const stops = new EngineStops(() => quits++, 60_000);
+    // no engine ending: the quit passes
+    expect(stops.holdQuit()).toBe(false);
+    const a = slowHost();
+    const b = slowHost();
+    stops.stop(a);
+    stops.stop(b);
+    expect([a.stops, b.stops, stops.size]).toEqual([1, 1, 2]);
+    // both still pausing their solves: held, and held again when asked again
+    expect(stops.holdQuit()).toBe(true);
+    expect(stops.holdQuit()).toBe(true);
+    a.end();
+    await settle(1);
+    expect([quits, stops.size]).toEqual([0, 1]);
+    expect(stops.holdQuit()).toBe(true);
+    // a stop that fails has ended too
+    b.fail();
+    await settle(1);
+    expect([quits, stops.size]).toEqual([1, 0]);
+    // the quit asked for passes, and so does a later one
+    expect(stops.holdQuit()).toBe(false);
+    expect(stops.holdQuit()).toBe(false);
+    expect(quits).toBe(1);
+  });
+
+  it('asks for no quit when the engines end with none held (a window closed, the app stays)', async () => {
+    let quits = 0;
+    const stops = new EngineStops(() => quits++, 60_000);
+    const a = slowHost();
+    stops.stop(a);
+    a.end();
+    await settle(1);
+    expect([quits, stops.size]).toEqual([0, 0]);
+    expect(stops.holdQuit()).toBe(false);
+  });
+
+  it('lets the quit go after the cap, an engine still ending', async () => {
+    let quits = 0;
+    const stops = new EngineStops(() => quits++, 20);
+    const hung = slowHost();
+    stops.stop(hung);
+    expect(stops.holdQuit()).toBe(true);
+    expect(quits).toBe(0);
+    await new Promise<void>((resolve) => setTimeout(resolve, 80));
+    expect(quits).toBe(1);
+    // that quit passes though the engine has not ended
+    expect(stops.size).toBe(1);
+    expect(stops.holdQuit()).toBe(false);
+    // its late end asks for nothing more
+    hung.end();
+    await settle(1);
+    expect(quits).toBe(1);
+  });
+
+  it('drops the held quit when the app goes on (a window opened meanwhile)', async () => {
+    let quits = 0;
+    const stops = new EngineStops(() => quits++, 20);
+    const a = slowHost();
+    stops.stop(a);
+    expect(stops.holdQuit()).toBe(true);
+    expect(stops.cancelQuit()).toBe(true);
+    expect(stops.cancelQuit()).toBe(false);
+    a.end();
+    // past the cap: neither the engines' end nor the cap asks for the quit
+    await new Promise<void>((resolve) => setTimeout(resolve, 80));
+    expect(quits).toBe(0);
+    // a later quit, no engine ending, passes
+    expect(stops.holdQuit()).toBe(false);
   });
 });

@@ -132,6 +132,38 @@ bool storedFlipPieces(const Problem& problem) {
   return flip == stored.end() || flip->second != "0";
 }
 
+SolveSetup solveSetup(const Puzzle& puzzle, const Problem& problem, MatrixOptions base,
+                      SolverType solver, const SetupFlags& flags) {
+  SolveSetup setup{std::move(base), solver};
+  MatrixOptions& m = setup.matrix;
+  if (sliding::isSliding(puzzle)) {
+    // A sliding start is judged against a fixed goal, so a rotated or
+    // mirrored start is a different start, not a duplicate: every one is
+    // kept (the solve thread's constructor and run). The sliding menu
+    // lists its own solvers: the assembler is Classic's.
+    setup.solver = SolverType::Classic;
+    m.keepMirrors = true;
+    m.keepRotations = true;
+    m.completeRotations = false;
+    // the start marks hold the pieces to their starts; the older model (a
+    // tray and a goal map in piece colors) is matched strictly instead
+    const bool marks = sliding::usesStartMarks(puzzle, problem);
+    m.strictColors = !marks;
+    m.startLocks = marks;
+    if (marks) {
+      m.freeStarts = sliding::freeStartParts(puzzle, problem);
+    }
+    // a piece slides without turning, so it starts as drawn (or, unplaced,
+    // as the options allow)
+    m.partTransforms = sliding::partTransforms(puzzle, problem, flags.anyOrientation,
+                                               flags.mirroredOrientations);
+  } else if (puzzle.tray() && !flags.flipPieces.value_or(storedFlipPieces(problem))) {
+    // a tilted tray's pieces are not turned over
+    m.partTransforms = trayPlaneTurns(puzzle, problem);
+  }
+  return setup;
+}
+
 SolveSession::SolveSession(Puzzle& puzzle, Problem& problem, SolveOptions options)
     : puzzle_(puzzle),
       problem_(problem),
@@ -341,32 +373,15 @@ Result<void> SolveSession::launch(Mode mode) {
     return fail(Errc::InvalidArgument, "the problem has no pieces");
   }
 
-  // A sliding start is judged against a fixed goal, so a rotated or
-  // mirrored start is a different start, not a duplicate: every one is
-  // kept; and the start locks are colors the matrix matches strictly (the
-  // solve thread's constructor and run).
+  // how this run's matrix is built: the rules every program that solves
+  // shares (solveSetup)
   SolveOptions o = options_;
-  if (sliding_) {
-    // the sliding menu lists its own solvers: the assembler is Classic's
-    o.solver = SolverType::Classic;
-    o.matrix.keepMirrors = true;
-    o.matrix.keepRotations = true;
-    o.matrix.completeRotations = false;
-    // the start marks hold the pieces to their starts; the older model (a
-    // tray and a goal map in piece colors) is matched strictly instead
-    const bool marks = sliding::usesStartMarks(puzzle_, problem_);
-    o.matrix.strictColors = !marks;
-    o.matrix.startLocks = marks;
-    if (marks) {
-      o.matrix.freeStarts = sliding::freeStartParts(puzzle_, problem_);
-    }
-    // a piece slides without turning, so it starts as drawn (or, unplaced,
-    // as the options allow)
-    o.matrix.partTransforms = sliding::partTransforms(
-        puzzle_, problem_, o.sliding.anyOrientation, o.sliding.mirroredOrientations);
-  } else if (!o.flipPieces && puzzle_.tray()) {
-    // a tilted tray's pieces are not turned over
-    o.matrix.partTransforms = trayPlaneTurns(puzzle_, problem_);
+  {
+    SolveSetup setup = solveSetup(
+        puzzle_, problem_, std::move(o.matrix), o.solver,
+        SetupFlags{o.sliding.anyOrientation, o.sliding.mirroredOrientations, o.flipPieces});
+    o.matrix = std::move(setup.matrix);
+    o.solver = setup.solver;
   }
 
   SolveState st = state_.load();
@@ -429,10 +444,9 @@ Result<void> SolveSession::launch(Mode mode) {
   BT_ASSERT(!reuse || st == SolveState::Paused);
 
   // What a sliding run sets up first (the solve thread did it as it began):
-  // the problem's maximum of holes and the start locks; once nothing can
-  // refuse the run any more. The owner makes sure no other run reads the
-  // shapes meanwhile (the document does it first, and this changes
-  // nothing then).
+  // the problem's maximum of holes, once nothing can refuse the run any
+  // more. It writes this run's problem and no shape, so the runs of other
+  // problems go on beside it.
   if (sliding_) {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     (void)sliding::prepareForSolving(puzzle_, problem_);

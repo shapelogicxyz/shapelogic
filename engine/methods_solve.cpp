@@ -26,6 +26,11 @@ Reply launch(State& s, Params& p, Launch how) {
       how == Launch::Continue && given.is_null() ? d.pausedOptions(problem) : std::nullopt;
   if (asItRan) {
     options = *asItRan;
+    // but in the folders, with the disk and the memory of the settings as
+    // they are now, as a Continue with options: a run that paused because
+    // its folder could not be written goes on once another one is set
+    // (cleanup item 15.7; it paused again in the folder it started with)
+    searchSettingsInto(s, options);
   } else {
     defaultStackingSolver(s, problem, given, options);
   }

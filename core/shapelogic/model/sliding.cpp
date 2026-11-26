@@ -1568,28 +1568,7 @@ std::string stampOverflowMessage(const Puzzle& puzzle, const Problem& problem) {
   return msg.str();
 }
 
-bool needsPreparing(const Puzzle& puzzle, const Problem& problem) {
-  if (!problem.resultValid()) {
-    return false;
-  }
-  // the holes (syncMaxHoles)
-  const unsigned int floor = floorCells(problem.resultShape(puzzle));
-  unsigned int volume = 0;
-  for (unsigned int p = 0; p < problem.getNumberOfParts(); p++) {
-    const Voxel& sh = problem.partShape(puzzle, p);
-    unsigned int cells = 0;
-    for (unsigned int i = 0; i < sh.getXYZ(); i++) {
-      if (sh.getState(i) != Voxel::kEmpty) {
-        cells++;
-      }
-    }
-    volume += cells * problem.getPartMaximum(p);
-  }
-  const unsigned int holes = volume > floor ? 0 : floor - volume;
-  return !problem.maxHolesDefined() || problem.getMaxHoles() != holes;
-}
-
-bool prepareForSolving(Puzzle& puzzle, Problem& problem) {
+bool prepareForSolving(const Puzzle& puzzle, Problem& problem) {
   // what is there before, to tell whether anything changed
   const bool hadMaxHoles = problem.maxHolesDefined();
   const unsigned int maxHoles = hadMaxHoles ? problem.getMaxHoles() : 0;

@@ -8,6 +8,7 @@ void Output::send(const Json& message) {
   // UTF-8 from a file is replaced rather than thrown on
   out_ << message.dump(-1, ' ', false, Json::error_handler_t::replace) << '\n';
   out_.flush();
+  failed_ = failed_ || out_.fail();
 }
 
 void Output::notify(std::string_view method, Json params) {
@@ -23,6 +24,7 @@ std::uint64_t Output::frame(std::string_view bytes) {
   notify("frame", Json{{"frame", n}, {"bytes", bytes.size()}});
   out_.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
   out_.flush();
+  failed_ = failed_ || out_.fail();
   return n;
 }
 

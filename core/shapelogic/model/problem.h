@@ -18,6 +18,7 @@
 #include "shapelogic/model/stacking_types.h"
 #include "shapelogic/model/xml_element.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <map>
@@ -387,6 +388,16 @@ class Problem {
   /// edited): two reads of the list with the same version saw the same
   /// list. Runtime only, like the ids.
   [[nodiscard]] std::uint64_t solutionsVersion() const { return solutionsVersion_; }
+  /// This problem takes the place of `was`, an earlier or later state of
+  /// itself (an undo or redo swapped them): its solution ids and its
+  /// solutionsVersion() go on from the higher of the two, so that no id is
+  /// given twice and no version names two lists, whichever way the history
+  /// is walked (a solve undone and run again would give its new solutions
+  /// the ids of the old ones).
+  void countOnFrom(const Problem& was) {
+    nextSolutionId_ = std::max(nextSolutionId_, was.nextSolutionId_);
+    solutionsVersion_ = std::max(solutionsVersion_, was.solutionsVersion_) + 1;
+  }
 
   /// Adds an assembly as a solution, numbered as the current assembly count.
   void addSolution(Assembly assm);

@@ -154,7 +154,7 @@ Files in `core/shapelogic/model/`:
 - `puzzle.{h,cpp}`: `Puzzle`: grid, shapes (`ClonePtr<Voxel>`), constraint colors, problems, comment, rod sets, images, a tilted tray.
 - `puzzle_image.{h,cpp}`: the puzzle's table of pictures (decision 0038).
 - `slide_marks.h`: per cell of a sliding board a start mark and a goal mark (at most `SlideMarks::kMaxMark`), per problem (decisions 0021, 0027).
-- `sliding.{h,cpp}`: sliding puzzles (decision 0014): start/goal shapes, stamps, the problems kept in step, start locks, layouts, `prepareForSolving`.
+- `sliding.{h,cpp}`: sliding puzzles (decision 0014): start/goal shapes, stamps, the problems kept in step, start locks, layouts, `prepareForSolving` (a solve's own problem's maximum of holes, nothing else).
 - `solution.{h,cpp}`: `Solution`: an assembly, an optional `Separation` or `SeparationInfo`, its numbers, a runtime id.
 - `stacking.{h,cpp}`: stacking puzzles (decision 0015): discs, stacks, `setupError`, `layoutBoard`, what the searches read and make; `stacking_play.h`'s functions at its end.
 - `stacking_play.h`: a stacking puzzle played by hand (decision 0042): `playStart`, `playMoves`, `playReplay`, `positionRefusal`, `positionMap`.
@@ -269,7 +269,7 @@ Files in `core/shapelogic/solve/`:
 - `sliding_play.h`: a sliding puzzle played by hand (decision 0039): `playStart`, `playReach`, `playReplay`.
 - `sliding_search.{h,cpp}`: the slide search (decision 0014): `findSlidePath`, `SlideSearch`, `SlideOutcome`, its saved searches; `slideRoute`, `applySlideRoutes`, `finalPlacementKey`; `sliding_play.h`'s functions at its end.
 - `solve_progress.{h,cpp}`: `SolveProgress` and `SolveStats`.
-- `solve_session.{h,cpp}`: `SolveSession`, the solve of one problem across its runs (decision 0010); `SolveOptions`, `SolveFailure`.
+- `solve_session.{h,cpp}`: `SolveSession`, the solve of one problem across its runs (decision 0010); `SolveOptions`, `SolveFailure`; `solveSetup`, the rules that build a solve's matrix (a sliding puzzle's, a tilted tray's face-up pieces), with `trayPlaneTurns` and `storedFlipPieces`.
 - `solver_type.{h,cpp}`: `SolverType` (Classic and Crowell, labeled Complete (ShapeLogic) and Fast (Crowell)), `chooseAssembler()`, `makeAssembler()` (decision 0019: the original's BurrTools 2 solver is not kept; where decisions 0009 to 0011 describe it, 0019 holds).
 - `stack_search.{h,cpp}`: `findStackPath`, the Stacking Solver's own search, and `StackingOptions`.
 - `subtree_split.h`: `SubtreeSplitter`, through which the vector searches hand branches on.
@@ -397,11 +397,11 @@ Files in `core/shapelogic/app/`:
 - `background_job.{h,cpp}`: `BackgroundJob`, what `Analysis` and `PlacementFit` share (the thread, the stop, active, the done count, the failure); the document keeps them in one map by (problem, kind).
 - `document.{h,cpp}`: `Document`: the puzzle, ids, revision, dirty flag, undo history, the queries, solving, analyses, files, playback and explorers.
 - `document_commands.cpp`: the editing commands, from the original GUI's callbacks.
-- `document_internal.h`: the undo steps (internal to `document*.cpp`).
+- `document_internal.h`: the undo steps, a run's among them (internal to `document*.cpp`).
 - `document_sliding.cpp`: the sliding commands (decision 0014): starts and goals, stamps, layouts.
 - `document_stacking.cpp`: the stacking commands (decision 0015): rod sets, discs, stacks, saved searches.
 - `document_tilted.cpp`: a document with a tilted tray (decision 0045).
-- `explorers.{h,cpp}`: `AssemblyExplorer` and `MovementExplorer`, each on a copy of the puzzle.
+- `explorers.{h,cpp}`: `AssemblyExplorer` (its matrix the solve's, `solveSetup`) and `MovementExplorer`, each on a copy of the puzzle.
 - `layer_geometry.{h,cpp}`: `layerGeometry`, the grid editor's drawing of a layer.
 - `placement_fit.{h,cpp}`: `PlacementFit`, a problem's assemblies counted on each board of the tray's placements.
 - `playback.{h,cpp}`: `PlaybackSampler` and `orientedMesh`.
@@ -413,19 +413,20 @@ Files in `core/shapelogic/app/`:
 Rules (decisions 0011, 0014, 0015, 0027, 0033, 0039, 0044, 0045):
 - The owner calls the document from one thread. A command checks first and
   changes after, so a refused one changes nothing; each is one undo step
-  (a drag's group still gives every change a revision); every change is
-  undoable except what solving and analysing do. `poll()` puts in what
-  background work did as a revision of its own.
+  (a drag's group still gives every change a revision), the start of a run
+  or a take-apart too (0011's amendment; `solveAbort` is not undoable), and
+  adds its bits to `lastChange_` beside its helpers', never over them.
+  `poll()` puts in what background work did as a revision of its own.
 - While a run, an analysis or a tray's placement fit is active
-  (`solving()`), shapes, lists and the
-  solving problems are frozen; runs and analyses only read shapes (hotspots
-  reset and caches warmed before the first starts). `solveAbort` is the hard
-  stop of a solve under way and refused otherwise, so a finished run's
-  solutions go only through the undoable `deleteSolutions`.
+  (`solving()`), shapes, lists and the solving problems are frozen; runs and
+  analyses only read shapes (hotspots reset and caches warmed before the
+  first starts) and write their own problem, so they run side by side.
+  `solveAbort` is the hard stop of a solve under way and refused otherwise:
+  a finished run's solutions go by `deleteSolutions` or the undo of its run.
 - A solution is found by its id under the solve's lock (a run moves
-  solutions about); `Problem::solutionsVersion()` moves with every change of
-  a saved list. Names and notes refuse what a file cannot hold (control
-  characters; line breaks in names).
+  solutions about); ids and `Problem::solutionsVersion()` never repeat (a
+  problem an undo swaps in counts on, `countOnFrom`). Names and notes refuse
+  what a file cannot hold (control characters; line breaks in names).
 - Sliding: a command works on one problem's starts and goals; an edit of a
   board keeps, in every problem on it, the stamps whose cells survive and
   removes the others with a notice (`ChangeSet::notice`). What the
@@ -472,12 +473,13 @@ Rules (decisions 0012, 0028, 0043):
   document drops them.
 - A malformed or oversized line is answered, never fatal; `Params` refuses
   missing, mistyped and unknown fields as the schema does; `core/` never
-  sees JSON.
+  sees JSON. An exception outside a handler is logged; the engine ends by
+  letting its document go (at end of input, shutdown or a refused write).
 - `Settings` carry what the core may not read from the environment (the
   search folders, disk budgets, `searchMemoryGB`: one `MemoryShare` for all
-  running searches, 0028) into every solve's options, but for a
-  `solve.continue` without options of a solve paused in memory, which goes
-  on with its last run's (0043).
+  running searches, 0028) into every solve's options; a `solve.continue`
+  without options of a solve paused in memory goes on with its last run's
+  (0043) and these settings as they are now.
 - Tested in process (`tests/unit/engine/`) and as a subprocess
   (`tests/contract/`: every message against the schema, every errc one the
   method declares, every method called with success; against the dev, ASan
@@ -510,11 +512,10 @@ Files in `python/src/`:
 - `solution_iterator.{h,cpp}`: `SolutionIterator`, the solve behind `Problem.solve`.
 
 Rules (decision 0018):
-- Built when `BT_PYTHON` is `ON`, or `AUTO` and CMake finds Python's
-  headers outside sanitizer and cross-architecture builds
-  (`cmake/Python.cmake`, which then builds everything position
-  independent). The names are the original module's, so its scripts run
-  unchanged: change them only with a reason.
+- Built when `BT_PYTHON` is `ON`, or `AUTO` and CMake finds Python's headers
+  outside sanitizer and cross-architecture builds (`cmake/Python.cmake`, which
+  then builds everything position independent). The names are the original
+  module's, so its scripts run unchanged: change them only with a reason.
 - Python sees only copies or the shared puzzle through an index, read
   afresh at each call; nothing the worker thread reads is reachable from
   Python; the module reads no environment variable (`work_dir`).
@@ -555,6 +556,7 @@ Files in `web/src/main/`:
 - `diagnostics.ts`: Help ▸ Copy Diagnostics: the report, the system checks on request.
 - `engine-hash.ts`: the engine's SHA-256 against `engine.sha256`.
 - `engine-host.ts`: `EngineHost`: one engine per window, restarted when it dies, its status told.
+- `engine-stops.ts`: `EngineStops`: the engines of closed windows until they have ended (their solves pause first); a quit waits for them, up to `QUIT_WAIT_MS`.
 - `engine-path.ts`: where the programs are (`programFile`, `builtProgram`, `findProgram`, `findEngine`): the `.exe` and `build/<preset>/{engine,cli}/` rule of the app, the tools and the tests.
 - `env.d.ts`: what electron-vite puts into the main process at build.
 - `export-file.ts`: `writeFileSafely`, an export written as the core writes a puzzle; `ExportGrants`.
@@ -826,11 +828,10 @@ Rules (AGENTS.md's; decisions 0012, 0013, 0034, 0036, 0043):
   apart (assemblies compared, solutions asked for).
 - The recorders (`grid-dump`, `model-dump`, `app-dump`, `stl-dump`,
   `record-saves`, `record-positions`, `record-analysed`,
-  `record-slide-routes`, `record-imports`, `stl-solution`) compile a dump
-  tool against the original's library and write into `tests/data/`;
-  `v2_movement_checks.py` records BurrTools V2's movement checks (0025).
-  The unit tests compare with those recordings and never read the original
-  repo.
+  `record-slide-routes`, `record-imports`, `stl-solution`) compile a dump tool
+  against the original's library and write into `tests/data/`;
+  `v2_movement_checks.py` records BurrTools V2's movement checks (0025). The
+  unit tests compare with those recordings and never read the original repo.
 
 ## Rules that hold everywhere
 

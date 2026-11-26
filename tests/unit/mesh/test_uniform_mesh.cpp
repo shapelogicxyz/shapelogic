@@ -4,6 +4,7 @@
 // look, and its place in the mesh styles and the STL parameters. New
 // (nothing in the original to compare with).
 #include "../grid/grid_test_helpers.h"
+#include "stl_invariants.h"
 
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/voxel.h"
@@ -16,8 +17,12 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <cmath>
+#include <cstddef>
+#include <map>
 #include <memory>
+#include <utility>
 #include <vector>
 
 using namespace bt;
@@ -289,19 +294,83 @@ TEST_CASE("uniform mesh: a shape of every polyhedral grid, plain and bumpy, is w
     REQUIRE(v != nullptr);
     for (const bool convexOnly : {false, true}) {
       for (const bool bumpy : {false, true}) {
-        INFO((convexOnly ? "convex only, " : "all edges, ") << (bumpy ? "bumpy" : "plain"));
-        UniformMeshOptions o;
-        o.bevel = 0.03;
-        o.offset = 0.004;
-        o.convexBevelOnly = convexOnly;
-        o.bumpy = bumpy;
-        const Result<Polyhedron> m = uniformMesh(*v, o);
-        REQUIRE(m);
-        requireWatertight(*m);
-        CHECK(volume(*m) > 0.0F);
+        // with a gap, and without one (cleanup item 15.6: the bumpy look
+        // without a gap left holes on the tetra-octa grid)
+        for (const double offset : {0.004, 0.0}) {
+          INFO((convexOnly ? "convex only, " : "all edges, ")
+               << (bumpy ? "bumpy" : "plain") << ", offset " << offset);
+          UniformMeshOptions o;
+          o.bevel = 0.03;
+          o.offset = offset;
+          o.convexBevelOnly = convexOnly;
+          o.bumpy = bumpy;
+          const Result<Polyhedron> m = uniformMesh(*v, o);
+          REQUIRE(m);
+          requireWatertight(*m);
+          CHECK(volume(*m) > 0.0F);
+        }
       }
     }
   }
+}
+
+// Cleanup item 15.6. A bumpy cell's faces are set in from its edges by the
+// bevels, each edge by its own angle; where two cells of different kinds
+// share a face (a tetrahedron on an octahedron), the two are set in by
+// different amounts, and without a gap nothing joined the smaller outline
+// to the larger: the ring between them, a part of the larger cell's face
+// that lies open, was missing at every bevel.
+TEST_CASE("uniform mesh: bumpy cells of different kinds join without a gap", "[mesh]") {
+  const GridType gt(GridKind::TetraOcta);
+  for (const unsigned int cells : {2U, 3U, 4U, 5U}) {
+    std::unique_ptr<Voxel> v = test::legalShape(gt, 3, cells);
+    REQUIRE(v != nullptr);
+    float last = 0;
+    for (const double bevel : {2e-5, 1e-3, 0.03, 0.1}) {
+      INFO(cells << " cells, bevel " << bevel);
+      UniformMeshOptions o;
+      o.bevel = bevel;
+      o.bumpy = true;
+      const Result<Polyhedron> m = uniformMesh(*v, o);
+      REQUIRE(m);
+      requireWatertight(*m);
+      // the bevels only cut: the wider, the less is left
+      const float vol = volume(*m);
+      CHECK(vol > 0.0F);
+      if (last > 0) {
+        CHECK(vol < last);
+      }
+      last = vol;
+    }
+  }
+  // What the user asks for it by, the STL export with Bumpy on and no
+  // Offset (unit 10, bevel 0.5): the file's triangles are a closed surface,
+  // every edge once each way (it had open rings), with the mesh's volume.
+  std::unique_ptr<Voxel> v = test::legalShape(gt, 3, 5);
+  REQUIRE(v != nullptr);
+  const Result<Polyhedron> m = stlMesh(*v, std::vector<double>{10, 0, 0, 0.5, 0, 1, 0, 1});
+  REQUIRE(m);
+  requireWatertight(*m);
+  const std::vector<test::StlTriangle> tris =
+      test::binaryStlTriangles(stlFile(*m, "bumpy", true));
+  REQUIRE_FALSE(tris.empty());
+  using Corner = std::array<long long, 3>;
+  const auto corner = [](const std::array<double, 3>& c) {
+    return Corner{std::llround(c[0] * 1e3), std::llround(c[1] * 1e3), std::llround(c[2] * 1e3)};
+  };
+  std::map<std::pair<Corner, Corner>, int> edges;
+  for (const test::StlTriangle& t : tris) {
+    for (std::size_t i = 0; i < 3; i++) {
+      edges[{corner(t[i]), corner(t[(i + 1) % 3])}]++;
+    }
+  }
+  for (const auto& [edge, count] : edges) {
+    const auto back = edges.find({edge.second, edge.first});
+    REQUIRE(back != edges.end());
+    REQUIRE(back->second == count);
+  }
+  CHECK(test::measure(tris).volume ==
+        Catch::Approx(static_cast<double>(volume(*m))).epsilon(1e-3));
 }
 
 TEST_CASE("uniform mesh: variable cells carry the mark, colors and stretch come through",

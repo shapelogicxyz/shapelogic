@@ -686,7 +686,12 @@ class Document {
   /// Solves a problem from the start (solve.start). A stacking problem is
   /// refused (InvalidState, here and in solveResume) while another
   /// problem's run is active on the same saved-search folder
-  /// (sharedSearchActive).
+  /// (sharedSearchActive). Solves of different problems run side by side,
+  /// on every grid. A run that starts (this one, solvePrepare's,
+  /// solveResume's) records an undo step, "Solve P1", that holds the
+  /// problem as it was: undo takes the run's results out, redo brings
+  /// them back (decision 0011, amended; openRunStep says when a run
+  /// records none). A launch that is refused records nothing.
   Result<void> solveStart(Id problem, const SolveOptions& options);
   /// Prepares the search and pauses (solve.prepare).
   Result<void> solvePrepare(Id problem, const SolveOptions& options);
@@ -764,6 +769,9 @@ class Document {
   /// when there is nothing to take apart. While it lasts the document is
   /// frozen as while solving (decision 0011); its results go in at poll()
   /// once it has ended. Returns the number of assemblies to take apart.
+  /// With any, it records an undo step as a run does, "Take apart P1"
+  /// (undo takes out the disassemblies it found), and the step is a
+  /// revision of its own that names no change.
   Result<unsigned int> analyseStart(Id problem, const AnalyseOptions& options);
   /// Asks an analysis to stop; what it finished is kept. Does not wait.
   Result<void> analyseStop(Id problem);
@@ -801,7 +809,8 @@ class Document {
   /// Takes in what background work did: the results of the analyses that
   /// have ended go into their problems, and the runs and the fits that
   /// ended since the last call are noted. Either gives a new revision, with
-  /// lastChange() saying what (solving changes no undo step). Returns
+  /// lastChange() saying what (the undo step of a run or a take-apart was
+  /// recorded as it started). Returns
   /// whether there was any. The owner calls it now and then (the engine
   /// every 50 ms while solving() and after each request).
   bool poll();
@@ -858,9 +867,13 @@ class Document {
     AppendedProblem
   };
   enum class LaunchMode : std::uint8_t { Start, Prepare, Resume };
+  /// What a step stands for beside a command: a run of a solve, or a
+  /// take-apart of solutions (openRunStep).
+  enum class RunKind : std::uint8_t { None, Solve, TakeApart };
   struct Snapshot;
   struct Step;
   class StepGuard;
+  struct RunStepGuard;
 
   explicit Document(std::unique_ptr<Puzzle> puzzle, DocumentSettings settings);
   void assignIds();
@@ -889,12 +902,26 @@ class Document {
   /// nothing, so it may be called while a run writes another problem.
   void touchAppendedProblem();
   void swapIn(Snapshot& s);
+  /// Opens the undo step of a run or a take-apart of problem `problem`
+  /// (decision 0011, amended 2026-11-24), "Solve P1" or "Take apart P1":
+  /// it saves the problem as it is now, unless the step on top of the undo
+  /// stack is that problem's of the same kind already (the state to go
+  /// back to is the same). prepareShapesForSolving() adds the shapes whose
+  /// hotspot it moves. Closed by closeRunStep.
+  void openRunStep(unsigned int problem, RunKind kind);
+  /// Ends the step openRunStep opened. Started: it goes on the undo stack
+  /// when it saved anything, and nothing can be redone any more. Not
+  /// started (the launch was refused): it is dropped.
+  void closeRunStep(bool started);
   void pushStep(Step step);
   /// Drops the oldest undo steps past the depth, moving baseStamp_ up.
   void dropOldestSteps();
   /// The stamp of the state the document is in: the step on top of the
   /// undo stack, or baseStamp_ with none.
   [[nodiscard]] std::uint64_t currentStamp() const;
+  /// A new revision whose change is `what` beside what lastChange_ holds
+  /// already: a command's ChangeSet starts empty (StepGuard, or assigned
+  /// by the command) and its helpers add to it before this does.
   void changed(std::uint32_t what);
 
   // the original's changeShape / changeProblem

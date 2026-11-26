@@ -110,7 +110,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state", "unsupported"]
     },
     "solution.analyse": {
-      "summary": "Takes saved assemblies apart afterwards (Add disassembly): all, the ones without the moves stored, or one. A job: returns at once, reports through events, stops with solution.analyseStop; the results go in when it ends (kept when stopped). Refused while the problem is being solved; while it runs, the document is frozen as while solving.",
+      "summary": "Takes saved assemblies apart afterwards (Add disassembly): all, the ones without the moves stored, or one. A job: returns at once, reports through events, stops with solution.analyseStop; the results go in when it ends (kept when stopped). Refused while the problem is being solved; while it runs, the document is frozen as while solving. When there is anything to take apart, it records an undo step named after the problem (edit.history: 'Take apart P1'), as a solve's run does (solve.start): edit.undo takes out the disassemblies it found; a document.changed that names nothing follows the reply for the step, another the results.",
       "params": {
         "type": "object",
         "properties": {

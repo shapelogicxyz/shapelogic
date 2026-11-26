@@ -198,7 +198,7 @@ again, and comes last.
 - [x] Stage 12: one source of truth: front end (12.8's engine.info grid rules are an `Engine:` commit of their own; a contract flake seen there is noted under 12.8, a test's flaw fixed by stage 14)
 - [x] Stage 13: splits: front end (13.1 moved the module-owned rules, 553 of them, and two sections' markup; the cards' static skeletons stay in index.html, with their reason)
 - [x] Stage 14: dead code and the last traps (14.1's saveBytes `gzip` removal is an `Engine:` commit of its own; the contract flake of 12.8 fixed)
-- [ ] Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (decided: D1)
+- [x] Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (decided: D1; users notice: Undo takes a solve's results out, two sliding solves run at once, a quit waits for the solves to pause, Python's Tilted Square answers)
 - [ ] Stage 16: damaged and hostile files (16.6 done on 2026-11-25)
 - [ ] Stage 17: core speed
 - [ ] Stage 18: the engine stays responsive
@@ -6459,7 +6459,7 @@ wrong answer later, so they need Fable. 15.1 and 15.2 are the bugs that
 lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
 15.6 and 15.7 were found while stage 5 was done.
 
-- [ ] **15.1 The engine ends without pausing its solves** (bug; M)
+- [x] **15.1 The engine ends without pausing its solves** (bug; M)
   - *Where:*
     - `engine/main.cpp`: no SIGPIPE handling. The `Engine` lives in a block
       so that its Document's destructor pauses and saves the solves.
@@ -6512,8 +6512,56 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
       `state.bin` written after the close: the solve was paused and saved.
     - `web/tests/unit/host.test.ts`: quit waits for a host whose `stop()` is
       still pending (a fake host).
+  - Done (2026-11-25): confirmed (a), (b) and (c).
+    - (a) `engine/main.cpp` ignores SIGPIPE (not on Windows, where such a
+      write only fails; not in `wasm_main.cpp`). `Output` notes a refused
+      write (`failed()`, after each write and flush) and `Engine::run`
+      ends its loop on it, as at the end of the input: the caller lets the
+      engine go, and the document's destructor pauses and saves.
+    - (b) `run()` no longer polls once the input has ended, and its loop's
+      body runs guarded: an exception (an `InternalError` among them) is
+      written to the log as `shapelogic_engine: ERROR: Internal Error:
+      <where>: <what>` and the loop goes on. In `handleLine` the steps
+      after the handler (the log line, the reply, the events and
+      `document.changed`) are guarded the same way, each by itself, so a
+      failure in the log line still sends the reply. A failure that
+      repeats (a poll's, 50 ms apart) is written once, and again after a
+      clean pass.
+    - (c) `web/src/main/engine-stops.ts` (`EngineStops`): the engines of
+      closed windows until they have ended. `index.ts` ends a closed
+      window's engine through it, and `before-quit`, with no window left,
+      is held (`holdQuit`) until every engine has ended or `QUIT_WAIT_MS`
+      (15 s) has passed, then asks for the quit again (the hosts' own kill
+      comes at 10 s). A window opened meanwhile drops the held quit
+      (`cancelQuit`: a second start hands its files to this instance).
+      Users notice: quitting with a solve running takes as long as the
+      solve takes to pause.
+    - Tests: the contract case `engine_ends_when_its_reader_is_gone` (an
+      engine read by the test's own thread: a Panex search under way, the
+      reader's pipes closed, then the input: status 0 and a `state.bin`
+      written after the close; on HEAD's engine: status -13, SIGPIPE);
+      `test_engine.cpp`: "the run loop ends when its output is refused"
+      (an output that takes one line; the third line, a shutdown, never
+      runs; on HEAD's sources it runs) and "a broken invariant in a poll
+      is logged and the run loop goes on" (a poll hook, `setPollHook`,
+      fails a `BT_ASSERT` after three of four replies: four replies, two
+      log lines; with the guard taken out the test aborts);
+      `host.test.ts`: four cases of `EngineStops` (a quit held until two
+      fake hosts' `stop()` settle, one failing; no quit asked for when
+      none was held; the cap; the held quit dropped).
+    - Other systems (rule 8): Docker's ubuntu:24.04 (GCC 13.3, the release
+      preset): the tree builds, the quick suite passes but for the
+      map-length check fixed since (below), the new unit and contract
+      cases pass there (the closed pipe included). Windows: the changed
+      engine and core sources compile with
+      `x86_64-w64-mingw32-g++-posix -std=c++23 -fsyntax-only`; nothing
+      was run there (the `#ifndef _WIN32` branch is the only code of the
+      item a system decides).
+    - Differs from the item: the quit's wait is a module of its own with
+      its tests (index.ts cannot be loaded by a unit test); the poll hook
+      is new, for the test.
 
-- [ ] **15.2 One solve setup for the session, the CLI, the explorer and Python; Python's Tilted Square answers** (bug, combine; M) ✓
+- [x] **15.2 One solve setup for the session, the CLI, the explorer and Python; Python's Tilted Square answers** (bug, combine; M) ✓
   - *Where:*
     - `core/shapelogic/solve/solve_session.cpp` (345-367):
       - the sliding rules: the solver is Classic; `keepMirrors`,
@@ -6568,8 +6616,40 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
       for a sliding, a tilted and a plain problem.
   - *Verify:* `just test-all`, `just oracle --tier fast`,
     `just oracle --tier sliding`, `just oracle-python`, `just python-test`.
+  - Done (2026-11-25): confirmed: four copies, and neither the explorer
+    nor Python had the tray rule.
+    - `solveSetup(puzzle, problem, base, solver, flags)` with `SolveSetup`
+      and `SetupFlags`, in `solve/solve_session.{h,cpp}` beside
+      `trayPlaneTurns` (decided: there, not a new `solve/solve_setup`:
+      `app/solve_setup.h` has had that name since 11.5). It is the
+      session's rules, moved: the sliding rules (Classic, mirrors and
+      rotations kept, no thorough check, the start locks with the free
+      parts or strict colors, `sliding::partTransforms`), else on a tray
+      whose pieces stay face up `trayPlaneTurns`; `flipPieces` empty is
+      the problem's stored value.
+    - The session calls it as a run starts (its options' flags), the CLI
+      with `-C` and the hole columns as its base and `--flip` as the
+      flag, the explorer with the request's matrix and the stored value
+      (its copy of the puzzle takes the tray along for the rule), and the
+      Python module's assembler path with `keep_mirror` and
+      `keep_rotations` as its base.
+    - Python: `Problem.solve(..., flip_pieces=None)` (`IteratorOptions::
+      flipPieces`), in its docstring and `python/README.md`.
+    - Tests: `tests/unit/solve/test_solve_setup.cpp` (four cases: each
+      field of the setup for a sliding, a tilted and a plain problem; an
+      assembler built by it finds what a session counts on Triple Play's
+      second problem, 2 face up and 1 turned over; the explorer's
+      placements are that assembler's, and fewer than turned over: fails
+      with the tray rule taken out of the explorer); `python/tests/
+      test_alpha.py` `test_a_tilted_tray_keeps_its_pieces_face_up_as_stored`
+      (the CLI's counts: 2 and 1 for the second problem, 1 and 0 for the
+      first; on HEAD's module 1 where 2 is expected).
+    - Kept: the session's and the CLI's answers (the unit suites, the
+      CLI's tests with its tilted cases, the oracle runs below). The
+      assembler ignores the solver (`chooseAssembler`), so the CLI's
+      assembler line is as it was.
 
-- [ ] **15.3 Change reports that miss or overstate what changed** (bug; M)
+- [x] **15.3 Change reports that miss or overstate what changed** (bug; M)
   - *Where:*
     - `core/shapelogic/app/document.cpp` `changed()` (541-545) assigns
       `lastChange_.what = what` rather than ORing.
@@ -6596,8 +6676,30 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
   - *Tests:* `test_document.cpp`: deleting a placed shape reports solutions;
     the group commands do not. In the contract suite, check `document.changed`'s
     `what` for those calls.
+  - Done (2026-11-25): confirmed.
+    - `changed()` ORs into `lastChange_.what`, and `StepGuard::commit`
+      folds `lastChange_.what` into the step, so undo and redo tell what
+      the command told. Every command opens a `StepGuard` (which empties
+      `lastChange_`) or assigns `lastChange_` before `changed()`; `save`
+      and `poll` set it whole: no caller relied on the overwrite (each of
+      the ten `changed()` and `revision_++` sites read).
+    - That alone fixed the commands whose helper's bits the commit went
+      over: `setPieceCount`'s sliding branch (after `syncSliding`), and any
+      `shapeChanged` under a commit that did not pass `lastChange_.what`
+      on.
+    - `deleteShape` compares every problem's `solutionsVersion()` before
+      and after `removeShape` and reports solutions when one moved.
+    - `setGroupCount`, `setGroup` and `deleteGroup` report the problem
+      alone: `Problem::setPartGroup` changes neither the solutions nor the
+      solve state (read), and the session's end is told by `solve.state`.
+    - Tests: `test_document.cpp` "a change says what it changed, no less
+      and no more" (a placed shape deleted, a spare one, the three group
+      commands, each undone); `test_document_sliding.cpp`: the step of a
+      piece taken out tells of the shapes; the contract case
+      `change_reports` (`document.changed`'s `what` for the same calls).
+      On HEAD's sources each fails (7, 1 and the first check).
 
-- [ ] **15.4 `solveLaunch` still prepares sliding solves the way it did before eb70072** (trap; S; Fable: two solves at once; a behavior change: tell the user)
+- [x] **15.4 `solveLaunch` still prepares sliding solves the way it did before eb70072** (trap; S; Fable: two solves at once; a behavior change: tell the user)
   - *Where:* `core/shapelogic/app/document.cpp` `solveLaunch` (789-828,
     841-858); `needsPreparing` (1571-1590), which repeats `syncMaxHoles`
     (1492-1514); `core/shapelogic/model/sliding.cpp:1592-1599`
@@ -6618,8 +6720,36 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
     while one runs. Say so in the Done line and to the user.
   - *Tests:* `test_document_sliding.cpp`: two sliding problems solved at once,
     each with its own search folder (decision 0035).
+  - Done (2026-11-25): confirmed: `prepareForSolving` is `syncMaxHoles` on
+    the problem (it now takes the puzzle `const`, so the compiler holds it
+    to that), and the session calls it itself as a run starts, under the
+    problem's lock, once nothing can refuse the run.
+    - So the document's own setup is gone, not only its refusal: the
+      refusal while another solve runs, the color id loop, the "Resume of
+      a finished problem" check that guarded it (the session's own answers
+      the same) and the two reports of shapes and colors. A launch reports
+      solutions and problems for its problem, and a refused one changes
+      and reports nothing (it left the holes set and the document dirty).
+    - `sliding::needsPreparing` had no caller left (the Python module asked
+      it before preparing by hand: the session does that) and is removed,
+      which leaves `syncMaxHoles` as the one place the holes are worked
+      out. Dated note in `docs/handoff/deferred-1.md`.
+    - **Behavior change:** a sliding solve of another problem starts while
+      one runs (each in search folders of its own, decision 0035; a copy
+      of a problem has its own uid, decision 0044).
+    - Other users (rule 8): the readers of `maxHoles` are Assembler 1's
+      matrix (built after the session's setup), the fit's numbers, the
+      file writer and `problem.get`: none reads it between the document's
+      old setup point and the session's.
+    - Tests: `test_document_sliding.cpp` "two problems are solved at once"
+      (the fifteen puzzle and its copy, both searching, then paused, each
+      under a lock and in folders of its own; `[parallel]`, so TSan runs
+      it); the
+      contract case `one_solve_of_a_problem_at_a_time` now starts the copy
+      beside the first where it expected the refusal. Both fail on HEAD's
+      sources.
 
-- [ ] **15.5 Solving and taking apart record an undo step** (bug; M; D1, decided 2026-11-24) ✓
+- [x] **15.5 Solving and taking apart record an undo step** (bug; M; D1, decided 2026-11-24) ✓
   - *Where:*
     - `core/shapelogic/app/document.cpp`:
       - `touchProblem()` (395-405) copies the whole problem, solutions
@@ -6674,8 +6804,73 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
       counts and the reason go in the Done line.
     - Contract: the undo label after `solve.start`.
   - *Model:* Fable (undo exactness).
+  - Done (2026-11-25): confirmed (a) and (b).
+    - A run that starts (Start, Prepare, Continue) records "Solve P1", a
+      take-apart with anything to take apart "Take apart P1"
+      (`Document::openRunStep`, closed by `closeRunStep` through a guard):
+      the problem as it was (a `touchProblem` part), pushed once the launch
+      succeeded; a refused launch records nothing. With that problem's step
+      of the same kind on top of the undo stack nothing more is saved.
+    - The label is the problem's "P1" label (D1's words), not its name:
+      the engine's log and the Solver's list name problems so, and a name
+      may be empty.
+    - Exactness: a run's start also resets hotspots, which are saved with
+      a shape, so `prepareShapesForSolving` puts a shape whose hotspot it
+      moved into the step as it was. Undo of a solve gives `writePuzzle`
+      byte for byte (the tests compare).
+    - A run that starts clears the redo stack whether it recorded a step
+      or not: a redone edit of a shape would stand beside the new run's
+      solutions (that hole was there before: edit, undo, solve, redo).
+    - `Problem::countOnFrom`: a problem swapped in by undo or redo (a
+      problem part or a whole-puzzle part) takes its solution ids and its
+      `solutionsVersion()` on from the one it replaces. Without it a solve
+      undone and run again gave its solutions the ids of the undone ones,
+      now the usual path, against the document's own rule (ids are never
+      reused).
+    - `dirty()`: the step's stamp makes the document changed, and
+      `solveDirty_` stays as it was (a run with its step already on top
+      records none, so the stamps alone cannot say it); the document so
+      stays changed after the undo of a run, until saved.
+    - The take-apart's step is recorded at its start (poll() puts the
+      results in outside any command) and is a revision of its own that
+      names no change, as a group's end is: `solution.analyse` is followed
+      by a `document.changed` with an empty `what`.
+    - Cost (6): the whole-problem copy, as `touchProblem` makes it. Solves
+      do not only append: Solve drops the old solutions, the sorted orders
+      insert and the limit thins, so the cheaper part does not hold. A
+      solve carried on (the autosave) copies once, by the rule above. 19.5
+      may make the part cheaper.
+    - The front end needed no change: the Edit menu's labels come from
+      `edit.history`, Undo is off while a solve runs, and the Solver
+      follows `document.changed` and `solve.state` (checked by the solver
+      e2e spec, extended: "Undo Solve P2" in the menu, the run's results
+      gone and back).
+    - Not undoable, as before: `solveAbort`, and what a search keeps in its
+      folders (decision 0011's amendment says what follows).
+    - Docs: decision 0011 amended (dated section); `docs/ARCHITECTURE.md`'s
+      rules; `api/solve.json` and `api/solution.json` (summaries only);
+      the guide's Solver page (a user-facing change: tell the user).
+    - Tests: `test_document_solving.cpp`: "a run is an undo step" (seven
+      sections: option, solve, undo, redo, to the byte; solve, undo, edit;
+      an edit of a shape, a solve, undo twice; one step for a solve carried
+      on, a refused launch, another step in between; the redo stack; a
+      paused solve undone, redone and carried on to the straight run's
+      totals; dirty), "two problems' runs are steps of their own", "a
+      take-apart is an undo step" (undo while it works refused; undo and
+      redo to the byte; a second take-apart; nothing to take apart; a solve
+      after it). The case that counts steps (213-242, "problems added
+      while a run is active") now finds one step more, the run's, first in
+      the list, and undoes it too. Contract: `solve_and_take_apart_are_
+      undo_steps` (the labels after `solve.start` and `solution.analyse`,
+      undo and redo through the engine). All fail on HEAD's sources.
+    - Two tests held the old behavior and changed: the tilted e2e spec's
+      "one step back: the best placement again" after a solve (now two
+      steps: the solve's results, then the placement), and the fake
+      engine's recordings (`npm run record`: a take-apart's start is
+      followed by a `document.changed`; they were last recorded with
+      engine 2.0.0, so the diff also holds what the stages since changed).
 
-- [ ] **15.6 Tetra-octa meshes with the bumpy look and no gap have holes** (bug; S to M; found in 5.7, was 5.14)
+- [x] **15.6 Tetra-octa meshes with the bumpy look and no gap have holes** (bug; S to M; found in 5.7, was 5.14)
   - *Where:* `core/shapelogic/mesh/uniform_mesh.cpp`, `bumpy` with
     `offset` 0 on the tetra-octa grid.
   - *Problem:* `test::legalShape(gt, 3, n)` for n of 3 to 5 meshes with
@@ -6690,8 +6885,34 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
     same (the STL tests, the oracle's STL dumps).
   - *Tests:* offset 0 added to the watertight test, on every grid.
   - *Model:* Fable (a wrong result with no known cause).
+  - Done (2026-11-25): found. What a user got: an STL with open rings (the
+    export skips the hole faces `finalize()` closes the mesh with); only
+    through the STL export's Bumpy box with Offset 0, the one way to ask
+    for it.
+    - The cause is not a weld. A bumpy cell's face is set in from each of
+      its edges by the bevel, by an amount that follows the edge's angle
+      (the chamfer keeps one width). Two cells of one kind on a shared face
+      set it in alike, so their outlines are one; a tetrahedron (edges of
+      70.5 degrees) sets its side in further than the octahedron on it
+      (109.5), so the outlines differ, and the ring between them, a part
+      of the octahedron's face that lies open, was never drawn. With a gap the
+      neck between the cells covers it; without one no neck was drawn.
+    - The fix: the neck is drawn whenever there is a bevel or a gap
+      (`bumpyCell`). Where the outlines are one its quads have no area and
+      `addPolygon` drops them, as it always did for repeats.
+    - Kept: a sweep over the four polyhedral grids, 1 to 14 cells, plain
+      and bumpy, with and without convex-only, offsets 0, 0.004 and 0.02,
+      bevels 0 to 0.1 (3120 meshes; a scratch test hashing every vertex's
+      bits and every face): the 3080 that were watertight are identical,
+      the 40 with holes (all tetra-octa, bumpy, no gap) are closed. The
+      STL dump against the original's passes.
+    - Tests: `test_uniform_mesh.cpp`: offset 0 added to "a shape of every
+      polyhedral grid, plain and bumpy, is watertight"; "bumpy cells of
+      different kinds join without a gap" (2 to 5 tetra-octa cells, bevels
+      2e-5 to 0.1, the volume falling as the bevel grows). On HEAD's
+      mesher: 2 and 12 failures.
 
-- [ ] **15.7 A Continue without options keeps the paused run's folders** (bug; S; found in 5.8, was 5.15)
+- [x] **15.7 A Continue without options keeps the paused run's folders** (bug; S; found in 5.8, was 5.15)
   - *Where:* `engine/methods_solve.cpp` `launch`: `solve.continue` without
     options takes `Document::pausedOptions()` whole.
   - *Problem:* those options hold the search folders, disk budgets and
@@ -6709,12 +6930,75 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
     written, `settings.set` with a folder that can, `solve.continue`
     without options: the run goes on, and its log line names the new
     folder's settings and the paused run's threads.
+  - Done (2026-11-25): confirmed. `searchSettingsInto(state, options)`
+    (`engine/convert.{h,cpp}`) is what `solveOptionsFrom` took from the
+    settings beside the solver and the threads: the two folders, their
+    disk budgets, the memory (its whole and the share) and where the user
+    sets them. `solve.continue` without options applies it over the paused
+    run's options. `api/solve.json`'s summary says so (no method or
+    parameter changes); `docs/API.md` and `api.generated.ts` regenerated.
+    - Test: `test_engine.cpp` "a Continue without options works in the
+      folders the settings name now" (a Panex run paused by a folder that
+      is a file, `settings.set` with a folder and a disk budget, Continue
+      without options: finished, with the paused run's Find Solutions; the
+      log line names the new folder and "threads 3"). On HEAD's sources it
+      pauses again (3 failures).
 
 **Gates for stage 15:** `just test-all`, `just test-asan`,
 `just test-tsan`, the contract suite, `just oracle --tier fast` and
 `--tier sliding`, `just python-test`, `just oracle-python`, `just check`
 on the changed files, `just app-test`, and the solver, sliding and
 stacking e2e specs (15.3, 15.5).
+Run (2026-11-25): `just build dev` and `release`;
+- `just test-all`: 75 of 75 (220 s); `just test` three times after the
+  last C++ edit: 30 of 30 each;
+- `just test-asan`: 74 of 74 (743 s);
+- `just test-tsan`: the 130 `[parallel]` cases pass; the contract suite on
+  the TSan engine failed once in the new case
+  `solve_and_take_apart_are_undo_steps`, a race of the test's (it asked
+  for an undo to be refused while a take-apart of four dominoes worked,
+  which can be over before the request arrives): the check is the unit
+  test's, where nothing polls in between, and the suite then passed
+  whole, the four new cases six more times;
+- the contract suite on the dev engine (in `just test`) and the new cases
+  on the release engine; before the fixes, on HEAD's release engine, the
+  four fail as their Done lines say;
+- seen failing (rule 8): a scratch copy with HEAD's `core/`, `engine/`,
+  `cli/` and `python/src` under the new tests: the eleven new or changed
+  unit cases that build there all fail; the two that need new API, with
+  their fix taken out of the new sources (the explorer's tray rule; the
+  run loop's guard): fail; the Python case on HEAD's module: fails;
+- `just oracle --tier fast --allow-missing` (the reference checkout lacks
+  one file): 18 of 19 compared, 0 differ, with all threads, `--threads 1`
+  and `--solver crowell`; `--tier sliding --allow-missing`: 23 of 35
+  compared, 0 differ, and with `--threads 1` 32 of 35, 0 differ (three
+  files are not in the checkout). The oracle only reads the reference
+  checkout beside the repo;
+- `just python-test`: 43 of 43;
+- `just check` on the 14 changed sources and the 6 changed or new test
+  files: clean;
+- `python3 api/gen_api_md.py` and `just app-gen` (three summaries);
+  `just app-check`: clean; `just app-test`: 689 of 689, before and after
+  the recordings were made again;
+- on a build of its own (`BT_OUT_DIR`), with the release engine: the
+  `solver` spec 10 of 10; `sliding`, `stacking`, `explore`, `tilted`,
+  `windows`, `files` and `engine-failure` 62 of 63, the one failure the
+  tilted spec's old expectation (above), then `tilted`, `frozen` and
+  `keymap` 9 of 9;
+- Linux (Docker, ubuntu:24.04, GCC 13.3, the release preset as CI): the
+  tree builds, the quick suite 29 of 30 (the thirtieth was
+  `architecture-map`: the rules had grown past its 500 lines, shortened
+  since, and two paragraphs elsewhere wrapped anew for the room), the new
+  unit and contract cases pass; Windows: 12 changed sources compile with
+  MinGW's `-fsyntax-only`, nothing run. Both before the last edits (a
+  `reserve`, comments, tests), which add no system call;
+- `just site-demo --check` after the last source edit (rebuilt; every
+  puzzle type opens and plays) and `just site-build` (8 of 8).
+- Not run: `just oracle-python` (it needs the original's module, and the
+  reference checkout is not built); the oracle's full and slow tiers and
+  the benchmarks (no search code changed: a run's matrix options are
+  worked out once, as before, by the function the session's rules moved
+  into); the other e2e specs.
 
 ## Stage 16: damaged and hostile files
 

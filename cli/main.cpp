@@ -720,42 +720,28 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                    problem.getName().c_str());
       return kExitUsage;
     }
-    // a sliding start is held by the start marks (the start locks); and
-    // judged against a fixed goal, so rotated and mirrored starts are
-    // different starts: all are kept
+    // a sliding problem's holes, as a solve sets them up
     if (sliding) {
       bt::sliding::syncMaxHoles(puzzle, problem);
     }
 
-    const bt::AssemblerKind kind = bt::chooseAssembler(problem, o.solver);
+    // the matrix as every solve builds it (bt::solveSetup's rules: a
+    // sliding piece held to its start and placed as drawn, or, unplaced,
+    // as --any-orientation allows; a tilted tray's pieces kept one face up
+    // turned only in the tray), over this program's own options
+    bt::MatrixOptions base;
+    base.strictColors = o.strictColors;
+    base.variableHoleColumns = o.holeColumns;
+    const bt::SolveSetup setup =
+        bt::solveSetup(puzzle, problem, std::move(base), o.solver,
+                       bt::SetupFlags{o.anyOrientation, o.mirroredOrientations, o.flip});
+    const bt::MatrixOptions& matrix = setup.matrix;
+
+    const bt::AssemblerKind kind = bt::chooseAssembler(problem, setup.solver);
     if (!o.json) {
       std::fprintf(stderr, "%s\n", assemblerLine(kind));
     }
-    std::unique_ptr<bt::Assembler> assembler = bt::makeAssembler(puzzle, problem, o.solver);
-
-    bt::MatrixOptions matrix;
-    // the start marks hold a sliding piece to its start; the older model
-    // (a tray and a goal map in piece colors) is matched strictly instead
-    const bool marks = sliding && bt::sliding::usesStartMarks(puzzle, problem);
-    matrix.strictColors = sliding ? !marks : o.strictColors;
-    matrix.startLocks = marks;
-    if (marks) {
-      matrix.freeStarts = bt::sliding::freeStartParts(puzzle, problem);
-    }
-    matrix.keepMirrors = sliding;
-    matrix.keepRotations = sliding;
-    matrix.variableHoleColumns = o.holeColumns;
-    // a sliding piece slides without turning: it starts as drawn, or,
-    // unplaced, as --any-orientation allows
-    if (sliding) {
-      matrix.partTransforms = bt::sliding::partTransforms(puzzle, problem, o.anyOrientation,
-                                                          o.mirroredOrientations);
-    }
-    // a tilted tray's pieces kept one face up turn only in the tray (as
-    // SolveSession does it)
-    if (puzzle.tray() && !o.flip.value_or(bt::storedFlipPieces(problem))) {
-      matrix.partTransforms = bt::trayPlaneTurns(puzzle, problem);
-    }
+    std::unique_ptr<bt::Assembler> assembler = bt::makeAssembler(puzzle, problem, setup.solver);
     if (const bt::AssemblerError err = assembler->createMatrix(matrix);
         err != bt::AssemblerError::None) {
       return reportMatrixError(o, err, assembler->errorParam());

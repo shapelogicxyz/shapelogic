@@ -669,8 +669,15 @@ class Mesher {
           addStrip(b1, a1, a2, b2, f.normal, info, true);
         }
       }
-      if (!empty && offset_ > 0) {
-        // the neck to the filled neighbor, drawn by the lower cell
+      if (!empty && (offset_ > 0 || bevel_ > 0)) {
+        // The neck to the filled neighbor, drawn by the lower cell. Without
+        // a gap it joins the two cells' outlines of the shared face where
+        // they differ: the bevels set a face in from each edge by that
+        // edge's angle, so a tetrahedron's side of the face is set in
+        // less than the octahedron's on it, and the ring between the two
+        // is a part of the surface (nothing drew it: cleanup item 15.6).
+        // Where the outlines are one (cells of one kind), the neck's
+        // quads have no area and addPolygon drops them.
         const CellAt d = f.across;
         if (!(c < d)) {
           continue;

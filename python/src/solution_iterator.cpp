@@ -216,15 +216,22 @@ void SolutionIterator::runAssembler(Problem& problem) {
     puzzle_->getShape(i).initHotspot();
   }
 
+  // The matrix as every solve builds it (solveSetup; cleanup item 15.2:
+  // this copy of the rules lacked the tilted tray's, so a Tilted Square
+  // problem whose pieces stay face up was solved with them turned over).
+  MatrixOptions base;
+  base.keepMirrors = options_.keepMirror;
+  base.keepRotations = options_.keepRotations;
+  const SolveSetup setup = solveSetup(*puzzle_, problem, std::move(base), SolverType::Classic,
+                                      SetupFlags{false, false, options_.flipPieces});
+
   // gridType_c::findAssembler: assembler 0 when every part is one piece,
   // else assembler 1
-  assembler_ = makeAssembler(*puzzle_, problem, SolverType::Classic);
+  assembler_ = makeAssembler(*puzzle_, problem, setup.solver);
   activeAssembler_.store(assembler_.get(), std::memory_order_release);
 
-  MatrixOptions matrix;
-  matrix.keepMirrors = options_.keepMirror;
-  matrix.keepRotations = options_.keepRotations;
-  if (const AssemblerError err = assembler_->createMatrix(matrix); err != AssemblerError::None) {
+  if (const AssemblerError err = assembler_->createMatrix(setup.matrix);
+      err != AssemblerError::None) {
     activeAssembler_.store(nullptr, std::memory_order_release);
     pushItem(QueueItem{QueueItem::Type::Error,
                        {},
@@ -306,11 +313,7 @@ void SolutionIterator::runSession(Problem& problem) {
     pushItem(QueueItem{QueueItem::Type::Error, {}, refused.error().message});
     return;
   }
-  // a sliding problem's holes, as the app sets them up (the session would
-  // too, but after the shapes are prepared); only on the sliding grid
-  if (sliding::isSliding(*puzzle_) && sliding::needsPreparing(*puzzle_, problem)) {
-    (void)sliding::prepareForSolving(*puzzle_, problem);
-  }
+  // (a sliding problem's holes are the session's to set up as it starts)
   app::prepareShapesForSolving(*puzzle_);
 
   SolveOptions so;
@@ -319,6 +322,7 @@ void SolutionIterator::runSession(Problem& problem) {
   so.reduce = options_.reduce;
   so.matrix.keepMirrors = options_.keepMirror;
   so.matrix.keepRotations = options_.keepRotations;
+  so.flipPieces = options_.flipPieces.value_or(storedFlipPieces(problem));
   so.solutionLimit = 0;
   so.threads = options_.threads;
   so.sliding = options_.sliding;

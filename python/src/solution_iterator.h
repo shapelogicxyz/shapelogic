@@ -18,6 +18,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 
@@ -42,6 +43,10 @@ struct IteratorOptions {
   /// The threads of the solve; 0 for every hardware thread (the original's
   /// default, without SHAPELOGIC_THREADS).
   unsigned int threads = 0;
+  /// A Tilted Square puzzle: the pieces may be turned over; empty: as the
+  /// problem stores it (the Solver's Pieces may be turned over). Not in the
+  /// original, which had no such puzzle.
+  std::optional<bool> flipPieces;
   /// A sliding puzzle's search (the GUI's sliding boxes).
   sliding::SlidingOptions sliding;
   /// A stacking puzzle's search; its workDir is where a Panex search keeps

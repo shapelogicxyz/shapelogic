@@ -224,13 +224,21 @@ class Engine {
   [[nodiscard]] bool busy() const;
   /// engine.shutdown was called.
   [[nodiscard]] bool stopped() const { return state_.shutdown; }
-  /// Reads requests from `in` until it ends or engine.shutdown; returns
-  /// true when the input ended. After a shutdown the thread reading `in`
+  /// Reads requests from `in` until it ends, engine.shutdown, or a write
+  /// the output refused (its reader is gone); returns true when the input
+  /// ended. After a shutdown or a refused write the thread reading `in`
   /// may still be blocked on it: `in` must then outlive the process
-  /// (stdin).
+  /// (stdin). An exception outside a method's handler (a broken invariant
+  /// in a poll or after a reply) is written to the log, once while it
+  /// repeats, and the loop goes on: only the caller letting the engine go
+  /// ends the document, which pauses and saves its solves.
   bool run(std::istream& in);
 
   [[nodiscard]] State& state() { return state_; }
+  /// Runs `hook` inside every poll, after the ended work is taken in and
+  /// before it is told (pollEvents' `between`): a test makes work end, or
+  /// an invariant break, there.
+  void setPollHook(std::function<void()> hook) { pollHook_ = std::move(hook); }
 
   /// The longest request line read (64 MiB): the reader stops keeping a
   /// longer one and it is answered -32600 once its newline arrives.
@@ -244,10 +252,20 @@ class Engine {
   static constexpr std::size_t kMaxQueuedBytes = std::size_t{64} << 20;
 
  private:
+  /// Runs `f`; an exception it throws is logged (failedOutside), not
+  /// passed on. False when it threw.
+  template <class F>
+  bool guarded(std::string_view where, F&& f);
+  /// The log's line for an exception no reply can carry.
+  void failedOutside(std::string_view where, const char* what);
+
   Output out_;
   std::ostream& log_;
   MethodTable methods_;
   State state_;
+  std::function<void()> pollHook_;
+  /// The last line failedOutside wrote.
+  std::string lastFailure_;
 };
 
 }  // namespace bt::engine

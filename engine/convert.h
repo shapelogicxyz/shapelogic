@@ -179,6 +179,11 @@ inline constexpr std::size_t kMaxFileName = 255;
 [[nodiscard]] std::optional<std::map<std::string, std::string>> solverSettingsFrom(
     const Json& j, std::string& error);
 
+/// What a solve takes from the settings as they are now, whatever its
+/// options say: the folders its searches keep their files in, the disk
+/// they may take there, the memory the searches share (and its whole, for
+/// a search without the share), and where the user sets them.
+void searchSettingsInto(const State& s, SolveOptions& o);
 /// The options of a solve: the request's (null: none) over the settings.
 [[nodiscard]] RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j);
 /// Sets the stacking solver a request (`given`, its options) did not name:

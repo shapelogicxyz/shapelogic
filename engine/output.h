@@ -35,10 +35,14 @@ class Output {
   void notify(std::string_view method, Json params);
   /// Sends a frame: its announcement, then the bytes. Returns its number.
   std::uint64_t frame(std::string_view bytes);
+  /// A write was refused: the reader is gone (its end of the pipe closed),
+  /// and nothing written from now on arrives. Stays true.
+  [[nodiscard]] bool failed() const { return failed_; }
 
  private:
   std::ostream& out_;
   std::uint64_t frames_ = 0;
+  bool failed_ = false;
 };
 
 /// Collects typed arrays into the bytes of a frame, each at a multiple of

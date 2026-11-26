@@ -354,8 +354,10 @@ void syncMaxHoles(const Puzzle& puzzle, Problem& problem);
 [[nodiscard]] unsigned int floorCells(const Voxel& tray);
 
 /// What a sliding solve sets up first (the solve thread did it as a run
-/// started): the problem's maximum of holes. True when it changed.
-bool prepareForSolving(Puzzle& puzzle, Problem& problem);
+/// started): the problem's maximum of holes (syncMaxHoles), and nothing
+/// else: no shape, no color and no other problem changes, so a solve of
+/// another problem may be running. True when it changed.
+bool prepareForSolving(const Puzzle& puzzle, Problem& problem);
 
 /// A file the original wrote (or one of ours from before the start marks
 /// had a place of their own) keeps the starts as the start/goal shapes'
@@ -419,9 +421,6 @@ std::vector<unsigned int> applyBoardEdit(Puzzle& puzzle, const BoardEdit& edit);
 /// in order.
 std::vector<unsigned int> changeBoard(Puzzle& puzzle, unsigned int problem,
                                       unsigned int trayShape);
-
-/// True when prepareForSolving would change anything (without changing it).
-[[nodiscard]] bool needsPreparing(const Puzzle& puzzle, const Problem& problem);
 
 /// The transformations each part of the problem may be placed in, for the
 /// assembler (MatrixOptions::partTransforms): a piece keeps its orientation

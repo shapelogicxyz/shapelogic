@@ -37,6 +37,11 @@ struct Document::Step {
   std::uint32_t what = 0;  ///< ChangeFlag bits
   /// Names the step for the clean mark; never 0.
   std::uint64_t stamp = 0;
+  /// The step of a run or a take-apart of problem `runOf` (openRunStep):
+  /// while it is on top of the undo stack, that problem's next run of the
+  /// same kind records no other.
+  RunKind run = RunKind::None;
+  Id runOf = 0;
 };
 
 /// A command's part of the history: opens a step (or joins the open

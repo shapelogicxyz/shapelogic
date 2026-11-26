@@ -196,8 +196,10 @@ PYBIND11_MODULE(shapelogic, m) {
           "solve",
           [](const PyProblem& p, bool disassemble, bool reduce, bool keepRotations,
              bool keepMirror, unsigned int threads, bool nestedSlides, bool partialNested, bool verticalMoves, bool anyOrientation, bool mirroredOrientations, bool highMemory,
-             bool optimizedPaths, const std::string& stackingSolver, const std::string& workDir) {
+             bool optimizedPaths, const std::string& stackingSolver, const std::string& workDir,
+             std::optional<bool> flipPieces) {
             IteratorOptions o;
+            o.flipPieces = flipPieces;
             o.disassemble = disassemble;
             o.reduce = reduce;
             o.keepRotations = keepRotations;
@@ -222,7 +224,7 @@ PYBIND11_MODULE(shapelogic, m) {
           py::arg("vertical_moves") = false, py::arg("any_orientation") = false,
           py::arg("mirrored_orientations") = false, py::arg("high_memory") = false,
           py::arg("optimized_paths") = false, py::arg("stacking_solver") = "stacking",
-          py::arg("work_dir") = "",
+          py::arg("work_dir") = "", py::arg("flip_pieces") = py::none(),
           "Start solving the problem and return an iterator yielding Solution objects.\n\n"
           "The solve works on a copy of the puzzle as it is now. threads: 0 for every "
           "core. A sliding puzzle (the Sliding Puzzle Solver, the only one): "
@@ -234,7 +236,9 @@ PYBIND11_MODULE(shapelogic, m) {
           "on it: a far smaller search whose path may have more than the fewest moves, "
           "and whose finding no solution proves nothing). A stacking puzzle: "
           "stacking_solver 'stacking' or 'panex', high_memory. work_dir: where a "
-          "sliding search or a Panex search keeps its levels (empty: in memory).")
+          "sliding search or a Panex search keeps its levels (empty: in memory). A Tilted "
+          "Square puzzle (a tray): flip_pieces, whether the pieces may be turned over "
+          "(None, the default: as the problem stores it, the Solver's box).")
       .def("__repr__", [](const PyProblem& p) {
         return "<Problem index=" + std::to_string(p.getIndex()) + " name='" + p.getName() +
                "' pieces=" + std::to_string(p.getNumPieces()) + ">";

@@ -833,10 +833,7 @@ std::optional<std::map<std::string, std::string>> solverSettingsFrom(const Json&
 
 // ---- solving ----------------------------------------------------------------------------
 
-RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
-  SolveOptions o;
-  o.solver = s.settings.solver;
-  o.threads = s.settings.threads;
+void searchSettingsInto(const State& s, SolveOptions& o) {
   // where a sliding search keeps its levels and a Panex search is
   // saved: the engine's settings
   o.sliding.workDir = s.settings.slideFolder;
@@ -852,6 +849,13 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   o.stacking.memoryBytes = memory;
   o.memoryShare = s.memory;
   o.settingsPlace = "Settings ▸ Solver";
+}
+
+RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
+  SolveOptions o;
+  o.solver = s.settings.solver;
+  o.threads = s.settings.threads;
+  searchSettingsInto(s, o);
   if (j.is_null()) {
     return o;
   }

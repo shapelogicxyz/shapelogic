@@ -453,7 +453,12 @@ test('every placement: the list, the count on each board, and the one that takes
     await runEnded(page, 'finished');
     await expect(page.locator('#slvAsm')).toHaveText('1');
 
-    // one step back: the best placement again
+    // two steps back: the solve's results first (a run is an undo step,
+    // cleanup item 15.5; the placement stays), then the best placement again
+    await page.keyboard.press('Control+z');
+    await solverSettled(page);
+    await expect(page.locator('#slvActivity')).toHaveText('Ready to Solve');
+    expect((await docOf(page)).tray?.placement).toBe('custom');
     await page.keyboard.press('Control+z');
     await solverSettled(page);
     expect((await docOf(page)).tray).toEqual(snap.tray);

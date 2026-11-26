@@ -31,6 +31,7 @@ import {
   engineCall,
   FIXTURES,
   launch,
+  menuItem,
   newDocument,
   openFixture,
   readCallLog,
@@ -668,6 +669,28 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; a solve
       }),
     ).toMatchObject({ saved: 0, state: 'unsolved' });
     await engineCall(page, 'edit.undo');
+    await expect(page.locator('#slvActivity')).toHaveText('Search finished');
+    expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(kept);
+    await expect(page.locator('#slvRun [data-r="reset"]')).toBeEnabled();
+    // the run itself is a step (cleanup item 15.5): Edit ▸ Undo names it and
+    // takes its results out, Redo brings them back
+    const steps = await engineCall<{ undo: string[] }>(page, 'edit.history');
+    expect(steps.undo.at(-1)).toMatch(/^Solve P\d+$/);
+    await expect
+      .poll(async () => (await menuItem(page, 'undo'))?.label)
+      .toBe(`Undo ${steps.undo.at(-1) ?? ''}`);
+    await engineCall(page, 'edit.undo');
+    await expect(page.locator('#slvActivity')).toHaveText('Ready to Solve');
+    await expect(page.locator('#slvRun [data-r="reset"]')).toBeDisabled();
+    expect(
+      await engineCall<{ saved: number; state: string }>(page, 'problem.get', {
+        problem: small.problem,
+      }),
+    ).toMatchObject({ saved: 0, state: 'unsolved' });
+    await expect
+      .poll(async () => (await menuItem(page, 'redo'))?.label)
+      .toBe(`Redo ${steps.undo.at(-1) ?? ''}`);
+    await engineCall(page, 'edit.redo');
     await expect(page.locator('#slvActivity')).toHaveText('Search finished');
     expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(kept);
     await expect(page.locator('#slvRun [data-r="reset"]')).toBeEnabled();

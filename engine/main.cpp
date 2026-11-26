@@ -9,6 +9,7 @@
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/version.h"
 
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -36,6 +37,14 @@ int main(int argc, char** argv) {
   // translation of either stream
   (void)_setmode(_fileno(stdout), _O_BINARY);
   (void)_setmode(_fileno(stdin), _O_BINARY);
+#endif
+#ifndef _WIN32
+  // The app can go without a word (a crash, a force quit): a write to its
+  // closed pipe then fails (Output::failed ends the run loop) rather than
+  // raise SIGPIPE, which would end the engine before the document's
+  // destructor has paused and saved the solves (cleanup item 15.1). On
+  // Windows such a write only ever fails.
+  (void)std::signal(SIGPIPE, SIG_IGN);
 #endif
   std::ios::sync_with_stdio(false);
   // std::cin is tied to std::cout: each read would flush std::cout first.

@@ -18,6 +18,7 @@
 #include "shapelogic/solve/disassembler_node.h"
 #include "shapelogic/solve/movement_analysator.h"
 #include "shapelogic/solve/movement_cache.h"
+#include "shapelogic/solve/solve_session.h"
 
 #include <algorithm>
 #include <deque>
@@ -76,27 +77,20 @@ Result<AssemblyExplorer> AssemblyExplorer::make(const Puzzle& puzzle, unsigned i
 
   AssemblyExplorer e;
   e.puzzle_ = explorerCopy(puzzle, problemIndex);
-  // A sliding puzzle's placements are those its solve makes (the original
-  // browsed the solve's own assembler): the holes set up, every start
-  // kept, the pieces held to their starts, Classic's assembler.
-  MatrixOptions options = matrix;
+  // The placements are those the problem's solve makes (the original
+  // browsed the solve's own assembler): a sliding puzzle's holes set up,
+  // and the matrix by the solve's rules (solveSetup: every sliding start
+  // kept, the pieces held to their starts and placed as drawn, Classic's
+  // assembler; a tilted tray's pieces kept face up, as the problem stores
+  // it, turned only in the tray, for which the copy takes the tray).
   if (grid.getType() == GridKind::Sliding) {
     (void)sliding::prepareForSolving(*e.puzzle_, e.puzzle_->getProblem(0));
-    solver = SolverType::Classic;
-    options.keepMirrors = true;
-    options.keepRotations = true;
-    options.completeRotations = false;
-    const bool marks = sliding::usesStartMarks(*e.puzzle_, e.puzzle_->getProblem(0));
-    options.strictColors = !marks;
-    options.startLocks = marks;
-    if (marks) {
-      options.freeStarts = sliding::freeStartParts(*e.puzzle_, e.puzzle_->getProblem(0));
-    }
-    // the pieces as drawn (the default of the solve's orientation options)
-    options.partTransforms = sliding::partTransforms(*e.puzzle_, e.puzzle_->getProblem(0), false,
-                                                     false);
   }
-  e.assembler_ = makeAssembler(*e.puzzle_, e.puzzle_->getProblem(0), solver);
+  e.puzzle_->setTray(puzzle.tray());
+  const SolveSetup setup =
+      solveSetup(*e.puzzle_, e.puzzle_->getProblem(0), matrix, solver, SetupFlags{});
+  const MatrixOptions& options = setup.matrix;
+  e.assembler_ = makeAssembler(*e.puzzle_, e.puzzle_->getProblem(0), setup.solver);
   const AssemblerError err = e.assembler_->createMatrix(options);
   if (err != AssemblerError::None) {
     return fail(Errc::InvalidArgument, std::string(errorMessage(err)));

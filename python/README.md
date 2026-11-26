@@ -64,6 +64,11 @@ New here:
   where a sliding search or a Panex search keeps its levels (empty:
   in memory only). Their solutions come when the search ends; a stacking
   solution counts transfers, as `bt` does.
+- A Tilted Square puzzle (a tray) solves as the app and `shapelogic_cli`
+  solve it: `solve(..., flip_pieces=None)` says whether the pieces may be
+  turned over (`None`, the default: as the problem stores it, the Solver's
+  "Pieces may be turned over"; `shapelogic_cli`'s `--flip`). A new name:
+  the original had no such puzzle.
 - `import_puzzlesolver3d(filename)`, `import_puzzlecad(filename)`,
   `Puzzle.export_puzzlecad(problem=None, name="")` (the text),
   `Puzzle.convert_targets` and `Puzzle.convert_grid(grid)` (a new

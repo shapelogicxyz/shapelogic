@@ -11,11 +11,13 @@ import argparse
 import base64
 import concurrent.futures
 import gzip
+import json
 import os
 import pathlib
 import re
 import shutil
 import struct
+import subprocess
 import sys
 import tempfile
 import time
@@ -1225,9 +1227,20 @@ def one_solve_of_a_problem_at_a_time(e):
         find = {"disassemble": True}
         start = len(e.events)
         e.call("solve.start", {"problem": p, "options": find})
-        # (in one document a second sliding solve is refused before the
-        # lock is asked for: the solves read the same shapes)
-        e.fails("solve.start", {"problem": copy, "options": find}, "invalid_state")
+        # in one document a second sliding solve starts beside the first
+        # (cleanup item 15.4: it was refused, from the time when setting a
+        # sliding solve up repainted the shapes the other one reads); the
+        # copy has a uid of its own, so search folders of its own
+        # (decision 0044)
+        second = len(e.events)
+        e.call("solve.start", {"problem": copy, "options": find})
+        active = ("preparing", "assembling", "draining")
+        check(e.call("solve.status", {"problem": p})["state"] in active
+              and e.call("solve.status", {"problem": copy})["state"] in active,
+              "two sliding solves of one document at once")
+        changed_event(e, e.call("solve.abort", {"problem": copy})["revision"])
+        wait_state(e, copy, ("idle",), second, timeout=30)
+        check(e.call("solve.status", {"problem": p})["state"] in active, "the first goes on")
         other = Engine(e.proc.args[0], e.api)
         try:
             other.call("settings.set", {"slideFolder": tmp})
@@ -2881,6 +2894,186 @@ def derived_take_apart(e):
     check(e.call("explore.analyse", {"handle": mx["handle"], "node": mx["root"]["node"]})["nodes"],
           "moves from the start")
     e.call("explore.close", {"handle": mx["handle"]})
+
+
+@test
+def change_reports(e):
+    """document.changed's `what` (cleanup item 15.3): a shape deleted out of
+    a solved problem takes solutions along and says so; a piece group is
+    part of the definition and leaves the solutions be."""
+    p, box, d = domino_box(e, 2, 2, 2)
+    spare = e.call("shape.create", {"size": [1, 1, 1]})["shape"]
+
+    def what(r):
+        return changed_event(e, r["revision"])["what"]
+
+    check(what(e.call("problem.setGroup", {"problem": p, "shape": d, "group": 1})) == ["problems"],
+          "setGroup tells of the problem alone")
+    check(what(e.call("problem.setGroupCount", {"problem": p, "shape": d, "group": 2, "count": 1}))
+          == ["problems"], "setGroupCount tells of the problem alone")
+    check(what(e.call("problem.deleteGroup", {"problem": p, "group": 1})) == ["problems"],
+          "deleteGroup tells of the problem alone")
+    e.call("problem.deleteGroup", {"problem": p, "group": 2})
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {"disassemble": False, "keepAtMost": 0}})
+    check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved")
+    e.drain()
+    saved = e.call("problem.get", {"problem": p})["saved"]
+    check(saved > 0, "solutions to lose")
+    # a shape no problem uses: the lists only
+    told = what(e.call("shape.delete", {"shape": spare}))
+    check("shapes" in told and "solutions" not in told, f"a spare shape deleted: {told}")
+    check(e.call("problem.get", {"problem": p})["saved"] == saved, "the solutions stay")
+    # the piece the solutions place: they go, and the event says so
+    told = what(e.call("shape.delete", {"shape": d}))
+    check("shapes" in told and "solutions" in told, f"a placed shape deleted: {told}")
+    check(e.call("problem.get", {"problem": p})["saved"] == 0, "its solutions went")
+    # undone, the step tells what it told
+    told = what(e.call("edit.undo"))
+    check("shapes" in told and "solutions" in told, f"the undo of it: {told}")
+    check(e.call("problem.get", {"problem": p})["saved"] == saved, "the solutions are back")
+
+
+@test
+def solve_and_take_apart_are_undo_steps(e):
+    """Decision 0011 as amended on 2026-11-24 (cleanup item 15.5): a run and
+    a take-apart each record an undo step, named after the problem, so
+    undo takes their results out before the edits made before them."""
+    p, box, d = domino_box(e, 2, 2, 2)
+    e.call("problem.setSolverSettings", {"problem": p, "settings": {"disassemble": False}})
+    before = e.call("edit.history")["undo"]
+    check(before[-1] == "Solver options", f"the option's step {before}")
+    assemble = {"disassemble": False, "keepAtMost": 0}
+
+    def solve():
+        start = len(e.events)
+        r = e.call("solve.start", {"problem": p, "options": assemble})
+        changed_event(e, r["revision"])
+        check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved")
+        e.drain()
+
+    solve()
+    h = e.call("edit.history")
+    check(h["undo"] == before + ["Solve P1"] and h["redo"] == [], f"the run's step {h}")
+    saved = e.call("problem.get", {"problem": p})["saved"]
+    check(saved > 0, "solutions")
+    # the same problem solved again with that step on top: no second step
+    solve()
+    check(e.call("edit.history")["undo"] == before + ["Solve P1"], "one step for the runs")
+
+    # the take-apart, a step of its own
+    start = len(e.events)
+    total = e.call("solution.analyse", {"problem": p, "which": "all"})["total"]
+    check(total == saved, f"every solution taken apart ({total})")
+    # (an undo while it works is refused: the unit tests' check; here the
+    # take-apart of so small a box may be over before the request arrives)
+    end = e.wait_event("solution.analyseEnded", lambda q: q["problem"] == p, start=start, timeout=120)
+    check(end["separated"] == saved, f"all come apart {end}")
+    e.wait_event("document.changed", lambda q: p in q["problems"] and "solutions" in q["what"],
+                 start=start, timeout=10)
+    check(e.call("edit.history")["undo"] == before + ["Solve P1", "Take apart P1"], "its step")
+    rows = e.call("solution.page", {"problem": p})["rows"]
+    check(all(r["disassembly"] != "none" for r in rows), f"taken apart {rows[0]}")
+
+    # undone last first: the disassemblies, then the solutions, then the option
+    ev = changed_event(e, e.call("edit.undo")["revision"])
+    check("solutions" in ev["what"], f"the undo's event {ev}")
+    rows = e.call("solution.page", {"problem": p})["rows"]
+    check(len(rows) == saved and all(r["disassembly"] == "none" for r in rows), "the disassemblies gone")
+    e.call("edit.undo")
+    detail = e.call("problem.get", {"problem": p})
+    check(detail["saved"] == 0 and detail["state"] == "unsolved"
+          and detail["solverSettings"] == {"disassemble": False}, f"the solutions gone {detail}")
+    h = e.call("edit.history")
+    check(h["undo"] == before and h["redo"] == ["Solve P1", "Take apart P1"], f"to redo {h}")
+    e.call("edit.redo")
+    check(e.call("problem.get", {"problem": p})["saved"] == saved, "redone: the solutions are back")
+    e.call("edit.redo")
+    rows = e.call("solution.page", {"problem": p})["rows"]
+    check(all(r["disassembly"] != "none" for r in rows), "redone: the disassemblies are back")
+    # undone and then edited: the results are gone for good, as asked
+    e.call("edit.undo")
+    e.call("edit.undo")
+    e.call("problem.rename", {"problem": p, "name": "edited"})
+    check(e.call("edit.history")["redo"] == [], "nothing to redo after an edit")
+    check(e.call("problem.get", {"problem": p})["saved"] == 0, "no solutions")
+
+
+def raw_reply(proc, rid):
+    """Reads a raw engine's stdout up to the reply to request `rid`; the
+    events on the way (none of these calls answers with a frame)."""
+    events = []
+    while True:
+        line = proc.stdout.readline()
+        check(line, "the engine closed its output")
+        m = json.loads(line)
+        if m.get("id") == rid:
+            check("result" in m, f"request {rid} failed: {m}")
+            return m["result"], events
+        events.append(m)
+
+
+@test
+def engine_ends_when_its_reader_is_gone(e):
+    """Cleanup item 15.1: the app gone without a word (a crash, a force
+    quit) closes the engine's pipes. The engine's next write then fails
+    where it used to raise SIGPIPE and end the process at once; it ends its
+    run loop, and the document pauses and saves the solves: a Panex search
+    under way leaves its state.bin."""
+    with tempfile.TemporaryDirectory() as tmp:
+        work = pathlib.Path(tmp) / "panex"
+        puzzle = pathlib.Path(tmp) / "swap6.xmpuzzle"
+        puzzle.write_text(panex_swap(6))
+        # an engine read by this thread alone: its output can be closed
+        # with nobody waiting on it
+        proc = subprocess.Popen([e.proc.args[0]], cwd=ROOT, stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                env={**os.environ, "SHAPELOGIC_SLIDE_DIR": str(pathlib.Path(tmp) / "sliding"),
+                                     "SHAPELOGIC_PANEX_DIR": str(work)})
+        try:
+            def call(rid, method, params):
+                proc.stdin.write((json.dumps({"jsonrpc": "2.0", "id": rid, "method": method,
+                                              "params": params}) + "\n").encode())
+                proc.stdin.flush()
+                return raw_reply(proc, rid)
+
+            call(1, "settings.set", {"panexFolder": str(work)})
+            snap, _ = call(2, "document.open", {"path": str(puzzle)})
+            p = snap["problems"][0]["id"]
+            # one thread: the search runs far longer than this test
+            _, events = call(3, "solve.start", {"problem": p, "options": {"disassemble": True, "threads": 1}})
+            # until the search is under way (its progress counts)
+            deadline = time.monotonic() + 120
+            searching = False
+            while not searching:
+                check(time.monotonic() < deadline, "the search did not begin")
+                for m in events:
+                    searching = searching or (m.get("method") == "solve.progress"
+                                              and m["params"]["progress"]["searched"] > 0)
+                if not searching:
+                    line = proc.stdout.readline()
+                    check(line, "the engine closed its output")
+                    events = [json.loads(line)]
+            check(not list(work.glob("*/state.bin")), "nothing saved while the search runs")
+            # the reader goes: both pipes it read
+            closed = time.time()
+            proc.stdout.close()
+            proc.stderr.close()
+            # the engine meets it at its next progress event (four a
+            # second) and ends by itself; its input closes after
+            time.sleep(1.0)
+            proc.stdin.close()
+            try:
+                status = proc.wait(timeout=120)
+            except subprocess.TimeoutExpired:
+                raise ContractError("the engine did not end after its reader went") from None
+            check(status == 0, f"ended with status {status} (a signal's is negative)")
+            states = list(work.glob("*/state.bin"))
+            check(len(states) == 1 and states[0].stat().st_mtime >= closed - 2,
+                  f"the search paused and saved as the engine ended: {states}")
+        finally:
+            if proc.poll() is None:
+                proc.kill()
 
 
 @test

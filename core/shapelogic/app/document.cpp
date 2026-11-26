@@ -347,7 +347,9 @@ void Document::StepGuard::commit(std::uint32_t what) {
   // anything (a second batch of a drag on the same shape saves nothing
   // new, and is still a change with a revision of its own)
   const bool any = saved || doc_.touches_ > touches_;
-  s.what |= what;
+  // with what the command's helpers reported (shapeChanged, syncSliding):
+  // undo and redo tell it again
+  s.what |= what | doc_.lastChange_.what;
   if (!grouped_) {
     if (saved) {
       doc_.pushStep(std::move(s));
@@ -469,6 +471,8 @@ void Document::swapIn(Snapshot& s) {
     case SnapshotKind::Problem:
       // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a problem's snapshot holds its problem
       std::swap(puzzle_->getProblem(s.index), *s.problem);
+      // NOLINTNEXTLINE(bugprone-unchecked-optional-access): as above
+      puzzle_->getProblem(s.index).countOnFrom(*s.problem);
       return;
     case SnapshotKind::Color: {
       const Rgb now = puzzle_->getColor(s.index);
@@ -488,6 +492,14 @@ void Document::swapIn(Snapshot& s) {
     case SnapshotKind::Whole:
       std::swap(*puzzle_, *s.whole);
       std::swap(ids_, s.ids);
+      // each problem that was there before counts on from itself as it was
+      for (unsigned int i = 0; i < ids_.problems.size(); i++) {
+        const auto was = std::find(s.ids.problems.begin(), s.ids.problems.end(), ids_.problems[i]);
+        if (was != s.ids.problems.end()) {
+          puzzle_->getProblem(i).countOnFrom(
+              s.whole->getProblem(static_cast<unsigned int>(was - s.ids.problems.begin())));
+        }
+      }
       return;
     case SnapshotKind::AppendedShape:
       if (s.shape == nullptr) {
@@ -532,7 +544,10 @@ void Document::pushStep(Step step) {
 
 void Document::changed(std::uint32_t what) {
   revision_++;
-  lastChange_.what = what;
+  // added to what the command's helpers reported, never in their place
+  // (cleanup item 15.3: assigned, an edit that removed a problem's
+  // solutions through shapeChanged told of the shape alone)
+  lastChange_.what |= what;
 }
 
 Result<void> Document::undo() {
@@ -706,8 +721,97 @@ void Document::problemChanged(unsigned int problem) {
 
 // A solve only reads the shapes once they are as a run leaves them: the
 // hotspots where a run puts them and the caches warm. Then the document
-// can read them while it runs.
-void Document::prepareShapesForSolving() { app::prepareShapesForSolving(*puzzle_); }
+// can read them while it runs. A hotspot is saved with its shape, so a
+// shape whose hotspot moves here goes into the open step (the run's or the
+// take-apart's, openRunStep) as it was: undoing the step gives the file's
+// bytes back.
+void Document::prepareShapesForSolving() {
+  struct Hotspot {
+    int x, y, z;
+    bool operator==(const Hotspot&) const = default;
+  };
+  const auto hotspotOf = [](const Voxel& v) { return Hotspot{v.getHx(), v.getHy(), v.getHz()}; };
+  std::vector<Hotspot> was;
+  was.reserve(puzzle_->getNumberOfShapes());
+  for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
+    was.push_back(hotspotOf(puzzle_->getShape(i)));
+  }
+  app::prepareShapesForSolving(*puzzle_);
+  if (open_ == nullptr) {
+    return;
+  }
+  for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
+    const Voxel& v = puzzle_->getShape(i);
+    if (hotspotOf(v) == was[i] || covered(SnapshotKind::Shape, i)) {
+      continue;
+    }
+    Snapshot s;
+    s.kind = SnapshotKind::Shape;
+    s.index = i;
+    s.shape = v.clone();
+    s.shape->setHotspot(was[i].x, was[i].y, was[i].z);
+    open_->parts.push_back(std::move(s));
+    touches_++;
+  }
+}
+
+// ---- the step of a run (decision 0011, amended 2026-11-24) ---------------------------
+
+void Document::openRunStep(unsigned int problem, RunKind kind) {
+  BT_ASSERT(open_ == nullptr && !grouping_);
+  const Id id = ids_.problems[problem];
+  open_ = std::make_unique<Step>();
+  open_->label = std::string(kind == RunKind::Solve ? "Solve " : "Take apart ") + problemLabel(problem);
+  open_->run = kind;
+  open_->runOf = id;
+  // The step on top is this problem's, of the same kind: the document is
+  // as that run (or one after it) left it, and the state to go back to is
+  // the one that step holds already. Nothing more is saved, so a solve
+  // carried on run after run (the autosave) copies its solutions once.
+  if (!undo_.empty() && undo_.back().run == kind && undo_.back().runOf == id) {
+    return;
+  }
+  touchProblem(problem);
+}
+
+void Document::closeRunStep(bool started) {
+  BT_ASSERT(open_ != nullptr);
+  std::unique_ptr<Step> step = std::move(open_);
+  if (!started) {
+    // refused: nothing was started, and nothing is recorded
+    return;
+  }
+  if (step->parts.empty()) {
+    // the step on top stands for this run too; as after any new change,
+    // what was undone before it can no longer be redone (a redone edit of
+    // a shape would leave this run's solutions beside it)
+    redo_.clear();
+    return;
+  }
+  step->what = kChangeSolutions | kChangeProblems;
+  for (const Snapshot& s : step->parts) {
+    if (s.kind == SnapshotKind::Shape) {
+      step->what |= kChangeShapes;
+    }
+  }
+  pushStep(std::move(*step));
+}
+
+// Opens the step of a run in its constructor and closes it in its
+// destructor, started or not, however the launch ends.
+struct Document::RunStepGuard {
+  RunStepGuard(Document& document, unsigned int problem, RunKind kind) : doc(document) {
+    doc.openRunStep(problem, kind);
+  }
+  // pushing a step moves it and frees the steps past the depth: only a
+  // failed allocation could throw
+  // NOLINTNEXTLINE(bugprone-exception-escape)
+  ~RunStepGuard() { doc.closeRunStep(started); }
+  RunStepGuard(const RunStepGuard&) = delete;
+  RunStepGuard& operator=(const RunStepGuard&) = delete;
+  Document& doc;
+  bool started = false;
+};
 
 SolveSession& Document::sessionFor(unsigned int problem, const SolveOptions& options) {
   const Id id = ids_.problems[problem];
@@ -772,33 +876,25 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
     }
   }
   // A sliding puzzle: what the original's Solve checked (the start/goal
-  // shape valid, no stamp larger than its piece) and what its solve thread
-  // set up as it began (the start locks, the holes), which changes shapes:
-  // not while another run reads them. Solving's own change: no undo step.
-  // (solveRefusal: what the session would refuse too, asked before
-  // anything changes)
-  bool slidingPrepared = false;
+  // shape valid, no stamp larger than its piece; solveRefusal: what the
+  // session would refuse too, asked before anything changes). What its
+  // solve thread set up as it began, the problem's maximum of holes, is the
+  // session's to set once nothing can refuse the run
+  // (sliding::prepareForSolving): it changes the problem being solved and
+  // nothing else, so a solve of another problem may be running meanwhile
+  // (cleanup item 15.4: the document set it up here and refused while any
+  // run was active, from the time when it repainted the pieces).
   if (sliding::isSliding(*puzzle_)) {
-    const Problem& pr = puzzle_->getProblem(*p);
-    if (Result<void> r = solveRefusal(*puzzle_, pr); !r) {
+    if (Result<void> r = solveRefusal(*puzzle_, puzzle_->getProblem(*p)); !r) {
       return r;
     }
-    if (sliding::needsPreparing(*puzzle_, pr)) {
-      if (solving()) {
-        return fail(Errc::InvalidState,
-                    "the pieces' start locks must be set up, which changes shapes another solve "
-                    "reads: pause it first");
-      }
-      if (mode == LaunchMode::Resume && solveState(problem) == SolveState::Finished) {
-        return fail(Errc::InvalidState, "the problem is solved: start() solves it again");
-      }
-      const unsigned int colors = puzzle_->colorNumber();
-      slidingPrepared = sliding::prepareForSolving(*puzzle_, puzzle_->getProblem(*p));
-      for (unsigned int c = colors; c < puzzle_->colorNumber(); c++) {
-        ids_.colors.push_back(newId());
-      }
-    }
   }
+  // The run's undo step (decision 0011, amended: D1 of the cleanup plan):
+  // the problem as it is now, before the session drops or adds anything,
+  // on the undo stack once the run has started. Undo then takes a run's
+  // results out before the edits made before it, and redo brings them
+  // back.
+  RunStepGuard step(*this, *p, RunKind::Solve);
   // the shapes are read by runs from now on; with a run of another
   // problem active they are prepared already
   if (!solving()) {
@@ -812,23 +908,12 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
                    : mode == LaunchMode::Prepare ? s.prepare()
                                                  : s.resume();
   if (!r) {
-    if (slidingPrepared) {
-      // the start locks set up stay (they hold for any solve): told
-      solveDirty_ = true;
-      lastChange_ = ChangeSet{kChangeShapes | kChangeColors | kChangeProblems, {}, {}, {}};
-      changed(lastChange_.what);
-    }
     return r;
   }
+  step.started = true;
   solveDirty_ = true;
   runsStarted_.insert(problem);
-  if (slidingPrepared) {
-    // pieces repainted, maybe colors added: everything is news
-    lastChange_ = ChangeSet{kChangeShapes | kChangeColors | kChangeSolutions | kChangeProblems,
-                            {}, {}, {}};
-  } else {
-    lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}, {}};
-  }
+  lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}, {}};
   changed(lastChange_.what);
   return {};
 }
@@ -1129,12 +1214,23 @@ Result<unsigned int> Document::analyseStart(Id problem, const AnalyseOptions& op
   if (n == 0) {
     return 0U;
   }
+  // The take-apart's undo step, as a run's (solveLaunch): the problem as it
+  // is now, so that undo takes out the disassemblies poll() puts in (and
+  // gives back the ones they replaced). Recorded now, not when the results
+  // come: poll() runs outside any command.
+  RunStepGuard step(*this, *p, RunKind::TakeApart);
   // the shapes as a run leaves them, so that solves may start meanwhile
   if (!solving()) {
     prepareShapesForSolving();
   }
   analysisEnds_.erase(problem);
   startJob<Analysis>(problem, *puzzle_, pr, std::move(work), options);
+  step.started = true;
+  // the step is news (canUndo and its label, nothing to redo): a revision
+  // of its own, as a group's end has; the problem itself changes when
+  // poll() puts the results in
+  lastChange_ = ChangeSet{};
+  changed(0);
   return n;
 }
 

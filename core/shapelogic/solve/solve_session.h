@@ -160,6 +160,44 @@ struct SolveOptions {
 /// when it is not stored. The CLI's default, as the Solver's.
 [[nodiscard]] bool storedFlipPieces(const Problem& problem);
 
+/// How a problem's assembly matrix is built and which solver assembles it:
+/// what every program that solves works out the same way (solveSetup).
+struct SolveSetup {
+  MatrixOptions matrix;
+  SolverType solver = SolverType::Classic;
+};
+
+/// What the user chose that solveSetup's rules read.
+struct SetupFlags {
+  /// A sliding puzzle: a piece with neither a start nor a goal may be
+  /// placed in any quarter turn, and mirrored
+  /// (SlidingOptions::anyOrientation, mirroredOrientations).
+  bool anyOrientation = false;
+  bool mirroredOrientations = false;
+  /// A Tilted Square puzzle: the pieces may be turned over
+  /// (SolveOptions::flipPieces); empty: as the problem stores it
+  /// (storedFlipPieces).
+  std::optional<bool> flipPieces;
+};
+
+/// The matrix options and the solver a solve of `problem` uses, from the
+/// caller's own (`base`, `solver`): the one place the rules are written
+/// (cleanup item 15.2; the session, the CLI, the assembly explorer and
+/// the Python module each had a copy, and the last two lacked the tray's).
+/// - A sliding puzzle: Classic's assembler; mirrored and rotated starts
+///   kept, without the thorough rotation check; the pieces held to their
+///   starts by the start marks (the start locks, with the parts that are
+///   free), or, on the older model, colors matched strictly; and each
+///   piece only as drawn, or as `flags` allow (sliding::partTransforms).
+/// - A Tilted Square puzzle whose pieces stay face up: each piece only in
+///   the turns in the tray's plane (trayPlaneTurns).
+/// - Any other: `base` and `solver` as given.
+/// A session applies it as each run starts (SolveSession), with its
+/// options' flags.
+[[nodiscard]] SolveSetup solveSetup(const Puzzle& puzzle, const Problem& problem,
+                                    MatrixOptions base, SolverType solver,
+                                    const SetupFlags& flags);
+
 /// What start(), prepare() and resume() are refused with (IoError) while
 /// another solve of the same problem works in its search folders: a copy
 /// of the problem in this program, or the problem in another one
