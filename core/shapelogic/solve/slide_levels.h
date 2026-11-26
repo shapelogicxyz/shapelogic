@@ -71,6 +71,15 @@ inline constexpr unsigned int kBlockKeys = 128;
 /// for a 128-bit key).
 template <class Key>
 inline constexpr unsigned int kMaxVarint = (8 * sizeof(Key) + 6) / 7;
+/// The most bytes a block takes: its key count, then a gap for each key but
+/// the first.
+template <class Key>
+inline constexpr std::size_t kMaxBlockBytes =
+    kMaxVarint<unsigned int> + std::size_t{kBlockKeys - 1} * kMaxVarint<Key>;
+/// The most bytes of blocks a chunk of a file may say it holds: many times
+/// what any is written with (kChunkBytes and a block more). A damaged
+/// index is not given room for more.
+inline constexpr std::uint64_t kMaxChunkRawBytes = std::uint64_t{1} << 26;
 /// Ends a file whose index follows its chunks of blocks.
 inline constexpr char kSetMagic[8] = {'B', 'T', 'S', 'L', 'K', 'E', 'Y', '3'};
 /// Ends a file of the versions up to 1.9: its blocks as they are, then the
@@ -140,17 +149,27 @@ inline unsigned int putVarint(std::uint8_t* out, Key v) {
   return n;
 }
 
-/// Reads a varint into v; returns the byte after it.
+/// Reads a varint into v from the bytes before `end`; returns the byte
+/// after it, or null when it does not end before `end` or within the
+/// bytes a Key's varint has (kMaxVarint). The bytes may be a damaged
+/// file's: nothing is read past `end`, and no shift reaches the key's
+/// width (cleanup item 16.3).
 template <class Key>
-inline const std::uint8_t* getVarint(const std::uint8_t* p, Key& v) {
+inline const std::uint8_t* getVarint(const std::uint8_t* p, const std::uint8_t* end, Key& v) {
   v = 0;
+  if (static_cast<std::size_t>(end - p) > kMaxVarint<Key>) {
+    end = p + kMaxVarint<Key>;
+  }
   unsigned int shift = 0;
-  while ((*p & 0x80) != 0) {
-    v |= static_cast<Key>(*p++ & 0x7f) << shift;
+  while (p != end) {
+    const std::uint8_t byte = *p++;
+    v |= static_cast<Key>(byte & 0x7fU) << shift;
+    if ((byte & 0x80U) == 0) {
+      return p;
+    }
     shift += 7;
   }
-  v |= static_cast<Key>(*p++) << shift;
-  return p;
+  return nullptr;
 }
 
 /// A file open for reading at any offset from any thread at once (pread;
@@ -521,7 +540,10 @@ class KeySet {
     }
     const std::uint64_t blocks = tail.blocks;
     const std::uint64_t chunks = tail.chunks;
-    if (blocks > size / sizeof(std::uint64_t) || chunks > size / sizeof(std::uint64_t) ||
+    // (the chunks' bytes first: a number past the file could make the sum
+    // below come round to the file's size)
+    if (tail.fileBytes > size || blocks > size / sizeof(std::uint64_t) ||
+        chunks > size / sizeof(std::uint64_t) ||
         tail.fileBytes + indexFileBytes(blocks, chunks) + kFooterBytes != size) {
       return faulty(SetFault::Damaged);
     }
@@ -540,9 +562,10 @@ class KeySet {
     if (!ok) {
       return faulty(SetFault::Unread);
     }
-    // the tables end where the footer says the blocks and the chunks do
+    // the tables end where the footer says the blocks and the chunks do,
+    // and are a set's all the way there
     if (offsets_.back() != tail.rawBytes || chunkRaw_.back() != tail.rawBytes ||
-        chunkAt_.back() != tail.fileBytes) {
+        chunkAt_.back() != tail.fileBytes || !tablesHold(tail.count, last)) {
       return faulty(SetFault::Damaged);
     }
     count_ = static_cast<std::size_t>(tail.count);
@@ -635,7 +658,8 @@ class KeySet {
         : set_(s), readAhead_(readAhead) {}
     [[nodiscard]] bool ok() const { return set_.path_.empty() || set_.file_.isOpen(); }
 
-    /// The keys of block b, into keys; false on a read error.
+    /// The keys of block b, into keys; false on a read error and on a block
+    /// that is not one (a damaged file).
     bool block(std::size_t b, std::vector<Key>& keys) {
       const std::uint64_t from = set_.offsets_[b];
       const auto len = static_cast<std::size_t>(set_.offsets_[b + 1] - from);
@@ -650,18 +674,31 @@ class KeySet {
         }
         p = buf_.data() + (from - bufAt_);
       }
+      // A block is its key count, then the gaps, and ends where the next
+      // begins. Bytes that say otherwise are a damaged file's: a chunk left
+      // as it is (zstd could not shrink it, a file written without
+      // compression, every file of the versions up to 1.9) has no checksum
+      // to tell (cleanup item 16.3). The count and the end are checked
+      // once a block, and each varint is held to the block's end.
+      const std::uint8_t* const end = p + len;
       unsigned int n = 0;
-      p = getVarint(p, n);
+      p = getVarint(p, end, n);
+      if (p == nullptr || n == 0 || n > kBlockKeys) {
+        return false;
+      }
       keys.resize(n);
       Key k = set_.firsts_[b];
       keys[0] = k;
       for (std::size_t i = 1; i < n; i++) {
         Key gap = 0;
-        p = getVarint(p, gap);
+        p = getVarint(p, end, gap);
+        if (p == nullptr) {
+          return false;
+        }
         k += gap;
         keys[i] = k;
       }
-      return true;
+      return p == end;
     }
 
    private:
@@ -856,6 +893,55 @@ class KeySet {
            2 * (chunks + 1) * sizeof(std::uint64_t);
   }
 
+  // Whether the tables read from a file are a set's (cleanup item 16.3; a
+  // file's index was trusted, and a reader followed a damaged one out of
+  // its buffers): the blocks follow each other from 0, none empty or
+  // longer than a block can be, each inside one chunk; the chunks follow
+  // each other from 0, in the blocks' bytes and in the file's, none taking
+  // more room in the file than its blocks' bytes (it is written as it is
+  // when compressing gains nothing) or more of those than any chunk has;
+  // the first keys rise up to the last key; and the keys are as many as
+  // the blocks can hold. Once a file, in the time its tables take to read:
+  // nothing here looks at a key.
+  [[nodiscard]] bool tablesHold(std::uint64_t count, Key last) const {
+    const std::size_t blocks = firsts_.size();
+    const std::size_t chunks = chunkRaw_.size() - 1;
+    if (offsets_.size() != blocks + 1 || chunkAt_.size() != chunks + 1 || offsets_.front() != 0 ||
+        chunkRaw_.front() != 0 || chunkAt_.front() != 0) {
+      return false;
+    }
+    if (count < blocks || count > std::uint64_t{blocks} * kBlockKeys) {
+      return false;
+    }
+    for (std::size_t c = 0; c < chunks; c++) {
+      if (chunkRaw_[c + 1] <= chunkRaw_[c] || chunkAt_[c + 1] <= chunkAt_[c] ||
+          chunkRaw_[c + 1] - chunkRaw_[c] > kMaxChunkRawBytes ||
+          chunkAt_[c + 1] - chunkAt_[c] > chunkRaw_[c + 1] - chunkRaw_[c]) {
+        return false;
+      }
+    }
+    std::size_t c = 0;
+    for (std::size_t b = 0; b < blocks; b++) {
+      const std::uint64_t from = offsets_[b];
+      const std::uint64_t to = offsets_[b + 1];
+      if (to <= from || to - from > kMaxBlockBytes<Key>) {
+        return false;
+      }
+      if (b != 0 && !(firsts_[b - 1] < firsts_[b])) {
+        return false;
+      }
+      // the blocks and the chunks both run upward: the chunk is looked for
+      // from the last block's on
+      while (c < chunks && chunkRaw_[c + 1] <= from) {
+        c++;
+      }
+      if (c == chunks || from < chunkRaw_[c] || to > chunkRaw_[c + 1]) {
+        return false;
+      }
+    }
+    return blocks == 0 || !(last < firsts_.back());
+  }
+
   // A file that could not be opened: closed, with why.
   bool faulty(SetFault why) {
     if (why == SetFault::Unread && faultError_ == 0) {
@@ -886,7 +972,7 @@ class KeySet {
     }
     const std::uint64_t blocks = tail[1];
     const std::uint64_t dataBytes = tail[2];
-    if (blocks > size / sizeof(std::uint64_t) ||
+    if (dataBytes > size || blocks > size / sizeof(std::uint64_t) ||
         dataBytes + blocks * sizeof(Key) + (blocks + 1) * sizeof(std::uint64_t) + footer !=
             size) {
       return faulty(SetFault::Damaged);
@@ -912,6 +998,9 @@ class KeySet {
     }
     chunkRaw_.shrink_to_fit();
     chunkAt_ = chunkRaw_;
+    if (!tablesHold(tail[0], last)) {
+      return faulty(SetFault::Damaged);
+    }
     count_ = static_cast<std::size_t>(tail[0]);
     last_ = last;
     dataBytes_ = dataBytes;

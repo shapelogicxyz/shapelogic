@@ -35,19 +35,6 @@ void putLe(std::string& out, T v) {
   }
 }
 
-template <class T>
-std::optional<T> getLe(std::string_view& in) {
-  if (in.size() < sizeof(T)) {
-    return std::nullopt;
-  }
-  T v = 0;
-  for (std::size_t i = 0; i < sizeof(T); i++) {
-    v = static_cast<T>(v | (static_cast<T>(static_cast<unsigned char>(in[i])) << (8 * i)));
-  }
-  in.remove_prefix(sizeof(T));
-  return v;
-}
-
 void section(std::string& out, std::string_view name, std::string_view data) {
   putLe<std::uint32_t>(out, static_cast<std::uint32_t>(name.size()));
   out += name;
@@ -111,14 +98,22 @@ bool readLe(std::istream& in, T& v) {
   return true;
 }
 
-// The next section's name and size; false at the end or on a bad file.
-bool readSectionHeader(std::istream& in, std::string& name, std::uint64_t& size) {
+// What stands where the next section's header should: one, the end of the
+// file, or neither (a header cut short, or a name longer than any section
+// has: 4096 bytes, the original's bound).
+enum class Header : std::uint8_t { Section, End, Bad };
+
+// The next section's name and size.
+Header readSectionHeader(std::istream& in, std::string& name, std::uint64_t& size) {
+  if (in.peek() == std::istream::traits_type::eof()) {
+    return Header::End;
+  }
   std::uint32_t len = 0;
   if (!readLe(in, len) || len > 4096) {
-    return false;
+    return Header::Bad;
   }
   name.assign(len, '\0');
-  return static_cast<bool>(in.read(name.data(), len)) && readLe(in, size);
+  return in.read(name.data(), len) && readLe(in, size) ? Header::Section : Header::Bad;
 }
 
 }  // namespace
@@ -177,56 +172,34 @@ Result<void> savePausedSolve(const Puzzle& puzzle, unsigned int problem,
   });
 }
 
-Result<PausedSolve> parsePausedSolve(std::string_view in) {
-  if (!in.starts_with(kMagic)) {
-    return fail(Errc::ParseError, "not a paused solver state exported by ShapeLogic");
-  }
-  in.remove_prefix(kMagic.size());
-  std::optional<Puzzle> puzzle;
-  std::optional<unsigned int> problem;
-  while (!in.empty()) {
-    const std::optional<std::uint32_t> len = getLe<std::uint32_t>(in);
-    if (!len || *len > 4096 || in.size() < *len) {
-      return incomplete();
-    }
-    const std::string_view name = in.substr(0, *len);
-    in.remove_prefix(*len);
-    const std::optional<std::uint64_t> size = getLe<std::uint64_t>(in);
-    if (!size || in.size() < *size) {
-      return incomplete();
-    }
-    const std::string_view data = in.substr(0, static_cast<std::size_t>(*size));
-    in.remove_prefix(static_cast<std::size_t>(*size));
-    if (name == "puzzle") {
-      Result<std::string> xml = gunzipIfCompressed(data);
-      if (!xml) {
-        return std::unexpected(xml.error());
-      }
-      Result<Puzzle> p = parsePuzzle(*xml);
-      if (!p) {
-        return fail(Errc::ParseError, "the puzzle could not be read: " + p.error().message);
-      }
-      puzzle = std::move(*p);
-    } else if (name == "problem") {
-      // the original read it with strtoul
-      unsigned int n = 0;
-      (void)std::from_chars(data.data(), data.data() + data.size(), n);
-      problem = n;
-    }
-    // anything else (a stacking solve's saved search) is skipped
-  }
-  if (!puzzle || !problem || *problem >= puzzle->getNumberOfProblems()) {
-    return incomplete();
-  }
-  return PausedSolve{std::move(*puzzle), *problem};
-}
-
 Result<PausedSolve> loadPausedSolve(const std::filesystem::path& path,
                                     const SavedSearchFolder& searchFolder, unsigned int threads) {
   std::ifstream in(path, std::ios::binary);
   if (!in) {
     return fail(Errc::IoError, "could not open " + path.string());
   }
+  Result<PausedSolve> read = readPausedSolve(in, searchFolder, threads);
+  if (!read && in.bad()) {
+    return fail(Errc::IoError, "could not read " + path.string());
+  }
+  return read;
+}
+
+Result<PausedSolve> readPausedSolve(std::istream& in, const SavedSearchFolder& searchFolder,
+                                    unsigned int threads) {
+  // how long the file is: a section is checked against what is left of it
+  // before room is made for it or it is passed over (a file can claim any
+  // size)
+  in.seekg(0, std::ios::end);
+  const std::streamoff total = in.tellg();
+  in.seekg(0, std::ios::beg);
+  if (!in || total < 0) {
+    return incomplete();
+  }
+  const auto left = [&in, total]() -> std::uint64_t {
+    const std::streamoff at = in.tellg();
+    return at < 0 || at > total ? 0 : static_cast<std::uint64_t>(total - at);
+  };
   std::string magic(kMagic.size(), '\0');
   if (!in.read(magic.data(), static_cast<std::streamsize>(magic.size())) || magic != kMagic) {
     return fail(Errc::ParseError, "not a paused solver state exported by ShapeLogic");
@@ -254,7 +227,15 @@ Result<PausedSolve> loadPausedSolve(const std::filesystem::path& path,
   const Unpacked unpacked(&unpackDir);
   std::string name;
   std::uint64_t size = 0;
-  while (readSectionHeader(in, name, size)) {
+  while (true) {
+    const Header header = readSectionHeader(in, name, size);
+    if (header == Header::End) {
+      break;
+    }
+    // a section that ends past the file: the file is cut short
+    if (header == Header::Bad || size > left()) {
+      return incomplete();
+    }
     if (name == "puzzle" || name == "problem") {
       if (size > kMaxPuzzleSection) {
         return incomplete();
@@ -309,10 +290,7 @@ Result<PausedSolve> loadPausedSolve(const std::filesystem::path& path,
       }
     }
   }
-  if (in.bad()) {
-    return fail(Errc::IoError, "could not read " + path.string());
-  }
-  if (!puzzle || !problem || *problem >= puzzle->getNumberOfProblems()) {
+  if (in.bad() || !puzzle || !problem || *problem >= puzzle->getNumberOfProblems()) {
     return incomplete();
   }
   if (!unpackDir.empty()) {

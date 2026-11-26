@@ -21,13 +21,17 @@
 namespace bt::io {
 
 /// A puzzle from its <puzzle> element. Errors are ParseError, with the line
-/// of the offending element.
+/// of the offending element. A file is untrusted: no reader here throws,
+/// whatever the file holds (a number that breaks an invariant of the model
+/// or asks for more memory than there is ends as a ParseError, "the file
+/// could not be read: ...").
 [[nodiscard]] Result<Puzzle> readPuzzle(const XmlElement& root);
 
 /// A puzzle from XML text.
 [[nodiscard]] Result<Puzzle> parsePuzzle(std::string_view xml);
 
-/// A puzzle from a file, gzip-compressed or plain.
+/// A puzzle from a file, gzip-compressed or plain. A missing or unreadable
+/// file is an IoError; everything else wrong with it a ParseError.
 [[nodiscard]] Result<Puzzle> loadPuzzle(const std::filesystem::path& path);
 
 /// The puzzle as XML text, in the original's layout.

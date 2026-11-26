@@ -652,6 +652,11 @@ std::unique_ptr<Voxel> Assembly::createSpace(const Puzzle& puzzle, const Problem
     sz = 1;
   }
 
+  if (static_cast<unsigned long long>(sx) * sy > kMaxSpaceCells ||
+      static_cast<unsigned long long>(sx) * sy * sz > kMaxSpaceCells) {
+    return nullptr;
+  }
+
   std::unique_ptr<Voxel> res = puzzle.getGridType().makeVoxel(sx, sy, sz, 0);
   res->skipRecalcBoundingBox(true);
 

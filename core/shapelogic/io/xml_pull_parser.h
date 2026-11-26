@@ -11,6 +11,7 @@
 /// Ported from xmlParser_c in src/tools/xml.{h,cpp}, itself from kXML2 via
 /// wsdlpull (MIT licence, see the .cpp).
 
+#include <cstddef>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -45,7 +46,14 @@ class XmlPullParser {
     UNKNOWN
   };
 
-  explicit XmlPullParser(std::string_view input);
+  /// The most attributes one element may have, unless the caller says
+  /// otherwise: far more than any file's element has, and few enough that
+  /// a file cannot make an element cost what a million of them would.
+  static constexpr std::size_t kMaxAttributes = 4096;
+
+  /// A parser over `input`, which must outlive it. An element with more
+  /// than `maxAttributes` attributes is an error.
+  explicit XmlPullParser(std::string_view input, std::size_t maxAttributes = kMaxAttributes);
 
   /// Adds an entity besides the five predefined ones.
   void defineEntityReplacementText(const std::string& entity, const std::string& value);
@@ -107,6 +115,7 @@ class XmlPullParser {
   [[nodiscard]] std::string get(int pos) const;
   void push(int c);
   void parseStartTag(bool xmldecl);
+  void checkDuplicateAttributes() const;
   void pushEntity();
   void pushText(int delimiter, bool resolveEntities);
   void read(char c);
@@ -120,6 +129,7 @@ class XmlPullParser {
 
   std::string_view input_;
   std::size_t srcPos_ = 0;
+  std::size_t maxAttributes_;
 
   bool relaxed_ = false;
   std::map<std::string, std::string> entityMap_;

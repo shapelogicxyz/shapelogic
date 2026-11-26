@@ -22,6 +22,10 @@ class Voxel;
 /// The transformation value of a piece that is not placed.
 inline constexpr unsigned char kUnplacedTrans = 0xFF;
 
+/// The most cells Assembly::createSpace makes a space of: what the file
+/// reader allows a shape (2^30).
+inline constexpr unsigned long long kMaxSpaceCells = 1ULL << 30;
+
 /// The orientation and position of one piece in an assembly: the position is
 /// where the piece's hotspot goes.
 struct Placement {
@@ -156,7 +160,10 @@ class Assembly {
   void sort(const Problem& problem);
 
   /// A voxel space with all pieces put in, with its minimum corner at index
-  /// 0. The origin outputs receive that corner in result coordinates.
+  /// 0. The origin outputs receive that corner in result coordinates. Null
+  /// when the box around the pieces holds more than kMaxSpaceCells: a
+  /// file's placements may lie anywhere within the reader's bounds, far
+  /// from each other (cleanup item 16.2).
   [[nodiscard]] std::unique_ptr<Voxel> createSpace(const Puzzle& puzzle, const Problem& problem,
                                                    int* originX = nullptr, int* originY = nullptr,
                                                    int* originZ = nullptr) const;

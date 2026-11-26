@@ -374,7 +374,9 @@ unsigned int SeparationInfo::sumRotations() const {
 std::string SeparationInfo::movesText() const {
   // the original left the buffer unset for an empty tree; here it is ""
   std::array<char, kTextBuffer> buf{};
-  movesTextPieceRemovals(buf.data(), kTextBuffer, 0, 0, 0);
+  // (whether any node turns is asked once, not at every node: a file's
+  // summary can have a million of them)
+  movesTextPieceRemovals(buf.data(), kTextBuffer, 0, sumRotations() > 0, 0, 0);
   return std::string(buf.data());
 }
 
@@ -392,14 +394,13 @@ unsigned int SeparationInfo::skipSubtree(unsigned int idx) const {
   return idx;
 }
 
-int SeparationInfo::movesTextPieceRemovals(char* txt, int len, unsigned int idx,
+int SeparationInfo::movesTextPieceRemovals(char* txt, int len, unsigned int idx, bool withRots,
                                            unsigned int carrySlides,
                                            unsigned int carryRots) const {
   if (idx >= values_.size() || values_[idx] == 0) {
     return 0;
   }
 
-  const bool withRots = sumRotations() > 0;
   const unsigned int moves = values_[idx] - 1;
   const unsigned int nodeRots = idx < rotValues_.size() ? rotValues_[idx] : 0;
   const unsigned int nodeSlides = moves >= nodeRots ? moves - nodeRots : 0;
@@ -413,13 +414,13 @@ int SeparationInfo::movesTextPieceRemovals(char* txt, int len, unsigned int idx,
   const bool leftMulti = leftIdx < values_.size() && values_[leftIdx] != 0;
 
   if (remMulti && leftMulti) {
-    int len2 = movesTextPieceRemovals(txt, len, remIdx, slides, rots);
+    int len2 = movesTextPieceRemovals(txt, len, remIdx, withRots, slides, rots);
     if (len2 < 0 || len2 + 5 > len) {
       return len2;
     }
 
     std::array<char, kTextBuffer> cont{};
-    const int clen = movesTextPieceRemovals(cont.data(), kTextBuffer, leftIdx, 0, 0);
+    const int clen = movesTextPieceRemovals(cont.data(), kTextBuffer, leftIdx, withRots, 0, 0);
     if (clen > 0) {
       if (len2 > 0) {
         appendText(txt, len, len2, ".");
@@ -442,7 +443,7 @@ int SeparationInfo::movesTextPieceRemovals(char* txt, int len, unsigned int idx,
                                    : static_cast<unsigned int>(values_.size());
   if (contIdx < values_.size() && values_[contIdx] != 0) {
     std::array<char, kTextBuffer> buf{};
-    const int clen = movesTextPieceRemovals(buf.data(), kTextBuffer, contIdx, 0, 0);
+    const int clen = movesTextPieceRemovals(buf.data(), kTextBuffer, contIdx, withRots, 0, 0);
     if (clen > 0) {
       appendText(txt, len, len2, ".");
       len2++;

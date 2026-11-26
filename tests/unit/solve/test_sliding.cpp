@@ -5214,6 +5214,246 @@ TEST_CASE("sliding: a key set file of an earlier version is read, and written ag
   std::filesystem::remove_all(dir);
 }
 
+// A level file's index was trusted once its footer added up, and so were
+// the blocks of a chunk left as it is, which has no checksum: a chunk zstd
+// could not shrink, every chunk of a file written without compression,
+// and every file of the versions up to 1.9, which a carried-on search
+// reads (cleanup item 16.3). A reader followed a damaged offset out of its
+// buffer, a block that said it had no keys wrote past an empty vector, and
+// one that said it had billions asked for their room. The index is now
+// checked once, as the file is opened (Damaged, as a file cut short is),
+// and a block as it is read (a read that fails).
+TEST_CASE("sliding: a key set file with a damaged index or block is told", "[sliding]") {
+  const ScratchDir scratch("keytables");
+  const std::filesystem::path dir = scratch.path() / "work";
+  std::filesystem::create_directories(dir);
+  const std::vector<Wide> keys = levelLikeKeys(20000, 4711);
+  const auto u64At = [](const std::filesystem::path& p, std::uintmax_t at) {
+    std::ifstream f(p, std::ios::binary);
+    f.seekg(static_cast<std::streamoff>(at));
+    std::uint64_t v = 0;
+    f.read(reinterpret_cast<char*>(&v), sizeof(v));
+    REQUIRE(f.good());
+    return v;
+  };
+  const auto poke = [](const std::filesystem::path& p, std::uintmax_t at, const void* bytes,
+                       std::size_t len) {
+    std::fstream f(p, std::ios::in | std::ios::out | std::ios::binary);
+    f.seekp(static_cast<std::streamoff>(at));
+    f.write(static_cast<const char*>(bytes), static_cast<std::streamsize>(len));
+    REQUIRE(f.good());
+  };
+  const auto pokeU64 = [&poke](const std::filesystem::path& p, std::uintmax_t at, std::uint64_t v) {
+    poke(p, at, &v, sizeof(v));
+  };
+  struct Kind {
+    const char* name;
+    bool older;
+    int compression;
+  };
+  int made = 0;
+  const Kind kinds[3] = {{"not compressed", false, 0},
+                         {"compressed", false, 3},
+                         {"of a version up to 1.9", true, 0}};
+  for (const Kind& kind : kinds) {
+    const std::filesystem::path whole = dir / "whole";
+    std::filesystem::remove(whole);
+    if (kind.older) {
+      writeOlderSet(whole, keys);
+    } else {
+      levels::KeySet<Wide> set;
+      REQUIRE(set.create(whole, levels::FileOptions{kind.compression, 4096, nullptr}));
+      REQUIRE(set.addAll(keys.begin(), keys.end()));
+      REQUIRE(set.finish());
+      set.keepFile();
+    }
+    // where the file keeps what: its footer's numbers, then the tables
+    const std::uintmax_t size = std::filesystem::file_size(whole);
+    const std::uintmax_t tailAt = size - (kind.older ? 24 : 40) - sizeof(Wide) - 8;
+    const std::uint64_t count = u64At(whole, tailAt);
+    const std::uint64_t blocks = u64At(whole, tailAt + 8);
+    const std::uint64_t chunks = kind.older ? 0 : u64At(whole, tailAt + 16);
+    const std::uint64_t dataBytes = u64At(whole, tailAt + (kind.older ? 16 : 32));
+    const std::uintmax_t firstsAt = dataBytes;
+    const std::uintmax_t offsetsAt = firstsAt + blocks * sizeof(Wide);
+    const std::uintmax_t chunkRawAt = offsetsAt + (blocks + 1) * 8;
+    const std::uintmax_t chunkAtAt = chunkRawAt + (chunks + 1) * 8;
+    const std::uintmax_t lastAt = size - 8 - sizeof(Wide);
+    REQUIRE(count == keys.size());
+    REQUIRE(blocks == (keys.size() + levels::kBlockKeys - 1) / levels::kBlockKeys);
+    REQUIRE((kind.older || chunks > 3));
+
+    const auto copy = [&]() {
+      const std::filesystem::path p = dir / ("damaged" + std::to_string(made++));
+      std::filesystem::copy_file(whole, p);
+      return p;
+    };
+    const auto reads = [&](const std::filesystem::path& p) {
+      levels::KeySet<Wide> set;
+      if (!set.open(p)) {
+        return false;
+      }
+      std::vector<Wide> back;
+      const bool ok = set.load(back);
+      CHECK((!ok || back == keys));
+      set.keepFile();
+      return ok;
+    };
+    // the index: the file is not opened, and says it is damaged
+    const auto notASet = [&](const char* what, const std::filesystem::path& p) {
+      INFO(kind.name << ": " << what);
+      levels::KeySet<Wide> set;
+      CHECK_FALSE(set.open(p));
+      CHECK(set.fault() == levels::SetFault::Damaged);
+      CHECK(std::filesystem::file_size(p) == size);
+    };
+    REQUIRE(reads(copy()));
+    {
+      const std::filesystem::path p = copy();
+      pokeU64(p, offsetsAt + 8, u64At(p, offsetsAt + 16) + 1);
+      notASet("a block that begins after the next", p);
+    }
+    {
+      const std::filesystem::path p = copy();
+      pokeU64(p, offsetsAt + 8, 0);
+      notASet("a block of no bytes", p);
+    }
+    {
+      const std::filesystem::path p = copy();
+      pokeU64(p, offsetsAt + 8 * (blocks - 1), dataBytes + (std::uint64_t{1} << 40));
+      notASet("a block far past the end", p);
+    }
+    {
+      const std::filesystem::path p = copy();
+      Wide first[2];
+      {
+        std::ifstream f(p, std::ios::binary);
+        f.seekg(static_cast<std::streamoff>(firstsAt));
+        f.read(reinterpret_cast<char*>(first), sizeof(first));
+        REQUIRE(f.good());
+      }
+      std::swap(first[0], first[1]);
+      poke(p, firstsAt, first, sizeof(first));
+      notASet("first keys that do not rise", p);
+    }
+    {
+      const std::filesystem::path p = copy();
+      const Wide none = 0;
+      poke(p, lastAt, &none, sizeof(none));
+      notASet("a last key below the last block's first", p);
+    }
+    for (const std::uint64_t claim :
+         {blocks - 1, blocks * levels::kBlockKeys + 1, std::uint64_t{1} << 60}) {
+      const std::filesystem::path p = copy();
+      pokeU64(p, tailAt, claim);
+      notASet("a key count the blocks cannot hold", p);
+    }
+    {
+      const std::filesystem::path p = copy();
+      pokeU64(p, tailAt + (kind.older ? 16 : 32), size + 1);
+      notASet("more bytes of blocks than the file has", p);
+    }
+    if (!kind.older) {
+      {
+        const std::filesystem::path p = copy();
+        pokeU64(p, chunkRawAt + 16, u64At(p, chunkRawAt + 8));
+        notASet("a chunk of no blocks", p);
+      }
+      {
+        const std::filesystem::path p = copy();
+        pokeU64(p, chunkRawAt + 8, u64At(p, chunkRawAt + 8) + 1);
+        notASet("a block that lies across two chunks", p);
+      }
+      {
+        const std::filesystem::path p = copy();
+        pokeU64(p, chunkAtAt + 16, u64At(p, chunkAtAt + 8));
+        notASet("a chunk of no bytes in the file", p);
+      }
+      {
+        // the chunk before it then takes more of the file than its blocks
+        const std::filesystem::path p = copy();
+        pokeU64(p, chunkAtAt + 8, u64At(p, chunkAtAt + 16) - 1);
+        pokeU64(p, chunkRawAt + 8, 1);
+        notASet("a chunk larger in the file than its blocks", p);
+      }
+      {
+        // a chunk that claims 2^40 bytes of blocks (its last block as
+        // many): no room is made for it
+        const std::filesystem::path p = copy();
+        const std::uint64_t huge = std::uint64_t{1} << 40;
+        for (std::uint64_t c = 2; c <= chunks; c++) {
+          pokeU64(p, chunkRawAt + 8 * c, u64At(p, chunkRawAt + 8 * c) + huge);
+        }
+        for (std::uint64_t b = 0; b <= blocks; b++) {
+          const std::uint64_t at = u64At(p, offsetsAt + 8 * b);
+          if (at >= u64At(whole, chunkRawAt + 16)) {
+            pokeU64(p, offsetsAt + 8 * b, at + huge);
+          }
+        }
+        pokeU64(p, tailAt + 24, u64At(p, tailAt + 24) + huge);
+        notASet("a chunk of more blocks' bytes than any has", p);
+      }
+    }
+    if (kind.compression != 0) {
+      continue;  // a compressed chunk's bytes are under its checksum
+    }
+    // the blocks: the file opens, and its keys are not read
+    const auto notRead = [&](const char* what, const std::filesystem::path& p) {
+      INFO(kind.name << ": " << what);
+      CHECK_FALSE(reads(p));
+      levels::KeySet<Wide> set;
+      REQUIRE(set.open(p));
+      levels::KeySet<Wide>::Cursor cursor(set);
+      Wide k = 0;
+      std::size_t got = 0;
+      while (cursor.next(k)) {
+        got++;
+      }
+      CHECK(cursor.failed());
+      CHECK(got < keys.size());
+      set.keepFile();
+    };
+    // the first block: its 128 keys' count is the bytes 0x80 0x01
+    REQUIRE(u64At(whole, 0) % 65536 == 0x0180);
+    {
+      const std::filesystem::path p = copy();
+      const std::uint8_t zero = 0;
+      poke(p, 0, &zero, 1);
+      notRead("a block of no keys", p);
+    }
+    {
+      const std::filesystem::path p = copy();
+      poke(p, 0, "\x81\x01", 2);
+      notRead("a block of more keys than a block has", p);
+    }
+    {
+      const std::filesystem::path p = copy();
+      poke(p, 0, "\xff\xff\xff\xff\x7f", 5);
+      notRead("a block of billions of keys", p);
+    }
+    {
+      const std::filesystem::path p = copy();
+      poke(p, 0, "\x7f", 1);
+      notRead("a block of fewer keys than its bytes hold", p);
+    }
+    {
+      const std::filesystem::path p = copy();
+      const std::string run(40, '\xff');
+      poke(p, 2, run.data(), run.size());
+      notRead("a gap that never ends", p);
+    }
+    {
+      // the last byte of the last block says another follows
+      const std::filesystem::path p = copy();
+      const auto end = static_cast<unsigned char>(u64At(p, dataBytes - 8) >> 56);
+      const unsigned char on = end | 0x80U;
+      poke(p, dataBytes - 1, &on, 1);
+      notRead("a gap cut off by the end of the blocks", p);
+    }
+  }
+  std::filesystem::remove_all(dir);
+}
+
 // A search saved by a version up to 1.9 (its level files not compressed)
 // is carried on by this one: every file of it is written again as this
 // version writes its files, under its own name, and the search goes on to

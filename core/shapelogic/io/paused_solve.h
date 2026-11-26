@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <iosfwd>
 #include <string>
 #include <string_view>
 
@@ -63,15 +64,21 @@ using SavedSearchFolder =
 /// asked whether to put them into an export when they were over 1 GB).
 [[nodiscard]] std::uint64_t savedLevelBytes(const std::filesystem::path& folder);
 
-/// Reads .slsolve bytes: ParseError when they are not one (the original's
-/// "not a paused solver state exported by ShapeLogic", "could not be read
-/// completely"), or the puzzle cannot be read, or the problem is not one
-/// of it.
-[[nodiscard]] Result<PausedSolve> parsePausedSolve(std::string_view bytes);
-/// Reads a .slsolve file. With `searchFolder`, a stacking puzzle's saved
-/// search (its "searchz/" sections after the "puzzle" and "problem" ones)
-/// is unpacked into the folder it names, emptied first; on threads as
+/// Reads a .slsolve from a stream that can seek (a file's, or one over
+/// bytes in memory): the one reader, for the app and the tests. ParseError
+/// when the bytes are not one (the original's "not a paused solver state
+/// exported by ShapeLogic"), are cut short or name a section longer than
+/// what is left of them ("could not be read completely"), or the puzzle
+/// cannot be read, or the problem is not one of it. With `searchFolder`, a
+/// stacking puzzle's saved search (its "searchz/" sections after the
+/// "puzzle" and "problem" ones) is unpacked into the folder it names,
+/// emptied first, once the whole file is read; on threads as
 /// savePausedSolve. Without, those sections are skipped.
+[[nodiscard]] Result<PausedSolve> readPausedSolve(std::istream& in,
+                                                  const SavedSearchFolder& searchFolder = {},
+                                                  unsigned int threads = 0);
+/// Reads a .slsolve file (readPausedSolve); IoError when the file cannot
+/// be opened or read.
 [[nodiscard]] Result<PausedSolve> loadPausedSolve(const std::filesystem::path& path,
                                                   const SavedSearchFolder& searchFolder = {},
                                                   unsigned int threads = 0);

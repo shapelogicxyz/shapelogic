@@ -199,7 +199,7 @@ again, and comes last.
 - [x] Stage 13: splits: front end (13.1 moved the module-owned rules, 553 of them, and two sections' markup; the cards' static skeletons stay in index.html, with their reason)
 - [x] Stage 14: dead code and the last traps (14.1's saveBytes `gzip` removal is an `Engine:` commit of its own; the contract flake of 12.8 fixed)
 - [x] Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (decided: D1; users notice: Undo takes a solve's results out, two sliding solves run at once, a quit waits for the solves to pause, Python's Tilted Square answers)
-- [ ] Stage 16: damaged and hostile files (16.6 done on 2026-11-25)
+- [x] Stage 16: damaged and hostile files (16.6 done first; a file whose disassembly nests more than 1000 deep is refused; its new finding is 18.5, the take-apart's own recursion; `just oracle-roundtrip` and `oracle-resume` not run: the reference checkout is not built)
 - [ ] Stage 17: core speed
 - [ ] Stage 18: the engine stays responsive
 - [ ] Stage 19: names and audits that must not drift
@@ -241,7 +241,8 @@ The rule behind the choice is the one of `docs/TILTED-SQUARE-PLAN.md`: Fable
 where a wrong answer is hard to see (a saved search that carries on
 wrongly, an assembly lost, a race, a missed bound), Opus where a mistake
 shows in a failing test or on the screen. That gives 107 items to Opus and
-39 to Fable (three of them found in stage 5), plus the checkpoints. The five fixes in stage 4 are small, and
+40 to Fable (three of them found in stage 5, one in stage 16), plus the
+checkpoints. The five fixes in stage 4 are small, and
 each comes with a test that shows a mistake, so they stay early with Opus.
 The two bugs that lose work and need Fable are 15.1 and 15.2.
 
@@ -7006,7 +7007,7 @@ Puzzle files are passed between people, and `.slsolve` imports carry saved
 searches from other machines. A damaged or hostile file must be refused with
 a message: never a crash, a hang or all the memory.
 
-- [ ] **16.1 The XML reader: a quadratic duplicate check, and no limit on elements** (stability; S)
+- [x] **16.1 The XML reader: a quadratic duplicate check, and no limit on elements** (stability; S)
   - *Where:* `core/shapelogic/io/xml_pull_parser.cpp:417-423` compares every
     pair of attributes for a duplicate, and copies both names each time
     (`getAttributeName` returns by value). `core/shapelogic/io/xml_document.cpp:31-64`
@@ -7029,8 +7030,35 @@ a message: never a crash, a hang or all the memory.
   - *Tests:* `test_xml.cpp`: 50,000 attributes parse at once; with a budget
     of 1,000 elements, 1,001 are refused. Then `just oracle-roundtrip` (the
     corpus still loads).
+  - Done (2026-11-25, Fable): confirmed (an element of 50,000 attributes
+    took 23.5 s in the debug build, their square; an `XmlElement` is 104
+    bytes).
+    - **The duplicate check** (`XmlPullParser::checkDuplicateAttributes`):
+      the pairs for up to 8 attributes, with no copy of a name and no
+      allocation (the fixtures' elements have 10 at most), a set of views
+      of the names above. It names the attribute the pairs named: the last
+      one that repeats an earlier one. 50,000 attributes: 0.12 s.
+    - **The budgets:** `XmlLimits` (`xml_document.h`), a parameter of
+      `parseXmlDocument`: 16 million `elements`, counted in `readElement`
+      ("too many elements"), and 4096 `attributes` an element, held by the
+      parser as it reads them (`XmlPullParser::kMaxAttributes`, a
+      constructor parameter; "too many attributes in <name>"). The
+      fixtures' largest file has 1388 elements.
+    - **The other users** (rule 8): the parser is made by
+      `parseXmlDocument` alone, which `parsePuzzle` alone calls.
+    - **Left:** a document's attributes are not counted together. One is 5
+      bytes of text and 48 in the tree, so a 256 MiB document of
+      attributes alone is about 2.5 GB, where the element budget allows
+      1.7.
+    - Tests (`test_xml.cpp`): "thousands of attributes are checked at
+      once" (50,000, one or several given twice, and the same name told
+      below and above the 8), "an element's attributes are counted", "a
+      document's elements are counted" (side by side and nested). Without
+      the fix (rule 8; a scratch copy with the old check and no counts):
+      the first passes, in 23.5 s where it takes 0.12; the two counts
+      fail.
 
-- [ ] **16.2 `readPuzzle` allocates before it validates, and lets exceptions escape** (stability; S)
+- [x] **16.2 `readPuzzle` allocates before it validates, and lets exceptions escape** (stability; S)
   - *Where:* `core/shapelogic/io/puzzle_file.cpp`:
     - the voxel reader (374-382): `<voxel x="1024" y="1024" z="1024" type="0">#</voxel>`
       passes the 2^30 cap, zero-fills 1 GiB, then fails on the short text;
@@ -7057,8 +7085,109 @@ a message: never a crash, a hang or all the memory.
       other read errors use.
   - *Tests:* `tests/unit/io/test_puzzle_file.cpp`: each hostile piece of text
     is refused with ParseError; run under `just test-asan`.
+  - Done (2026-11-25, Fable): confirmed, each of the five. The reader was
+    then gone through number by number, and the engine driven over 80,000
+    damaged copies of the fixtures (below).
+    - **As the item says:**
+      - A voxel's text must be as long as its cells before the space is
+        made. The message is the one a short text always had ("not enough
+        voxels"). The cube of 1024: 1.1 GB and 6.4 s in the debug build
+        before, nothing now.
+      - `searchDepth`: nothing is refused. A stacking problem's depth is
+        its moves (the tower of 22 discs: 4,194,303), so no bound on the
+        number can be the sliding search's, which has no constant for its
+        depth anyway. Past `kMaxSlideDepth` (2^20 moves, set here) the
+        list of untimed moves is not made; the search pads its times
+        itself when it carries on (`SolveSession::onSlideDepth`).
+      - `getNumbers` and an assembly's numbers are bounded at each digit
+        (`kMaxFileCoordinate`, 2^20; the fixtures' largest are 40007, a
+        piece taken off, and 29), so no digit overflows: "number out of
+        range in disassembly", "assembly placement out of range". The
+        attributes read with `atoi` keep the original's reading (a
+        `strtol` cut to an int: defined).
+      - `readPuzzle`, `parsePuzzle` and `loadPuzzle` catch
+        `std::exception`: a `ParseError`, "the file could not be read: …".
+      - The CLI: `main` is `run` inside a try, "shapelogic_cli: internal
+        error: …", exit 1 (a solve that failed). A file that cannot be
+        read keeps exit 2, through `loadPuzzle`'s error. The item asked
+        for the read errors' code at `main`: what reaches that catch now
+        is thrown after the file was read.
+    - **Found on the way,** each bounded where it is read:
+      - a shape's hotspot (within 2^20; on the sphere grid a place of the
+        grid, which its transformations assert) and a disc's size (32768
+        at most, half a side: the board's layout multiplies it);
+      - a rotation's pivot (1e300 was converted to an int, which is
+        undefined; so was NaN);
+      - a state's orientations (`<dt>`: below the grid's transformations,
+        mirrors included);
+      - the pieces a disassembly names (below the pieces of its
+        assembly). The playback writes `array[4 * name]`
+        (`DisasmToMoves::doRecursive`), sized by the problem's pieces: a
+        name past them wrote outside the array;
+      - parts listed after the solutions. Each assembly was counted
+        against the parts before it, and what walks a problem's pieces
+        reads an assembly's placements by their number: every assembly and
+        pending assembly is checked against all the parts at the end of
+        `<problem>`;
+      - a disassembly's depth (`kMaxSeparationDepth`, 1000). A tree nests
+        once per piece taken off and is walked by recursion. Bytes of
+        stack a level, measured on 1000 levels, release and debug: this
+        reader 810 and 1500, the level text 370 and 960, the writer 130
+        and 360, the copy 65 and 340, the destructor 50 and 290. The XML
+        reader let 5000 levels through: 4 MiB in this reader, where the
+        main thread has 2 on Windows. The summary (`<separationInfo>`, two
+        characters a node) is held to the same depth; its level text also
+        asked at every node whether any node turns, by going through all
+        of them (`SeparationInfo::movesText` asks once now);
+      - `Assembly::createSpace` answers null when the box around the
+        pieces holds more than 2^30 cells (`kMaxSpaceCells`): two pieces
+        at the ends of the bound would ask for 2^63.
+        `Document::assembliesToShapes` refuses with a message.
+    - **The other users** (rule 8): the placements, hotspots,
+      orientations and pivots the reader bounds are written elsewhere
+      only by the searches and the app, from the puzzle's own shapes
+      (`dlx_matrix.cpp`, `assembler_1.cpp`, `row_rotation_check.cpp`,
+      `disassembler.cpp`, `stacking.cpp`, `document*.cpp`): none takes a
+      number from outside. A disc's size from the engine is held to
+      `kMaxDiscSize` (100) already. `createSpace` has one caller in the
+      app (changed) and two tests (their assemblies fit).
+    - **Swept:** a scratch test (not kept: hours under the sanitizers) put
+      11 hostile values at the first, the middle and the last number of
+      each kind of place (element and attribute) of the 195 fixture and
+      example files, opened each in the engine in process and asked what
+      the app asks (`document.get`, `shape.*`, `problem.*`,
+      `solution.page` and `.get`, `playback.*`, `export.*`,
+      `explore.openMovements`, `solution.toShapes`, the sliding and
+      stacking boards, `document.saveBytes`). In the release build:
+      80,033 documents, 47,578 opened and 32,455 refused, none crashed or
+      hung. 20,786 of them under ASan and UBSan: nothing found. 342 calls
+      answered with an internal error, all one assertion (the sphere
+      grid's hotspot): now refused by the reader, but for a shape whose
+      turn makes an even hotspot odd (18 calls, `voxel_spheres.cpp:190`;
+      left: an error reply, not a crash).
+    - **Left:** the take-apart's own recursion (18.5, new). A summary's
+      level text is O(nodes x depth): a crafted one of ten million nodes
+      takes seconds. Not looked at: the import readers (`ps3d_file.cpp`,
+      `scad_file.cpp`).
+    - Tests: `test_puzzle_file.cpp`: "numbers no puzzle has are refused"
+      (each bound, to its last good value), "sizes are checked against
+      what the file holds", "a disassembly nested too deeply is refused"
+      (1000 levels read, written, copied and walked, 1001 refused; the
+      summary the same), "a fixture's numbers replaced by hostile ones are
+      refused or read" (the sweep kept small: 7 fixtures, the first and
+      the last number of each of 70 places found in the files, 5 values:
+      611 read, 573 refused; what opens is written, read back and walked
+      as the level text, the playback and `createSpace` walk it; 28
+      places it must have found are named, so a parser of the test's that
+      finds nothing fails). `tests/cli/test_cli.py`: `test_damaged_files`
+      (6 files in 3 modes: exit 2, the reason, nothing written).
+    - Without the fixes (rule 8; HEAD's `puzzle_file.cpp` and
+      `cli/main.cpp` under the new tests): 95 of the 111 number checks
+      fail; the sizes case fails twice, in 6.4 s and 1.1 GB; the nested
+      case fails; the sweep ends in a bus error; the CLI's 18 checks
+      fail.
 
-- [ ] **16.3 Sliding level files: reading trusts the index and the raw blocks** (stability; S)
+- [x] **16.3 Sliding level files: reading trusts the index and the raw blocks** (stability; S)
   - *Where:* `core/shapelogic/solve/slide_levels.h`:
     - `reload` (509-541) checks only the last entry of each table, not that
       the tables rise or that blocks sit inside chunks (`reloadOlder` does
@@ -7086,8 +7215,55 @@ a message: never a crash, a hang or all the memory.
     (`tests/unit/solve/test_sliding.cpp:4931`) with a compression-0 file and
     a file with a corrupted offset; both are reported damaged, under
     `just test-asan`.
+  - Done (2026-11-25, Fable): confirmed.
+    - **The index** (`KeySet::tablesHold`, once in `reload` and in
+      `reloadOlder`, in the time the tables take to read; `Damaged`
+      otherwise): the blocks follow each other from 0, none empty or
+      longer than a block can be (`kMaxBlockBytes`), each inside one
+      chunk; the chunks follow each other from 0 in the blocks' bytes and
+      in the file's, none larger in the file than its blocks (a chunk is
+      written as it is when compressing gains nothing), none of more than
+      64 MiB of blocks (`kMaxChunkRawBytes`; the largest written is 256
+      KiB and a block); the first keys rise up to the last key; the key
+      count is one the blocks can hold (it sizes `load`'s vector). The
+      footer's byte counts are checked against the file's size before the
+      sum that could come round to it. The versions up to 1.9 wrote
+      blocks of 128 keys too (`kBlockKeys` since the first commit), and
+      their fixture and tests pass.
+    - **A block** (`Reader::block`): its count from 1 to `kBlockKeys`,
+      every varint ended inside the block and inside a key's width
+      (`getVarint` takes the end; null otherwise), the last one at the
+      block's end; false otherwise, which every caller takes as a read
+      that failed. A block of no keys wrote past an empty vector.
+    - **Not as the item says:** the varints are held to the block's end
+      at each byte, not once a block. A check by the block was written
+      and measured (the block's bytes counted first, then the old loop):
+      it is slower (below).
+    - **Speed** (rule 5; the search's inner loop). Decoding alone, 40
+      million keys of a set in memory, ns a key, 64-bit and 128-bit keys:
+      3.2 and 3.7 before, 3.3 and 3.6 now, 3.5 and 3.8 with the check by
+      the block. A whole search (the eleven numbered pieces of a 4x3 tray
+      with two swapped, 239.5 million arrangements, no solution; the
+      release CLI on macOS arm64, one solve at a time, before and after
+      taking turns), seconds: one thread 138.1 and 138.0; four threads,
+      four runs each, 48.0 to 51.8 (mean 49.7) and 50.4 to 51.4 (mean
+      50.9); all threads, six runs each, 34.6 to 38.0 (mean 36.0) and
+      34.9 to 38.2 (mean 37.1). The runs differ more among themselves
+      than the two builds do: the last commit's sources with this file
+      alone made new, four threads, four runs each, 45.5 to 52.5 (mean
+      49.5) before and 45.5 to 48.2 (mean 47.3) after. The benchmark script
+      (`tests/bench/bench.py`) times the assemblers against the original,
+      which this item does not touch, and the reference checkout is not
+      built.
+    - Tests (`test_sliding.cpp`): "a key set file with a damaged index or
+      block is told": a file not compressed, a compressed one and one of
+      a version up to 1.9, each with 9 to 14 kinds of damage to its index
+      (not opened, `Damaged`, the file as it was), and the two without
+      checksums with 6 kinds of damage to a block (opened; `load` and a
+      cursor fail). Without the fix (HEAD's `slide_levels.h`): 27 checks
+      fail and the case ends in a segmentation fault.
 
-- [ ] **16.4 Panex: a damaged `state.bin` writes out of bounds in `decode`** (stability; S) ✓
+- [x] **16.4 Panex: a damaged `state.bin` writes out of bounds in `decode`** (stability; S) ✓
   - *Where:* `core/shapelogic/solve/panex_search.cpp`:
     - `Rules::decode` (197-216) starts at `unsigned int r = rods - 1;` and
       runs `r--` at each separator. A key with more than rods-1 separators
@@ -7107,8 +7283,39 @@ a message: never a crash, a hang or all the memory.
     unreadable file. `decode` stays branch-free.
   - *Tests:* the damage table in `tests/unit/solve/test_stacking_session.cpp:315`:
     add "0xFF over the first key at offset 80", expected to be damaged.
+  - Done (2026-11-25, Fable): confirmed, with one correction: a run of
+    0xFF bytes alone is not enough. It is ten separators, which count the
+    rod down past 0 and write nothing. The write out of bounds needs a
+    disc after the wrap: a key with one separator too many (the table's "a
+    rod too many").
+    - `Rules::holds(key)`: exactly rods-1 separators, every disc below
+      `discs` and there once (a disc on two rods passed the item's three
+      checks), each rod within `cap` (the start and goal are held to it by
+      `setupError`, and `moves` keeps it), nothing above the symbols.
+      `decode` stays as it was.
+    - `stateHolds`, in `solve()` after `loadState` with the layers: the
+      five layers and, when the ends had met, `meetAt` (it is no stacking
+      until then), on the pool's threads in pieces of 65,536 keys (a
+      frontier is hundreds of millions of keys deep in a search). A key
+      that does not hold ends as an unreadable state does: the search not
+      carried on, "its state.bin is damaged: it holds a stacking the
+      puzzle does not have", the folder kept (decision 0041).
+    - The level files (`f12.lvl`) hold keys too, and come from the same
+      `.slsolve`: they are only compared with keys the search made
+      (`Store::findIn` answers the search's own key), never decoded.
+    - Beside the item: `traceStored` ends ("could not trace its path
+      back") when a level of its ball comes out empty, which the probe
+      after the ball would find anyway. A damaged state's depth and
+      interval can be billions, and each step on from an empty level was
+      a round of the pool.
+    - Tests: the table of "a saved search that cannot be read is kept, not
+      carried on" has nine more rows, each a first key damaged another way
+      (0xFF, no rods, a rod too many, a disc on two rods, a disc the
+      puzzle does not have, every disc on one rod of four, a symbol above
+      the last, a high word) and the ends met at a key of 0xFF. Without
+      the fix: 19 checks fail.
 
-- [ ] **16.5 One reader per format: gzip and paused solves** (stability, combine; S)
+- [x] **16.5 One reader per format: gzip and paused solves** (stability, combine; S)
   - *Where:*
     - `core/shapelogic/io/gzip_file.cpp`: `readMaybeGzipFile` (115-140)
       uses gzread, which reads a cut-short stream as its end (Z_BUF_ERROR is
@@ -7129,6 +7336,40 @@ a message: never a crash, a hang or all the memory.
       tests.
   - *Tests:* a truncated gzip file is refused with that message;
     `test_analysis_files.cpp` runs the app's reader.
+  - Done (2026-11-25, Fable): confirmed (a `.xmpuzzle` cut nine bytes
+    short, inside its checksum, opened as a whole puzzle).
+    - **gzip:** `readMaybeGzipFile` is `readPlainFile` and
+      `gunzipIfCompressed`; the `gzread` path is gone. The one inflate:
+      "the file is cut short" for a stream that ends before its end (it
+      said "the gzip data is cut short"; no test or front-end code read
+      the words); its input handed to zlib a piece at a time (it took 4
+      GiB at most); and what `gzread` did with a good file kept: several
+      gzip streams one after another are their contents one after
+      another, and bytes after the last stream that are not one are
+      passed over. A folder is an `IoError` in `readPlainFile` (a stream
+      opens on one and reads nothing; `gzread` failed on it), so the CLI
+      still says "could not open input file".
+    - **Paused solves:** `readPausedSolve(std::istream&, …)` is the one
+      reader: `loadPausedSolve` opens the file and calls it,
+      `parsePausedSolve` is gone, and the tests give it the bytes through
+      a string stream and the same bytes as a file. It took the stricter
+      rule of each of the two: a header cut short and a name of more than
+      4096 bytes are "could not be read completely" (the app's reader took
+      them for the end of the file), and so is a section longer than what
+      is left of the file, checked before room is made for it or it is
+      passed over (a seek past the end of a file does not fail). A stacking
+      solve cut inside a later level's section came in without its last
+      levels.
+    - Tests: `test_roundtrip.cpp` "a file cut short is refused" (200,000
+      characters cut at nine places from the header to the last byte:
+      `readMaybeGzipFile`, `gunzipIfCompressed` and `loadPuzzle`; damage in
+      the middle; two streams; bytes after the stream; the limit over
+      both streams) and a folder; `test_analysis_files.cpp` "BTSOLVE2 both
+      ways": every refusal through `readPausedSolve` and `loadPausedSolve`
+      with the same message, the new refusals, and a puzzle section cut
+      short. Without the fix (HEAD's `gzip_file.cpp`; the reader's loop as
+      it was): the gzip case fails at its first cut, the paused solves' 6
+      checks fail.
 
 - [x] **16.6 The assembler's recursion can overflow a thread's stack** (stability; S to M; found in 5.1, was 5.13)
   - *Where:* the assembler's search (`SimdHuangCover::search<true>`, one
@@ -7244,6 +7485,55 @@ a message: never a crash, a hang or all the memory.
 **Gates for stage 16:** `just test-all`, `just test-asan`,
 `just oracle-roundtrip`, `just oracle-resume`, `just check` on the changed
 files, the CLI tests.
+Run (2026-11-25, 16.1 to 16.5): `just build dev`, `release` and `asan`;
+- `just test-all`: 75 of 75 (227 s; the CLI's and the Python module's
+  tests are two of them); `just test` five times after the last C++
+  source edit, the last two after the tests' last edits: 30 of 30 each;
+- `just test-asan`: 74 of 74 (758 s); after it two tests changed (the
+  sweep counts the assertions it meets, where clang-tidy found an empty
+  catch; a lambda's parameter renamed): the `[io]` and `[xml]` cases
+  (90) and then the two changed cases under the sanitizers again, all
+  pass;
+- `just test-tsan` (16.4 checks a state's keys on the pool): the 130
+  `[parallel]` cases pass, and the contract suite on the TSan engine (153
+  methods, 0 failed);
+- **Not run: `just oracle-roundtrip` and `just oracle-resume`,** two of
+  this stage's gates, and `oracle.py panex-resume`: they need the
+  original's library, and the reference checkout is not built ("original
+  library not found"). What stands in for them here: the unit cases that
+  save every fixture byte for byte as the original saved it
+  (`saved_by_original/`), the carried-on searches' cases (the v1.8.1
+  fixture, the older level files, the Panex resumes), and the compare
+  tiers below. Run both when the checkout is built;
+- `just oracle --tier fast --allow-missing` against the committed
+  baselines, with all threads and `--threads 1`: 18 of 19 compared, 0
+  differ (one file is not in the checkout); `--tier sliding`: 23 of 35
+  compared, 0 differ; `--tier stacking`: 38 of 41 compared, 0 differ;
+- `just check` on the 11 changed sources and 7 changed or instantiating
+  test files: clean, run again whole after the one finding above;
+- seen failing (rule 8): each item's Done line says how its tests fail
+  on a scratch copy without its fix;
+- the engine by hand, release and ASan builds, on a disassembly of 1000
+  levels (1001 unit cubes in a row): opened, paged by level, read,
+  played at its first and last steps and saved (19.7 MB); one level more
+  is refused with the message, by the engine and by the CLI (exit 2);
+- the benchmarks: under 16.3;
+- `just app-test`: 689 of 689, again after the last edit of this plan
+  (no front-end change; the spelling test reads every file);
+- `just site-demo --check` after the last source edit (rebuilt; every
+  puzzle type opens and plays) and `just site-build` (8 of 8);
+- Linux (Docker, ubuntu:24.04, GCC 13.3, the release preset as CI makes
+  it): the tree builds, the quick suite 29 of 29 (the Python module is
+  not built there), the CLI's tests among them. GCC warned on one line
+  of this stage's (a lambda's parameter named as a local of its test:
+  renamed) and on `Rules::decode`'s write (`-Wstringop-overflow`: the
+  write 16.4 is about, which the compiler cannot see is checked first;
+  the function is as it was). Windows: the 11 changed sources compile
+  with MinGW's `-fsyntax-only`, nothing run. No system call and no
+  `#ifdef` was added (one went: `gzopen_w`);
+- Not run: the oracle's full and slow tiers and its files, text, imports
+  and python commands (the reference checkout, as above); the e2e specs
+  (no front-end change); `just gate`.
 
 ## Stage 17: core speed
 
@@ -7600,6 +7890,31 @@ Abort included.
     - Honor Abort in the trace's expand.
   - *Tests:* a test that stops during a merge (a test-only option that
     stops after N merged keys), then continues to the same path.
+
+- [ ] **18.5 The take-apart's recursion can overflow its thread's stack** (stability; S to M; found in 16.2)
+  - *Where:* `core/shapelogic/solve/disassembler.cpp`: `searchLevels` calls
+    `checkSubproblems`, that `checkSubproblem`, and that `searchLevels`
+    again: one round for every group that is taken apart further, on the
+    solve's thread or a pool's (512 KiB of stack on macOS).
+  - *Problem:* a puzzle whose pieces come off one at a time nests once per
+    piece. As 16.6, for the take-apart.
+  - *Measured (2026-11-25, Fable):* the release CLI on macOS arm64, `-d`
+    on a row of unit cubes in a box of 1x1xN: 300 cubes are taken apart
+    (0.2 s); 600 end the process with a bus error (so between 870 and
+    1700 bytes of stack a round; where between 300 and 600 it ends was not
+    looked for). `--save` and the app's solve run the same code. Not
+    measured: Windows and Linux.
+  - *And the file:* the reader refuses a disassembly nested more than 1000
+    deep (16.2, `kMaxSeparationDepth` in `puzzle_file.cpp`: what walks a
+    tree recurses too). Where a thread has more stack (8 MiB on Linux) the
+    take-apart can make a deeper tree, and the file saved with it does not
+    open again.
+  - *Change:* one of 16.6's three choices, measured as 16.6 measured (a
+    stack sized for the pieces, the rounds kept on the heap, or a refusal
+    past what the stack holds); and what is made held to the reader's
+    bound, with an error that says so, never "cannot be taken apart".
+  - *Tests:* the row of 600 cubes is taken apart, in the release build and
+    under ASan; a puzzle at the bound is solved, saved and opened again.
 
 **Gates for stage 18:** `just test-all`, `just test-tsan`, the contract
 suite, `just oracle --tier fast` and `--tier sliding`, `just oracle-resume`,

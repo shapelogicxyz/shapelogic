@@ -45,14 +45,6 @@ struct GzCloser {
 };
 using GzHandle = std::unique_ptr<gzFile_s, GzCloser>;
 
-gzFile openGz(const std::filesystem::path& path, const char* mode) {
-#ifdef _WIN32
-  return gzopen_w(path.c_str(), mode);
-#else
-  return gzopen(path.c_str(), mode);
-#endif
-}
-
 std::string describe(const std::filesystem::path& path) { return path.string(); }
 
 /// The system's reason for the call that just failed, taken at once (the
@@ -182,6 +174,12 @@ bool writeAll(int fd, std::string_view data) {
   return true;
 }
 
+/// Whether the bytes begin as a gzip stream does.
+bool isGzip(std::string_view data) {
+  return data.size() >= 2 && static_cast<unsigned char>(data[0]) == 0x1f &&
+         static_cast<unsigned char>(data[1]) == 0x8b;
+}
+
 Error tooLarge(std::size_t maxBytes) {
   return Error{Errc::ParseError, "the file is too large: it inflates to more than " +
                                      std::to_string(maxBytes >> 20) + " MiB"};
@@ -227,36 +225,12 @@ bool syncDescriptor(int fd, Sync how) {
 #endif
 }
 
-Result<std::string> readMaybeGzipFile(const std::filesystem::path& path, std::size_t maxBytes) {
-  // zlib reads data that is not gzip as it is ("transparent" reading)
-  clearSystemError();
-  GzHandle f(openGz(path, "rb"));
-  if (!f) {
-    const SystemError why;
-    return fail(Errc::IoError, "could not open " + describe(path) + reasonOf(why));
-  }
-
-  std::string data;
-  std::array<char, 65536> buf{};
-  while (true) {
-    const int n = gzread(f.get(), buf.data(), static_cast<unsigned int>(buf.size()));
-    if (n < 0) {
-      int err = 0;
-      const char* msg = gzerror(f.get(), &err);
-      return fail(Errc::IoError, "could not read " + describe(path) + ": " + msg);
-    }
-    if (n == 0) {
-      break;
-    }
-    if (data.size() + static_cast<std::size_t>(n) > maxBytes) {
-      return std::unexpected(tooLarge(maxBytes));
-    }
-    data.append(buf.data(), static_cast<std::size_t>(n));
-  }
-  return data;
-}
-
 Result<std::string> readPlainFile(const std::filesystem::path& path, std::size_t maxBytes) {
+  // (a folder opens as a stream that reads nothing, without an error)
+  std::error_code folderEc;
+  if (std::filesystem::is_directory(path, folderEc)) {
+    return fail(Errc::IoError, "could not open " + describe(path) + ": it is a folder");
+  }
   clearSystemError();
   std::ifstream in(path, std::ios::binary);
   if (!in) {
@@ -280,6 +254,17 @@ Result<std::string> readPlainFile(const std::filesystem::path& path, std::size_t
     return fail(Errc::IoError, "could not read " + describe(path));
   }
   return data;
+}
+
+Result<std::string> readMaybeGzipFile(const std::filesystem::path& path, std::size_t maxBytes) {
+  // the file's bytes, then the one inflate every reader goes through
+  // (cleanup item 16.5): zlib's own file reader took a stream cut short for
+  // its end, so half a file was read as a whole one
+  Result<std::string> bytes = readPlainFile(path, maxBytes);
+  if (!bytes || !isGzip(*bytes)) {
+    return bytes;
+  }
+  return gunzipIfCompressed(*bytes, maxBytes);
 }
 
 Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view data) {
@@ -537,38 +522,65 @@ std::string gzipCompress(std::string_view data, int level) {
 }
 
 Result<std::string> gunzipIfCompressed(std::string_view data, std::size_t maxBytes) {
-  if (data.size() < 2 || static_cast<unsigned char>(data[0]) != 0x1f ||
-      static_cast<unsigned char>(data[1]) != 0x8b) {
+  if (!isGzip(data)) {
     return std::string(data);
   }
   z_stream z{};
   if (inflateInit2(&z, 15 + 16) != Z_OK) {
     return fail(Errc::Internal, "zlib could not start decompressing");
   }
+  struct Ender {
+    z_stream* z;
+    Ender(const Ender&) = delete;
+    Ender& operator=(const Ender&) = delete;
+    explicit Ender(z_stream* stream) : z(stream) {}
+    ~Ender() { inflateEnd(z); }
+  };
+  const Ender ender(&z);
+  const Error cutShort{Errc::ParseError, "the file is cut short"};
   std::string out;
   std::array<char, 65536> buf{};
+  // zlib counts its input in 32 bits: handed over a piece at a time. The
+  // pieces follow each other in `data`, so what zlib has not read yet is
+  // always the bytes from z.next_in to the end of `data`.
   z.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(data.data()));
-  z.avail_in = static_cast<uInt>(std::min<std::size_t>(data.size(), 0xFFFFFFFFu));
-  int ret = Z_OK;
-  while (ret != Z_STREAM_END) {
+  std::size_t left = data.size();
+  while (true) {
+    if (z.avail_in == 0 && left > 0) {
+      const std::size_t piece = std::min<std::size_t>(left, std::size_t{1} << 30);
+      z.avail_in = static_cast<uInt>(piece);
+      left -= piece;
+    }
     z.next_out = reinterpret_cast<Bytef*>(buf.data());
     z.avail_out = static_cast<uInt>(buf.size());
-    ret = inflate(&z, Z_NO_FLUSH);
+    const int ret = inflate(&z, Z_NO_FLUSH);
+    const bool inputDone = z.avail_in == 0 && left == 0;
+    if (ret == Z_BUF_ERROR && inputDone) {
+      // nothing more to read, and the stream has not ended
+      return std::unexpected(cutShort);
+    }
     if (ret != Z_OK && ret != Z_STREAM_END) {
-      inflateEnd(&z);
       return fail(Errc::ParseError, "broken gzip data");
     }
-    if (out.size() + (buf.size() - z.avail_out) > maxBytes) {
-      inflateEnd(&z);
+    const std::size_t made = buf.size() - z.avail_out;
+    if (out.size() + made > maxBytes) {
       return std::unexpected(tooLarge(maxBytes));
     }
-    out.append(buf.data(), buf.size() - z.avail_out);
-    if (ret == Z_OK && z.avail_in == 0 && z.avail_out != 0) {
-      inflateEnd(&z);
-      return fail(Errc::ParseError, "the gzip data is cut short");
+    out.append(buf.data(), made);
+    if (ret == Z_STREAM_END) {
+      // A file of several gzip streams is their contents one after
+      // another, as zlib's file reader read it; what follows the last
+      // stream and is not one is passed over, as it was.
+      const std::string_view rest(reinterpret_cast<const char*>(z.next_in), z.avail_in + left);
+      if (!isGzip(rest) || inflateReset(&z) != Z_OK) {
+        break;
+      }
+      continue;
+    }
+    if (inputDone && z.avail_out != 0) {
+      return std::unexpected(cutShort);
     }
   }
-  inflateEnd(&z);
   return out;
 }
 

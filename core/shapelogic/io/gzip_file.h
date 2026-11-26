@@ -23,9 +23,11 @@ namespace bt::io {
 inline constexpr std::size_t kMaxInflatedBytes = std::size_t{256} << 20;
 
 /// The contents of a file, decompressed when it is gzip data and as it is
-/// otherwise. A missing or unreadable file is an IoError; an empty file is
-/// an empty string; a file that inflates to more than `maxBytes` is a
-/// ParseError.
+/// otherwise: readPlainFile, then gunzipIfCompressed, the one inflate of
+/// every reader. A missing or unreadable file is an IoError; an empty file
+/// is an empty string; a file that is larger or inflates to more than
+/// `maxBytes`, broken gzip data and a gzip stream cut short ("the file is
+/// cut short") are ParseErrors.
 [[nodiscard]] Result<std::string> readMaybeGzipFile(const std::filesystem::path& path,
                                                     std::size_t maxBytes = kMaxInflatedBytes);
 
@@ -100,8 +102,11 @@ inline constexpr int kGzipFast = 1;
 [[nodiscard]] std::string gzipCompress(std::string_view data, int level = 9);
 
 /// `data` decompressed when it is gzip data (it starts with the gzip
-/// magic), as it is otherwise; ParseError for broken gzip data and for
-/// data that inflates to more than `maxBytes`.
+/// magic), as it is otherwise; ParseError for broken gzip data, for a
+/// stream that ends before its end ("the file is cut short") and for data
+/// that inflates to more than `maxBytes`. Several gzip streams one after
+/// another give their contents one after another; other bytes after the
+/// last stream are passed over.
 [[nodiscard]] Result<std::string> gunzipIfCompressed(std::string_view data,
                                                      std::size_t maxBytes = kMaxInflatedBytes);
 

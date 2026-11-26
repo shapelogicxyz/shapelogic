@@ -123,7 +123,31 @@ const std::string& requireText(const XmlElement& e, const char* what) {
   return e.text;
 }
 
-/// Space-separated integers, exactly `out.size()` of them (getNumbers()).
+// A file is untrusted (cleanup item 16.2): what it gives is bounded before
+// it is used as a size, an index or a term of a sum.
+
+/// How far from zero a position in a file may lie: a placement, a state's
+/// offset, a hotspot, a rotation's pivot. Pieces lie within their result,
+/// at most 65536 cells a side, and a piece taken off the puzzle stands a
+/// few times movement::kRemovedScale away; sums and differences of a few
+/// such numbers stay far inside an int.
+constexpr int kMaxFileCoordinate = 1 << 20;
+
+/// How deep the branches of a disassembly may nest. A tree nests once per
+/// piece taken off, and the functions that walk one recurse (this reader,
+/// the level text, the playback, the writer, the copy), up to 0.8 KiB of
+/// stack a level in a release build and 1.4 KiB in a debug one (measured
+/// on macOS arm64), on threads whose stack may be 2 MiB (the main thread
+/// on Windows). The fixtures' deepest tree nests 12 times.
+constexpr unsigned int kMaxSeparationDepth = 1000;
+
+/// The most moves a file's sliding search may say it searched: each has an
+/// entry in the problem's list of times. No search reaches this (a move
+/// here would take a level of its own on the disk).
+constexpr std::uint64_t kMaxSlideDepth = std::uint64_t{1} << 20;
+
+/// Space-separated integers, exactly `out.size()` of them (getNumbers()),
+/// none further from zero than kMaxFileCoordinate.
 void getNumbers(const XmlElement& e, const std::string& str, std::vector<int>& out,
                 bool negAllowed) {
   std::size_t at = 0;
@@ -139,7 +163,11 @@ void getNumbers(const XmlElement& e, const std::string& str, std::vector<int>& o
       }
       negative = true;
     } else if (c >= '0' && c <= '9') {
+      // (bounded at each digit: the next one cannot take it past an int)
       val = val * 10 + c - '0';
+      if (val > kMaxFileCoordinate) {
+        error(e, "number out of range in disassembly");
+      }
       gotNum = true;
     } else if (c == ' ') {
       if (gotNum) {
@@ -379,9 +407,6 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
     error(e, "voxel space too large");
   }
 
-  std::unique_ptr<Voxel> v = gt.makeVoxel(sx, sy, sz, 0);
-  v->skipRecalcBoundingBox(true);
-
   // the cells: '_' empty, '#' filled, '+' variable, each optionally followed
   // by its color number
   if (e.text.empty()) {
@@ -394,6 +419,15 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
   if (type != 0) {
     error(e, "unknown voxel type");
   }
+  // Every cell is a character at least: a text shorter than the space is
+  // refused before room is made for the space (three numbers could ask for
+  // a gigabyte, which was filled before the text was looked at).
+  if (c.size() < static_cast<unsigned long long>(sx) * sy * sz) {
+    error(e, "not enough voxels defined for voxelspace");
+  }
+
+  std::unique_ptr<Voxel> v = gt.makeVoxel(sx, sy, sz, 0);
+  v->skipRecalcBoundingBox(true);
 
   for (const char ch : c) {
     switch (ch) {
@@ -443,7 +477,19 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
   readMarkList(e.attribute("goal"), v->getXYZ(),
                [&v](unsigned int i, unsigned int mark) { v->setGoalPiece(i, mark); });
 
-  v->setHotspot(atoiOf(e.attribute("hx")), atoiOf(e.attribute("hy")), atoiOf(e.attribute("hz")));
+  const std::array<int, 3> hot = {atoiOf(e.attribute("hx")), atoiOf(e.attribute("hy")),
+                                  atoiOf(e.attribute("hz"))};
+  for (const int h : hot) {
+    if (h < -kMaxFileCoordinate || h > kMaxFileCoordinate) {
+      error(e, "voxel space hotspot out of range");
+    }
+  }
+  // (the sphere grid's cells are every second place: its transformations
+  // take a hotspot on one for granted)
+  if (gt.getType() == GridKind::Spheres && ((hot[0] + hot[1] + hot[2]) & 1) != 0) {
+    error(e, "voxel space hotspot is not a place of the sphere grid");
+  }
+  v->setHotspot(hot[0], hot[1], hot[2]);
   v->setName(e.attribute("name"));
 
   const std::string weight = e.attribute("weight");
@@ -458,7 +504,14 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
 
   const std::string disk = e.attribute("diskSize");
   if (!disk.empty()) {
-    v->setDiskSize(asUnsigned(atoiOf(disk)));
+    // a disc is a shape of twice its size and one more cells a side, so no
+    // size is past half of what a side may be; the board's layout
+    // multiplies it
+    const unsigned int size = asUnsigned(atoiOf(disk));
+    if (size > 0x8000) {
+      error(e, "disc size out of range");
+    }
+    v->setDiskSize(size);
   }
 
   v->setImages(readShapeImages(e, "image"));
@@ -511,8 +564,12 @@ Assembly readAssembly(const XmlElement& e, unsigned int pieces, GridType gt) {
       }
       sign = -1;
     } else {
+      // (bounded at each digit: the next one cannot take it past an int)
       value *= 10;
       value += sign * (c - '0');
+      if (value < -kMaxFileCoordinate || value > kMaxFileCoordinate) {
+        error(e, "assembly placement out of range");
+      }
     }
   };
 
@@ -563,11 +620,17 @@ Assembly readAssembly(const XmlElement& e, unsigned int pieces, GridType gt) {
   return a;
 }
 
-int parseDoubledPivot(const std::string& s) {
-  return static_cast<int>(std::floor(std::strtod(s.c_str(), nullptr) * 2.0 + 0.5));
+/// A rotation's pivot, in half cells; an error when it is no position a
+/// file may give (the conversion of such a number to int is undefined).
+int parseDoubledPivot(const XmlElement& e, const std::string& s) {
+  const double doubled = std::floor(std::strtod(s.c_str(), nullptr) * 2.0 + 0.5);
+  if (!(doubled >= -kMaxFileCoordinate && doubled <= kMaxFileCoordinate)) {
+    error(e, "rotation pivot out of range");
+  }
+  return static_cast<int>(doubled);
 }
 
-State readState(const XmlElement& e, unsigned int pn) {
+State readState(const XmlElement& e, unsigned int pn, GridType gt) {
   State st = State::withoutOrientations(pn);
 
   bool hasDx = false;
@@ -588,6 +651,14 @@ State readState(const XmlElement& e, unsigned int pn) {
         st.setZs(std::move(v));
         hasDz = true;
       } else {
+        // an orientation is a transformation of the grid: it picks a row
+        // of its tables
+        const unsigned int orientations = gt.getSymmetries().getNumTransformationsMirror();
+        for (const int t : v) {
+          if (asUnsigned(t) >= orientations) {
+            error(c, "orientation out of range in disassembly");
+          }
+        }
         st.setOrientations(std::move(v));
       }
     } else if (c.name == "rotation") {
@@ -595,9 +666,9 @@ State readState(const XmlElement& e, unsigned int pn) {
       if (piece.empty()) {
         error(c, "rotation needs piece");
       }
-      st.setRotationArrival(asUnsigned(atoiOf(piece)), parseDoubledPivot(c.attribute("px")),
-                            parseDoubledPivot(c.attribute("py")),
-                            parseDoubledPivot(c.attribute("pz")),
+      st.setRotationArrival(asUnsigned(atoiOf(piece)), parseDoubledPivot(c, c.attribute("px")),
+                            parseDoubledPivot(c, c.attribute("py")),
+                            parseDoubledPivot(c, c.attribute("pz")),
                             asUnsigned(atoiOf(c.attribute("axis"))),
                             asUnsigned(atoiOf(c.attribute("sense"))));
     }
@@ -609,7 +680,13 @@ State readState(const XmlElement& e, unsigned int pn) {
   return st;
 }
 
-Separation readSeparation(const XmlElement& e, unsigned int pieceCnt) {
+/// A <separation> of `pieceCnt` pieces, `depth` branches below the root's;
+/// the pieces it names are among the `allPieces` of its assembly.
+Separation readSeparation(const XmlElement& e, unsigned int pieceCnt, unsigned int allPieces,
+                          GridType gt, unsigned int depth = 0) {
+  if (depth >= kMaxSeparationDepth) {
+    error(e, "the disassembly nests too deeply");
+  }
   std::vector<unsigned int> pieces;
   std::vector<State> states;
   ClonePtr<Separation> removed;
@@ -630,6 +707,13 @@ Separation readSeparation(const XmlElement& e, unsigned int pieceCnt) {
       }
       std::vector<int> v(piecenumber);
       getNumbers(c, requireText(c, "expected: TEXT"), v, false);
+      // a piece's number is its place in the assembly: the playback and
+      // the text output index their arrays with it
+      for (const int name : v) {
+        if (asUnsigned(name) >= allPieces) {
+          error(c, "the disassembly names a piece the assembly does not have");
+        }
+      }
       pieces.assign(v.begin(), v.end());
     } else if (c.name == "state") {
       if (piecenumber == 0) {
@@ -638,7 +722,7 @@ Separation readSeparation(const XmlElement& e, unsigned int pieceCnt) {
       if (removed || left) {
         error(c, "there are states behind the sub separations");
       }
-      states.push_back(readState(c, piecenumber));
+      states.push_back(readState(c, piecenumber, gt));
     } else if (c.name == "separation") {
       if (states.empty()) {
         error(c, "there are no state nodes in the separation");
@@ -664,13 +748,14 @@ Separation readSeparation(const XmlElement& e, unsigned int pieceCnt) {
         if (left) {
           error(c, "more than one left branch in disassembly");
         }
-        left = ClonePtr<Separation>(std::make_unique<Separation>(readSeparation(c, leftPc)));
+        left = ClonePtr<Separation>(
+            std::make_unique<Separation>(readSeparation(c, leftPc, allPieces, gt, depth + 1)));
       } else if (type == "removed") {
         if (removed) {
           error(c, "more than one removed branch in disassembly");
         }
-        removed =
-            ClonePtr<Separation>(std::make_unique<Separation>(readSeparation(c, removedPc)));
+        removed = ClonePtr<Separation>(
+            std::make_unique<Separation>(readSeparation(c, removedPc, allPieces, gt, depth + 1)));
       } else {
         error(c, "subnodes must have either left or removed type");
       }
@@ -727,17 +812,31 @@ SeparationInfo readSeparationInfo(const XmlElement& e) {
     error(e, "separationInfo rotation counts do not match value counts");
   }
 
-  // the tree must end: a node opens one more branch, a 0 closes one
+  // The tree must end: a node opens one more branch, a 0 closes one. And
+  // it nests no deeper than a disassembly may (the level text walks it by
+  // recursion): `open` holds, for each node on the way down to the value
+  // at hand, how many of its two branches are still to come.
   unsigned int branches = 1;
   std::size_t at = 0;
+  std::vector<unsigned char> open;
   while (branches != 0) {
     if (at >= values.size()) {
       error(e, "the tree in the disassemblyInformation tag is incomplete");
     }
+    if (!open.empty()) {
+      open.back()--;
+    }
     if (values[at] != 0) {
       branches++;
+      open.push_back(2);
+      if (open.size() > kMaxSeparationDepth) {
+        error(e, "the disassembly nests too deeply");
+      }
     } else {
       branches--;
+    }
+    while (!open.empty() && open.back() == 0) {
+      open.pop_back();
     }
     at++;
   }
@@ -772,7 +871,7 @@ Solution readSolution(const XmlElement& e, unsigned int pieces, GridType gt) {
           pl++;
         }
       }
-      tree = readSeparation(c, pl);
+      tree = readSeparation(c, pl, assembly->placementCount(), gt);
       keep.known(1);
     } else if (c.name == "separationInfo") {
       treeInfo = readSeparationInfo(c);
@@ -1065,8 +1164,11 @@ Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
     }
     // a sliding solve paused by a version that kept no times: the moves
     // searched are there, untimed, and the times go on from them
-    if (ms.empty() && depth > 0 && prob.getSolveState() == ProblemState::Solving &&
-        sliding::isSliding(puzzle)) {
+    // (the depth is what the file says: past any a search reaches, no list
+    // is made for it, which would be gigabytes; the search pads its times
+    // itself when it carries on)
+    if (ms.empty() && depth > 0 && depth <= kMaxSlideDepth &&
+        prob.getSolveState() == ProblemState::Solving && sliding::isSliding(puzzle)) {
       ms.assign(static_cast<std::size_t>(depth), kUntimedMs);
     }
     prob.setSlideLevelMs(std::move(ms));
@@ -1227,6 +1329,21 @@ Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
       }
     } else {
       keep.unknown(c);
+    }
+  }
+
+  // Every assembly places all the problem's pieces. Each was read against
+  // the parts that stood before it; a file that lists parts after its
+  // solutions would leave them short, and what walks a problem's pieces
+  // reads an assembly's placements by their number.
+  for (const Solution& sol : A::solutions(prob)) {
+    if (sol.getAssembly().placementCount() != pieces) {
+      error(e, "not the right number of placements in assembly");
+    }
+  }
+  for (const PendingAssembly& p : prob.getPending()) {
+    if (p.assembly.placementCount() != pieces) {
+      error(e, "not the right number of placements in assembly");
     }
   }
 
@@ -2086,32 +2203,55 @@ void writeProblem(XmlWriter& xml, const Puzzle& puzzle, const Problem& prob) {
 
 }  // namespace
 
+namespace {
+
+/// What a reader answers when something it did not foresee was thrown: a
+/// number of the file that breaks an invariant of the model (InternalError,
+/// from a BT_ASSERT), or a size it asks for that there is no memory for. A
+/// file is untrusted: whatever is wrong with it, reading it ends with a
+/// message, never with the exception (cleanup item 16.2).
+std::unexpected<Error> unreadable(const std::exception& e) {
+  return fail(Errc::ParseError, std::string("the file could not be read: ") + e.what());
+}
+
+}  // namespace
+
 Result<Puzzle> readPuzzle(const XmlElement& root) {
   try {
     return readPuzzleElement(root);
   } catch (const ReadError& e) {
     return fail(Errc::ParseError, e.what());
+  } catch (const std::exception& e) {
+    return unreadable(e);
   }
 }
 
 Result<Puzzle> parsePuzzle(std::string_view xml) {
-  Result<XmlElement> root = parseXmlDocument(xml);
-  if (!root) {
-    return std::unexpected(root.error());
+  try {
+    Result<XmlElement> root = parseXmlDocument(xml);
+    if (!root) {
+      return std::unexpected(root.error());
+    }
+    return readPuzzle(*root);
+  } catch (const std::exception& e) {
+    return unreadable(e);
   }
-  return readPuzzle(*root);
 }
 
 Result<Puzzle> loadPuzzle(const std::filesystem::path& path) {
-  Result<std::string> data = readMaybeGzipFile(path);
-  if (!data) {
-    return std::unexpected(data.error());
+  try {
+    Result<std::string> data = readMaybeGzipFile(path);
+    if (!data) {
+      return std::unexpected(data.error());
+    }
+    Result<Puzzle> puzzle = parsePuzzle(*data);
+    if (!puzzle) {
+      return fail(puzzle.error().code, path.string() + ": " + puzzle.error().message);
+    }
+    return puzzle;
+  } catch (const std::exception& e) {
+    return unreadable(e);
   }
-  Result<Puzzle> puzzle = parsePuzzle(*data);
-  if (!puzzle) {
-    return fail(puzzle.error().code, path.string() + ": " + puzzle.error().message);
-  }
-  return puzzle;
 }
 
 std::string writePuzzle(const Puzzle& puzzle) {

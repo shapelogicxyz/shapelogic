@@ -95,6 +95,8 @@ def test_help_and_mistakes() -> None:
           repr(r.stdout))
     r = run(PUZZLES / "no-such-file.xmpuzzle")
     check("missing file", r.returncode == 2 and r.stdout.startswith("could not open input file"), r.stdout)
+    r = run(PUZZLES)
+    check("a folder", r.returncode == 2 and r.stdout.startswith("could not open input file"), r.stdout)
 
 
 def test_stacking() -> None:
@@ -316,6 +318,42 @@ def test_save_refuses_as_the_app() -> None:
         r = run("--save", Path(tmp) / "out.xmpuzzle", "--restart", f)
         check("stamp overflow --save", r.returncode == 1 and "Could not start Solver" in r.stdout and
               "S1 has 2 starts" in r.stderr and "solutions found" not in r.stdout, f"{r.returncode} {r.stdout!r} {r.stderr!r}")
+
+
+# A damaged or hostile file is refused with a line that says why and the
+# exit code of a file that cannot be read (cleanup items 16.1, 16.2 and
+# 16.5). Before, a gzip file cut short was read as far as it went, numbers
+# past an int were undefined, and an exception that left the reader ended
+# the program with an abort.
+def test_damaged_files() -> None:
+    import gzip
+    import re
+    solved = gzip.decompress((PUZZLES / "PelikanBurr.xmpuzzle").read_bytes()).decode()
+    huge = "99999999999999999999"
+    cases = {
+        "cut short": ((PUZZLES / "PelikanBurr.xmpuzzle").read_bytes()[:-9], "the file is cut short"),
+        "not gzip after its first bytes": (b"\x1f\x8b" + b"junk" * 10, "broken gzip data"),
+        "a placement past an int": (re.sub(r"<assembly>-?\d+", "<assembly>" + huge, solved, count=1),
+                                    "assembly placement out of range"),
+        "a state's offset past an int": (re.sub(r"<dx>-?\d+", "<dx>" + huge, solved, count=1),
+                                         "number out of range in disassembly"),
+        "a shape of a gigabyte": (re.sub(r'<voxel x="\d+" y="\d+" z="\d+"',
+                                         '<voxel x="1024" y="1024" z="1024"', solved, count=1),
+                                  "not enough voxels"),
+        "an element of 5000 attributes": ('<puzzle version="2" ' +
+                                          " ".join(f'a{i}=""' for i in range(5000)) + "/>",
+                                          "too many attributes"),
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, (content, why) in cases.items():
+            f = Path(tmp) / "damaged.xmpuzzle"
+            f.write_bytes(content if isinstance(content, bytes) else content.encode())
+            for args in (["-q"], ["-d", "-q"], ["--save", str(Path(tmp) / "out.xmpuzzle")]):
+                r = run(*args, f)
+                check(f"damaged: {name} {args[0]}",
+                      r.returncode == 2 and "could not read" in r.stderr and why in r.stderr and
+                      not (Path(tmp) / "out.xmpuzzle").exists(),
+                      f"{r.returncode} {r.stderr!r}")
 
 
 def test_solving() -> None:

@@ -29,6 +29,8 @@
 #include "shapelogic/io/xml_pull_parser.h"
 
 #include <string>
+#include <string_view>
+#include <unordered_set>
 
 namespace bt::io {
 
@@ -68,7 +70,8 @@ int parseInt(const std::string& s, int radix) {
 
 }  // namespace
 
-XmlPullParser::XmlPullParser(std::string_view input) : input_(input) {
+XmlPullParser::XmlPullParser(std::string_view input, std::size_t maxAttributes)
+    : input_(input), maxAttributes_(maxAttributes) {
   entityMap_["apos"] = "'";
   entityMap_["gt"] = ">";
   entityMap_["lt"] = "<";
@@ -397,6 +400,9 @@ void XmlPullParser::parseStartTag(bool xmldecl) {
       }
       delimiter = ' ';
     }
+    if (static_cast<std::size_t>(attributeCount_) >= maxAttributes_) {
+      exception("too many attributes in <" + name_ + ">");
+    }
     attributeCount_++;
     attributes_.push_back(std::move(attrName));
     const int p = txtPos_;
@@ -414,12 +420,39 @@ void XmlPullParser::parseStartTag(bool xmldecl) {
   }
   elementStack_[sp] = name_;
 
-  for (int i = attributeCount_ - 1; i > 0; i--) {
-    for (int j = 0; j < i; j++) {
-      if (getAttributeName(i) == getAttributeName(j)) {
-        exception("Duplicate Attribute: " + getAttributeName(i));
+  checkDuplicateAttributes();
+}
+
+/* The original compared every pair, the last attribute first, and named the
+ * first it found: the last attribute that repeats an earlier one. That is
+ * kept. Past a few attributes the names go through a set, so an element
+ * with thousands costs their number, not its square (cleanup item 16.1). */
+void XmlPullParser::checkDuplicateAttributes() const {
+  constexpr int kPairwise = 8;
+  const auto nameOf = [this](int i) -> const std::string& {
+    return attributes_[2 * static_cast<std::size_t>(i)];
+  };
+  if (attributeCount_ <= kPairwise) {
+    for (int i = attributeCount_ - 1; i > 0; i--) {
+      for (int j = 0; j < i; j++) {
+        if (nameOf(i) == nameOf(j)) {
+          exception("Duplicate Attribute: " + nameOf(i));
+        }
       }
     }
+    return;
+  }
+  // views of the names where they stand: attributes_ does not change here
+  std::unordered_set<std::string_view> seen;
+  seen.reserve(static_cast<std::size_t>(attributeCount_));
+  int repeated = -1;
+  for (int i = 0; i < attributeCount_; i++) {
+    if (!seen.insert(nameOf(i)).second) {
+      repeated = i;
+    }
+  }
+  if (repeated >= 0) {
+    exception("Duplicate Attribute: " + nameOf(repeated));
   }
 }
 

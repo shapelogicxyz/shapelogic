@@ -24,15 +24,18 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -426,22 +429,78 @@ TEST_CASE("stacking session: a stop whose save fails keeps the last save", "[sta
 // A saved search's state is trusted no further than its file: a damaged or
 // crafted state.bin (one imported from a .slsolve) claimed a layer of 2^60
 // keys, which the search set out to make room for (an audit finding; a
-// claim of a few terabytes had the process killed). Such a state is not
-// carried on. Nor is the saved search thrown away for it, or for a state
-// cut short or of a later version (decision 0041): the search ends with
-// why, the folder as it was; the solve pauses, Continue tries again, and
-// Solve clears the folder and searches from the beginning.
+// claim of a few terabytes had the process killed). And its keys were
+// decoded as they came (cleanup item 16.4): one with more separators than
+// the rods have, a run of 0xFF bytes, counted the rod down past 0, and the
+// discs after it were written far outside the state on a worker's stack.
+// Such a state is not carried on. Nor is the saved search thrown away for
+// it, or for a state cut short or of a later version (decision 0041): the
+// search ends with why, the folder as it was; the solve pauses, Continue
+// tries again, and Solve clears the folder and searches from the beginning.
 TEST_CASE("stacking session: a saved search that cannot be read is kept, not carried on",
           "[stacking]") {
+  // state.bin: the magic (8 bytes), the fingerprint (8), the depths and
+  // the interval (4 each), the stackings found and the time (8 each), met,
+  // fromStart and fromGoal (4 each), meetAt (16): 72 bytes; then each
+  // layer's count (8) and its keys (16 each, the high word first). A key
+  // is five bits a symbol, the last one lowest: a disc's number, or 31
+  // between two rods. The puzzle here has 8 discs on 3 rods of height 4.
+  using Key = std::array<std::uint64_t, 2>;  // high, low
+  const auto symbolsOf = [](std::uint64_t low) {
+    std::array<unsigned int, 10> symbols{};
+    for (unsigned int& v : symbols) {
+      v = static_cast<unsigned int>(low & 31);
+      low >>= 5;
+    }
+    return symbols;
+  };
+  const auto lowOf = [](const std::array<unsigned int, 10>& symbols) {
+    std::uint64_t low = 0;
+    for (std::size_t i = symbols.size(); i-- > 0;) {
+      low = (low << 5) | symbols[i];
+    }
+    return low;
+  };
   struct Damage {
     const char* name;
     const char* why;
     bool described;  // the header alone still describes the search
+    std::function<void(Key&)> key;  // what it does to the first key, if anything
   };
+  const char* const notOne = "it holds a stacking the puzzle does not have";
   const Damage damages[] = {
-      {"a layer of 2^60 keys", "it names more stackings than the file holds", true},
-      {"cut short", "its state.bin is cut short", false},
-      {"a later version's", "was written by a later version of the program", false},
+      {"a layer of 2^60 keys", "it names more stackings than the file holds", true, nullptr},
+      {"cut short", "its state.bin is cut short", false, nullptr},
+      {"a later version's", "was written by a later version of the program", false, nullptr},
+      {"0xFF over the first key", notOne, true,
+       [](Key& k) { k = {~std::uint64_t{0}, ~std::uint64_t{0}}; }},
+      {"a first key of no rods", notOne, true, [](Key& k) { k = {0, 0}; }},
+      {"a rod too many", notOne, true,
+       [&](Key& k) {
+         std::array<unsigned int, 10> symbols = symbolsOf(k[1]);
+         *std::find_if(symbols.begin(), symbols.end(), [](unsigned int v) { return v != 31; }) = 31;
+         k[1] = lowOf(symbols);
+       }},
+      {"a disc on two rods", notOne, true,
+       [&](Key& k) {
+         // the first disc becomes the last one
+         std::array<unsigned int, 10> symbols = symbolsOf(k[1]);
+         const auto disc = [](unsigned int v) { return v != 31; };
+         *std::find_if(symbols.begin(), symbols.end(), disc) =
+             *std::find_if(symbols.rbegin(), symbols.rend(), disc);
+         k[1] = lowOf(symbols);
+       }},
+      {"a disc the puzzle does not have", notOne, true,
+       [&](Key& k) {
+         std::array<unsigned int, 10> symbols = symbolsOf(k[1]);
+         *std::find_if(symbols.begin(), symbols.end(), [](unsigned int v) { return v != 31; }) = 8;
+         k[1] = lowOf(symbols);
+       }},
+      {"every disc on one rod of four", notOne, true,
+       [&](Key& k) { k = {0, lowOf({31, 31, 7, 6, 5, 4, 3, 2, 1, 0})}; }},
+      {"a symbol above the last", notOne, true, [](Key& k) { k[1] |= std::uint64_t{1} << 50; }},
+      {"a high word", notOne, true, [](Key& k) { k[0] = 1; }},
+      {"the ends met at no stacking", notOne, true, nullptr},
   };
   for (const Damage& d : damages) {
     INFO(d.name);
@@ -461,14 +520,35 @@ TEST_CASE("stacking session: a saved search that cannot be read is kept, not car
     } else {
       std::fstream f(state, std::ios::in | std::ios::out | std::ios::binary);
       REQUIRE(f.good());
-      if (d.described) {
-        // the first layer's count, after the 72 bytes of the header
+      const auto put = [&f](std::streamoff at, const void* bytes, std::size_t len) {
+        f.seekp(at);
+        f.write(static_cast<const char*>(bytes), static_cast<std::streamsize>(len));
+      };
+      if (d.key) {
+        // the first layer's first key, after its count
+        std::uint64_t count = 0;
+        Key key{};
+        f.seekg(72);
+        f.read(reinterpret_cast<char*>(&count), sizeof(count));
+        f.read(reinterpret_cast<char*>(key.data()), sizeof(key));
+        REQUIRE(f.good());
+        REQUIRE(count > 0);
+        const Key was = key;
+        d.key(key);
+        REQUIRE(key != was);
+        put(80, key.data(), sizeof(key));
+      } else if (std::string_view(d.why) == notOne) {
+        // met, and where: a key of 0xFF bytes
+        const std::uint32_t met = 1;
+        const Key nowhere = {~std::uint64_t{0}, ~std::uint64_t{0}};
+        put(44, &met, sizeof(met));
+        put(56, nowhere.data(), sizeof(nowhere));
+      } else if (d.described) {
+        // the first layer's count
         const std::uint64_t claim = std::uint64_t{1} << 60;
-        f.seekp(72);
-        f.write(reinterpret_cast<const char*>(&claim), sizeof(claim));
+        put(72, &claim, sizeof(claim));
       } else {
-        f.seekp(7);
-        f.put('5');
+        put(7, "5", 1);
       }
       REQUIRE(f.good());
     }

@@ -30,13 +30,14 @@ XmlElement startElement(XmlPullParser& pars) {
 }
 
 /// Reads the element whose START_TAG the parser is at, up to its END_TAG.
-XmlElement readElement(XmlPullParser& pars) {
+XmlElement readElement(XmlPullParser& pars, std::size_t maxElements) {
   struct Open {
     XmlElement element;
     std::string text;
   };
   std::vector<Open> stack;
   stack.push_back(Open{startElement(pars), {}});
+  std::size_t elements = 1;
 
   while (true) {
     const int t = pars.next();
@@ -44,6 +45,10 @@ XmlElement readElement(XmlPullParser& pars) {
       if (stack.size() >= kMaxDepth) {
         pars.exception("elements nested too deeply");
       }
+      if (elements >= maxElements) {
+        pars.exception("too many elements");
+      }
+      elements++;
       stack.push_back(Open{startElement(pars), {}});
     } else if (t == XmlPullParser::TEXT) {
       stack.back().text += pars.getText();
@@ -66,12 +71,12 @@ XmlElement readElement(XmlPullParser& pars) {
 
 }  // namespace
 
-Result<XmlElement> parseXmlDocument(std::string_view text) {
+Result<XmlElement> parseXmlDocument(std::string_view text, const XmlLimits& limits) {
   try {
-    XmlPullParser pars(text);
+    XmlPullParser pars(text, limits.attributes);
     pars.nextTag();
     pars.require(XmlPullParser::START_TAG, "");
-    return readElement(pars);
+    return readElement(pars, limits.elements);
   } catch (const XmlParseError& e) {
     return fail(Errc::ParseError, e.what());
   }

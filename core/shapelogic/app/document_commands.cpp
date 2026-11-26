@@ -1677,6 +1677,11 @@ Result<std::vector<Id>> Document::assembliesToShapes(Id problem, const AssemblyI
       continue;
     }
     std::unique_ptr<Voxel> shape = pr.getSavedSolution(s).getAssembly().createSpace(*puzzle_, pr);
+    if (!shape) {
+      // (placements a file gave, far from each other: no shape is that large)
+      return fail(Errc::InvalidArgument,
+                  "the pieces of an assembly lie too far apart to make a shape of");
+    }
     if (opt.dropDisconnected && !shape->connected(0, true, Voxel::kEmpty)) {
       continue;
     }

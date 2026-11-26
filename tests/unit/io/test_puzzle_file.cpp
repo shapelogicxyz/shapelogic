@@ -9,18 +9,24 @@
 #include "shapelogic/io/paused_solve.h"
 #include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/io/xml_document.h"
+#include "shapelogic/base/assert.h"
 #include "shapelogic/model/sliding.h"
+#include "shapelogic/solve/disasm_to_moves.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -418,6 +424,432 @@ TEST_CASE("puzzle file: what the original refuses is refused", "[io][file]") {
   // the line of the offending element is named
   CHECK_THAT(parseError("<puzzle version=\"2\">\n<gridType\ntype=\"9\"/></puzzle>"),
              ContainsSubstring("(line 3)"));
+}
+
+// A file is untrusted (cleanup item 16.2): puzzles are passed between
+// people. What a file's numbers ask for is bounded before it is used as a
+// size, an index or a term of a sum, and each is refused with a message.
+// Before, a number read into an int overflowed it (undefined), a
+// placement or a hotspot could be any int (and was subtracted from
+// others), a rotation's pivot of 1e300 was converted to int (undefined), a
+// disassembly could name pieces its assembly does not have (the playback
+// writes an array at four times the name) and turn them to orientations
+// the grid does not have.
+TEST_CASE("puzzle file: numbers no puzzle has are refused", "[io][file]") {
+  const auto solution = [](const std::string& assembly, const std::string& rest) {
+    return withProblem(" state=\"2\"", "<solutions><solution><assembly>" + assembly +
+                                           "</assembly>" + rest + "</solution></solutions>");
+  };
+  const auto separation = [&](const std::string& pieces, const std::string& dx,
+                              const std::string& more = "") {
+    return solution("0 0 0 0 1 0 0 0", "<separation><pieces count=\"2\">" + pieces +
+                                           "</pieces><state><dx>" + dx +
+                                           "</dx><dy>0 0</dy><dz>0 0</dz>" + more +
+                                           "</state></separation>");
+  };
+  // what is fine, to the last number that is
+  REQUIRE(parse(separation("0 1", "0 20000")).getProblem(0).getNumberOfSavedSolutions() == 1);
+  CHECK(parse(separation("1 0", "-1048576 1048576"))
+            .getProblem(0)
+            .getSavedSolution(0)
+            .getDisassembly()
+            ->getState(0)
+            .getX(0) == -1048576);
+  CHECK(parse(solution("1048576 -1048576 0 23 0 0 0 0", ""))
+            .getProblem(0)
+            .getSavedSolution(0)
+            .getAssembly()
+            .getY(0) == -1048576);
+
+  // a state's offsets, the piece names and the orientations
+  for (const char* big : {"1048577", "2147483647", "2147483648", "4294967296",
+                          "99999999999999999999", "-1048577", "-99999999999999999999"}) {
+    INFO(big);
+    CHECK_THAT(parseError(separation("0 1", std::string("0 ") + big)),
+               ContainsSubstring("number out of range in disassembly"));
+    CHECK_THAT(parseError(separation("0 1", std::string(big) + " 0")),
+               ContainsSubstring("number out of range in disassembly"));
+  }
+  CHECK_THAT(parseError(separation("0 2", "0 0")),
+             ContainsSubstring("names a piece the assembly does not have"));
+  CHECK_THAT(parseError(separation("1048576 0", "0 0")),
+             ContainsSubstring("names a piece the assembly does not have"));
+  CHECK_THAT(parseError(separation("0 99999999999", "0 0")),
+             ContainsSubstring("number out of range in disassembly"));
+  REQUIRE(parse(separation("0 1", "0 0", "<dt>0 47</dt>")).getNumberOfProblems() == 1);
+  CHECK_THAT(parseError(separation("0 1", "0 0", "<dt>0 48</dt>")),
+             ContainsSubstring("orientation out of range in disassembly"));
+  CHECK_THAT(parseError(separation("0 1", "0 0", "<dt>1048576 0</dt>")),
+             ContainsSubstring("orientation out of range in disassembly"));
+
+  // a rotation's pivot
+  REQUIRE(parse(separation("0 1", "0 0",
+                           "<rotation piece=\"0\" px=\"1.5\" py=\"-2\" pz=\"0\" axis=\"1\" "
+                           "sense=\"0\"/>"))
+              .getProblem(0)
+              .getSavedSolution(0)
+              .getDisassembly()
+              ->getState(0)
+              .getRotPivotX() == 3);
+  for (const char* pivot : {"1e300", "-1e300", "600000", "nan", "inf", "-inf"}) {
+    INFO(pivot);
+    CHECK_THAT(parseError(separation("0 1", "0 0",
+                                     std::string("<rotation piece=\"0\" px=\"0\" py=\"") + pivot +
+                                         "\" pz=\"0\" axis=\"1\" sense=\"0\"/>")),
+               ContainsSubstring("rotation pivot out of range"));
+  }
+
+  // an assembly's placements
+  for (const char* big : {"1048577", "2147483648", "99999999999999999999", "-1048577",
+                          "-99999999999999999999"}) {
+    INFO(big);
+    for (int at = 0; at < 4; at++) {
+      std::string assembly;
+      for (int i = 0; i < 4; i++) {
+        assembly += (i == at ? std::string(big) : std::string("0")) + " ";
+      }
+      CHECK_THAT(parseError(solution(assembly + "0 0 0 0", "")),
+                 ContainsSubstring("assembly placement out of range"));
+    }
+  }
+
+  // a shape's hotspot
+  const auto hot = [](const std::string& attrs) {
+    return "<puzzle version=\"2\"><gridType type=\"0\"/><shapes><voxel x=\"1\" y=\"1\" z=\"1\" " +
+           attrs + " type=\"0\">#</voxel></shapes></puzzle>";
+  };
+  CHECK(parse(hot("hx=\"-1048576\" hy=\"1048576\"")).getShape(0).getHy() == 1048576);
+  CHECK_THAT(parseError(hot("hx=\"1048577\"")), ContainsSubstring("hotspot out of range"));
+  CHECK_THAT(parseError(hot("hy=\"-1048577\"")), ContainsSubstring("hotspot out of range"));
+  CHECK_THAT(parseError(hot("hz=\"2147483647\"")), ContainsSubstring("hotspot out of range"));
+  // a disc's size
+  CHECK(parse(hot("diskSize=\"32768\"")).getShape(0).getDiskSize() == 32768);
+  CHECK_THAT(parseError(hot("diskSize=\"32769\"")), ContainsSubstring("disc size out of range"));
+  CHECK_THAT(parseError(hot("diskSize=\"-1\"")), ContainsSubstring("disc size out of range"));
+  // on the sphere grid a hotspot is one of its places (the sum of its
+  // coordinates even), which the grid's transformations assert
+  const auto sphere = [&](const std::string& attrs) {
+    std::string xml = hot(attrs);
+    xml.replace(xml.find("type=\"0\"/>"), 9, "type=\"2\"/>");
+    return xml;
+  };
+  CHECK(parse(sphere("hx=\"1\" hy=\"1\"")).getShape(0).getHx() == 1);
+  CHECK(parse(sphere("hx=\"-1\" hy=\"2\" hz=\"1\"")).getShape(0).getHz() == 1);
+  CHECK_THAT(parseError(sphere("hx=\"1\"")),
+             ContainsSubstring("hotspot is not a place of the sphere grid"));
+  CHECK_THAT(parseError(sphere("hx=\"1\" hy=\"1\" hz=\"-1\"")),
+             ContainsSubstring("hotspot is not a place of the sphere grid"));
+
+  // Parts after the solutions: each assembly was counted against the parts
+  // before it, so these would have a piece no assembly places.
+  CHECK_THAT(parseError(withProblem(
+                 " state=\"2\"",
+                 "<solutions><solution><assembly>0 0 0 0 1 0 0 0</assembly></solution></solutions>"
+                 "<shapes><shape id=\"1\" count=\"1\"/></shapes>")),
+             ContainsSubstring("not the right number of placements"));
+  CHECK_THAT(parseError(withProblem(
+                 " state=\"1\"",
+                 "<pending><item counted=\"1\"><assembly>0 0 0 0 1 0 0 0</assembly></item></pending>"
+                 "<shapes><shape id=\"1\" count=\"1\"/></shapes>")),
+             ContainsSubstring("not the right number of placements"));
+}
+
+// Sizes a file asks for are checked against what it holds before room is
+// made for them (cleanup item 16.2). A voxel of 1024 cells a side passed
+// the size limit and had its gigabyte filled before its one character of
+// text was looked at; a paused sliding problem's searchDepth made a list
+// of that many times: 16 GiB for 2^31, an exception that left the reader
+// for 2^61.
+TEST_CASE("puzzle file: sizes are checked against what the file holds", "[io][file]") {
+  // (the message is the one a short text always had; without the check
+  // this case passes too, a gigabyte and seconds later)
+  CHECK_THAT(parseError("<puzzle version=\"2\"><gridType type=\"0\"/><shapes>"
+                        "<voxel x=\"1024\" y=\"1024\" z=\"1024\" type=\"0\">#</voxel>"
+                        "</shapes></puzzle>"),
+             ContainsSubstring("not enough voxels"));
+
+  const auto paused = [](const std::string& depth) {
+    return "<puzzle version=\"2\"><gridType type=\"5\"/><shapes>"
+           "<voxel x=\"2\" y=\"1\" z=\"1\" type=\"0\">##</voxel>"
+           "<voxel x=\"1\" y=\"1\" z=\"1\" type=\"0\">#</voxel></shapes>"
+           "<problems><problem state=\"1\" searchDepth=\"" +
+           depth +
+           "\"><shapes><shape id=\"1\" count=\"1\"/></shapes><result id=\"0\"/></problem>"
+           "</problems></puzzle>";
+  };
+  // a search paused by a version that kept no times: its moves, untimed
+  const Puzzle few = parse(paused("12"));
+  CHECK(few.getProblem(0).getSearchDepth() == 12);
+  CHECK(few.getProblem(0).getSlideLevelMs() == std::vector<std::uint64_t>(12, kUntimedMs));
+  CHECK(parse(paused("1048576")).getProblem(0).getSlideLevelMs().size() == 1048576);
+  // past any depth a search reaches: the number is kept, no list is made
+  // (2^31, the 16 GiB of the finding, is left out here: without the fix
+  // this test would fill them)
+  for (const char* depth : {"1048577", "18446744073709551615"}) {
+    INFO(depth);
+    const Puzzle deep = parse(paused(depth));
+    CHECK(deep.getProblem(0).getSearchDepth() == std::strtoull(depth, nullptr, 10));
+    CHECK(deep.getProblem(0).getSlideLevelMs().empty());
+  }
+}
+
+namespace {
+
+/// A puzzle of `pieces` unit cubes in a row, solved, with a disassembly
+/// that takes one cube off at a time: its tree nests `pieces - 1` times.
+std::string nestedDisassembly(unsigned int pieces) {
+  const std::string n = std::to_string(pieces);
+  std::string x = "<puzzle version=\"2\"><gridType type=\"0\"/><colors/><shapes>"
+                  "<voxel x=\"1\" y=\"1\" z=\"1\" type=\"0\">#</voxel>"
+                  "<voxel x=\"1\" y=\"1\" z=\"" + n + "\" type=\"0\">" + std::string(pieces, '#') +
+                  "</voxel></shapes><problems><problem state=\"2\" assemblies=\"1\" "
+                  "solutions=\"1\"><shapes><shape id=\"0\" count=\"" + n +
+                  "\"/></shapes><result id=\"1\"/><solutions><solution><assembly>";
+  for (unsigned int i = 0; i < pieces; i++) {
+    x += (i != 0 ? " 0 0 " : "0 0 ") + std::to_string(i) + " 0";
+  }
+  x += "</assembly>";
+  std::string close;
+  for (unsigned int k = pieces; k >= 2; k--) {
+    x += k == pieces ? "<separation>" : "<separation type=\"left\">";
+    x += "<pieces count=\"" + std::to_string(k) + "\">";
+    std::string zeros;
+    for (unsigned int i = 0; i < k; i++) {
+      x += (i != 0 ? " " : "") + std::to_string(pieces - k + i);
+      zeros += i != 0 ? " 0" : "0";
+    }
+    x += "</pieces><state><dx>20000" + zeros.substr(1) + "</dx><dy>" + zeros + "</dy><dz>" +
+         zeros + "</dz></state>";
+    close += "</separation>";
+  }
+  return x + close + "</solution></solutions></problem></problems><comment/></puzzle>";
+}
+
+}  // namespace
+
+// A disassembly's tree nests once per piece taken off, and what walks one
+// recurses: this reader, the level text, the playback, the writer, the
+// copy. The XML reader let 5000 levels through, which is megabytes of
+// stack in each (cleanup item 16.2: 0.8 KiB a level in this reader, in a
+// release build), more than some threads have. A tree is refused past
+// 1000; up to there it reads, and is walked.
+TEST_CASE("puzzle file: a disassembly nested too deeply is refused", "[io][file]") {
+  {
+    const Puzzle p = parse(nestedDisassembly(1001));
+    const Solution& s = p.getProblem(0).getSavedSolution(0);
+    REQUIRE(s.getDisassembly() != nullptr);
+    CHECK(s.getDisassembly()->getNumSequences() == 1000);
+    CHECK(s.getDisassembly()->sumMoves() == 0);
+    CHECK(s.getDisassembly()->movesText().starts_with("0.0.0.0."));
+    const Puzzle copy = p;
+    const std::string written = io::writePuzzle(copy);
+    CHECK(io::writePuzzle(parse(written)) == written);
+  }
+  CHECK_THAT(parseError(nestedDisassembly(1002)),
+             ContainsSubstring("the disassembly nests too deeply"));
+
+  // A disassembly's summary is a tree too, two characters a node, and its
+  // level text is made by recursion as well: 20000 nodes each inside the
+  // last ended it in the stack's guard page (and it asked at every node
+  // whether any node turns, by going through all of them).
+  const auto summary = [](unsigned int nested) {
+    std::string values;
+    for (unsigned int i = 0; i < nested; i++) {
+      values += "2 0 ";
+    }
+    return withProblem(" state=\"2\"", "<solutions><solution><assembly>0 0 0 0 1 0 0 0</assembly>"
+                                       "<separationInfo>" +
+                                           values + "0</separationInfo></solution></solutions>");
+  };
+  {
+    const Puzzle p = parse(summary(1000));
+    const Disassembly* d = p.getProblem(0).getSavedSolution(0).getDisassemblyInfo();
+    REQUIRE(d != nullptr);
+    CHECK(d->getNumSequences() == 2001);
+    CHECK(d->sumMoves() == 1000);
+    CHECK(d->movesText().starts_with("1.1.1.1."));
+  }
+  CHECK_THAT(parseError(summary(1001)), ContainsSubstring("the disassembly nests too deeply"));
+  CHECK_THAT(parseError(summary(20000)), ContainsSubstring("the disassembly nests too deeply"));
+  // wide, not deep: read, however many nodes
+  {
+    std::string wide;
+    for (int i = 0; i < 14; i++) {
+      wide = "2 " + wide + (wide.empty() ? "0 0 " : wide);
+    }
+    wide.pop_back();
+    const Puzzle p = parse(withProblem(
+        " state=\"2\"", "<solutions><solution><assembly>0 0 0 0 1 0 0 0</assembly><separationInfo>" +
+                            wide + "</separationInfo></solution></solutions>"));
+    const Disassembly* d = p.getProblem(0).getSavedSolution(0).getDisassemblyInfo();
+    REQUIRE(d != nullptr);
+    CHECK(d->getNumSequences() == 32767);
+    CHECK_FALSE(d->movesText().empty());
+  }
+}
+
+namespace {
+
+/// Where the numbers of a document stand: (offset, length) of each run of
+/// digits (with its sign and decimals), keyed by the element and, inside a
+/// tag, the attribute it stands in.
+struct NumberSite {
+  std::size_t at;
+  std::size_t len;
+  std::string key;
+};
+std::vector<NumberSite> numberSites(const std::string& xml) {
+  std::vector<NumberSite> sites;
+  std::string element;
+  std::string attr;
+  bool inTag = false;
+  char quote = 0;
+  for (std::size_t i = 0; i < xml.size(); i++) {
+    const char ch = xml[i];
+    if (!inTag && ch == '<') {
+      inTag = true;
+      std::size_t j = i + 1;
+      if (j < xml.size() && xml[j] != '/') {
+        element.clear();
+        for (; j < xml.size() && xml[j] != ' ' && xml[j] != '>' && xml[j] != '/'; j++) {
+          element += xml[j];
+        }
+        i = j - 1;
+      }
+    } else if (inTag && quote == 0 && ch == '>') {
+      inTag = false;
+    } else if (inTag && quote == 0 && (ch == '"' || ch == '\'')) {
+      quote = ch;
+      std::size_t j = i;
+      while (j > 0 && xml[j - 1] != ' ' && xml[j - 1] != '<') {
+        j--;
+      }
+      attr = xml.substr(j, i - j - 1);  // without its '='
+    } else if (inTag && ch == quote) {
+      quote = 0;
+    } else if ((quote != 0 || !inTag) &&
+               ((ch >= '0' && ch <= '9') ||
+                (ch == '-' && i + 1 < xml.size() && xml[i + 1] >= '0' && xml[i + 1] <= '9'))) {
+      std::size_t j = i + 1;
+      while (j < xml.size() && ((xml[j] >= '0' && xml[j] <= '9') || xml[j] == '.')) {
+        j++;
+      }
+      sites.push_back(NumberSite{i, j - i, quote != 0 ? element + " " + attr : element});
+      i = j - 1;
+    }
+  }
+  return sites;
+}
+
+/// What the app does with a puzzle it opened, as far as the model goes: it
+/// is written, and each solution's assembly and disassembly are walked the
+/// way the level text, the playback and "assemblies to shapes" walk them.
+/// A broken invariant a BT_ASSERT catches (an InternalError) is an answer,
+/// counted in `asserted`; what the sanitizers find is not.
+void walkAsTheAppDoes(const Puzzle& p, std::size_t& asserted) {
+  const std::string written = io::writePuzzle(p);
+  const Result<Puzzle> again = io::parsePuzzle(written);
+  REQUIRE(again.has_value());
+  CHECK(io::writePuzzle(*again) == written);
+  for (unsigned int i = 0; i < p.getNumberOfProblems(); i++) {
+    const Problem& pr = p.getProblem(i);
+    for (unsigned int s = 0; s < pr.getNumberOfSavedSolutions(); s++) {
+      const Solution& sol = pr.getSavedSolution(s);
+      REQUIRE(sol.getAssembly().placementCount() == pr.getNumberOfPieces());
+      try {
+        if (const Separation* tree = sol.getDisassembly()) {
+          (void)tree->movesText();
+          DisasmToMoves moves(tree, 10, pr.getNumberOfPieces());
+          for (const unsigned int step : {0U, 1U, tree->sumSteps()}) {
+            moves.setStep(static_cast<float>(step), false, true);
+            moves.setStep(static_cast<float>(step) + 0.5F, true, false);
+          }
+        }
+        if (pr.resultValid()) {
+          (void)sol.getAssembly().createSpace(p, pr);
+        }
+      } catch (const InternalError&) {
+        asserted++;
+      }
+    }
+  }
+}
+
+}  // namespace
+
+// Every kind of number the fixtures hold, replaced by numbers no puzzle
+// has: the reader refuses the file or reads it, and what it reads can be
+// written, read back and walked (cleanup item 16.2). The places are found
+// in the files, by the element and attribute a number stands in, so a
+// number a later version adds to the format is swept too once a fixture
+// has it. The first and the last number of each place are taken (an
+// assembly's first number is a position and its last a transformation).
+// What this cannot see is what only a sanitizer sees: `just test-asan`
+// runs it under them.
+TEST_CASE("puzzle file: a fixture's numbers replaced by hostile ones are refused or read",
+          "[io][file]") {
+  const char* const fixtures[] = {
+      "tests/data/puzzles/test_rotation_solvers_solved.xmpuzzle",        // turns, orientations
+      "tests/data/puzzles/AlPackino.xmpuzzle",                           // the deepest tree
+      "tests/data/puzzles/new-grids/CairoSlab.xmpuzzle",                 // a grid of 2023
+      "tests/data/puzzles/tilted/TriplePlay.xmpuzzle",                   // a tray
+      "tests/data/puzzles/stacking/stack_panex_swap_3.xmpuzzle",         // rod sets and stacks
+      "tests/data/slide_solved_by_original/slide_pocket_nested.xmpuzzle",  // a slide path
+      "tests/data/slide_paused_by_v1.8.1/cup_and_blocks.xmpuzzle",       // a paused search
+  };
+  const char* const values[] = {"-1", "65536", "1048577", "4294967296", "99999999999999999999"};
+  std::size_t read = 0;
+  std::size_t refused = 0;
+  std::size_t asserted = 0;
+  std::set<std::string> places;
+  for (const char* fixture : fixtures) {
+    const std::string xml = io::readMaybeGzipFile(fixture).value();
+    walkAsTheAppDoes(parse(xml), asserted);
+    // the fixtures as they are break nothing
+    REQUIRE(asserted == 0);
+    const std::vector<NumberSite> sites = numberSites(xml);
+    // the first and the last number of each place
+    std::map<std::string, std::pair<std::size_t, std::size_t>> byPlace;
+    for (std::size_t i = 0; i < sites.size(); i++) {
+      byPlace.try_emplace(sites[i].key, i, i).first->second.second = i;
+    }
+    for (const auto& [place, ends] : byPlace) {
+      places.insert(place);
+      for (const std::size_t at : {ends.first, ends.second}) {
+        for (const char* value : values) {
+          INFO(fixture << ": " << place << " at " << sites[at].at << " = " << value);
+          std::string hostile = xml;
+          hostile.replace(sites[at].at, sites[at].len, value);
+          const Result<Puzzle> p = io::parsePuzzle(hostile);
+          if (!p) {
+            REQUIRE(p.error().code == Errc::ParseError);
+            refused++;
+          } else {
+            walkAsTheAppDoes(*p, asserted);
+            read++;
+          }
+          if (ends.first == ends.second) {
+            break;
+          }
+        }
+      }
+    }
+  }
+  // the sweep found the format's numbers, and both answers were given
+  for (const char* place :
+       {"voxel x", "voxel hx", "voxel weight", "voxel diskSize", "assembly", "dx", "dt", "pieces",
+        "pieces count", "rotation px", "rotation piece", "shape count", "shape min", "result id",
+        "tray size", "tray allowance", "rodSet rods", "rod pieces", "stacking rodSet",
+        "problem searchDepth", "problem slideLevelMs", "problem maxHoles", "solution asmNum",
+        "item assembly", "assembler", "pair piece", "slideMarks start", "gridType type"}) {
+    INFO(place);
+    CHECK(places.contains(place));
+  }
+  CHECK(read > 400);
+  CHECK(refused > 400);
+  // (how many walks ended in an assertion is not held to a number: each is
+  // a place where the reader could refuse the file itself)
+  CHECK(asserted < read);
 }
 
 TEST_CASE("puzzle file: a saved disassembly reads back with its levels", "[io][file]") {

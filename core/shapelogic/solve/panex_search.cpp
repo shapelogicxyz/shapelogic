@@ -195,6 +195,37 @@ class Rules {
     return k;
   }
 
+  // Whether k is a stacking of these rules: every disc once, the rods all
+  // there, none holding more than it has room for, nothing above the
+  // symbols. This is what decode() takes for granted of a key the search
+  // made itself. A key from a file is checked here first (cleanup item
+  // 16.4): decode() counts the rods down at each separator, so a key with
+  // more of them than the rods have wrote far outside the state it filled.
+  [[nodiscard]] bool holds(PKey k) const {
+    std::array<unsigned char, kMaxRods> count{};
+    std::uint32_t seen = 0;
+    unsigned int r = rods - 1;
+    for (unsigned int i = 0; i < discs + rods - 1; i++) {
+      const auto v = static_cast<unsigned int>(k.lo & 31);
+      k.lo = (k.lo >> 5) | (k.hi << 59);
+      k.hi >>= 5;
+      if (v == kSeparator) {
+        if (r == 0) {
+          return false;
+        }
+        r--;
+      } else {
+        if (v >= discs || ((seen >> v) & 1U) != 0 || count[r] >= cap[r]) {
+          return false;
+        }
+        seen |= 1U << v;
+        count[r]++;
+      }
+    }
+    return r == 0 && k.lo == 0 && k.hi == 0;
+  }
+
+  // (branch-free on purpose: every key it is given holds())
   void decode(PKey k, PState& s) const {
     for (unsigned int r = 0; r < rods; r++) {
       s.count[r] = 0;
@@ -1057,6 +1088,13 @@ class Searcher {
           }
           return false;
         }
+        // Nothing is this many moves from cur, so the saved level holds
+        // nothing the ball reaches (the probe below would be empty). Said
+        // here: a damaged state's depth and interval could be billions,
+        // and each step on from an empty level is a round of the pool.
+        if (next.empty()) {
+          return traceFailed();
+        }
         held += next.size();
         ball.push_back(std::move(next));
       }
@@ -1819,6 +1857,48 @@ void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::strin
   }
 }
 
+namespace {
+
+// Whether every stacking of a saved state is one of the rules (Rules::holds):
+// the five layers of its frontier, and where its ends met. Checked once,
+// before the search decodes any of them (cleanup item 16.4): a state.bin
+// may come from another machine inside a .slsolve, and one damaged key
+// took the search's worker out of its stack. A frontier is hundreds of
+// millions of keys deep in a search, so the pool's threads share it.
+bool stateHolds(const Rules& rules, const SavedState& st, ThreadPool& pool, unsigned int threads) {
+  if (st.met != 0 && !rules.holds(st.meetAt)) {
+    return false;
+  }
+  constexpr std::size_t kPiece = std::size_t{1} << 16;
+  std::atomic<bool> bad{false};
+  for (const Layer* l : {&st.fwdPrev, &st.fwdCur, &st.bwdPrev, &st.bwdCur, &st.mirrorPrev}) {
+    if (l->empty()) {
+      continue;
+    }
+    const std::size_t pieces = (l->size() + kPiece - 1) / kPiece;
+    const auto workers =
+        static_cast<unsigned int>(std::min<std::size_t>(std::max(threads, 1U), pieces));
+    forEachIndex(pool, workers, pieces, [&](std::size_t piece) {
+      if (bad.load(std::memory_order_relaxed)) {
+        return;
+      }
+      const std::size_t end = std::min(l->size(), (piece + 1) * kPiece);
+      for (std::size_t i = piece * kPiece; i < end; i++) {
+        if (!rules.holds((*l)[i])) {
+          bad.store(true, std::memory_order_relaxed);
+          return;
+        }
+      }
+    });
+    if (bad.load()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
 std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
                                 PanexSearch& search) {
   search.outcome = Outcome::NoPath;
@@ -1904,7 +1984,15 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
     std::error_code stateEc;
     const bool state = std::filesystem::exists(dir / "state.bin", stateEc) || stateEc;
     std::string why;
-    if (search.resume && state && store.loadState(resumeState, fp, true, &why)) {
+    bool loaded = search.resume && state && store.loadState(resumeState, fp, true, &why);
+    if (loaded && !stateHolds(rules, resumeState, *pool, threads)) {
+      // read whole, but not a search of this puzzle: as a state that
+      // could not be read
+      loaded = false;
+      why = "its state.bin is damaged: it holds a stacking the puzzle does not have";
+      resumeState = SavedState{};
+    }
+    if (loaded) {
       store.interval = resumeState.interval;
       searcher.resumeFrom = &resumeState;
       searcher.priorMs = resumeState.ms;

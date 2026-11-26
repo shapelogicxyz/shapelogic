@@ -188,23 +188,24 @@ Rules (decisions 0014, 0015, 0021, 0027, 0042, 0044, 0045):
 
 Files in `core/shapelogic/io/`:
 - `blockpack.{h,cpp}`: files packed in chunks on a pool's threads, sorted 16-byte keys as variable-length gaps: byte for byte the original's packing.
-- `gzip_file.{h,cpp}`: whole files through zlib (level 9) and the same in memory (`gzipCompress`, `gunzipIfCompressed`); `readPlainFile`; `writeFileWhole`, `writeFileStreamed`, `replaceWith`, `saveTarget`, `syncDescriptor`.
+- `gzip_file.{h,cpp}`: whole files through zlib (level 9) and the same in memory (`gzipCompress`, `gunzipIfCompressed`: the one inflate, to 256 MiB at most, a stream cut short refused; `readMaybeGzipFile` is `readPlainFile` and it); `writeFileWhole`, `writeFileStreamed`, `replaceWith`, `saveTarget`, `syncDescriptor`.
 - `imports.h`, `ps3d_file.cpp`, `scad_file.cpp`: other programs' files (decision 0017): `readPuzzleSolver3D`, `readPuzzlecad`, `writePuzzlecad` (puzzlecad's `burr_plate`) and `puzzlecadRefusal` (every caller's refusals), line for line the original's loaders; `kMaxImportCells`.
-- `paused_solve.{h,cpp}`: the paused solve file (`.slsolve`, the original's BTSOLVE2), both ways, streamed.
-- `puzzle_file.{h,cpp}`: `loadPuzzle`, `parsePuzzle`, `readPuzzle`, `savePuzzle`, `writePuzzle`; `giveUids`.
-- `xml_document.{h,cpp}`: the tree built from the parser, and a tree written back.
+- `paused_solve.{h,cpp}`: the paused solve file (`.slsolve`, the original's BTSOLVE2), both ways, streamed; `readPausedSolve`, the one reader (a file's stream or bytes'), each section held to what is left of the file.
+- `puzzle_file.{h,cpp}`: `loadPuzzle`, `parsePuzzle`, `readPuzzle`, `savePuzzle`, `writePuzzle`; `giveUids`; the bounds on a file's numbers at the top of the .cpp (`kMaxFileCoordinate`, `kMaxSeparationDepth`, `kMaxSlideDepth`).
+- `xml_document.{h,cpp}`: the tree built from the parser, within `XmlLimits` (16 million elements, 4096 attributes an element, 5000 levels), and a tree written back.
 - `xml_pull_parser.{h,cpp}`: the original's parser (internal; its `XmlParseError` never leaves the module).
 - `xml_writer.{h,cpp}`: `XmlWriter`, the original's output layout.
 
 Rules (decisions 0006, 0008, 0017, 0038, 0044, 0045, 0046):
 - `.xmpuzzle` is gzip-compressed XML; plain XML is read too. Errors are
-  `Result` values (`ParseError` with the line, `IoError`).
-- **Compatibility is one way** (0006, amended): every file the original
-  wrote opens, converted on load; the original need not read our saves.
-  Unknown attributes and elements of `<puzzle>`, `<problem>` and
-  `<solution>`, and unknown attributes of `<voxel>`, are kept and written
-  back in place. Stacking rod sets and stacks are written as the original
-  wrote them.
+  `Result` values (`ParseError` with the line, `IoError`). **A file is
+  untrusted**, a saved search's too: what is read from one is bounded where
+  it is read (the map names the bounds); no reader of a puzzle throws.
+- **Compatibility is one way** (0006, amended): every file the original wrote
+  opens, converted on load; the original need not read our saves. Unknown
+  attributes and elements of `<puzzle>`, `<problem>` and `<solution>`, and
+  unknown attributes of `<voxel>`, are kept and written back in place.
+  Stacking rod sets and stacks are written as the original wrote them.
 - Saves are the original's bytes but for what this program adds; each
   problem's `uid` (0044) is one, so tests compare saves `withoutUids`
   (`tests/unit/io/test_puzzle_file.cpp`). `giveUids` gives a problem without
@@ -218,8 +219,7 @@ Rules (decisions 0006, 0008, 0017, 0038, 0044, 0045, 0046):
   tray (`<tray>` after `<gridType>`: `size` for a square, else `width` and
   `height`, `over`, `down`, `allowance`, `placement`, `shiftX`, `shiftY` in
   as few digits as read back alike, `walls` row by row, `#` a wall). A
-  `<tray>` the reader cannot take is kept as the file has it; on another
-  grid it is dropped.
+  `<tray>` the reader cannot take is kept as it is; another grid's is dropped.
 - **Safe writes** (`gzip_file.h`): beside the file, checked once closed,
   synced, then renamed over it (the folder synced), puzzle, paused solve and
   saved searches' `state.bin` alike, so a failed save leaves the old file;
@@ -249,7 +249,7 @@ Files in `core/shapelogic/solve/`:
 - `movement_cache.{h,cpp}`, `movement_cache_{bricks,prisms,derived}.cpp`: `MovementCache` and its grids' kinds, `makeMovementCache()`.
 - `movement_checks.{h,cpp}`: the movement checks derived from the cells (decision 0025): `movementDirections`, `deriveMovementChecks`, `movementChecks`.
 - `node_hash.{h,cpp}`: `NodeHash`, `CountingNodeHash`: sets of take-apart positions.
-- `panex_search.{h,cpp}`: the Panex search (`panex::solve`, `PanexSearch`, `Outcome`), `runsOnPanexSearch` (which stacking solves run on it) and its saved searches (decision 0015).
+- `panex_search.{h,cpp}`: the Panex search (`panex::solve`, `PanexSearch`, `Outcome`), `runsOnPanexSearch` (which stacking solves run on it) and its saved searches (decision 0015), a `state.bin`'s keys checked (`Rules::holds`) before one is decoded.
 - `placement_finder.{h,cpp}`: `PlacementFinder`, a rotated piece's placements in the result, in the original's order.
 - `prepare_progress.h`: `PrepareCounters` / `PrepareProgress`, the preparation's counts for progress displays.
 - `resume_state.h`: `SplitSearchState<Task>` and the saved position's tail (`K` / `T C S`, then the weights `W`).
@@ -264,7 +264,7 @@ Files in `core/shapelogic/solve/`:
 - `simd_bitset.h`, `simd_exact_cover.{h,cpp}`, `simd_huang_cover.{h,cpp}`: the vector covers of assemblers 0 and 1 (256 to 32768 columns), `SimdKernels`.
 - `slide_forecast.{h,cpp}`: `slideForecast`, the Performance Analysis from each depth's time (decision 0030).
 - `slide_key.h`: `BigKey`, the slide search's keys of 192, 256 and 512 bits (decision 0037).
-- `slide_levels.h`: `KeySet`, `ReadFile`, `WriteGate`: the slide search's sorted, delta-coded sets, in memory or in files.
+- `slide_levels.h`: `KeySet`, `ReadFile`, `WriteGate`: the slide search's sorted, delta-coded sets, in memory or in files; a file's index checked as it opens (`tablesHold`: `SetFault::Damaged`), each block as it is read.
 - `slide_phase.h`: the parts of a slide move that visit no arrangement.
 - `sliding_play.h`: a sliding puzzle played by hand (decision 0039): `playStart`, `playReach`, `playReplay`.
 - `sliding_search.{h,cpp}`: the slide search (decision 0014): `findSlidePath`, `SlideSearch`, `SlideOutcome`, its saved searches; `slideRoute`, `applySlideRoutes`, `finalPlacementKey`; `sliding_play.h`'s functions at its end.

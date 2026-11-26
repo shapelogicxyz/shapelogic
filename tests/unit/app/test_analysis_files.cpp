@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <thread>
 
 using namespace bt;
@@ -299,18 +300,78 @@ TEST_CASE("paused solves: BTSOLVE2 both ways", "[io][app][analysis]") {
   CHECK(e.puzzle().getProblem(0).getNumSolutions() == 2856);
   std::filesystem::remove(file);
 
-  // what the reader refuses, and what it skips
-  const io::PausedSolve ps = io::parsePausedSolve(bytes).value();
+  // What the reader refuses, and what it skips: the app's own reader, over
+  // the bytes (cleanup item 16.5; a second reader, which only the tests
+  // called, was what they checked before), and the same from a file.
+  const auto read = [&](const std::string& data) {
+    std::istringstream in(data);
+    Result<io::PausedSolve> fromBytes = io::readPausedSolve(in);
+    const std::filesystem::path crafted = scratch.path() / "crafted.slsolve";
+    std::ofstream(crafted, std::ios::binary) << data;
+    const Result<io::PausedSolve> fromFile = io::loadPausedSolve(crafted);
+    CHECK(fromFile.has_value() == fromBytes.has_value());
+    if (!fromFile && !fromBytes) {
+      CHECK(fromFile.error().code == fromBytes.error().code);
+      CHECK(fromFile.error().message == fromBytes.error().message);
+    }
+    return fromBytes;
+  };
+  const auto section = [](const std::string& name, std::uint64_t claimed,
+                          const std::string& data) {
+    std::string out;
+    for (int i = 0; i < 4; i++) {
+      out += static_cast<char>((name.size() >> (8 * i)) & 0xFF);
+    }
+    out += name;
+    for (int i = 0; i < 8; i++) {
+      out += static_cast<char>((claimed >> (8 * i)) & 0xFF);
+    }
+    return out + data;
+  };
+  const io::PausedSolve ps = read(bytes).value();
   CHECK(ps.problem == 0);
-  CHECK(io::parsePausedSolve("BTSOLVE1").error().code == Errc::ParseError);
-  CHECK(io::parsePausedSolve(bytes.substr(0, bytes.size() - 1)).error().code == Errc::ParseError);
-  CHECK(io::parsePausedSolve(bytes.substr(0, after)).error().code == Errc::ParseError);
-  std::string extra = bytes;
-  extra += std::string("\x0d\0\0\0", 4) + "searchz/x.lvl" + std::string("\x03\0\0\0\0\0\0\0", 8) + "abc";
-  CHECK(io::parsePausedSolve(extra).value().problem == 0);
+  CHECK(io::writePuzzle(ps.puzzle) == io::writePuzzle(d.puzzle()));
+  CHECK(read("BTSOLVE1").error().code == Errc::ParseError);
+  CHECK(read("BTSOLVE1").error().message == "not a paused solver state exported by ShapeLogic");
+  CHECK(read("").error().code == Errc::ParseError);
+  CHECK(read(bytes.substr(0, bytes.size() - 1)).error().code == Errc::ParseError);
+  CHECK(read(bytes.substr(0, after)).error().code == Errc::ParseError);
+  // a section this reader does not take is passed over
+  CHECK(read(bytes + section("searchz/x.lvl", 3, "abc")).value().problem == 0);
+  CHECK(read(bytes + section("later version's", 0, "")).value().problem == 0);
   std::string wrong = bytes;
   wrong.back() = '5';
-  CHECK(io::parsePausedSolve(wrong).error().code == Errc::ParseError);
+  CHECK(read(wrong).error().code == Errc::ParseError);
+  // A file cut short after its puzzle and problem was read as a whole one:
+  // inside a later section's header, or inside a section passed over (a
+  // seek past the end of a file does not fail). With a stacking solve's
+  // saved search in those sections, the search came in without its last
+  // levels.
+  const char* const incomplete = "the file could not be read completely";
+  CHECK(read(bytes + std::string("\x0d\0", 2)).error().message == incomplete);
+  CHECK(read(bytes + section("searchz/x.lvl", 3, "abc").substr(0, 20)).error().message ==
+        incomplete);
+  CHECK(read(bytes + section("searchz/x.lvl", 4, "abc")).error().message == incomplete);
+  CHECK(read(bytes + section("other", std::uint64_t{1} << 62, "abc")).error().message ==
+        incomplete);
+  // a name longer than any section's, and sections that claim more than
+  // the file holds (no room is made for them first)
+  CHECK(read(bytes + section(std::string(4097, 'n'), 0, "")).error().message == incomplete);
+  CHECK(read(std::string("BTSOLVE2") + section("puzzle", std::uint64_t{200} << 20, "abc"))
+            .error()
+            .message == incomplete);
+  CHECK(read(std::string("BTSOLVE2") + section("problem", ~std::uint64_t{0}, "0")).error().message ==
+        incomplete);
+  // the puzzle's gzip stream cut short inside its section
+  {
+    const std::string z = bytes.substr(26, static_cast<std::size_t>(size));
+    const std::string cut = z.substr(0, z.size() - 9);
+    const Result<io::PausedSolve> r =
+        read(std::string("BTSOLVE2") + section("puzzle", cut.size(), cut) + section("problem", 1, "0"));
+    REQUIRE_FALSE(r.has_value());
+    CHECK(r.error().code == Errc::ParseError);
+    CHECK(r.error().message == "the file is cut short");
+  }
   CHECK(Document::importPaused("tests/data/puzzles/PelikanBurr.xmpuzzle").error().code ==
         Errc::ParseError);
   CHECK(Document::importPaused("tests/data/no such file").error().code == Errc::IoError);

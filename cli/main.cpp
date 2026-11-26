@@ -1377,11 +1377,8 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
   return exitCode;
 }
 
-}  // namespace
-
-// an exception that gets here is a broken invariant: the program ends on it:
-// NOLINTNEXTLINE(bugprone-exception-escape)
-int main(int argc, char** argv) {
+// Everything main does: the arguments, the puzzle file, the mode they ask for.
+int run(int argc, char** argv) {
   Options o;
   if (const std::optional<int> code = bt::cli::parseArgs(argc, argv, o)) {
     return *code;
@@ -1467,4 +1464,21 @@ int main(int argc, char** argv) {
     return retakeMode(o, puzzle);
   }
   return solveMode(o, puzzle);
+}
+
+}  // namespace
+
+// An exception that gets here is a broken invariant (a BT_ASSERT), most
+// likely one a damaged file's numbers broke after it was read, or no
+// memory for what it asks: said in a line, with the exit code of a solve
+// that failed, where the program used to abort (cleanup item 16.2).
+int main(int argc, char** argv) {
+  try {
+    return run(argc, argv);
+  } catch (const std::exception& e) {
+    std::fprintf(stderr, "shapelogic_cli: internal error: %s\n", e.what());
+  } catch (...) {
+    std::fputs("shapelogic_cli: internal error\n", stderr);
+  }
+  return kExitError;
 }

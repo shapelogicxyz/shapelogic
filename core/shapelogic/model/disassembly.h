@@ -251,7 +251,8 @@ class SeparationInfo final : public Disassembly {
 
  private:
   void recursiveConstruction(const Separation& sep);
-  int movesTextPieceRemovals(char* txt, int len, unsigned int idx, unsigned int carrySlides,
+  int movesTextPieceRemovals(char* txt, int len, unsigned int idx, bool withRots,
+                             unsigned int carrySlides,
                              unsigned int carryRots) const;
   [[nodiscard]] unsigned int skipSubtree(unsigned int idx) const;
 

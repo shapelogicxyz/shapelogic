@@ -345,6 +345,117 @@ TEST_CASE("xml document: a document nested too deeply is refused", "[io][xml]") 
   REQUIRE_THAT(doc.error().message, ContainsSubstring("nested too deeply"));
 }
 
+// A file is untrusted (cleanup item 16.1). The check for an attribute given
+// twice compared every pair, copying both names: an element with a million
+// attributes, 11 MB of a file, held the engine's one request thread for
+// hours. And every element of a document becomes an XmlElement of more
+// than a hundred bytes, so 300 KB of gzip could ask for gigabytes. The
+// reader now counts both, and the check costs the attributes' number.
+TEST_CASE("xml parser: thousands of attributes are checked at once", "[io][xml]") {
+  const int count = 50000;
+  std::string many = "<a";
+  for (int i = 0; i < count; i++) {
+    many += " n" + std::to_string(i) + "=\"" + std::to_string(i) + "\"";
+  }
+  // (the parser reads the text where it stands: each document is kept)
+  {
+    const std::string doc = many + "/>";
+    XmlPullParser pars(doc, 100000);
+    REQUIRE(pars.next() == XmlPullParser::START_TAG);
+    REQUIRE(pars.getAttributeCount() == count);
+    REQUIRE(pars.getAttributeName(0) == "n0");
+    REQUIRE(pars.getAttributeValue("n49999") == "49999");
+    REQUIRE_NOTHROW(readToEnd(pars));
+  }
+  {
+    // one given twice, far apart: still told, by its name
+    const std::string doc = many + " n7=\"again\"/>";
+    XmlPullParser pars(doc, 100000);
+    REQUIRE_THROWS_WITH(pars.next(), ContainsSubstring("Duplicate Attribute: n7 "));
+  }
+  {
+    // several given twice: the last one that repeats is named, as the
+    // original's pairwise check named it
+    const std::string doc = many + " n7=\"\" n9=\"\" n8=\"\" fresh=\"\"/>";
+    XmlPullParser pars(doc, 100000);
+    REQUIRE_THROWS_WITH(pars.next(), ContainsSubstring("Duplicate Attribute: n8 "));
+  }
+  // the same below and above where the set takes over from the pairs
+  struct Few {
+    const char* doc;
+    const char* named;
+  };
+  const Few fews[] = {
+      {"<a x='' y='' x=''/>", "Duplicate Attribute: x "},
+      {"<a x='' y='' z='' y='' x='' w=''/>", "Duplicate Attribute: x "},
+      {"<a a='' b='' c='' d='' e='' f='' g='' h='' i='' c='' a='' j=''/>",
+       "Duplicate Attribute: a "},
+      {"<a a='' b='' c='' d='' e='' f='' g='' h='' i='' a='' c='' j=''/>",
+       "Duplicate Attribute: c "},
+  };
+  for (const Few& few : fews) {
+    INFO(few.doc);
+    XmlPullParser pars(few.doc);
+    REQUIRE_THROWS_WITH(pars.next(), ContainsSubstring(few.named));
+  }
+}
+
+TEST_CASE("xml parser: an element's attributes are counted", "[io][xml]") {
+  const auto element = [](std::size_t attributes) {
+    std::string doc = "<a";
+    for (std::size_t i = 0; i < attributes; i++) {
+      doc += " n" + std::to_string(i) + "=''";
+    }
+    return doc + "/>";
+  };
+  // the parser's own bound, and one a caller gives
+  REQUIRE(bt::io::parseXmlDocument(element(XmlPullParser::kMaxAttributes)).has_value());
+  const auto over = bt::io::parseXmlDocument(element(XmlPullParser::kMaxAttributes + 1));
+  REQUIRE_FALSE(over.has_value());
+  CHECK(over.error().code == bt::Errc::ParseError);
+  CHECK_THAT(over.error().message, ContainsSubstring("too many attributes in <a>"));
+  CHECK(bt::io::XmlLimits{}.attributes == XmlPullParser::kMaxAttributes);
+
+  bt::io::XmlLimits few;
+  few.attributes = 3;
+  CHECK(bt::io::parseXmlDocument(element(3), few).has_value());
+  CHECK_FALSE(bt::io::parseXmlDocument(element(4), few).has_value());
+  // each element has its own count
+  CHECK(bt::io::parseXmlDocument("<a x='' y='' z=''><b x='' y='' z=''/><c x=''/></a>", few)
+            .has_value());
+}
+
+TEST_CASE("xml document: a document's elements are counted", "[io][xml]") {
+  const auto document = [](std::size_t elements, bool nested) {
+    // the root and `elements - 1` below it: side by side, or half of them
+    // each inside the last
+    std::string doc = "<r>";
+    std::string close;
+    for (std::size_t i = 1; i < elements; i++) {
+      if (nested && i % 2 == 0) {
+        doc += "<n>";
+        close += "</n>";
+      } else {
+        doc += "<e/>";
+      }
+    }
+    return doc + close + "</r>";
+  };
+  bt::io::XmlLimits limits;
+  limits.elements = 1000;
+  for (const bool nested : {false, true}) {
+    INFO((nested ? "nested" : "side by side"));
+    const auto within = bt::io::parseXmlDocument(document(1000, nested), limits);
+    REQUIRE(within.has_value());
+    const auto over = bt::io::parseXmlDocument(document(1001, nested), limits);
+    REQUIRE_FALSE(over.has_value());
+    CHECK(over.error().code == bt::Errc::ParseError);
+    CHECK_THAT(over.error().message, ContainsSubstring("too many elements"));
+  }
+  // the default is far past these
+  CHECK(bt::io::parseXmlDocument(document(5000, false)).has_value());
+}
+
 TEST_CASE("xml document: written back in the writer's layout", "[io][xml]") {
   const auto doc = bt::io::parseXmlDocument("<r a=\"&amp;\"><x>t</x><y/></r>");
   REQUIRE(doc.has_value());

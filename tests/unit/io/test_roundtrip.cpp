@@ -63,11 +63,89 @@ TEST_CASE("gzip file: a gzipped file is decompressed, and really compressed", "[
   REQUIRE(*got == payload);
 }
 
+// A gzip file cut short was read as far as it went: zlib's file reader
+// takes the cut for the end of the stream, so the puzzle failed later with
+// an XML message, or opened with its end missing when the cut fell after
+// the root element closed. Every file now goes through the one inflate
+// that the bytes of a file and a paused solve go through, which tells a
+// stream without its end (cleanup item 16.5).
+TEST_CASE("gzip file: a file cut short is refused", "[io][gzip]") {
+  const ScratchDir dir("roundtrip");
+  const auto name = dir.path() / "cut.xmpuzzle";
+  // a puzzle of more bytes than the inflate's buffer holds at once
+  std::string xml = "<?xml version=\"1.0\"?>\n<puzzle version=\"2\"><gridType type=\"0\"/>"
+                    "<colors/><shapes/><problems/><comment>";
+  std::uint32_t seed = 12345;
+  while (xml.size() < 200000) {
+    seed = seed * 1664525U + 1013904223U;
+    xml += static_cast<char>('a' + (seed >> 24) % 26);
+  }
+  xml += "</comment></puzzle>\n";
+  const std::string z = io::gzipCompress(xml);
+  REQUIRE(z.size() > 70000);
+  const auto write = [&name](const std::string& bytes) {
+    std::ofstream(name, std::ios::binary) << bytes;
+  };
+  write(z);
+  REQUIRE(io::readMaybeGzipFile(name).value() == xml);
+  REQUIRE(io::loadPuzzle(name).has_value());
+
+  // cut anywhere: in the header, in the data, in the checksum at the end
+  // (the root element is whole then, and the file opened)
+  for (const std::size_t cut : {std::size_t{2}, std::size_t{9}, std::size_t{10}, z.size() / 3,
+                                z.size() / 2, z.size() - 9, z.size() - 8, z.size() - 4,
+                                z.size() - 1}) {
+    INFO("cut at " << cut << " of " << z.size());
+    write(z.substr(0, cut));
+    const auto got = io::readMaybeGzipFile(name);
+    REQUIRE_FALSE(got.has_value());
+    CHECK(got.error().code == Errc::ParseError);
+    CHECK(got.error().message == "the file is cut short");
+    CHECK(io::gunzipIfCompressed(z.substr(0, cut)).error().message == "the file is cut short");
+    const auto puzzle = io::loadPuzzle(name);
+    REQUIRE_FALSE(puzzle.has_value());
+    CHECK(puzzle.error().code == Errc::ParseError);
+    CHECK(puzzle.error().message.ends_with("the file is cut short"));
+  }
+
+  // damaged in the middle: told as that
+  std::string damaged = z;
+  for (std::size_t i = z.size() / 2; i < z.size() / 2 + 64; i++) {
+    damaged[i] = static_cast<char>(damaged[i] ^ 0x5a);
+  }
+  write(damaged);
+  REQUIRE_FALSE(io::readMaybeGzipFile(name).has_value());
+  CHECK(io::readMaybeGzipFile(name).error().code == Errc::ParseError);
+
+  // As zlib's file reader read them: streams one after another are their
+  // contents one after another, and what follows the last stream and is
+  // not one is passed over.
+  const std::size_t half = xml.size() / 2;
+  write(io::gzipCompress(xml.substr(0, half)) + io::gzipCompress(xml.substr(half)));
+  CHECK(io::readMaybeGzipFile(name).value() == xml);
+  write(z + std::string(100, '\0') + "not gzip");
+  CHECK(io::readMaybeGzipFile(name).value() == xml);
+  // the second stream cut short
+  write(z + z.substr(0, z.size() / 2));
+  CHECK(io::readMaybeGzipFile(name).error().message == "the file is cut short");
+  // the limit counts every stream
+  write(z + z);
+  CHECK(io::readMaybeGzipFile(name, 2 * xml.size()).value().size() == 2 * xml.size());
+  CHECK(io::readMaybeGzipFile(name, 2 * xml.size() - 1).error().code == Errc::ParseError);
+}
+
 TEST_CASE("gzip file: a missing file is an error, an empty file is empty", "[io][gzip]") {
   const ScratchDir dir("roundtrip");
   const auto missing = io::readMaybeGzipFile(dir.path() / "does-not-exist.xmpuzzle");
   REQUIRE_FALSE(missing.has_value());
   REQUIRE(missing.error().code == Errc::IoError);
+
+  // a folder is not read as an empty file (a stream opens on one)
+  const auto folder = io::readMaybeGzipFile(dir.path());
+  REQUIRE_FALSE(folder.has_value());
+  REQUIRE(folder.error().code == Errc::IoError);
+  REQUIRE(io::readPlainFile(dir.path()).error().code == Errc::IoError);
+  REQUIRE(io::loadPuzzle(dir.path()).error().code == Errc::IoError);
 
   const auto name = dir.path() / "empty.xmpuzzle";
   { std::ofstream out(name); }
