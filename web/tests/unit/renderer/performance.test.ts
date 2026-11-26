@@ -142,6 +142,12 @@ describe('the Performance Analysis', () => {
     expect(phaseText({ part: 'saving', done: 10, total: 10, ms: 61_000 }, 202)).toBe(
       'Move 202 done; saving the search (autosave), 100% (1 min 1 s).',
     );
+    // a move that reaches the goal: the level is gone through again for the move to it
+    const goal = { part: 'goal' as const, done: 250, total: 1000, ms: 12_000 };
+    expect(phaseText(goal, 81)).toBe(
+      'Move 81 reaches the goal; finding the move to the goal, 25% (12 s).',
+    );
+    expect(phaseTag(goal)).toBe('finding the move to the goal, 25%');
     expect(phaseTag(merging)).toBe('merging the level, 43%');
     // without a part: the row as it was
     expect(performanceHtml(forecast({}), false)).not.toContain('slv-perf-phase');

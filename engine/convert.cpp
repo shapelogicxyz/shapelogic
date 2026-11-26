@@ -1003,6 +1003,9 @@ Json slidePhaseJson(const SolveProgress& g) {
     case sliding::SlidePhase::Saving:
       part = "saving";
       break;
+    case sliding::SlidePhase::Goal:
+      part = "goal";
+      break;
   }
   return Json{{"part", part},
               {"done", g.slidePhaseDone},

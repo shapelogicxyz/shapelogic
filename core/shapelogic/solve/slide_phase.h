@@ -27,6 +27,10 @@ enum class SlidePhase : std::uint8_t {
   Writing,
   /// The search saved, so that a crash loses no more than this (autosave).
   Saving,
+  /// A move of the level reaches the goal: the level is gone through again
+  /// for the first arrangement that does, from which the path is read back
+  /// (every run gives the same path).
+  Goal,
 };
 
 }  // namespace bt::sliding

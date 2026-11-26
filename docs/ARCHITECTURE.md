@@ -265,7 +265,7 @@ Files in `core/shapelogic/solve/`:
 - `slide_forecast.{h,cpp}`: `slideForecast`, the Performance Analysis from each depth's time (decision 0030).
 - `slide_key.h`: `BigKey`, the slide search's keys of 192, 256 and 512 bits (decision 0037).
 - `slide_levels.h`: `KeySet`, `ReadFile`, `WriteGate`: the slide search's sorted, delta-coded sets, in memory or in files; a file's index checked as it opens (`tablesHold`: `SetFault::Damaged`), each block as it is read.
-- `slide_phase.h`: the parts of a slide move that visit no arrangement.
+- `slide_phase.h`: the parts of a slide move that visit no arrangement (the merges, the writes, the saves, the pass for the first move to the goal).
 - `sliding_play.h`: a sliding puzzle played by hand (decision 0039): `playStart`, `playReach`, `playReplay`.
 - `sliding_search.{h,cpp}`: the slide search (decision 0014): `findSlidePath`, `SlideSearch`, `SlideOutcome`, its saved searches; `slideRoute`, `applySlideRoutes`, `finalPlacementKey`; `sliding_play.h`'s functions at its end.
 - `solve_progress.{h,cpp}`: `SolveProgress` and `SolveStats`.

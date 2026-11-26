@@ -552,7 +552,10 @@ where the problem's counts are.
   no arrangement (`slidePhase`: the move's arrangements all expanded, it
   waits for the earlier moves to go into the arrangements already seen,
   merges what it reached into the next level, writes levels to disk to
-  make room, or autosaves; deep in a big solve for many minutes, with the
+  make room, autosaves, or, a move of the level reaching the goal, goes
+  through the level again for the first arrangement that does ("Move 81
+  reaches the goal; finding the move to the goal, 43% (12 s)."); deep in
+  a big solve for many minutes, with the
   counts and the live preview standing still and Remaining below zero), a
   line under the move's row says which, how far it has got and for how
   long ("Move 202 searched; merging what it reached into the next level,

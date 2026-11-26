@@ -1768,13 +1768,17 @@ export interface SolveProgress {
    * for the older moves to go into the arrangements already seen, a merge on one thread, with
    * nested slides), merging (what the move reached merged into the next move's level, less the
    * levels before it, and written), writing (levels in memory written to the disk to leave room
-   * for the next) or saving (the search saved, so that a crash loses no more than this: autosave).
-   * done of total: arrangements for visited and merging, bytes for writing and saving; total is
-   * known as the part begins and may shrink as a merge's stages come out smaller than they went
-   * in. ms: how long the part has run. Null while the search expands a move, and on other grids.
+   * for the next), saving (the search saved, so that a crash loses no more than this: autosave) or
+   * goal (a move of the level reaches the goal, in a search from the start alone: the level is
+   * gone through again for its first arrangement that does, from which the path is read, so that
+   * every run gives the same path). done of total: arrangements for visited, merging and goal,
+   * bytes for writing and saving; total is known as the part begins and may shrink as a merge's
+   * stages come out smaller than they went in (goal ends before its total where the arrangement is
+   * found early). ms: how long the part has run. Null while the search expands a move, and on
+   * other grids.
    */
   slidePhase: {
-    part: 'visited' | 'merging' | 'writing' | 'saving';
+    part: 'visited' | 'merging' | 'writing' | 'saving' | 'goal';
     /** @minimum 0 */
     done: number;
     /** @minimum 0 */

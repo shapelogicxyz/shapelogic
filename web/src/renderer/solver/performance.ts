@@ -131,6 +131,7 @@ const PHASE_WORDS: Record<SlidePhase['part'], string> = {
   merging: 'merging what it reached into the next level',
   writing: 'writing levels to disk to make room for the next',
   saving: 'saving the search (autosave)',
+  goal: 'finding the move to the goal',
 };
 
 /** Why the counts and the live preview stand still while a part runs. */
@@ -152,7 +153,13 @@ function phasePercent(ph: SlidePhase): string {
  * next level, 43% (4 min 12 s)."
  */
 export function phaseText(ph: SlidePhase, move: number): string {
-  const done = ph.part === 'visited' || ph.part === 'merging' ? 'searched' : 'done';
+  // (the goal's part: the move reaches the goal, and is gone through again)
+  const done =
+    ph.part === 'visited' || ph.part === 'merging'
+      ? 'searched'
+      : ph.part === 'goal'
+        ? 'reaches the goal'
+        : 'done';
   return `Move ${String(move)} ${done}; ${PHASE_WORDS[ph.part]}${phasePercent(ph)} (${counterText(ph.ms)}).`;
 }
 
@@ -163,6 +170,7 @@ export function phaseTag(ph: SlidePhase): string {
     merging: 'merging the level',
     writing: 'writing to disk',
     saving: 'saving',
+    goal: 'finding the move to the goal',
   };
   return `${words[ph.part]}${phasePercent(ph)}`;
 }
