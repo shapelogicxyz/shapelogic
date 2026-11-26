@@ -115,22 +115,22 @@ void Assembler1::Links::uncoverColumnOnly(unsigned int col) {
 }
 
 void Assembler1::Links::coverColumnRows(unsigned int col) {
-  for (unsigned int r = down[col]; r != col; r = down[r]) {
+  for (unsigned int r = down(col); r != col; r = down(r)) {
     colCount[col] -= weight[r];
     for (unsigned int c = right[r]; c != r; c = right[c]) {
-      up[down[c]] = up[c];
-      down[up[c]] = down[c];
+      up(down(c)) = up(c);
+      down(up(c)) = down(c);
       colCount[colCount[c]] -= weight[c];
     }
   }
 }
 
 void Assembler1::Links::uncoverColumnRows(unsigned int col) {
-  for (unsigned int r = up[col]; r != col; r = up[r]) {
+  for (unsigned int r = up(col); r != col; r = up(r)) {
     for (unsigned int c = left[r]; c != r; c = left[c]) {
       colCount[colCount[c]] += weight[c];
-      up[down[c]] = c;
-      down[up[c]] = c;
+      up(down(c)) = c;
+      down(up(c)) = c;
     }
     colCount[col] += weight[r];
   }
@@ -138,26 +138,26 @@ void Assembler1::Links::uncoverColumnRows(unsigned int col) {
 
 void Assembler1::Links::hideRow(unsigned int r) {
   for (unsigned int rr = right[r]; rr != r; rr = right[rr]) {
-    up[down[rr]] = up[rr];
-    down[up[rr]] = down[rr];
+    up(down(rr)) = up(rr);
+    down(up(rr)) = down(rr);
 
     colCount[colCount[rr]] -= weight[rr];
   }
-  up[down[r]] = up[r];
-  down[up[r]] = down[r];
+  up(down(r)) = up(r);
+  down(up(r)) = down(r);
 
   colCount[colCount[r]] -= weight[r];
 }
 
 void Assembler1::Links::unhideRow(unsigned int r) {
-  up[down[r]] = r;
-  down[up[r]] = r;
+  up(down(r)) = r;
+  down(up(r)) = r;
 
   colCount[colCount[r]] += weight[r];
 
   for (unsigned int rr = left[r]; rr != r; rr = left[rr]) {
-    up[down[rr]] = rr;
-    down[up[rr]] = rr;
+    up(down(rr)) = rr;
+    down(up(rr)) = rr;
 
     colCount[colCount[rr]] += weight[rr];
   }
@@ -175,7 +175,7 @@ void Assembler1::Links::hideRows(unsigned int row, std::vector<unsigned int>& hi
   for (unsigned int r = right[row]; r != row; r = right[r]) {
     const unsigned int col = colCount[r];
 
-    for (unsigned int rr = down[col]; rr != col; rr = down[rr]) {
+    for (unsigned int rr = down(col); rr != col; rr = down(rr)) {
       if (weight[rr] + weight[col] > max[col]) {
         hideRow(rr);
         hidden.push_back(rr);
@@ -200,8 +200,8 @@ void Assembler1::generateFirstRow(unsigned int columns) {
   for (unsigned int i = 0; i < columns + 1; i++) {
     links_.right.push_back(i + 1);
     links_.left.push_back(i - 1);
-    links_.up.push_back(i);
-    links_.down.push_back(i);
+    links_.upDown.push_back(i);
+    links_.upDown.push_back(i);
     links_.colCount.push_back(0);
     min_.push_back(1);
     max_.push_back(1);
@@ -221,12 +221,13 @@ unsigned int Assembler1::addPieceNode(unsigned int piece, unsigned int rot, int 
 
   n.left.push_back(piecenode);
   n.right.push_back(piecenode);
-  n.up.push_back(n.up[piece + 1]);
-  n.down.push_back(piece + 1);
+  const unsigned int above = n.up(piece + 1);
+  n.upDown.push_back(above);
+  n.upDown.push_back(piece + 1);
   n.weight.push_back(1);
 
-  n.down[n.up[piece + 1]] = piecenode;
-  n.up[piece + 1] = piecenode;
+  n.down(n.up(piece + 1)) = piecenode;
+  n.up(piece + 1) = piecenode;
 
   n.colCount.push_back(piece + 1);
   n.colCount[piece + 1]++;
@@ -297,9 +298,8 @@ bool Assembler1::rowCheckRejects(const std::vector<unsigned int>& rows,
 
 void Assembler1::addVoxelNode(unsigned int col, unsigned int piecenode) {
   Links& n = links_;
-  BT_ASSERT(n.left.size() == n.right.size() && n.left.size() == n.up.size() &&
-            n.left.size() == n.down.size() && n.left.size() == n.colCount.size() &&
-            n.left.size() == n.weight.size());
+  BT_ASSERT(n.left.size() == n.right.size() && 2 * n.left.size() == n.upDown.size() &&
+            n.left.size() == n.colCount.size() && n.left.size() == n.weight.size());
 
   const auto newnode = static_cast<unsigned int>(n.left.size());
 
@@ -308,10 +308,11 @@ void Assembler1::addVoxelNode(unsigned int col, unsigned int piecenode) {
   n.right[n.left[piecenode]] = newnode;
   n.left[piecenode] = newnode;
 
-  n.up.push_back(n.up[col]);
-  n.down.push_back(col);
-  n.down[n.up[col]] = newnode;
-  n.up[col] = newnode;
+  const unsigned int above = n.up(col);
+  n.upDown.push_back(above);
+  n.upDown.push_back(col);
+  n.down(n.up(col)) = newnode;
+  n.up(col) = newnode;
 
   n.colCount.push_back(col);
 
@@ -328,10 +329,11 @@ void Assembler1::addRangeNode(unsigned int col, unsigned int piecenode, unsigned
   n.right[n.left[piecenode]] = newnode;
   n.left[piecenode] = newnode;
 
-  n.up.push_back(n.up[col]);
-  n.down.push_back(col);
-  n.down[n.up[col]] = newnode;
-  n.up[col] = newnode;
+  const unsigned int above = n.up(col);
+  n.upDown.push_back(above);
+  n.upDown.push_back(col);
+  n.down(n.up(col)) = newnode;
+  n.up(col) = newnode;
 
   n.colCount.push_back(col);
 
@@ -759,7 +761,7 @@ void Assembler1::removeColumn(unsigned int c) {
     n.right[n.left[j]] = n.right[j];
     n.left[n.right[j]] = n.left[j];
 
-    j = n.down[j];
+    j = n.down(j);
   } while (j != c);
 }
 
@@ -795,7 +797,7 @@ unsigned int Assembler1::clumpify() {
 
     unsigned int line = 0;
 
-    for (unsigned int row = n.down[col]; row != col; row = n.down[row]) {
+    for (unsigned int row = n.down(col); row != col; row = n.down(row)) {
       // the placement row of this node; nodes come in increasing order so
       // the line only ever advances
       while ((line + 1 < piecePositions_.size()) && (piecePositions_[line + 1].row <= row)) {
@@ -872,11 +874,11 @@ void Assembler1::removeRow(unsigned int r) {
   do {
     n.colCount[n.colCount[j]] -= n.weight[j];
 
-    const unsigned int u = n.up[j];
-    const unsigned int d = n.down[j];
+    const unsigned int u = n.up(j);
+    const unsigned int d = n.down(j);
 
-    n.up[d] = u;
-    n.down[u] = d;
+    n.up(d) = u;
+    n.down(u) = d;
 
     j = n.right[j];
   } while (j != r);
@@ -952,13 +954,13 @@ ReduceStats Assembler1::reduce(const StopToken& stop) {
     // The first and the last row first: away from the walls their
     // placements fill this voxel alone, which ends the column at once
     // (the same columns are found whatever the order).
-    const unsigned int first = n.down[col];
-    const unsigned int last = n.up[col];
+    const unsigned int first = n.down(col);
+    const unsigned int last = n.up(col);
     if (first != col) {
       look(first);
       if (last != first) {
         look(last);
-        for (unsigned int r = n.down[first]; r != last && common != 0; r = n.down[r]) {
+        for (unsigned int r = n.down(first); r != last && common != 0; r = n.down(r)) {
           look(r);
         }
       }
@@ -972,7 +974,7 @@ ReduceStats Assembler1::reduce(const StopToken& stop) {
         if (columns[c] == placements) {
           toRemove.clear();
 
-          for (unsigned int r = n.down[c]; r != c; r = n.down[r]) {
+          for (unsigned int r = n.down(c); r != c; r = n.down(r)) {
             if (inColumn[rowIndexOf(r)] == 0) {
               toRemove.push_back(r);
             }
@@ -1019,7 +1021,7 @@ ReduceStats Assembler1::reduce(const StopToken& stop) {
       prepare_.piece.store(pp.piece, std::memory_order_relaxed);
 
       // a row no longer in the matrix
-      if (n.up[n.down[row]] != row || n.down[n.up[row]] != row) {
+      if (n.up(n.down(row)) != row || n.down(n.up(row)) != row) {
         continue;
       }
 
@@ -1036,7 +1038,7 @@ ReduceStats Assembler1::reduce(const StopToken& stop) {
 
         // Hide the rows that would take an open column past its maximum.
         // Only the columns of this row changed their weight.
-        for (unsigned int rr = n.down[col]; rr != col; rr = n.down[rr]) {
+        for (unsigned int rr = n.down(col); rr != col; rr = n.down(rr)) {
           if (n.weight[rr] + n.weight[col] > max_[col]) {
             n.hideRow(rr);
             hidden.push_back(rr);
@@ -1312,7 +1314,7 @@ void Assembler1::iterative(SearchRun& run) {
             s.columnStack.push_back(c);
             s.taskStack.back() = 1;
             s.taskStack.push_back(0);
-            s.nextRowStack.push_back(n.down[c]);
+            s.nextRowStack.push_back(n.down(c));
 
             break;
           }
@@ -1377,7 +1379,7 @@ void Assembler1::iterative(SearchRun& run) {
         row = s.nextRowStack.back();
 
         // up of a row is a smaller node; up of the header is a larger one
-        if (n.up[row] >= row) {
+        if (n.up(row) >= row) {
           s.taskStack.back() = 7;
           break;
         }
@@ -1418,8 +1420,8 @@ void Assembler1::iterative(SearchRun& run) {
                 // points down to the row below it, but that one no longer
                 // points back up.
                 unsigned int newrow = row;
-                while ((n.down[newrow] >= headerNodes_) && n.up[n.down[newrow]] != newrow) {
-                  newrow = n.down[newrow];
+                while ((n.down(newrow) >= headerNodes_) && n.up(n.down(newrow)) != newrow) {
+                  newrow = n.down(newrow);
                 }
 
                 s.taskStack.back() = 5;
@@ -1457,9 +1459,9 @@ void Assembler1::iterative(SearchRun& run) {
         n.hideRow(row);
         s.hiddenRows.push_back(row);
 
-        row = n.down[row];
+        row = n.down(row);
 
-        if (n.up[row] < row) {
+        if (n.up(row) < row) {
           s.rows.push_back(row);
           s.taskStack.back() = 4;
           break;
@@ -1505,9 +1507,10 @@ class Assembler1::Worker {
   /// holds where this search stood, to be carried on by the next run).
   bool operator()(std::size_t taskIndex, const SearchStacks& task) {
     taskIndex_ = taskIndex;
-    // the base is written once in assemble() and never touched while the
-    // workers run
-    n_ = parent_.base_;
+    // the matrix at its start: a split search begins at the root, makes its
+    // tasks on a copy (generateSubtreeTasks) and nothing writes the matrix
+    // while the workers run
+    n_ = parent_.links_;
     s_ = task;
     // a top frame not begun is the next thing the search does; any other
     // has been begun and is replayed with the frames below it
@@ -1603,7 +1606,7 @@ class Assembler1::Worker {
               s.columnStack.push_back(c);
               s.taskStack.back() = 1;
               s.taskStack.push_back(0);
-              s.nextRowStack.push_back(n.down[c]);
+              s.nextRowStack.push_back(n.down(c));
               break;
             }
 
@@ -1644,7 +1647,7 @@ class Assembler1::Worker {
         case 3:
           s.hiddenRows.push_back(0);
           row = s.nextRowStack.back();
-          if (n.up[row] >= row) {
+          if (n.up(row) >= row) {
             s.taskStack.back() = 7;
             break;
           }
@@ -1672,8 +1675,8 @@ class Assembler1::Worker {
               } else {
                 if (p.columnConditionFulfillable(n, col)) {
                   unsigned int newrow = row;
-                  while ((n.down[newrow] >= p.headerNodes_) && n.up[n.down[newrow]] != newrow) {
-                    newrow = n.down[newrow];
+                  while ((n.down(newrow) >= p.headerNodes_) && n.up(n.down(newrow)) != newrow) {
+                    newrow = n.down(newrow);
                   }
                   s.taskStack.back() = 5;
                   s.taskStack.push_back(0);
@@ -1703,8 +1706,8 @@ class Assembler1::Worker {
           n.hideRow(row);
           s.hiddenRows.push_back(row);
 
-          row = n.down[row];
-          if (n.up[row] < row) {
+          row = n.down(row);
+          if (n.up(row) < row) {
             s.rows.push_back(row);
             s.taskStack.back() = 4;
             break;
@@ -1810,15 +1813,16 @@ bool Assembler1::reportParallelSolution(SearchRun& run,
 
 // The tasks of a split search: the plain search from its start, cut off
 // `cutoffDepth` rows deep; each frame reached there (and each assembly
-// found above it) becomes a task with the stacks as they stand. Works on the
-// matrix and the stacks of this assembler and leaves both at the start.
+// found above it) becomes a task with the stacks as they stand. Works on
+// `n`, which it makes a copy of the matrix (the matrix itself stays at its
+// start, where the workers copy it from), and on the stacks of this
+// assembler, which it leaves at the start.
 void Assembler1::generateTasksAtDepth(SearchRun& run, unsigned int cutoffDepth,
-                                      std::vector<SearchStacks>& tasks) {
-  Links& n = links_;
+                                      std::vector<SearchStacks>& tasks, Links& n) {
   SearchStacks& s = stacks_;
   tasks.clear();
 
-  n = base_;
+  n = links_;
   s = SearchStacks{};
   s.taskStack = {0};
   s.nextRowStack = {0};
@@ -1875,7 +1879,7 @@ void Assembler1::generateTasksAtDepth(SearchRun& run, unsigned int cutoffDepth,
             s.columnStack.push_back(c);
             s.taskStack.back() = 1;
             s.taskStack.push_back(0);
-            s.nextRowStack.push_back(n.down[c]);
+            s.nextRowStack.push_back(n.down(c));
             break;
           }
 
@@ -1916,7 +1920,7 @@ void Assembler1::generateTasksAtDepth(SearchRun& run, unsigned int cutoffDepth,
       case 3:
         s.hiddenRows.push_back(0);
         row = s.nextRowStack.back();
-        if (n.up[row] >= row) {
+        if (n.up(row) >= row) {
           s.taskStack.back() = 7;
           break;
         }
@@ -1944,8 +1948,8 @@ void Assembler1::generateTasksAtDepth(SearchRun& run, unsigned int cutoffDepth,
             } else {
               if (columnConditionFulfillable(n, col)) {
                 unsigned int newrow = row;
-                while ((n.down[newrow] >= headerNodes_) && n.up[n.down[newrow]] != newrow) {
-                  newrow = n.down[newrow];
+                while ((n.down(newrow) >= headerNodes_) && n.up(n.down(newrow)) != newrow) {
+                  newrow = n.down(newrow);
                 }
                 s.taskStack.back() = 5;
                 s.taskStack.push_back(0);
@@ -1975,8 +1979,8 @@ void Assembler1::generateTasksAtDepth(SearchRun& run, unsigned int cutoffDepth,
         n.hideRow(row);
         s.hiddenRows.push_back(row);
 
-        row = n.down[row];
-        if (n.up[row] < row) {
+        row = n.down(row);
+        if (n.up(row) < row) {
           s.rows.push_back(row);
           s.taskStack.back() = 4;
           break;
@@ -1995,7 +1999,6 @@ void Assembler1::generateTasksAtDepth(SearchRun& run, unsigned int cutoffDepth,
     }
   }
 
-  n = base_;
   s = SearchStacks{};
   s.taskStack = {0};
   s.nextRowStack = {0};
@@ -2008,9 +2011,15 @@ void Assembler1::generateSubtreeTasks(SearchRun& run, std::vector<SearchStacks>&
   if (maxDepth == 0) {
     maxDepth = 1;
   }
+  // The copy of the matrix the tasks are made on: only here, and gone when
+  // they are made. (The assembler kept one for as long as it lived, made
+  // again at every assemble(): the plain search and the vector search,
+  // which never read it, paid for it too, the plain search with the
+  // matrices too big for the vector search.)
+  Links work;
 
   while (cutoffDepth <= maxDepth && !run.stopRequested()) {
-    generateTasksAtDepth(run, cutoffDepth, tasks);
+    generateTasksAtDepth(run, cutoffDepth, tasks, work);
     if (tasks.size() >= targetTasks || tasks.empty()) {
       break;
     }
@@ -2298,7 +2307,7 @@ bool Assembler1::simdFits(const SearchOptions& options) const {
     std::uint64_t estNodes = 0;
     const unsigned int nShapes = problem_.getNumberOfParts();
     for (unsigned int s = 1; s <= nShapes; s++) {
-      for (unsigned int r = n.down[s]; r != s; r = n.down[r]) {
+      for (unsigned int r = n.down(s); r != s; r = n.down(r)) {
         estRows++;
         estNodes++;
         for (unsigned int c = n.right[r]; c != r; c = n.right[c]) {
@@ -2381,7 +2390,7 @@ std::unique_ptr<SimdHuangCoverBase> Assembler1::createSimdSolver(SimdKernels ker
   for (unsigned int pc = 0; pc < numShapes; pc++) {
     const unsigned int shapeCol = pc + 1;
     unsigned int shapeRowIdx = 0;
-    for (unsigned int r = n.down[shapeCol]; r != shapeCol; r = n.down[r]) {
+    for (unsigned int r = n.down(shapeCol); r != shapeCol; r = n.down(r)) {
       std::vector<unsigned int> cols;
       std::vector<unsigned int> weights;
       std::vector<unsigned int> nodesInRow;
@@ -2475,8 +2484,6 @@ RunEnd Assembler1::assemble(const AssemblyCallback& callback, const SearchOption
   // a previous split run leaves its tasks all done, which would make
   // finished() report 1 for this run before it has done anything
   taskProgress_.reset();
-
-  base_ = links_;
 
   // run, when there is something to do
   if (!searchDone()) {
@@ -2572,7 +2579,7 @@ void Assembler1::replay(Links& n, const SearchStacks& s, bool task) const {
 // in its list exactly when its neighbors point back at it.
 bool Assembler1::replayChecked(Links& n, const SearchStacks& s, bool task,
                                std::vector<ReplayStep>& done) const {
-  auto linked = [&n](unsigned int x) { return n.down[n.up[x]] == x && n.up[n.down[x]] == x; };
+  auto linked = [&n](unsigned int x) { return n.down(n.up(x)) == x && n.up(n.down(x)) == x; };
   auto hide = [&n, &done, &linked](unsigned int r) {
     if (!linked(r)) {
       return false;
@@ -2988,16 +2995,16 @@ unsigned int Assembler1::piecePlacement(unsigned int node, int delta, unsigned i
   }
 
   if (!node) {
-    node = links_.down[shape + 1];
+    node = links_.down(shape + 1);
   }
 
   while (delta > 0) {
-    node = links_.down[node];
+    node = links_.down(node);
     delta--;
   }
 
   while (delta < 0) {
-    node = links_.up[node];
+    node = links_.up(node);
     delta++;
   }
 

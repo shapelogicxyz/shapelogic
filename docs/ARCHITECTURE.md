@@ -110,7 +110,7 @@ Files in `core/shapelogic/grid/`:
 - `TABLES.md`: where the tables come from, and the one syntax change.
 - `tray_border.h`: `TrayBorder`, a sliding tray's border (decision 0046), kept on the `Voxel`.
 - `types.h`: the module's basic types and the symmetry macros.
-- `voxel.{h,cpp}`: `Voxel`, the abstract voxel space: cells (state and color per byte), box, hotspot, name, weight, per-transformation queries, comparison, connectivity, editing.
+- `voxel.{h,cpp}`: `Voxel`, the abstract voxel space: cells (state and color per byte), box, hotspot, name, weight, per-transformation queries, comparison, connectivity, editing (`set` works the box out again, a pass over the space: a loop of `set`, `setState` or `setColor` runs inside a `Voxel::BatchEdit`, which does it once at its end; `clearMarks()` for a whole shape's marks).
 - `voxel_{bricks,prisms,spheres,rhombic,tetra_octa}.{h,cpp}`: one class per grid of the original (`voxel_0` … `voxel_4`); rhombic and tetra-octa derive from bricks, a 5- or 6-aligned super-grid over cubes.
 - `voxel_{hex,cairo}.{h,cpp}`: the hexagonal and cairo prism grids (decision 0023, after BurrTools V2).
 - `voxel_table.{h,cpp}`: `VoxelTable`, a shape found in any orientation through a callback from index to shape.
@@ -397,7 +397,7 @@ Files in `core/shapelogic/app/`:
 - `background_job.{h,cpp}`: `BackgroundJob`, what `Analysis` and `PlacementFit` share (the thread, the stop, active, the done count, the failure); the document keeps them in one map by (problem, kind).
 - `document.{h,cpp}`: `Document`: the puzzle, ids, revision, dirty flag, undo history, the queries, solving, analyses, files, playback and explorers.
 - `document_commands.cpp`: the editing commands, from the original GUI's callbacks.
-- `document_internal.h`: the undo steps, a run's among them (internal to `document*.cpp`).
+- `document_internal.h`: the undo steps, a run's among them (internal to `document*.cpp`): a step holds what its command changed (`touchProblemSettings` where no solution changes: the problem without them), and the steps are kept to the depth and to `DocumentSettings::undoBytes` (512 MiB; the newest always stays).
 - `document_sliding.cpp`: the sliding commands (decision 0014): starts and goals, stamps, layouts.
 - `document_stacking.cpp`: the stacking commands (decision 0015): rod sets, discs, stacks, saved searches.
 - `document_tilted.cpp`: a document with a tilted tray (decision 0045).
@@ -405,7 +405,7 @@ Files in `core/shapelogic/app/`:
 - `layer_geometry.{h,cpp}`: `layerGeometry`, the grid editor's drawing of a layer.
 - `placement_fit.{h,cpp}`: `PlacementFit`, a problem's assemblies counted on each board of the tray's placements.
 - `playback.{h,cpp}`: `PlaybackSampler` and `orientedMesh`.
-- `queries.{h,cpp}`: `problemFit`, `shapeTable`, `shapeStatusLine`, `isNotchable`, `isMillable`, `problemKind`, `rodSetLayout`, `stlPieces`.
+- `queries.{h,cpp}`: `problemFit`, `shapeTable`, `shapeInfo` (one row of it), `shapeStatusLine`, `isNotchable`, `isMillable`, `problemKind`, `rodSetLayout`, `stlPieces`.
 - `shape_tools.{h,cpp}`: the tool tabs' tasks per grid (`isNudge` the one test of a nudge) and the grid editor's cell tools.
 - `solve_setup.{h,cpp}`: `solveRefusal` and `prepareShapesForSolving`, the Document's rules before a solve, which the Python module and the CLI's `--save` call too.
 - `tray_board.h`: a tilted tray's board and the pieces on it (`fillTrayBoard`, `onTray`, `keepOnTray`, `fitToTray`; internal, defined in `document_tilted.cpp`).

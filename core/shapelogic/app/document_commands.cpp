@@ -1002,7 +1002,7 @@ Result<void> Document::renameProblem(Id problem, const std::string& name) {
     return {};
   }
   StepGuard g(*this, "Rename problem");
-  touchProblem(*p);
+  touchProblemSettings(*p);
   puzzle_->getProblem(*p).setName(name);
   lastChange_.problems = {problem};
   g.commit(kChangeProblems);
@@ -1373,7 +1373,7 @@ Result<void> Document::setGroupCount(Id problem, Id shape, unsigned int group,
     return fail(Errc::InvalidArgument, "groups are numbered from 1");
   }
   StepGuard g(*this, "Group");
-  touchProblem(*p);
+  touchProblemSettings(*p);
   pr.setPartGroup(pr.getPartIdForShape(*s), static_cast<unsigned short>(group),
                   static_cast<unsigned short>(count));
   endSession(*p);
@@ -1411,7 +1411,7 @@ Result<void> Document::setGroup(Id problem, Id shape, unsigned int group) {
   }
   const unsigned int part = pr.getPartIdForShape(*s);
   StepGuard g(*this, "Group");
-  touchProblem(*p);
+  touchProblemSettings(*p);
   // out of every group it is in, then all its pieces into this one
   while (pr.getNumberOfPartGroups(part) > 0) {
     pr.setPartGroup(part, pr.getPartGroupId(part, 0), 0);
@@ -1447,7 +1447,7 @@ Result<void> Document::deleteGroup(Id problem, unsigned int group) {
   for (unsigned int part = 0; part < pr.getNumberOfParts(); part++) {
     for (unsigned int k = 0; k < pr.getNumberOfPartGroups(part); k++) {
       if (pr.getPartGroupId(part, k) == group) {
-        touchProblem(*p);
+        touchProblemSettings(*p);
         pr.setPartGroup(part, static_cast<unsigned short>(group), 0);
         endSession(*p);
         break;
@@ -1536,7 +1536,7 @@ Result<void> Document::setSolverOptions(Id problem,
   }
   // only stored: the solve and the solutions stay
   StepGuard g(*this, "Solver options");
-  touchProblem(*p);
+  touchProblemSettings(*p);
   pr.setSolverOptions(options);
   lastChange_.problems = {problem};
   g.commit(kChangeProblems);
@@ -1570,34 +1570,21 @@ Result<void> Document::deleteSolutions(Id problem, SolutionsToDelete which, Id s
   touchProblem(*p);
   switch (which) {
     case SolutionsToDelete::All:
-      while (pr.getNumberOfSavedSolutions() > 0) {
-        pr.removeSolution(0);
-      }
+      (void)pr.removeSolutionsIf([](std::size_t, const Solution&) { return true; });
       break;
     case SolutionsToDelete::Before:
-      for (unsigned int i = 0; i < sol; i++) {
-        pr.removeSolution(0);
-      }
+      (void)pr.removeSolutionsIf([sol](std::size_t i, const Solution&) { return i < sol; });
       break;
     case SolutionsToDelete::One:
       pr.removeSolution(sol);
       break;
     case SolutionsToDelete::After:
-      while (pr.getNumberOfSavedSolutions() > sol + 1) {
-        pr.removeSolution(sol + 1);
-      }
+      (void)pr.removeSolutionsIf([sol](std::size_t i, const Solution&) { return i > sol; });
       break;
-    case SolutionsToDelete::WithoutDisassembly: {
-      unsigned int i = 0;
-      while (i < pr.getNumberOfSavedSolutions()) {
-        if (pr.getSavedSolution(i).getDisassemblyInfo() != nullptr) {
-          i++;
-        } else {
-          pr.removeSolution(i);
-        }
-      }
+    case SolutionsToDelete::WithoutDisassembly:
+      (void)pr.removeSolutionsIf(
+          [](std::size_t, const Solution& s) { return s.getDisassemblyInfo() == nullptr; });
       break;
-    }
   }
   lastChange_.problems = {problem};
   g.commit(kChangeSolutions);

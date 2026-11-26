@@ -12,6 +12,7 @@
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/clone_ptr.h"
 
+#include <cstddef>
 #include <deque>
 #include <memory>
 #include <string>
@@ -215,6 +216,10 @@ class Separation final : public Disassembly {
   [[nodiscard]] std::string movesText() const override;
   [[nodiscard]] unsigned int getSequenceLength(unsigned int x) const override;
   [[nodiscard]] unsigned int getNumSequences() const override;
+
+  /// About the bytes the tree holds (its states' numbers and its nodes),
+  /// for the budget of the undo steps.
+  [[nodiscard]] std::size_t byteEstimate() const;
 
  private:
   int movesTextPieceRemovals(char* txt, int len, bool withRots, unsigned int carrySlides,

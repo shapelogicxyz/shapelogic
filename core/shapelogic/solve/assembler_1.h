@@ -95,10 +95,19 @@ class Assembler1 final : public Assembler {
   struct Links {
     std::vector<unsigned int> left;
     std::vector<unsigned int> right;
-    std::vector<unsigned int> up;
-    std::vector<unsigned int> down;
+    /// The column ring of each node, up (even) and down (odd) interleaved,
+    /// as DlxNodes has them: the cover loops read both of a node at once.
+    std::vector<unsigned int> upDown;
     std::vector<unsigned int> colCount;
     std::vector<unsigned int> weight;
+
+    /// The node above and below `x` in its column.
+    unsigned int& up(unsigned int x) { return upDown[2 * std::size_t{x}]; }
+    [[nodiscard]] unsigned int up(unsigned int x) const { return upDown[2 * std::size_t{x}]; }
+    unsigned int& down(unsigned int x) { return upDown[(2 * std::size_t{x}) + 1]; }
+    [[nodiscard]] unsigned int down(unsigned int x) const {
+      return upDown[(2 * std::size_t{x}) + 1];
+    }
 
     void coverColumnOnly(unsigned int col);
     void uncoverColumnOnly(unsigned int col);
@@ -201,7 +210,7 @@ class Assembler1 final : public Assembler {
   void solution(SearchRun& run);
   void iterative(SearchRun& run);
   void generateTasksAtDepth(SearchRun& run, unsigned int cutoffDepth,
-                            std::vector<SearchStacks>& tasks);
+                            std::vector<SearchStacks>& tasks, Links& n);
   void generateSubtreeTasks(SearchRun& run, std::vector<SearchStacks>& tasks,
                             unsigned int targetTasks, unsigned int maxDepth);
   void parallelMultiSearch(SearchRun& run, unsigned int workers, const SearchOptions& options);
@@ -253,10 +262,10 @@ class Assembler1 final : public Assembler {
   const Puzzle& puzzle_;
   const Problem& problem_;
 
-  /// The matrix, and the copy of it a run starts from (base_), which the
-  /// threads of a split search re-seed from for every task.
+  /// The matrix. The plain search works in it; a split search leaves it
+  /// at its start, makes its tasks on a copy and gives each thread a copy
+  /// for every task.
   Links links_;
-  Links base_;
   /// The weight each column must reach and may not pass.
   std::vector<unsigned int> min_;
   std::vector<unsigned int> max_;

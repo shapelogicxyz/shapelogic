@@ -75,8 +75,11 @@ bool isBoardOf(const Voxel& v, const tilted::Layout& lay) {
 
 void fillTrayBoard(Voxel& board, const tilted::Layout& lay) {
   board.resize(lay.sizeX, lay.sizeY, 1, Voxel::kEmpty);
-  for (unsigned int i = 0; i < board.getXYZ(); i++) {
-    board.set(i, lay.cells[i] == tilted::Cell::Whole ? Voxel::kVariable : Voxel::kEmpty);
+  {
+    const Voxel::BatchEdit batch(board);
+    for (unsigned int i = 0; i < board.getXYZ(); i++) {
+      board.set(i, lay.cells[i] == tilted::Cell::Whole ? Voxel::kVariable : Voxel::kEmpty);
+    }
   }
   board.setHotspot(0, 0, 0);
 }
@@ -96,6 +99,7 @@ bool onTray(const Voxel& v, const tilted::Layout& lay) {
 unsigned int keepOnTray(Voxel& v, const Voxel& before, const tilted::Layout& lay) {
   BT_ASSERT(v.getXYZ() == before.getXYZ() && v.getXYZ() == lay.cells.size());
   unsigned int changed = 0;
+  const Voxel::BatchEdit batch(v);
   for (unsigned int i = 0; i < v.getXYZ(); i++) {
     if (lay.cells[i] != tilted::Cell::Whole) {
       // off the board an edit changes nothing: what was there stays
@@ -203,8 +207,11 @@ std::optional<TrayFit> fitToTray(const Voxel& piece, std::optional<tilted::Point
       }
     }
   }
-  for (const At& c : cells) {
-    out.shape->set(bestX + c.x - x0, bestY + c.y - y0, 0, c.value);
+  {
+    const Voxel::BatchEdit batch(*out.shape);
+    for (const At& c : cells) {
+      out.shape->set(bestX + c.x - x0, bestY + c.y - y0, 0, c.value);
+    }
   }
   out.fits = bestWhole;
   return out;

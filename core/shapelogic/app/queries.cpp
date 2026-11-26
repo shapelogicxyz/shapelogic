@@ -7,6 +7,7 @@
 // new (the web UI's fit summary); the status line is the original's.
 #include "shapelogic/app/queries.h"
 
+#include "shapelogic/base/assert.h"
 #include "shapelogic/base/int_cast.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/symmetries.h"
@@ -75,50 +76,74 @@ FitStats problemFit(const Puzzle& puzzle, unsigned int problemIndex) {
   return f;
 }
 
+namespace {
+
+// The shapes before a row, to find the one it is identical to.
+VoxelTable earlierShapes(const Puzzle& puzzle) {
+  return VoxelTable([&puzzle](unsigned int i) -> const Voxel& { return puzzle.getShape(i); });
+}
+
+void addEarlierShape(VoxelTable& tab, unsigned int s) {
+  tab.addSpace(s, VoxelTable::kParMirror);
+  tab.addSpace(s, VoxelTable::kParMirror | VoxelTable::kParColor);
+}
+
+// The row of shape s, with the shapes before it in `tab`.
+ShapeInfo shapeRow(const Puzzle& puzzle, const VoxelTable& tab, unsigned int s) {
+  const GridType& gt = puzzle.getGridType();
+  const Symmetries& sym = gt.getSymmetries();
+  const Voxel& v = puzzle.getShape(s);
+  ShapeInfo r;
+  r.fixed = v.countState(Voxel::kFilled);
+  r.variable = v.countState(Voxel::kVariable);
+
+  unsigned int idx = 0;
+  unsigned char trans = 0;
+  if (tab.getSpace(v, &idx, &trans, VoxelTable::kParMirror)) {
+    r.identicalMirror = idx;
+  }
+  if (tab.getSpace(v, &idx, &trans, 0)) {
+    r.identicalShape = idx;
+  }
+  if (tab.getSpace(v, &idx, &trans, VoxelTable::kParColor) &&
+      trans < sym.getNumTransformations()) {
+    r.identicalComplete = idx;
+  }
+
+  r.connectedFace = v.connected(0, true, 0);
+  r.connectedEdge = v.connected(1, true, 0);
+  r.connectedCorner = v.connected(2, true, 0);
+  r.holes2D = !v.connected(0, false, 0, false);
+  r.holes3D = !v.connected(0, false, 0);
+  if (gt.getType() == GridKind::Bricks) {
+    r.notchable = isNotchable(v);
+    r.millable = isMillable(v);
+  }
+  if (sym.symmetryKnown(v)) {
+    r.symmetry = sym.calculateSymmetry(v);
+  }
+  return r;
+}
+
+}  // namespace
+
 std::vector<ShapeInfo> shapeTable(const Puzzle& puzzle) {
   std::vector<ShapeInfo> rows;
-  VoxelTable tab([&puzzle](unsigned int i) -> const Voxel& { return puzzle.getShape(i); });
-  const GridType& gt = puzzle.getGridType();
-  const bool bricks = gt.getType() == GridKind::Bricks;
-  const Symmetries& sym = gt.getSymmetries();
-
+  VoxelTable tab = earlierShapes(puzzle);
   for (unsigned int s = 0; s < puzzle.getNumberOfShapes(); s++) {
-    const Voxel& v = puzzle.getShape(s);
-    ShapeInfo r;
-    r.fixed = v.countState(Voxel::kFilled);
-    r.variable = v.countState(Voxel::kVariable);
-
-    unsigned int idx = 0;
-    unsigned char trans = 0;
-    if (tab.getSpace(v, &idx, &trans, VoxelTable::kParMirror)) {
-      r.identicalMirror = idx;
-    }
-    if (tab.getSpace(v, &idx, &trans, 0)) {
-      r.identicalShape = idx;
-    }
-    if (tab.getSpace(v, &idx, &trans, VoxelTable::kParColor) &&
-        trans < sym.getNumTransformations()) {
-      r.identicalComplete = idx;
-    }
-
-    r.connectedFace = v.connected(0, true, 0);
-    r.connectedEdge = v.connected(1, true, 0);
-    r.connectedCorner = v.connected(2, true, 0);
-    r.holes2D = !v.connected(0, false, 0, false);
-    r.holes3D = !v.connected(0, false, 0);
-    if (bricks) {
-      r.notchable = isNotchable(v);
-      r.millable = isMillable(v);
-    }
-    if (sym.symmetryKnown(v)) {
-      r.symmetry = sym.calculateSymmetry(v);
-    }
-    rows.push_back(r);
-
-    tab.addSpace(s, VoxelTable::kParMirror);
-    tab.addSpace(s, VoxelTable::kParMirror | VoxelTable::kParColor);
+    rows.push_back(shapeRow(puzzle, tab, s));
+    addEarlierShape(tab, s);
   }
   return rows;
+}
+
+ShapeInfo shapeInfo(const Puzzle& puzzle, unsigned int shapeIndex) {
+  BT_ASSERT(shapeIndex < puzzle.getNumberOfShapes());
+  VoxelTable tab = earlierShapes(puzzle);
+  for (unsigned int s = 0; s < shapeIndex; s++) {
+    addEarlierShape(tab, s);
+  }
+  return shapeRow(puzzle, tab, shapeIndex);
 }
 
 std::string shapeStatusLine(const Puzzle& puzzle, unsigned int shapeIndex) {
@@ -139,13 +164,18 @@ bool isNotchable(const Voxel& v) {
   const std::unique_ptr<Voxel> vxz = gt.makeVoxel(v.getX(), 1, v.getZ(), Voxel::kEmpty);
   const std::unique_ptr<Voxel> vyz = gt.makeVoxel(1, v.getY(), v.getZ(), Voxel::kEmpty);
 
-  for (unsigned int x = 0; x < v.getX(); x++) {
-    for (unsigned int y = 0; y < v.getY(); y++) {
-      for (unsigned int z = 0; z < v.getZ(); z++) {
-        if (v.isFilled(x, y, z)) {
-          vxy->setState(x, y, 0, Voxel::kFilled);
-          vxz->setState(x, 0, z, Voxel::kFilled);
-          vyz->setState(0, y, z, Voxel::kFilled);
+  {
+    const Voxel::BatchEdit bxy(*vxy);
+    const Voxel::BatchEdit bxz(*vxz);
+    const Voxel::BatchEdit byz(*vyz);
+    for (unsigned int x = 0; x < v.getX(); x++) {
+      for (unsigned int y = 0; y < v.getY(); y++) {
+        for (unsigned int z = 0; z < v.getZ(); z++) {
+          if (v.isFilled(x, y, z)) {
+            vxy->setState(x, y, 0, Voxel::kFilled);
+            vxz->setState(x, 0, z, Voxel::kFilled);
+            vyz->setState(0, y, z, Voxel::kFilled);
+          }
         }
       }
     }

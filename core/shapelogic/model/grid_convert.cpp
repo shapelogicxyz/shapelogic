@@ -60,23 +60,24 @@ Result<Puzzle> convertGrid(const Puzzle& p, GridKind target, std::uint64_t maxCe
     const Voxel& v = p.getShape(i);
 
     std::unique_ptr<Voxel> vn = gt.makeVoxel(v.getX() * f, v.getY() * f, v.getZ() * f, 0);
-    vn->skipRecalcBoundingBox(true);
+    {
+      const Voxel::BatchEdit batch(*vn, Voxel::BatchEdit::Box::Always);
+      for (unsigned int x = 0; x < v.getX(); x++) {
+        for (unsigned int y = 0; y < v.getY(); y++) {
+          for (unsigned int z = 0; z < v.getZ(); z++) {
+            const VoxelType st = v.get(x, y, z);
 
-    for (unsigned int x = 0; x < v.getX(); x++) {
-      for (unsigned int y = 0; y < v.getY(); y++) {
-        for (unsigned int z = 0; z < v.getZ(); z++) {
-          const VoxelType st = v.get(x, y, z);
-
-          if (st != 0) {
-            for (unsigned int ax = 0; ax < f; ax++) {
-              for (unsigned int ay = 0; ay < f; ay++) {
-                for (unsigned int az = 0; az < f; az++) {
-                  const unsigned int cx = (f * x) + ax;
-                  const unsigned int cy = (f * y) + ay;
-                  const unsigned int cz = (f * z) + az;
-                  if (vn->validCoordinate(static_cast<int>(cx), static_cast<int>(cy),
-                                          static_cast<int>(cz))) {
-                    vn->set(cx, cy, cz, st);
+            if (st != 0) {
+              for (unsigned int ax = 0; ax < f; ax++) {
+                for (unsigned int ay = 0; ay < f; ay++) {
+                  for (unsigned int az = 0; az < f; az++) {
+                    const unsigned int cx = (f * x) + ax;
+                    const unsigned int cy = (f * y) + ay;
+                    const unsigned int cz = (f * z) + az;
+                    if (vn->validCoordinate(static_cast<int>(cx), static_cast<int>(cy),
+                                            static_cast<int>(cz))) {
+                      vn->set(cx, cy, cz, st);
+                    }
                   }
                 }
               }
@@ -85,8 +86,6 @@ Result<Puzzle> convertGrid(const Puzzle& p, GridKind target, std::uint64_t maxCe
         }
       }
     }
-
-    vn->skipRecalcBoundingBox(false);
     vn->setName(v.getName());
     pNew.addShape(std::move(vn));
   }

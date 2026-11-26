@@ -87,10 +87,16 @@ struct ShapeInfo {
   std::optional<bool> millable;
   /// The symmetry group number, when the grid's tables know the shape's.
   std::optional<Symmetry> symmetry;
+
+  bool operator==(const ShapeInfo&) const = default;
 };
 
 /// The status window's table: one row per shape, in shape order.
 [[nodiscard]] std::vector<ShapeInfo> shapeTable(const Puzzle& puzzle);
+
+/// One row of that table, without working out the others (the shapes
+/// before it are only hashed, to find the one it is identical to).
+[[nodiscard]] ShapeInfo shapeInfo(const Puzzle& puzzle, unsigned int shapeIndex);
 
 /// The status line for a shape (StatPieceInfo): "Shape S1 has 6 voxels
 /// (6 fixed, 0 variable)".

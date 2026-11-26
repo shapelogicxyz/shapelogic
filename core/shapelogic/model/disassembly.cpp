@@ -173,6 +173,22 @@ unsigned int Separation::sumRotations() const {
   return erg;
 }
 
+std::size_t Separation::byteEstimate() const {
+  std::size_t bytes = sizeof(Separation) + pieces_.size() * sizeof(unsigned int);
+  for (const State& st : states_) {
+    // x, y, z and, where the state has them, the orientations
+    bytes += sizeof(State) +
+             (st.hasOrientations() ? 4 : 3) * std::size_t{st.getPiecenumber()} * sizeof(int);
+  }
+  if (removed_) {
+    bytes += removed_->byteEstimate();
+  }
+  if (left_) {
+    bytes += left_->byteEstimate();
+  }
+  return bytes;
+}
+
 void Separation::addstate(State st) {
   BT_ASSERT(st.getPiecenumber() == pieces_.size());
   states_.push_front(std::move(st));

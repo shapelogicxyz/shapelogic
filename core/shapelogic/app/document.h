@@ -76,10 +76,21 @@ enum ChangeFlag : std::uint32_t {
   kChangeTray = 64,     ///< a Tilted Square puzzle's tray
 };
 
+/// What the undo steps of a document may hold together, in bytes, unless
+/// its settings say otherwise (DocumentSettings::undoBytes): the depth
+/// counts steps, and a few steps that each hold every solution of a problem
+/// that keeps them all would be gigabytes (cleanup item 17.10).
+inline constexpr std::uint64_t kUndoByteBudget = std::uint64_t{512} << 20;
+
 /// The settings of a document that are not UI (configuration.cpp).
 struct DocumentSettings {
   /// Undo steps kept (the web UI offers 25 to 500).
   unsigned int undoDepth = 25;
+  /// The memory the undo steps may hold together, about (kUndoByteBudget):
+  /// past it the oldest go, as past the depth, down to the newest, which
+  /// always stays. A step holds what it changed, and a step that changed a
+  /// problem's solutions holds them all.
+  std::uint64_t undoBytes = kUndoByteBudget;
 };
 
 /// The labels of the undo and redo steps, for edit.history.
@@ -315,6 +326,9 @@ class Document {
   [[nodiscard]] bool canUndo() const;
   [[nodiscard]] bool canRedo() const;
   [[nodiscard]] HistoryInfo history() const;
+  /// About the bytes the undo steps hold together: what
+  /// DocumentSettings::undoBytes bounds.
+  [[nodiscard]] std::uint64_t undoBytesHeld() const;
   /// Groups the following commands into one undo step (edit.begin), for
   /// a drag over many cells; groups do not nest.
   Result<void> beginGroup(std::string label);
@@ -675,6 +689,8 @@ class Document {
 
   [[nodiscard]] Result<FitStats> fit(Id problem) const;
   [[nodiscard]] std::vector<ShapeInfo> shapeTable() const;
+  /// One row of the table (shape.info), the other shapes' rows not worked out.
+  [[nodiscard]] Result<ShapeInfo> shapeInfo(Id shape) const;
   /// The drawing mesh of a shape (shape.mesh), in its own orientation or
   /// turned by one of the grid's transformations (a Placement's number;
   /// InvalidArgument beyond the grid's table).
@@ -893,6 +909,12 @@ class Document {
   [[nodiscard]] bool covered(SnapshotKind kind, unsigned int index) const;
   void touchShape(unsigned int index);
   void touchProblem(unsigned int index);
+  /// touchProblem for a command that changes neither the problem's saved
+  /// solutions nor its assemblies to take apart: the step keeps the problem
+  /// without them, so it costs nothing where they are many (its name, its
+  /// solver options, its groups, its rods and stacks). A later touchProblem
+  /// of the same step (in a group of edits) adds them.
+  void touchProblemSettings(unsigned int index);
   void touchColor(unsigned int index);
   void touchNotes();
   void touchWhole();
@@ -914,7 +936,8 @@ class Document {
   /// started (the launch was refused): it is dropped.
   void closeRunStep(bool started);
   void pushStep(Step step);
-  /// Drops the oldest undo steps past the depth, moving baseStamp_ up.
+  /// Drops the oldest undo steps past the depth and past the byte budget
+  /// (never the newest), moving baseStamp_ up.
   void dropOldestSteps();
   /// The stamp of the state the document is in: the step on top of the
   /// undo stack, or baseStamp_ with none.

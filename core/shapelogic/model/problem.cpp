@@ -605,6 +605,60 @@ void Problem::removeAllSolutions() {
 
 // ---- solutions ------------------------------------------------------------------
 
+Problem Problem::copyWithoutSolutions() {
+  // moved aside and back, whatever the copy does: every other member is
+  // copied by the compiler's copy, so one added later is copied too
+  struct Aside {
+    Problem& p;
+    std::vector<Solution> solutions;
+    std::vector<PendingAssembly> pending;
+    explicit Aside(Problem& problem)
+        : p(problem), solutions(std::move(problem.solutions_)), pending(std::move(problem.pending_)) {
+      p.solutions_.clear();
+      p.pending_.clear();
+    }
+    ~Aside() {
+      p.solutions_ = std::move(solutions);
+      p.pending_ = std::move(pending);
+    }
+    Aside(const Aside&) = delete;
+    Aside& operator=(const Aside&) = delete;
+  };
+  const Aside aside(*this);
+  return Problem(*this);
+}
+
+void Problem::swapButSolutions(Problem& other) {
+  std::swap(*this, other);
+  // and what goes with the solutions back to where it was
+  std::swap(solutions_, other.solutions_);
+  std::swap(nextSolutionId_, other.nextSolutionId_);
+  std::swap(solutionsVersion_, other.solutionsVersion_);
+  std::swap(sortedBy_, other.sortedBy_);
+  std::swap(sortedUpTo_, other.sortedUpTo_);
+  std::swap(pending_, other.pending_);
+}
+
+void Problem::copySolutionsFrom(const Problem& from) {
+  solutions_ = from.solutions_;
+  nextSolutionId_ = from.nextSolutionId_;
+  solutionsVersion_ = from.solutionsVersion_;
+  sortedBy_ = from.sortedBy_;
+  sortedUpTo_ = from.sortedUpTo_;
+  pending_ = from.pending_;
+}
+
+std::size_t Problem::solutionBytes() const {
+  std::size_t bytes = 0;
+  for (const Solution& s : solutions_) {
+    bytes += s.byteEstimate();
+  }
+  for (const PendingAssembly& p : pending_) {
+    bytes += sizeof(PendingAssembly) + p.assembly.placementCount() * sizeof(Placement);
+  }
+  return bytes;
+}
+
 void Problem::addSolution(Assembly assm) { addSolution(std::move(assm), numAssemblies_); }
 
 void Problem::addSolution(Assembly assm, std::uint64_t assemblyNumber) {
@@ -668,6 +722,32 @@ void Problem::removeSolution(unsigned int sol) {
   if (sol < sortedUpTo_) {
     sortedUpTo_--;
   }
+}
+
+std::size_t Problem::removeSolutionsIf(
+    const std::function<bool(std::size_t index, const Solution& solution)>& gone) {
+  const std::size_t n = solutions_.size();
+  std::size_t kept = 0;
+  std::size_t keptSorted = 0;  // of the first sortedUpTo_, which stay in order
+  for (std::size_t i = 0; i < n; i++) {
+    if (gone(i, solutions_[i])) {
+      continue;
+    }
+    if (i < sortedUpTo_) {
+      keptSorted++;
+    }
+    if (kept != i) {
+      solutions_[kept] = std::move(solutions_[i]);
+    }
+    kept++;
+  }
+  if (kept == n) {
+    return 0;
+  }
+  solutions_.erase(solutions_.begin() + static_cast<std::ptrdiff_t>(kept), solutions_.end());
+  sortedUpTo_ = std::min(sortedUpTo_, keptSorted);
+  touchSolutions();
+  return n - kept;
 }
 
 namespace {

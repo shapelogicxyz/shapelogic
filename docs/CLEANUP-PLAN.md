@@ -200,7 +200,7 @@ again, and comes last.
 - [x] Stage 14: dead code and the last traps (14.1's saveBytes `gzip` removal is an `Engine:` commit of its own; the contract flake of 12.8 fixed)
 - [x] Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (decided: D1; users notice: Undo takes a solve's results out, two sliding solves run at once, a quit waits for the solves to pause, Python's Tilted Square answers)
 - [x] Stage 16: damaged and hostile files (16.6 done first; a file whose disassembly nests more than 1000 deep is refused; its new finding is 18.5, the take-apart's own recursion; `just oracle-roundtrip` and `oracle-resume` not run: the reference checkout is not built)
-- [ ] Stage 17: core speed
+- [x] Stage 17: core speed (17.11 not needed and 17.13 not done, both measured; 17.10 in part: moving a problem, adding a color or a rod set and the sliding stamps still copy the whole puzzle, under the new byte budget; 17.1's `slidePhase` part `goal` is an `Engine:` commit of its own; users notice: "finding the move to the goal" as a search from the start alone ends, Fill holes and the status window at once on big shapes, the undo history held to 512 MiB; the Python transcripts differ from the original module's since before this stage: "Not in this plan")
 - [ ] Stage 18: the engine stays responsive
 - [ ] Stage 19: names and audits that must not drift
 - [ ] Stage 20: core deduplication under benchmarks
@@ -7540,7 +7540,7 @@ Run (2026-11-25, 16.1 to 16.5): `just build dev`, `release` and `asan`;
 All answers stay identical: the oracle and the benchmarks decide (rules 3
 and 5).
 
-- [ ] **17.1 After the goal is found, the last level is scanned again on one thread** (speed; S) ✓
+- [x] **17.1 After the goal is found, the last level is scanned again on one thread** (speed; S) ✓
   - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
     - `goalFound()` (6096-6132) walks `fwd_.cur` from key 0 with `movers_[0]`
       until a key has a move to the goal;
@@ -7563,8 +7563,51 @@ and 5).
     "the search finds the same path on any number of threads"
     (`tests/unit/solve/test_sliding.cpp:1336`).
   - *Tests:* that test, the Klotski 81-move test, `just oracle --tier sliding`.
+  - Done (2026-11-25, Fable): confirmed.
+    - `goalFound` goes through the level on every thread, as `stepBack`
+      looks for an arrangement before: the threads take its blocks in
+      order, the lowest arrangement with a move to the goal is kept under
+      a mutex, and a thread ends at a block that begins above it. The goal
+      it moves to is then worked out for that one arrangement (the first,
+      in the order its moves are tried): the path is the one the pass on
+      one thread gave.
+    - A stop is heard at each block. `goalFound` then answers `Stopped`
+      (`GoalEnd`), and the search ends as a stop in the level's expansion
+      ends it: the level is not counted and is expanded again when the
+      search carries on. No path is given from a level not gone through
+      (a block left out could hold a lower arrangement).
+    - **An engine addition** (rule 10; its own `Engine:` commit): the pass
+      is told as a part of the move, `SlidePhase::Goal`, `"goal"` in
+      `SolveProgress.slidePhase.part` (`api/types.json`, `docs/API.md`,
+      `api.generated.ts`), done of total in arrangements of the level (it
+      ends before its total where the arrangement is found early). The
+      renderer's words for it (`performance.ts`; `PHASE_WORDS` is a record
+      over the parts, so the type check asks for them): "Move 81 reaches
+      the goal; finding the move to the goal, 43% (12 s)." and the view's
+      tag "finding the move to the goal, 43%"; `docs/webui-spec.md` says
+      so. Users notice: that line, where the count stood still.
+    - **Speed** (rule 5; the release CLI, one solve at a time, the builds
+      taking turns). A 4x3 tray of eleven unit pieces told apart
+      (`--slide-apart`), three of them with goals in the far corners, so
+      the search runs from the start alone (239.5 million arrangements in
+      all). Ten threads, six runs each:
+      10.49 to 11.40 s (median 10.78) before, 8.66 to 9.37 s (median 9.10)
+      after: the 1.7 s are the pass on one thread. On one thread the two
+      are the same search: 34.64 and 34.36 s.
+    - Tests (`test_sliding.cpp`): "the move to the goal is looked for on
+      every thread, told, and can be stopped": eight unit pieces told
+      apart on a 3x3 tray, three with goals; one path on 1, 2 and 7
+      threads; a thread that asks for a stop when it sees the part told,
+      tried until the stop lands in it, then the search saved and carried
+      on to the same path. The check sits under a condition (rule 8): the
+      stop landed at the first try in 25 of 25 runs alone on the machine,
+      and within the first three tries in 80 of 80 runs with twenty of the
+      cases side by side (60 tries are allowed). With the last commit's
+      `goalFound` no stop lands: `CHECK(landed)` fails after 60 tries
+      (15 s). "the search finds the same path on any number of threads"
+      and the Klotski 81-move cases pass as they were.
 
-- [ ] **17.2 `Voxel::set` rescans the whole shape for every cell** (speed; S) ✓
+- [x] **17.2 `Voxel::set` rescans the whole shape for every cell** (speed; S) ✓
   - *Where:* `core/shapelogic/grid/voxel.cpp` `set()` (99-107) calls
     `recalcBoundingBox()` each time, a full scan.
     - Loops of `set` without the skip bracket:
@@ -7599,8 +7642,64 @@ and 5).
     once.
   - *Tests:* the grid tests; `just oracle-imports`; Fill holes on a hollow
     40³ box completes in the quick loop.
+  - Done (2026-11-25, Fable): confirmed (the unused `unionintersect` and
+    `getDiagonal` went with 14.1).
+    - `Voxel::BatchEdit` (voxel.h) takes the place of
+      `skipRecalcBoundingBox`, which is gone: while one lives `set` leaves
+      the box, and the outermost one works it out once as it ends. Two
+      things the item does not say, both found by the tests:
+      - **A batch without an edit leaves the box as it was.** The first
+        version recalculated at every batch's end, and "grid dump: every
+        grid computes what the original computes" failed on four lines:
+        Fill holes with no hole to fill, on an empty shape the dump had
+        turned, whose box the turn leaves at (0, 0, 2..0). The original
+        and the last commit never touch that box there, so the batch
+        recalculates only when an edit asked (`recalcSkipped_`). The
+        hand pairs did recalculate whatever was set, and a new empty
+        space's box is not an empty shape's (the constructor leaves it
+        inside out, the pass makes it all zero): where a shape is being
+        made the batch is told so (`BatchEdit::Box::Always`: the voxel
+        reader, `Assembly::createSpace`, the grid conversion, the SCAD
+        result, a disc, the Python module's `fill`).
+      - **An emptied cell loses its color in `set`,** not only in the
+        box's pass (`setState` keeps the color it finds: a cell emptied
+        and filled again inside a batch kept its color, and outside one
+        lost it). No site did that; now the cells are at every moment what
+        edits one at a time make them, and only the box and the
+        transformation cache wait for the batch's end.
+    - Used at the hand pairs (`puzzle_file.cpp`'s voxel reader,
+      `assembly.cpp`, `grid_convert.cpp`, `scad_file.cpp`, `stacking.cpp`)
+      and `py_shape.cpp`'s own guard, at the loops the item names
+      (`fillHoles`, `removeColor`, the PuzzleSolver3D reader: one batch a
+      shape, held in an optional; the SCAD reader's cells), and at the
+      others a grep of every `set`, `setState` and `setColor` found (rule
+      8): `isNotchable`'s three projections, `editCells` (a stroke with a
+      span or mirror tool is planes of cells), the tilted tray's board
+      (`fillTrayBoard`, `keepOnTray`, the fitted piece), and the sliding
+      model's fills and paints (`fillTray`, `paintPieceNeutral`,
+      `paintPieceColor`, `paintFootprint`, `eraseColor`, the new piece's
+      cells, `convertLegacyStarts`). Left alone: single cells, and the
+      rotation rules' and assemblers' `set`s, which are other classes'.
+    - `Voxel::clearMarks()` for the loops that cleared every mark (the
+      reader's, `adoptBoardMarks`, `beginBoardEdit`, `readBoardTags`), and
+      `setMark` no longer makes a list of zeros to clear a mark of a shape
+      that has none.
+    - **Speed** (a release build of the library before and after, the
+      same program on both): the PuzzleSolver3D import of a hollow box of
+      30 cells a side 0.087 s before, 0.0001 s after; Fill holes on it
+      0.97 s before, 0.0017 s after (20 a side: 0.091 and 0.0010 s). After
+      only: 40 a side 0.004 s, 100 a side 0.107 s (import 0.0015 s).
+    - Tests: `test_voxel.cpp` "a batch of edits works the bounding box out
+      once, as the outermost one ends" (every grid; nested batches, the
+      cell emptied and filled, a batch without an edit; 14 checks fail
+      when the batch does not hold the box back) and "clearMarks drops
+      every start and goal mark"; `test_voxel_connect.cpp` "Fill holes and
+      the connection checks on shapes of a few hundred thousand cells" (a
+      hollow box of 40 a side filled, a block of 60 a side asked its five
+      questions: 0.5 s in the debug build; without the batch and the path
+      halving of 17.3 it was stopped after 3 min 40 s).
 
-- [ ] **17.3 Union-find without path compression, and `shape.info` works out every shape's row** (speed; S) ✓
+- [x] **17.3 Union-find without path compression, and `shape.info` works out every shape's row** (speed; S) ✓
   - *Where:* `core/shapelogic/grid/voxel.cpp` (332-337: `root` walks the
     chain; copies at 386-391 and 421-426); `core/shapelogic/app/queries.cpp:104-108`
     (`connected` five times per shape, for every shape, on each `shape.info`);
@@ -7615,8 +7714,27 @@ and 5).
     function in `queries`).
   - *Keep:* the partitions; the answers do not change.
   - *Tests:* the grid tests; a 60³ shape's connectivity in the quick loop.
+  - Done (2026-11-25, Fable): confirmed.
+    - One `unionRoot` with path halving for `unionFind`, `connected` and
+      `fillHoles` (the three lambdas are gone).
+    - `app::shapeInfo(puzzle, index)` and `Document::shapeInfo(id)`: one
+      row, the shapes before it only hashed (the row names the earlier
+      shape it is identical to); `shapeTable` is the same row function in
+      a loop. `shape.info` asks for its one row. No API change.
+    - **Speed** (as 17.2): the status window's five questions of a solid
+      block of 30 cells a side 0.358 s before, 0.011 s after; 40 a side
+      5.62 s before, 0.014 s after (after only: 60 a side 0.048 s, 100 a
+      side 0.24 s). The table of six blocks of 30 a side 2.78 s before,
+      0.065 s after, and its last row alone 0.010 s.
+    - Tests: `test_voxel_connect.cpp` "connected and fillHoles give a
+      flood's groups on every grid": 120 random shapes a grid, the three
+      neighbor kinds, the four questions asked and Fill holes, each
+      against a flood over the edges the definition gives (it passes
+      before and after: the groups did not change); the big shapes of
+      17.2's case. `test_tools_queries.cpp`: `shapeInfo` is the table's
+      row, every shape of four fixtures.
 
-- [ ] **17.4 The goal test decodes pieces that cannot fail** (speed; S)
+- [x] **17.4 The goal test decodes pieces that cannot fail** (speed; S)
   - *Where:* `sliding_search.cpp`: `isGoal`'s single-piece loop (1892-1896),
     against the packs' loop (1897-1901: `if (!pk.hasGoal) continue;`). It is
     called for every emitted arrangement (5058).
@@ -7625,8 +7743,19 @@ and 5).
   - *Keep:* the answers (it is a pure AND).
   - *Verify:* bench a sliding search with pieces that have no goal, before
     and after; the oracle's sliding tier.
+  - Done (2026-11-25, Fable): confirmed. `SlideSpace::goalSingles`, made in
+    `layout()`: the pieces with a field of their own whose table has a
+    place off their goal; `isGoal` loops over those.
+    - **Speed** (the release CLI on one thread, where a run repeats within
+      half a percent; three builds of each state with different function
+      alignments, since the layout alone moves a search by a percent or
+      two). The 4x3 tray of 17.1 with the goals on the pieces that come
+      last in the pieces' order: 10.29, 10.36 and 10.47 s before, 9.32,
+      9.25 and 9.26 s after (10.5% less). With the goal on the first piece
+      the test fails at once either way: 34.36 and 34.77 s, no gain.
+    - Tests: the sliding cases as they were (the goal test is a pure AND).
 
-- [ ] **17.5 Nested slides: `groupAt` runs for pieces that can hold nothing** (speed; S)
+- [x] **17.5 Nested slides: `groupAt` runs for pieces that can hold nothing** (speed; S)
   - *Where:* `sliding_search.cpp`: `expandAt` (2023-2059), `movesBack`
     (2088-2094), `groupAt` (2870-2902).
   - *Change:*
@@ -7638,8 +7767,22 @@ and 5).
       members check.
   - *Tests:* the `checkSlideMovesBack` tests (`test_sliding.cpp:3265`, 3293
     and 4640), the nested both-ends fuzz test, `just oracle --tier sliding`.
+  - Done (2026-11-25, Fable): confirmed. `SlideSpace::holds` (set in
+    `build` with nested slides: the outline has a cell that is not the
+    piece's own); `expandAt` and `movesBack` pass a piece without it, whose
+    group is itself wherever the pieces are (no piece shares a cell with
+    it). `expandLoose` as it was.
+    - **Speed** (as 17.4). A 9x8 tray, a 5x5 piece with a unit in its
+      pocket and 44 units around it, four cells free, `--nested-slides`,
+      the unit's goal outside the pocket so that every arrangement is
+      searched: 10.72, 10.83 and 10.99 s before, 8.08, 8.07 and 8.00 s
+      after (26% less). With five pieces on an open floor (the fills are
+      long, the groups few) 10.94 and 10.84 s.
+    - Tests: the `checkSlideMovesBack` cases and the nested searches of
+      `test_sliding.cpp`, as they were; the hidden fuzz cases: see the
+      gates.
 
-- [ ] **17.6 Panex copies its whole frontier at each save, and holds two after a resume** (speed, memory; S) ✓
+- [x] **17.6 Panex copies its whole frontier at each save, and holds two after a resume** (speed, memory; S) ✓
   - *Where:* `core/shapelogic/solve/panex_search.cpp`:
     - the `saveState` lambda (1235-1252) runs `st.fwdPrev = fwd.prev; …`
       for all five layers;
@@ -7661,8 +7804,30 @@ and 5).
   - *Keep:* the file's bytes.
   - *Tests:* "a stopped search carries on where it stopped" and "tracing
     back between saved levels" in `test_stacking.cpp`; `just oracle-resume`.
+  - Done (2026-11-25, Fable): confirmed, both halves.
+    - `Store::saveState` takes the header (`SavedHeader`) and the five
+      layers where the search has them (`SavedLayers`, references); the
+      note of where the ends met gives five empty ones. `SavedState` is
+      the header and the layers read back; `resumeFrom` is not const, and
+      the top search moves the layers out of it.
+    - **Memory.** Two Panex towers of eight discs swapped, a budget of
+      96 MiB (the library called directly: the CLI has no switch for the
+      budget): the search outgrows it after 37.6 s and saves itself, a
+      `state.bin` of 57.6 MB. Carried on and stopped at once, the process
+      held 183 MB at its most before (the state read, the search's copy,
+      the save's copy) and 67 MB after. The first run's own peak is the
+      search's other memory either way (1276 and 1255 MB).
+    - *Keep:* the file's bytes: of the towers of seven stopped by a budget
+      of 8 MiB, the two builds' `state.bin` (5.0 MB) differ in one byte,
+      of the time used.
+    - Tests (`test_stacking.cpp`): "a search carried on and stopped at
+      once saves the frontier it took up" (the state's bytes but for the
+      time, then carried on to the answer; it passes before too: it keeps
+      the layers moved out the ones saved). Not run: `just oracle-resume`
+      and `oracle.py panex-resume` (the reference's library is not built:
+      see the gates).
 
-- [ ] **17.7 Assembler 1 keeps a second copy of its matrix** (speed, memory; S to M)
+- [x] **17.7 Assembler 1 keeps a second copy of its matrix** (speed, memory; S to M)
   - *Where:* `core/shapelogic/solve/assembler_1.cpp:2447` (`base_ = links_;`
     in `assemble()`). Its readers are 1510 (a worker, `n_ = parent_.base_`),
     1821 and 1998 (task generation); `assembler_1.h:256-259`.
@@ -7682,8 +7847,23 @@ and 5).
   - *Tests:* `test_assembler_1`, `test_split_tasks`, `just oracle-resume`,
     `just oracle --tier full` with all threads and with `--threads 1`; bench
     `--plain`.
+  - Done (2026-11-25, Fable): confirmed. `base_` is gone.
+    - A worker copies `links_`: a split search begins at the root, its
+      tasks are made on a copy, and nothing writes the matrix while the
+      workers run (`createSimdSolver`, the positions and the progress read
+      it). `generateSubtreeTasks` holds that copy (`Links work`), local,
+      gone when the tasks are made; `generateTasksAtDepth` takes it and
+      starts each depth from `links_`, so a stop part way leaves nothing
+      to put back.
+    - **Speed and memory** (the library called directly): the twelve
+      pentominoes twelve times each in a 12x10x6 box, the matrix made
+      (23 MB), then `assemble()` on one thread without the vector search
+      with a stop already asked for, 200 times (a journal's save point is
+      such a run): 0.471 ms a run and 41 MB at its most before, 0.220 ms
+      and 30 MB after. The benchmark's rows are in the gates.
+    - Tests: `test_assembler_1`, `test_split_tasks`, `just test-tsan`.
 
-- [ ] **17.8 Playback clones and turns every piece for every sample** (speed; S)
+- [x] **17.8 Playback clones and turns every piece for every sample** (speed; S)
   - *Where:* `core/shapelogic/app/playback.cpp:325-338`: `evaluate()` runs
     `clone()` and `transform(t)` for each piece and sample only to read the
     turned hotspot and matrix (`recalcSpaceCoordinates` depends on the grid
@@ -7695,8 +7875,26 @@ and 5).
   - *Keep:* the poses, number for number.
   - *Tests:* `tests/unit/app/test_playback_explorers.cpp`; the web engine
     pose tests.
+  - Done (2026-11-25, Fable): confirmed. A piece keeps, for each
+    orientation it has met, the turned hotspot in mesh units, the turn
+    from its assembly orientation and the mesh's shift (`Piece::orient`;
+    `orientCenter` went into it). The cells-to-mesh rule is asked of the
+    piece's own shape (it is the grid's).
+    - *Keep:* the poses, number for number: the bytes of every time and
+      pose of the tracks of eleven files (the fixtures with take-aparts, a
+      Klotski path, a Hanoi path) hash the same before and after.
+    - **Speed** (a track at 8 samples a step, the library called
+      directly): Pelikan Burr (1732 samples of 7 pieces) 1.5 ms before,
+      0.3 ms after; Prisgon 0.8 and 0.2 ms; Dracula's Dental Desaster 1.2
+      and 0.2 ms; the Klotski path (1300 samples of 10 pieces) 0.9 and
+      0.2 ms; the fixture with turns 0.4 and 0.3 ms (its meshes are made
+      once either way).
+    - Tests (`test_playback_explorers.cpp`): "a pose is the same whatever
+      the sampler was asked before" (four fixtures, backwards and forwards
+      through the moves, each pose against a sampler asked nothing else);
+      the dump's tracks against the original's as they were.
 
-- [ ] **17.9 Quadratic loops over solution lists** (speed; S)
+- [x] **17.9 Quadratic loops over solution lists** (speed; S)
   - *Where:*
     - `core/shapelogic/app/document_commands.cpp:1548-1577`: "Remove
       assemblies" with All, Before or WithoutDisassembly calls
@@ -7710,8 +7908,26 @@ and 5).
       right (count the kept ones before it).
     - An id-to-index map in `poll()`.
   - *Tests:* the deleteSolutions tests; `tests/unit/app/test_analysis_files.cpp`.
+  - Done (2026-11-25, Fable): confirmed.
+    - `Problem::removeSolutionsIf(gone)`: one pass, the kept ones in
+      order, `sortedUpTo_` the kept ones of the sorted start, one
+      `touchSolutions` when any went. "Remove assemblies" uses it for All,
+      Before, After and WithoutDisassembly.
+    - `poll()` looks each result's solution up in a map of ids made once a
+      job (the first of an id, as the search found it).
+    - **Speed** (the library called directly, a problem of copies of one
+      solution): Remove assemblies, All, of 20,000: 1.04 s before, 0.0009 s
+      after; of 40,000: 4.22 s and 0.0019 s (Before the same). `poll()`
+      after a take-apart of all 20,000: 0.123 s and 0.008 s; of 40,000:
+      0.403 s and 0.013 s.
+    - Tests: `test_puzzle_model.cpp` "removeSolutionsIf removes what a
+      loop of removeSolution does" (seven choices, the list and the next
+      sort against the loop's; without the `sortedUpTo_` line two checks
+      fail); `test_document.cpp`: the lists after Before and After by id,
+      and WithoutDisassembly, which no test asked for, on a list with
+      twenty bare solutions among the others.
 
-- [ ] **17.10 Undo steps copy every saved solution, and the depth counts steps, not bytes** (speed, memory; M)
+- [x] **17.10 Undo steps copy every saved solution, and the depth counts steps, not bytes** (speed, memory; M)
   - *Where:*
     - `core/shapelogic/app/document.cpp`: `touchProblem()` (395-405) copies
       the problem with its solutions; the whole-puzzle steps (403, 464);
@@ -7744,8 +7960,63 @@ and 5).
     - This also makes 15.5's steps cheaper where it fits.
   - *Keep:* the "undo gives writePuzzle byte for byte" tests of each command:
     they guard exactness.
+  - Done in part (2026-11-25, Fable): confirmed.
+    - **Done: the problem's settings.** `touchProblemSettings`: the step
+      keeps the problem without its saved solutions and its assemblies to
+      take apart (`Problem::copyWithoutSolutions`: they are moved aside
+      while the compiler's copy takes the rest, so a member added later is
+      copied too) and swaps everything but those (`swapButSolutions`: the
+      whole problems swapped, the solutions with their ids, version and
+      order swapped back). Used by `renameProblem`, `setSolverOptions`,
+      `setGroupCount`, `setGroup`, `deleteGroup`, `setProblemRodSet` and
+      `moveDisc`, each read again: none changes a solution (the stacking
+      edits change the rod set and the stacks). Undone, the solutions'
+      version does not move: the list is the one it was.
+      - In a group of edits a later `touchProblem` of the same step adds
+        the solutions to that copy (`copySolutionsFrom`): they are still
+        what they were, since nothing changes them without a touch first.
+        Not after a whole copy in the step, which holds them.
+    - **Done: the byte budget.** `DocumentSettings::undoBytes`
+      (`kUndoByteBudget`, 512 MiB; a core setting, not an engine one):
+      `dropOldestSteps` drops the oldest while the steps hold more
+      (`Snapshot::bytes`: a shape's cells, a problem's solutions by
+      `Solution::byteEstimate`), never the newest, with 4.4's
+      `baseStamp_`; `redo` asks again, since a step redone holds the other
+      state. `Document::undoBytesHeld()` says what they hold.
+    - **Not done: the `RodSet` and `ProblemOrder` kinds, and the sliding
+      stamps.** Adding, copying, renaming and moving rod sets,
+      `moveProblem`, `addColor` and every sliding stamp still copy the
+      whole puzzle. A step of them holds every solution; the budget now
+      bounds what such steps hold together. Why they were left: a part
+      that is an order or an appended color needs `covered()` to stop at
+      it (a problem's snapshot is found by its index, which a move
+      changes), `addColor` changes every problem's color rules, and
+      `syncSliding` rewrites shapes, colors and marks together: each a
+      change of its own with its own byte-for-byte tests. For a later
+      stage; on a sliding or stacking puzzle a problem holds one path.
+      Looked at again as the stage ended (2026-11-26), and left so:
+      moving a problem and adding a color or a rod set are rare, the
+      budget bounds what their steps hold, and an order part would make
+      the index of every problem part depend on where in the step it
+      stands, a change to the undo machinery after which no review comes
+      in this plan. Listed under "Not in this plan".
+    - **Speed and memory** (the library called directly: Solid Six Piece
+      Burrs with 20,000 solutions and their take-aparts, 100 changes of a
+      solver option and 100 of the name, the depth 500): 1.40 s and the
+      process from 196 MB to 7988 MB before (200 copies of the solutions,
+      and no budget); under a millisecond and 196 MB after.
+    - Tests: `test_document.cpp` "a step that changes no solution holds
+      none, and the steps have a byte budget" (each of the commands undone
+      and redone to the same file; the steps hold under a kilobyte; a
+      group of a rename, Remove assemblies and an option; a group with a
+      whole copy in it; the budget: three of eight steps kept, steps
+      without solutions not pushing them out, the oldest state gone and
+      the document not clean, the newest step kept when it alone is
+      over). Without the filling-in of the copy three checks fail and
+      `removeSolution` asserts. `test_puzzle_model.cpp` "a copy without
+      the solutions, and a swap that leaves them".
 
-- [ ] **17.11 The stop token walks its parent chain at every search step** (speed; S to M; measure first)
+- [x] **17.11 The stop token walks its parent chain at every search step** (speed; S to M; measure first)
   - *Where:* `core/shapelogic/base/stop.h:34-44`: `effective()` does an
     acquire load and a pointer hop per level. It is polled at every step in:
     - `assembler_0.cpp:188` and 469;
@@ -7766,16 +8037,53 @@ and 5).
   - *Measure:* `bench.py`'s default set with a three-level token (the CLI
     has two; build a three-level chain behind a bench switch if needed). If
     the cost is under 1%, write "Not needed" with the numbers.
+  - Not needed (2026-11-25, Fable): measured, under 1%. Three builds of
+    the whole core: a poll that reads its own state only (what (a) would
+    give), the chain as it is (two levels in the CLI), and one level more
+    (every source given a parent: three, as in the app); each also with
+    64-byte function alignment. One thread, the solve's own seconds,
+    medians of five runs (one level, two, three):
+    - the 6x10 pentominoes without the vector search (assembler 0, a poll
+      a step): 1.423, 1.425, 1.424; aligned 1.419, 1.426, 1.426;
+    - with it: 0.949, 0.945, 0.946; aligned 0.975, 1.049, 1.005 (the
+      alignment moves it more than the chain);
+    - Solid Six Piece Burrs `-r` without it (assembler 1), nine runs:
+      0.254, 0.258, 0.247; aligned 0.249, 0.253, 0.247;
+    - three of each tetromino on 6x10 (assembler 1, 23 s, no assembly),
+      three runs: 23.49, 23.45, 23.58; aligned 23.64, 23.71, 23.74;
+    - Solid Six Piece Burrs `-r -d` (the take-apart): 0.051, 0.050, 0.050.
+    A level of the chain costs 0.5% at most (the tetrominoes), within what
+    the alignment alone moves a run. `stop.h` is as it was.
 
-- [ ] **17.12 Assembler 1 keeps its nodes' up and down links in separate arrays** (speed; M; bench first)
+- [x] **17.12 Assembler 1 keeps its nodes' up and down links in separate arrays** (speed; M; bench first)
   - *Where:* `core/shapelogic/solve/assembler_1.h:95-101`, compared with
     `dlx_matrix.h:32-40`, which interleaves them ("saves a register in the
     cover loops"). The loops that touch them: `hideRow` and `coverColumnRows`
     (`assembler_1.cpp:117-164`).
   - *Change:* interleave them as `DlxNodes` does (mechanical). Keep it only if
     `bench.py --plain` and `--set identical` show it faster.
+  - Done (2026-11-25, Fable): benched first, and kept. `Links::upDown`, up
+    at the even places and down at the odd ones, with `up(x)` and
+    `down(x)`, as `DlxNodes` has them; the 60 uses in `assembler_1.cpp`
+    changed by a script (brackets matched), the four pairs of
+    `push_back` into the one array.
+    - **Speed** (two builds of the whole core for each state, the second
+      with 64-byte function alignment; the release CLI on one thread
+      without the vector search, medians of seven runs): Solid Six Piece
+      Burrs `-r` 0.259 and 0.257 s before, 0.207 and 0.214 s after (17 to
+      20% less); three of each tetromino on 6x10 (no assembly: the search
+      alone) 55.0 and 54.4 s before, 49.9 and 50.5 s after (7 to 9% less);
+      the ranges on 3x3x3 1.476 and 1.518 s before, 1.376 and 1.445 s
+      after, and on all threads 0.278 and 0.253 s; 12 L-trominoes 0.322
+      and 0.308 s before, 0.316 and 0.290 s after. One row is slower: 20
+      dominoes on 2x4x5, 0.296 and 0.297 s before, 0.306 and 0.308 s after
+      (3 to 4% more: its rows are two cells, and a walk down a column
+      reads every other number of the array now). The benchmark's rows
+      against the last commit are in the gates.
+    - Tests: `test_assembler_1`, `test_split_tasks`, the assemblers'
+      cases of the quick and the slow suite, as they were.
 
-- [ ] **17.13 The take-apart allocates for every candidate move** (speed; M; bench first)
+- [x] **17.13 The take-apart allocates for every candidate move** (speed; M; bench first)
   - *Where:* `core/shapelogic/solve/disassembler_node.h:40-42` and
     `disassembler_node.cpp:15` (two allocations per node);
     `disassembler.cpp:176` (an `unordered_set` per position on the parallel
@@ -7787,8 +8095,28 @@ and 5).
     - A scratch set per slot for `seen`, or no `seen` for Classic, where the
       merge's `take()` already removes duplicates.
   - *Bench:* `-d -R`.
+  - Not done (2026-11-25, Fable): benched first, and nothing to keep.
+    Three builds of the whole core beside the tree's, each also with
+    64-byte function alignment: a node's places inside the node for up to
+    16 pieces (one allocation a node), no set for a position's candidates
+    on the parallel path (the ones kept so far looked through), and both.
+    The release CLI, the solve's own seconds, medians of nine runs (as it
+    is, one allocation, no set, both):
+    - Hex Sticks `-r -d`, one thread: 0.189, 0.188, 0.190, 0.191; all
+      threads: 0.109, 0.107, 0.109, 0.107;
+    - Cube In Cage `-r -d -R`, one thread: 0.136, 0.138, 0.138, 0.137; all
+      threads: 0.027, 0.028, 0.028, 0.027;
+    - Solid Six Piece Burrs `-r -d`, one thread: 0.050 each;
+    - Pelikan Burr `-r -d -R`, all threads, two runs: 9.08, 9.18, 9.13,
+      9.05; one thread, one run: 53.01, 53.07 (one allocation), 53.02
+      (both).
+    The aligned builds say the same (0.190, 0.191, 0.190; 0.137 each;
+    9.10, 9.20, 9.13). Every difference is within a percent, and the
+    larger node costs memory for the pieces it has no use for (128 bytes a
+    node of six pieces). The time is in the movement checks, not in the
+    allocator. The code is as it was.
 
-- [ ] **17.14 Sliding: one flood for shifts and groups** (combine, speed; S to M)
+- [x] **17.14 Sliding: one flood for shifts and groups** (combine, speed; S to M)
   - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
     - `floodShifts` (2657-2733) and `floodGroup` (2753-2818) are near-copies;
     - "others_ = occupied_ less the group" is written three times (2048,
@@ -7803,11 +8131,133 @@ and 5).
     `just oracle --tier sliding`); and the speed (time a sliding solve
     alone, before and after).
   - *Order:* before 21.1, which then only moves code.
+  - Done (2026-11-25, Fable): confirmed.
+    - `floodOver`, a template on what is soft (`softOf(piece, cells)`,
+      whose answers for the shifts the group fits are or-ed into
+      `touched`) and on what a stop does (`stop(shift, key)`, true to
+      end): `floodShifts` gives it `others_`, nothing soft and the
+      caller's `each`; `floodGroup` its `blocked`, the loose pieces'
+      cells and a push onto `groupStops_` (it asserts the keys are not
+      packed: loose stops never are). `othersWithout(group, members)` for
+      the three copies, `nextEpoch()` for the two.
+    - *Keep:* the moves and their order: the sliding cases, `[sliding]`
+      with `[slow]`, as they were.
+    - **Speed** (as 17.4, after 17.5): the crowded nested tray 8.08, 8.07
+      and 8.00 s before, 8.26, 8.14 and 8.01 s after (1.1% more; from
+      0.2% to 2.2% by the alignment); the open one 10.837 and 10.848 s.
+      Within what the alignment moves a run: kept, as a combine. The
+      loose stops' path (`floodGroup`) was not timed: no board that
+      reaches it runs long enough to tell.
 
 **Gates for stage 17:** `just test-all`, `just test-tsan`, the oracle tiers
 each item names (`fast`, `full`, `sliding`, with all threads and
 `--threads 1`), `just oracle-resume`, `just oracle-imports` (17.2), and
 `bench.py` with the before and after numbers.
+Run (2026-11-25 and 26, after the last source edit; the session that did
+the items was stopped by a usage limit in its gates, and a second one
+finished them, its leftover runs stopped first): `just build dev`,
+`release`, `asan` and `tsan`;
+- `just test-all`: 75 of 75 (288 s; the CLI's and the Python module's
+  tests are two of them); `just test` after each item, and twice after
+  the last edit: 30 of 30 each;
+- `just test-asan`: 74 of 74 (893 s);
+- `just test-tsan`: the 131 `[parallel]` cases (17.1's new one among
+  them, 6 s) and the contract suite on the TSan engine (153 methods, 0
+  failed);
+- the hidden fuzz cases of the slide search in the release build
+  (`bt_tests "[fuzz][sliding]"`: the level search against the legacy one,
+  nested slides from both ends, the moves made backwards, the stops of a
+  grid cell, the copies as one number): all five pass (1,136,732
+  assertions, 75 min on one thread beside the other gates; the grid
+  cell's case compared 2773 boards, 1627 with a path, the longest 30
+  moves, 2461 with their stops searched as one);
+- `just oracle --tier fast --allow-missing` against the committed
+  baselines, with all threads, `--threads 1` and `--solver crowell`: 18
+  of 19 compared, 0 differ, each (one file is not in the checkout);
+  `--tier sliding`: 23 of 35 compared, 0 differ, and with `--threads 1`
+  32 of 35, 0 differ (nine sliding puzzles with several starts are
+  compared on one thread only; three files are not in the checkout);
+  `--tier stacking`, with all threads and `--threads 1`: 38 of 41
+  compared, 0 differ (two files are not in the checkout; the original
+  gives no answer for one);
+- `just oracle-python --allow-missing`, against the original's module in
+  the checkout's `build-rel` (built 2026-11-15): 11 of 37 transcripts the
+  same. The 26 others are older than this stage: the last commit's
+  module, built in a scratch copy, differs from the original's in the
+  same 26, and against this tree's module it gives all 37 the same
+  (the iteration counts on one thread included). They are iteration
+  counts on one thread (Four Piece Tetrahedron 15 there, 19 here) and, in
+  eight transcripts of seven puzzles, solutions' `moves_text` (Bermuda's
+  first: "1" there, "1.1.1.1.1.1.1.1.1.1.1" here; in Demo Piece Generator
+  and Solid Six Piece Burrs `total_moves` too, which puts their sorted
+  lists in another order), where `--tier fast` finds the original's
+  moves: a finding for a later session, not of this stage;
+- **Not run:** the oracle's `full` and `slow` tiers (0 of 158 and 0 of 3
+  compared: their puzzles are not in the reference checkout); `just
+  oracle-resume`, `oracle-imports` and `oracle-roundtrip` ("original
+  library not found": they need the original's library in its `build`
+  folder); `oracle-files` and `oracle-text` (with `--allow-missing` they
+  compare nothing: the original's solved files, `oracle.py
+  baseline-files`, are not recorded). What stands in for the imports: the
+  import cases of `test_imports.cpp` and the dump tests against the
+  original's recordings (the grid dump found the batch's first version
+  wrong: 17.2); for the resumes: the carried-on searches' cases of the
+  assemblers, the slide search and Panex;
+- **`bench.py` against the original cannot be run here:** the checkout's
+  `build-rel/burrTxt` prints no time (its summary ends at the
+  iterations), and the script takes every row of it as failed; the
+  default set's TIC puzzles are not in the checkout, and `--set glar`'s
+  puzzle is outside it. The rows of the default set, `--plain` and `--set
+  identical` that can run, and the take-aparts of 17.13, the last
+  commit's CLI against this tree's, taking turns, one solve at a time
+  with nothing beside them, medians of five or seven runs (two of the
+  long ones), seconds, before and after (the answers' lines the same in
+  every run):
+
+  | puzzle | 1 thread | 1 thread, plain | 10 threads | 10 threads, plain |
+  |---|---|---|---|---|
+  | pentomino 6x10 (-r) | 0.941, 0.958 | 1.423, 1.420 | 0.172, 0.171 | 0.241, 0.242 |
+  | SolidSixPieceBurrs (-r) | 0.047, 0.045 | 0.246, 0.213 | 0.019, 0.017 | 0.052, 0.042 |
+  | 20 dominoes 2x4x5 | 0.193, 0.189 | 0.298, 0.301 | 0.085, 0.079 | 0.097, 0.096 |
+  | 12 L-trominoes 3x3x4 | 0.171, 0.169 | 0.311, 0.300 | 0.049, 0.049 | 0.068, 0.063 |
+  | ranges 3x3x3 | 0.559, 0.561 | 1.462, 1.327 | 0.099, 0.099 | 0.281, 0.254 |
+  | 3 of each tetromino 6x10 | 23.42, 23.42 | 55.20, 50.29 | 3.807, 3.790 | |
+  | SolidSixPieceBurrs (-rd) | 0.050, 0.049 | | 0.022, 0.019 | |
+  | HexSticks (-rd) | 0.191, 0.192 | | 0.102, 0.105 | |
+  | CubeInCage (-rdR) | 0.139, 0.138 | | 0.026, 0.027 | |
+
+  DraculasDentalDesaster and DemoPieceGenerator take a millisecond either
+  way. The slide searches of 17.1, 17.4 and 17.5 in the same run: 10.48
+  and 8.92 s (ten threads), 10.30 and 9.16 s, 10.86 and 8.24 s (one
+  thread; the crowded tray on ten: 2.32 and 2.05 s); Klotski 0.011 s
+  both. No row is more than 3% slower but Cube In Cage on ten threads
+  (0.026 and 0.027 s, a millisecond, their means the same); Hex Sticks on
+  ten threads 2.9% (within its runs' spread), the pentominoes on one
+  thread 1.8% (their fastest runs 0.936 and 0.934 s);
+- `just check` on the 33 changed sources and test files: clean;
+- seen failing (rule 8): each item's Done line says how its tests fail
+  without its fix (the fix taken out in place, the test run, the file put
+  back and compared);
+- `just app-check`: clean; `just app-test`: 689 of 689 (the engine's
+  types generated again, `python3 api/gen_api_md.py`); the recorded
+  sessions of the fake engine are as they were (no recorded search ends
+  in the new part);
+- on a build of its own (`BT_OUT_DIR`), with the release engine: the
+  `sliding` e2e spec, 21 of 21 (its Performance Analysis case draws the
+  part's line through `performance.ts`);
+- `just site-demo --check` after the last source edit (rebuilt; every
+  puzzle type opens and plays) and `just site-build` (8 of 8);
+- GCC 16 (Homebrew's; `-fsyntax-only` with the build's warnings) on the
+  33 changed sources and test files: no error. Its warnings there are of
+  the kinds it gives the last commit's copies, compared file by file:
+  seven more `-Wunused-result` on `roundTrip` calls in the new undo test
+  and one more `-Wsign-conversion` (`differ += … ? 0 : 1`) in the new
+  pose test, as the files' others (CI's GCC builds, Linux and MinGW, take
+  `-DBT_WERROR=OFF`), none on a line of the core. Nothing was built or
+  run on Linux or compiled for Windows: no item adds a system call or a
+  branch under `#ifdef`;
+- Not run: the other e2e specs (the renderer's change is the words of
+  one part), `just gate`.
 
 ## Stage 18: the engine stays responsive
 
@@ -8327,3 +8777,14 @@ the release build's time.
 - Unity builds and precompiled headers: after `sliding_search.cpp` (21.1),
   the slowest of our files takes about 11 s in dev, so they would not save
   much.
+- The undo steps that still copy the whole puzzle (17.10's other part
+  kinds): moving a problem, adding a color, the rod set commands and the
+  sliding stamps. `DocumentSettings::undoBytes` bounds what they hold;
+  making them cheaper needs a part for a problem order (with `covered()`
+  stopping at it), one for every problem's color rules and one for a rod
+  set, each with its own byte-for-byte undo tests.
+- The Python module's transcripts against the original module of the
+  reference checkout's `build-rel` (stage 17's gates): 26 of 37 differ in
+  iteration counts on one thread and in some solutions' `moves_text` and
+  `total_moves`, from before stage 17. Worth a look once the checkout is
+  whole and built.

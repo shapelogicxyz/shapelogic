@@ -405,8 +405,8 @@ Reply shapeInfo(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   BTE_CHECK(p.finish());
   BTE_TRY(const unsigned int index, s.document().shapeIndex(shape));
-  const std::vector<app::ShapeInfo> rows = s.document().shapeTable();
-  return shapeInfoJson(s, rows[index], index);
+  BTE_TRY(const app::ShapeInfo row, s.document().shapeInfo(shape));
+  return shapeInfoJson(s, row, index);
 }
 
 Reply shapeTable(State& s, Params& p) {

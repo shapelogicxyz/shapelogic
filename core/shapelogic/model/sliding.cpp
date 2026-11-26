@@ -59,6 +59,7 @@ unsigned int piecePartIndex(const Problem& problem, unsigned int shapeId) {
 }
 
 void fillTray(Voxel& v) {
+  const Voxel::BatchEdit batch(v);
   for (unsigned int y = 0; y < v.getY(); y++) {
     for (unsigned int x = 0; x < v.getX(); x++) {
       v.setState(x, y, 0, Voxel::kFilled);
@@ -67,6 +68,7 @@ void fillTray(Voxel& v) {
 }
 
 void paintPieceNeutral(Voxel& piece) {
+  const Voxel::BatchEdit batch(piece);
   for (unsigned int i = 0; i < piece.getXYZ(); i++) {
     if (piece.getState(i) != Voxel::kEmpty) {
       piece.setColor(i, 0);
@@ -75,6 +77,7 @@ void paintPieceNeutral(Voxel& piece) {
 }
 
 void paintPieceColor(Voxel& piece, unsigned int color) {
+  const Voxel::BatchEdit batch(piece);
   for (unsigned int i = 0; i < piece.getXYZ(); i++) {
     if (piece.getState(i) != Voxel::kEmpty) {
       piece.setColor(i, color);
@@ -108,6 +111,7 @@ bool footprintFits(const Voxel& tray, const Voxel& piece, int ax, int ay,
 }
 
 void paintFootprint(Voxel& tray, const Voxel& piece, int ax, int ay, unsigned int color) {
+  const Voxel::BatchEdit batch(tray);
   const int hx = piece.getHx();
   const int hy = piece.getHy();
   for (unsigned int z = 0; z < piece.getZ(); z++) {
@@ -127,6 +131,7 @@ void paintFootprint(Voxel& tray, const Voxel& piece, int ax, int ay, unsigned in
 }
 
 void eraseColor(Voxel& tray, unsigned int color) {
+  const Voxel::BatchEdit batch(tray);
   for (unsigned int i = 0; i < tray.getXYZ(); i++) {
     if (tray.getColor(i) == color) {
       tray.setColor(i, 0);
@@ -407,11 +412,14 @@ unsigned int addStartGoalShape(Puzzle& puzzle, unsigned int sx, unsigned int sy,
   sz = std::max(sz, 1U);
   const unsigned int id = puzzle.addShape(sx, sy, sz);
   Voxel& v = puzzle.getShape(id);
-  for (unsigned int z = 0; z < v.getZ(); z++) {
-    for (unsigned int y = 0; y < v.getY(); y++) {
-      for (unsigned int x = 0; x < v.getX(); x++) {
-        if (v.validCoordinate(asInt(x), asInt(y), asInt(z))) {
-          v.setState(x, y, z, Voxel::kFilled);
+  {
+    const Voxel::BatchEdit batch(v);
+    for (unsigned int z = 0; z < v.getZ(); z++) {
+      for (unsigned int y = 0; y < v.getY(); y++) {
+        for (unsigned int x = 0; x < v.getX(); x++) {
+          if (v.validCoordinate(asInt(x), asInt(y), asInt(z))) {
+            v.setState(x, y, z, Voxel::kFilled);
+          }
         }
       }
     }
@@ -1588,6 +1596,7 @@ void convertLegacyStarts(Puzzle& puzzle) {
       continue;
     }
     trays = true;
+    const Voxel::BatchEdit batch(v);
     for (unsigned int i = 0; i < v.getXYZ(); i++) {
       if (const unsigned int c = v.getColor(i); c != 0) {
         v.setStartPiece(i, c);
@@ -1606,6 +1615,7 @@ void convertLegacyStarts(Puzzle& puzzle) {
     if (isStartGoalShape(&v)) {
       continue;
     }
+    const Voxel::BatchEdit batch(v);
     for (unsigned int i = 0; i < v.getXYZ(); i++) {
       if (v.getColor(i) != 0) {
         v.setColor(i, 0);
@@ -1642,10 +1652,7 @@ void adoptBoardMarks(Puzzle& puzzle) {
         marks.set(i, true, v.getGoalPiece(i));
       }
     }
-    for (unsigned int i = 0; i < v.getXYZ(); i++) {
-      v.setStartPiece(i, 0);
-      v.setGoalPiece(i, 0);
-    }
+    v.clearMarks();
   }
 }
 
@@ -1775,10 +1782,7 @@ BoardEdit beginBoardEdit(const Puzzle& puzzle, unsigned int trayShape, Voxel& v)
       captureStamps(puzzle, p, tray, edit, tagOf);
     }
   }
-  for (unsigned int i = 0; i < v.getXYZ(); i++) {
-    v.setStartPiece(i, 0);
-    v.setGoalPiece(i, 0);
-  }
+  v.clearMarks();
   for (const auto& [cell, tag] : tagOf) {
     v.setStartPiece(cell, tag & 0xFFU);
     v.setGoalPiece(cell, tag >> 8U);
@@ -1796,9 +1800,9 @@ void readBoardTags(BoardEdit& edit, Voxel& v) {
     if (tag <= edit.moved.size()) {
       edit.moved[tag - 1].push_back(i);
     }
-    v.setStartPiece(i, 0);
-    v.setGoalPiece(i, 0);
   }
+  // every tag is read: one pass drops them
+  v.clearMarks();
 }
 
 std::vector<unsigned int> applyBoardEdit(Puzzle& puzzle, const BoardEdit& edit) {

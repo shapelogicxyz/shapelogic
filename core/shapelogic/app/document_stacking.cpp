@@ -442,7 +442,7 @@ Result<void> Document::setProblemRodSet(Id problem, Id rodSet) {
     return {};
   }
   StepGuard g(*this, "Set start/goal rods");
-  touchProblem(*p);
+  touchProblemSettings(*p);
   Problem& edited = puzzle_->getProblem(*p);
   edited.setRodSetId(*r);
   stacking::syncMaps(*puzzle_, edited);
@@ -620,7 +620,7 @@ Result<unsigned int> Document::moveDisc(Id problem, bool goal, unsigned int rod,
     return fail(Errc::InvalidArgument, "the disc cannot move further");
   }
   StepGuard g(*this, "Move disc");
-  touchProblem(*p);
+  touchProblemSettings(*p);
   const bool moved = stacking::moveDisk(*puzzle_, puzzle_->getProblem(*p), goal, rod, index, delta);
   BT_ASSERT_MSG(moved, "a disc that could move did not");
   endSession(*p);

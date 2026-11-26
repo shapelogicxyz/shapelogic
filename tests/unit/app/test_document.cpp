@@ -5,13 +5,17 @@
 // depth, the dirty flag and the revision. New (the original had no tests
 // for its GUI); the solving guards are in test_document_solving.cpp.
 #include "../grid/grid_test_helpers.h"
+#include "../model/model_test_helpers.h"
 #include "app_test_helpers.h"
 #include "../scratch_dir.h"
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/base/int_cast.h"
 #include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/assembly.h"
 #include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/solution.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -655,11 +659,50 @@ TEST_CASE("document: solutions are removed and turned into shapes", "[app][docum
   CHECK(ids() == want);
   roundTrip(d, [p, &all](Document& x) { return x.deleteSolutions(p, SolutionsToDelete::Before, all[2]); });
   CHECK(ids().front() == all[2]);
+  want.erase(want.begin(), want.begin() + 2);
+  CHECK(ids() == want);
   roundTrip(d, [p, &all](Document& x) { return x.deleteSolutions(p, SolutionsToDelete::After, all[5]); });
   CHECK(ids().back() == all[5]);
+  CHECK(ids() == std::vector<Id>{all[2], all[4], all[5]});
   roundTrip(d, [p](Document& x) { return x.deleteSolutions(p, SolutionsToDelete::All); });
   CHECK(problem0(d).getNumberOfSavedSolutions() == 0);
   refused(d, Errc::NotFound, [p](Document& x) { return x.deleteSolutions(p, SolutionsToDelete::One, 77777); });
+
+  // the ones without a disassembly, from among the others
+  Puzzle mixed = test::loadFixture("SolidSixPieceBurrs.xmpuzzle");
+  {
+    Problem& pr = mixed.getProblem(0);
+    pr.markSolving();
+    for (unsigned int i = 0; i < 20; i++) {
+      const Solution& twin = pr.getSavedSolution(i * 7);
+      pr.addSolution(Assembly(twin.getAssembly()), twin.getAssemblyNumber());
+    }
+    pr.sortSolutions(0);
+    pr.finishedSolving();
+  }
+  Result<Document> opened = Document::openBytes(io::writePuzzle(mixed));
+  REQUIRE(opened.has_value());
+  Document m = std::move(*opened);
+  const Problem& mp = m.puzzle().getProblem(0);
+  std::vector<Id> taken;
+  unsigned int bare = 0;
+  for (unsigned int i = 0; i < mp.getNumberOfSavedSolutions(); i++) {
+    if (mp.getSavedSolution(i).getDisassemblyInfo() != nullptr) {
+      taken.push_back(mp.getSavedSolution(i).getId());
+    } else {
+      bare++;
+    }
+  }
+  REQUIRE(bare == 20);
+  REQUIRE(mp.getSavedSolution(1).getDisassemblyInfo() == nullptr);
+  roundTrip(m, [](Document& x) {
+    return x.deleteSolutions(x.problemIds().front(), SolutionsToDelete::WithoutDisassembly);
+  });
+  std::vector<Id> left;
+  for (unsigned int i = 0; i < mp.getNumberOfSavedSolutions(); i++) {
+    left.push_back(mp.getSavedSolution(i).getId());
+  }
+  CHECK(left == taken);
 
   // the disassemblies (Pelikan Burr keeps them in full)
   Document f = openFixture("PelikanBurr.xmpuzzle");
@@ -692,6 +735,144 @@ TEST_CASE("document: solutions are removed and turned into shapes", "[app][docum
   const std::vector<Id> unique = e.assembliesToShapes(e.problemIds().front(), every).value();
   CHECK_FALSE(unique.empty());
   CHECK(unique.size() <= e.puzzle().getProblem(0).getNumberOfSavedSolutions());
+}
+
+// Cleanup 17.10: a step of a command that changes none of a problem's
+// solutions kept a copy of them all (its name, each of the Solver's
+// options, its groups), and the depth counted steps whatever they held.
+TEST_CASE("document: a step that changes no solution holds none, and the steps have a byte budget",
+          "[app][document]") {
+  Document d = openFixture("SolidSixPieceBurrs.xmpuzzle");
+  const Id p = firstProblem(d);
+  const Id piece = d.shapeIds()[1];
+  REQUIRE(problem0(d).getNumberOfSavedSolutions() > 300);
+  const std::uint64_t all = problem0(d).solutionBytes();
+  REQUIRE(all > 100000);
+  const std::uint64_t version = problem0(d).solutionsVersion();
+
+  // each undone and redone to the same file and ids (roundTrip), and none
+  // of them a copy of the solutions
+  roundTrip(d, [p](Document& x) { return x.renameProblem(p, "another name"); });
+  roundTrip(d, [p](Document& x) {
+    return x.setSolverOptions(p, {{"keepMirrors", "1"}, {"limit", "0"}});
+  });
+  roundTrip(d, [p, piece](Document& x) { return x.setGroupCount(p, piece, 1, 1); });
+  roundTrip(d, [p, piece](Document& x) { return x.setGroup(p, piece, 2); });
+  roundTrip(d, [p](Document& x) { return x.deleteGroup(p, 2); });
+  CHECK(d.history().undo.size() == 5);
+  CHECK(d.undoBytesHeld() < 1000);
+  // the solutions were never swapped: the list is the one it was
+  CHECK(problem0(d).solutionsVersion() == version);
+  CHECK(problem0(d).getNumberOfSavedSolutions() > 300);
+
+  // a step that removes solutions holds them
+  const Id third = problem0(d).getSavedSolution(2).getId();
+  roundTrip(d, [p, third](Document& x) {
+    return x.deleteSolutions(p, SolutionsToDelete::One, third);
+  });
+  CHECK(d.undoBytesHeld() > all / 2);
+
+  // In a group: the name first (the problem without its solutions), then
+  // the solutions removed. The step must give both back.
+  const std::string before = io::writePuzzle(d.puzzle());
+  const std::size_t steps = d.history().undo.size();
+  REQUIRE(d.beginGroup("Both").has_value());
+  REQUIRE(d.renameProblem(p, "in a group").has_value());
+  REQUIRE(d.deleteSolutions(p, SolutionsToDelete::All).has_value());
+  REQUIRE(d.setSolverOptions(p, {{"limit", "7"}}).has_value());
+  REQUIRE(d.endGroup().has_value());
+  CHECK(d.history().undo.size() == steps + 1);
+  const std::string after = io::writePuzzle(d.puzzle());
+  CHECK(problem0(d).getNumberOfSavedSolutions() == 0);
+  REQUIRE(d.undo().has_value());
+  CHECK(io::writePuzzle(d.puzzle()) == before);
+  REQUIRE(d.redo().has_value());
+  CHECK(io::writePuzzle(d.puzzle()) == after);
+  REQUIRE(d.undo().has_value());
+  CHECK(io::writePuzzle(d.puzzle()) == before);
+
+  // The other way round, and with a whole copy between (a shape added and
+  // deleted again): the name's step after it saves nothing more.
+  REQUIRE(d.beginGroup("Three").has_value());
+  REQUIRE(d.renameProblem(p, "first").has_value());
+  const Id extra = d.createShape().value();
+  REQUIRE(d.deleteShape(extra).has_value());
+  REQUIRE(d.deleteSolutions(p, SolutionsToDelete::Before, problem0(d).getSavedSolution(9).getId())
+              .has_value());
+  REQUIRE(d.renameProblem(p, "last").has_value());
+  REQUIRE(d.endGroup().has_value());
+  const std::string three = io::writePuzzle(d.puzzle());
+  REQUIRE(d.undo().has_value());
+  CHECK(io::writePuzzle(d.puzzle()) == before);
+  REQUIRE(d.redo().has_value());
+  CHECK(io::writePuzzle(d.puzzle()) == three);
+  REQUIRE(d.undo().has_value());
+  CHECK(io::writePuzzle(d.puzzle()) == before);
+
+  // The budget: steps that each hold every solution, in room for three of
+  // them. The oldest go, as past the depth; the newest stays even when it
+  // alone is over.
+  Document e = openFixture("SolidSixPieceBurrs.xmpuzzle");
+  const Id q = firstProblem(e);
+  DocumentSettings roomy;
+  roomy.undoDepth = 100;
+  roomy.undoBytes = 3 * all + all / 2;
+  e.setSettings(roomy);
+  std::vector<std::string> states{io::writePuzzle(e.puzzle())};
+  for (int i = 0; i < 8; i++) {
+    REQUIRE(e.deleteSolutions(q, SolutionsToDelete::One, problem0(e).getSavedSolution(0).getId())
+                .has_value());
+    states.push_back(io::writePuzzle(e.puzzle()));
+  }
+  const std::size_t kept = e.history().undo.size();
+  CHECK(kept == 3);
+  CHECK(e.undoBytesHeld() <= roomy.undoBytes);
+  // steps without solutions do not push them out
+  for (int i = 0; i < 20; i++) {
+    REQUIRE(e.renameProblem(q, "n" + std::to_string(i)).has_value());
+  }
+  CHECK(e.history().undo.size() == kept + 20);
+  const std::string renamed = io::writePuzzle(e.puzzle());
+  for (int i = 0; i < 20; i++) {
+    REQUIRE(e.undo().has_value());
+  }
+  // back through the steps kept, to the state the oldest of them began at
+  for (std::size_t i = 0; i < kept; i++) {
+    CHECK(io::writePuzzle(e.puzzle()) == states[8 - i]);
+    REQUIRE(e.undo().has_value());
+  }
+  CHECK(io::writePuzzle(e.puzzle()) == states[8 - kept]);
+  CHECK_FALSE(e.canUndo());
+  // the state the document opened in is gone from the history: not clean
+  CHECK(e.dirty());
+  // redone, the steps hold the solutions again, and stay in the budget
+  while (e.canRedo()) {
+    REQUIRE(e.redo().has_value());
+  }
+  CHECK(io::writePuzzle(e.puzzle()) == renamed);
+  CHECK(e.history().undo.size() == kept + 20);
+  CHECK(e.undoBytesHeld() <= roomy.undoBytes);
+
+  // room for nothing: the steps that hold solutions go, those that hold
+  // none stay; and a step alone over the budget stays while it is the
+  // newest
+  DocumentSettings tight;
+  tight.undoDepth = 100;
+  tight.undoBytes = 1;
+  e.setSettings(tight);
+  CHECK(e.history().undo.size() == 20);
+  CHECK(e.undoBytesHeld() == 0);
+  REQUIRE(e.deleteSolutions(q, SolutionsToDelete::One, problem0(e).getSavedSolution(0).getId())
+              .has_value());
+  CHECK(e.history().undo.size() == 1);
+  CHECK(e.undoBytesHeld() > all / 2);
+  REQUIRE(e.undo().has_value());
+  CHECK(io::writePuzzle(e.puzzle()) == renamed);
+  // the next step pushes it out
+  REQUIRE(e.redo().has_value());
+  REQUIRE(e.renameProblem(q, "after").has_value());
+  CHECK(e.history().undo.size() == 1);
+  CHECK(e.history().undo.back() == "Rename problem");
 }
 
 TEST_CASE("document: groups of edits are one step; depth, dirty and history", "[app][document]") {

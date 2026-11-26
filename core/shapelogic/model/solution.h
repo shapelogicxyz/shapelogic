@@ -11,6 +11,7 @@
 #include "shapelogic/model/disassembly.h"
 #include "shapelogic/model/xml_element.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 
@@ -56,6 +57,9 @@ class Solution {
 
   [[nodiscard]] std::uint64_t getAssemblyNumber() const { return assemblyNum_; }
   [[nodiscard]] std::uint64_t getSolutionNumber() const { return solutionNum_; }
+
+  /// About the bytes the solution holds, for the budget of the undo steps.
+  [[nodiscard]] std::size_t byteEstimate() const;
 
   /// Replaces the full disassembly by its summary.
   void removeDisassembly();

@@ -187,9 +187,58 @@ struct PlaybackSampler::Piece {
   int z0 = 0;
   Mat base0inv = Mat::identity();  // inverse of the matrix of trans0
   Vec center0{0, 0, 0};            // bounding box center of the trans0 mesh
-  // the mesh centers of the other orientations the piece takes
-  std::vector<std::pair<unsigned int, Vec>> orientCenter;
+
+  // What a pose needs of the piece in one orientation. Worked out once
+  // for each orientation the piece takes (a clone of the shape, turned,
+  // and for another orientation than trans0 its mesh): a track asks for
+  // every piece at every sample, hundreds a chunk.
+  struct Orient {
+    unsigned int trans = 0;
+    float hx = 0;  // the turned shape's hotspot, in mesh units
+    float hy = 0;
+    float hz = 0;
+    Mat r = Mat::identity();  // mesh_t = r * mesh_0 + d
+    Vec d{0, 0, 0};
+  };
+  std::vector<Orient> orients;
+
+  // The piece in orientation t, or null when it cannot take it or its
+  // mesh cannot be made.
+  const Orient* orient(unsigned int t);
 };
+
+auto PlaybackSampler::Piece::orient(unsigned int t) -> const Orient* {
+  for (const Orient& o : orients) {
+    if (o.trans == t) {
+      return &o;
+    }
+  }
+  std::unique_ptr<Voxel> v = shape->clone();
+  if (!v->transform(t)) {
+    return nullptr;
+  }
+  Orient o;
+  o.trans = t;
+  o.hx = static_cast<float>(v->getHx());
+  o.hy = static_cast<float>(v->getHy());
+  o.hz = static_cast<float>(v->getHz());
+  mesh::recalcSpaceCoordinates(*v, &o.hx, &o.hy, &o.hz);
+  if (t != trans0) {
+    Mat mt = Mat::identity();
+    v->getTransformMatrix(t, mt.m.data());
+    o.r = mt * base0inv;
+    if (std::fabs(o.r.det() - 1) > 1e-6) {
+      return nullptr;
+    }
+    const std::optional<Vec> ct = meshCenter(*v);
+    if (!ct) {
+      return nullptr;
+    }
+    o.d = *ct - o.r * center0;
+  }
+  orients.push_back(o);
+  return &orients.back();
+}
 
 PlaybackSampler::PlaybackSampler(PlaybackSampler&&) noexcept = default;
 PlaybackSampler& PlaybackSampler::operator=(PlaybackSampler&&) noexcept = default;
@@ -322,48 +371,23 @@ bool PlaybackSampler::evaluate(float step, std::vector<PiecePose>& out) {
       t = pi.trans0;
     }
 
-    std::unique_ptr<Voxel> v = pi.shape->clone();
-    if (!v->transform(t)) {
+    const Piece::Orient* o = pi.orient(t);
+    if (o == nullptr) {
       return false;
     }
 
-    // the view draws the mesh of orientation t at (x - hotspot - center)
+    // the view draws the mesh of orientation t at (x - hotspot - center);
+    // cells to mesh units by the grid's rule, which no turn changes
     float x = moves_ ? moves_->getX(p) : static_cast<float>(pi.x0);
     float y = moves_ ? moves_->getY(p) : static_cast<float>(pi.y0);
     float z = moves_ ? moves_->getZ(p) : static_cast<float>(pi.z0);
-    mesh::recalcSpaceCoordinates(*v, &x, &y, &z);
-    auto hx = static_cast<float>(v->getHx());
-    auto hy = static_cast<float>(v->getHy());
-    auto hz = static_cast<float>(v->getHz());
-    mesh::recalcSpaceCoordinates(*v, &hx, &hy, &hz);
-    const Vec place{static_cast<double>(x - hx), static_cast<double>(y - hy),
-                    static_cast<double>(z - hz)};
+    mesh::recalcSpaceCoordinates(*pi.shape, &x, &y, &z);
+    const Vec place{static_cast<double>(x - o->hx), static_cast<double>(y - o->hy),
+                    static_cast<double>(z - o->hz)};
 
     // mesh_t = R * mesh_0 + d
-    Mat r = Mat::identity();
-    Vec d{0, 0, 0};
-    if (t != pi.trans0) {
-      Mat mt = Mat::identity();
-      v->getTransformMatrix(t, mt.m.data());
-      r = mt * pi.base0inv;
-      if (std::fabs(r.det() - 1) > 1e-6) {
-        return false;
-      }
-      std::optional<Vec> ct;
-      for (const auto& [ot, oc] : pi.orientCenter) {
-        if (ot == t) {
-          ct = oc;
-        }
-      }
-      if (!ct) {
-        ct = meshCenter(*v);
-        if (!ct) {
-          return false;
-        }
-        pi.orientCenter.emplace_back(t, *ct);
-      }
-      d = *ct - r * pi.center0;
-    }
+    const Mat& r = o->r;
+    const Vec& d = o->d;
 
     // the tumble about the pivot cell's center, local to the mesh_t frame
     Mat pm = Mat::identity();

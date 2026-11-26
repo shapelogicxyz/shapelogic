@@ -27,7 +27,9 @@
 #include "shapelogic/solve/solver_type.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
+#include <unordered_map>
 #include <utility>
 
 namespace bt::app {
@@ -235,8 +237,35 @@ std::uint64_t Document::currentStamp() const {
   return undo_.empty() ? baseStamp_ : undo_.back().stamp;
 }
 
+std::size_t Document::Snapshot::bytes() const {
+  std::size_t n = 0;
+  if (shape) {
+    n += shape->getXYZ() * sizeof(VoxelType);
+  }
+  if (problem) {
+    n += problem->solutionBytes();
+  }
+  if (whole) {
+    for (unsigned int i = 0; i < whole->getNumberOfShapes(); i++) {
+      n += whole->getShape(i).getXYZ() * sizeof(VoxelType);
+    }
+    for (unsigned int i = 0; i < whole->getNumberOfProblems(); i++) {
+      n += whole->getProblem(i).solutionBytes();
+    }
+  }
+  return n;
+}
+
+void Document::Step::count() {
+  bytes = 0;
+  for (const Snapshot& s : parts) {
+    bytes += s.bytes();
+  }
+}
+
 void Document::dropOldestSteps() {
-  while (undo_.size() > settings_.undoDepth) {
+  while (undo_.size() > settings_.undoDepth ||
+         (undo_.size() > 1 && undoBytesHeld() > settings_.undoBytes)) {
     // the state below the steps left is the one after the step that goes
     baseStamp_ = undo_.front().stamp;
     undo_.erase(undo_.begin());
@@ -389,13 +418,49 @@ void Document::touchShape(unsigned int index) {
 
 void Document::touchProblem(unsigned int index) {
   touches_++;
-  if (covered(SnapshotKind::Problem, index)) {
+  BT_ASSERT_MSG(open_ != nullptr, "an edit outside a command");
+  Snapshot* settings = nullptr;
+  for (Snapshot& s : open_->parts) {
+    // after a whole copy nothing more is needed: undo puts it back last
+    if (s.kind == SnapshotKind::Whole) {
+      return;
+    }
+    if (s.kind == SnapshotKind::Problem && s.index == index) {
+      if (!s.settingsOnly) {
+        return;
+      }
+      settings = &s;
+    }
+  }
+  if (settings != nullptr) {
+    // The step has the problem without its solutions (touchProblemSettings,
+    // an earlier command of the group), and this command may change them:
+    // they are added to that copy. They are still what they were when it
+    // was made, since nothing changes them without coming through here or
+    // through touchWhole first.
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a problem's snapshot holds its problem
+    settings->problem->copySolutionsFrom(puzzle_->getProblem(index));
+    settings->settingsOnly = false;
     return;
   }
   Snapshot s;
   s.kind = SnapshotKind::Problem;
   s.index = index;
   s.problem = puzzle_->getProblem(index);
+  open_->parts.push_back(std::move(s));
+}
+
+void Document::touchProblemSettings(unsigned int index) {
+  touches_++;
+  // (a copy with or without the solutions, or a whole copy)
+  if (covered(SnapshotKind::Problem, index)) {
+    return;
+  }
+  Snapshot s;
+  s.kind = SnapshotKind::Problem;
+  s.index = index;
+  s.settingsOnly = true;
+  s.problem = puzzle_->getProblem(index).copyWithoutSolutions();
   open_->parts.push_back(std::move(s));
 }
 
@@ -469,6 +534,12 @@ void Document::swapIn(Snapshot& s) {
       s.shape = puzzle_->replaceShape(s.index, std::move(s.shape));
       return;
     case SnapshotKind::Problem:
+      if (s.settingsOnly) {
+        // the solutions stay where they are, their ids and version too
+        // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a problem's snapshot holds its problem
+        puzzle_->getProblem(s.index).swapButSolutions(*s.problem);
+        return;
+      }
       // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a problem's snapshot holds its problem
       std::swap(puzzle_->getProblem(s.index), *s.problem);
       // NOLINTNEXTLINE(bugprone-unchecked-optional-access): as above
@@ -537,6 +608,7 @@ void Document::swapIn(Snapshot& s) {
 
 void Document::pushStep(Step step) {
   step.stamp = ++stamps_;
+  step.count();
   undo_.push_back(std::move(step));
   redo_.clear();
   dropOldestSteps();
@@ -590,10 +662,21 @@ Result<void> Document::redo() {
     swapIn(s);
   }
   const std::uint32_t what = step.what;
+  // the step holds the state before it again, which may be the larger one
+  step.count();
   undo_.push_back(std::move(step));
+  dropOldestSteps();
   lastChange_ = ChangeSet{};
   changed(what);
   return {};
+}
+
+std::uint64_t Document::undoBytesHeld() const {
+  std::uint64_t held = 0;
+  for (const Step& s : undo_) {
+    held += s.bytes;
+  }
+  return held;
 }
 
 bool Document::canUndo() const { return !undo_.empty(); }
@@ -1283,12 +1366,17 @@ bool Document::poll() {
         BT_ASSERT_MSG(p.has_value(), "a problem was removed while being analysed");
         Problem& pr = puzzle_->getProblem(*p);
         analysisEnds_[id] = a.progress();
+        // where each solution is, looked up once (a search of the list for
+        // each result was its square for "take apart all"); the first of
+        // an id, as the search found it
+        std::unordered_map<std::uint64_t, unsigned int> at;
+        at.reserve(pr.getNumberOfSavedSolutions());
+        for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
+          at.emplace(pr.getSavedSolution(i).getId(), i);
+        }
         for (auto& [sol, separation] : a.takeResults()) {
-          for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
-            if (pr.getSavedSolution(i).getId() == sol) {
-              pr.getSavedSolution(i).setDisassembly(std::move(separation));
-              break;
-            }
+          if (const auto found = at.find(sol); found != at.end()) {
+            pr.getSavedSolution(found->second).setDisassembly(std::move(separation));
           }
         }
         results = true;
@@ -1335,6 +1423,14 @@ Result<FitStats> Document::fit(Id problem) const {
 }
 
 std::vector<ShapeInfo> Document::shapeTable() const { return app::shapeTable(*puzzle_); }
+
+Result<ShapeInfo> Document::shapeInfo(Id shape) const {
+  const Result<unsigned int> s = shapeIndex(shape);
+  if (!s) {
+    return std::unexpected(s.error());
+  }
+  return app::shapeInfo(*puzzle_, *s);
+}
 
 Result<mesh::DrawMesh> Document::shapeMesh(Id shape, mesh::MeshStyle style,
                                            std::optional<unsigned int> transformation) const {

@@ -211,6 +211,11 @@ class Voxel {
   }
   /// True when any cell has a goal mark.
   [[nodiscard]] bool hasGoalPieces() const;
+  /// Drops every start and goal mark, in one pass.
+  void clearMarks() {
+    startPiece_.clear();
+    goalPiece_.clear();
+  }
 
   // ---- bounding box -------------------------------------------------------
 
@@ -222,9 +227,49 @@ class Voxel {
   [[nodiscard]] unsigned int boundZ1() const { return bz1_; }
   [[nodiscard]] unsigned int boundZ2() const { return bz2_; }
 
-  /// Turns bounding-box updates off (`true`) for a batch of edits, and back
-  /// on (`false`), which recalculates the box.
-  void skipRecalcBoundingBox(bool skipit);
+  /// A batch of edits. set() works the bounding box out again each time, a
+  /// pass over the whole space; while a BatchEdit of the shape lives it
+  /// does not, and the outermost one does it once as it goes, when an edit
+  /// asked for it (one inside another changes nothing, and a batch without
+  /// an edit leaves the box as it was, as no edit does). The cells are at
+  /// every moment what edits one at a time make them; the box, and the
+  /// hotspots and boxes of the transformations, are right after the batch:
+  /// read them then, and do not copy the shape inside one. Every loop of
+  /// set, setState or setColor runs inside one.
+  class BatchEdit {
+   public:
+    /// When the box is worked out as the batch ends.
+    enum class Box : std::uint8_t {
+      WhenEdited,  ///< when an edit asked for it
+      /// Whatever was set: for a shape that is being made (a new empty
+      /// space's box is not an empty shape's: the constructor leaves it
+      /// inside out, the pass makes it all zero).
+      Always,
+    };
+
+    explicit BatchEdit(Voxel& v, Box box = Box::WhenEdited)
+        : v_(v), outermost_(v.doRecalc_) {
+      v.doRecalc_ = false;
+      if (box == Box::Always) {
+        v.recalcSkipped_ = true;
+      }
+    }
+    ~BatchEdit() {
+      if (outermost_) {
+        v_.doRecalc_ = true;
+        if (v_.recalcSkipped_) {
+          v_.recalcSkipped_ = false;
+          v_.recalcBoundingBox();
+        }
+      }
+    }
+    BatchEdit(const BatchEdit&) = delete;
+    BatchEdit& operator=(const BatchEdit&) = delete;
+
+   private:
+    Voxel& v_;
+    bool outermost_;
+  };
 
   /// The bounding box of the space after transformation `trans`; false when
   /// the transformation is not possible for this shape. Null pointers are
@@ -442,8 +487,9 @@ class Voxel {
   Voxel(unsigned int x, unsigned int y, unsigned int z, GridType gt, VoxelType init);
   Voxel(const Voxel&);
 
-  /// Updates the bounding box (unless switched off), clears the color and
-  /// goal mark of empty cells, and drops the transformation cache.
+  /// Updates the bounding box, clears the color and marks of empty cells,
+  /// and drops the transformation cache; inside a BatchEdit, left for its
+  /// end.
   void recalcBoundingBox();
 
   /// Marks the symmetry as unknown.
@@ -476,7 +522,10 @@ class Voxel {
   unsigned int by2_ = 0;
   unsigned int bz1_ = 0;
   unsigned int bz2_ = 0;
+  /// False inside a BatchEdit, where recalcBoundingBox() only notes that
+  /// it was asked (recalcSkipped_).
   bool doRecalc_ = true;
+  bool recalcSkipped_ = false;
 
   int hx_ = 0;
   int hy_ = 0;
@@ -524,7 +573,8 @@ class Voxel {
   }
 
  private:
-  /// Union-find over the cells (see connected() and fillHoles()).
+  /// Union-find over the cells (see connected() and fillHoles()); read the
+  /// trees with unionRoot().
   void unionFind(std::vector<int>& tree, char type, bool inverse, VoxelType value,
                  bool outsideZ) const;
 

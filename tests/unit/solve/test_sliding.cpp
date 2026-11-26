@@ -1864,6 +1864,121 @@ TEST_CASE("sliding: a stopped search is saved and carried on", "[sliding][resume
   std::filesystem::remove_all(dir);
 }
 
+// Cleanup 17.1. A search from the start alone ends when a thread meets the
+// goal; the level is then gone through again for its first arrangement
+// with a move to the goal, so that every run gives one path. That pass was
+// on one thread, told nobody and heard no stop. Now it is on every thread,
+// a part of the move (SlidePhase::Goal), and a stop in it leaves the search
+// saved with the level to expand again.
+TEST_CASE("sliding: the move to the goal is looked for on every thread, told, and can be stopped",
+          "[sliding][resume][parallel]") {
+  // Eight unit pieces told apart on a 3x3 tray, three of them to bring to
+  // the far corners: the goal is no one arrangement, so the search runs
+  // from the start alone, and its last level holds thousands.
+  std::vector<SlideBlock> blocks;
+  for (int i = 0; i < 8; i++) {
+    blocks.push_back({1, 1, i % 3, i / 3, -1, -1});
+  }
+  blocks[0].goalX = 2;
+  blocks[0].goalY = 2;
+  blocks[2].goalX = 0;
+  blocks[2].goalY = 2;
+  blocks[6].goalX = 2;
+  blocks[6].goalY = 0;
+  auto fresh = [&blocks](unsigned int threads) {
+    SlideSearch s;
+    s.likePiecesApart = true;
+    s.threads = threads;
+    return std::pair<SlideFixture, SlideSearch>(slideFixture(3, 3, blocks), std::move(s));
+  };
+
+  // one path on any number of threads; and whenever the watcher catches
+  // the part being told, never more done than there is
+  std::vector<int> places;
+  unsigned int moves = 0;
+  for (const unsigned int threads : {1U, 2U, 7U}) {
+    auto [f, search] = fresh(threads);
+    SlidePhaseProgress phase;
+    search.phase = &phase;
+    std::atomic<bool> done{false};
+    std::atomic<bool> over{false};
+    std::thread watcher([&] {
+      while (!done.load()) {
+        if (phase.phase.load(std::memory_order_acquire) == SlidePhase::Goal &&
+            phase.done.load() > phase.total.load() && phase.total.load() != 0) {
+          over.store(true);
+        }
+      }
+    });
+    const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, search);
+    done.store(true);
+    watcher.join();
+    REQUIRE(path.has_value());
+    CHECK(search.outcome == SlideOutcome::Found);
+    CHECK(oneMoverPerStep(*path));
+    CHECK_FALSE(over.load());
+    CHECK(phase.phase.load() == SlidePhase::None);
+    if (places.empty()) {
+      places = placesAlong(*path);
+      moves = path->getMoves();
+    } else {
+      CHECK(placesAlong(*path) == places);
+    }
+  }
+  CHECK(moves > 10);
+
+  // Stopped while it looks, by a thread that asks when it sees the part
+  // told: tried until a stop lands in it (a few milliseconds of the search;
+  // alone on the machine the first try does, with twenty of these cases
+  // side by side one of the first three did, in 80 runs). The search is
+  // then saved, and carried on finds the same path.
+  const ScratchDir scratch("slidegoalstop");
+  bool landed = false;
+  for (int attempt = 0; attempt < 60 && !landed; attempt++) {
+    const std::filesystem::path dir = scratch.path() / ("work" + std::to_string(attempt));
+    auto [f, search] = fresh(2);
+    StopSource stop;
+    SlidePhaseProgress phase;
+    search.phase = &phase;
+    search.workDir = dir.string();
+    search.stop = stop.token();
+    std::atomic<bool> done{false};
+    std::atomic<bool> asked{false};
+    std::thread watcher([&] {
+      while (!done.load()) {
+        if (phase.phase.load(std::memory_order_acquire) == SlidePhase::Goal) {
+          stop.request(StopKind::Pause);
+          asked.store(true);
+          return;
+        }
+      }
+    });
+    const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, search);
+    done.store(true);
+    watcher.join();
+    if (path.has_value()) {
+      // the stop came after the last block was taken, or not at all
+      CHECK(placesAlong(*path) == places);
+      continue;
+    }
+    REQUIRE(asked.load());
+    REQUIRE(search.outcome == SlideOutcome::Stopped);
+    CHECK(search.saved);
+    CHECK(phase.phase.load() == SlidePhase::None);
+    landed = true;
+
+    // (the same puzzle: a saved search is its problem's)
+    SlideSearch second = fresh(3).second;
+    second.workDir = dir.string();
+    const std::optional<Separation> rest = findSlidePath(f.puz, f.pr(), *f.start, second);
+    REQUIRE(rest.has_value());
+    CHECK(second.resumed);
+    CHECK(second.outcome == SlideOutcome::Found);
+    CHECK(placesAlong(*rest) == places);
+  }
+  CHECK(landed);
+}
+
 // A paused search tells what it writes as it saves itself (its levels
 // still in memory); an aborted one writes nothing, and its folder goes.
 TEST_CASE("sliding: a paused search tells its save, an aborted one saves nothing",

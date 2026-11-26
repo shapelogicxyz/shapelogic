@@ -705,8 +705,13 @@ unsigned int applyCellTool(Voxel& v, CellTool tool, unsigned int color, std::uin
 unsigned int editCells(Voxel& v, CellTool tool, unsigned int color, std::uint8_t symmetry,
                        const std::vector<CellEdit>& cells) {
   unsigned int changed = 0;
-  for (const CellEdit& c : cells) {
-    changed += applyCellTool(v, tool, color, symmetry, c.x, c.y, c.z);
+  {
+    // one bounding box for the stroke (with the span and mirror tools a
+    // stroke is whole planes of cells)
+    const Voxel::BatchEdit batch(v);
+    for (const CellEdit& c : cells) {
+      changed += applyCellTool(v, tool, color, symmetry, c.x, c.y, c.z);
+    }
   }
   if (changed > 0) {
     v.initHotspot();

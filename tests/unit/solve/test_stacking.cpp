@@ -636,6 +636,72 @@ TEST_CASE("panex: tracing back between saved levels", "[stacking][panex][slow]")
   std::filesystem::remove_all(dir);
 }
 
+// Cleanup 17.6: a search that carries a saved one on takes the loaded
+// frontier as its own (it was copied, and the copy kept), and a save writes
+// the frontier where it is. Carried on and stopped before it searches
+// anything, it must save what it loaded.
+TEST_CASE("panex: a search carried on and stopped at once saves the frontier it took up",
+          "[stacking][panex]") {
+  const std::string dir = scratch("panex-resave").string();
+  std::filesystem::remove_all(dir);
+  Puzzle puz = makeBoard();
+  Problem& pr = makePanexSwap(puz, 3);
+
+  panex::PanexSearch straight;
+  const std::optional<Separation> whole = panex::solve(puz, pr, straight);
+  REQUIRE(whole);
+
+  auto stateBytes = [&dir] {
+    std::filesystem::path state;
+    for (const auto& e : std::filesystem::recursive_directory_iterator(dir)) {
+      if (e.path().filename() == "state.bin") {
+        state = e.path();
+      }
+    }
+    REQUIRE_FALSE(state.empty());
+    std::ifstream in(state, std::ios::binary);
+    std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    // all but the time used so far, which each run adds to
+    const std::size_t msAt = 8 + 8 + 4 + 4 + 4 + 8;
+    REQUIRE(bytes.size() > msAt + 8);
+    bytes.replace(msAt, 8, 8, '\0');
+    return bytes;
+  };
+
+  panex::PanexSearch first;
+  first.workDir = dir;
+  first.keepLimit = 10;
+  first.stopAtDepth = 24;
+  CHECK_FALSE(panex::solve(puz, pr, first));
+  REQUIRE(first.outcome == panex::Outcome::Stopped);
+  REQUIRE(first.saved);
+  const std::string saved = stateBytes();
+  // (a frontier, not only a header)
+  CHECK(saved.size() > 1000);
+
+  StopSource stop;
+  stop.request(StopKind::Pause);
+  panex::PanexSearch second;
+  second.workDir = dir;
+  second.resume = true;
+  second.stop = stop.token();
+  CHECK_FALSE(panex::solve(puz, pr, second));
+  CHECK(second.outcome == panex::Outcome::Stopped);
+  CHECK(second.saved);
+  CHECK(second.found == first.found);
+  CHECK(stateBytes() == saved);
+
+  panex::PanexSearch third;
+  third.workDir = dir;
+  third.resume = true;
+  const std::optional<Separation> path = panex::solve(puz, pr, third);
+  REQUIRE(path);
+  CHECK(logicalMoves(*path) == logicalMoves(*whole));
+  checkTransfers(*path);
+  CHECK(third.found > first.found);
+  std::filesystem::remove_all(dir);
+}
+
 TEST_CASE("panex: a stopped search carries on where it stopped", "[stacking][panex][slow]") {
   const std::string dir = scratch("panex-resume").string();
   std::filesystem::remove_all(dir);

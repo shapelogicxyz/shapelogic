@@ -1284,6 +1284,11 @@ struct SlideSpace {
   bool backMoves = false;
   // The goal, for the pieces whose copies count together (GoalCheck::counts).
   const GoalCheck* goals = nullptr;
+  // With nested: whether a piece's outline has a cell that is not its own.
+  // A piece without one holds nothing wherever the pieces are (no piece
+  // shares a cell with it), so its group is itself and need not be looked
+  // for (SlideMover::groupAt goes through every piece for it).
+  std::vector<char> holds;
 
   // A run of copies of a piece kept in a key as one number (packed keys).
   // Copies never share a position, so the codes they hold are one of the
@@ -1317,6 +1322,11 @@ struct SlideSpace {
   std::vector<unsigned int> packAt;
   // The pieces with a field of their own.
   std::vector<unsigned int> singles;
+  // Those of them with a place that does not fill their goal: the others
+  // are at their goal wherever they are (a piece without one), and isGoal,
+  // asked of every arrangement a search from the start alone reaches, need
+  // not look where they are.
+  std::vector<unsigned int> goalSingles;
   // The bits of a key the arrangements take.
   unsigned int keyBits = 0;
   // The start: each piece's position.
@@ -1345,6 +1355,10 @@ struct SlideSpace {
                           [](const PosTable& p) { return p.row.size() != p.px.size(); });
     n = static_cast<unsigned int>(init.places.size());
     nested = nest;
+    holds.assign(n, 0);
+    for (unsigned int i = 0; nest && i < n; i++) {
+      holds[i] = outlines[i].size() > cells[i].size() ? 1 : 0;
+    }
     initial = init;
     trayW = asInt(tray.getX());
     trayH = asInt(tray.getY());
@@ -1409,6 +1423,7 @@ struct SlideSpace {
     packOf.assign(n, 0);
     packAt.assign(n, 0);
     singles.clear();
+    goalSingles.clear();
     if (packed) {
       for (std::size_t g = 0; g < copies.size(); g++) {
         for (const unsigned int i : copies[g]) {
@@ -1433,6 +1448,10 @@ struct SlideSpace {
           return false;
         }
         singles.push_back(i);
+        if (std::any_of(t[i].atGoal.begin(), t[i].atGoal.end(),
+                        [](char at) { return at == 0; })) {
+          goalSingles.push_back(i);
+        }
         continue;
       }
       const std::vector<unsigned int>& group = copies[idx(g)];
@@ -1911,7 +1930,7 @@ struct SlideSpace {
       positions(key, rows);
       return goals->reached([&](std::size_t i) { return t[i].atGoal[idx(rows[i])]; });
     }
-    for (const unsigned int i : singles) {
+    for (const unsigned int i : goalSingles) {
       if (t[i].atGoal[idx(t[i].row[keyField(key, t[i].shift, t[i].bits)])] == 0) {
         return false;
       }
@@ -2012,12 +2031,7 @@ class SlideMover {
         others_[w] = occupied_[w] & ~mine[w];
       }
 
-      if (++epoch_ == 0) {
-        for (std::vector<unsigned int>& v : seen_) {
-          std::fill(v.begin(), v.end(), 0);
-        }
-        epoch_ = 1;
-      }
+      nextEpoch();
       seen_[pi][idx(pos_[pi])] = epoch_;
       fill_.assign(1, pos_[pi]);
       const Key clear = s_.lift(cur, pos_.data(), pi, rest_);
@@ -2042,7 +2056,7 @@ class SlideMover {
         }
       }
 
-      if (!s_.nested || solosOnly) {
+      if (!s_.nested || solosOnly || s_.holds[pi] == 0) {
         continue;
       }
       // The wholly nested group, then with partial nesting the larger group
@@ -2067,14 +2081,7 @@ class SlideMover {
         lastOuter_ = pi;
         lastGroup_ = inGroup;
         lastWide_ = wide;
-        others_ = occupied_;
-        for (unsigned int g = 0; g < members; g++) {
-          const unsigned int m = group[g];
-          const std::uint64_t* gm = &t[m].mask[idx(pos_[m]) * words];
-          for (std::size_t w = 0; w < words; w++) {
-            others_[w] &= ~gm[w];
-          }
-        }
+        othersWithout(group.data(), members);
         if (floodShifts(cur, group.data(), members, [&](Key key) { return emit(key, true); })) {
           return true;
         }
@@ -2105,9 +2112,10 @@ class SlideMover {
       return true;
     }
     // expand left cur's positions in pos_ and its cells in occupied_
-    const std::vector<PosTable>& t = s_.t;
-    const std::size_t words = s_.words;
     for (unsigned int pi = 0; pi < s_.n; pi++) {
+      if (s_.holds[pi] == 0) {
+        continue;
+      }
       std::array<unsigned int, 64> full{};
       unsigned int fullCount = 0;
       const std::uint64_t fullSet = groupAt(pos_.data(), pi, full.data(), fullCount, false);
@@ -2127,14 +2135,7 @@ class SlideMover {
             inGroup |= std::uint64_t{1} << full[j];
           }
         }
-        others_ = occupied_;
-        for (unsigned int g = 0; g < members; g++) {
-          const unsigned int m = group[g];
-          const std::uint64_t* gm = &t[m].mask[idx(pos_[m]) * words];
-          for (std::size_t w = 0; w < words; w++) {
-            others_[w] &= ~gm[w];
-          }
-        }
+        othersWithout(group.data(), members);
         // undoable: whether the outer piece holds just this group there
         lastOuter_ = pi;
         lastGroup_ = inGroup;
@@ -2376,14 +2377,7 @@ class SlideMover {
         lastOuter_ = pi;
         lastGroup_ = inGroup;
         lastWide_ = wide;
-        others_ = occupied_;
-        for (unsigned int g = 0; g < members; g++) {
-          const unsigned int m = group[g];
-          const std::uint64_t* gm = &t[m].mask[idx(pos_[m]) * words];
-          for (std::size_t w = 0; w < words; w++) {
-            others_[w] &= ~gm[w];
-          }
-        }
+        othersWithout(group.data(), members);
         const std::uint64_t near = floodGroup(cur, group.data(), members, others_.data(),
                                               nl > 0 ? softAll_.data() : nullptr);
         if (near == 0) {
@@ -2447,12 +2441,7 @@ class SlideMover {
                          const std::uint64_t* soft) {
     const PosTable& tp = s_.t[pi];
     const std::size_t words = s_.words;
-    if (++epoch_ == 0) {
-      for (std::vector<unsigned int>& v : seen_) {
-        std::fill(v.begin(), v.end(), 0);
-      }
-      epoch_ = 1;
-    }
+    nextEpoch();
     seen_[pi][idx(start)] = epoch_;
     fill_.assign(1, start);
     std::uint64_t touched = 0;
@@ -2672,112 +2661,51 @@ class SlideMover {
     return false;
   }
 
-  // A flood over the shifts the group can make from cur, the cells of the
-  // other pieces in others_, as for one piece: each(key) with the group's
-  // arrangement at every shift where each of its pieces may stop, until
-  // each returns true; then it returns true itself.
-  template <class F>
-  bool floodShifts(const Key cur, const unsigned int* group, unsigned int members, F&& each) {
+  // A fill begins: nothing is seen yet (seen_[i][p] == epoch_).
+  void nextEpoch() {
+    if (++epoch_ == 0) {
+      for (std::vector<unsigned int>& v : seen_) {
+        std::fill(v.begin(), v.end(), 0);
+      }
+      epoch_ = 1;
+    }
+  }
+
+  // others_: the cells of every piece but the group's, the pieces at pos_
+  // (occupied_ has them all).
+  void othersWithout(const unsigned int* group, unsigned int members) {
+    const std::size_t words = s_.words;
+    others_ = occupied_;
+    for (unsigned int g = 0; g < members; g++) {
+      const unsigned int m = group[g];
+      const std::uint64_t* gm = &s_.t[m].mask[idx(pos_[m]) * words];
+      for (std::size_t w = 0; w < words; w++) {
+        others_[w] &= ~gm[w];
+      }
+    }
+  }
+
+  // A flood over the shifts the group can make from cur against the cells
+  // in `blocked`, as for one piece: stop(shift, key) with the group's
+  // arrangement at every shift where each of its pieces may stop (the
+  // shift as its place in shiftSeen_), until stop returns true; then it
+  // returns true itself. softOf(m, mask) is asked for each piece of the
+  // group at each shift it fits (its number and cells there), and what it
+  // answers for the shifts the whole group fits is or-ed together into
+  // `touched`: the loose pieces the move could meet, for expandLoose
+  // (floodGroup), nothing for a search without loose stops (floodShifts).
+  // Both are this one fill, so that their moves come in one order. A
+  // template: it runs for every arrangement with a group in it.
+  template <class SoftOf, class Stop>
+  bool floodOver(const Key cur, const unsigned int* group, unsigned int members,
+                 const std::uint64_t* blocked, std::uint64_t& touched, SoftOf&& softOf,
+                 Stop&& stop) {
     const std::vector<PosTable>& t = s_.t;
     const std::size_t words = s_.words;
     const bool packed = s_.packed;
-    groupMove_ = true;
-    if (packed) {
-      // the arrangement at each shift is told from the positions: the
-      // group's own change below, the others stay
-      next_.assign(pos_.begin(), pos_.end());
-    }
     // Whether the group fits at shift d, and whether every piece of it
     // may stop there: then key is the group's arrangement (a place
     // where a piece may not stop has no code to put in one).
-    auto shifted = [&](const SlideShift& d, Key& key, bool& rests) {
-      key = cur;
-      rests = true;
-      for (unsigned int g = 0; g < members; g++) {
-        const unsigned int m = group[g];
-        const std::size_t at = idx(pos_[m]);
-        const int p = t[m].at(t[m].px[at] + d[0], t[m].py[at] + d[1], t[m].pz[at] + d[2]);
-        if (p < 0 || overlaps(&t[m].mask[idx(p) * words], others_.data(), words)) {
-          return false;
-        }
-        moved_[g] = p;
-        if (t[m].rest[idx(p)] == 0) {
-          rests = false;
-        } else if (rests && !packed) {
-          key = s_.with(key, m, p);
-        }
-      }
-      if (rests && packed) {
-        for (unsigned int g = 0; g < members; g++) {
-          next_[group[g]] = moved_[g];
-        }
-        key = s_.encode(next_.data());
-      }
-      return true;
-    };
-    if (++shiftEpoch_ == 0) {
-      std::fill(shiftSeen_.begin(), shiftSeen_.end(), 0);
-      shiftEpoch_ = 1;
-    }
-    const int trayW = s_.trayW;
-    const int trayH = s_.trayH;
-    const int trayD = s_.trayD;
-    auto seenAt = [&](const SlideShift& d) -> unsigned int& {
-      return shiftSeen_[idx(((d[2] + trayD) * (2 * trayH + 1) + (d[1] + trayH)) *
-                                (2 * trayW + 1) +
-                            (d[0] + trayW))];
-    };
-    seenAt({0, 0, 0}) = shiftEpoch_;
-    shiftQueue_.assign(1, {0, 0, 0});
-    for (std::size_t head = 0; head < shiftQueue_.size(); head++) {
-      const SlideShift c = shiftQueue_[head];
-      for (int d = 0; d < dirsFor(s_.vertical); d++) {
-        const SlideShift nb{c[0] + kDx[d], c[1] + kDy[d], c[2] + kDz[d]};
-        // a shift as wide as the tray fits nothing
-        if (nb[0] < -trayW || nb[0] > trayW || nb[1] < -trayH || nb[1] > trayH ||
-            nb[2] < -trayD || nb[2] > trayD) {
-          continue;
-        }
-        Key key = 0;
-        bool rests = false;
-        if (seenAt(nb) == shiftEpoch_ || !shifted(nb, key, rests)) {
-          continue;
-        }
-        seenAt(nb) = shiftEpoch_;
-        shiftQueue_.push_back(nb);
-        // every piece of the group must be able to stop there
-        if (rests && each(key)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  // undoable for expandLoose, of a move that left the loose pieces loose:
-  // a loose piece the group's outlines reach at next could be taken along
-  // on the way back.
-  bool undoableLoose(Key next) {
-    for (unsigned int i = 0; i < s_.n; i++) {
-      backPos_[i] = s_.posOf(next, i);
-    }
-    std::array<unsigned int, 64> group{};
-    unsigned int members = 0;
-    if (groupAt(backPos_.data(), lastOuter_, group.data(), members, lastWide_) != lastGroup_) {
-      return false;
-    }
-    return looseList_.empty() || !looseNear(backPos_.data(), group.data(), members);
-  }
-
-  // A flood over the shifts the group can make from cur against `blocked`,
-  // as expand makes it: the shifts at which every piece of the group may
-  // stop into groupStops_. soft as for fillFrom.
-  std::uint64_t floodGroup(Key cur, const unsigned int* group, unsigned int members,
-                           const std::uint64_t* blocked, const std::uint64_t* soft) {
-    const std::vector<PosTable>& t = s_.t;
-    const std::size_t words = s_.words;
-    std::uint64_t touched = 0;
-    // as expand's: key is the group's arrangement when every piece may stop
     auto shifted = [&](const SlideShift& d, Key& key, bool& rests) {
       key = cur;
       rests = true;
@@ -2789,14 +2717,20 @@ class SlideMover {
         if (p < 0 || overlaps(&t[m].mask[idx(p) * words], blocked, words)) {
           return false;
         }
-        if (soft != nullptr && overlaps(&t[m].mask[idx(p) * words], soft, words)) {
-          near |= softTouched(m, &t[m].mask[idx(p) * words]);
-        }
+        near |= softOf(m, &t[m].mask[idx(p) * words]);
+        moved_[g] = p;
         if (t[m].rest[idx(p)] == 0) {
           rests = false;
-        } else if (rests) {
+        } else if (rests && !packed) {
           key = s_.with(key, m, p);
         }
+      }
+      if (rests && packed) {
+        // told from the positions: the group's own change, the others stay
+        for (unsigned int g = 0; g < members; g++) {
+          next_[group[g]] = moved_[g];
+        }
+        key = s_.encode(next_.data());
       }
       touched |= near;
       return true;
@@ -2814,11 +2748,11 @@ class SlideMover {
     };
     shiftSeen_[indexOf({0, 0, 0})] = shiftEpoch_;
     shiftQueue_.assign(1, {0, 0, 0});
-    groupStops_.clear();
     for (std::size_t head = 0; head < shiftQueue_.size(); head++) {
       const SlideShift c = shiftQueue_[head];
       for (int d = 0; d < dirsFor(s_.vertical); d++) {
         const SlideShift nb{c[0] + kDx[d], c[1] + kDy[d], c[2] + kDz[d]};
+        // a shift as wide as the tray fits nothing
         if (nb[0] < -trayW || nb[0] > trayW || nb[1] < -trayH || nb[1] > trayH ||
             nb[2] < -trayD || nb[2] > trayD) {
           continue;
@@ -2831,11 +2765,67 @@ class SlideMover {
         }
         shiftSeen_[at] = shiftEpoch_;
         shiftQueue_.push_back(nb);
-        if (rests) {
-          groupStops_.push_back({at, 0, key});
+        // every piece of the group must be able to stop there
+        if (rests && stop(at, key)) {
+          return true;
         }
       }
     }
+    return false;
+  }
+
+  // The group's moves from cur, the cells of the other pieces in others_:
+  // each(key) with its arrangement at every shift where each of its pieces
+  // may stop, until each returns true; then it returns true itself.
+  template <class F>
+  bool floodShifts(const Key cur, const unsigned int* group, unsigned int members, F&& each) {
+    groupMove_ = true;
+    if (s_.packed) {
+      // the arrangement at each shift is told from the positions: the
+      // group's own change in floodOver, the others stay
+      next_.assign(pos_.begin(), pos_.end());
+    }
+    std::uint64_t none = 0;
+    return floodOver(
+        cur, group, members, others_.data(), none,
+        [](unsigned int, const std::uint64_t*) { return std::uint64_t{0}; },
+        [&](std::size_t, Key key) { return each(key); });
+  }
+
+  // undoable for expandLoose, of a move that left the loose pieces loose:
+  // a loose piece the group's outlines reach at next could be taken along
+  // on the way back.
+  bool undoableLoose(Key next) {
+    for (unsigned int i = 0; i < s_.n; i++) {
+      backPos_[i] = s_.posOf(next, i);
+    }
+    std::array<unsigned int, 64> group{};
+    unsigned int members = 0;
+    if (groupAt(backPos_.data(), lastOuter_, group.data(), members, lastWide_) != lastGroup_) {
+      return false;
+    }
+    return looseList_.empty() || !looseNear(backPos_.data(), group.data(), members);
+  }
+
+  // The group's moves from cur against `blocked`, as expand makes them: the
+  // shifts at which every piece of the group may stop into groupStops_.
+  // soft as for fillFrom. (Arrangements with loose stops are never packed.)
+  std::uint64_t floodGroup(Key cur, const unsigned int* group, unsigned int members,
+                           const std::uint64_t* blocked, const std::uint64_t* soft) {
+    BT_ASSERT(!s_.packed);
+    const std::size_t words = s_.words;
+    std::uint64_t touched = 0;
+    groupStops_.clear();
+    floodOver(
+        cur, group, members, blocked, touched,
+        [&](unsigned int m, const std::uint64_t* mask) {
+          return soft != nullptr && overlaps(mask, soft, words) ? softTouched(m, mask)
+                                                                 : std::uint64_t{0};
+        },
+        [&](std::size_t shift, Key key) {
+          groupStops_.push_back({shift, 0, key});
+          return false;
+        });
     return touched;
   }
 
@@ -5683,8 +5673,15 @@ class LevelSearch {
         return SlideOutcome::Stopped;
       }
       if (end == StepEnd::Hit) {
-        if (goalFound(chain)) {
-          return SlideOutcome::Found;
+        switch (goalFound(chain)) {
+          case GoalEnd::Found:
+            return SlideOutcome::Found;
+          case GoalEnd::Stopped:
+            // as a stop while it was expanded: the level is expanded again
+            uncount(visitedBefore);
+            return SlideOutcome::Stopped;
+          case GoalEnd::Failed:
+            break;
         }
         // the path could not be read back: the level was not searched whole
         uncount(visitedBefore);
@@ -6108,45 +6105,104 @@ class LevelSearch {
     return true;
   }
 
+  // How goalFound ended.
+  enum class GoalEnd : std::uint8_t { Found, Stopped, Failed };
+
   // The goal is one move from the level being expanded: the first
   // arrangement of that level it is one move from (so that every run finds
-  // the same path), then the path back from there.
-  bool goalFound(std::vector<Key>& chain) {
+  // the same path), then the path back from there. The threads stopped at
+  // the first hit any of them made, so the level is gone through again, on
+  // every thread: they take its blocks in order, the lowest arrangement
+  // with a move to the goal is kept, and a thread ends at a block that
+  // begins above it (as stepBack looks for an arrangement before). Told as
+  // a part of the move (SlidePhase::Goal), and a stop is heard at each
+  // block: the level is then expanded again when the search carries on.
+  GoalEnd goalFound(std::vector<Key>& chain) {
     if (!fwd_.cur->reload()) {
       store_.ioFailed();
-      return false;
+      return GoalEnd::Failed;
     }
-    SlideMover<Key>& mover = *movers_[0];
-    typename Set::Cursor c(*fwd_.cur);
-    Key goalKey = 0;
-    Key from = 0;
-    Key k = 0;
-    bool have = false;
-    while (!have && c.next(k)) {
-      if (mover.moves(k, [&](Key raw, bool) {
-            const Key canon = s_.canon(raw);
-            if (!s_.isGoal(canon)) {
-              return false;
+    Set& level = *fwd_.cur;
+    if (search_.phase != nullptr) {
+      search_.phase->begin(SlidePhase::Goal, level.size());
+    }
+    std::mutex bestMutex;
+    std::optional<Key> best;
+    std::atomic<bool> readFailed{false};
+    std::atomic<bool> halt{false};
+    std::atomic<std::size_t> nextBlock{0};
+    const std::size_t blocks = level.blocks();
+    pool_->run(threads_, [&](unsigned int th) {
+      SlideMover<Key>& m = *movers_[th];
+      typename Set::Reader r(level);
+      std::vector<Key> keys;
+      for (;;) {
+        const std::size_t b = nextBlock.fetch_add(1);
+        if (b >= blocks || readFailed.load() || halt.load()) {
+          break;
+        }
+        {
+          const std::lock_guard<std::mutex> lock(bestMutex);
+          if (best && level.firstKey(b) > *best) {
+            break;
+          }
+        }
+        if (!r.block(b, keys)) {
+          readFailed.store(true);
+          break;
+        }
+        std::uint64_t n = 0;
+        for (const Key k : keys) {
+          n++;
+          if (m.moves(k, [&](Key raw, bool) { return s_.isGoal(s_.canon(raw)); })) {
+            const std::lock_guard<std::mutex> lock(bestMutex);
+            if (!best || k < *best) {
+              best = k;
             }
-            goalKey = canon;
-            return true;
-          })) {
-        from = k;
-        have = true;
+            break;
+          }
+        }
+        if (search_.phase != nullptr) {
+          search_.phase->done.fetch_add(n, std::memory_order_relaxed);
+        }
+        if (search_.stop.stopRequested()) {
+          halt.store(true);
+        }
       }
+    });
+    if (search_.phase != nullptr) {
+      search_.phase->end();
     }
-    if (c.failed()) {
+    if (readFailed.load()) {
       store_.ioFailed();
-      return false;
+      return GoalEnd::Failed;
     }
-    BT_ASSERT(have);
+    // a block left out by a stop may hold a lower arrangement than the one
+    // kept: no path is given from a level not gone through
+    if (halt.load()) {
+      return GoalEnd::Stopped;
+    }
+    // some thread found one while the level was expanded
+    BT_ASSERT(best.has_value());
+    const Key from = *best;
+    // the goal it moves to: the first, in the order its moves are tried
+    Key goalKey = 0;
+    const bool reaches = movers_[0]->moves(from, [&](Key raw, bool) {
+      const Key canon = s_.canon(raw);
+      if (!s_.isGoal(canon)) {
+        return false;
+      }
+      goalKey = canon;
+      return true;
+    });
+    BT_ASSERT(reaches);
     chain.push_back(goalKey);
     chain.push_back(from);
     if (!traceSide(fwd_, from, fwd_.depth, chain)) {
-      return false;
+      return GoalEnd::Failed;
     }
     std::reverse(chain.begin(), chain.end());
-    return true;
+    return GoalEnd::Found;
   }
 
   // The two ends met at m: the path from the start to m, then on to the

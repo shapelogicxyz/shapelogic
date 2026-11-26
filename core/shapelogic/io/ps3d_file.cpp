@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -61,6 +62,10 @@ Result<Puzzle> readPuzzleSolver3D(std::string_view text, std::uint64_t maxCells)
   int sz = 0;
   unsigned int piece = 0;
   std::uint64_t cells = 0;
+  // The shape being read: one bounding box when its last line is in, not
+  // one per cell (a pass over the shape for each of its cells: maxCells
+  // bounds the memory, and that was its square in time).
+  std::optional<Voxel::BatchEdit> batch;
 
   Lines lines(text);
   while (lines.next(line)) {
@@ -101,6 +106,7 @@ Result<Puzzle> readPuzzleSolver3D(std::string_view text, std::uint64_t maxCells)
 
           piece = p.addShape(static_cast<unsigned int>(sx), static_cast<unsigned int>(sy),
                              static_cast<unsigned int>(sz));
+          batch.emplace(p.getShape(piece));
 
           Problem& pr = p.getProblem(prIdx);
           if (state == 2) {
@@ -137,11 +143,14 @@ Result<Puzzle> readPuzzleSolver3D(std::string_view text, std::uint64_t maxCells)
         linenum++;
         if (linenum >= sy) {
           state = 0;
+          batch.reset();
         }
 
         break;
     }
   }
+  // a file that ends inside a shape: its box before the shapes are compared
+  batch.reset();
 
   // find and mark duplicate shapes, and remove them from the problem
   Problem& pr = p.getProblem(prIdx);

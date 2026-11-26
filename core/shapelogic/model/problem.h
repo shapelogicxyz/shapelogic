@@ -19,7 +19,9 @@
 #include "shapelogic/model/xml_element.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <map>
 #include <set>
@@ -399,6 +401,26 @@ class Problem {
     solutionsVersion_ = std::max(solutionsVersion_, was.solutionsVersion_) + 1;
   }
 
+  // What a problem holds beside its definition and the state of its
+  // solve: the saved solutions (with their ids, their version and what is
+  // known of their order) and the assemblies still to take apart. They are
+  // what a copy of a problem costs, and an undo step of a command that
+  // changes neither keeps a copy without them (Document::
+  // touchProblemSettings; cleanup item 17.10).
+
+  /// A copy of the problem with no saved solution and no assembly to take
+  /// apart. (Not const: they are moved aside while the rest is copied.)
+  [[nodiscard]] Problem copyWithoutSolutions();
+  /// Changes places with `other` in everything but the saved solutions and
+  /// the assemblies to take apart, which each of the two keeps.
+  void swapButSolutions(Problem& other);
+  /// Takes copies of `from`'s saved solutions and assemblies to take
+  /// apart in place of its own.
+  void copySolutionsFrom(const Problem& from);
+  /// About the bytes the saved solutions and the assemblies to take apart
+  /// hold, for the budget of the undo steps.
+  [[nodiscard]] std::size_t solutionBytes() const;
+
   /// Adds an assembly as a solution, numbered as the current assembly count.
   void addSolution(Assembly assm);
   /// Adds an assembly as a solution with an explicit assembly number.
@@ -414,6 +436,12 @@ class Problem {
 
   /// Removes one saved solution.
   void removeSolution(unsigned int sol);
+  /// Removes the saved solutions for which gone(index, solution) holds, in
+  /// one pass over the list (removeSolution moves every later solution, so
+  /// a loop of it is the square of the list); the others keep their order.
+  /// The number removed.
+  std::size_t removeSolutionsIf(
+      const std::function<bool(std::size_t index, const Solution& solution)>& gone);
 
   /// Gives the solutions that have none an id (Solution::getId), in list
   /// order: the file reader calls it for the solutions it read.

@@ -17,6 +17,8 @@
 
 #include <memory>
 #include <set>
+#include <string_view>
+#include <vector>
 
 using namespace bt;
 using namespace bt::app;
@@ -217,6 +219,25 @@ TEST_CASE("queries: the status line, the table and the problem kind", "[app][que
   CHECK(t[0].notchable.has_value());
   // the first shape is identical to no earlier one
   CHECK_FALSE(t[0].identicalShape.has_value());
+
+  // one row alone (shape.info) is the table's row
+  for (const char* file : {"PelikanBurr.xmpuzzle", "test_sliding_solver.xmpuzzle",
+                           "DraculasDentalDesaster.xmpuzzle", "Bermuda.xmpuzzle"}) {
+    INFO(file);
+    const Puzzle q = test::loadFixture(file);
+    const std::vector<ShapeInfo> rows = shapeTable(q);
+    REQUIRE(rows.size() == q.getNumberOfShapes());
+    bool identical = false;
+    for (unsigned int s = 0; s < q.getNumberOfShapes(); s++) {
+      INFO("shape " << s);
+      CHECK(shapeInfo(q, s) == rows[s]);
+      identical = identical || rows[s].identicalMirror.has_value();
+    }
+    // (the rows that name an earlier shape need the shapes before them)
+    if (std::string_view(file) == "DraculasDentalDesaster.xmpuzzle") {
+      CHECK(identical);
+    }
+  }
 
   CHECK(problemKind(p) == ProblemKind::Brick);
   CHECK(problemKind(test::loadFixture("test_sliding_solver.xmpuzzle")) == ProblemKind::Sliding);

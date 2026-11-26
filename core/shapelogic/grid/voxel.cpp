@@ -45,20 +45,12 @@ unsigned int Voxel::getBiggestDimension() const {
   return sz_ > sy_ ? sz_ : sy_;
 }
 
-void Voxel::skipRecalcBoundingBox(bool skipit) {
-  if (skipit) {
-    doRecalc_ = false;
-  } else {
-    doRecalc_ = true;
-    recalcBoundingBox();
-  }
-}
-
 void Voxel::recalcBoundingBox() {
   // a rebuild of space_ that did not move the marks (moveMarks) leaves
   // them the wrong length: a stale list, read past its end later
   BT_ASSERT(marksFit());
   if (!doRecalc_) {
+    recalcSkipped_ = true;
     return;
   }
 
@@ -102,6 +94,13 @@ void Voxel::invalidateTransformCache() {
 void Voxel::set(unsigned int p, VoxelType val) {
   BT_ASSERT(p < voxels_);
   const VoxelType old = space_[p];
+  // An empty cell has no color. The bounding box's pass drops the colors of
+  // all of them; this one's goes here, so that a cell emptied and filled
+  // again inside a BatchEdit is what it is without one (setState keeps the
+  // color it finds).
+  if ((val & 3) == kEmpty) {
+    val = 0;
+  }
   space_[p] = val;
   if ((old & 3) == kEmpty || (val & 3) == kEmpty) {
     clearMarks(p);
@@ -364,18 +363,32 @@ void Voxel::translate(int dx, int dy, int dz, VoxelType filler) {
 // cells are merged. connected() then checks that all selected cells share a
 // tree; fillHoles() merges the non-filled cells and fills those not in the
 // outside's tree.
+namespace {
+
+// The root of n's tree, with every node on the way moved to its
+// grandparent (path halving): unionFind() hangs each tree it meets under
+// the cell it is at, so without it the trees are chains as long as the
+// cells visited, and a shape of a million cells took 10^10 steps.
+int unionRoot(std::vector<int>& tree, int n) {
+  auto at = [&tree](int i) -> int& { return tree[static_cast<std::size_t>(i)]; };
+  while (at(n) >= 0) {
+    const int parent = at(n);
+    if (at(parent) >= 0) {
+      at(n) = at(parent);
+    }
+    n = parent;
+  }
+  return n;
+}
+
+}  // namespace
+
 void Voxel::unionFind(std::vector<int>& tree, char type, bool inverse, VoxelType value,
                       bool outsideZ) const {
   std::fill(tree.begin(), tree.end(), -1);
 
   const bool mergeOutside = (inverse && value != 0) || (!inverse && value == 0);
   auto selected = [&](VoxelType v) { return inverse ? v != value : v == value; };
-  auto root = [&tree](int n) {
-    while (tree[static_cast<std::size_t>(n)] >= 0) {
-      n = tree[static_cast<std::size_t>(n)];
-    }
-    return n;
-  };
 
   for (unsigned int x = 0; x < sx_; x++) {
     for (unsigned int y = 0; y < sy_; y++) {
@@ -383,7 +396,7 @@ void Voxel::unionFind(std::vector<int>& tree, char type, bool inverse, VoxelType
         if (!validCoordinate(asInt(x), asInt(y), asInt(z)) || !selected(get(x, y, z))) {
           continue;
         }
-        const int root1 = root(asInt(getIndex(x, y, z)));
+        const int root1 = unionRoot(tree, asInt(getIndex(x, y, z)));
 
         for (int curTyp = 0; curTyp <= type; curTyp++) {
           int x2 = 0;
@@ -396,8 +409,8 @@ void Voxel::unionFind(std::vector<int>& tree, char type, bool inverse, VoxelType
                 z2 < asInt(sz_)) {
               if (x2 < asInt(x) || y2 < asInt(y) || z2 < asInt(z)) {
                 if (selected(get(asUnsigned(x2), asUnsigned(y2), asUnsigned(z2)))) {
-                  const int root2 =
-                      root(asInt(getIndex(asUnsigned(x2), asUnsigned(y2), asUnsigned(z2))));
+                  const int root2 = unionRoot(
+                      tree, asInt(getIndex(asUnsigned(x2), asUnsigned(y2), asUnsigned(z2))));
                   if (root1 != root2) {
                     tree[static_cast<std::size_t>(root2)] = root1;
                   }
@@ -405,7 +418,7 @@ void Voxel::unionFind(std::vector<int>& tree, char type, bool inverse, VoxelType
               }
             } else if (mergeOutside) {
               if (outsideZ || (z2 >= 0 && z2 < asInt(sz_))) {
-                const int root2 = root(asInt(voxels_));
+                const int root2 = unionRoot(tree, asInt(voxels_));
                 if (root1 != root2) {
                   tree[static_cast<std::size_t>(root2)] = root1;
                 }
@@ -424,13 +437,6 @@ bool Voxel::connected(char type, bool inverse, VoxelType value, bool outsideZ) c
   std::vector<int> tree(voxels_ + 1);
   unionFind(tree, type, inverse, value, outsideZ);
 
-  auto root = [&tree](int n) {
-    while (tree[static_cast<std::size_t>(n)] >= 0) {
-      n = tree[static_cast<std::size_t>(n)];
-    }
-    return n;
-  };
-
   const bool mergeOutside = (inverse && value != 0) || (!inverse && value == 0);
   int r = -1;
 
@@ -440,8 +446,8 @@ bool Voxel::connected(char type, bool inverse, VoxelType value, bool outsideZ) c
         if (validCoordinate(asInt(x), asInt(y), asInt(z)) &&
             (inverse ? get(x, y, z) != value : get(x, y, z) == value)) {
           if (r == -1) {
-            r = root(asInt(getIndex(x, y, z)));
-          } else if (root(asInt(getIndex(x, y, z))) != r) {
+            r = unionRoot(tree, asInt(getIndex(x, y, z)));
+          } else if (unionRoot(tree, asInt(getIndex(x, y, z))) != r) {
             return false;
           }
         }
@@ -449,7 +455,7 @@ bool Voxel::connected(char type, bool inverse, VoxelType value, bool outsideZ) c
     }
   }
 
-  if (r != -1 && mergeOutside && root(asInt(voxels_)) != r) {
+  if (r != -1 && mergeOutside && unionRoot(tree, asInt(voxels_)) != r) {
     return false;
   }
   return true;
@@ -459,20 +465,15 @@ void Voxel::fillHoles(char type) {
   std::vector<int> tree(voxels_ + 1);
   unionFind(tree, type, true, kFilled, true);
 
-  auto root = [&tree](int n) {
-    while (tree[static_cast<std::size_t>(n)] >= 0) {
-      n = tree[static_cast<std::size_t>(n)];
-    }
-    return n;
-  };
+  const int outside = unionRoot(tree, asInt(voxels_));
 
-  const int outside = root(asInt(voxels_));
-
+  // one bounding box at the end, not one per filled cell
+  const BatchEdit batch(*this);
   for (unsigned int x = 0; x < sx_; x++) {
     for (unsigned int y = 0; y < sy_; y++) {
       for (unsigned int z = 0; z < sz_; z++) {
         if (validCoordinate(asInt(x), asInt(y), asInt(z)) && get(x, y, z) != kFilled) {
-          if (root(asInt(getIndex(x, y, z))) != outside) {
+          if (unionRoot(tree, asInt(getIndex(x, y, z))) != outside) {
             set(x, y, z, kFilled);
           }
         }
@@ -487,6 +488,9 @@ void setMark(std::vector<unsigned char>& marks, unsigned int voxels, unsigned in
              unsigned int pieceId) {
   if (i >= voxels) {
     return;
+  }
+  if (pieceId == 0 && marks.empty()) {
+    return;  // no marks, and none to make: not a list of zeros to drop again
   }
   if (marks.size() != voxels) {
     marks.assign(voxels, 0);

@@ -120,6 +120,42 @@ TEST_CASE("playback: rotation moves turn the pieces", "[app][playback][rotation]
   CHECK(between);
 }
 
+// Cleanup 17.8: a sampler keeps what a pose needs of each piece in each
+// orientation it has met. What it has met before must not show in a pose.
+TEST_CASE("playback: a pose is the same whatever the sampler was asked before",
+          "[app][playback][rotation]") {
+  auto same = [](const std::vector<PiecePose>& a, const std::vector<PiecePose>& b) {
+    return a.size() == b.size() &&
+           std::equal(a.begin(), a.end(), b.begin(), [](const PiecePose& x, const PiecePose& y) {
+             return x.translation == y.translation && x.rotation == y.rotation &&
+                    x.visible == y.visible;
+           });
+  };
+  for (const char* file : {"test_rotation_solvers_solved.xmpuzzle", "PelikanBurr.xmpuzzle",
+                           "Prisgon.xmpuzzle", "test_sliding_solver.xmpuzzle"}) {
+    INFO(file);
+    Document d = openFixture(file);
+    PlaybackSampler kept = sampler(d);
+    const unsigned int steps = kept.stepCount();
+    REQUIRE(steps > 0);
+    // backwards through the moves, then forwards: each pose against a
+    // sampler that was asked nothing else
+    std::vector<float> at;
+    for (unsigned int i = 2 * steps + 1; i-- > 0;) {
+      at.push_back(static_cast<float>(i) * 0.5F);
+    }
+    for (unsigned int i = 0; i <= 2 * steps; i++) {
+      at.push_back(static_cast<float>(i) * 0.5F);
+    }
+    unsigned int differ = 0;
+    for (const float step : at) {
+      PlaybackSampler fresh = sampler(d);
+      differ += same(kept.sample(step).value(), fresh.sample(step).value()) ? 0 : 1;
+    }
+    CHECK(differ == 0);
+  }
+}
+
 TEST_CASE("playback: a solution without its disassembly is shown assembled",
           "[app][playback][parallel]") {
   Document d = openFixture("PelikanBurr.xmpuzzle");

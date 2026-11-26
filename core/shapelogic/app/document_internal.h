@@ -23,11 +23,19 @@ struct Document::Snapshot {
   unsigned int index = 0;
   std::unique_ptr<Voxel> shape;    // Shape
   std::optional<Problem> problem;  // Problem
+  // Problem: the copy is without the saved solutions and the assemblies to
+  // take apart (Problem::copyWithoutSolutions), which the command leaves
+  // as they are: the step swaps the rest (touchProblemSettings)
+  bool settingsOnly = false;
   Rgb color;                      // Color
   std::string comment;             // Notes
   bool commentPopup = false;
   std::unique_ptr<Puzzle> whole;  // Whole, with the ids
   Ids ids;
+
+  /// About the bytes the part holds, for the steps' budget: the cells of a
+  /// shape, the solutions of a problem (the rest is small beside them).
+  [[nodiscard]] std::size_t bytes() const;
 };
 
 /// An undo step: the parts it changed, in the order it first changed them.
@@ -42,6 +50,14 @@ struct Document::Step {
   /// same kind records no other.
   RunKind run = RunKind::None;
   Id runOf = 0;
+
+  /// About the bytes its parts hold (Snapshot::bytes), counted as the step
+  /// goes onto the undo stack (count(): a pass over every solution it
+  /// holds, so once a push, not once a look). Not the same before and
+  /// after the step is undone, since the parts then hold the other state:
+  /// a redo counts again.
+  std::uint64_t bytes = 0;
+  void count();
 };
 
 /// A command's part of the history: opens a step (or joins the open

@@ -13,8 +13,11 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
+#include <vector>
 
 using namespace bt;
 using bt::test::fromLayers;
@@ -735,6 +738,132 @@ TEST_CASE("problem: keepSolutionsSorted stays sorted across removals",
           return pr.getSavedSolution(i).getAssemblyNumber() >
                  pr.getSavedSolution(i + 1).getAssemblyNumber();
         }) == n);
+}
+
+// Cleanup 17.9: "Remove assemblies" erased one solution at a time, each
+// erase moving every later one.
+TEST_CASE("problem: removeSolutionsIf removes what a loop of removeSolution does",
+          "[model][problem][solution]") {
+  // which solutions go: by place, by content, all, none
+  const std::function<bool(std::size_t, const Solution&)> picks[] = {
+      [](std::size_t i, const Solution&) { return i < 40; },
+      [](std::size_t i, const Solution&) { return i > 7; },
+      [](std::size_t i, const Solution&) { return i % 3 == 1; },
+      // fewer than the unsorted ones at the end: those move up into the
+      // places the sorted ones had
+      [](std::size_t i, const Solution&) { return i == 5 || i == 100 || i == 200; },
+      [](std::size_t, const Solution& s) { return s.getAssemblyNumber() % 5 < 2; },
+      [](std::size_t, const Solution&) { return true; },
+      [](std::size_t, const Solution&) { return false; },
+  };
+  unsigned int pick = 0;
+  for (const auto& gone : picks) {
+    INFO("pick " << pick++);
+    Puzzle onePuzzle = loadFixture("SolidSixPieceBurrs.xmpuzzle");
+    Puzzle refPuzzle = loadFixture("SolidSixPieceBurrs.xmpuzzle");
+    Problem& one = onePuzzle.getProblem(0);
+    Problem& ref = refPuzzle.getProblem(0);
+    one.markSolving();
+    ref.markSolving();
+    // a sorted start and a few unsorted ones after it: the removal must
+    // keep what keepSolutionsSorted knows true
+    for (Problem* pr : {&one, &ref}) {
+      pr->keepSolutionsSorted(0);
+      const unsigned int n = pr->getNumberOfSavedSolutions();
+      for (unsigned int i = 0; i < 9; i++) {
+        pr->addSolution(Assembly(pr->getSavedSolution((i * 41) % n).getAssembly()),
+                        (i * 97) % 400);
+      }
+    }
+    const unsigned int n = ref.getNumberOfSavedSolutions();
+    REQUIRE(n > 100);
+    std::vector<bool> goes;
+    for (unsigned int i = 0; i < n; i++) {
+      goes.push_back(gone(i, ref.getSavedSolution(i)));
+    }
+    std::size_t removed = 0;
+    for (unsigned int i = n; i-- > 0;) {
+      if (goes[i]) {
+        ref.removeSolution(i);
+        removed++;
+      }
+    }
+    const std::uint64_t version = one.solutionsVersion();
+    CHECK(one.removeSolutionsIf(gone) == removed);
+    CHECK((one.solutionsVersion() != version) == (removed != 0));
+
+    auto same = [&one, &ref] {
+      const unsigned int m = ref.getNumberOfSavedSolutions();
+      return one.getNumberOfSavedSolutions() == m &&
+             firstFailing(m, [&one, &ref](unsigned int i) {
+               const Solution& a = one.getSavedSolution(i);
+               const Solution& b = ref.getSavedSolution(i);
+               return a.getId() != b.getId() || a.getAssemblyNumber() != b.getAssemblyNumber() ||
+                      a.getAssembly() != b.getAssembly();
+             }) == m;
+    };
+    CHECK(same());
+    // and the next sort of each finds the same order
+    one.keepSolutionsSorted(0);
+    ref.keepSolutionsSorted(0);
+    CHECK(same());
+    const unsigned int m = one.getNumberOfSavedSolutions();
+    CHECK(firstOutOfOrder(m, [&one](unsigned int i) {
+            return one.getSavedSolution(i).getAssemblyNumber() >
+                   one.getSavedSolution(i + 1).getAssemblyNumber();
+          }) == m);
+  }
+}
+
+// Cleanup 17.10: what an undo step of a command that changes no solution
+// keeps, and how it is put back.
+TEST_CASE("problem: a copy without the solutions, and a swap that leaves them",
+          "[model][problem][solution]") {
+  Puzzle puzzle = loadFixture("SolidSixPieceBurrs.xmpuzzle");
+  Problem& pr = puzzle.getProblem(0);
+  const std::string whole = io::writePuzzle(puzzle);
+  const unsigned int n = pr.getNumberOfSavedSolutions();
+  REQUIRE(n > 100);
+  CHECK(pr.solutionBytes() > n * sizeof(Solution));
+
+  // the copy has everything else, and the problem is as it was
+  Problem bare = pr.copyWithoutSolutions();
+  CHECK(io::writePuzzle(puzzle) == whole);
+  CHECK(pr.getNumberOfSavedSolutions() == n);
+  CHECK(bare.getNumberOfSavedSolutions() == 0);
+  CHECK(bare.solutionBytes() == 0);
+  CHECK(bare.getName() == pr.getName());
+  CHECK(bare.getNumberOfParts() == pr.getNumberOfParts());
+  CHECK(bare.getSolveState() == pr.getSolveState());
+  CHECK(bare.getNumAssemblies() == pr.getNumAssemblies());
+  CHECK(bare.getUid() == pr.getUid());
+
+  // swapped with a changed problem: the changes come over, the solutions
+  // (with their version and ids) stay
+  const std::uint64_t version = pr.solutionsVersion();
+  const std::uint64_t lastId = pr.lastSolutionId();
+  const std::string oldName = pr.getName();
+  pr.setName("renamed");
+  pr.setSolverOptions({{"a", "b"}});
+  const std::string changed = io::writePuzzle(puzzle);
+  pr.swapButSolutions(bare);
+  CHECK(io::writePuzzle(puzzle) == whole);
+  CHECK(pr.getNumberOfSavedSolutions() == n);
+  CHECK(pr.solutionsVersion() == version);
+  CHECK(pr.lastSolutionId() == lastId);
+  CHECK(bare.getName() == "renamed");
+  CHECK(bare.getNumberOfSavedSolutions() == 0);
+  pr.swapButSolutions(bare);
+  CHECK(io::writePuzzle(puzzle) == changed);
+  CHECK(bare.getName() == oldName);
+
+  // and the solutions added to such a copy
+  bare.copySolutionsFrom(pr);
+  CHECK(bare.getNumberOfSavedSolutions() == n);
+  CHECK(bare.solutionsVersion() == pr.solutionsVersion());
+  CHECK(bare.solutionBytes() == pr.solutionBytes());
+  std::swap(pr, bare);
+  CHECK(io::writePuzzle(puzzle) == whole);
 }
 
 TEST_CASE("problem: groups", "[model][problem]") {

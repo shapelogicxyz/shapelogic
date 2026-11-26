@@ -658,31 +658,33 @@ std::unique_ptr<Voxel> Assembly::createSpace(const Puzzle& puzzle, const Problem
   }
 
   std::unique_ptr<Voxel> res = puzzle.getGridType().makeVoxel(sx, sy, sz, 0);
-  res->skipRecalcBoundingBox(true);
+  {
+    const Voxel::BatchEdit batch(*res, Voxel::BatchEdit::Box::Always);
 
-  for (unsigned int i = 0; i < placements_.size(); i++) {
-    if (placements_[i].transformation == kUnplacedTrans) {
-      continue;
-    }
+    for (unsigned int i = 0; i < placements_.size(); i++) {
+      if (placements_[i].transformation == kUnplacedTrans) {
+        continue;
+      }
 
-    const Voxel& pc = *pieces[i];
+      const Voxel& pc = *pieces[i];
 
-    const int dx = placements_[i].xpos - pc.getHx() - minX;
-    const int dy = placements_[i].ypos - pc.getHy() - minY;
-    const int dz = placements_[i].zpos - pc.getHz() - minZ;
+      const int dx = placements_[i].xpos - pc.getHx() - minX;
+      const int dy = placements_[i].ypos - pc.getHy() - minY;
+      const int dz = placements_[i].zpos - pc.getHz() - minZ;
 
-    for (unsigned int x = 0; x < pc.getX(); x++) {
-      for (unsigned int y = 0; y < pc.getY(); y++) {
-        for (unsigned int z = 0; z < pc.getZ(); z++) {
-          if (pc.getState(x, y, z) != Voxel::kEmpty) {
-            res->set(x + asUnsigned(dx), y + asUnsigned(dy), z + asUnsigned(dz), pc.get(x, y, z));
+      for (unsigned int x = 0; x < pc.getX(); x++) {
+        for (unsigned int y = 0; y < pc.getY(); y++) {
+          for (unsigned int z = 0; z < pc.getZ(); z++) {
+            if (pc.getState(x, y, z) != Voxel::kEmpty) {
+              res->set(x + asUnsigned(dx), y + asUnsigned(dy), z + asUnsigned(dz),
+                       pc.get(x, y, z));
+            }
           }
         }
       }
     }
   }
 
-  res->skipRecalcBoundingBox(false);
   res->initHotspot();
   return res;
 }

@@ -517,8 +517,8 @@ struct Meeting {
   std::vector<PKey> path;
 };
 
-// A search's frontier and progress, as saved for resume.
-struct SavedState {
+// A search's progress, as saved for resume: state.bin without its layers.
+struct SavedHeader {
   std::uint64_t fingerprint = 0;
   std::uint32_t fwdDepth = 0;
   std::uint32_t bwdDepth = 0;
@@ -532,11 +532,27 @@ struct SavedState {
   std::uint32_t fromStart = 0;
   std::uint32_t fromGoal = 0;
   PKey meetAt;
+};
+
+// A saved search read back: its progress and its frontier. A search that
+// carries it on takes the layers out of it (they are its memory budget,
+// and a copy kept beside them was a second one for the whole run); a save
+// writes the search's own layers (Store::saveState), never a copy here.
+struct SavedState : SavedHeader {
   Layer fwdPrev;
   Layer fwdCur;
   Layer bwdPrev;
   Layer bwdCur;
   Layer mirrorPrev;
+};
+
+// The layers a save writes, in the file's order, where the search has them.
+struct SavedLayers {
+  const Layer& fwdPrev;
+  const Layer& fwdCur;
+  const Layer& bwdPrev;
+  const Layer& bwdCur;
+  const Layer& mirrorPrev;
 };
 
 constexpr std::array<char, 8> kStateMagic = {'B', 'T', 'P', 'A', 'N', 'E', 'X', '4'};
@@ -684,7 +700,8 @@ class Store {
 
   // state.bin through a temporary file of its own, checked once it is closed
   // and synced before it replaces the last good state (cleanup item 4.1).
-  [[nodiscard]] bool saveState(const SavedState& st) const {
+  // The layers are written from where they are.
+  [[nodiscard]] bool saveState(const SavedHeader& st, const SavedLayers& layers) const {
     return io::writeFileStreamed(dir / "state.bin", [&](std::ostream& out) {
              out.write(kStateMagic.data(), kStateMagic.size());
              put(out, st.fingerprint);
@@ -697,8 +714,8 @@ class Store {
              put(out, st.fromStart);
              put(out, st.fromGoal);
              put(out, st.meetAt);
-             for (const Layer* l :
-                  {&st.fwdPrev, &st.fwdCur, &st.bwdPrev, &st.bwdCur, &st.mirrorPrev}) {
+             for (const Layer* l : {&layers.fwdPrev, &layers.fwdCur, &layers.bwdPrev,
+                                    &layers.bwdCur, &layers.mirrorPrev}) {
                put(out, static_cast<std::uint64_t>(l->size()));
                if (!l->empty()) {
                  out.write(reinterpret_cast<const char*>(l->data()),
@@ -865,9 +882,10 @@ class Searcher {
   // Turns a stacking into the picture a live preview asks for (set when
   // the search has a sample).
   const stacking::StackingPlacer* placer = nullptr;
-  // Save the top search here, and carry on from resumeFrom when it is set.
+  // Save the top search here, and carry on from resumeFrom when it is set:
+  // the top search takes its layers out of it.
   Store* store = nullptr;
-  const SavedState* resumeFrom = nullptr;
+  SavedState* resumeFrom = nullptr;
   // The two ends, for levels the store does not hold.
   PKey startKey;
   PKey goalKey;
@@ -1206,13 +1224,14 @@ class Searcher {
         search_.depth->store(std::uint64_t{m.fromStart} + m.fromGoal, std::memory_order_relaxed);
       }
     } else if (top && resumeFrom != nullptr) {
-      fwd.prev = resumeFrom->fwdPrev;
-      fwd.cur = resumeFrom->fwdCur;
+      // moved, not copied: the loaded frontier is the search's from here
+      fwd.prev = std::move(resumeFrom->fwdPrev);
+      fwd.cur = std::move(resumeFrom->fwdCur);
       fwd.depth = resumeFrom->fwdDepth;
-      bwd.prev = resumeFrom->bwdPrev;
-      bwd.cur = resumeFrom->bwdCur;
+      bwd.prev = std::move(resumeFrom->bwdPrev);
+      bwd.cur = std::move(resumeFrom->bwdCur);
       bwd.depth = resumeFrom->bwdDepth;
-      mirrorPrev = resumeFrom->mirrorPrev;
+      mirrorPrev = std::move(resumeFrom->mirrorPrev);
       search_.found = resumeFrom->found;
       keep = false;
       onDisk = true;
@@ -1288,19 +1307,16 @@ class Searcher {
       if (saveTo == nullptr || !finishWrite() || !toDisk()) {
         return false;
       }
-      SavedState st;
+      SavedHeader st;
       st.fingerprint = fingerprint;
       st.fwdDepth = fwd.depth;
       st.bwdDepth = bwd.depth;
       st.interval = saveTo->interval;
       st.found = search_.found;
       st.ms = msSoFar();
-      st.fwdPrev = fwd.prev;
-      st.fwdCur = fwd.cur;
-      st.bwdPrev = bwd.prev;
-      st.bwdCur = bwd.cur;
-      st.mirrorPrev = mirrorPrev;
-      return saveTo->saveState(st);
+      // the frontier where it is: a copy doubled the search's memory while
+      // it was written, at every autosave and every pause
+      return saveTo->saveState(st, {fwd.prev, fwd.cur, bwd.prev, bwd.cur, mirrorPrev});
     };
     // How long a path both ends together have ruled out.
     auto deep = [&]() {
@@ -1463,7 +1479,7 @@ class Searcher {
       Layer().swap(bwd.cur);
       Layer().swap(mirrorPrev);
       // Note where the ends met, so a stop while tracing loses no search.
-      SavedState st;
+      SavedHeader st;
       st.fingerprint = fingerprint;
       st.fwdDepth = m.fromStart;
       st.bwdDepth = m.fromGoal;
@@ -1474,7 +1490,8 @@ class Searcher {
       st.fromStart = m.fromStart;
       st.fromGoal = m.fromGoal;
       st.meetAt = m.at;
-      if (!saveTo->saveState(st)) {
+      const Layer none;
+      if (!saveTo->saveState(st, {none, none, none, none, none})) {
         return diskFailed();
       }
       auto stopTrace = [&]() {

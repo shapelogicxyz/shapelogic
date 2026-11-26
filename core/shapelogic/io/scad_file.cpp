@@ -546,12 +546,17 @@ Added addShapeFromLayers(Puzzle& p, const std::vector<std::string>& layers,
   Voxel& sh = p.getShape(id);
   sh.setName(name);
 
-  for (unsigned int z = 0; z < sz; z++) {
-    for (std::size_t y = 0; y < decoded[z].size(); y++) {
-      for (std::size_t x = 0; x < decoded[z][y].size(); x++) {
-        if (decoded[z][y][x] != '.') {
-          sh.setState(static_cast<unsigned int>(x), static_cast<unsigned int>(y), z,
-                      Voxel::kFilled);
+  {
+    // one bounding box for the shape, not one per cell (kMaxImportCells
+    // bounds the cells, and a pass over them for each was their square)
+    const Voxel::BatchEdit batch(sh);
+    for (unsigned int z = 0; z < sz; z++) {
+      for (std::size_t y = 0; y < decoded[z].size(); y++) {
+        for (std::size_t x = 0; x < decoded[z][y].size(); x++) {
+          if (decoded[z][y][x] != '.') {
+            sh.setState(static_cast<unsigned int>(x), static_cast<unsigned int>(y), z,
+                        Voxel::kFilled);
+          }
         }
       }
     }
@@ -768,11 +773,12 @@ Result<Puzzle> readPuzzlecad(std::string_view text, std::uint64_t maxCells) {
     const unsigned int id = p.addShape(cube, cube, cube);
     Voxel& sh = p.getShape(id);
     sh.setName("Result");
-    sh.skipRecalcBoundingBox(true);
-    for (unsigned int i = 0; i < sh.getXYZ(); i++) {
-      sh.setState(i, Voxel::kVariable);
+    {
+      const Voxel::BatchEdit batch(sh, Voxel::BatchEdit::Box::Always);
+      for (unsigned int i = 0; i < sh.getXYZ(); i++) {
+        sh.setState(i, Voxel::kVariable);
+      }
     }
-    sh.skipRecalcBoundingBox(false);
     pr.setResultId(p, id);
   }
 

@@ -372,20 +372,21 @@ void generateDisk(Voxel& v, unsigned int size) {
   v.resize(d, d, 1, Voxel::kEmpty);
   // one bounding box at the end, not one per cell (a disc of size 100 has
   // 40 000 cells)
-  v.skipRecalcBoundingBox(true);
-  for (unsigned int y = 0; y < d; y++) {
-    for (unsigned int x = 0; x < d; x++) {
-      if (x == size && y == size) {
-        v.set(x, y, 0, Voxel::kEmpty);
-        continue;
-      }
-      v.set(x, y, 0, Voxel::kFilled);
-      if (color != 0) {
-        v.setColor(x, y, 0, color);
+  {
+    const Voxel::BatchEdit batch(v, Voxel::BatchEdit::Box::Always);
+    for (unsigned int y = 0; y < d; y++) {
+      for (unsigned int x = 0; x < d; x++) {
+        if (x == size && y == size) {
+          v.set(x, y, 0, Voxel::kEmpty);
+          continue;
+        }
+        v.set(x, y, 0, Voxel::kFilled);
+        if (color != 0) {
+          v.setColor(x, y, 0, color);
+        }
       }
     }
   }
-  v.skipRecalcBoundingBox(false);
   v.setHotspot(static_cast<int>(size), static_cast<int>(size), 0);
   v.setDiskSize(size);
 }

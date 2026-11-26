@@ -113,6 +113,7 @@ void Puzzle::removeColor(unsigned int col) {
 
   // the shapes stop using the color, higher colors move down
   for (ClonePtr<Voxel>& shape : shapes_) {
+    const Voxel::BatchEdit batch(*shape);
     for (unsigned int p = 0; p < shape->getXYZ(); p++) {
       if (shape->getState(p) != Voxel::kEmpty) {
         if (shape->getColor(p) == col) {

@@ -552,3 +552,122 @@ TEST_CASE("voxel: hasInitialHotspot says whether initHotspot would move it", "[v
   CHECK(s->getHz() == 0);
   CHECK(s->hasInitialHotspot());
 }
+
+// Cleanup 17.2: set() works the bounding box out again each time, a pass
+// over the space; a batch leaves it for its end.
+TEST_CASE("voxel: a batch of edits works the bounding box out once, as the outermost one ends",
+          "[voxel][bbox]") {
+  for (GridKind t : kAllGrids) {
+    INFO("grid " << toString(t));
+    GridType gt(t);
+    std::unique_ptr<Voxel> plain = legalShape(gt, 6, 5);
+    if (!plain) {
+      continue;
+    }
+    // the same cells set one at a time and in a batch
+    std::unique_ptr<Voxel> batched = makeVoxel(gt, plain->getX(), plain->getY(), plain->getZ());
+    std::unique_ptr<Voxel> single = makeVoxel(gt, plain->getX(), plain->getY(), plain->getZ());
+    unsigned int last = 0;
+    for (unsigned int i = 0; i < plain->getXYZ(); i++) {
+      if (!plain->isEmpty(i)) {
+        single->setState(i, Voxel::kFilled);
+        single->setColor(i, 3);
+        last = i;
+      }
+    }
+    // a cell emptied and filled again has lost its color, in a batch too
+    single->setState(last, Voxel::kEmpty);
+    single->setState(last, Voxel::kFilled);
+    single->setState(last, Voxel::kEmpty);
+    {
+      const Voxel::BatchEdit outer(*batched);
+      {
+        const Voxel::BatchEdit inner(*batched);
+        for (unsigned int i = 0; i < plain->getXYZ(); i++) {
+          if (!plain->isEmpty(i)) {
+            batched->setState(i, Voxel::kFilled);
+            batched->setColor(i, 3);
+          }
+        }
+      }
+      // the inner batch ended inside another: nothing is worked out yet
+      CHECK(batched->boundX2() == 0);
+      CHECK(batched->boundY2() == 0);
+      CHECK(batched->boundZ2() == 0);
+      batched->setState(last, Voxel::kEmpty);
+      CHECK(batched->getColor(last) == 0);
+      batched->setState(last, Voxel::kFilled);
+      CHECK(batched->getColor(last) == 0);
+      batched->setState(last, Voxel::kEmpty);
+    }
+    CHECK(batched->getColor(last) == 0);
+    CHECK(*batched == *single);
+    CHECK(batched->boundX1() == single->boundX1());
+    CHECK(batched->boundX2() == single->boundX2());
+    CHECK(batched->boundY1() == single->boundY1());
+    CHECK(batched->boundY2() == single->boundY2());
+    CHECK(batched->boundZ1() == single->boundZ1());
+    CHECK(batched->boundZ2() == single->boundZ2());
+    // and a set after the batch works it out at once again
+    batched->setState(last, Voxel::kFilled);
+    single->setState(last, Voxel::kFilled);
+    CHECK(batched->boundX2() == single->boundX2());
+    CHECK(batched->boundY2() == single->boundY2());
+    CHECK(batched->boundZ2() == single->boundZ2());
+
+    // a batch without an edit asks for nothing: the box and the cached
+    // transformations stay (Fill holes with no hole to fill is one)
+    int hx = 0;
+    int hy = 0;
+    int hz = 0;
+    const bool turns = batched->getHotspot(1, &hx, &hy, &hz);
+    const unsigned int x2 = batched->boundX2();
+    { const Voxel::BatchEdit none(*batched); }
+    CHECK(batched->boundX2() == x2);
+    int kx = 0;
+    int ky = 0;
+    int kz = 0;
+    CHECK(batched->getHotspot(1, &kx, &ky, &kz) == turns);
+    CHECK((kx == hx && ky == hy && kz == hz));
+
+    // A new empty space has its box inside out; the pass makes an empty
+    // shape's all zero. A batch for a shape being made does the pass
+    // whatever was set (the readers did, before they had the batch).
+    std::unique_ptr<Voxel> made = makeVoxel(gt, 3, 2, 4);
+    CHECK(made->boundX1() == 2);
+    CHECK(made->boundZ1() == 3);
+    { const Voxel::BatchEdit none(*made); }
+    CHECK(made->boundX1() == 2);
+    { const Voxel::BatchEdit always(*made, Voxel::BatchEdit::Box::Always); }
+    CHECK(made->boundX1() == 0);
+    CHECK(made->boundY1() == 0);
+    CHECK(made->boundZ1() == 0);
+    CHECK(made->boundZ2() == 0);
+  }
+}
+
+TEST_CASE("voxel: clearMarks drops every start and goal mark", "[voxel]") {
+  GridType gt(GridKind::Sliding);
+  std::unique_ptr<Voxel> v = gt.makeVoxel(4, 3, 1, Voxel::kFilled);
+  // clearing a mark of a shape without marks makes none
+  v->setStartPiece(2, 0);
+  v->setGoalPiece(2, 0);
+  CHECK_FALSE(v->hasStartPieces());
+  CHECK_FALSE(v->hasGoalPieces());
+  const std::unique_ptr<Voxel> bare = v->clone();
+
+  v->setStartPiece(1, 2);
+  v->setStartPiece(7, 1);
+  v->setGoalPiece(11, 2);
+  CHECK(v->hasStartPieces());
+  CHECK(v->hasGoalPieces());
+  CHECK_FALSE(*v == *bare);
+  v->clearMarks();
+  CHECK_FALSE(v->hasStartPieces());
+  CHECK_FALSE(v->hasGoalPieces());
+  for (unsigned int i = 0; i < v->getXYZ(); i++) {
+    CHECK(v->getStartPiece(i) == 0);
+    CHECK(v->getGoalPiece(i) == 0);
+  }
+  CHECK(*v == *bare);
+}

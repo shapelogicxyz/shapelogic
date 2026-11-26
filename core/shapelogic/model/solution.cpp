@@ -35,6 +35,18 @@ const Disassembly* Solution::getDisassemblyInfo() const {
   return nullptr;
 }
 
+std::size_t Solution::byteEstimate() const {
+  std::size_t bytes = sizeof(Solution) + assembly_.placementCount() * sizeof(Placement);
+  if (tree_) {
+    bytes += tree_->byteEstimate();
+  }
+  if (treeInfo_) {
+    bytes += (treeInfo_->getValues().size() + treeInfo_->getRotValues().size()) *
+             sizeof(unsigned int);
+  }
+  return bytes;
+}
+
 void Solution::removeDisassembly() {
   if (tree_) {
     if (!treeInfo_) {

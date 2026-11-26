@@ -427,7 +427,8 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
   }
 
   std::unique_ptr<Voxel> v = gt.makeVoxel(sx, sy, sz, 0);
-  v->skipRecalcBoundingBox(true);
+  // one bounding box when the shape is read, not one per cell
+  const Voxel::BatchEdit batch(*v, Voxel::BatchEdit::Box::Always);
 
   for (const char ch : c) {
     switch (ch) {
@@ -530,7 +531,6 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
   }
   v->setExtraAttributes(std::move(extra));
 
-  v->skipRecalcBoundingBox(false);
   return v;
 }
 
@@ -1583,11 +1583,7 @@ Puzzle readPuzzleElement(const XmlElement& root) {
     // sliding grid has marks at all (its grid classes alone move them as
     // the cells move: cleanup item 11.4)
     for (unsigned int s = 0; s < puzzle.getNumberOfShapes(); s++) {
-      Voxel& v = puzzle.getShape(s);
-      for (unsigned int i = 0; i < v.getXYZ() && (v.hasStartPieces() || v.hasGoalPieces()); i++) {
-        v.setStartPiece(i, 0);
-        v.setGoalPiece(i, 0);
-      }
+      puzzle.getShape(s).clearMarks();
     }
   }
 

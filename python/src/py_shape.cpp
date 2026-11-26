@@ -98,14 +98,7 @@ void PyShape::fill(
   // The cells before one outside the shape are filled, as in the original;
   // but the bounding box is recalculated then too (the original's stayed
   // switched off, so the shape's empty cells kept their colors from then on)
-  struct BatchEdit {
-    Voxel& v;
-    explicit BatchEdit(Voxel& voxel) : v(voxel) { v.skipRecalcBoundingBox(true); }
-    ~BatchEdit() { v.skipRecalcBoundingBox(false); }
-    BatchEdit(const BatchEdit&) = delete;
-    BatchEdit& operator=(const BatchEdit&) = delete;
-  };
-  const BatchEdit batch(voxel());
+  const Voxel::BatchEdit batch(voxel(), Voxel::BatchEdit::Box::Always);
   for (const auto& [x, y, z] : coords) {
     cell(x, y, z).set(x, y, z, Voxel::kFilled);
   }
