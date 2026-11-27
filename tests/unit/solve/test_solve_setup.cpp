@@ -164,9 +164,10 @@ TEST_CASE("solve setup: the assembly explorer places a tilted tray's pieces as t
   REQUIRE(d.has_value());
   const Puzzle& p = d->puzzle();
   const auto placements = [&](unsigned int problem) {
-    const Result<app::AssemblyExplorer> e = d->exploreAssembly(
-        d->problemIds()[problem], SolverType::Classic, MatrixOptions{}, false);
+    Result<app::AssemblyExplorer> e =
+        d->exploreAssembly(d->problemIds()[problem], SolverType::Classic, MatrixOptions{});
     REQUIRE(e.has_value());
+    REQUIRE(e->build(false, StopToken()).has_value());
     REQUIRE(e->placementsSupported());
     std::vector<std::size_t> counts;
     for (unsigned int piece = 0; piece < e->pieceCount(); piece++) {

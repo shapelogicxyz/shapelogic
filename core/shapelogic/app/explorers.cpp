@@ -52,13 +52,13 @@ std::unique_ptr<Puzzle> explorerCopy(const Puzzle& puzzle, unsigned int problemI
 
 // ---- the assembly explorer -----------------------------------------------------------
 
+AssemblyExplorer::AssemblyExplorer() : reducing_(std::make_unique<std::atomic<bool>>(false)) {}
 AssemblyExplorer::AssemblyExplorer(AssemblyExplorer&&) noexcept = default;
 AssemblyExplorer& AssemblyExplorer::operator=(AssemblyExplorer&&) noexcept = default;
 AssemblyExplorer::~AssemblyExplorer() = default;
 
-Result<AssemblyExplorer> AssemblyExplorer::make(const Puzzle& puzzle, unsigned int problemIndex,
-                                                SolverType solver, const MatrixOptions& matrix,
-                                                bool reduce) {
+Result<AssemblyExplorer> AssemblyExplorer::copy(const Puzzle& puzzle, unsigned int problemIndex,
+                                                SolverType solver, const MatrixOptions& matrix) {
   // a stacking puzzle has no assembler either: its search is its own
   const GridType& grid = puzzle.getGridType();
   if ((grid.getCapabilities() & kCapAssemble) == 0) {
@@ -87,21 +87,72 @@ Result<AssemblyExplorer> AssemblyExplorer::make(const Puzzle& puzzle, unsigned i
     (void)sliding::prepareForSolving(*e.puzzle_, e.puzzle_->getProblem(0));
   }
   e.puzzle_->setTray(puzzle.tray());
-  const SolveSetup setup =
-      solveSetup(*e.puzzle_, e.puzzle_->getProblem(0), matrix, solver, SetupFlags{});
-  const MatrixOptions& options = setup.matrix;
+  SolveSetup setup = solveSetup(*e.puzzle_, e.puzzle_->getProblem(0), matrix, solver, SetupFlags{});
+  e.matrix_ = std::move(setup.matrix);
   e.assembler_ = makeAssembler(*e.puzzle_, e.puzzle_->getProblem(0), setup.solver);
-  const AssemblerError err = e.assembler_->createMatrix(options, StopToken());
+  return e;
+}
+
+Result<void> AssemblyExplorer::build(bool reduce, const StopToken& stop) {
+  BT_ASSERT_MSG(!built_, "an assembly explorer is built once");
+  const AssemblerError err = assembler_->createMatrix(matrix_, stop);
+  if (err == AssemblerError::Stopped) {
+    return fail(Errc::InvalidState, "the explorer's preparation was stopped");
+  }
   if (err != AssemblerError::None) {
     return fail(Errc::InvalidArgument, std::string(errorMessage(err)));
   }
   if (reduce) {
-    (void)e.assembler_->reduce(StopToken());
+    reducing_->store(true, std::memory_order_relaxed);
+    (void)assembler_->reduce(stop);
+    reducing_->store(false, std::memory_order_relaxed);
   }
-  return e;
+  // a reduce that was stopped leaves a matrix that is whole, only not as
+  // small as it could be; whoever stopped it wants no explorer
+  if (stop.stopRequested()) {
+    return fail(Errc::InvalidState, "the explorer's preparation was stopped");
+  }
+  built_ = true;
+  return {};
+}
+
+PrepareProgress AssemblyExplorer::prepareProgress() const { return assembler_->prepareProgress(); }
+
+bool AssemblyExplorer::reducing() const { return reducing_->load(std::memory_order_relaxed); }
+
+// ---- the build of an assembly explorer ---------------------------------------------
+
+AssemblyExplorerBuild::AssemblyExplorerBuild(AssemblyExplorer explorer, bool reduce)
+    : explorer_(std::move(explorer)), reduce_(reduce) {
+  start();
+}
+
+AssemblyExplorerBuild::~AssemblyExplorerBuild() { finish(); }
+
+void AssemblyExplorerBuild::run() {
+  Result<void> end = explorer_.build(reduce_, stop_.token());
+  const std::lock_guard<std::mutex> lock(mutex_);
+  end_ = std::move(end);
+}
+
+PrepareProgress AssemblyExplorerBuild::progress() const { return explorer_.prepareProgress(); }
+
+bool AssemblyExplorerBuild::reducing() const { return explorer_.reducing(); }
+
+Result<AssemblyExplorer> AssemblyExplorerBuild::take() {
+  BT_ASSERT_MSG(!active(), "an explorer is taken once its build has ended");
+  const std::lock_guard<std::mutex> lock(mutex_);
+  if (failure_) {
+    return fail(Errc::Internal, *failure_);
+  }
+  if (!end_) {
+    return std::unexpected(end_.error());
+  }
+  return std::move(explorer_);
 }
 
 bool AssemblyExplorer::placementsSupported() const {
+  BT_ASSERT(built_);
   return assembler_->piecePlacementSupported();
 }
 
@@ -110,6 +161,7 @@ unsigned int AssemblyExplorer::pieceCount() const {
 }
 
 std::vector<PiecePlacement> AssemblyExplorer::placements(unsigned int piece) const {
+  BT_ASSERT(built_);
   std::vector<PiecePlacement> out;
   if (!assembler_->piecePlacementSupported() || piece >= pieceCount()) {
     return out;
@@ -125,11 +177,20 @@ std::vector<PiecePlacement> AssemblyExplorer::placements(unsigned int piece) con
   return out;
 }
 
-void AssemblyExplorer::step(unsigned long steps) { assembler_->debugStep(steps); }
+void AssemblyExplorer::step(unsigned long steps) {
+  BT_ASSERT(built_);
+  assembler_->debugStep(steps);
+}
 
-Assembly AssemblyExplorer::currentAssembly() const { return assembler_->currentAssembly(); }
+Assembly AssemblyExplorer::currentAssembly() const {
+  BT_ASSERT(built_);
+  return assembler_->currentAssembly();
+}
 
-float AssemblyExplorer::finished() const { return assembler_->finished(); }
+float AssemblyExplorer::finished() const {
+  BT_ASSERT(built_);
+  return assembler_->finished();
+}
 
 // ---- the movement explorer -----------------------------------------------------------
 

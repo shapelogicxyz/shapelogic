@@ -8,17 +8,21 @@
 #include "../scratch_dir.h"
 
 #include "shapelogic/base/assert.h"
+#include "shapelogic/model/solution.h"
+#include "shapelogic/model/problem.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <ostream>
+#include <set>
 #include <sstream>
 #include <streambuf>
 #include <thread>
@@ -865,6 +869,47 @@ std::vector<Json> pollUntil(Harness& h, int rounds, Done&& done, Between&& betwe
   return events;
 }
 
+// Opens an assembly explorer and polls until its explore.ready, which is
+// returned with the reply's `pieces` (the events of other work that come
+// meanwhile are dropped).
+Json openExplorer(Harness& h, const Json& params) {
+  const Json opened = h.result("explore.openAssembly", params);
+  Json ready;
+  for (int i = 0; i < 120000 && ready.is_null(); i++) {
+    h.out.str("");
+    h.engine.poll();
+    for (Json& m : parse(h.out.str()).messages) {
+      if (m["method"] == "explore.ready" && m["params"]["handle"] == opened["handle"]) {
+        ready = std::move(m["params"]);
+      }
+    }
+    if (ready.is_null()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
+  REQUIRE(ready.is_object());
+  ready["pieces"] = opened["pieces"];
+  return ready;
+}
+
+// A problem whose assembler takes long to prepare (solve_test_helpers.h's
+// slowMatrixPuzzle, through the API): a box of `side` cells a side, every
+// cell variable, and `hooks` pieces without symmetry. Its matrix is built
+// in a moment and its reduce runs for seconds in a release build.
+std::string hookBox(Harness& h, int side, int hooks) {
+  const std::string box = h.result("shape.create", {{"size", {side, side, side}}})["shape"];
+  h.result("shape.setBox", {{"shape", box}, {"tool", "variable"}, {"from", {0, 0, 0}}, {"to", {side - 1, side - 1, side - 1}}});
+  const std::string p = h.result("problem.create")["problem"];
+  h.result("problem.setResult", {{"problem", p}, {"shape", box}});
+  for (int i = 0; i < hooks; i++) {
+    const std::string hook = h.result("shape.create", {{"size", {3 + i, 2, 1}}})["shape"];
+    h.result("shape.setBox", {{"shape", hook}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {2 + i, 0, 0}}});
+    h.result("shape.setBox", {{"shape", hook}, {"tool", "fixed"}, {"from", {1, 1, 0}}, {"to", {1, 1, 0}}});
+    h.result("problem.setPieceCount", {{"problem", p}, {"shape", hook}, {"min", 1}, {"max", 1}});
+  }
+  return p;
+}
+
 }  // namespace
 
 // The messages of one poll whose taking in and telling have `between` in
@@ -1087,6 +1132,178 @@ TEST_CASE("engine: a solve next to an analysis of another problem", "[engine][pa
   CHECK_FALSE(h.engine.busy());
 }
 
+// Cleanup item 18.1: explore.openAssembly built the matrix on the request
+// thread, under the lock a solve of the problem writes with: a big
+// problem's held every call, Pause and Abort among them, for minutes. It
+// answers at once now, the matrix is built on a thread of the explorer's
+// own, and explore.ready tells when the handle can be used.
+TEST_CASE("engine: an assembly explorer is prepared beside the calls", "[engine][parallel]") {
+  Harness h;
+  h.result("document.new", {{"grid", "bricks"}});
+
+  SECTION("the handle at once, its use after explore.ready") {
+    const std::string p = dominoBox(h, 2, 2, 2);
+    const Json opened = h.result("explore.openAssembly", {{"problem", p}});
+    CHECK(opened["pieces"] == 4);
+    CHECK(opened.size() == 2);
+    const std::string ax = opened["handle"];
+    // until the poll has told explore.ready, however soon the build ends
+    CHECK(h.engine.busy());
+    CHECK(h.errc("explore.step", {{"handle", ax}}) == "invalid_state");
+    CHECK(h.errc("explore.placements", {{"handle", ax}, {"piece", 0}}) == "invalid_state");
+    Json ready;
+    (void)pollUntil(
+        h, 60000,
+        [&](const Json& m) {
+          if (m["method"] == "explore.ready") {
+            ready = m["params"];
+          }
+          // a build so short tells no progress
+          CHECK(m["method"] != "explore.preparing");
+          return ready.is_object();
+        },
+        [] {});
+    REQUIRE(ready.is_object());
+    CHECK(ready["handle"] == ax);
+    CHECK(ready["ready"] == true);
+    CHECK(ready["placementsSupported"].is_boolean());
+    CHECK(ready["finished"] == 0);
+    CHECK(ready["message"].is_null());
+    CHECK_FALSE(h.engine.busy());
+    CHECK(h.result("explore.step", {{"handle", ax}, {"steps", 5}})["placements"].size() == 4);
+    h.result("explore.close", {{"handle", ax}});
+    CHECK(h.errc("explore.close", {{"handle", ax}}) == "not_found");
+  }
+
+  SECTION("a matrix that cannot be made is told by explore.ready, and the handle is closed") {
+    // a bar of three in a box of 2x2x2, with five cubes for the rest
+    const std::string box = h.result("shape.create", {{"size", {2, 2, 2}}})["shape"];
+    h.result("shape.setBox", {{"shape", box}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {1, 1, 1}}});
+    const std::string bar = h.result("shape.create", {{"size", {3, 1, 1}}})["shape"];
+    h.result("shape.setBox", {{"shape", bar}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {2, 0, 0}}});
+    const std::string cube = h.result("shape.create", {{"size", {1, 1, 1}}})["shape"];
+    h.result("shape.setBox", {{"shape", cube}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {0, 0, 0}}});
+    const std::string p = h.result("problem.create")["problem"];
+    h.result("problem.setResult", {{"problem", p}, {"shape", box}});
+    h.result("problem.setPieceCount", {{"problem", p}, {"shape", bar}, {"min", 1}, {"max", 1}});
+    h.result("problem.setPieceCount", {{"problem", p}, {"shape", cube}, {"min", 5}, {"max", 5}});
+    const Json ready = openExplorer(h, {{"problem", p}});
+    CHECK(ready["ready"] == false);
+    CHECK(ready["placementsSupported"] == false);
+    CHECK(ready["message"] == "A piece cannot be placed in the target shape");
+    const std::string ax = ready["handle"];
+    CHECK(h.errc("explore.step", {{"handle", ax}}) == "not_found");
+    CHECK(h.errc("explore.close", {{"handle", ax}}) == "not_found");
+    CHECK_FALSE(h.engine.busy());
+    // what needs no matrix is still the call's own error
+    CHECK(h.errc("explore.openAssembly", {{"problem", "p999"}}) == "not_found");
+  }
+
+  // The rest on a preparation that takes long (seconds in a release
+  // build, far longer in the others): the calls are answered while it
+  // runs, its progress is told, and whoever gives the handle up ends it.
+  // None of these waits for the build's own end: each would take as long
+  // as the build if the stop did not reach it.
+  const auto untilStoppedBuildsAreGone = [&h](const std::string& ax) {
+    // Each build that was given up was asked to stop, and ended for it: one
+    // that ran to its end would have an explorer to give. (Looked at before
+    // the poll lets it go; the wait is the stop's, a moment.)
+    for (const auto& build : h.engine.state().stoppedBuilds) {
+      for (int i = 0; i < 120000 && build->active(); i++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+      REQUIRE_FALSE(build->active());
+      const Result<app::AssemblyExplorer> ended = build->take();
+      REQUIRE_FALSE(ended.has_value());
+      CHECK(ended.error().code == Errc::InvalidState);
+    }
+    bool told = false;
+    for (int i = 0; i < 120000 && !h.engine.state().stoppedBuilds.empty(); i++) {
+      h.out.str("");
+      h.engine.poll();
+      for (const Json& m : parse(h.out.str()).messages) {
+        told = told || (m["method"] == "explore.ready" && m["params"]["handle"] == ax);
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(h.engine.state().stoppedBuilds.empty());
+    // an explorer given up is not told ready
+    CHECK_FALSE(told);
+  };
+
+  SECTION("calls are answered and the progress told while it is prepared; explore.close ends it") {
+    const std::string p = hookBox(h, 20, 4);
+    const std::string ax = h.result("explore.openAssembly", {{"problem", p}})["handle"];
+    CHECK(h.engine.busy());
+    CHECK(h.result("engine.info")["methods"].size() > 100);
+    CHECK(h.result("problem.get", {{"problem", p}})["pieces"] == 4);
+    Json progress;
+    const std::vector<Json> events = pollUntil(
+        h, 120000,
+        [&](const Json& m) {
+          if (m["method"] == "explore.preparing") {
+            progress = m["params"];
+          }
+          return progress.is_object();
+        },
+        [&] { (void)h.result("solve.status", {{"problem", p}}); });
+    REQUIRE(progress.is_object());
+    CHECK(progress["handle"] == ax);
+    CHECK(progress["reducing"].is_boolean());
+    CHECK(progress["progress"]["placements"].get<std::uint64_t>() > 0);
+    for (const Json& m : events) {
+      CHECK(m["method"] != "explore.ready");
+    }
+    CHECK(h.errc("explore.step", {{"handle", ax}}) == "invalid_state");
+    h.result("explore.close", {{"handle", ax}});
+    CHECK_FALSE(h.engine.busy());
+    CHECK(h.errc("explore.close", {{"handle", ax}}) == "not_found");
+    CHECK(h.errc("explore.step", {{"handle", ax}}) == "not_found");
+    untilStoppedBuildsAreGone(ax);
+  }
+
+  SECTION("a solve of the problem starts, runs and pauses while its explorer is prepared") {
+    // the build reads its own copy: the problem's lock is free
+    const std::string p = hookBox(h, 20, 4);
+    const std::string ax = h.result("explore.openAssembly", {{"problem", p}})["handle"];
+    h.result("solve.start", {{"problem", p}, {"options", {{"disassemble", false}, {"threads", 1}}}});
+    (void)pollUntil(
+        h, 60000,
+        [](const Json& m) { return m["method"] == "solve.state" && m["params"]["state"] == "preparing"; },
+        [] {});
+    h.result("solve.pause", {{"problem", p}});
+    bool paused = false;
+    const std::vector<Json> events = pollUntil(
+        h, 120000,
+        [&](const Json& m) {
+          paused = paused || (m["method"] == "solve.state" && m["params"]["state"] == "paused");
+          return paused;
+        },
+        [] {});
+    CHECK(paused);
+    for (const Json& m : events) {
+      CHECK(m["method"] != "explore.ready");
+    }
+    // the explorer is still being prepared
+    CHECK(h.errc("explore.step", {{"handle", ax}}) == "invalid_state");
+    h.result("explore.close", {{"handle", ax}});
+    untilStoppedBuildsAreGone(ax);
+  }
+
+  SECTION("a new document ends the preparation, and so does the engine's end") {
+    const std::string p = hookBox(h, 20, 4);
+    const std::string ax = h.result("explore.openAssembly", {{"problem", p}})["handle"];
+    h.result("document.new", {{"grid", "bricks"}});
+    CHECK_FALSE(h.engine.busy());
+    CHECK(h.errc("explore.step", {{"handle", ax}}) == "not_found");
+    untilStoppedBuildsAreGone(ax);
+    // one left building when the engine goes: its end stops it and waits
+    const std::string q = hookBox(h, 20, 4);
+    (void)h.result("explore.openAssembly", {{"problem", q}});
+    CHECK(h.engine.busy());
+  }
+}
+
 TEST_CASE("engine: explorers, fit, paging and the table while a solve runs; a new document ends it",
           "[engine][parallel]") {
   Harness h;
@@ -1102,7 +1319,7 @@ TEST_CASE("engine: explorers, fit, paging and the table while a solve runs; a ne
         (void)h.result("solve.status", {{"problem", p}});
         (void)h.result("problem.fit", {{"problem", p}});
         (void)h.result("problem.kind", {{"problem", p}});
-        const std::string ax = h.result("explore.openAssembly", {{"problem", p}})["handle"];
+        const std::string ax = openExplorer(h, {{"problem", p}})["handle"];
         (void)h.result("explore.step", {{"handle", ax}, {"steps", 50}});
         h.result("explore.close", {{"handle", ax}});
         (void)h.result("solution.page", {{"problem", p}, {"sortBy", "moves"}, {"descending", true}});

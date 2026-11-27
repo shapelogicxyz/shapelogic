@@ -50,6 +50,17 @@ State::State(Output& output, std::ostream& logs, const MethodTable& table)
       memory(std::make_shared<MemoryShare>(settings.searchMemoryBytes())),
       doc(std::in_place, GridKind::Bricks) {}
 
+bool State::stopExplorerBuild(std::uint64_t handle) {
+  const auto it = explorerBuilds.find(handle);
+  if (it == explorerBuilds.end()) {
+    return false;
+  }
+  it->second.build->stop();
+  stoppedBuilds.push_back(std::move(it->second.build));
+  explorerBuilds.erase(it);
+  return true;
+}
+
 void State::replaceDocument(app::Document d, std::optional<std::filesystem::path> from) {
   // the old document's work ends with it: tell the problems whose work the
   // events were reporting (after the reply, as events of this request)
@@ -87,6 +98,11 @@ void State::replaceDocument(app::Document d, std::optional<std::filesystem::path
   playbacks.clear();
   assemblyExplorers.clear();
   movementExplorers.clear();
+  // the handles go with the document, the ones still being prepared too
+  // (no explore.ready follows): their builds are stopped, not waited for
+  while (!explorerBuilds.empty()) {
+    (void)stopExplorerBuild(explorerBuilds.begin()->first);
+  }
   watches.clear();
   doc.reset();
   doc.emplace(std::move(d));
@@ -315,7 +331,10 @@ void Engine::poll() {
   pollEvents(state_, std::chrono::steady_clock::now(), pollHook_);
 }
 
-bool Engine::busy() const { return state_.document().solving(); }
+bool Engine::busy() const {
+  // a build that was stopped owes no event: the slow poll lets it go
+  return state_.document().solving() || !state_.explorerBuilds.empty();
+}
 
 // ---- the run loop -----------------------------------------------------------------------
 

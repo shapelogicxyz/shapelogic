@@ -1015,6 +1015,16 @@ Json slidePhaseJson(const SolveProgress& g) {
 
 }  // namespace
 
+Json prepareJson(const PrepareProgress& r) {
+  return Json{{"pass", r.pass},
+              {"done", r.done},
+              {"total", r.total},
+              {"placements", r.placements},
+              {"removed", r.removed},
+              {"passMs", r.passMs},
+              {"passSecondsLeft", r.passSecondsLeft < 0 ? Json(nullptr) : Json(r.passSecondsLeft)}};
+}
+
 Json progressJson(const SolveProgress& g) {
   Json j = Json::object();
   j["stage"] = solveStageName(g.stage);
@@ -1022,20 +1032,9 @@ Json progressJson(const SolveProgress& g) {
   j["usedMs"] = g.usedMs;
   j["piece"] = g.piece;
   j["pieces"] = g.pieces;
-  {
-    const PrepareProgress& r = g.prepare;
-    j["prepare"] = g.stage != SolveStage::Prepare && g.stage != SolveStage::Reduce
-                       ? Json(nullptr)
-                       : Json{{"pass", r.pass},
-                              {"done", r.done},
-                              {"total", r.total},
-                              {"placements", r.placements},
-                              {"removed", r.removed},
-                              {"passMs", r.passMs},
-                              {"passSecondsLeft", r.passSecondsLeft < 0
-                                                      ? Json(nullptr)
-                                                      : Json(r.passSecondsLeft)}};
-  }
+  j["prepare"] = g.stage != SolveStage::Prepare && g.stage != SolveStage::Reduce
+                     ? Json(nullptr)
+                     : prepareJson(g.prepare);
   j["assemblyFraction"] = g.assemblyFraction;
   j["iterations"] = g.iterations;
   j["assemblerThreads"] = g.assemblerThreads;

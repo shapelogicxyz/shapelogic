@@ -374,9 +374,14 @@ TEST_CASE("playback: a stacking solution plays in transfers", "[app][playback][s
 TEST_CASE("explorers: the placements and the assembly search step by step",
           "[app][explorers]") {
   Document d = openFixture("PelikanBurr.xmpuzzle");
+  // the document gives the copy (under the problem's lock); the matrix is
+  // built from it afterwards (cleanup item 18.1)
   Result<AssemblyExplorer> e =
-      d.exploreAssembly(d.problemIds().front(), SolverType::Classic, MatrixOptions{}, true);
+      d.exploreAssembly(d.problemIds().front(), SolverType::Classic, MatrixOptions{});
   REQUIRE(e.has_value());
+  CHECK_FALSE(e->built());
+  REQUIRE(e->build(true, StopToken()).has_value());
+  REQUIRE(e->built());
   REQUIRE(e->placementsSupported());
   CHECK(e->pieceCount() == d.puzzle().getProblem(0).getNumberOfPieces());
   std::size_t total = 0;
@@ -407,7 +412,7 @@ TEST_CASE("explorers: the placements and the assembly search step by step",
   // what it refuses: stacking puzzles, which have no assembler (a sliding
   // puzzle's placements are its solve's: test_document_sliding.cpp)
   Document s = openFixture("test_stacking_hanoi.xmpuzzle");
-  CHECK(s.exploreAssembly(s.problemIds().front(), SolverType::Classic, {}, false).error().code ==
+  CHECK(s.exploreAssembly(s.problemIds().front(), SolverType::Classic, {}).error().code ==
         Errc::Unsupported);
 }
 

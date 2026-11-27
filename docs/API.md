@@ -2941,11 +2941,11 @@ Errors: `not_found`
 
 ## Explorers
 
-The step-by-step explorers of the solver: the placements of each piece and the assembly search one step at a time (on an assembler of their own, never a solve's), and the take-apart's positions as a tree. Each works on a copy of the puzzle behind a handle, until closed or a new document.
+The step-by-step explorers of the solver: the placements of each piece and the assembly search one step at a time (on an assembler of their own, never a solve's), and the take-apart's positions as a tree. Each works on a copy of the puzzle behind a handle, until closed or a new document. An assembly explorer's matrix is built on a thread of its own: explore.openAssembly answers at once, and explore.ready tells when the handle can be used.
 
 ### `explore.openAssembly`
 
-Prepares an assembly search of a problem to explore (Prepare in the original).
+Starts preparing an assembly search of a problem to explore (Prepare in the original): the reply gives the handle at once, and the matrix is built on a thread of the explorer's own, from a copy of the puzzle. explore.ready tells when the handle can be used, or why it cannot; explore.preparing tells how far the build is meanwhile; explore.close ends a build under way. Until explore.ready the handle's other methods answer invalid_state.
 
 Params:
 
@@ -2965,8 +2965,6 @@ Result:
 |---|---|---|---|
 | `handle` | [AssemblyExplorerHandle](#assemblyexplorerhandle) | required | An assembly explorer opened by explore.openAssembly. |
 | `pieces` | integer | required |  |
-| `placementsSupported` | boolean | required |  |
-| `finished` | number | required |  |
 
 Errors: `not_found`, `invalid_argument`, `unsupported`
 
@@ -2994,7 +2992,7 @@ Result:
 | `placements.transformation` | integer | required |  |
 | `placements.at` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
 
-Errors: `not_found`, `invalid_argument`, `unsupported`
+Errors: `not_found`, `invalid_argument`, `unsupported`, `invalid_state`
 
 ### `explore.step`
 
@@ -3014,7 +3012,7 @@ Result:
 | `finished` | number | required | How far the search is, 0 to 1. |
 | `placements` | [Placement](#placement)[] | required |  |
 
-Errors: `not_found`
+Errors: `not_found`, `invalid_state`
 
 ### `explore.openMovements`
 
@@ -3125,7 +3123,7 @@ Errors: `not_found`
 
 ### `explore.close`
 
-Closes an explorer of either kind.
+Closes an explorer of either kind. An assembly explorer still being prepared is stopped: no explore.ready follows.
 
 Params:
 
@@ -3136,6 +3134,28 @@ Params:
 Result: [Empty](#empty)
 
 Errors: `not_found`
+
+### event `explore.preparing`
+
+An assembly explorer's matrix is being built (explore.openAssembly): how far it is; at most four times a second, and not at all for a build that ends sooner.
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [AssemblyExplorerHandle](#assemblyexplorerhandle) | required | An assembly explorer opened by explore.openAssembly. |
+| `reducing` | boolean | required | The matrix is built and being reduced. |
+| `progress` | [PrepareProgress](#prepareprogress) | required |  |
+
+### event `explore.ready`
+
+An assembly explorer's preparation ended (explore.openAssembly). ready: the handle can be used. Not ready: the matrix could not be made (message says why: the pieces' units, a piece that fits nowhere) and the handle is closed. None for an explorer that was closed, or whose document was replaced, while it was prepared.
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [AssemblyExplorerHandle](#assemblyexplorerhandle) | required | An assembly explorer opened by explore.openAssembly. |
+| `ready` | boolean | required |  |
+| `placementsSupported` | boolean | required | The assembler has a placement browser (false when not ready). |
+| `finished` | number | required | How far the search is, 0 to 1 (0 when not ready). |
+| `message` | string or null | required | Why the explorer could not be prepared; null when ready. |
 
 #### NodeParam
 
@@ -3908,6 +3928,20 @@ One take-apart under way.
 | `nodes` | integer | required |  |
 | `threads` | integer | required |  |
 
+### PrepareProgress
+
+How far the building of an assembler's matrix, or its reduce, is (solve.progress's prepare, explore.preparing). pass: the reduce's step, 0 while the matrix is built and while the reduce sweeps the columns, then the placement check's pass from 1. done of total: what this pass has checked (columns in pass 0, placements after); total can shrink as placements go. placements: the placements found so far (the build) or still left (the reduce); removed: what the reduce has removed so far. passMs: how long the pass under way has run.
+
+| name | type | | description |
+|---|---|---|---|
+| `pass` | integer | required |  |
+| `done` | integer | required |  |
+| `total` | integer | required |  |
+| `placements` | integer | required |  |
+| `removed` | integer | required |  |
+| `passMs` | integer | required |  |
+| `passSecondsLeft` | number or null | required | The seconds the pass under way has still to go, from its pace so far; null in its first seconds. Rough: some columns and placements cost more than others, and the passes after it are not counted. |
+
 ### SolveProgress
 
 | name | type | | description |
@@ -3917,7 +3951,7 @@ One take-apart under way.
 | `usedMs` | integer | required | The problem's time used: this run's and the earlier runs' of a continued solve or a saved search. |
 | `piece` | integer | required |  |
 | `pieces` | integer | required |  |
-| `prepare` | object or null | required | Stages prepare and reduce: how far they are, finer than piece of pieces (the reduce's piece can take minutes on a large board). pass: the reduce's step, 0 while it sweeps the columns (a cell every placement of a column fills belongs to no other column), then the placement check's pass from 1, which goes round again as long as its last pass removed a placement, so how many passes there will be is not known. done of total: what this pass has checked (columns in pass 0, placements after); total can shrink as placements go. placements: the placements found so far (prepare) or still left (reduce); removed: what the reduce has removed so far. passMs: how long the pass under way has run, passSecondsLeft how long it may still take. Null in the other stages. |
+| `prepare` | [PrepareProgress](#prepareprogress) or null | required | Stages prepare and reduce: how far they are, finer than piece of pieces (the reduce's piece can take minutes on a large board). pass: the reduce's step, 0 while it sweeps the columns (a cell every placement of a column fills belongs to no other column), then the placement check's pass from 1, which goes round again as long as its last pass removed a placement, so how many passes there will be is not known. done of total: what this pass has checked (columns in pass 0, placements after); total can shrink as placements go. placements: the placements found so far (prepare) or still left (reduce); removed: what the reduce has removed so far. passMs: how long the pass under way has run, passSecondsLeft how long it may still take. Null in the other stages. |
 | `assemblyFraction` | number | required |  |
 | `iterations` | integer | required |  |
 | `assemblerThreads` | integer | required |  |

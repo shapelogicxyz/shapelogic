@@ -858,9 +858,12 @@ class Document {
   /// The playback of a saved solution (playback.open): its disassembly
   /// when it has one, else the assembled pose alone (stepCount() 0).
   [[nodiscard]] Result<PlaybackSampler> playback(Id problem, Id solution) const;
+  /// The assembly explorer of a problem, copied but not built
+  /// (AssemblyExplorer::copy, under the lock a solve of the problem writes
+  /// with): the caller builds it, outside any lock (AssemblyExplorer::build,
+  /// or an AssemblyExplorerBuild on a thread of its own).
   [[nodiscard]] Result<AssemblyExplorer> exploreAssembly(Id problem, SolverType solver,
-                                                         const MatrixOptions& matrix,
-                                                         bool reduce) const;
+                                                         const MatrixOptions& matrix) const;
   [[nodiscard]] Result<MovementExplorer> exploreMovements(Id problem, Id solution,
                                                           bool rotations) const;
 

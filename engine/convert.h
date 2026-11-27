@@ -179,6 +179,9 @@ inline constexpr std::size_t kMaxFileName = 255;
 [[nodiscard]] std::optional<std::map<std::string, std::string>> solverSettingsFrom(
     const Json& j, std::string& error);
 
+/// PrepareProgress (types.json): how far a matrix's build or its reduce is,
+/// for solve.progress's `prepare` and explore.preparing.
+[[nodiscard]] Json prepareJson(const PrepareProgress& r);
 /// What a solve takes from the settings as they are now, whatever its
 /// options say: the folders its searches keep their files in, the disk
 /// they may take there, the memory the searches share (and its whole, for

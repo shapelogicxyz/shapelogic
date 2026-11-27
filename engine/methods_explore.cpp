@@ -11,6 +11,11 @@ namespace {
 RpcResult<app::AssemblyExplorer*> assemblyExplorer(State& s, std::uint64_t handle) {
   const auto it = s.assemblyExplorers.find(handle);
   if (it == s.assemblyExplorers.end()) {
+    if (s.explorerBuilds.contains(handle)) {
+      return std::unexpected(toRpc(Error{
+          Errc::InvalidState,
+          "the explorer is still being prepared: explore.ready tells when it can be used"}));
+    }
     return std::unexpected(toRpc(Error{Errc::NotFound, "there is no such explorer"}));
   }
   return &it->second;
@@ -53,13 +58,17 @@ Reply exploreOpenAssembly(State& s, Params& p) {
   m.strictColors = p.optBoolean("strictColors", false);
   const bool reduce = p.optBoolean("reduce", true);
   BTE_CHECK(p.finish());
-  BTE_TRY(app::AssemblyExplorer e, s.document().exploreAssembly(problem, solver, m, reduce));
+  // The copy of the puzzle now, under the lock a solve of the problem
+  // writes with; the matrix on a thread of the explorer's own (cleanup item
+  // 18.1: built here, a big problem's held this thread, and with it Pause,
+  // Abort, the events and every other call, for minutes). The poll tells
+  // explore.ready when the handle can be used (events.cpp).
+  BTE_TRY(app::AssemblyExplorer e, s.document().exploreAssembly(problem, solver, m));
   const std::uint64_t handle = s.newHandle();
-  Json j = Json{{"handle", formatId(IdKind::AssemblyExplorer, handle)},
-                {"pieces", e.pieceCount()},
-                {"placementsSupported", e.placementsSupported()},
-                {"finished", e.finished()}};
-  s.assemblyExplorers.emplace(handle, std::move(e));
+  Json j = Json{{"handle", formatId(IdKind::AssemblyExplorer, handle)}, {"pieces", e.pieceCount()}};
+  s.explorerBuilds.emplace(
+      handle, State::ExplorerBuild{std::make_unique<app::AssemblyExplorerBuild>(std::move(e), reduce),
+                                   std::chrono::steady_clock::now()});
   return j;
 }
 
@@ -184,7 +193,8 @@ Reply exploreClose(State& s, Params& p) {
   const std::string handle = p.string("handle");
   BTE_CHECK(p.finish());
   if (const std::optional<std::uint64_t> a = parseId(IdKind::AssemblyExplorer, handle)) {
-    if (s.assemblyExplorers.erase(*a) == 0) {
+    // one still being prepared is stopped, and nobody waits for it
+    if (s.assemblyExplorers.erase(*a) == 0 && !s.stopExplorerBuild(*a)) {
       return coreError(Errc::NotFound, "there is no such explorer");
     }
   } else if (const std::optional<std::uint64_t> m = parseId(IdKind::MovementExplorer, handle)) {

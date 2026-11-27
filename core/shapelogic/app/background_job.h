@@ -2,10 +2,11 @@
 #pragma once
 
 /// @file
-/// What a document's background jobs (Analysis, PlacementFit) share: a
-/// thread of their own, a stop, whether they still run, how many of their
-/// items are done, and what ended them early (cleanup item 11.12). New
-/// code.
+/// What the background jobs share: a thread of their own, a stop, whether
+/// they still run, how many of their items are done, and what ended them
+/// early (cleanup item 11.12). A document's are Analysis and PlacementFit;
+/// AssemblyExplorerBuild (explorers.h) is kept by whoever opened the
+/// explorer. New code.
 
 #include "shapelogic/base/stop.h"
 
@@ -18,15 +19,16 @@
 
 namespace bt::app {
 
-/// One background job of a document. A job starts its thread at the end of
+/// One background job. A job starts its thread at the end of
 /// its constructor (start()) and ends it first thing in its destructor
 /// (finish()), as the thread runs the job's own run().
 class BackgroundJob {
  public:
-  /// The kinds of job; the document keeps one of each kind per problem.
-  /// Each job class names its own as `kKind`, which is what the document
-  /// files it under and finds it by (Document::startJob, job), so a job is
-  /// never read as another class.
+  /// The kinds of job a document keeps, one of each kind per problem. Each
+  /// of those job classes names its own as `kKind`, which is what the
+  /// document files it under and finds it by (Document::startJob, job), so
+  /// a job is never read as another class. A job the document does not
+  /// keep (AssemblyExplorerBuild) has none.
   enum class Kind : std::uint8_t {
     Analysis,      ///< saved assemblies taken apart (analysis.h)
     PlacementFit,  ///< a tilted tray's placements tried (placement_fit.h)

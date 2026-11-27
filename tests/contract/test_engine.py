@@ -876,7 +876,9 @@ def solving_session(e):
     # the explorers
     ax = e.call("explore.openAssembly", {"problem": p})
     check(ax["pieces"] == detail["pieces"], "assembly explorer")
-    if ax["placementsSupported"]:
+    ready = e.wait_event("explore.ready", lambda q: q["handle"] == ax["handle"])
+    check(ready["ready"] and ready["message"] is None and ready["finished"] == 0, f"explore.ready {ready}")
+    if ready["placementsSupported"]:
         check(e.call("explore.placements", {"handle": ax["handle"], "piece": 0})["placements"], "placements")
     stepped = e.call("explore.step", {"handle": ax["handle"], "steps": 100})
     check(len(stepped["placements"]) == detail["pieces"] and 0 <= stepped["finished"] <= 1, "a step")
@@ -2774,6 +2776,76 @@ def tilted_placements(e):
     e.call("document.new", {"grid": "bricks"})
     gone = e.wait_event("tray.fitEnded", lambda q: q["problem"] == p, start=start)
     check(gone["stopped"], "the fit ended with its document")
+
+
+def hook_box(e, side, hooks):
+    """A problem whose assembler takes long to prepare: a box of side^3
+    variable cells and `hooks` pieces without symmetry (a bar of 3 + i cells
+    with one beside its second). The matrix is built in a moment; its
+    reduce runs for seconds in a release build."""
+    e.call("document.new", {"grid": "bricks"})
+    box = e.call("shape.create", {"size": [side, side, side]})["shape"]
+    e.call("shape.setBox", {"shape": box, "tool": "variable", "from": [0, 0, 0], "to": [side - 1] * 3})
+    p = e.call("problem.create")["problem"]
+    e.call("problem.setResult", {"problem": p, "shape": box})
+    for i in range(hooks):
+        hook = e.call("shape.create", {"size": [3 + i, 2, 1]})["shape"]
+        e.call("shape.setBox", {"shape": hook, "tool": "fixed", "from": [0, 0, 0], "to": [2 + i, 0, 0]})
+        e.call("shape.setBox", {"shape": hook, "tool": "fixed", "from": [1, 1, 0], "to": [1, 1, 0]})
+        e.call("problem.setPieceCount", {"problem": p, "shape": hook, "min": 1, "max": 1})
+    return p
+
+
+@test
+def assembly_explorer_prepared_beside_the_calls(e):
+    """Cleanup item 18.1: explore.openAssembly answers at once and the matrix
+    is built on a thread of the explorer's own. While a big one is prepared
+    the engine answers (it held every call until the build's end), tells
+    how far the build is, and explore.close ends it."""
+    p = hook_box(e, 20, 4)
+    start = len(e.events)
+    ax = e.call("explore.openAssembly", {"problem": p})
+    check(set(ax) == {"handle", "pieces"} and ax["pieces"] == 4, f"the reply {ax}")
+    mine = lambda q: q["handle"] == ax["handle"]  # noqa: E731
+    # answered while the explorer is being prepared: no explore.ready yet
+    check(e.call("engine.info")["methods"], "engine.info")
+    check(e.call("problem.get", {"problem": p})["pieces"] == 4, "problem.get")
+    e.fails("explore.step", {"handle": ax["handle"]}, "invalid_state")
+    e.fails("explore.placements", {"handle": ax["handle"], "piece": 0}, "invalid_state")
+    told = e.wait_event("explore.preparing", mine, start=start)
+    check(told["progress"]["placements"] > 0, f"explore.preparing {told}")
+    # a solve of the same problem starts and pauses meanwhile: the build
+    # reads a copy, not the problem
+    e.call("solve.start", {"problem": p, "options": {"disassemble": False, "threads": 1}})
+    e.call("solve.pause", {"problem": p})
+    check(wait_state(e, p, ("paused",), start) == "paused", "the solve pauses beside the build")
+    e.call("solve.abort", {"problem": p})
+    check(not [m for m in e.events[start:] if m["method"] == "explore.ready"], "no explore.ready yet")
+    e.call("explore.close", {"handle": ax["handle"]})
+    e.fails("explore.close", {"handle": ax["handle"]}, "not_found")
+    e.fails("explore.step", {"handle": ax["handle"]}, "not_found")
+    # a closed explorer is not told ready
+    e.drain(0.3)
+    check(not [m for m in e.events[start:] if m["method"] == "explore.ready"], "explore.ready after close")
+
+    # a matrix that cannot be made: the reply gives a handle, explore.ready
+    # says why there is no explorer, and the handle is closed
+    e.call("document.new", {"grid": "bricks"})
+    box = e.call("shape.create", {"size": [2, 2, 2]})["shape"]
+    e.call("shape.setBox", {"shape": box, "tool": "fixed", "from": [0, 0, 0], "to": [1, 1, 1]})
+    bar = e.call("shape.create", {"size": [3, 1, 1]})["shape"]
+    e.call("shape.setBox", {"shape": bar, "tool": "fixed", "from": [0, 0, 0], "to": [2, 0, 0]})
+    cube = e.call("shape.create", {"size": [1, 1, 1]})["shape"]
+    e.call("shape.setBox", {"shape": cube, "tool": "fixed", "from": [0, 0, 0], "to": [0, 0, 0]})
+    q = e.call("problem.create")["problem"]
+    e.call("problem.setResult", {"problem": q, "shape": box})
+    e.call("problem.setPieceCount", {"problem": q, "shape": bar, "min": 1, "max": 1})
+    e.call("problem.setPieceCount", {"problem": q, "shape": cube, "min": 5, "max": 5})
+    bad = e.call("explore.openAssembly", {"problem": q})
+    ended = e.wait_event("explore.ready", lambda r: r["handle"] == bad["handle"])
+    check(not ended["ready"] and ended["message"] == "A piece cannot be placed in the target shape",
+          f"explore.ready {ended}")
+    e.fails("explore.step", {"handle": bad["handle"]}, "not_found")
 
 
 @test

@@ -3,7 +3,8 @@
 // the background work does, polled: solve.state, solve.progress (at most
 // four times a second, and once when a run ends), solve.preview (beside
 // solve.progress, while it is on), solve.solutionsAdded, solve.error,
-// solution.analyseProgress and solution.analyseEnded.
+// solution.analyseProgress and solution.analyseEnded, tray.fitProgress and
+// tray.fitEnded, explore.preparing and explore.ready.
 #include "convert.h"
 #include "engine.h"
 
@@ -178,6 +179,45 @@ void pollFit(State& s, app::Id id, State::Watch& w, std::chrono::steady_clock::t
   w.fitting = false;
 }
 
+// The assembly explorers being prepared (explore.openAssembly): how far
+// each build is, at most four times a second, and its end, when its handle
+// becomes an explorer or is given up with the reason. The builds that were
+// stopped go once they have ended.
+void pollExplorers(State& s, std::chrono::steady_clock::time_point now) {
+  for (auto it = s.explorerBuilds.begin(); it != s.explorerBuilds.end();) {
+    State::ExplorerBuild& b = it->second;
+    const std::string handle = formatId(IdKind::AssemblyExplorer, it->first);
+    if (b.build->active()) {
+      if (now - b.toldAt >= kProgressEvery) {
+        s.out.notify("explore.preparing", Json{{"handle", handle},
+                                               {"reducing", b.build->reducing()},
+                                               {"progress", prepareJson(b.build->progress())}});
+        b.toldAt = now;
+      }
+      ++it;
+      continue;
+    }
+    Result<app::AssemblyExplorer> e = b.build->take();
+    if (e) {
+      s.out.notify("explore.ready", Json{{"handle", handle},
+                                         {"ready", true},
+                                         {"placementsSupported", e->placementsSupported()},
+                                         {"finished", e->finished()},
+                                         {"message", nullptr}});
+      s.assemblyExplorers.emplace(it->first, std::move(*e));
+    } else {
+      // the handle is given up: the matrix could not be made
+      s.out.notify("explore.ready", Json{{"handle", handle},
+                                         {"ready", false},
+                                         {"placementsSupported", false},
+                                         {"finished", 0},
+                                         {"message", e.error().message}});
+    }
+    it = s.explorerBuilds.erase(it);
+  }
+  std::erase_if(s.stoppedBuilds, [](const auto& build) { return !build->active(); });
+}
+
 }  // namespace
 
 void announceChange(State& s) {
@@ -243,6 +283,7 @@ void pollEvents(State& s, std::chrono::steady_clock::time_point now,
   }
   // problems that are gone
   std::erase_if(s.watches, [&d](const auto& w) { return !d.problemIndex(w.first); });
+  pollExplorers(s, now);
   // the revision of what was taken in (and of anything else not yet told)
   announceChange(s);
 }

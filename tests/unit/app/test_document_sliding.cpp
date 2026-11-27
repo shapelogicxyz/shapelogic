@@ -905,9 +905,9 @@ TEST_CASE("sliding document: Solve checks the start/goal shape and sets up the l
   CHECK(an.error().code == Errc::Unsupported);
 
   // its placements can be explored, as the solve makes them
-  const Result<AssemblyExplorer> ex =
-      d.exploreAssembly(p, SolverType::Classic, MatrixOptions{}, true);
+  Result<AssemblyExplorer> ex = d.exploreAssembly(p, SolverType::Classic, MatrixOptions{});
   REQUIRE(ex.has_value());
+  REQUIRE(ex->build(true, StopToken()).has_value());
   REQUIRE(ex->placementsSupported());
   CHECK(ex->placements(0).size() == 1);
 }

@@ -117,7 +117,7 @@ TEST_CASE("stacking document: a stacking problem solves and plays", "[app][stack
 
   // a stacking puzzle has no assembler and no take-apart: refused in the
   // grid's words
-  CHECK(d.exploreAssembly(p, SolverType::Classic, {}, false).error().code == Errc::Unsupported);
+  CHECK(d.exploreAssembly(p, SolverType::Classic, {}).error().code == Errc::Unsupported);
   AnalyseOptions a;
   CHECK(d.analyseStart(p, a).error().message ==
         "Sorry, this space grid doesn't have a disassembler (yet)!");

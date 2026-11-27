@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "explore.json",
   "title": "Explorers",
-  "description": "The step-by-step explorers of the solver: the placements of each piece and the assembly search one step at a time (on an assembler of their own, never a solve's), and the take-apart's positions as a tree. Each works on a copy of the puzzle behind a handle, until closed or a new document.",
+  "description": "The step-by-step explorers of the solver: the placements of each piece and the assembly search one step at a time (on an assembler of their own, never a solve's), and the take-apart's positions as a tree. Each works on a copy of the puzzle behind a handle, until closed or a new document. An assembly explorer's matrix is built on a thread of its own: explore.openAssembly answers at once, and explore.ready tells when the handle can be used.",
   "methods": {
     "explore.openAssembly": {
-      "summary": "Prepares an assembly search of a problem to explore (Prepare in the original).",
+      "summary": "Starts preparing an assembly search of a problem to explore (Prepare in the original): the reply gives the handle at once, and the matrix is built on a thread of the explorer's own, from a copy of the puzzle. explore.ready tells when the handle can be used, or why it cannot; explore.preparing tells how far the build is meanwhile; explore.close ends a build under way. Until explore.ready the handle's other methods answer invalid_state.",
       "params": {
         "type": "object",
         "properties": {
@@ -24,11 +24,9 @@
         "type": "object",
         "properties": {
           "handle": {"$ref": "types.json#/$defs/AssemblyExplorerHandle"},
-          "pieces": {"type": "integer", "minimum": 0},
-          "placementsSupported": {"type": "boolean"},
-          "finished": {"type": "number"}
+          "pieces": {"type": "integer", "minimum": 0}
         },
-        "required": ["handle", "pieces", "placementsSupported", "finished"],
+        "required": ["handle", "pieces"],
         "additionalProperties": false
       },
       "errors": ["not_found", "invalid_argument", "unsupported"]
@@ -57,7 +55,7 @@
         "required": ["placements"],
         "additionalProperties": false
       },
-      "errors": ["not_found", "invalid_argument", "unsupported"]
+      "errors": ["not_found", "invalid_argument", "unsupported", "invalid_state"]
     },
     "explore.step": {
       "summary": "Advances the search 'steps' steps (default 1) and returns the pieces placed now.",
@@ -76,7 +74,7 @@
         "required": ["finished", "placements"],
         "additionalProperties": false
       },
-      "errors": ["not_found"]
+      "errors": ["not_found", "invalid_state"]
     },
     "explore.openMovements": {
       "summary": "Opens the movement browser on a saved solution's assembly: the root position.",
@@ -160,7 +158,7 @@
       "errors": ["not_found"]
     },
     "explore.close": {
-      "summary": "Closes an explorer of either kind.",
+      "summary": "Closes an explorer of either kind. An assembly explorer still being prepared is stopped: no explore.ready follows.",
       "params": {
         "type": "object",
         "properties": {
@@ -171,6 +169,36 @@
       },
       "result": {"$ref": "types.json#/$defs/Empty"},
       "errors": ["not_found"]
+    }
+  },
+  "events": {
+    "explore.preparing": {
+      "summary": "An assembly explorer's matrix is being built (explore.openAssembly): how far it is; at most four times a second, and not at all for a build that ends sooner.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "handle": {"$ref": "types.json#/$defs/AssemblyExplorerHandle"},
+          "reducing": {"type": "boolean", "description": "The matrix is built and being reduced."},
+          "progress": {"$ref": "types.json#/$defs/PrepareProgress"}
+        },
+        "required": ["handle", "reducing", "progress"],
+        "additionalProperties": false
+      }
+    },
+    "explore.ready": {
+      "summary": "An assembly explorer's preparation ended (explore.openAssembly). ready: the handle can be used. Not ready: the matrix could not be made (message says why: the pieces' units, a piece that fits nowhere) and the handle is closed. None for an explorer that was closed, or whose document was replaced, while it was prepared.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "handle": {"$ref": "types.json#/$defs/AssemblyExplorerHandle"},
+          "ready": {"type": "boolean"},
+          "placementsSupported": {"type": "boolean", "description": "The assembler has a placement browser (false when not ready)."},
+          "finished": {"type": "number", "description": "How far the search is, 0 to 1 (0 when not ready)."},
+          "message": {"type": ["string", "null"], "description": "Why the explorer could not be prepared; null when ready."}
+        },
+        "required": ["handle", "ready", "placementsSupported", "finished", "message"],
+        "additionalProperties": false
+      }
     }
   },
   "$defs": {

@@ -1619,6 +1619,35 @@ export interface TakeApartProgress {
   threads: number;
 }
 
+/**
+ * How far the building of an assembler's matrix, or its reduce, is (solve.progress's prepare,
+ * explore.preparing). pass: the reduce's step, 0 while the matrix is built and while the reduce
+ * sweeps the columns, then the placement check's pass from 1. done of total: what this pass has
+ * checked (columns in pass 0, placements after); total can shrink as placements go. placements:
+ * the placements found so far (the build) or still left (the reduce); removed: what the reduce has
+ * removed so far. passMs: how long the pass under way has run.
+ */
+export interface PrepareProgress {
+  /** @minimum 0 */
+  pass: number;
+  /** @minimum 0 */
+  done: number;
+  /** @minimum 0 */
+  total: number;
+  /** @minimum 0 */
+  placements: number;
+  /** @minimum 0 */
+  removed: number;
+  /** @minimum 0 */
+  passMs: number;
+  /**
+   * The seconds the pass under way has still to go, from its pace so far; null in its first
+   * seconds. Rough: some columns and placements cost more than others, and the passes after it are
+   * not counted.
+   */
+  passSecondsLeft: number | null;
+}
+
 export interface SolveProgress {
   stage: SolveStage;
   /** @minimum 0 */
@@ -1644,26 +1673,7 @@ export interface SolveProgress {
    * long the pass under way has run, passSecondsLeft how long it may still take. Null in the other
    * stages.
    */
-  prepare: {
-    /** @minimum 0 */
-    pass: number;
-    /** @minimum 0 */
-    done: number;
-    /** @minimum 0 */
-    total: number;
-    /** @minimum 0 */
-    placements: number;
-    /** @minimum 0 */
-    removed: number;
-    /** @minimum 0 */
-    passMs: number;
-    /**
-     * The seconds the pass under way has still to go, from its pace so far; null in its first
-     * seconds. Rough: some columns and placements cost more than others, and the passes after it
-     * are not counted.
-     */
-    passSecondsLeft: number | null;
-  } | null;
+  prepare: PrepareProgress | null;
   assemblyFraction: number;
   /** @minimum 0 */
   iterations: number;
@@ -2513,7 +2523,11 @@ export interface Methods {
     errors: never;
   };
   /**
-   * Prepares an assembly search of a problem to explore (Prepare in the original).
+   * Starts preparing an assembly search of a problem to explore (Prepare in the original): the
+   * reply gives the handle at once, and the matrix is built on a thread of the explorer's own,
+   * from a copy of the puzzle. explore.ready tells when the handle can be used, or why it cannot;
+   * explore.preparing tells how far the build is meanwhile; explore.close ends a build under way.
+   * Until explore.ready the handle's other methods answer invalid_state.
    * (explore.json)
    */
   'explore.openAssembly': {
@@ -2531,8 +2545,6 @@ export interface Methods {
       handle: AssemblyExplorerHandle;
       /** @minimum 0 */
       pieces: number;
-      placementsSupported: boolean;
-      finished: number;
     };
     errors: 'not_found' | 'invalid_argument' | 'unsupported';
   };
@@ -2553,7 +2565,7 @@ export interface Methods {
         at: Cell;
       })[];
     };
-    errors: 'not_found' | 'invalid_argument' | 'unsupported';
+    errors: 'not_found' | 'invalid_argument' | 'unsupported' | 'invalid_state';
   };
   /**
    * Advances the search 'steps' steps (default 1) and returns the pieces placed now.
@@ -2573,7 +2585,7 @@ export interface Methods {
       finished: number;
       placements: Placement[];
     };
-    errors: 'not_found';
+    errors: 'not_found' | 'invalid_state';
   };
   /**
    * Opens the movement browser on a saved solution's assembly: the root position.
@@ -2669,7 +2681,8 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Closes an explorer of either kind.
+   * Closes an explorer of either kind. An assembly explorer still being prepared is stopped: no
+   * explore.ready follows.
    * (explore.json)
    */
   'explore.close': {
@@ -5038,6 +5051,38 @@ export interface Events {
     };
   };
   /**
+   * An assembly explorer's matrix is being built (explore.openAssembly): how far it is; at most
+   * four times a second, and not at all for a build that ends sooner.
+   * (explore.json)
+   */
+  'explore.preparing': {
+    params: {
+      handle: AssemblyExplorerHandle;
+      /** The matrix is built and being reduced. */
+      reducing: boolean;
+      progress: PrepareProgress;
+    };
+  };
+  /**
+   * An assembly explorer's preparation ended (explore.openAssembly). ready: the handle can be
+   * used. Not ready: the matrix could not be made (message says why: the pieces' units, a piece
+   * that fits nowhere) and the handle is closed. None for an explorer that was closed, or whose
+   * document was replaced, while it was prepared.
+   * (explore.json)
+   */
+  'explore.ready': {
+    params: {
+      handle: AssemblyExplorerHandle;
+      ready: boolean;
+      /** The assembler has a placement browser (false when not ready). */
+      placementsSupported: boolean;
+      /** How far the search is, 0 to 1 (0 when not ready). */
+      finished: number;
+      /** Why the explorer could not be prepared; null when ready. */
+      message: string | null;
+    };
+  };
+  /**
    * An analysis's progress; at most four times a second.
    * (solution.json)
    */
@@ -5303,6 +5348,8 @@ export const METHOD_NAMES = [
 /** The events of the schema. */
 export const EVENT_NAMES = [
   'document.changed',
+  'explore.preparing',
+  'explore.ready',
   'frame',
   'solution.analyseEnded',
   'solution.analyseProgress',

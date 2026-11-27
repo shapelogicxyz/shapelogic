@@ -114,6 +114,23 @@ struct State {
   std::map<std::uint64_t, app::PlaybackSampler> playbacks;
   std::map<std::uint64_t, app::AssemblyExplorer> assemblyExplorers;
   std::map<std::uint64_t, app::MovementExplorer> movementExplorers;
+  /// An assembly explorer whose matrix is being built on a thread of its
+  /// own (explore.openAssembly; cleanup item 18.1): its handle is given
+  /// out, the poll tells explore.preparing while it builds and explore.ready
+  /// when it has ended, and moves it to assemblyExplorers then.
+  struct ExplorerBuild {
+    std::unique_ptr<app::AssemblyExplorerBuild> build;
+    /// When explore.preparing was last told (its start, at first).
+    std::chrono::steady_clock::time_point toldAt;
+  };
+  std::map<std::uint64_t, ExplorerBuild> explorerBuilds;
+  /// Builds that were stopped (explore.close, a new document) and have not
+  /// ended yet: nobody waits for them; the poll lets each go once it has
+  /// ended, and the engine's end waits for the rest.
+  std::vector<std::unique_ptr<app::AssemblyExplorerBuild>> stoppedBuilds;
+  /// Stops the build of `handle` and gives up its handle; false when no
+  /// build has it.
+  bool stopExplorerBuild(std::uint64_t handle);
 
   bool shutdown = false;
   /// The request being run is a notification: it gets no reply, so it
@@ -198,8 +215,9 @@ void addExportMethods(MethodTable& t);
 void addTrayMethods(MethodTable& t);
 
 /// Sends the events of the background work: solves, analyses, fits of a
-/// tray's placements, and document.changed when the document changed
-/// without a request (events.cpp).
+/// tray's placements, assembly explorers being prepared, and
+/// document.changed when the document changed without a request
+/// (events.cpp).
 /// What has ended is taken in first (Document::poll) and announced last, so
 /// each run's last solve.state and each analysis's analyseEnded come before
 /// the document.changed of their results (decision 0012). `between` runs
@@ -220,7 +238,7 @@ class Engine {
   void handleLine(std::string_view line);
   /// Sends the events of the background work.
   void poll();
-  /// A solve or analysis is active: poll often.
+  /// A solve, an analysis or an explorer's build is active: poll often.
   [[nodiscard]] bool busy() const;
   /// engine.shutdown was called.
   [[nodiscard]] bool stopped() const { return state_.shutdown; }

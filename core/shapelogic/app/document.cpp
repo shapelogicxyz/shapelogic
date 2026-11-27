@@ -1504,14 +1504,17 @@ Result<PlaybackSampler> Document::playback(Id problem, Id solution) const {
 }
 
 Result<AssemblyExplorer> Document::exploreAssembly(Id problem, SolverType solver,
-                                                   const MatrixOptions& matrix,
-                                                   bool reduce) const {
+                                                   const MatrixOptions& matrix) const {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
-  return readProblem(*p, [this, &p, solver, &matrix, reduce](const Problem&) {
-    return AssemblyExplorer::make(*puzzle_, *p, solver, matrix, reduce);
+  // Only the copy under the lock a solve of the problem writes with: the
+  // matrix is built from the copy, by the caller, outside it (cleanup item
+  // 18.1: built in here, a big problem's matrix stalled its running solve
+  // and whoever called for as long as it took).
+  return readProblem(*p, [this, &p, solver, &matrix](const Problem&) {
+    return AssemblyExplorer::copy(*puzzle_, *p, solver, matrix);
   });
 }
 

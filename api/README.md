@@ -28,7 +28,7 @@ The JSON Schema of every `shapelogic_engine` method and event (decisions 0003 an
 | `solve.json` | `solve.*` and its events |
 | `solution.json` | `solution.*` and the analysis events |
 | `playback.json` | `playback.*` |
-| `explore.json` | `explore.*` |
+| `explore.json` | `explore.*`, and the events of an assembly explorer being prepared |
 | `export.json` | `export.*`: the STL export's parameters, meshes, files and a solution's pieces |
 | `apischema.py` | loads the files, checks them, validates messages |
 | `gen_api_md.py` | writes `docs/API.md` |

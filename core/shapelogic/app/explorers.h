@@ -11,12 +11,16 @@
 /// prepared assembler (after Prepare); these make their own from a copy of
 /// the puzzle, so stepping one never moves a solve.
 
+#include "shapelogic/app/background_job.h"
 #include "shapelogic/base/error.h"
+#include "shapelogic/base/stop.h"
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/prepare_progress.h"
 #include "shapelogic/solve/solver_type.h"
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -41,23 +45,45 @@ struct PiecePlacement {
 
 /// The assembler of a problem, made for exploring: its placements, and its
 /// search one step at a time.
+///
+/// It is made in two steps (cleanup item 18.1): copy(), which is quick and
+/// reads the puzzle, and build(), which makes the matrix and can take
+/// minutes on a big problem but reads only the explorer's own copy, so it
+/// runs without the lock a solve of the problem writes under, and on a
+/// thread of its own (AssemblyExplorerBuild).
 class AssemblyExplorer {
  public:
-  /// Prepares the search of problem `problemIndex` of a copy of `puzzle`
-  /// (hotspots reset, the matrix made, reduced when asked): Prepare in the
-  /// original; a sliding puzzle's as its solve makes it: start locks set
-  /// up, Classic's assembler, every start kept, colors matched strictly,
-  /// whatever `solver` and `matrix` say). Refused for grids without an
-  /// assembler (stacking puzzles among them), a problem without a result or pieces
-  /// (Unsupported / InvalidArgument), and when the matrix cannot be made
-  /// (InvalidArgument with the assembler's message).
-  static Result<AssemblyExplorer> make(const Puzzle& puzzle, unsigned int problemIndex,
-                                       SolverType solver, const MatrixOptions& matrix,
-                                       bool reduce);
+  /// The first step: a copy of `puzzle` with problem `problemIndex` (the
+  /// hotspots reset) and the assembler the problem's solve would make, its
+  /// matrix not yet built: a sliding puzzle's as its solve makes it (start
+  /// locks set up, Classic's assembler, every start kept, colors matched
+  /// strictly, whatever `solver` and `matrix` say). Refused for grids
+  /// without an assembler (stacking puzzles among them: Unsupported), a
+  /// problem that is not there (NotFound) and one without a result or
+  /// pieces (InvalidArgument). The caller holds whatever guards the puzzle
+  /// for the call; nothing of the puzzle is read after it.
+  static Result<AssemblyExplorer> copy(const Puzzle& puzzle, unsigned int problemIndex,
+                                       SolverType solver, const MatrixOptions& matrix);
+
+  /// The second step, once: the matrix made, and reduced when asked
+  /// (Prepare in the original). Polls `stop`. InvalidArgument with the
+  /// assembler's message when the matrix cannot be made (the units, a piece
+  /// that fits nowhere), InvalidState when it was stopped: the explorer is
+  /// then good for nothing but being let go. Only pieceCount() and
+  /// prepareProgress() may be asked before it has returned without an
+  /// error.
+  Result<void> build(bool reduce, const StopToken& stop);
 
   AssemblyExplorer(AssemblyExplorer&&) noexcept;
   AssemblyExplorer& operator=(AssemblyExplorer&&) noexcept;
   ~AssemblyExplorer();
+
+  /// build() has made the matrix.
+  [[nodiscard]] bool built() const { return built_; }
+  /// How far build() is, and whether it is at the reduce. Any thread, while
+  /// build() runs too.
+  [[nodiscard]] PrepareProgress prepareProgress() const;
+  [[nodiscard]] bool reducing() const;
 
   /// Whether the placement browser works for this assembler.
   [[nodiscard]] bool placementsSupported() const;
@@ -74,9 +100,44 @@ class AssemblyExplorer {
   [[nodiscard]] float finished() const;
 
  private:
-  AssemblyExplorer() = default;
+  AssemblyExplorer();
   std::unique_ptr<Puzzle> puzzle_;
   std::unique_ptr<Assembler> assembler_;
+  /// The matrix's options, as the solve's setup gave them (copy()).
+  MatrixOptions matrix_;
+  bool built_ = false;
+  /// build() is at its reduce; a pointer so that the explorer still moves.
+  std::unique_ptr<std::atomic<bool>> reducing_;
+};
+
+/// The build of an assembly explorer on a thread of its own, with a stop
+/// and its progress (cleanup item 18.1: built by the caller, a big
+/// problem's matrix held the engine's one request thread for minutes).
+/// Whoever opened the explorer keeps it and asks now and then whether it
+/// has ended. It works on the explorer's own copy of the puzzle: the
+/// document may change or go meanwhile.
+class AssemblyExplorerBuild final : public BackgroundJob {
+ public:
+  /// Starts at once: `explorer` is one copy() gave.
+  AssemblyExplorerBuild(AssemblyExplorer explorer, bool reduce);
+  /// Stops and waits.
+  ~AssemblyExplorerBuild() override;
+
+  /// How far the matrix is, and whether the reduce runs. Any thread.
+  [[nodiscard]] PrepareProgress progress() const;
+  [[nodiscard]] bool reducing() const;
+  /// Once it has ended (active() is false), once: the explorer, or why
+  /// there is none (build()'s errors; Internal with what an exception
+  /// said).
+  [[nodiscard]] Result<AssemblyExplorer> take();
+
+ private:
+  void run() override;
+
+  AssemblyExplorer explorer_;
+  bool reduce_;
+  /// What build() answered; under mutex_.
+  Result<void> end_;
 };
 
 /// The movement browser: positions reached from a solution's assembly by
