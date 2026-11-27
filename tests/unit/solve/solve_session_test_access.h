@@ -27,15 +27,15 @@ struct SolveSessionTestAccess {
   // As if the runs so far had given up on `starts` starts at a memory
   // limit of `states` arrangements (between two runs only).
   static void gaveUpAtMemory(SolveSession& s, unsigned int starts, std::uint64_t states) {
-    s.slideStartsCut_ = starts;
-    s.slideMemoryCut_ = true;
-    s.slideMemoryStates_ = states;
+    s.slide_.startsCut = starts;
+    s.slide_.memoryCut = true;
+    s.slide_.memoryStates = states;
   }
 
   // As if a slide search's resume() had thrown: it set the "picking up"
   // clock and never cleared it (between two runs only).
   static void resumeThrew(SolveSession& s) {
-    s.slidePickingUpSince_.store(1, std::memory_order_relaxed);
+    s.slide_.pickingUpSince.store(1, std::memory_order_relaxed);
   }
 };
 

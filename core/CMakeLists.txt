@@ -21,6 +21,7 @@ add_library(btcore STATIC
   shapelogic/base/compress.cpp
   shapelogic/base/error.cpp
   shapelogic/base/file_lock.cpp
+  shapelogic/base/search_memory.cpp
   shapelogic/base/solve_state.cpp
   shapelogic/base/system.cpp
   shapelogic/base/thread_pool.cpp
@@ -45,6 +46,10 @@ add_library(btcore STATIC
   shapelogic/io/paused_solve.cpp
   shapelogic/io/ps3d_file.cpp
   shapelogic/io/puzzle_file.cpp
+  shapelogic/io/puzzle_file_problem.cpp
+  shapelogic/io/puzzle_file_solution.cpp
+  shapelogic/io/puzzle_file_tray.cpp
+  shapelogic/io/puzzle_file_voxel.cpp
   shapelogic/io/scad_file.cpp
   shapelogic/io/xml_document.cpp
   shapelogic/io/xml_pull_parser.cpp
@@ -105,10 +110,20 @@ add_library(btcore STATIC
   shapelogic/solve/search_run.cpp
   shapelogic/solve/simd_exact_cover.cpp
   shapelogic/solve/simd_huang_cover.cpp
+  shapelogic/solve/slide_board.cpp
   shapelogic/solve/slide_forecast.cpp
+  shapelogic/solve/slide_saved.cpp
+  shapelogic/solve/sliding_play.cpp
   shapelogic/solve/sliding_search.cpp
+  shapelogic/solve/sliding_search_64.cpp
+  shapelogic/solve/sliding_search_128.cpp
+  shapelogic/solve/sliding_search_192.cpp
+  shapelogic/solve/sliding_search_256.cpp
+  shapelogic/solve/sliding_search_512.cpp
   shapelogic/solve/solve_progress.cpp
   shapelogic/solve/solve_session.cpp
+  shapelogic/solve/solve_session_sliding.cpp
+  shapelogic/solve/solve_session_stacking.cpp
   shapelogic/solve/solver_type.cpp
   shapelogic/solve/stack_search.cpp
   shapelogic/solve/take_apart_pool.cpp)

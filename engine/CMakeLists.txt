@@ -3,6 +3,7 @@
 add_library(btengine STATIC
   app_log.cpp
   convert.cpp
+  convert_solve.cpp
   engine.cpp
   events.cpp
   methods_color.cpp

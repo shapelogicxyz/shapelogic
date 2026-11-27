@@ -210,7 +210,7 @@ again, and comes last.
 - [x] Stage 18: the engine stays responsive (18.1's job is an `Engine:` commit of its own: `explore.openAssembly` answers at once and `explore.ready` tells when the handle can be used; 18.4 also lets Abort end a level's merges; 18.5 by rounds kept on the heap, and the level text, the counts and the destructor of a tree no longer recurse; users notice: the Placements and Step drawers tell of a long preparation, with a Cancel, a Pause during a matrix build or the taking up of a saved search ends it there, a take-apart past 1000 parts deep ends the solve with the reason; `just oracle-resume` not run: it needs the original)
 - [x] Stage 19: names and audits that must not drift (19.1: the refusal and the name disagreed already, for partially nested slides alone and six A/B switches; 19.2's audit found Convert assemblies to pieces into a solved problem not telling of its solutions and five calls that change nothing leaving an undo step, three after throwing the solutions away; the lookup that answers a reference not made, with its reason; users notice: Remove all pieces, Set range for all and the color rule presets keep a problem's solutions when they change nothing; `just oracle-resume` not run: it needs the original)
 - [x] Stage 20: core deduplication under benchmarks (all five kept, each within noise of the item before it: Crowell asks the prepared rotation rules, the take-apart pool is the CLI's and the app's, assembler 1's three state machines are one template, the two matrices are built by one set of functions and searched through one adapter, the cover's kernels share their pre-filter and are each tested; a weak test of a list growing under a solve made independent of the machine; users notice: only speed, Fast (Crowell) with Check Rotations takes 28 to 47% less and the app's solves with many small take-aparts up to 19% less; the `full` and `slow` tiers, `oracle-resume`, `oracle-files` and `bench.py` against the original not run: they need the original)
-- [ ] Stage 21: splits: core
+- [ ] Stage 21: splits: core (21.1 to 21.5 done; 21.6, the per-mode facades of `document.h`, not done: left for a session of its own, measured under it; `oracle-files`, `oracle-roundtrip` and `oracle-resume` not run: they need the original; users notice nothing)
 
 ## Who builds each stage
 
@@ -9744,7 +9744,7 @@ Each split moves code without changing it. It comes last because stages
 code. Check open branches first (rule 11). Count the tests before and
 after: every case must still run.
 
-- [ ] **21.1 `sliding_search.cpp` split along its seams, and compiled in parts** (separate, speed; M)
+- [x] **21.1 `sliding_search.cpp` split along its seams, and compiled in parts** (separate, speed; M)
   - *Where:* `core/shapelogic/solve/sliding_search.cpp` (7,362 lines; 29
     commits since September). Its templates (1236-6380) sit inside the
     anonymous namespace (52-6489). `eachKey` (6396-6420) instantiates them for
@@ -9798,8 +9798,80 @@ after: every case must still run.
     - a sliding solve timed alone, before and after (rule 5);
     - `just check` on the new files;
     - the release build time of these files, in the Done line.
+  - Done (2026-11-27, Opus): the 7,755 lines (as of 59f399c) moved by
+    their seams, line for line (a script cut them by markers; the only
+    edits are `inline` on what a header now defines, declarations made
+    from definitions, and the includes), into `bt::sliding::detail`:
+    - `slide_board.{h,cpp}`: the steps, `Place`, `SlideState`,
+      `GoalCheck`, the cells and outlines, `StopGrid`, the shifts and the
+      route with the fewest turns, `nestedGroup` (the free-cell grid,
+      used by those alone, stays the .cpp's own; `idx`, `dirsFor` and
+      `isFloor`, which the moves call, stay inline in the header);
+    - `slide_space.h`: `PosTable`, the tables, `SlideSpace`, `SlideMover`,
+      the chain back to a path;
+    - `slide_store.h` and `slide_saved.cpp`: `SearchFolder`, `SetStore`,
+      the merges, `RunBuilder`; `problemKeyOf`, `folderName`, the state
+      file and the log's texts of it (`state.bin`'s magic and its string
+      helpers are the .cpp's own);
+    - `slide_level_search.h`: `LevelSearch` with `nameSpace`,
+      `tableSearch`, `tableProbe` (and `Fingerprint`): the Key templates
+      are in this internal header, as the plan says, so LevelSearch
+      leaves the .cpp too. Each key width is compiled in a file of its own
+      (`sliding_search_{64,128,192,256,512}.cpp`, the 128-bit one
+      `WideKey` or, without `__SIZEOF_INT128__`, `BigKey<2>`, as
+      `Key128`); the header ends with the `extern template`s of the three
+      for the five keys, which `findSlidePath`, `savedFromStartAlone` and
+      `searchName` call through `eachKey`;
+    - `sliding_play.cpp`: the play;
+    - `sliding_search.cpp` keeps the naming, the public API,
+      `legacySearch` and `eachKey`'s attempts: 1,061 lines.
+    The shared parts went to `base/`: `search_memory.{h,cpp}`
+    (`memoryBudget`, `memoryStates`, `kSearchMemoryBytes`, now `bt::`;
+    Panex's `Searcher::budget()` is `memoryBudget(budget_, false, share)`,
+    the same answer: `budget_` is never 0), `binary_io.h`
+    (`binary::put`, `binary::get`, Panex's copies gone, so no `put` or
+    `get` leaves an anonymous namespace), `fnv1a.h` (`Fnv1a`, each value
+    at a named width; `kFnvOffset` and `kFnvPrime` moved from
+    `search_run.h`). Panex's `fingerprintOf` mixes every value in 8 bytes
+    from its own basis (the original's, a digit short of kFnvOffset), so
+    no folder name changed: `test_search_names.cpp` passes as it was.
+    Panex and the stack search no longer include `sliding_search.h`.
+    - *Build:* `sliding_search.cpp` alone took 31.2 s in the release build
+      (59f399c, nothing beside it); now 2.6 s, each key width 4.6 to
+      4.8 s, `slide_board.cpp` 0.9, `slide_saved.cpp` 0.7,
+      `sliding_play.cpp` 0.8: the nine side by side 6.6 s. The whole core
+      library from clean: 49.1 s, now 26.1 s.
+    - *Speed* (rule 5): the last commit's CLI against this tree's, taking
+      turns, one solve at a time with nothing beside them, the solve's own
+      seconds, medians (each key width forced by `--slide-key-bits`):
 
-- [ ] **21.2 `test_sliding.cpp` split** (separate, speed; S to M)
+      | search | threads | runs | before | after |
+      |---|---|---|---|---|
+      | nested slides 7x5, 64-bit packed keys | 1 | 7 | 6.831 | 6.863 |
+      | the same, 128-bit keys | 1 | 9 | 8.244 | 8.263 |
+      | the same, 256-bit keys | 1 | 9 | 9.237 | 9.195 |
+      | the same, 512-bit keys | 1 | 9 | 10.630 | 10.650 |
+      | the same, 64-bit packed keys | 10 | 7 | 2.087 | 2.159 |
+      | the same, 128-bit keys | 10 | 7 | 1.929 | 1.876 |
+      | the same, 192-bit keys | 10 | 7 | 2.895 | 2.330 |
+      | the same, 256-bit keys | 10 | 7 | 2.284 | 2.385 |
+      | the same, 512-bit keys | 10 | 9 | 2.649 | 2.679 |
+      | plain slides 7x6 (26 units) | 10 | 7 | 3.708 | 3.612 |
+
+      The answers' lines the same in every run. On one thread every width
+      is within 0.5%; on ten the rows move 3 to 20% either way from run to
+      run (a first 7-run row of 512 bits said 2.787 and 3.514, its fastest
+      runs 2.629 and 3.104; taken again with 9 runs, 2.649 and 2.679).
+    - *Tests:* the same 932 cases before and after (`--list-tests`,
+      sorted); `just test-all`, the oracle's `fast`, `sliding` (all
+      threads and one), `stacking` tiers and `oracle-python`; `just check`
+      on every new and changed file.
+    - Branches (rule 11): `feature/cell-search` has no commit beyond main;
+      the two of `feature/v2-idea-3-cutting-plane-editor` change none of
+      the files this stage moves (`mesh/cell_section`, `methods_shape.cpp`,
+      the web).
+
+- [x] **21.2 `test_sliding.cpp` split** (separate, speed; S to M)
   - *Where:* `tests/unit/solve/test_sliding.cpp` (5,851 lines; 85 cases in one
     file).
   - *Seams:*
@@ -9815,8 +9887,30 @@ after: every case must still run.
       `tests/unit/solve/sliding_test_helpers.h`.
   - *Keep:* every case. List them before and after
     (`bt_tests --list-tests`), and the two lists must match.
+  - Done (2026-11-27, Opus): the 91 cases (6,621 lines as of 59f399c; the
+    file had grown since the plan's count) to four files by what they
+    test, every line as it was (a script placed each case, and each helper
+    where its users are):
+    - `test_slide_levels.cpp`: the 8 key set cases, with only
+      `slide_levels.h` of the core;
+    - `test_sliding_saved.cpp`: the 21 cases of saved searches, resume,
+      save points and the disk (the `[resume]` ones, the disk budget's, the
+      damaged and older saved files', the state.bin write's);
+    - `tests/unit/model/test_slide_marks.cpp`: the 4 stamp cases (a piece
+      lifted over another on a tray of layers searches: it stays);
+    - `test_sliding.cpp`: the 58 search cases, 2,883 lines.
+    The helpers two of them share are in `sliding_test_helpers.h` (the cell
+    states, `SlideFixture` and Klotski, the eight puzzle, the grid boards
+    and their checks, the searches from both ends: `bt::test`, inline) and
+    `slide_levels_test_helpers.h` (the 128-bit key and an older key set's
+    file, so the key set cases need no more than `slide_levels.h`); those
+    of one file stay in it (`solveRun` and `oneWayPuzzle` are the search
+    file's alone). `ScratchDir` was already 8.3's. The sorted case lists
+    with their tags are the same before and after (91 and 91), and so are
+    `bt_tests --list-tests`' 932 names; every line of the old file is in
+    the new ones but those given `inline` and the namespace lines.
 
-- [ ] **21.3 `solve_session.cpp`: the sliding and stacking flows in files of their own** (separate; M)
+- [x] **21.3 `solve_session.cpp`: the sliding and stacking flows in files of their own** (separate; M)
   - *Where:* `core/shapelogic/solve/solve_session.cpp` (2,319 lines). Of its
     14 commits since 2026-11-12, 10 changed `onSlidingAssembly`, 7 `launch`,
     6 `progress`, and 5 each `slidingSummary` and `runStacking`.
@@ -9837,8 +9931,30 @@ after: every case must still run.
   - *Keep:* the behavior (a mechanical move).
   - *Tests:* the session tests, `just oracle-files --tier fast`,
     `just test-tsan`.
+  - Done (2026-11-27, Opus): the 18 members only sliding uses are
+    `SolveSession::SlideRun slide_` (declared in the header: the session
+    holds it), each with its comment; the counters the stacking search
+    shares (`slideProgress_`, `searchDepth_`, `searchTraced_`) and
+    `memoryShared_`, `atSavePoint_` stay the session's. The sliding flow
+    is in `solve_session_sliding.cpp`: `resumeRefusal`,
+    `onSlidingAssembly`, `onSlideDepth`, `slidingSummary`, and the seams
+    made functions of their own, each called where its lines were:
+    `prepareSlideRun` (the holes and the grid in `launch`),
+    `resetSlideRun` (the counts and flags a run starts from),
+    `noteSlideRun` (the note at the run's end) and `slidingProgress` (what
+    `progress()` tells of the slide searches; the stop's save is read in
+    it, before the stage, where it was after: the same relaxed reads of a
+    snapshot). The pool's making and reset and `endRun`'s search stats
+    stay in place, a line each. `launchStacking`, `runStacking` and
+    `endStackingRun` are in `solve_session_stacking.cpp`. The words the
+    three files share (`withCommas`, `sharedNow`, `sharedMemoryWords`)
+    are declared in `solve_session_internal.h`. `solve_session.cpp`: 2,165
+    lines, now 1,619. Tests: `just test-all` (the session tests,
+    `test_sliding_session.cpp` among them), `just test-tsan`;
+    `oracle-files` needs the original (its baselines are the original's
+    solved files): not run.
 
-- [ ] **21.4 `convert.cpp`: its solve part in its own file** (separate; S)
+- [x] **21.4 `convert.cpp`: its solve part in its own file** (separate; S)
   - *Where:* `engine/convert.cpp` (994 lines; 33 commits since September, the
     most of any C++ file). Its commits' hunks land in:
     - `solveOptionsFrom` and `solverBoxNames` (8 or more);
@@ -9855,8 +9971,15 @@ after: every case must still run.
       `engine/methods_tray.cpp`.
     - A table of fields would not save the three edits (the header, the
       converter, the schema), so none is planned.
+  - Done (2026-11-27, Opus): the stored settings, the solve options in,
+    the progress, statistics and failures out (`solverBoxNames` to
+    `failureJson`) are `engine/convert_solve.cpp`; both `trayJson`s are in
+    `methods_tray.cpp` beside `readTraySettings`; `convert.h` declares
+    them all as before. `convert.cpp`: 1,177 lines, now 762. No method,
+    parameter or reply changed (no `Engine:` commit): `api-docs` and the
+    contract suite pass.
 
-- [ ] **21.5 `puzzle_file.cpp` split by element** (separate; M)
+- [x] **21.5 `puzzle_file.cpp` split by element** (separate; M)
   - *Where:* `core/shapelogic/io/puzzle_file.cpp` (2,204 lines). Each of its
     last twelve commits edited the reader and the writer of the same element
     (for example ff4fce7, 0aa9c93, 068cbba). The solution and separation code
@@ -9871,6 +9994,20 @@ after: every case must still run.
     `io/puzzle_file_internal.h`. This is not a split into reading and
     writing, which would cut every lockstep edit across two files.
   - *Keep:* the bytes (`just oracle-roundtrip`, `test_puzzle_file`).
+  - Done (2026-11-27, Opus): one file an element, its reader and writer
+    side by side: `puzzle_file_voxel.cpp` (the cells, marks, pictures, tray
+    border), `_solution.cpp` (assemblies, separations, their info),
+    `_problem.cpp` (with stacking, the rod sets, slide marks and
+    `giveUids`), `_tray.cpp`; `puzzle_file.cpp` keeps `<puzzle>` (its grid
+    type and pictures) and the public calls. `puzzle_file_internal.h`
+    (`bt::io::detail`) holds the access structs, `Keeper`, the reading
+    helpers, the bounds on a file's numbers, both slot enums,
+    `readMarkList` (a template the voxel and the slide marks read with),
+    and the 13 readers and writers one file calls in another; what one
+    file alone uses is its own. A script placed each item, its lines as
+    they were. Tests: `test_puzzle_file` (every fixture saved byte for
+    byte as the original saved it) and the round trip tests in
+    `just test-all`; `oracle-roundtrip` needs the original: not run.
 
 - [ ] **21.6 `document.h`: per-mode facades** (separate; L; D5: decided; after 21.1 to 21.5)
   - *Where:* `core/shapelogic/app/document.h` (1,000 lines; 28 commits since
@@ -9893,11 +10030,60 @@ after: every case must still run.
       a single `refuse(cmd, shape)`.
     - The web's `Family` plus its separate `tilted` flag could become one
       mode that the engine reports.
+  - Not done (2026-11-27, Opus): left for a session of its own. Measured:
+    the 30 sliding, tilted and stacking commands and queries are called in
+    about 300 places outside `app/` (`test_document_sliding.cpp` 102,
+    `test_document_stacking.cpp` 89, `test_change_audit.cpp` 38,
+    `test_document_tilted.cpp` 37, the engine's `methods_stacking.cpp`,
+    `methods_sliding.cpp`, `methods_tray.cpp`, `methods_solve.cpp` and
+    `convert.cpp` 31), their bodies use the Document's members
+    unqualified (a facade's would each need the document named), and the
+    change audit finds the commands by reading `document.h`
+    (`test_change_audit.cpp`), so it must learn the facades' headers in
+    the same change. The 42 mode checks in `document_commands.cpp` are mostly
+    conditions inside a command's own logic (which index is the board,
+    which shapes may move where), not refusals a table could hold alone.
+    Done after 21.1 to 21.5, as D5 says, but too large to finish safely in
+    this session after them: the tree is left with 21.1 to 21.5 done and
+    checked.
 
 **Gates for stage 21:** `just test-all`, `just test-tsan`, the oracle tiers
 the moved code serves (`sliding`, `fast`, `files`, `roundtrip`),
 `just oracle-resume`, the contract suite, `just check` on the new files,
 the release build's time.
+
+Run for 21.1 to 21.5 on 2026-11-27, after the last source edit:
+- `just test-all`: 76 of 76 (the contract suite and `api-docs` among
+  them: no method, parameter or schema changed); `just test` twice, 30 of
+  30 each; `just test-asan`: 75 of 75; `just test-tsan`: 146 of 146, and
+  the contract suite against the TSan engine, 0 failed (153 methods
+  called); `just app-test`: 696 of 696;
+- the oracle: `fast` (18 of 18, 0 differ), `sliding` with all threads (23
+  of 35 compared, 0 differ) and `--threads 1` (32 of 35, 0 differ),
+  `stacking` (38 of 41, 0 differ), all with `--allow-missing`;
+  `oracle-python --allow-missing`: 37 of 37 the same as the reference
+  module's (which is not the original's);
+- not run, as they need the original BurrTools (`../burr-tools` is an
+  upstream clone): `oracle-files` (its baselines are the original's
+  solved files: "NO BASELINE" for each), `oracle-roundtrip`,
+  `oracle-resume`;
+- `just check` on the 31 new and changed sources and tests (the new
+  headers through them): clean, no suppression added;
+- the release build's time: 21.1's Done line (the core library from clean
+  49.1 s, now 26.1 s); the other splits' files each 0.5 to 2.0 s
+  (`solve_session.cpp` 1.3 s before, its three files 1.1, 0.8, 0.8;
+  `puzzle_file.cpp` 1.8 s, its five 0.5 to 1.0; `convert.cpp` 2.3 s, now
+  2.0 and `convert_solve.cpp` 1.6);
+- `just site-demo --check` (rebuilt; every puzzle type opens and plays)
+  and `just site-build` (8 of 8);
+- the other systems: no system call or `#ifdef` branch added (the moved
+  `__SIZEOF_INT128__` and malloc branches are as they were); the Linux
+  and Windows builds were not run here; the WebAssembly build of the demo
+  compiled the new files;
+- e2e: none run, as no web file changed and the engine's replies are the
+  same;
+- ARCHITECTURE.md: map lines for the 25 new source files and the moved code (583
+  paths in 374 map lines, 500 other lines).
 
 ## Not in this plan
 

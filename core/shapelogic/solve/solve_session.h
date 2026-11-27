@@ -350,7 +350,7 @@ class SolveSession {
   /// search could not be read back (it is kept, decision 0041): Continue
   /// tries it again. Any thread.
   [[nodiscard]] bool slideSavedUnread() const {
-    return slideSavedUnread_.load(std::memory_order_acquire);
+    return slide_.savedUnread.load(std::memory_order_acquire);
   }
 
   /// Where the solve stands. Any thread; the overall figure never goes
@@ -463,6 +463,15 @@ class SolveSession {
   [[nodiscard]] StopToken assemblyToken() const;
   [[nodiscard]] bool savePointRequested() const;
 
+  // the sliding flow's parts (solve_session_sliding.cpp): of launch, under
+  // controlMutex_ with no run active (the problem's holes and the grid,
+  // then the counts and flags a run starts from); the note at the run's
+  // end (on the run's thread); what progress() tells of the slide searches
+  void prepareSlideRun(const SolveOptions& o);
+  void resetSlideRun(Mode mode);
+  void noteSlideRun(const SolveOptions& o);
+  void slidingProgress(SolveProgress& p, SolveState st, bool stopping) const;
+
   // what is found
   bool onAssembly(Assembly assembly);
   bool onSlidingAssembly(Assembly assembly);
@@ -546,66 +555,72 @@ class SolveSession {
   mutable std::mutex failureMutex_;
   std::optional<SolveFailure> failure_;
 
-  /// The slide searches of a run: the pool the search spreads its levels
-  /// over (made per run, with the solve's thread budget), the
-  /// arrangements the solve's searches have visited (its runs before this
-  /// one included: a run starts it at the problem's count, and its end
-  /// puts it back there) and how deep the search under way is, and what
-  /// the run's searches came to (the solve thread's slide members; the
-  /// counts under resultsMutex_).
-  std::unique_ptr<ThreadPool> slidePool_;
+  /// The arrangements the solve's slide searches have visited (its runs
+  /// before this one included: a run starts it at the problem's count,
+  /// and its end puts it back there) and how deep the search under way is
+  /// (the solve thread's slide members). A stacking run's search reports
+  /// here too: the stackings it has found (slideProgress_), how deep both
+  /// ends are (searchDepth_), and the moves traced back once they met.
   std::atomic<std::uint64_t> slideProgress_{0};
   std::atomic<std::uint64_t> searchDepth_{0};
-  /// Since when a slide search of the run has been taking up its saved
-  /// search (SlideSearch::pickingUpSince); 0 while none does.
-  std::atomic<std::int64_t> slidePickingUpSince_{0};
-  /// The part of a move the run's slide search is in while it visits no
-  /// arrangement (SlideSearch::phase).
-  sliding::SlidePhaseProgress slidePhase_;
-  /// A stacking run's search reports here too: the stackings it has found
-  /// (slideProgress_), how deep both ends are (searchDepth_), and the moves
-  /// traced back once they met.
   std::atomic<std::uint64_t> searchTraced_{0};
-  /// The slide searches under way, and what one does once the run is
-  /// stopped (what it writes as it saves itself).
-  std::atomic<unsigned int> slideSearching_{0};
-  sliding::SlideStopProgress slideStop_;
-  unsigned int slideStartsCut_ = 0;
-  bool slideMemoryCut_ = false;
-  /// The grid this run's slide searches hold their stops to (optimized
-  /// paths, sliding::searchGrid); 0 for every stop. Set as the run begins.
-  int slideGrid_ = 0;
-  /// The timing of the slide search's moves (the problem keeps their
-  /// times, Problem::getSlideLevelMs): when the move under way began, and
-  /// whether a search is timing one. Under resultsMutex_.
-  std::chrono::steady_clock::time_point levelStart_;
-  bool levelTiming_ = false;
+
+  /// What the slide searches of a sliding run keep, and what they came to
+  /// (the solve thread's slide members; the counts under resultsMutex_).
+  /// Only the sliding flow uses them (solve_session_sliding.cpp).
+  struct SlideRun {
+    /// The pool the search spreads its levels over (made per run, with the
+    /// solve's thread budget).
+    std::unique_ptr<ThreadPool> pool;
+    /// Since when a slide search of the run has been taking up its saved
+    /// search (SlideSearch::pickingUpSince); 0 while none does.
+    std::atomic<std::int64_t> pickingUpSince{0};
+    /// The part of a move the run's slide search is in while it visits no
+    /// arrangement (SlideSearch::phase).
+    sliding::SlidePhaseProgress phase;
+    /// The slide searches under way, and what one does once the run is
+    /// stopped (what it writes as it saves itself).
+    std::atomic<unsigned int> searching{0};
+    sliding::SlideStopProgress stop;
+    unsigned int startsCut = 0;
+    bool memoryCut = false;
+    /// The grid this run's slide searches hold their stops to (optimized
+    /// paths, sliding::searchGrid); 0 for every stop. Set as the run begins.
+    int grid = 0;
+    /// The timing of the slide search's moves (the problem keeps their
+    /// times, Problem::getSlideLevelMs): when the move under way began, and
+    /// whether a search is timing one. Under resultsMutex_.
+    std::chrono::steady_clock::time_point levelStart;
+    bool levelTiming = false;
+    std::uint64_t memoryStates = 0;
+    std::string diskError;
+    bool diskHeldToFree = false;
+    /// A search that filled its disk budget was saved to be carried on.
+    bool diskSaved = false;
+    /// The search did not run: its start's saved search could not be read
+    /// back and is kept as it is (SlideSearch::savedUnread). Atomic for
+    /// slideSavedUnread().
+    std::atomic<bool> savedUnread{false};
+    /// The run carries saved searches on (Continue). A solve begun anew has
+    /// thrown the problem's saved searches away, and throws away what is
+    /// left in a start's folder too: one whose state could not be read is
+    /// in nobody's list (discardSaved), and would stop every solve of its
+    /// start.
+    bool resume = true;
+    /// That search's start went back as pending and the run pauses: no more
+    /// starts this run (written by the callback, read on the run's thread
+    /// after the assembler returns).
+    bool diskHalted = false;
+    /// A start's search stopped at a save point (SlideSearch::savePoint) and
+    /// its start went back as pending: no more starts this run, and no note
+    /// (written by the callback, read on the run's thread).
+    bool savePointCut = false;
+  };
+  SlideRun slide_;
   /// The slide search is `depth` moves deep (SlideSearch::onDepth): the
   /// move just finished is timed, or the times are made to fit a search
   /// that begins or is carried on.
   void onSlideDepth(std::uint64_t depth);
-  std::uint64_t slideMemoryStates_ = 0;
-  std::string slideDiskError_;
-  bool slideDiskHeldToFree_ = false;
-  /// A search that filled its disk budget was saved to be carried on.
-  bool slideDiskSaved_ = false;
-  /// The search did not run: its start's saved search could not be read
-  /// back and is kept as it is (SlideSearch::savedUnread). Atomic for
-  /// slideSavedUnread().
-  std::atomic<bool> slideSavedUnread_{false};
-  /// The run carries saved searches on (Continue). A solve begun anew has
-  /// thrown the problem's saved searches away, and throws away what is
-  /// left in a start's folder too: one whose state could not be read is in
-  /// nobody's list (discardSaved), and would stop every solve of its start.
-  bool slideResume_ = true;
-  /// That search's start went back as pending and the run pauses: no more
-  /// starts this run (written by the callback, read on the run's thread
-  /// after the assembler returns).
-  bool slideDiskHalted_ = false;
-  /// A start's search stopped at a save point (SlideSearch::savePoint) and
-  /// its start went back as pending: no more starts this run, and no note
-  /// (written by the callback, read on the run's thread).
-  bool slideSavePointCut_ = false;
   /// The last run paused at a save point and for no other reason
   /// (SolveProgress::atSavePoint); written as the run ends.
   std::atomic<bool> atSavePoint_{false};

@@ -2,7 +2,7 @@
 #include "../scratch_dir.h"
 
 #include "shapelogic/base/system.h"
-#include "shapelogic/solve/sliding_search.h"
+#include "shapelogic/base/search_memory.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -69,9 +69,9 @@ TEST_CASE("system: a budget asked for is given, but held to the free space", "[b
 
 TEST_CASE("system: the memory budget is the one set, else 2 GB or with high half the memory",
           "[base][system]") {
-  using bt::sliding::kSearchMemoryBytes;
-  using bt::sliding::memoryBudget;
-  using bt::sliding::memoryStates;
+  using bt::kSearchMemoryBytes;
+  using bt::memoryBudget;
+  using bt::memoryStates;
   CHECK(memoryBudget(0, false) == kSearchMemoryBytes);
   CHECK(memoryBudget(0, true) >= kSearchMemoryBytes);
   CHECK(memoryBudget(0, true) >= bt::physicalMemoryBytes() / 2);

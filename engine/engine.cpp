@@ -6,6 +6,7 @@
 #include "convert.h"
 
 #include "shapelogic/base/assert.h"
+#include "shapelogic/base/search_memory.h"
 #include "shapelogic/base/system.h"
 
 #include <array>
@@ -40,7 +41,7 @@ std::uint64_t Settings::searchMemoryBytes() const {
   // the setting, or half the machine's (the GUI's Enable High Memory,
   // which the setting replaced)
   return searchMemoryGB > 0 ? static_cast<std::uint64_t>(searchMemoryGB * 1e9)
-                            : sliding::memoryBudget(0, true);
+                            : memoryBudget(0, true);
 }
 
 State::State(Output& output, std::ostream& logs, const MethodTable& table)

@@ -9,6 +9,7 @@
 /// parallelMultiSearch, reportParallelSolution, and the progress members of
 /// assembler_c), written once.
 
+#include "shapelogic/base/fnv1a.h"
 #include "shapelogic/base/stop.h"
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/model/assembly.h"
@@ -87,10 +88,9 @@ class SearchRun {
   std::mutex mutex_;
 };
 
-/// FNV-1a: the signatures of reported assemblies are built with it, one
-/// value at a time (the original's formula; saved positions carry them).
-inline constexpr std::uint64_t kFnvOffset = 14695981039346656037ULL;
-inline constexpr std::uint64_t kFnvPrime = 1099511628211ULL;
+/// FNV-1a (base/fnv1a.h's kFnvOffset, kFnvPrime): the signatures of
+/// reported assemblies are built with it, one value at a time (the
+/// original's formula; saved positions carry them).
 [[nodiscard]] constexpr std::uint64_t fnvMix(std::uint64_t h, std::uint64_t v) noexcept {
   return (h ^ v) * kFnvPrime;
 }

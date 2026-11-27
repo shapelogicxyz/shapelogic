@@ -77,6 +77,59 @@ Json placementFitJson(const app::PlacementFitProgress& f) {
               {"boards", std::move(boards)}};
 }
 
+Json trayJson(const app::Document& d) {
+  if (!d.tilted()) {
+    return nullptr;
+  }
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): tilted() says the puzzle has one
+  return trayJson(*d.puzzle().tray(), d.trayLayout());
+}
+
+Json trayJson(const tilted::Tray& t, const tilted::Layout& lay) {
+  Json j = Json::object();
+  j["width"] = t.width;
+  j["height"] = t.height;
+  j["over"] = t.over;
+  j["down"] = t.down;
+  j["allowance"] = t.allowance;
+  j["placement"] = nameOf(trayPlacementNames(), t.placement);
+  j["shiftX"] = t.shiftX;
+  j["shiftY"] = t.shiftY;
+  Json walls = Json::array();
+  for (unsigned int y = 0; y < t.height; y++) {
+    for (unsigned int x = 0; x < t.width; x++) {
+      if (t.isWall(x, y)) {
+        walls.push_back(Json::array({x, y}));
+      }
+    }
+  }
+  j["walls"] = std::move(walls);
+  j["degrees"] = t.degrees();
+  j["whole"] = lay.whole;
+  j["cut"] = lay.cut;
+  j["box"] = Json::array({lay.sizeX, lay.sizeY});
+  std::string cells;
+  cells.reserve(lay.cells.size());
+  for (const tilted::Cell c : lay.cells) {
+    cells.push_back(c == tilted::Cell::Whole ? 'w' : c == tilted::Cell::Cut ? 'c' : 'o');
+  }
+  j["cells"] = std::move(cells);
+  const auto square = [](const std::array<tilted::Point, 4>& pts) {
+    Json out = Json::array();
+    for (const tilted::Point& p : pts) {
+      out.push_back(Json::array({p.x, p.y}));
+    }
+    return out;
+  };
+  j["corners"] = square(lay.corners);
+  Json polygons = Json::array();
+  for (const std::array<tilted::Point, 4>& w : lay.walls) {
+    polygons.push_back(square(w));
+  }
+  j["wallPolygons"] = std::move(polygons);
+  return j;
+}
+
 namespace {
 
 /// The tray the settings go over: the open puzzle's, or a new one.

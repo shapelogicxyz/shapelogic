@@ -16,7 +16,10 @@
 // first job of the next level's expansion, or at once when something
 // needs the file first (finishWrite). The files are the same either way.
 #include "shapelogic/solve/panex_search.h"
+#include "shapelogic/base/binary_io.h"
+#include "shapelogic/base/fnv1a.h"
 #include "shapelogic/base/save_cadence.h"
+#include "shapelogic/base/search_memory.h"
 
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
@@ -25,7 +28,6 @@
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/stacking.h"
 #include "shapelogic/solve/search_sample.h"
-#include "shapelogic/solve/sliding_search.h"
 
 #include <algorithm>
 #include <array>
@@ -559,15 +561,8 @@ constexpr std::array<char, 8> kStateMagic = {'B', 'T', 'P', 'A', 'N', 'E', 'X', 
 // Version 3 was the same but kept whole seconds where 4 keeps ms.
 constexpr std::array<char, 8> kStateMagicSeconds = {'B', 'T', 'P', 'A', 'N', 'E', 'X', '3'};
 
-template <class T>
-void put(std::ostream& out, const T& v) {
-  out.write(reinterpret_cast<const char*>(&v), sizeof(v));
-}
-
-template <class T>
-void get(std::istream& in, T& v) {
-  in.read(reinterpret_cast<char*>(&v), sizeof(v));
-}
+using binary::get;
+using binary::put;
 
 // One puzzle's saved search, in its own folder: every few levels of each
 // end ("f12.lvl", "b0.lvl"), sorted keys, and the frontier ("state.bin").
@@ -874,9 +869,7 @@ class Searcher {
   // The memory the levels may fill now: the search's share of a shared
   // budget, read each level (decision 0028), or the budget it was given.
   [[nodiscard]] std::uint64_t budget() const {
-    return search_.memoryShare != nullptr
-               ? std::max<std::uint64_t>(search_.memoryShare->share(), 1)
-               : budget_;
+    return memoryBudget(budget_, false, search_.memoryShare);
   }
 
   // Turns a stacking into the picture a live preview asks for (set when
@@ -1698,15 +1691,11 @@ bool classicTower(const Rules& rules, PKey startKey, PKey goalKey,
 
 // Names a puzzle's saved search: the rules, the start, the goal and the
 // problem's uid (FNV-1a over the bytes of each value, as the original mixed
-// them).
+// them: every value in 8 bytes, from the basis the original wrote, a digit
+// short of kFnvOffset, which the names keep).
 std::uint64_t fingerprintOf(const Rules& rules, PKey start, PKey goal, std::uint64_t uid) {
-  std::uint64_t h = 1469598103934665603ULL;
-  auto mix = [&h](std::uint64_t v) {
-    for (int i = 0; i < 8; i++) {
-      h ^= (v >> (8 * i)) & 0xff;
-      h *= 1099511628211ULL;
-    }
-  };
+  Fnv1a f(1469598103934665603ULL);
+  auto mix = [&f](std::uint64_t v) { f.u64(v); };
   mix(2);  // the saved format
   mix(rules.panex ? 1 : 0);
   mix(rules.sizeRule ? 1 : 0);
@@ -1735,7 +1724,7 @@ std::uint64_t fingerprintOf(const Rules& rules, PKey start, PKey goal, std::uint
   if (uid != 0) {
     mix(uid);
   }
-  return h;
+  return f.value();
 }
 
 // The folder of a saved search in workDir; empty when there is no workDir
@@ -1959,7 +1948,7 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
   }
 
   const std::uint64_t budget =
-      sliding::memoryBudget(search.memoryBytes, search.highMemory, search.memoryShare);
+      memoryBudget(search.memoryBytes, search.highMemory, search.memoryShare);
 
   // the threads: the pool given, or one of the search's own, with a core
   // more than the levels' threads for the saved level being written (the

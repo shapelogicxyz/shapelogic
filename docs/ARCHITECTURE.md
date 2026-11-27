@@ -71,11 +71,14 @@ Files in `core/shapelogic/base/`:
 - `clone_ptr.h`: `ClonePtr<T>`, an owning pointer that copies its object (`clone()` when T has one), so classes with polymorphic or recursive members keep `= default` copies.
 - `compress.{h,cpp}`: zstd blocks for the slide search's level files (decision 0040); the only code that sees the library.
 - `error.{h,cpp}`: `Errc`, `Error`, `Result<T>` (`std::expected`), `fail()`.
+- `binary_io.h`: `binary::put` / `binary::get`, a value's raw bytes to a stream and back (the saved searches' state files).
 - `file_lock.{h,cpp}`: `FileLock`, a lock two holders (programs or threads) cannot have at once: one solve per search folder (decision 0035).
+- `fnv1a.h`: `Fnv1a`, `kFnvOffset`, `kFnvPrime`: the hash that names the saved searches (each value at a named width; Panex's from the original's basis) and signs reported assemblies.
 - `int_cast.h`: `asInt()` / `asUnsigned()`, the spelled-out conversions ported code needs under `-Wsign-conversion`.
 - `log_line.h`: `LogLine`, a line a search or solve tells for the app's log.
 - `memory_share.h`: `MemoryShare`, the memory the sliding and stacking searches running at once share (decision 0028).
 - `save_cadence.h`: `SaveCadence`, when a long search saves itself as it runs.
+- `search_memory.{h,cpp}`: `memoryBudget`, `memoryStates`, `kSearchMemoryBytes`: the memory a sliding or stacking search may fill.
 - `solve_state.{h,cpp}`: `SolveState`, `SolveStateCell` and the transition table (decision 0004).
 - `stop.h`: `StopSource`, `StopToken`, `StopKind` (decision 0004).
 - `system.{h,cpp}`: the machine: memory, free disk, `diskBudgetFor`, `gbToBytes`, `folderWriteError`, the cache folder.
@@ -191,7 +194,9 @@ Files in `core/shapelogic/io/`:
 - `gzip_file.{h,cpp}`: whole files through zlib (level 9) and the same in memory (`gzipCompress`, `gunzipIfCompressed`: the one inflate, to 256 MiB at most, a stream cut short refused; `readMaybeGzipFile` is `readPlainFile` and it); `writeFileWhole`, `writeFileStreamed`, `replaceWith`, `saveTarget`, `syncDescriptor`.
 - `imports.h`, `ps3d_file.cpp`, `scad_file.cpp`: other programs' files (decision 0017): `readPuzzleSolver3D`, `readPuzzlecad`, `writePuzzlecad` (puzzlecad's `burr_plate`) and `puzzlecadRefusal` (every caller's refusals), line for line the original's loaders; `kMaxImportCells`.
 - `paused_solve.{h,cpp}`: the paused solve file (`.slsolve`, the original's BTSOLVE2), both ways, streamed; `readPausedSolve`, the one reader (a file's stream or bytes'), each section held to what is left of the file.
-- `puzzle_file.{h,cpp}`: `loadPuzzle`, `parsePuzzle`, `readPuzzle`, `savePuzzle`, `writePuzzle`; `giveUids`; the bounds on a file's numbers at the top of the .cpp (`kMaxFileCoordinate`, `kMaxSlideDepth`; a tree's depth is the model's `kMaxSeparationDepth`).
+- `puzzle_file.{h,cpp}`: `loadPuzzle`, `parsePuzzle`, `readPuzzle`, `savePuzzle`, `writePuzzle`: the `<puzzle>` around its elements.
+- `puzzle_file_internal.h`: what the element files share (internal): the model's write access, `Keeper`, the slot enums, the bounds on a file's numbers (`kMaxFileCoordinate`, `kMaxSlideDepth`; a tree's depth is the model's `kMaxSeparationDepth`), each element's reader and writer.
+- `puzzle_file_{voxel,solution,problem,tray}.cpp`: one element each, its reader, its writer and its known attributes (`_problem` with stacking, slide marks, rod sets and `giveUids`).
 - `xml_document.{h,cpp}`: the tree built from the parser, within `XmlLimits` (16 million elements, 4096 attributes an element, 5000 levels), and a tree written back.
 - `xml_pull_parser.{h,cpp}`: the original's parser (internal; its `XmlParseError` never leaves the module).
 - `xml_writer.{h,cpp}`: `XmlWriter`, the original's output layout; it refuses an attribute given twice in a tag (a writer's new attribute goes into its reader's list of known ones, or the next save would hold it twice).
@@ -263,13 +268,18 @@ Files in `core/shapelogic/solve/`:
 - `search_run.{h,cpp}`: the run layer (decision 0009): `SearchRun`, `TaskProgress`, `SplitTasks<Task>`, `runSplitTasks()`, `effectiveThreads()`.
 - `search_sample.h`: `SearchSample`, the live preview's meeting point (`request`, `claim`, `put`, `take`).
 - `simd_bitset.h`, `simd_exact_cover.{h,cpp}`, `simd_huang_cover.{h,cpp}`: the vector covers of assemblers 0 and 1 (256 to 32768 columns), `SimdKernels`.
+- `slide_board.{h,cpp}`: the slide search's board rules (internal, `sliding::detail`): steps, cells and outlines, `GoalCheck`, `StopGrid`, `reachableShifts`, `fewestTurns`, `nestedGroup`.
 - `slide_forecast.{h,cpp}`: `slideForecast`, the Performance Analysis from each depth's time (decision 0030).
 - `slide_key.h`: `BigKey`, the slide search's keys of 192, 256 and 512 bits (decision 0037).
+- `slide_level_search.h`: `LevelSearch`, `nameSpace`, `tableSearch`, `tableProbe` (internal), templates over the key, each width compiled in `sliding_search_{64,128,192,256,512}.cpp` and seen elsewhere through extern templates.
 - `slide_levels.h`: `KeySet`, `ReadFile`, `WriteGate`: the slide search's sorted, delta-coded sets, in memory or in files; a file's index checked as it opens (`tablesHold`: `SetFault::Damaged`), each block as it is read.
 - `slide_phase.h`: the parts of a slide move that visit no arrangement (the merges, the writes, the saves, the pass for the first move to the goal).
-- `sliding_play.h`: a sliding puzzle played by hand (decision 0039): `playStart`, `playReach`, `playReplay`.
-- `sliding_search.{h,cpp}`: the slide search (decision 0014): `findSlidePath`, `SlideSearch`, `SlideOutcome`, its saved searches and what names them (a name is made of the problem's key and of the options in `SlideNaming` alone, which Continue's refusal walks by `namesDiffer`, decision 0043, each value hashed at a named width; `searchName` tells a name without a search, and `tests/unit/solve/test_search_names.cpp` pins the names, which never change); `slideRoute`, `applySlideRoutes`, `finalPlacementKey`; `sliding_play.h`'s functions at its end.
+- `slide_space.h`: `PosTable`, `SlideSpace`, `SlideMover`, `chainToPath` (internal): the position tables, the keys and the moves.
+- `slide_store.h`, `slide_saved.cpp`: `SearchFolder`, `SetStore`, `runMerge`, `RunBuilder` (internal); `problemKeyOf`, `folderName`, the state file (`readState`, `writeState`).
+- `sliding_play.{h,cpp}`: a sliding puzzle played by hand (decision 0039): `playStart`, `playReach`, `playReplay`.
+- `sliding_search.{h,cpp}`, `sliding_search_{64,128,192,256,512}.cpp`: the slide search (decision 0014), each key width's level search in a file of its own: `findSlidePath`, `SlideSearch`, `SlideOutcome`, its saved searches and what names them (a name is made of the problem's key and of the options in `SlideNaming` alone, which Continue's refusal walks by `namesDiffer`, decision 0043, each value hashed at a named width; `searchName` tells a name without a search, and `tests/unit/solve/test_search_names.cpp` pins the names, which never change); `slideRoute`, `applySlideRoutes`, `finalPlacementKey`; `legacySearch`, the text-key search.
 - `solve_progress.{h,cpp}`: `SolveProgress` and `SolveStats`.
+- `solve_session_internal.h`, `solve_session_{sliding,stacking}.cpp`: the session's sliding flow (its state in `SlideRun`) and stacking flow, the same class; the notes' shared words.
 - `solve_session.{h,cpp}`: `SolveSession`, the solve of one problem across its runs (decision 0010); `SolveOptions`, `SolveFailure`; `solveSetup`, the rules that build a solve's matrix (a sliding puzzle's, a tilted tray's face-up pieces), with `trayPlaneTurns` and `storedFlipPieces`.
 - `solver_type.{h,cpp}`: `SolverType` (Classic and Crowell, labeled Complete (ShapeLogic) and Fast (Crowell)), `chooseAssembler()`, `makeAssembler()` (decision 0019: the original's BurrTools 2 solver is not kept; where decisions 0009 to 0011 describe it, 0019 holds).
 - `stack_search.{h,cpp}`: `findStackPath`, the Stacking Solver's own search, and `StackingOptions`.
@@ -453,7 +463,8 @@ Rules (decisions 0011, 0014, 0015, 0027, 0033, 0039, 0044, 0045):
 
 Files in `engine/`:
 - `app_log.{h,cpp}`: the engine's lines for the app's log (the `log` setting: `off`, `info`, `debug`).
-- `convert.{h,cpp}`: the schema's enum names, the engine's own bounds of its inputs and the JSON of the items (snapshot, summaries, fit, meshes as frames, solver settings, options, progress, failures, solution rows, placements).
+- `convert_solve.cpp`: `convert.h`'s solving part: the stored solver settings, the solve options in, progress, stats and failures out.
+- `convert.{h,cpp}`: the schema's enum names, the engine's own bounds of its inputs and the JSON of the items (snapshot, summaries, fit, meshes as frames, solution rows, placements; the solving part in `convert_solve.cpp`, the tray's in `methods_tray.cpp` beside `readTraySettings`).
 - `engine.{h,cpp}`: `Engine` (the dispatcher: `handleLine`, `poll`, `run`), `State`, `Settings`, the method table.
 - `events.cpp`: `document.changed` and the poll's events (solves, analyses, fits, assembly explorers being prepared).
 - `main.cpp`: the process's entry.

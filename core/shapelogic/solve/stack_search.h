@@ -40,7 +40,7 @@ enum class StackOutcome : std::uint8_t {
 /// The settings of one stacking search, and how it went.
 struct StackSearch {
   /// Stackings to hold before giving up; 0 for as many as fit the memory
-  /// budget (sliding::memoryStates).
+  /// budget (memoryStates, base/search_memory.h).
   std::uint64_t maxStates = 0;
   /// With maxStates 0, budget half the physical memory, not 2 GB.
   bool highMemory = false;

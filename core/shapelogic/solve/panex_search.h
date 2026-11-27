@@ -96,7 +96,7 @@ struct PanexSearch {
   /// Budget half the physical memory, not 2 GB.
   bool highMemory = false;
   /// The memory the search may fill, in bytes; 0 for the budget highMemory
-  /// says (sliding::memoryBudget). Set, highMemory plays no part.
+  /// says (memoryBudget, base/search_memory.h). Set, highMemory plays no part.
   std::uint64_t memoryBytes = 0;
   /// When set, the memory budget is this search's share
   /// of what the searches running at once share, read again as the search

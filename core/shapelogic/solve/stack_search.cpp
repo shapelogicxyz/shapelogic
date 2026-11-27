@@ -3,11 +3,12 @@
 // PACKED_STATE_BYTES and TEXT_STATE_BYTES.
 #include "shapelogic/solve/stack_search.h"
 
+#include "shapelogic/base/search_memory.h"
+
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/stacking.h"
 #include "shapelogic/solve/search_sample.h"
-#include "shapelogic/solve/sliding_search.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -38,7 +39,7 @@ void stackBfs(const RodSet& board, const std::vector<Disc>& pieces, const Stacki
   const bool shared = search.maxStates == 0 && search.memoryShare != nullptr;
   std::uint64_t limit = search.maxStates != 0
                             ? search.maxStates
-                            : sliding::memoryStates(stateBytes, search.highMemory,
+                            : memoryStates(stateBytes, search.highMemory,
                                                     search.memoryBytes, search.memoryShare);
   search.memoryStates = limit;
   const auto rods = static_cast<unsigned int>(start.size());
@@ -66,7 +67,7 @@ void stackBfs(const RodSet& board, const std::vector<Disc>& pieces, const Stacki
         break;
       }
       if (shared) {
-        limit = sliding::memoryStates(stateBytes, false, 0, search.memoryShare);
+        limit = memoryStates(stateBytes, false, 0, search.memoryShare);
         search.memoryStates = limit;
       }
     }
