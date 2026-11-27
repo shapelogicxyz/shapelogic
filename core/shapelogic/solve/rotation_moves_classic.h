@@ -46,7 +46,6 @@ class RotationMovesClassic final : public RotationMoves {
   NodeRef find() override;
 
  private:
-  void collectWorldCells(unsigned int pieceIdx, std::vector<RotationRules::Cell>& out) const;
   void loadSubset(unsigned int subsetMask);
   void rebuildPivotCells(unsigned int axis);
   NodeRef tryCurrentCandidate();
@@ -75,18 +74,5 @@ class RotationMovesClassic final : public RotationMoves {
   /// The pieces still in the puzzle, one bit each.
   unsigned int presentMask_ = 0;
 };
-
-/// The turn of a vector by 90 degrees around `axis` (0 x, 1 y, 2 z), sense 0
-/// +90 degrees, 1 -90 degrees.
-void rotateVector90(int* x, int* y, int* z, unsigned int axis, unsigned int sense);
-
-/// A cell's position turned about `pivot` (doubled units): false when it
-/// does not land on the grid.
-bool rotateDoubled(int* x, int* y, int* z, const RotationRules::Pivot& pivot, unsigned int axis,
-                   unsigned int sense);
-
-/// The cube orientation of a +-90 degree turn about an axis (tabs_0's
-/// rotation matrices).
-unsigned char rotationTransformId(unsigned int axis, unsigned int sense);
 
 }  // namespace bt

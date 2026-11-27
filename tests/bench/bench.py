@@ -22,6 +22,13 @@ faster" on every row.
     python3 tests/bench/bench.py --set identical     # many pieces of one shape, piece ranges
     python3 tests/bench/bench.py --plain             # without the vector search
     python3 tests/bench/bench.py --threads 1 --repeat 5
+
+--session times the app's way through a solve (a SolveSession: the CLI's
+--save, which keeps the solutions sorted and writes the solved file) of two
+ShapeLogic CLIs, --old-bin (an earlier build's) and --new-bin: the default
+rows go through the CLI's own loop, which the app never runs.
+
+    python3 tests/bench/bench.py --session --old-bin ../before/shapelogic_cli
 """
 
 from __future__ import annotations
@@ -38,6 +45,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 
 SUMMARY_RE = re.compile(r"(\d+) assemblies and (\d+) solutions found with (\d+) iterations in ([\d.]+) seconds")
+# --save's line: the whole solve as the session counts it (prepare, reduce, search, take-aparts)
+SESSION_RE = re.compile(r"(\d+) assemblies and (\d+) solutions found in ([\d.]+) seconds")
 
 # The twelve pentominoes (from the original's test_solver.cpp).
 PENTOMINOES = [
@@ -141,6 +150,25 @@ def puzzle_sets(old_repo: Path, tmp: Path) -> dict[str, list[tuple[str, Path, li
     }
 
 
+def run_session(binary: Path, puzzle: Path, threads: int, extra: list[str], plain: bool,
+                timeout: float) -> tuple[float, int, int] | str:
+    """A solve through the session (--save): (seconds, assemblies, 0), or an error text."""
+    with tempfile.TemporaryDirectory() as out:
+        # every solution kept (--limit 0), as far as the session keeps them: the lists' cost counts
+        argv = [str(binary), "-t", str(threads), *[a for a in extra if a != "-r"], "--save",
+                str(Path(out) / "solved.xmpuzzle"), "--restart", "--limit", "0",
+                *(["--no-simd"] if plain else []), str(puzzle)]
+        env = dict(os.environ, SHAPELOGIC_SLIDE_DIR=out, SHAPELOGIC_PANEX_DIR=out)
+        try:
+            proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=env, check=False)
+        except subprocess.TimeoutExpired:
+            return "timeout"
+    m = SESSION_RE.search(proc.stdout)
+    if proc.returncode != 0 or not m:
+        return f"exit {proc.returncode}: {(proc.stderr or proc.stdout).strip()[-120:]}"
+    return float(m.group(3)), int(m.group(1)), 0
+
+
 def run(binary: Path, puzzle: Path, threads: int, extra: list[str], plain: bool, old: bool,
         timeout: float) -> tuple[float, int, int] | str:
     """(solve seconds, assemblies, iterations), or an error text."""
@@ -174,9 +202,14 @@ def main() -> int:
     p.add_argument("--threads", type=int, nargs="+", default=[1, os.cpu_count() or 1])
     p.add_argument("--repeat", type=int, default=5)
     p.add_argument("--plain", action="store_true", help="without the vector search (BURRTOOLS_NO_SIMD / --no-simd)")
+    p.add_argument("--session", action="store_true",
+                   help="the app's path (--save, a SolveSession) of two ShapeLogic CLIs; needs --old-bin")
     p.add_argument("--timeout", type=float, default=1800.0)
     args = p.parse_args()
 
+    if args.session and not args.old_bin:
+        print("--session compares two ShapeLogic CLIs: give the earlier one as --old-bin", file=sys.stderr)
+        return 2
     old_bin = args.old_bin or next((b for b in (args.old_repo / "build-rel" / "burrTxt",
                                                 args.old_repo / "build" / "burrTxt") if b.exists()), None)
     if old_bin is None or not args.new_bin.exists():
@@ -209,7 +242,10 @@ def main() -> int:
                 counts = {}
                 for _ in range(args.repeat):
                     for who, binary in (("old", old_bin), ("new", args.new_bin)):
-                        r = run(binary, puzzle, threads, extra, args.plain, who == "old", args.timeout)
+                        if args.session:
+                            r = run_session(binary, puzzle, threads, extra, args.plain, args.timeout)
+                        else:
+                            r = run(binary, puzzle, threads, extra, args.plain, who == "old", args.timeout)
                         if isinstance(r, str):
                             print(f"{label:28} {threads:7}  {who} failed: {r}")
                             failed = True

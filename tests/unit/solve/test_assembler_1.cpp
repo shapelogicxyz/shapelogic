@@ -291,7 +291,8 @@ namespace {
 Fingerprints searched(const std::string& fixture, unsigned int threads, ThreadPool* pool,
                       bool reduce, bool vector, std::uint64_t* iterations,
                       std::uint64_t memoryBudget = SearchOptions{}.vectorMemoryBudget,
-                      std::uint64_t stackBudget = SearchOptions{}.vectorStackBudget) {
+                      std::uint64_t stackBudget = SearchOptions{}.vectorStackBudget,
+                      SimdKernels kernels = {}) {
   const Puzzle p = test::loadFixture(fixture);
   auto a = made(p);
   if (reduce) {
@@ -300,6 +301,7 @@ Fingerprints searched(const std::string& fixture, unsigned int threads, ThreadPo
   SearchOptions o = searchOptions(threads, pool, vector);
   o.vectorMemoryBudget = memoryBudget;
   o.vectorStackBudget = stackBudget;
+  o.kernels = kernels;
   const test::RunResult r = runOnce(*a, o);
   CHECK(r.end == RunEnd::Finished);
   CHECK(a->finished() >= 1.0F);
@@ -347,6 +349,59 @@ TEST_CASE("Assembler 1: the vector and the plain search find the same assemblies
                       "FourPieceTetrahedron.xmpuzzle", "CubeInCage.xmpuzzle",
                       "DemoMirrorParadox.xmpuzzle"},
                      false, 6);
+}
+
+// Cleanup item 20.5: the cover's scalar kernel never searched a real puzzle
+// (the CLI's --no-simd turns the vector search off together with the
+// kernels), and on a machine with AVX-512 nor did the AVX2 one. The vector
+// search with every kernel off, and with each switch alone (which leaves
+// the next narrower kernel on x86-64, and the scalar loops on ARM), finds
+// the plain search's assemblies, on one thread and split over four. Pieces
+// of Eight has piece ranges (the range part of the kernels' row filter),
+// the others several pieces of a shape (the parts that keep a shape's
+// placements in order and stop at its count).
+TEST_CASE("Assembler 1: the vector search finds the same assemblies with every kernel",
+          "[solve][assembler][simd][parallel]") {
+  struct Set {
+    const char* name = "";
+    SimdKernels kernels;
+  };
+  SimdKernels noAvx2;
+  noAvx2.avx2 = false;
+  SimdKernels noAvx512;
+  noAvx512.avx512 = false;
+  SimdKernels noNeon;
+  noNeon.neon = false;
+  const Set sets[] = {{"every kernel off", SimdKernels::none()},
+                      {"AVX2 off", noAvx2},
+                      {"AVX-512 off", noAvx512},
+                      {"NEON off", noNeon}};
+
+  ThreadPool pool(4);
+  unsigned int tookTheVectorSearch = 0;
+  for (const char* file : {"PiecesOfEight.xmpuzzle", "AlPackino.xmpuzzle",
+                           "12PieceSeparation.xmpuzzle", "CubeInCage.xmpuzzle"}) {
+    std::uint64_t plainIterations = 0;
+    const Fingerprints plain = searched(file, 1, nullptr, false, false, &plainIterations);
+    REQUIRE(!plain.empty());
+    for (const Set& set : sets) {
+      for (const unsigned int threads : {1U, 4U}) {
+        INFO(file << ", " << set.name << ", " << threads << " threads");
+        std::uint64_t iterations = 0;
+        const bool same =
+            searched(file, threads, &pool, false, true, &iterations,
+                     SearchOptions{}.vectorMemoryBudget, SearchOptions{}.vectorStackBudget,
+                     set.kernels) == plain;
+        CHECK(same);
+        if (threads == 1 && iterations != plainIterations) {
+          tookTheVectorSearch++;
+        }
+      }
+    }
+  }
+  // each puzzle took the vector search with each set: else this compared
+  // the plain search with itself
+  CHECK(tookTheVectorSearch == 4 * std::size(sets));
 }
 
 // A range puzzle, and the one large enough to keep several threads busy;

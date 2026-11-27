@@ -209,7 +209,7 @@ again, and comes last.
     and the gates that need the original wait for it: "Not in this plan".
 - [x] Stage 18: the engine stays responsive (18.1's job is an `Engine:` commit of its own: `explore.openAssembly` answers at once and `explore.ready` tells when the handle can be used; 18.4 also lets Abort end a level's merges; 18.5 by rounds kept on the heap, and the level text, the counts and the destructor of a tree no longer recurse; users notice: the Placements and Step drawers tell of a long preparation, with a Cancel, a Pause during a matrix build or the taking up of a saved search ends it there, a take-apart past 1000 parts deep ends the solve with the reason; `just oracle-resume` not run: it needs the original)
 - [x] Stage 19: names and audits that must not drift (19.1: the refusal and the name disagreed already, for partially nested slides alone and six A/B switches; 19.2's audit found Convert assemblies to pieces into a solved problem not telling of its solutions and five calls that change nothing leaving an undo step, three after throwing the solutions away; the lookup that answers a reference not made, with its reason; users notice: Remove all pieces, Set range for all and the color rule presets keep a problem's solutions when they change nothing; `just oracle-resume` not run: it needs the original)
-- [ ] Stage 20: core deduplication under benchmarks
+- [x] Stage 20: core deduplication under benchmarks (all five kept, each within noise of the item before it: Crowell asks the prepared rotation rules, the take-apart pool is the CLI's and the app's, assembler 1's three state machines are one template, the two matrices are built by one set of functions and searched through one adapter, the cover's kernels share their pre-filter and are each tested; a weak test of a list growing under a solve made independent of the machine; users notice: only speed, Fast (Crowell) with Check Rotations takes 28 to 47% less and the app's solves with many small take-aparts up to 19% less; the `full` and `slow` tiers, `oracle-resume`, `oracle-files` and `bench.py` against the original not run: they need the original)
 - [ ] Stage 21: splits: core
 
 ## Who builds each stage
@@ -9134,7 +9134,7 @@ quiet machine, one solve at a time. An item that cannot keep the benchmarks
 within noise is dropped: revert it, tick it, and write
 `Not done (date): <the numbers>`.
 
-- [ ] **20.1 Crowell: use the prepared rotation API, and share Classic's helpers** (speed, combine; S to M)
+- [x] **20.1 Crowell: use the prepared rotation API, and share Classic's helpers** (speed, combine; S to M)
   - *Where:*
     - `core/shapelogic/solve/rotation_moves_crowell.cpp` (96-117, 205,
       292-303).
@@ -9170,8 +9170,66 @@ within noise is dropped: revert it, tick it, and write
       one cell turn.
   - *Tests:* `just oracle --solver crowell` with rotations (`-R`);
     `test_rotation_solvers.cpp`; the bench with rotations.
+  - Done (2026-11-27, Fable): confirmed.
+    - **Crowell asks the prepared rules.** `loadSubsetCells` makes the
+      group's cells and the others' from the pieces' cells kept at
+      `initFind` (`pieceCells_`, as Classic has them; the largest piece is
+      found by their sizes, `countFilled` is gone) and calls `setBodies`
+      once a group; `startAxis` asks `preparedAxisBlocked`, and a
+      candidate `allowPrepared(…, true)`: no list of turned cells is
+      allocated, the others' occupancy is no longer looked up by comparing
+      the whole list, the sandwich and the walls across are not asked
+      again for each pivot, and the others' squares are sorted once an
+      axis. A position of more than 31 pieces (no turns) no longer walks
+      its shapes.
+    - **The shared helpers** are `RotationMoves`' (`rotation_moves.h`,
+      and `rotation_moves.cpp`, new): `collectWorldCells`, `turnBox` (the
+      moving body's box in the plane of the turn), `pivotAt`, and
+      `turnedNode`, the position after a turn (null when a piece leaves the
+      grid or nothing moves). Classic and Crowell call them; each keeps
+      what is its own (the groups it tries, its pivots, Classic's anchor,
+      Crowell's three turns a direction).
+    - **One cell turn:** `RotationRules::rotateCell`. `rotateVector90`,
+      `rotateDoubled` and `rotateCellCrowell` are gone (the three gave the
+      same cell: the same signs for each axis and sense, the same parity
+      test), and `rotationTransformId` is `rotation_moves.cpp`'s own.
+    - **The answers are the same.** The last commit's CLI and this one's
+      with `-d -R -p -r` (every move printed), `--solver crowell` and
+      Classic, on one thread and on all, on 14 fixtures of the cube grid
+      (Cube In Cage, both rotation fixtures, Solid Six Piece Burrs,
+      Pelikan Burr, Ball Room, Al Packino, Bermuda, Demo Piece Generator,
+      Dracula's Dental Disaster, 12 Piece Separation, Pieces Of Eight,
+      Broken Sticks, Demo Mirror Paradox): 52 of 56 outputs byte for byte
+      the same; the other four (Solid Six Piece Burrs and Demo Piece
+      Generator on all threads, both solvers) hold the same lines in
+      another order, as two runs of the last commit's CLI do (the order
+      the threads find the assemblies in). `test_rotation_solvers.cpp`
+      (8 cases, 117901 checks) as it was; no new test: nothing new is
+      answered.
+    - **Speed** (the last commit's CLI and this one's taking turns, one
+      solve at a time (beside them only the session's waiting loops: the
+      gates), medians of seven runs, the solve's own seconds, before and
+      after):
 
-- [ ] **20.2 One take-apart pool for the CLI and the app** (combine, speed; L)
+      | puzzle | 1 thread | 10 threads |
+      |---|---|---|
+      | Cube In Cage, Crowell (`-rdR`) | 0.052, 0.037 | 0.013, 0.008 |
+      | Pelikan Burr, Crowell (`-rdR`) | 14.71, 8.38 | 2.512, 1.350 |
+      | Dracula's Dental Disaster, Crowell (`-rdR`) | | 7.92, 5.54 |
+      | Cube In Cage, Classic (`-rdR`) | 0.170, 0.138 | 0.027, 0.027 |
+      | Pelikan Burr, Classic (`-rdR`) | | 9.25, 9.32 |
+      | Solid Six Piece Burrs, Crowell (`-rd`) | 0.049, 0.049 | 0.020, 0.020 |
+      | Hex Sticks (`-rd`) | 0.192, 0.192 | 0.104, 0.104 |
+
+      Crowell's take-apart with turns takes 29 to 46% less. Classic's
+      rows are within a percent, but Cube In Cage on one thread, which is
+      faster: 0.170 to 0.138 s (nine more runs: 0.164 and 0.136; in the
+      stage's last table 0.146 and 0.138). Classic makes
+      its turned positions through the shared `turnedNode` now, and that
+      row's "before" also moves from one sitting to the next (stage 17
+      had the row at 0.139 s).
+
+- [x] **20.2 One take-apart pool for the CLI and the app** (combine, speed; L)
   - *Where:* `core/shapelogic/solve/take_apart_pool.cpp` (115-154, 170-260),
     used only by the CLI (`cli/main.cpp:881`); `solve_session.cpp`
     (1490-1528, 1760-1814), the app's.
@@ -9197,8 +9255,107 @@ within noise is dropped: revert it, tick it, and write
       SolveSession, or a small tool in `tests/tools`.
   - *Tests:* `test_take_apart_pool`, `test_solve_session` (`[parallel]`), the
     web engine tests; bench both paths.
+  - Done (2026-11-27, Fable): confirmed; `TakeApartPool` is the one pool,
+    and the session's queue, workers and load bookkeeping are gone
+    (the session's two files are 196 lines shorter).
+    - **The session's extras in the pool.** An assembly is handed over
+      with the numbers it was counted by (`submit(assembly, assemblyNumber,
+      solutionNumber)`), and they come back with the result
+      (`TakeApartTask`, with the nanoseconds its take-apart took: the
+      session's average). After a stop every assembly still comes back,
+      once: what was taken apart by then as it is, a take-apart cut short
+      and one not begun as stopped, so the session puts them back as
+      waiting, counted, as its own queue did. `ordered` says how the
+      results are handed on: in the order of the `submit()` calls by one
+      thread at a time (the CLI prints them so), or each as it is there, by
+      the worker that took it apart (the session: no solution waits for a
+      long take-apart found before it; its lists are sorted by what is in
+      them). `onFailure` is called once when a take-apart or the result
+      function throws, and the session asks its run to abort there, as
+      `recordFailure` did; `finish()` gives what was thrown.
+      `searchOver()` lets every worker work once the search has ended,
+      `finish()` waits for the results and ends the workers (the
+      disassemblers stay for the progress and the search times, which the
+      session reads after a run), `close()` ends them at once (a run that
+      failed).
+    - **One set of thresholds:** the pool's. Unfinished assemblies are
+      held to a window of 256, or 64 a worker (the session's queue held
+      64, or 8 a worker), a waiting `submit()` goes on at three quarters of
+      it, and the take-aparts have caught up at an eighth of it queued
+      (the session: a quarter of its queue). The session gets the batches
+      (as many small assemblies at once as take a tenth of a millisecond)
+      and the look for work before a sleep that it never had: it took a
+      lock and sent a wake-up for each assembly.
+    - **A stop wakes nobody now.** `requestStop` took the queue's lock and
+      woke its sleepers; the pool's `submit()` that waits for room gets it
+      as the stopped take-aparts come back, which is at once. The lock
+      order's "queue lock around a stop request" is gone from
+      docs/ARCHITECTURE.md.
+    - **Decided:** the one-piece assembly of a file's waiting list (the
+      search's own never get that far) is counted where it is handed
+      over, not by a worker; the search's cores count as busy from the
+      pool's start, which is when the waiting assemblies of an earlier run
+      are handed over (they give the cores back while they wait, as the
+      search does).
+    - **The session's path can be timed:** the CLI's `--save` is that
+      switch (a `SolveSession`, as the app runs it), and `bench.py
+      --session --old-bin <an earlier shapelogic_cli>` times it for two
+      builds (tests/bench/README.md).
+    - **Tests** (`test_take_apart_pool.cpp`): the results handed on as
+      they come, each once with its numbers, against one disassembler's
+      (four fixtures, 1, 3 and 8 workers, beside a search with a thread
+      limit); a stop before the first assembly, after one result and
+      after a hundred gives every assembly back once, the stopped ones
+      untouched and with no time spent on those not begun, in order too;
+      a result function that throws tells `onFailure` once, both ways;
+      `close()` drops what is left, twice or after `finish()`. The
+      session's cases (`test_solve_session.cpp`: the pause sweeps, the
+      random pauses, the kept solutions whichever worker finished first,
+      a broken invariant in a take-apart) run on the pool as they are.
+    - **Seen failing:** the new cases need the new calls (they do not
+      compile against the last commit's pool); with the "not begun" branch
+      of the worker taken out, the stop case fails its "no time spent"
+      check.
+    - **A test that showed up weak.** "engine: solution.page of a list
+      that grows under a solve" asked for five lists of different lengths
+      from polling one solve of Demo Piece Generator, which is the
+      machine's affair: beside 20 busy processes it failed 17 and 19 of 40
+      runs with the last commit's code, 28 and 30 of 40 with the pool
+      (the solve is quicker), and once in six runs of the quick suite. It
+      now solves the problem again until a longer list was sorted after a
+      shorter one four times: 0 of 40 under the same load, 0.76 s alone as
+      before.
+    - **Speed** (the 20.1 CLI and this one's taking turns, one solve at a
+      time (the waiting loops beside them: the gates), medians of seven
+      runs, seconds,
+      before and after; the session's rows are `--save`'s own time, with
+      the ten best solutions kept unless said):
 
-- [ ] **20.3 Assembler 1: one search machine** (combine; L)
+      | puzzle | CLI, 1 thread | CLI, 10 threads | session, 1 thread | session, 10 threads |
+      |---|---|---|---|---|
+      | Solid Six Piece Burrs (`-rd`) | 0.045, 0.045 | 0.018, 0.019 | 0.051, 0.050 | 0.022, 0.022 |
+      | Demo Piece Generator (`-rd`) | 0.006, 0.005 | 0.005, 0.005 | 0.008, 0.006 | 0.007, 0.006 |
+      | Hex Sticks (`-rd`) | 0.183, 0.182 | 0.104, 0.104 | 0.195, 0.192 | 0.108, 0.105 |
+      | Cube In Cage (`-rdR`) | 0.135, 0.134 | 0.027, 0.026 | 0.140, 0.136 | 0.026, 0.026 |
+      | 12 L-trominoes 3x3x4 (`-d`) | 0.750, 0.749 | 0.249, 0.262 | 0.902, 0.757 | 0.384, 0.361 |
+      | the same, counted only | | | 0.872, 0.709 | 0.201, 0.179 |
+      | the same, every solution kept | | | 1.221, 1.077 | 0.666, 0.640 |
+      | ranges 3x3x3 (`-d`) | 0.702, 0.700 | 0.159, 0.162 | 0.673, 0.657 | 0.199, 0.189 |
+      | pentominoes 6x10 (`-rd`) | 1.009, 1.009 | 0.194, 0.194 | 0.949, 0.955 | 0.196, 0.194 |
+      | Pelikan Burr (`-rdR`) | | 9.06, 9.10 | | 9.11, 9.15 |
+
+      The session's path takes up to 19% less where the take-aparts are
+      many and small (29759 of them in the L-trominoes), and is within a
+      percent elsewhere. The CLI's path is within a percent but for the
+      L-trominoes and the ranges on ten threads, 3.6 and 2.5% more in
+      fifteen further runs (0.252 and 0.261 s, 0.160 and 0.164 s), where
+      the pool's code changed little (a time and a look at the stop for
+      each assembly: taken out, the rows stayed, and so did they with the
+      workers' end left to the destructor). Both states built with
+      64-byte function alignment say it is where the code lies: 0.263 and
+      0.256 s, 0.161 and 0.162 s (fifteen runs).
+
+- [x] **20.3 Assembler 1: one search machine** (combine; L)
   - *Where:* `core/shapelogic/solve/assembler_1.cpp`: `iterative`
     (1232-1485), `Worker::search` (1541-1726) and `generateTasksAtDepth`
     (1815-2002). Its header (4-6) says they "stay three state machines, as
@@ -9211,8 +9368,60 @@ within noise is dropped: revert it, tick it, and write
     `--plain` and the default set).
   - *Tests:* the oracle's iteration counts for the plain search,
     `just oracle-resume`, `test_assembler_1`.
+  - Done (2026-11-27, Fable): confirmed; kept, the benchmarks within
+    noise. `Assembler1::searchMachine<Hooks>` is the one machine (states 0
+    to 7 as they were, their comments the plain search's), and the three
+    searches are three small `Hooks` types, local to their functions, whose
+    calls are inlined:
+    - `iterative`: counts and publishes its steps, waits with a stop and
+      with the debugger for a state that can be restored, hands an
+      assembly to `solution`, keeps the progress stacks (`rowsBegin`,
+      `rowDone`, `rowsEnd`);
+    - `Worker::search`: goes on while the stack is above the task's base,
+      leaves its task where a stop finds it in states 0, 1, 2 and 5,
+      counts on its own, reports through `reportParallelSolution` (and
+      leaves when the run is stopped);
+    - `generateTasksAtDepth`: goes on until a stop, makes a task of every
+      assembly above the depth and of every frame at it (`cutOff`).
+    The order of the checks at a frame's entry is the one all three had
+    (the holes, an assembly, the task maker's depth, the column choice).
+    `assembler_1.cpp` is 209 lines shorter; the release CLI grew by 64
+    bytes (three machines are still made, each with its own hooks in
+    line).
+    - **The answers are the same.** The 20.2 CLI and this one's with the
+      assemblies printed (`-s`), without and with the vector search, with
+      and without reduce, on one thread (the whole output with the
+      iteration counts) and on three and all (the lines sorted, without
+      the counts): 105 of 105 outputs the same, on 11 fixtures of
+      assembler 1 and of the other grids (Solid Six Piece Burrs, Demo
+      Piece Generator, Bermuda, Ball Room, Al Packino, 12 Piece
+      Separation, Pieces Of Eight, Broken Sticks, Diagonal Cube, Hex
+      Sticks, Prisgon) and four boxes written for it (12 dominoes, 12
+      L-trominoes, two with piece ranges). `test_assembler_1`,
+      `test_split_tasks` and the other assembler cases as they were (230
+      quick cases of `[assembler]` and `[solve]`, 648628 checks); no new
+      test: nothing new is answered.
+    - **Speed** (the 20.2 CLI and this one's taking turns, one solve at a
+      time (the waiting loops beside them: the gates), medians of seven
+      runs, the solve's own seconds, before and after; plain is
+      `--no-simd`, the machine alone):
 
-- [ ] **20.4 Assemblers 0 and 1: one matrix builder and one adapter to the run layer** (combine; M)
+      | puzzle | 1 thread, plain | 10 threads, plain | 1 thread | 10 threads |
+      |---|---|---|---|---|
+      | Solid Six Piece Burrs (`-r`) | 0.214, 0.200 | 0.042, 0.042 | 0.045, 0.046 | 0.017, 0.017 |
+      | 20 dominoes 2x4x5 | 0.291, 0.296 | 0.098, 0.096 | 0.190, 0.189 | 0.083, 0.082 |
+      | 12 L-trominoes 3x3x4 | 0.296, 0.291 | 0.064, 0.066 | 0.167, 0.171 | 0.050, 0.049 |
+      | ranges 3x3x3 | 1.336, 1.307 | 0.253, 0.259 | 0.563, 0.562 | 0.099, 0.102 |
+      | 3 of each tetromino 6x10 | 50.71, 49.99 | 8.92, 8.98 | 23.48, 23.58 | 3.873, 3.860 |
+
+      No row moves more than 3% but Solid Six Piece Burrs plain on one
+      thread, 6.5% less; the differences go both ways. Both states built
+      with 64-byte function alignment, the plain rows: 0.211 and 0.208 s,
+      0.043 and 0.042 s; 0.302 and 0.296 s, 0.097 and 0.098 s; 0.304 and
+      0.286 s, 0.065 and 0.066 s; 1.343 and 1.365 s, 0.254 and 0.262 s
+      (the same four puzzles, one thread and ten).
+
+- [x] **20.4 Assemblers 0 and 1: one matrix builder and one adapter to the run layer** (combine; M)
   - *Where:* the copies (assembler 0's, then assembler 1's):
     - `addToCache`: `dlx_matrix.cpp:26` and `assembler_1.cpp:38`;
     - `isSliding`: 39 and 50;
@@ -9236,8 +9445,90 @@ within noise is dropped: revert it, tick it, and write
     stays the same once inlined.
   - *Tests:* the oracle's iteration counts, `just oracle-resume`,
     `test_assembler*`.
+  - Done (2026-11-27, Fable): confirmed; kept, the benchmarks within
+    noise.
+    - **`solve/matrix_build.{h,cpp}`** (new) has what both matrices are
+      built with, once:
+      - `RowPlacement`, the placement a row stands for (`DlxPlacement` and
+        `Assembler1::PiecePosition` were the same six fields: both are
+        names of it now), and `rowIndexOf`;
+      - `placeParts`, the walk through every part's orientations and
+        placements (the cache of the orientations seen, the placement
+        finder, the stops, the symmetry breaker's extra orientations),
+        which hands each placement to a `PlacementSink`: assembler 0's
+        makes the piece node and the voxel nodes and counts the placements
+        after each orientation, assembler 1's sets the part's weights first
+        and adds the range node. A part without a placement ends the build
+        in assembler 0 (`everyPartNeeded`), in assembler 1 when it must be
+        used, as before;
+      - `mirrorPairs`, the mirror-pair analysis (assembler 1's loop over
+        the pieces of each part, which is assembler 0's when every part is
+        one piece; with ranges the pairs come even when a piece has no
+        partner);
+      - `columnTwins`, clumpify's search for columns in the same rows: a
+        template over the node arrays with what else must be equal as two
+        callbacks (assembler 1: the minimum and maximum of the column, the
+        weight of each node). It answers the twins and the column each
+        stays for; the assemblers remove them, assembler 1 merging the
+        hole weights. The hash only groups the columns (equal ones are
+        told by comparing), so the columns removed are the same;
+      - `makeRowCheck` and `rowCheckRejects`, in place of each assembler's
+        `prepareRowCheck` and `rowCheckRejects`;
+      - `getInt`; `addToCache` is `matrix_build.cpp`'s own, and
+        `isSliding` is `sliding::isSliding`, which the model had.
+    - **`solve/task_search.h`** (new) has what both searches hand the run
+      layer alike: `reportSplitAssembly` (the row check, the assembly, the
+      filter, then handed over once: exact tasks deliver unless stopped,
+      the others by a signature, which each assembler gives),
+      `SplitTaskSearch<Policy>`, the adapter of a thread's task search
+      (the iterations drained, the progress, the hand-off and the leave of
+      a `SubtreeSplitter`; each assembler's `Search` policy says which
+      tasks its plain worker takes, how its solver is called, and what a
+      branch is as a task), and `vectorSearchWhole` (simdSearch's run of
+      the whole matrix: the one task of progress, the covers passed over
+      after a stop). A policy cannot be a template (a local class), so the
+      solvers' callbacks go through it as the `std::function`s their
+      `solveSubtree` takes anyway. Assembler 0's plain worker is made at
+      the thread's first task, not with the thread's search (the same
+      thread, the same worker).
+    - **`DlxNodes::chooseColumn`** is the column choice with the hole
+      check, inline; the plain search, the worker and the task maker of
+      assembler 0 call it (0: the branch ends). Node 0 counts no rows, so
+      "no column left" needs no test of its own, as before.
+    - **The answers are the same.** The 20.3 CLI and this one's with the
+      assemblies printed, as for 20.3 (one thread with the iteration
+      counts): 176 of 176 outputs the same, on 17 fixtures (assembler 0's
+      among them: Cube In Cage, Demo Mirror Paradox, Four Piece
+      Tetrahedron, the two stellations, the sphere fixture) and five
+      boxes (the 6x10 pentominoes too). The assemblers' cases as they
+      were; no new test: nothing new is answered.
+    - **Speed** (the 20.3 CLI and this one's, as above, medians of seven
+      runs, seconds, before and after):
 
-- [ ] **20.5 The Huang cover's kernels: one pre-filter, and every kernel tested** (combine, trap; S)
+      | puzzle | 1 thread, plain | 10 threads, plain | 1 thread | 10 threads |
+      |---|---|---|---|---|
+      | pentominoes 6x10 (`-r`, assembler 0) | 1.406, 1.413 | 0.248, 0.246 | 0.962, 0.947 | 0.174, 0.172 |
+      | Solid Six Piece Burrs (`-r`) | 0.209, 0.211 | 0.042, 0.042 | 0.046, 0.046 | 0.017, 0.017 |
+      | 20 dominoes 2x4x5 | 0.297, 0.302 | 0.097, 0.099 | 0.190, 0.193 | 0.083, 0.084 |
+      | 12 L-trominoes 3x3x4 | 0.301, 0.292 | 0.067, 0.066 | 0.171, 0.173 | 0.050, 0.050 |
+      | ranges 3x3x3 | 1.335, 1.396 | 0.260, 0.259 | 0.563, 0.567 | 0.100, 0.101 |
+      | 3 of each tetromino 6x10 | | | | 3.868, 3.910 |
+      | Cube In Cage (`-rdR`) | | | 0.137, 0.139 | 0.027, 0.027 |
+
+      The column choice costs the pentominoes nothing (within 1.6% both
+      ways). One row moves more than 2%: the ranges plain on one thread,
+      4.6% more, and 6% more in eleven further runs (1.307 and 1.386 s;
+      their fastest 1.267 and 1.290). The item changes nothing that row
+      runs through but a cover's row check, and the same two states built
+      with 64-byte function alignment have it the other way round (1.377
+      and 1.340 s, eleven runs): where the code lies, as stage 17 found of
+      that row. The aligned builds' other rows: the pentominoes plain
+      1.428 and 1.430 s, 0.244 and 0.245 s, with the vector search 0.990
+      and 0.985 s, 0.173 and 0.176 s; Solid Six Piece Burrs plain 0.207
+      and 0.212 s, 0.043 and 0.043 s; the L-trominoes 0.173 and 0.174 s,
+      0.049 and 0.049 s.
+
+- [x] **20.5 The Huang cover's kernels: one pre-filter, and every kernel tested** (combine, trap; S)
   - *Where:* `core/shapelogic/solve/simd_huang_cover.cpp` (119-131, 164-176,
     205-217, 265-277: the chosen-row, shape and range pre-filter is pasted
     into each kernel); `tests/unit/solve/test_simd_exact_cover.cpp:487`
@@ -9257,12 +9548,194 @@ within noise is dropped: revert it, tick it, and write
     - An assembler-level test with `kernels = none()`, comparing assembly
       multisets with the default run.
   - *Tests:* the new tests; the bench.
+  - Done (2026-11-27, Fable): confirmed.
+    - **One pre-filter:** `SimdHuangCover::ruledOut`, in the header, with
+      no target attribute; the AVX-512, AVX2, NEON and scalar loops of
+      `filterRows` call it and compare the cells after it. It is inlined
+      into the NEON and the scalar loop here (no call to it in the release
+      CLI's code; the class's explicit instantiation also emits a copy of
+      it for each size, 1.7 KB in all).
+    - **What the rules do,** found while seeing the tests fail: three of
+      the four only save work (the search asks the shape's count and the
+      range again when it chooses a row, and the chosen row shares its own
+      cells): a kernel without them finds the same covers. The fourth, a
+      shape's placements in their order, decides the covers, and only when
+      the search branches on a shape's column while the shape needs two or
+      more pieces still: without it each cover comes once for every order
+      of those pieces.
+    - **Tests:**
+      - `test_simd_exact_cover.cpp`, "SimdHuangCover: every kernel finds
+        the same covers" (four sizes): each kernel set the switches can
+        leave (all, none, AVX2 off, AVX-512 off, NEON off) against the
+        widest, on two matrices: a strip of 12 cells for dominoes and
+        single cells with a range (221 covers), and four cells of which
+        three take the three pieces of one shape, with 13 rows a cell so
+        that the search branches on the shape (48 covers; 288 without the
+        ordering rule). Here that is NEON against the scalar loops; on
+        x86-64, AVX-512, AVX2 and the scalar loops against each other.
+      - `test_assembler_1.cpp`, "the vector search finds the same
+        assemblies with every kernel": Pieces Of Eight (piece ranges), Al
+        Packino, 12 Piece Separation and Cube In Cage through the vector
+        search with each of the four reduced kernel sets, on one thread
+        and split over four, against the plain search's assemblies
+        (multisets); every one of the 16 runs on one thread is checked to
+        have taken the vector search. The scalar loops had never searched
+        a puzzle: `--no-simd` turns the vector search off with them.
+    - **Seen failing:** the last commit's cover with the ordering rule
+      taken out of its scalar copy alone (what a fix made in one copy
+      looks like), under the new tests: the first fails 8 checks (the
+      three-of-four matrix, NEON against scalar, each size). With the
+      range rule taken out of that copy instead nothing fails, which is
+      how the rules that only save work were told from the one that
+      decides. On the last commit's cover as it is both tests pass.
+    - **The other processors:** see the gates (the AVX2 kernel built for
+      x86-64 and run under Rosetta).
+    - **Speed** (the 20.4 CLI and this one's, as above, medians of seven
+      runs, seconds, before and after; the vector search, which the
+      filter is part of):
+
+      | puzzle | 1 thread | 10 threads |
+      |---|---|---|
+      | Solid Six Piece Burrs (`-r`) | 0.042, 0.042 | 0.016, 0.016 |
+      | 20 dominoes 2x4x5 | 0.189, 0.187 | 0.085, 0.082 |
+      | 12 L-trominoes 3x3x4 | 0.171, 0.165 | 0.051, 0.050 |
+      | ranges 3x3x3 | 0.563, 0.552 | 0.102, 0.100 |
+      | 3 of each tetromino 6x10 | 23.44, 22.93 | 3.864, 3.829 |
+
+      The same or up to 3.5% less; with 64-byte function alignment the
+      first four rows are 0.046 and 0.045 s, 0.017 and 0.017 s; 0.193 and
+      0.193 s, 0.081 and 0.081 s; 0.174 and 0.171 s, 0.049 and 0.049 s;
+      0.561 and 0.556 s, 0.099 and 0.099 s.
 
 **Gates for stage 20:** `just test-all`, `just test-tsan`, `just oracle` on
 the fast, full and slow tiers with all threads and `--threads 1`, for
 `--solver classic` and `crowell`; `just oracle-resume`;
 `just oracle-files --tier all`; `bench.py` (the default set, `--plain`,
 `--set glar`), with the numbers in the Done lines.
+Run (2026-11-27, after the last source edit): `just build dev`, `release`,
+`asan` and `tsan`. The last edits were two comment headers and, after
+them, the types of two numbers in two new test lines (GCC's warnings):
+the test runs below came after both, the oracle, the app's tests and the
+e2e spec after the first (the second changes no program they run);
+- `just test`: 30 of 30 (about 90 s), and three times before it;
+- `just test-all`: 76 of 76 (245 s; the contract suite, the CLI's and the
+  Python module's tests among them);
+- `just test-asan`: 75 of 75 (816 s);
+- `just test-tsan`: the 146 `[parallel]` cases (three more: the pool's
+  results as they come, its stop, the kernels' assembler case) and the
+  contract suite on the TSan engine (153 methods, 0 failed);
+- `just oracle --tier fast --allow-missing` against the committed baselines,
+  with all threads, `--threads 1`, `--solver crowell` and `--solver crowell
+  --threads 1`: 18 of 19 compared, 0 differ, each; `--tier sliding`: 23 of
+  35 compared, 0 differ, and with `--threads 1` 32 of 35, 0 differ; `--tier
+  stacking`, with all threads and `--threads 1`: 38 of 41 compared, 0
+  differ; `just oracle-python --allow-missing`: 37 of 37 transcripts, 0
+  differ (without the iterations and the level text, the reference not
+  being the original). `oracle-text --tier fast --allow-missing`: the 81
+  runs that need no solved file match, the 27 that read the original's
+  solved files do not, with this tree's CLI as with the last commit's;
+- **Not run: the gates that need the original BurrTools** ("Not in this
+  plan"): `just oracle` on the `full` and `slow` tiers (0 of 158 and 0 of 3
+  compared: their puzzles are not in the reference checkout), `just
+  oracle-resume` and `just oracle-files --tier all` (both exit 2), and with
+  them `oracle-roundtrip` and `oracle-imports`; `bench.py` against the
+  original (the default set, `--plain`, `--set glar`: it refuses the
+  reference checkout, and Burr-Glar is outside it). What stands in for
+  them here: every item's outputs compared with the item before it (the
+  whole text of the CLI with the assemblies or the moves printed, on one
+  thread with the iteration counts: 52 of 56 and four the same lines in
+  another order, 105 of 105, 176 of 176, and 70 of 70 for 20.5), the
+  fast, sliding and stacking tiers above, and the carried-on searches'
+  cases of the assemblers (`[resume]`) for `oracle-resume`;
+- **speed** (rule 5): each item against the item before it in its Done
+  line, medians of seven runs or more. The whole stage, the last commit's
+  CLI against this tree's, taking turns, one solve at a time with nothing
+  beside them, medians of seven runs, the solve's own seconds, before and
+  after (the answers' lines the same in every run; plain is `--no-simd`):
+
+  | puzzle | 1 thread | 1 thread, plain | 10 threads | 10 threads, plain |
+  |---|---|---|---|---|
+  | pentomino 6x10 (-r) | 0.961, 0.940 | 1.424, 1.426 | 0.171, 0.173 | 0.242, 0.243 |
+  | SolidSixPieceBurrs (-r) | 0.046, 0.044 | 0.205, 0.212 | 0.017, 0.017 | 0.043, 0.042 |
+  | 20 dominoes 2x4x5 | 0.192, 0.192 | 0.303, 0.300 | 0.081, 0.082 | 0.095, 0.098 |
+  | 12 L-trominoes 3x3x4 | 0.173, 0.166 | 0.291, 0.295 | 0.050, 0.050 | 0.064, 0.066 |
+  | ranges 3x3x3 | 0.558, 0.556 | 1.417, 1.397 | 0.099, 0.098 | 0.252, 0.256 |
+  | 3 of each tetromino 6x10 | 23.50, 22.88 | | 3.850, 3.850 | 8.91, 8.97 |
+  | SolidSixPieceBurrs (-rd) | 0.048, 0.048 | | 0.019, 0.019 | |
+  | HexSticks (-rd) | 0.193, 0.190 | | 0.106, 0.105 | |
+  | CubeInCage (-rdR) | 0.170, 0.138 | | 0.027, 0.026 | |
+  | CubeInCage, Crowell (-rdR) | 0.054, 0.039 | | 0.013, 0.009 | |
+  | PelikanBurr, Crowell (-rdR) | | | 2.634, 1.388 | |
+  | 12 L-trominoes (-d) | 0.767, 0.762 | | 0.260, 0.263 | |
+  | ranges 3x3x3 (-d) | 0.704, 0.701 | | 0.163, 0.160 | |
+  | the session (`--save`), SolidSixPieceBurrs (-d) | 0.051, 0.049 | | 0.022, 0.022 | |
+  | the session, 12 L-trominoes (-d) | 0.905, 0.765 | | 0.392, 0.356 | |
+  | the session, CubeInCage (-d -R) | 0.138, 0.138 | | 0.027, 0.027 | |
+
+  No row is more than 3.4% slower (Solid Six Piece Burrs plain on one
+  thread, 0.205 and 0.212 s, its fastest runs 0.204 and 0.208; the
+  dominoes and the L-trominoes plain on ten threads 3%); the tetrominoes
+  plain on one thread are 20.3's row (50.71 and 49.99 s). Crowell's
+  take-apart with turns takes 28 to 47% less, Classic's Cube In Cage on
+  one thread 19% less, the session's take-aparts of the L-trominoes 9 to
+  15% less. Rows that moved more between two builds of one item (the
+  ranges plain on one thread, the L-trominoes with take-apart on ten) were
+  measured again with both states built with 64-byte function alignment,
+  where they went the other way: 20.2 and 20.4.
+  - **A slip in the measuring, and the table taken again.** The session's
+    own waiting loops ran beside the timings of 20.1 to 20.5 and of the
+    stage's first table: up to twenty shell loops, left running by a
+    pattern that matched their own command lines, each a `pgrep` and a
+    `sleep` every 5 to 20 s. That is a few percent of one core of ten,
+    and the same for both sides of a comparison (their runs take turns),
+    but it is not "nothing beside them". The loops were stopped, and the
+    table above is the second one, taken after it with nothing beside it
+    (a sleeping shell). The first, with the loops, says the same: no row
+    more than 3.1% slower (Solid Six Piece Burrs plain on one thread 0.206
+    and 0.212 s, the L-trominoes and the ranges plain on ten threads 0.064
+    and 0.066 s, 0.255 and 0.263 s), Crowell 28 to 48% less, the session's
+    L-trominoes 0.888 and 0.750 s, 0.388 and 0.357 s; its Cube In Cage on
+    one thread 0.146 and 0.138 s. The items' own tables were not taken
+    again;
+- `just check` on the 16 changed and new C++ sources and test files (the
+  new headers through them): clean, after one finding of the new kernel
+  test was answered (a struct's field given its initial value);
+- seen failing (rule 8): 20.2 and 20.5 say how their tests fail (the
+  pool's stop case with the "not begun" branch taken out, in place; the
+  kernel covers against the last commit's cover with one copy of the
+  filter changed, in a scratch copy). 20.1, 20.3 and 20.4 answer nothing
+  new and add no test: their check is the outputs compared;
+- **the other systems.** No item adds a system call or a branch under
+  `#ifdef`. GCC 16 (Homebrew's; `-fsyntax-only` with the build's warnings)
+  on the 16 files: no error; its warnings are five the last commit's
+  copies have too (a shadowed `search` in `cli/main.cpp`, sign conversions
+  in `test_disassembly.cpp` and `test_assembler_1.cpp`), after two sign
+  conversions of the new test lines were answered. For 20.5 the tests and
+  the CLI were built for x86-64 (a release build in the scratchpad): the
+  AVX-512 and AVX2 kernels compile with the one pre-filter and no call to
+  it is left in the code. Run under Rosetta, which offers no AVX here
+  (`hw.optional.avx2_0: 0`), the build takes the scalar loops: the `[simd]`
+  cases (43 cases, 846 checks) and the kernels' assembler case pass.
+  The AVX kernels themselves run only in CI's x86 unit tests (the new
+  cases are quick ones, so the release workflow's `ctest -LE slow` runs
+  them on Linux, Windows and the Intel Mac build);
+- `just app-test`: 696 of 696 (the engine's types are as they were: no
+  method or parameter changed, `api-docs` passes);
+- e2e, on a build of its own (`BT_OUT_DIR`), with the release engine:
+  `solver.e2e.ts` (the take-apart solves, pause, continue, abort, the
+  error shown), 10 of 10;
+- `just site-demo --check` after the last source edit (rebuilt; every
+  puzzle type opens and plays) and `just site-build` (8 of 8); the
+  website's two code-base pages that named the session's queue functions
+  (`example-solve-flow.md`, `core-functions.md`) say what it does now;
+- branches (rule 11): `feature/cell-search` has no commit beyond main, and
+  the two of `feature/v2-idea-3-cutting-plane-editor` change none of the
+  files this stage rewrote (`core/shapelogic/solve/`, `cli/main.cpp`, the
+  tests named above);
+- decision 0010 amended (the stop and the workers are the pool's);
+- one commit: no engine method or parameter changed (no schema file);
+- Not run: the other e2e specs (the app's change is the take-aparts'
+  path, which `solver.e2e.ts` runs), `just gate`.
 
 ## Stage 21: splits: core
 

@@ -84,9 +84,9 @@ repository.
 switches. Inside a run (`solve_session.cpp`): `launch()` checks and starts
 the thread, `run()` and `prepareSearch()` build the matrix,
 `assembleAndTakeApart()` runs the assembler with `onAssembly()` as its
-callback, `enqueue()` and `workerLoop()` feed the take-apart workers,
-`processTask()` and `addSolution()` store what comes apart, `endRun()`
-closes the run. `solve_progress.h` has `SolveProgress` and `SolveStats`.
+callback, `enqueue()` hands each assembly to the take-apart workers (a
+`TakeApartPool`, `solve/take_apart_pool.h`), `takenApart()` and
+`addSolution()` store what comes apart, `endRun()` closes the run. `solve_progress.h` has `SolveProgress` and `SolveStats`.
 The [Example Solve Flow](/docs/code-base/example-solve-flow/) walks
 through it.
 

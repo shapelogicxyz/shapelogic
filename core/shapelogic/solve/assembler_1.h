@@ -11,6 +11,7 @@
 /// (decision 0009).
 
 #include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/matrix_build.h"
 #include "shapelogic/solve/resume_state.h"
 #include "shapelogic/solve/rotation_filter.h"
 #include "shapelogic/solve/row_rotation_check.h"
@@ -154,12 +155,7 @@ class Assembler1 final : public Assembler {
   };
 
   /// The placement a row stands for.
-  struct PiecePosition {
-    int x, y, z;
-    unsigned char transformation;
-    unsigned int row;  ///< first node of the row
-    unsigned int piece;
-  };
+  using PiecePosition = RowPlacement;
 
   // ---- the matrix ------------------------------------------------------------
   void generateFirstRow(unsigned int columns);
@@ -209,6 +205,10 @@ class Assembler1 final : public Assembler {
   // ---- the searches ----------------------------------------------------------
   [[nodiscard]] Assembly assemblyFromRows(const std::vector<unsigned int>& rows) const;
   void solution(SearchRun& run);
+  /// The plain search's state machine, shared by iterative(), the workers
+  /// and generateTasksAtDepth(): see assembler_1.cpp.
+  template <class Hooks>
+  bool searchMachine(Links& n, SearchStacks& s, Hooks& hooks) const;
   void iterative(SearchRun& run);
   void generateTasksAtDepth(SearchRun& run, unsigned int cutoffDepth,
                             std::vector<SearchStacks>& tasks, Links& n);
@@ -219,12 +219,6 @@ class Assembler1 final : public Assembler {
   /// search leaves its node for the next run).
   bool reportParallelSolution(SearchRun& run, const std::vector<unsigned int>& solutionRows,
                               RowRotationCheck::Scratch& scratch);
-  /// Makes rowCheck_ for a run, or clears it when the check does not apply.
-  void prepareRowCheck(const SearchOptions& options);
-  /// True when the assembly of `rows` is dropped as a rotation of another:
-  /// asked of rowCheck_, which must exist.
-  [[nodiscard]] bool rowCheckRejects(const std::vector<unsigned int>& rows,
-                                     RowRotationCheck::Scratch& scratch) const;
   [[nodiscard]] bool simdFits(const SearchOptions& options) const;
   /// True when the split search is one task not begun, the whole search (a
   /// vector search on one thread stopped before it did anything).

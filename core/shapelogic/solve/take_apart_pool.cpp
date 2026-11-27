@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// After src/lib/disassemblerpool.cpp.
+// After src/lib/disassemblerpool.cpp, and the take-apart queue and workers
+// of src/lib/solvethread.cpp (what a stop gives back, the numbers a result
+// comes with).
 #include "shapelogic/solve/take_apart_pool.h"
 
 #include "shapelogic/base/thread_pool.h"
@@ -34,7 +36,9 @@ TakeApartPool::TakeApartPool(const Puzzle& puzzle, const Problem& problem,
   }
   // room for every worker's batch and as much again waiting
   window_ = std::max<std::size_t>(256, std::size_t{2} * kMaxBatch * workers);
-  done_.resize(window_);
+  if (options_.ordered) {
+    done_.resize(window_);
+  }
 
   // the disassemblers warm the shapes' caches: made here, one after another
   disassemblers_.reserve(workers);
@@ -54,7 +58,9 @@ TakeApartPool::TakeApartPool(const Puzzle& puzzle, const Problem& problem,
   }
 }
 
-TakeApartPool::~TakeApartPool() {
+TakeApartPool::~TakeApartPool() { close(); }
+
+void TakeApartPool::close() {
   {
     const std::lock_guard<std::mutex> lock(mutex_);
     quit_ = true;
@@ -69,6 +75,7 @@ TakeApartPool::~TakeApartPool() {
   for (std::thread& t : threads_) {
     t.join();
   }
+  threads_.clear();
 }
 
 void TakeApartPool::addLoad(int cores) const {
@@ -100,19 +107,32 @@ bool TakeApartPool::wakeForQueue() const {
 }
 
 void TakeApartPool::fail(const std::exception_ptr& error) {
+  bool first = false;
   {
     const std::lock_guard<std::mutex> lock(mutex_);
     if (!error_) {
       error_ = error;
+      first = true;
     }
     quit_ = true;
     quitFlag_.store(true, std::memory_order_relaxed);
   }
   workCv_.notify_all();
   doneCv_.notify_all();
+  if (first && options_.onFailure) {
+    options_.onFailure();
+  }
 }
 
-void TakeApartPool::submit(Assembly assembly) {
+void TakeApartPool::wakeWaiters() {
+  if ((submitWaiting_ && nextSeq_ - delivered_ <= lowWater()) ||
+      (searchOver_ && delivered_ == nextSeq_)) {
+    doneCv_.notify_all();
+  }
+}
+
+void TakeApartPool::submit(Assembly assembly, std::uint64_t assemblyNumber,
+                           std::uint64_t solutionNumber) {
   bool wake = false;
   {
     std::unique_lock<std::mutex> lock(mutex_);
@@ -144,7 +164,8 @@ void TakeApartPool::submit(Assembly assembly) {
       // failed (finish() says how): nothing more is taken apart
       return;
     }
-    queue_.push_back(Task{nextSeq_++, std::move(assembly)});
+    queue_.push_back(
+        Task{nextSeq_++, TakeApartTask{std::move(assembly), assemblyNumber, solutionNumber, 0}});
     queued_.store(queue_.size(), std::memory_order_relaxed);
     wake = wakeForQueue();
   }
@@ -153,15 +174,26 @@ void TakeApartPool::submit(Assembly assembly) {
   }
 }
 
-void TakeApartPool::finish() {
-  std::unique_lock<std::mutex> lock(mutex_);
-  searchOver_ = true;
-  if (searchLoad_) {
-    addLoad(-static_cast<int>(options_.searchCores));
-    searchLoad_ = false;
+void TakeApartPool::searchOver() {
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    searchOver_ = true;
+    if (searchLoad_) {
+      addLoad(-static_cast<int>(options_.searchCores));
+      searchLoad_ = false;
+    }
   }
   workCv_.notify_all();
-  doneCv_.wait(lock, [this] { return delivered_ == nextSeq_ || quit_; });
+}
+
+void TakeApartPool::finish() {
+  searchOver();
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    doneCv_.wait(lock, [this] { return delivered_ == nextSeq_ || quit_; });
+  }
+  close();
+  const std::lock_guard<std::mutex> lock(mutex_);
   if (error_) {
     std::rethrow_exception(error_);
   }
@@ -170,26 +202,38 @@ void TakeApartPool::finish() {
 void TakeApartPool::workerLoop(Disassembler& disassembler) {
   using Clock = std::chrono::steady_clock;
   std::vector<Task> batch;
+  // the last batch: its results (when they are handed on in order), how
+  // many they were and how long their take-aparts took
   std::vector<Done> results;
+  std::size_t finished = 0;
   double batchNs = 0;
 
   std::unique_lock<std::mutex> lock(mutex_);
   for (;;) {
-    if (!results.empty()) {
-      // the last batch: its results wait for the ones before them
+    if (finished != 0) {
       working_--;
-      const double each = batchNs / static_cast<double>(results.size());
+      const double each = batchNs / static_cast<double>(finished);
       jobNs_ = jobNs_ >= 1e9 ? each : 0.75 * jobNs_ + 0.25 * each;
-      for (Done& d : results) {
-        const std::size_t at = static_cast<std::size_t>(d.seq % window_);
-        done_[at].emplace(std::move(d));
+      if (options_.ordered) {
+        // its results wait for the ones before them
+        for (Done& d : results) {
+          const std::size_t at = static_cast<std::size_t>(d.seq % window_);
+          done_[at].emplace(std::move(d));
+        }
+        results.clear();
+      } else {
+        // handed on as they came
+        delivered_ += finished;
+        wakeWaiters();
       }
-      results.clear();
+      finished = 0;
       // this worker may go on to hand results on: its place is another's
       if (wakeForQueue()) {
         workCv_.notify_one();
       }
-      deliver(lock);
+      if (options_.ordered) {
+        deliver(lock);
+      }
     }
     if (quit_) {
       return;
@@ -242,18 +286,35 @@ void TakeApartPool::workerLoop(Disassembler& disassembler) {
 
     // this thread uses a core now: fewer to lend to the others' levels
     addLoad(1);
-    const Clock::time_point began = Clock::now();
+    batchNs = 0;
+    Clock::time_point at = Clock::now();
     try {
-      for (Task& task : batch) {
-        TakeApartResult r = disassembler.disassemble(task.assembly, stop_);
-        results.push_back(Done{task.seq, std::move(task.assembly), std::move(r)});
+      for (Task& t : batch) {
+        TakeApartResult r;
+        if (stop_.stopRequested()) {
+          // not begun: back to its owner as it came, for a later run
+          r.stopped = true;
+        } else {
+          r = disassembler.disassemble(t.task.assembly, stop_);
+          const Clock::time_point now = Clock::now();
+          const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now - at).count();
+          at = now;
+          t.task.takeApartNs = static_cast<std::uint64_t>(ns);
+          batchNs += static_cast<double>(ns);
+        }
+        if (options_.ordered) {
+          results.push_back(Done{t.seq, std::move(t.task), std::move(r)});
+        } else {
+          onResult_(t.task, r);
+          at = Clock::now();
+        }
+        finished++;
       }
     } catch (...) {
       addLoad(-1);
       fail(std::current_exception());
       return;
     }
-    batchNs = std::chrono::duration<double, std::nano>(Clock::now() - began).count();
     addLoad(-1);
     lock.lock();
   }
@@ -284,7 +345,7 @@ void TakeApartPool::deliver(std::unique_lock<std::mutex>& lock) {
     lock.unlock();
     try {
       for (Done& d : ready) {
-        onResult_(d.assembly, d.result);
+        onResult_(d.task, d.result);
       }
     } catch (...) {
       fail(std::current_exception());
@@ -293,10 +354,7 @@ void TakeApartPool::deliver(std::unique_lock<std::mutex>& lock) {
     }
     lock.lock();
     delivered_ = next;
-    if ((submitWaiting_ && nextSeq_ - delivered_ <= lowWater()) ||
-        (searchOver_ && delivered_ == nextSeq_)) {
-      doneCv_.notify_all();
-    }
+    wakeWaiters();
   }
   delivering_ = false;
 }
@@ -310,6 +368,22 @@ std::vector<DisassemblyProgress> TakeApartPool::progress() const {
     }
   }
   return running;
+}
+
+std::uint64_t TakeApartPool::rotationSearchUs() const {
+  std::uint64_t us = 0;
+  for (const std::unique_ptr<Disassembler>& d : disassemblers_) {
+    us += d->getRotationSearchUs();
+  }
+  return us;
+}
+
+std::uint64_t TakeApartPool::linearSearchUs() const {
+  std::uint64_t us = 0;
+  for (const std::unique_ptr<Disassembler>& d : disassemblers_) {
+    us += d->getLinearSearchUs();
+  }
+  return us;
 }
 
 std::uint64_t TakeApartPool::submitted() const {

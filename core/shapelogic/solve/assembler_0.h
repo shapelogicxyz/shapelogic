@@ -100,12 +100,6 @@ class Assembler0 final : public Assembler {
   /// search leaves its node for the next run).
   bool reportParallelSolution(SearchRun& run, const unsigned int* solutionRows,
                               unsigned int count, RowRotationCheck::Scratch& scratch);
-  /// Makes rowCheck_ for a run, or clears it when the check does not apply.
-  void prepareRowCheck(const SearchOptions& options);
-  /// True when the assembly of `rows[0 .. count)` is dropped as a rotation
-  /// of another: asked of rowCheck_, which must exist.
-  [[nodiscard]] bool rowCheckRejects(const unsigned int* rows, unsigned int count,
-                                     RowRotationCheck::Scratch& scratch) const;
   [[nodiscard]] bool simdFits(const SearchOptions& options) const;
   [[nodiscard]] bool canUseSimd(const SearchOptions& options) const;
   /// The plain search has not moved: nothing chosen at depth 0. (It also

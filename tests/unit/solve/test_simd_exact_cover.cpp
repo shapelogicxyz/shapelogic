@@ -534,6 +534,113 @@ TEST_CASE("SimdExactCover: every kernel finds the same covers", "[solve][simd][d
   CHECK(std::string(kernelName(SimdKernel::Avx2)) == "avx2");
 }
 
+// Cleanup item 20.5: every kernel of the Huang cover filters the rows by
+// the same rules before it compares their cells (the chosen row itself, a
+// shape that has all its pieces, a shape's placements in their order, a
+// range weight that no longer fits). Each kernel set the switches can
+// leave must find the covers the widest one finds: on x86-64 that is
+// AVX-512, AVX2 and the scalar loops against each other, on ARM NEON and
+// the scalar loops. Two matrices:
+// - a strip of 12 cells, dominoes (2 to 6 of them) and single cells (0 to
+//   8, with a weight each in a range column that holds 0 to 8): the shape
+//   that is full and the range rule cut rows here (the search checks both
+//   again when it chooses, so they only save work);
+// - four cells, three of them for the three pieces of one shape and the
+//   fourth for one of twelve fillers: with 13 rows in every cell the
+//   search branches on the shape's column, and only the rule that keeps a
+//   shape's placements in their order stops each cover from coming once
+//   for every order of the three (a kernel without it finds 288).
+TEMPLATE_TEST_CASE("SimdHuangCover: every kernel finds the same covers",
+                   "[solve][simd][huang][dispatch]", SimdHuangCover256, SimdHuangCover512,
+                   SimdHuangCover1024, SimdHuangCover4096) {
+  const auto strip = [](TestType& solver) {
+    const unsigned int cells = 12;
+    // columns: 1 the dominoes, 2 the single cells, 3 .. 14 the strip, 15 the range
+    const unsigned int rangeCol = 3 + cells;
+    solver.setColumnBounds(1, 2, 6, false, true, false, false);
+    solver.setColumnBounds(2, 0, 8, false, true, false, false);
+    for (unsigned int c = 0; c < cells; c++) {
+      solver.setColumnBounds(3 + c, 1, 1, true, false, false, false);
+    }
+    solver.setColumnBounds(rangeCol, 0, 8, false, false, true, false);
+    unsigned int node = 1;
+    for (unsigned int c = 0; c + 1 < cells; c++) {
+      solver.addRow(node++, 0, 1, c, 0, {1, 3 + c, 4 + c}, {1, 1, 1});
+    }
+    for (unsigned int c = 0; c < cells; c++) {
+      solver.addRow(node++, 1, 2, c, 1, {2, 3 + c, rangeCol}, {1, 1, 1});
+    }
+  };
+  const auto threeOfFour = [](TestType& solver) {
+    // columns: 1 the shape of three pieces, 2 the fillers, 3 .. 6 the cells
+    solver.setColumnBounds(1, 3, 3, false, true, false, false);
+    solver.setColumnBounds(2, 0, 4, false, true, false, false);
+    for (unsigned int c = 0; c < 4; c++) {
+      solver.setColumnBounds(3 + c, 1, 1, true, false, false, false);
+    }
+    unsigned int node = 1;
+    for (unsigned int c = 0; c < 4; c++) {
+      solver.addRow(node++, 0, 1, c, 0, {1, 3 + c}, {1, 1});
+    }
+    for (unsigned int filler = 0; filler < 12; filler++) {
+      for (unsigned int c = 0; c < 4; c++) {
+        solver.addRow(node++, 1, 2, filler * 4 + c, 0, {2, 3 + c}, {1, 1});
+      }
+    }
+  };
+  // the covers (each sorted, and the list of them) and the kernel that ran
+  const auto covers = [](unsigned int columns, const std::function<void(TestType&)>& build,
+                         SimdKernels k, SimdKernel* used) {
+    TestType solver(columns, 2, k);
+    build(solver);
+    Covers found;
+    std::atomic<std::uint64_t> iterations{0};
+    solver.solve(collect(found), StopToken{}, iterations);
+    for (std::vector<unsigned int>& cover : found) {
+      std::sort(cover.begin(), cover.end());
+    }
+    std::sort(found.begin(), found.end());
+    *used = solver.kernel();
+    return found;
+  };
+
+  SimdKernels noAvx2;
+  noAvx2.avx2 = false;
+  SimdKernels noAvx512;
+  noAvx512.avx512 = false;
+  SimdKernels noNeon;
+  noNeon.neon = false;
+
+  struct Matrix {
+    const char* name = "";
+    unsigned int columns = 0;
+    std::function<void(TestType&)> build;
+    std::size_t expected = 0;
+  };
+  // the strip's tilings with 2 to 6 dominoes (12 - d places, d of them
+  // dominoes): 45 + 84 + 70 + 21 + 1; the cell left out of four, with one
+  // of twelve fillers: 4 * 12
+  const Matrix matrices[] = {{"the strip", 15, strip, 221}, {"three of four", 6, threeOfFour, 48}};
+  for (const Matrix& m : matrices) {
+    SimdKernel widest = SimdKernel::Scalar;
+    const Covers all = covers(m.columns, m.build, SimdKernels{}, &widest);
+    INFO(m.name);
+    // each cover once
+    REQUIRE(all.size() == m.expected);
+    CHECK(std::adjacent_find(all.begin(), all.end()) == all.end());
+
+    for (const SimdKernels k : {SimdKernels::none(), noAvx2, noAvx512, noNeon}) {
+      SimdKernel used = SimdKernel::Scalar;
+      const bool same = covers(m.columns, m.build, k, &used) == all;
+      INFO(kernelName(widest) << " against " << kernelName(used));
+      CHECK(same);
+    }
+    SimdKernel scalar = widest;
+    (void)covers(m.columns, m.build, SimdKernels::none(), &scalar);
+    CHECK(scalar == SimdKernel::Scalar);
+  }
+}
+
 // A range column must not be branched on when there are no variable voxels:
 // nothing keeps its rows in order the way a shape column's are, so two range
 // rows that go together were reported once for each order. The columns are

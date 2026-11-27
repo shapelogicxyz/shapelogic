@@ -3,7 +3,7 @@
 
 /// @file
 /// The solve of one problem: preparing the search, the assembly runs, the
-/// take-apart of each assembly found (a queue and workers beside the
+/// take-apart of each assembly found (a TakeApartPool beside the
 /// search), the saved solutions with their order and limit, pause,
 /// continue and abort, progress and statistics.
 ///
@@ -32,6 +32,7 @@
 #include "shapelogic/solve/sliding_search.h"
 #include "shapelogic/solve/solve_progress.h"
 #include "shapelogic/solve/stack_search.h"
+#include "shapelogic/solve/take_apart_pool.h"
 #include "shapelogic/solve/solver_type.h"
 
 #include <atomic>
@@ -413,14 +414,6 @@ class SolveSession {
   /// can start a solve of the problem at once.
   void leave(SolveState state);
 
-  /// An assembly waiting to be taken apart, with the numbers it was found
-  /// with (disasmTask_c).
-  struct Task {
-    Assembly assembly;
-    std::uint64_t assemblyNumber = 0;
-    std::uint64_t solutionNumber = 0;
-  };
-
   /// What a run was asked to do and the options it runs with.
   struct Plan {
     SolveOptions options;
@@ -474,20 +467,16 @@ class SolveSession {
   bool onAssembly(Assembly assembly);
   bool onSlidingAssembly(Assembly assembly);
   [[nodiscard]] std::string slidingSummary(const SolveOptions& o) const;
-  void enqueue(Task task);
-  void processTask(Task& task, Disassembler& disassembler);
-  void addSolution(Task& task, Separation separation);
+  void enqueue(TakeApartTask task);
+  void takenApart(TakeApartTask& task, TakeApartResult& r);
+  void addSolution(TakeApartTask& task, Separation separation);
   void trimSavedSolutions(bool bySolutions = false);
   void applyLiveSort();
 
   // the take-apart workers
-  void startWorkers(const Plan& plan, unsigned int workers, unsigned int beside,
-                    unsigned int budget);
-  void workerLoop(Disassembler& disassembler);
+  TakeApartPool* startWorkers(const Plan& plan, unsigned int workers, unsigned int beside,
+                              unsigned int budget, unsigned int searchCores);
   void stopWorkers();
-  void waitDrained();
-  void taskDone();
-  void recordFailure(const std::exception_ptr& error);
   void requestStop(const StopSource& source, StopKind kind);
 
   void beginPhase(Phase phase);
@@ -523,11 +512,13 @@ class SolveSession {
   Assembler* published_ = nullptr;
   /// How far the assembler was when it was withdrawn.
   std::atomic<float> lastFinished_{0};
-  /// The pool the take-aparts spread their levels over, and one
-  /// disassembler per worker; kept after a run for its statistics, replaced
-  /// by the next.
-  std::unique_ptr<ThreadPool> takeApartPool_;
-  std::vector<std::unique_ptr<Disassembler>> disassemblers_;
+  /// The threads the take-aparts spread their levels over, and the
+  /// take-aparts' workers, queue and disassemblers (TakeApartPool: the one
+  /// the CLI has); kept after a run for its statistics, replaced by the
+  /// next. The pointers under runMutex_; the run's thread uses its own
+  /// run's pool without it.
+  std::unique_ptr<ThreadPool> takeApartThreads_;
+  std::unique_ptr<TakeApartPool> takeAparts_;
 
   /// The search: made by a run, kept across pauses (a paused run carries
   /// on with it), dropped when the solve starts again or is aborted.
@@ -548,38 +539,12 @@ class SolveSession {
   /// (panex::runsOnPanexSearch); under runMutex_.
   bool runOnPanex_ = false;
 
-  /// The take-apart queue: tasks, the workers' stop, the workers.
-  std::mutex queueMutex_;
-  /// Work arrived, the run stopped, or the last pending task is done.
-  std::condition_variable queueCv_;
-  /// There is room in the queue again, or the run stopped.
-  std::condition_variable spaceCv_;
-  std::deque<Task> queue_;
-  std::size_t queueLimit_ = 64;
-  bool workersStop_ = false;
-  std::vector<std::thread> workers_;
-  /// The workers, and how many of them may be at work while the search
-  /// runs beside them (takeApartThreads(): fewer only with a thread
-  /// limit); the workers at work; whether the search still runs, and
-  /// whether the take-aparts fell behind it (enqueue() had to wait; until
-  /// the queue is nearly empty again). Under queueMutex_.
-  unsigned int workersTotal_ = 0;
-  unsigned int workersBeside_ = 0;
-  unsigned int working_ = 0;
-  bool searchBeside_ = false;
-  bool behind_ = false;
-  /// The cores the assembly search counts for in the take-apart pool's
-  /// load (given away while it waits at a full queue).
-  std::atomic<int> assemblyLoad_{0};
-
   /// The lines for the log (takeLog), written by the search threads.
   mutable std::mutex logMutex_;
   std::vector<LogLine> log_;
   void addLog(LogLevel level, std::string text);
   mutable std::mutex failureMutex_;
   std::optional<SolveFailure> failure_;
-  /// The first exception of a run's threads.
-  std::exception_ptr workerError_;
 
   /// The slide searches of a run: the pool the search spreads its levels
   /// over (made per run, with the solve's thread budget), the

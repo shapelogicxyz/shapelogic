@@ -87,6 +87,7 @@ add_library(btcore STATIC
   shapelogic/solve/disassembler_node.cpp
   shapelogic/solve/dlx_matrix.cpp
   shapelogic/solve/grouping.cpp
+  shapelogic/solve/matrix_build.cpp
   shapelogic/solve/movement_analysator.cpp
   shapelogic/solve/movement_cache.cpp
   shapelogic/solve/movement_cache_bricks.cpp
@@ -96,6 +97,7 @@ add_library(btcore STATIC
   shapelogic/solve/node_hash.cpp
   shapelogic/solve/panex_search.cpp
   shapelogic/solve/placement_finder.cpp
+  shapelogic/solve/rotation_moves.cpp
   shapelogic/solve/rotation_moves_classic.cpp
   shapelogic/solve/rotation_moves_crowell.cpp
   shapelogic/solve/rotation_rules.cpp

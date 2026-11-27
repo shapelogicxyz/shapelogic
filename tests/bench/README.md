@@ -16,6 +16,15 @@ python3 tests/bench/bench.py --set identical     # boxes of many pieces of one s
 python3 tests/bench/bench.py --set identical-long  # the same, a minute a run in the original
 ```
 
+The rows above go through the CLI's own loop. The app (and the CLI's
+`--save`) solve through a `SolveSession`, with the same take-apart pool
+handing its results on as they come: `--session` times that path of two
+ShapeLogic CLIs, an earlier build's and this one's.
+
+```bash
+python3 tests/bench/bench.py --session --old-bin <an earlier shapelogic_cli>
+```
+
 Each program reports the time of its own solve (reduce plus search, without
 loading the file), which is what is compared. The original is the BurrTools
 the port was made from (tests/oracle/README.md, "Setup"); upstream

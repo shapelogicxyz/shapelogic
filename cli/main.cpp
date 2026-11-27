@@ -876,7 +876,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     if (pooled) {
       takeAparts = std::make_unique<bt::TakeApartPool>(
           puzzle, problem, poolOptions,
-          [&](const bt::Assembly& a, bt::TakeApartResult& r) { takenApart(a, r); });
+          [&](bt::TakeApartTask& t, bt::TakeApartResult& r) { takenApart(t.assembly, r); });
     }
 
     ProgressTicker ticker(o.progress, [&] {

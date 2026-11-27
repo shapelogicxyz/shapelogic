@@ -46,7 +46,8 @@ subset skips inside RotationMovesClassic or Disassembler (Classic).
 ### 2. Skip largest remaining piece (Fortran PieceBuilder cage)
 IMPLEMENTED in RotationMovesCrowell::initFind / nextSubsetMask.
 Among non-removed pieces in the current subproblem, count filled voxels
-(countFilled). The max count wins; ties keep the highest index.
+(the size of each piece's cached cells). The max count wins; ties keep the
+highest index.
 nextSubsetMask rejects any bitmask that has that piece's bit set.
 Result: all non-empty subsets of the other n-1 pieces (2^(n-1)-1 groups).
 That matches PieceBuilder for P pieces: singles of the P-1 smaller pieces,
@@ -67,12 +68,13 @@ extra halfway boundary points from SimpleRot (Rotationfile.f90 ~1590).
 Read Rmult from puzzle input or a constant; Fortran PuzzleInp default is 1.
 
 ### 4. Axis-level prune before pivots
-IMPLEMENTED in startAxis via RotationRules::axisBlocked.
+IMPLEMENTED in startAxis via RotationRules::preparedAxisBlocked (the
+bodies given once per subset: setBodies).
 Once per (subset, axis): sandwich-start + perp-plane on cached start/occupied.
 If blocked, skip every pivot/sense on that axis (Fortran SimpleRot Rfail=1
 then CYCLE to next D1).
 Sandwich-end, axis-cross, and arc-sweep still run per candidate in
-allowRotation (they need the end pose or the pivot).
+allowPrepared (they need the end pose or the pivot).
 To prune more: call axis-cross without a pivot if you define a pivot-free
 variant, or fail the axis when sandwich-end would fail for all pivots
 (not generally true).
@@ -115,8 +117,9 @@ so Classic stays complete. Prefer a fortran-only hook rather than editing
 the Cutler state machine if you can filter after newNode().
 
 ### 8. Geometric rotation legality (bevel arc, sandwich, perp, axis-cross)
-IMPLEMENTED by calling the shared RotationRules::allowRotation after a
-candidate pose is built. That is the same physics Classic uses:
+IMPLEMENTED by calling the shared RotationRules::allowPrepared for each
+candidate (the answers are allowRotation's). That is the same physics
+Classic uses:
   end-overlap, sandwich start, sandwich end, perp-plane, axis-cross,
   24-step beveled arc (NrotSteps), then 3×8 mid-turn wiggles.
 Fortran SimpleRot inlines equivalent tests (in-plane, PerPplane 1/2, 90°
@@ -136,7 +139,7 @@ with a linear voxel multiplier `delta`.
 To port SimpleMove: add a fortran-only slide generator (new file) and
 call it from MovementAnalysator::find when solverType==SolverType::Crowell,
 either instead of or before Cutler. You would need per-piece world cells
-(already in rotationMoves_fortran collectWorldCells) and collision with
+(already in RotationMoves::collectWorldCells) and collision with
 the packed occupancy. Keep Cutler as Classic.
 
 ### 10. First-piece vs full take-apart (Fortran Fast=1 / SolverFull)
@@ -215,10 +218,11 @@ idea as Classic tryCurrentCandidate and Fortran PID voxel count == 1.
 
 ### 18. Cache moving/static cells per subset
 IMPLEMENTED. loadSubsetCells fills cachedStart / cachedOccupied once per
-bitmask so axis prune and every pivot share the same vectors. Classic
-caches them the same way (RotationMovesClassic::loadSubset, once per
-group for every axis, pivot and sense; each piece's cells once per
-position). Safe to extend with a voxel-count cache for countFilled.
+bitmask so axis prune and every pivot share the same vectors, and hands
+them to the rules once (setBodies). Classic caches them the same way
+(RotationMovesClassic::loadSubset, once per group for every axis, pivot
+and sense). Each piece's cells are taken once per position (pieceCells_,
+in both), which also gives the voxel counts.
 
 ### 19. Compound (multi-piece) rotations
 IMPLEMENTED as rigid rotation of each allowed subset (all bits except

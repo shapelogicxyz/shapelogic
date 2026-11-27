@@ -4,13 +4,15 @@
 /// @file
 /// Take-aparts side by side: the assemblies a search finds are independent
 /// of each other, so each goes to one of several threads, every thread with
-/// a disassembler of its own, and the results are handed on in the order
-/// the assemblies came in.
+/// a disassembler of its own. The results are handed on in the order the
+/// assemblies came in (the CLI prints them so), or each as it is finished
+/// (the solve session, which sorts them itself).
 ///
 /// After src/lib/disassemblerpool.{h,cpp} (its workers, bounded queue and
-/// ordered merge). The results are handed on by the workers themselves, one
-/// worker at a time, not by a merger thread; nothing is salvaged for a later
-/// run (the solve session keeps its own queue for that).
+/// ordered merge) and the queue of the original's solve thread. The results
+/// are handed on by the workers themselves, not by a merger thread. A stop
+/// loses nothing: what was not taken apart comes back as stopped, with the
+/// numbers it was handed over with, for a later run.
 ///
 /// A puzzle may have millions of assemblies that each take microseconds to
 /// take apart, so handing one over must cost less than that: a worker takes
@@ -56,6 +58,25 @@ struct TakeApartPoolOptions {
   unsigned int searchCores = 0;
   /// Each worker's disassembler. Its pool, when set, must outlive this.
   DisassemblerOptions takeApart;
+  /// The results in the order of the submit() calls, from one thread at a
+  /// time. Off: each as soon as it is there, from the worker that took it
+  /// apart, several at once (the result function sees to its own locks),
+  /// and no assembly waits for a long take-apart handed over before it.
+  bool ordered = true;
+  /// Called once, from the thread it happened on, when a take-apart or the
+  /// result function throws: whoever feeds the pool stops its search, and
+  /// finish() says what was thrown.
+  std::function<void()> onFailure;
+};
+
+/// An assembly to take apart, with the numbers its owner counted it by
+/// (the pool carries them, and hands them back with the result).
+struct TakeApartTask {
+  Assembly assembly;
+  std::uint64_t assemblyNumber = 0;
+  std::uint64_t solutionNumber = 0;
+  /// How long its take-apart took, in nanoseconds; 0 when none was begun.
+  std::uint64_t takeApartNs = 0;
 };
 
 /// The take-aparts of one problem's assemblies, on several threads.
@@ -64,13 +85,15 @@ struct TakeApartPoolOptions {
 /// assemblies so), finish() once, after the last submit().
 class TakeApartPool {
  public:
-  /// What to do with a result: called in the order of the submit() calls,
-  /// from one thread at a time (a worker's, or finish()'s caller never).
-  using OnResult = std::function<void(const Assembly&, TakeApartResult&)>;
+  /// What to do with a result: called from a worker's thread (never from
+  /// finish()'s caller); see TakeApartPoolOptions::ordered for the order.
+  /// It may take what it needs out of the task.
+  using OnResult = std::function<void(TakeApartTask&, TakeApartResult&)>;
 
   /// A pool for `problem` of `puzzle` (both must outlive it, and not change;
   /// see Disassembler). `stop` ends the take-aparts under way as it ends
-  /// one disassemble(); their results still come, as stopped.
+  /// one disassemble(), and those not begun are not begun: the results of
+  /// all of them still come, as stopped.
   TakeApartPool(const Puzzle& puzzle, const Problem& problem, const TakeApartPoolOptions& options,
                 OnResult onResult, const StopToken& stop = {});
   /// Ends the workers; assemblies not taken apart yet are dropped.
@@ -79,14 +102,27 @@ class TakeApartPool {
   TakeApartPool(const TakeApartPool&) = delete;
   TakeApartPool& operator=(const TakeApartPool&) = delete;
 
-  /// Hands an assembly over. Waits while too many are unfinished: the
-  /// queue, and what is taken apart but not handed on yet, stay small, and
-  /// the cores go to the take-aparts.
-  void submit(Assembly assembly);
+  /// Hands an assembly over, with the numbers the result comes back with.
+  /// Waits while too many are unfinished: the queue, and what is taken
+  /// apart but not handed on yet, stay small, and the cores go to the
+  /// take-aparts.
+  void submit(Assembly assembly, std::uint64_t assemblyNumber = 0,
+              std::uint64_t solutionNumber = 0);
 
-  /// The search is over: waits until every result is handed on. The first
-  /// exception of a take-apart or of the result function is rethrown here.
+  /// The search no longer runs beside the take-aparts: every worker may
+  /// work, and the search's cores are free. submit() may still be called.
+  void searchOver();
+
+  /// After the last submit(): waits until every result is handed on (after
+  /// a stop that is soon: see the constructor), then ends the workers. The
+  /// first exception of a take-apart or of the result function is rethrown
+  /// here. The disassemblers stay, for progress() and the search times.
   void finish();
+
+  /// Ends the workers now; what was not handed on is dropped (after a
+  /// failure, when nothing of the solve is kept). Nothing to do after
+  /// finish().
+  void close();
 
   /// The threads that take apart.
   [[nodiscard]] unsigned int workers() const noexcept {
@@ -96,6 +132,11 @@ class TakeApartPool {
   /// The take-aparts under way; from any thread.
   [[nodiscard]] std::vector<DisassemblyProgress> progress() const;
 
+  /// The time the disassemblers spent looking for turns and for slides, in
+  /// microseconds; from any thread.
+  [[nodiscard]] std::uint64_t rotationSearchUs() const;
+  [[nodiscard]] std::uint64_t linearSearchUs() const;
+
   /// Assemblies handed over, and results handed on; from any thread.
   [[nodiscard]] std::uint64_t submitted() const;
   [[nodiscard]] std::uint64_t delivered() const;
@@ -103,11 +144,11 @@ class TakeApartPool {
  private:
   struct Task {
     std::uint64_t seq = 0;
-    Assembly assembly;
+    TakeApartTask task;
   };
   struct Done {
     std::uint64_t seq = 0;
-    Assembly assembly;
+    TakeApartTask task;
     TakeApartResult result;
   };
 
@@ -127,6 +168,8 @@ class TakeApartPool {
   /// Adds to the busy cores of the take-apart's ThreadPool, when there is one.
   void addLoad(int cores) const;
   void fail(const std::exception_ptr& error);
+  /// Results were handed on: wakes who waits for them. Under mutex_.
+  void wakeWaiters();
 
   TakeApartPoolOptions options_;
   OnResult onResult_;

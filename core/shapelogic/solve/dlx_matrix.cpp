@@ -10,7 +10,8 @@
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
-#include "shapelogic/solve/placement_finder.h"
+#include "shapelogic/model/sliding.h"
+#include "shapelogic/solve/matrix_build.h"
 
 #include <algorithm>
 #include <cstring>
@@ -18,27 +19,6 @@
 #include <unordered_map>
 
 namespace bt {
-
-namespace {
-
-/// Adds `piece` to the cache unless an identical shape is there. Returns it,
-/// or null when it was a duplicate (and is dropped).
-const Voxel* addToCache(std::vector<std::unique_ptr<Voxel>>& cache,
-                        std::unique_ptr<Voxel> piece) {
-  for (const auto& c : cache) {
-    if (c->identicalInBB(*piece)) {
-      return nullptr;
-    }
-  }
-  cache.push_back(std::move(piece));
-  return cache.back().get();
-}
-
-/// A sliding tray need not be filled: its normal cells are optional, like
-/// variable ones (sliding::isSliding in the original).
-bool isSliding(const Puzzle& puzzle) { return puzzle.getGridType().getType() == GridKind::Sliding; }
-
-}  // namespace
 
 bool everyPartOnePiece(const Problem& problem) {
   for (unsigned int s = 0; s < problem.getNumberOfParts(); s++) {
@@ -96,22 +76,7 @@ unsigned int DlxMatrix::addPieceNode(unsigned int piece, unsigned int rot, int x
 }
 
 std::size_t DlxMatrix::rowIndexOf(unsigned int node) const {
-  // placements is in row order (addPieceNode appends as the nodes are made),
-  // so the last entry at or before the node is found by halving
-  std::size_t lo = 0;
-  std::size_t hi = placements.size();
-  while (lo < hi) {
-    const std::size_t mid = lo + (hi - lo) / 2;
-    if (placements[mid].row <= node) {
-      lo = mid + 1;
-    } else {
-      hi = mid;
-    }
-  }
-
-  BT_ASSERT_MSG(lo != 0, "getPieceInformation: no piece position for the node");
-
-  return lo - 1;
+  return bt::rowIndexOf(placements, node);
 }
 
 // Finds identical columns (contained in exactly the same rows) and removes
@@ -119,75 +84,13 @@ std::size_t DlxMatrix::rowIndexOf(unsigned int node) const {
 // Columns are grouped by a hash of their row signature and only compared
 // exactly within a group, which is linear in the number of nodes.
 unsigned int DlxMatrix::clumpify() {
-  // the columns in header ring order; the first of each group survives
-  std::vector<unsigned int> cols;
-  for (unsigned int c = nodes.right[0]; c; c = nodes.right[c]) {
-    cols.push_back(c);
+  const std::vector<ColumnTwin> twins = columnTwins(
+      nodes, placements, [](unsigned int, std::vector<std::uint64_t>&) {},
+      [](unsigned int, std::vector<std::uint64_t>&) {});
+  for (const ColumnTwin& t : twins) {
+    removeColumn(t.column);
   }
-
-  // all signatures back to back, with the start of each
-  std::vector<unsigned long> sigData;
-  std::vector<unsigned long> sigStart;
-  std::vector<unsigned long long> sigHash;
-
-  sigStart.reserve(cols.size() + 1);
-  sigHash.reserve(cols.size());
-
-  for (const unsigned int col : cols) {
-    sigStart.push_back(sigData.size());
-
-    unsigned long long h = 14695981039346656037ULL;
-    std::size_t line = 0;
-
-    for (unsigned int row = nodes.down(col); row != col; row = nodes.down(row)) {
-      // the placement row of this node; nodes come in increasing order so
-      // the line only ever advances
-      while ((line + 1 < placements.size()) && (placements[line + 1].row <= row)) {
-        line++;
-      }
-
-      sigData.push_back(line);
-
-      h = (h ^ line) * 1099511628211ULL;
-    }
-
-    sigHash.push_back(h);
-  }
-
-  sigStart.push_back(sigData.size());
-
-  std::unordered_map<unsigned long long, std::vector<std::size_t>> groups;
-
-  unsigned int removed = 0;
-
-  for (std::size_t i = 0; i < cols.size(); i++) {
-    std::vector<std::size_t>& group = groups[sigHash[i]];
-
-    bool dup = false;
-
-    for (const std::size_t j : group) {
-      const unsigned long leni = sigStart[i + 1] - sigStart[i];
-
-      if (leni != sigStart[j + 1] - sigStart[j]) {
-        continue;
-      }
-
-      if ((leni == 0) || (std::memcmp(&sigData[sigStart[i]], &sigData[sigStart[j]],
-                                      leni * sizeof(unsigned long)) == 0)) {
-        dup = true;
-        break;
-      }
-    }
-
-    if (dup) {
-      removeColumn(cols[i]);
-      removed++;
-    } else {
-      group.push_back(i);
-    }
-  }
-
-  return removed;
+  return static_cast<unsigned int>(twins.size());
 }
 
 void DlxMatrix::addVoxelNode(unsigned int col, unsigned int piecenode) {
@@ -231,7 +134,7 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
 
     // A sliding tray does not have to be filled: normal cells are optional
     // columns as well, so that empty cells can be the space pieces slide in.
-    const bool optionalFloor = isSliding(puzzle);
+    const bool optionalFloor = sliding::isSliding(puzzle);
 
     for (unsigned int i = 0; i < result.getXYZ(); i++) {
       switch (result.getState(i)) {
@@ -283,77 +186,7 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
     filter.request(symBreakerShape, nullptr);
 
     if (sym.symmetryContainsMirror(resultSym)) {
-      // The mirror check needs the mirror structure. Which case is this?
-      // 1) all pieces have mirror symmetry: check mirrors, no pairs
-      // 2) a piece has none:
-      //   2a) each such piece has a mirror partner: check mirrors, with pairs
-      //   2b) one has no partner: no mirror check
-      struct Mm {
-        unsigned int shape;   // the shape of this piece
-        unsigned int mirror;  // the mirror shape of this piece
-        unsigned int trans;
-      };
-
-      std::vector<Mm> mirror(problem.getNumberOfPieces());
-
-      for (unsigned int i = 0; i < problem.getNumberOfParts(); i++) {
-        mirror[i].shape = i;
-        mirror[i].mirror = static_cast<unsigned int>(-1);
-        mirror[i].trans = 255;
-      }
-
-      bool mirrorCheck = true;
-
-      for (unsigned int i = 0; i < problem.getNumberOfPieces(); i++) {
-        // the mirror of this one was found already
-        if (mirror[i].mirror < problem.getNumberOfPieces()) {
-          continue;
-        }
-
-        if (!sym.symmetryContainsMirror(
-                problem.partShape(puzzle, mirror[i].shape).selfSymmetries())) {
-          // not self-mirroring: look for a shape that is its mirror
-          bool found = false;
-
-          for (unsigned int j = i + 1; j < problem.getNumberOfPieces(); j++) {
-            if (mirror[j].mirror < problem.getNumberOfPieces()) {
-              continue;
-            }
-
-            const unsigned int trans =
-                problem.partShape(puzzle, mirror[i].shape)
-                    .getMirrorTransform(problem.partShape(puzzle, mirror[j].shape));
-
-            if (trans > 0) {
-              mirror[i].mirror = j;
-              mirror[i].trans = trans;
-              mirror[j].mirror = i;
-              mirror[j].trans = problem.partShape(puzzle, mirror[j].shape)
-                                    .getMirrorTransform(problem.partShape(puzzle, mirror[i].shape));
-
-              found = true;
-              break;
-            }
-          }
-
-          // a piece without mirror symmetry and without a partner: no
-          // mirror check
-          if (!found) {
-            mirrorCheck = false;
-            break;
-          }
-        }
-      }
-
-      if (mirrorCheck) {
-        auto mir = std::make_unique<MirrorInfo>();
-
-        for (unsigned int i = 0; i < problem.getNumberOfPieces(); i++) {
-          if (mirror[i].trans != 255) {
-            mir->addPieces(i, mirror[i].mirror, static_cast<unsigned char>(mirror[i].trans));
-          }
-        }
-
+      if (std::unique_ptr<MirrorInfo> mir = mirrorPairs(puzzle, problem, false)) {
         filter.request(symBreakerShape, std::move(mir));
       }
     }
@@ -364,93 +197,34 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
   // the search never chooses them to fill.
   generateFirstRow();
 
-  std::vector<std::unique_ptr<Voxel>> cache;
-  cache.reserve(sym.getNumTransformationsMirror());
+  // each placement a row: its piece's column and the voxels it fills
+  struct Rows final : PlacementSink {
+    Rows(DlxMatrix& matrix, const std::vector<unsigned int>& cols, PrepareCounters& counters)
+        : m(matrix), columns(cols), progress(counters) {}
 
-  const PlacementFinder finder(puzzle, problem, result, strictColors, startLocks);
-  std::vector<long> voxelOffsets;
-  std::vector<int> positions;
-
-  const long rsx = result.getX();
-  const long rsy = result.getY();
-
-  for (unsigned int pc = 0; pc < problem.getNumberOfParts(); pc++) {
-    progress.piece.store(pc, std::memory_order_relaxed);
-    const PlacementFinder::StartLock lock{
-        static_cast<unsigned char>(problem.getShapeIdOfPart(pc) + 1),
-        pc < freeStarts.size() ? freeStarts[pc] : true};
-
-    // the orientations found so far, so that no orientation goes in twice
-    cache.clear();
-    unsigned int found = 0;
-
-    const unsigned int rotEnd = transformEnd(partTransforms, sym);
-    for (unsigned int rot = 0; rot < rotEnd; rot++) {
-      if (!transformAllowed(partTransforms, pc, rot)) {
-        continue;
-      }
-      if (stop.stopRequested()) {
-        return kPrepareStopped;
-      }
-      std::unique_ptr<Voxel> rotated = problem.partShape(puzzle, pc).clone();
-      if (!rotated->transform(rot)) {
-        continue;
-      }
-
-      const Voxel* rotation = addToCache(cache, std::move(rotated));
-
-      if (rotation != nullptr) {
-        finder.find(*rotation, voxelOffsets, positions, stop, lock);
-        // stopped, the finder's list is not whole
-        if (stop.stopRequested()) {
-          return kPrepareStopped;
-        }
-
-        for (std::size_t p = 0; p < positions.size(); p += 3) {
-          if ((p & kPreparePollMask) == 0 && p != 0 && stop.stopRequested()) {
-            return kPrepareStopped;
-          }
-          const int x = positions[p];
-          const int y = positions[p + 1];
-          const int z = positions[p + 2];
-
-          const unsigned int piecenode = addPieceNode(
-              pc, rot, x + rotation->getHx(), y + rotation->getHy(), z + rotation->getHz());
-          found = 1;
-
-          // the voxels the piece fills
-          const long base = x + rsx * (y + rsy * static_cast<long>(z));
-          for (const long off : voxelOffsets) {
-            addVoxelNode(columns[static_cast<std::size_t>(base + off)], piecenode);
-          }
-        }
-
-        progress.placements.store(placements.size(), std::memory_order_relaxed);
-
-        // for the symmetry breaker also every symmetry of the result
-        if (pc == symBreakerShape) {
-          for (unsigned int r = 1; r < sym.getNumTransformations(); r++) {
-            if (sym.symmetrieContainsTransformation(resultSym, r)) {
-              std::unique_ptr<Voxel> vx = problem.partShape(puzzle, pc).clone();
-
-              if (!vx->transform(rot) || !vx->transform(r)) {
-                continue;
-              }
-
-              (void)addToCache(cache, std::move(vx));
-            }
-          }
-        }
+    void beginPart(unsigned int /*part*/) override {}
+    void addRow(unsigned int part, unsigned int rot, int x, int y, int z, long base,
+                const std::vector<long>& offsets) override {
+      const unsigned int piecenode = m.addPieceNode(part, rot, x, y, z);
+      for (const long off : offsets) {
+        m.addVoxelNode(columns[static_cast<std::size_t>(base + off)], piecenode);
       }
     }
-
-    // a piece with no placement at all
-    if (found == 0) {
-      return -asInt(problem.getShapeIdOfPart(pc));
+    void endOrientation() override {
+      progress.placements.store(m.placements.size(), std::memory_order_relaxed);
     }
-  }
 
-  return kPrepared;
+    DlxMatrix& m;
+    const std::vector<unsigned int>& columns;
+    PrepareCounters& progress;
+  };
+  Rows rows(*this, columns, progress);
+
+  // every part is a piece that must be placed: one that fits nowhere ends
+  // the build
+  const PlaceParts how{strictColors,    startLocks, freeStarts, partTransforms,
+                       symBreakerShape, resultSym, true};
+  return placeParts(puzzle, problem, how, rows, progress.piece, stop);
 }
 
 AssemblerError DlxMatrix::build(const Puzzle& puzzle, const Problem& problem, bool strictColors,
@@ -466,7 +240,7 @@ AssemblerError DlxMatrix::build(const Puzzle& puzzle, const Problem& problem, bo
 
   // Sliding lets the pieces leave normal cells empty: those cells are
   // optional, so falling short of the tray is no error.
-  if (isSliding(puzzle)) {
+  if (sliding::isSliding(puzzle)) {
     resVari = resFilled;
   }
 

@@ -2,25 +2,14 @@
 // Ported from src/lib/rotationmoves_0.cpp.
 #include "shapelogic/solve/rotation_moves_classic.h"
 
-#include "shapelogic/base/assert.h"
-#include "shapelogic/base/int_cast.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/symmetries.h"
-#include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/solve/movement_cache.h"
 
 namespace bt {
 
 namespace {
-
-// Cube orientations of +-90 degrees about x, y and z (tabs_0/rotmatrix.inc).
-constexpr unsigned char kRotXP90 = 1;
-constexpr unsigned char kRotXM90 = 3;
-constexpr unsigned char kRotYP90 = 12;
-constexpr unsigned char kRotYM90 = 4;
-constexpr unsigned char kRotZP90 = 16;
-constexpr unsigned char kRotZM90 = 20;
 
 // The next group of pieces after `mask`, 0 when through; never all of them
 // (turning every piece leaves the arrangement as it is).
@@ -39,102 +28,9 @@ unsigned int nextSubsetMask(unsigned int mask, unsigned int n) {
 
 }  // namespace
 
-void rotateVector90(int* x, int* y, int* z, unsigned int axis, unsigned int sense) {
-  const int ox = *x;
-  const int oy = *y;
-  const int oz = *z;
-
-  if (axis == 0) {
-    if (sense == 0) {  // +90 x
-      *x = ox;
-      *y = -oz;
-      *z = oy;
-    } else {  // -90 x
-      *x = ox;
-      *y = oz;
-      *z = -oy;
-    }
-  } else if (axis == 1) {
-    if (sense == 0) {  // +90 y
-      *x = oz;
-      *y = oy;
-      *z = -ox;
-    } else {  // -90 y
-      *x = -oz;
-      *y = oy;
-      *z = ox;
-    }
-  } else {
-    if (sense == 0) {  // +90 z
-      *x = -oy;
-      *y = ox;
-      *z = oz;
-    } else {  // -90 z
-      *x = oy;
-      *y = -ox;
-      *z = oz;
-    }
-  }
-}
-
-bool rotateDoubled(int* x, int* y, int* z, const RotationRules::Pivot& pivot, unsigned int axis,
-                   unsigned int sense) {
-  int dx = (*x) * 2 - pivot.hx;
-  int dy = (*y) * 2 - pivot.hy;
-  int dz = (*z) * 2 - pivot.hz;
-
-  rotateVector90(&dx, &dy, &dz, axis, sense);
-
-  const int nx = pivot.hx + dx;
-  const int ny = pivot.hy + dy;
-  const int nz = pivot.hz + dz;
-  if (((nx | ny | nz) & 1) != 0) {
-    return false;
-  }
-
-  *x = nx / 2;
-  *y = ny / 2;
-  *z = nz / 2;
-  return true;
-}
-
-unsigned char rotationTransformId(unsigned int axis, unsigned int sense) {
-  static constexpr unsigned char kIds[3][2] = {
-      {kRotXP90, kRotXM90}, {kRotYP90, kRotYM90}, {kRotZP90, kRotZM90}};
-  BT_ASSERT(axis < 3 && sense < 2);
-  return kIds[axis][sense];
-}
-
 RotationMovesClassic::RotationMovesClassic(const Puzzle& puzzle, MovementCache& cache,
                                            Options options)
     : cache_(cache), sym_(puzzle.getGridType().getSymmetries()), options_(options) {}
-
-void RotationMovesClassic::collectWorldCells(unsigned int pieceIdx,
-                                             std::vector<RotationRules::Cell>& out) const {
-  out.clear();
-
-  const unsigned int pieceId = (*pieces_)[pieceIdx];
-  const unsigned int shapeId = cache_.getShapeOfPiece(pieceId);
-  const auto trans = static_cast<unsigned char>(searchnode_->getTrans(pieceIdx));
-  const Voxel& sh = cache_.getTransformedShape(shapeId, trans);
-
-  const int px = searchnode_->getX(pieceIdx);
-  const int py = searchnode_->getY(pieceIdx);
-  const int pz = searchnode_->getZ(pieceIdx);
-  const int hx = sh.getHx();
-  const int hy = sh.getHy();
-  const int hz = sh.getHz();
-
-  for (unsigned int z = 0; z < sh.getZ(); z++) {
-    for (unsigned int y = 0; y < sh.getY(); y++) {
-      for (unsigned int x = 0; x < sh.getX(); x++) {
-        if (sh.isFilled(x, y, z)) {
-          out.emplace_back(px - hx + asInt(x), py - hy + asInt(y), pz - hz + asInt(z));
-        }
-      }
-    }
-  }
-}
 
 // The moving group's cells and everyone else's, from the position's piece
 // cells; once per group, the same for every axis, pivot and sense.
@@ -168,44 +64,15 @@ void RotationMovesClassic::rebuildPivotCells(unsigned int axis) {
     return;
   }
 
-  int umin = 0;
-  int umax = 0;
-  int vmin = 0;
-  int vmax = 0;
-  int amin = 0;
-  if (axis == 0) {
-    umin = umax = moving[0].y;
-    vmin = vmax = moving[0].z;
-    amin = moving[0].x;
-  } else if (axis == 1) {
-    umin = umax = moving[0].x;
-    vmin = vmax = moving[0].z;
-    amin = moving[0].y;
-  } else {
-    umin = umax = moving[0].x;
-    vmin = vmax = moving[0].y;
-    amin = moving[0].z;
-  }
-
-  for (std::size_t c = 1; c < moving.size(); c++) {
-    const RotationRules::Cell& p = moving[c];
-    const int u = (axis == 0) ? p.y : p.x;
-    const int v = (axis == 2) ? p.y : p.z;
-    const int a = (axis == 0) ? p.x : ((axis == 1) ? p.y : p.z);
-    umin = u < umin ? u : umin;
-    umax = u > umax ? u : umax;
-    vmin = v < vmin ? v : vmin;
-    vmax = v > vmax ? v : vmax;
-    amin = a < amin ? a : amin;
-  }
+  const TurnBox box = turnBox(moving, axis);
 
   // the half grid in the plane over the body's box: cell centers, faces,
   // edges and corners; along the axis, the moving body's lowest layer
-  const int du0 = 2 * umin - 1;
-  const int du1 = 2 * umax + 1;
-  const int dv0 = 2 * vmin - 1;
-  const int dv1 = 2 * vmax + 1;
-  const int da = 2 * amin;
+  const int du0 = 2 * box.umin - 1;
+  const int du1 = 2 * box.umax + 1;
+  const int dv0 = 2 * box.vmin - 1;
+  const int dv1 = 2 * box.vmax + 1;
+  const int da = 2 * box.amin;
 
   for (int du = du0; du <= du1; du++) {
     for (int dv = dv0; dv <= dv1; dv++) {
@@ -214,21 +81,7 @@ void RotationMovesClassic::rebuildPivotCells(unsigned int axis) {
       if (options_.fast && ((du ^ dv) & 1) != 0) {
         continue;
       }
-      RotationRules::Pivot p;
-      if (axis == 0) {
-        p.hx = da;
-        p.hy = du;
-        p.hz = dv;
-      } else if (axis == 1) {
-        p.hx = du;
-        p.hy = da;
-        p.hz = dv;
-      } else {
-        p.hx = du;
-        p.hy = dv;
-        p.hz = da;
-      }
-      pivotCells_.push_back(p);
+      pivotCells_.push_back(pivotAt(axis, du, dv, da));
     }
   }
 }
@@ -278,57 +131,7 @@ NodeRef RotationMovesClassic::tryCurrentCandidate() {
     sense = 1 - nextsense_;
   }
 
-  const auto n = static_cast<unsigned int>(pieces_->size());
-
-  unsigned int primaryPiece = 0;
-  while (primaryPiece < n && (moveMask & (1U << primaryPiece)) == 0) {
-    primaryPiece++;
-  }
-  BT_ASSERT(primaryPiece < n);
-
-  const unsigned char rotId = rotationTransformId(nextaxis_, sense);
-  bool changed = false;
-
-  const unsigned int dir = DisassemblerNode::kRotationDirBase + nextaxis_ * 2 + sense;
-  NodeRef node =
-      NodeRef::make(n, NodeRef::share(searchnode_), static_cast<int>(dir), 1);
-  node->setRotationInfo(primaryPiece, pivot.hx, pivot.hy, pivot.hz);
-
-  for (unsigned int i = 0; i < n; i++) {
-    if (searchnode_->isPieceRemoved(i)) {
-      node->set(i, searchnode_->getX(i), searchnode_->getY(i), searchnode_->getZ(i),
-                searchnode_->getTrans(i));
-      continue;
-    }
-
-    if ((moveMask & (1U << i)) != 0) {
-      const auto oldTrans = static_cast<unsigned char>(searchnode_->getTrans(i));
-      const unsigned char newTrans = sym_.transAdd(oldTrans, rotId);
-
-      int px = searchnode_->getX(i);
-      int py = searchnode_->getY(i);
-      int pz = searchnode_->getZ(i);
-      if (!rotateDoubled(&px, &py, &pz, pivot, nextaxis_, sense)) {
-        return nullptr;
-      }
-
-      if (px != searchnode_->getX(i) || py != searchnode_->getY(i) ||
-          pz != searchnode_->getZ(i) || newTrans != oldTrans) {
-        changed = true;
-      }
-
-      node->set(i, px, py, pz, newTrans);
-    } else {
-      node->set(i, searchnode_->getX(i), searchnode_->getY(i), searchnode_->getZ(i),
-                searchnode_->getTrans(i));
-    }
-  }
-
-  if (!changed) {
-    return nullptr;
-  }
-
-  return node;
+  return turnedNode(searchnode_, sym_, moveMask, pivot, nextaxis_, sense);
 }
 
 void RotationMovesClassic::initFind(DisassemblerNode* nd, const std::vector<unsigned int>& pcs) {
@@ -350,7 +153,7 @@ void RotationMovesClassic::initFind(DisassemblerNode* nd, const std::vector<unsi
     if (nd->isPieceRemoved(i)) {
       pieceCells_[i].clear();
     } else {
-      collectWorldCells(i, pieceCells_[i]);
+      collectWorldCells(cache_, *nd, pcs, i, pieceCells_[i]);
       presentMask_ |= 1U << i;
     }
   }

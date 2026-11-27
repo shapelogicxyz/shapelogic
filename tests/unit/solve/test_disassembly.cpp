@@ -1360,7 +1360,7 @@ TEST_CASE("take-apart: 600 pieces that come off one at a time are taken apart",
     o.workers = 2;
     unsigned int depth = 0;
     std::string text;
-    TakeApartPool pool(p, p.getProblem(0), o, [&](const Assembly&, TakeApartResult& r) {
+    TakeApartPool pool(p, p.getProblem(0), o, [&](TakeApartTask&, TakeApartResult& r) {
       REQUIRE(r.separation.has_value());
       depth = depthOf(*r.separation);
       // as the CLI prints it, on the worker's thread

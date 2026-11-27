@@ -238,12 +238,13 @@ Rules (decisions 0006, 0008, 0017, 0038, 0044, 0045, 0046):
 Files in `core/shapelogic/solve/`:
 - `assembler.{h,cpp}`: `Assembler`, the interface (`createMatrix` with its stop token, `reduce`, `assemble -> RunEnd`, `savePosition` / `restorePosition`, the placement browser, the debugger); `SearchOptions`; `AssemblerError`; the problem hooks `beginSolving`, `storePosition`, `canStartSolving`; `warmShapeCaches()`.
 - `assembler_0.{h,cpp}`: `Assembler0`, dancing links (every part exactly one piece): plain (flag 0), split into subtree tasks (flag 2), vector (flag 3).
-- `assembler_1.{h,cpp}`: `Assembler1`, Wei-Hwa Huang's cover with counts (every other problem): a state machine over explicit stacks (flag 0), tasks (flags 4, 2, 5, 6), vector (flag 3).
+- `assembler_1.{h,cpp}`: `Assembler1`, Wei-Hwa Huang's cover with counts (every other problem): a state machine over explicit stacks (`searchMachine`, one template for the plain search, the workers and the task maker; flag 0), tasks (flags 4, 2, 5, 6), vector (flag 3).
 - `CROWELL.md`: Crowell's solver, feature by feature against the Fortran original.
 - `disasm_to_moves.{h,cpp}`: `DisasmToMoves`, piece positions at any step of a tree (turns as angles about a pivot), and `FixedPositions`, behind `PiecePositions`.
 - `disassembler.{h,cpp}`: `Disassembler`, the take-apart of one problem's assemblies (the parts still to take apart wait on the heap, not on the stack); `DisassemblerOptions`; `TakeApartResult` (a tree, stopped, or `tooDeep` past `maxDepth`) and `tooDeepMessage()`; `canDisassemble()`, the one rule for whether a puzzle has a take-apart.
 - `disassembler_node.{h,cpp}`: `DisassemblerNode` (places, orientations, the position it came from, the move) and `NodeRef`, a counted reference.
-- `dlx_matrix.{h,cpp}`: `DlxMatrix`, assembler 0's matrix (`build`, `reduce`, `clumpify`, the placement browser), and `DlxNodes`, the node arrays a thread copies.
+- `dlx_matrix.{h,cpp}`: `DlxMatrix`, assembler 0's matrix (`build`, `reduce`, `clumpify`, the placement browser), and `DlxNodes`, the node arrays a thread copies, with the search's column choice (`chooseColumn`).
+- `matrix_build.{h,cpp}`: what both assemblers' matrices are built with: `RowPlacement`, `placeParts` (every part's placements, to a `PlacementSink`), `mirrorPairs`, `columnTwins`, `makeRowCheck` / `rowCheckRejects`, `getInt`.
 - `grouping.{h,cpp}`: `Grouping`, the groups of pieces that may stay together, keyed by part.
 - `movement_analysator.{h,cpp}`: `MovementAnalysator`, Bill Cutler's moves from one position; one per thread.
 - `movement_cache.{h,cpp}`, `movement_cache_{bricks,prisms,derived}.cpp`: `MovementCache` and its grids' kinds, `makeMovementCache()`.
@@ -254,7 +255,7 @@ Files in `core/shapelogic/solve/`:
 - `prepare_progress.h`: `PrepareCounters` / `PrepareProgress`, the preparation's counts for progress displays.
 - `resume_state.h`: `SplitSearchState<Task>` and the saved position's tail (`K` / `T C S`, then the weights `W`).
 - `rotation_filter.h`: `RotationFilter`, the check that drops rotated or mirrored copies of assemblies.
-- `rotation_moves.h`: `RotationMoves`, the 90 degree turns' generator interface.
+- `rotation_moves.{h,cpp}`: `RotationMoves`, the 90 degree turns' generator interface, and what its generators share: a piece's cells, the moving body's box, the turned position (`turnedNode`, with the one cell turn, `RotationRules::rotateCell`).
 - `rotation_moves_classic.{h,cpp}`: `RotationMovesClassic`, complete: every group about every pivot.
 - `rotation_moves_crowell.{h,cpp}`: `RotationMovesCrowell`, the Fortran solver's heuristics (`CROWELL.md`).
 - `rotation_rules.{h,cpp}`: `RotationRules`, whether a 90 degree turn is possible: bit for bit the original's answers.
@@ -273,7 +274,8 @@ Files in `core/shapelogic/solve/`:
 - `solver_type.{h,cpp}`: `SolverType` (Classic and Crowell, labeled Complete (ShapeLogic) and Fast (Crowell)), `chooseAssembler()`, `makeAssembler()` (decision 0019: the original's BurrTools 2 solver is not kept; where decisions 0009 to 0011 describe it, 0019 holds).
 - `stack_search.{h,cpp}`: `findStackPath`, the Stacking Solver's own search, and `StackingOptions`.
 - `subtree_split.h`: `SubtreeSplitter`, through which the vector searches hand branches on.
-- `take_apart_pool.{h,cpp}`: `TakeApartPool`, a search's assemblies taken apart side by side (the CLI's).
+- `task_search.h`: what both assemblers' searches hand the run layer alike: `reportSplitAssembly`, `SplitTaskSearch<Policy>` (a thread's search of its tasks), `vectorSearchWhole`.
+- `take_apart_pool.{h,cpp}`: `TakeApartPool`, a search's assemblies taken apart side by side: the CLI's (results in order) and the session's (as they come, numbered); a stop gives back what was not taken apart, as stopped.
 
 Rules of the assemblers (decisions 0009, 0024, 0041, 0048):
 - Checked by the harness: assembly counts on every tier, one and all
@@ -351,8 +353,8 @@ pause/continue stress tests):
   and failure locks; the results lock around `beginSolving` (an assembler 1
   replay holds up `readProblem` and `progress()` meanwhile) and
   `storePosition`; the run lock around the assembler's `finished()` /
-  `iterations()` and the disassemblers' progress and times (outside their
-  own locks); the queue lock around a stop request.
+  `iterations()` and the take-apart pool's progress and times (outside its
+  own lock); the pool's lock is never held around the result function.
 
 ## mesh
 

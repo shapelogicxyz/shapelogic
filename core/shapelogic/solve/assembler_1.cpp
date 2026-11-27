@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from src/lib/assembler_1.cpp (and simdHuangMemoryEstimate, now in
-// simd_huang_cover.cpp). The search code is the original's: the plain
+// simd_huang_cover.cpp). The search code is the original's: its plain
 // search (iterative), the worker's copy of it (assemblerWorker_1) and the
-// task generation's copy (generateTasksAtDepth) stay three state machines,
-// as there. What changed is around them: the stop is the run's token, the
+// task generation's copy (generateTasksAtDepth) are one state machine here
+// (searchMachine), made three times with what differs between them.
+// What else changed is around them: the stop is the run's token, the
 // threads come from the pool through runSplitTasks(), the split and vector state
 // is a SplitSearchState, the saved position is a string and is checked
 // before it is used, the progress of the plain search is published by its
@@ -16,8 +17,10 @@
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
-#include "shapelogic/solve/placement_finder.h"
+#include "shapelogic/model/sliding.h"
+#include "shapelogic/solve/matrix_build.h"
 #include "shapelogic/solve/simd_huang_cover.h"
+#include "shapelogic/solve/task_search.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -33,22 +36,6 @@ namespace {
 /// with the variable voxels built as filled ones (Assembler1::variableFilled_).
 constexpr unsigned int kFilledVariables = 8;
 
-/// Adds `piece` to the cache unless an identical shape is there. Returns it,
-/// or null when it was a duplicate (and is dropped).
-const Voxel* addToCache(std::vector<std::unique_ptr<Voxel>>& cache,
-                        std::unique_ptr<Voxel> piece) {
-  for (const auto& c : cache) {
-    if (c->identicalInBB(*piece)) {
-      return nullptr;
-    }
-  }
-  cache.push_back(std::move(piece));
-  return cache.back().get();
-}
-
-/// A sliding tray need not be filled (sliding::isSliding in the original).
-bool isSliding(const Puzzle& puzzle) { return puzzle.getGridType().getType() == GridKind::Sliding; }
-
 /// The product as the original's int multiplication gives it: modulo 2^32,
 /// read as signed.
 int wrapMul(unsigned int a, unsigned int b) { return static_cast<int>(a * b); }
@@ -58,14 +45,6 @@ int wrapMul(unsigned int a, unsigned int b) { return static_cast<int>(a * b); }
 /// was passed but not used), in int.
 bool betterParams(unsigned int nSum, unsigned int nMax, unsigned int oSum, unsigned int oMax) {
   return wrapMul(nSum, nMax) < wrapMul(oSum, oMax);
-}
-
-/// strtol from `s`, cast to unsigned int; returns the characters consumed
-/// (the original's getInt: no digits read 0).
-unsigned int getInt(const char* s, unsigned int* i) {
-  char* s2 = nullptr;
-  *i = static_cast<unsigned int>(std::strtol(s, &s2, 10));
-  return static_cast<unsigned int>(s2 - s);
 }
 
 /// A vector as the original wrote it: its size and its values, each
@@ -244,56 +223,7 @@ const Assembler1::PiecePosition& Assembler1::placementOf(unsigned int node) cons
 }
 
 std::size_t Assembler1::rowIndexOf(unsigned int node) const {
-  // by halving, as DlxMatrix::placementOf
-  std::size_t lo = 0;
-  std::size_t hi = piecePositions_.size();
-  while (lo < hi) {
-    const std::size_t mid = lo + (hi - lo) / 2;
-    if (piecePositions_[mid].row <= node) {
-      lo = mid + 1;
-    } else {
-      hi = mid;
-    }
-  }
-
-  BT_ASSERT_MSG(lo != 0, "getPieceInformation: no piece position for the node");
-
-  return lo - 1;
-}
-
-void Assembler1::prepareRowCheck(const SearchOptions& options) {
-  rowCheck_.reset();
-  if (!options.rowRotationCheck || !filter_.avoidTransformed) {
-    return;
-  }
-
-  std::vector<RowRotationCheck::Row> rows;
-  rows.reserve(piecePositions_.size());
-  for (const PiecePosition& pp : piecePositions_) {
-    rows.push_back({pp.piece, Placement{pp.transformation, pp.x, pp.y, pp.z}});
-  }
-  rowCheck_ = RowRotationCheck::make(puzzle_, problem_, filter_, std::move(rows));
-
-  // a row's nodes are made one after the other, the rows in order
-  if (rowCheck_ != nullptr && rowOfNode_.size() != links_.left.size()) {
-    rowOfNode_.assign(links_.left.size(), 0);
-    for (std::size_t i = 0; i < piecePositions_.size(); i++) {
-      const std::size_t end =
-          i + 1 < piecePositions_.size() ? piecePositions_[i + 1].row : rowOfNode_.size();
-      for (std::size_t node = piecePositions_[i].row; node < end; node++) {
-        rowOfNode_[node] = static_cast<std::uint32_t>(i);
-      }
-    }
-  }
-}
-
-bool Assembler1::rowCheckRejects(const std::vector<unsigned int>& rows,
-                                 RowRotationCheck::Scratch& scratch) const {
-  scratch.found.clear();
-  for (const unsigned int row : rows) {
-    scratch.found.push_back(rowOfNode_[row]);
-  }
-  return rowCheck_->rejects(scratch);
+  return bt::rowIndexOf(piecePositions_, node);
 }
 
 void Assembler1::addVoxelNode(unsigned int col, unsigned int piecenode) {
@@ -398,7 +328,7 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
         case Voxel::kFilled:
           // Sliding does not require the tray to be filled: a normal cell
           // may stay empty, the same as a variable cell.
-          if (result.getState(i) == Voxel::kFilled && isSliding(puzzle_)) {
+          if (result.getState(i) == Voxel::kFilled && sliding::isSliding(puzzle_)) {
             holeColumn(c);
           }
           columns[i] = c++;
@@ -475,186 +405,55 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
     }
 
     if (sym.symmetryContainsMirror(resultSym)) {
-      // The mirror check needs the mirror structure. Which case is this?
-      // 1) all pieces have mirror symmetry: check mirrors, no pairs
-      // 2) a piece has none:
-      //   2a) each such piece has a mirror partner: check mirrors, with pairs
-      //   2b) one has no partner: no mirror check
-      pc = 0;
-
-      struct Mm {
-        unsigned int shape;   // the shape of this piece
-        unsigned int mirror;  // the mirror shape of this piece
-        unsigned int trans;
-      };
-
-      std::vector<Mm> mirror(problem_.getNumberOfPieces());
-
-      for (unsigned int i = 0; i < problem_.getNumberOfParts(); i++) {
-        for (unsigned int p = 0; p < problem_.getPartMaximum(i); p++) {
-          mirror[pc].shape = i;
-          mirror[pc].mirror = static_cast<unsigned int>(-1);
-          mirror[pc].trans = 255;
-          pc++;
-        }
-      }
-
-      bool mirrorCheck = true;
-
-      for (unsigned int i = 0; i < problem_.getNumberOfPieces(); i++) {
-        // the mirror of this one was found already
-        if (mirror[i].mirror < problem_.getNumberOfPieces()) {
-          continue;
-        }
-
-        if (!sym.symmetryContainsMirror(
-                problem_.partShape(puzzle_, mirror[i].shape).selfSymmetries())) {
-          // not self-mirroring: look for a shape that is its mirror
-          bool found = false;
-
-          for (unsigned int j = i + 1; j < problem_.getNumberOfPieces(); j++) {
-            if (mirror[j].mirror < problem_.getNumberOfPieces()) {
-              continue;
-            }
-
-            const unsigned int trans =
-                problem_.partShape(puzzle_, mirror[i].shape)
-                    .getMirrorTransform(problem_.partShape(puzzle_, mirror[j].shape));
-
-            if (trans > 0) {
-              mirror[i].mirror = j;
-              mirror[i].trans = trans;
-              mirror[j].mirror = i;
-              mirror[j].trans = problem_.partShape(puzzle_, mirror[j].shape)
-                                    .getMirrorTransform(problem_.partShape(puzzle_, mirror[i].shape));
-
-              found = true;
-              break;
-            }
-          }
-
-          // a piece without mirror symmetry and without a partner: no
-          // mirror check
-          if (!found) {
-            mirrorCheck = false;
-            break;
-          }
-        }
-      }
-
-      // With ranges the structure is needed all the same: an assembly may
-      // use only pieces that mirror themselves.
-      if (mirrorCheck || pieceRanges) {
-        auto mir = std::make_unique<MirrorInfo>();
-
-        for (unsigned int i = 0; i < problem_.getNumberOfPieces(); i++) {
-          if (mirror[i].trans != 255) {
-            mir->addPieces(i, mirror[i].mirror, static_cast<unsigned char>(mirror[i].trans));
-          }
-        }
-
+      // With ranges the structure is needed even when a piece has no
+      // mirror partner: an assembly may use only pieces that mirror
+      // themselves.
+      if (std::unique_ptr<MirrorInfo> mir = mirrorPairs(puzzle_, problem_, pieceRanges)) {
         filter_.request(symBreakerPiece, std::move(mir));
       }
     }
   }
 
-  std::vector<std::unique_ptr<Voxel>> cache;
-  cache.reserve(sym.getNumTransformationsMirror());
+  // each placement a row: its part's column, the voxels it fills, and for
+  // a part with a range its voxels in the range column
+  struct Rows final : PlacementSink {
+    Rows(Assembler1& assembler, const std::vector<unsigned int>& cols, bool range,
+         unsigned int rangeCol)
+        : a(assembler), columns(cols), hasRange(range), rangeColumn(rangeCol) {}
 
-  const PlacementFinder finder(puzzle_, problem_, result, strictColors_, startLocks_);
-  std::vector<long> voxelOffsets;
-  std::vector<int> positions;
-
-  const long rsx = result.getX();
-  const long rsy = result.getY();
-
-  for (unsigned int pc = 0; pc < problem_.getNumberOfParts(); pc++) {
-    prepare_.piece.store(pc, std::memory_order_relaxed);
-    const PlacementFinder::StartLock lock{
-        static_cast<unsigned char>(problem_.getShapeIdOfPart(pc) + 1),
-        pc < freeStarts_.size() ? freeStarts_[pc] : true};
-
-    // the weights of the shape's column fit its number of pieces
-    max_[pc + 1] = problem_.getPartMaximum(pc);
-    min_[pc + 1] = problem_.getPartMinimum(pc);
-
-    const unsigned int voxels = problem_.partShape(puzzle_, pc).countState(Voxel::kFilled);
-
-    // the orientations found so far, so that no orientation goes in twice
-    cache.clear();
-    unsigned int placements = 0;
-
-    const unsigned int rotEnd = transformEnd(partTransforms_, sym);
-    for (unsigned int rot = 0; rot < rotEnd; rot++) {
-      if (!transformAllowed(partTransforms_, pc, rot)) {
-        continue;
-      }
-      if (stop.stopRequested()) {
-        return kPrepareStopped;
-      }
-      std::unique_ptr<Voxel> rotated = problem_.partShape(puzzle_, pc).clone();
-      if (!rotated->transform(rot)) {
-        continue;
+    void beginPart(unsigned int part) override {
+      // the weights of the shape's column fit its number of pieces
+      a.max_[part + 1] = a.problem_.getPartMaximum(part);
+      a.min_[part + 1] = a.problem_.getPartMinimum(part);
+      voxels = a.problem_.partShape(a.puzzle_, part).countState(Voxel::kFilled);
+    }
+    void addRow(unsigned int part, unsigned int rot, int x, int y, int z, long base,
+                const std::vector<long>& offsets) override {
+      const unsigned int piecenode = a.addPieceNode(part, rot, x, y, z);
+      for (const long off : offsets) {
+        a.addVoxelNode(columns[static_cast<std::size_t>(base + off)], piecenode);
       }
 
-      const Voxel* rotation = addToCache(cache, std::move(rotated));
-
-      if (rotation != nullptr) {
-        finder.find(*rotation, voxelOffsets, positions, stop, lock);
-        // stopped, the finder's list is not whole
-        if (stop.stopRequested()) {
-          return kPrepareStopped;
-        }
-
-        for (std::size_t p = 0; p < positions.size(); p += 3) {
-          if ((p & kPreparePollMask) == 0 && p != 0 && stop.stopRequested()) {
-            return kPrepareStopped;
-          }
-          const int x = positions[p];
-          const int y = positions[p + 1];
-          const int z = positions[p + 2];
-
-          const unsigned int piecenode = addPieceNode(
-              pc, rot, x + rotation->getHx(), y + rotation->getHy(), z + rotation->getHz());
-          placements++;
-
-          // the voxels the piece fills
-          const long base = x + rsx * (y + rsy * static_cast<long>(z));
-          for (const long off : voxelOffsets) {
-            addVoxelNode(columns[static_cast<std::size_t>(base + off)], piecenode);
-          }
-
-          // a piece of a part with a range counts its voxels in the range
-          // column
-          if (hasRange && (min_[pc + 1] != max_[pc + 1])) {
-            addRangeNode(rangeColumn, piecenode, voxels);
-          }
-        }
-
-        // for the symmetry breaker also every symmetry of the result
-        if (pc == symBreakerShape) {
-          for (unsigned int r = 1; r < sym.getNumTransformations(); r++) {
-            if (sym.symmetrieContainsTransformation(resultSym, r)) {
-              std::unique_ptr<Voxel> vx = problem_.partShape(puzzle_, pc).clone();
-
-              if (!vx->transform(rot) || !vx->transform(r)) {
-                continue;
-              }
-
-              (void)addToCache(cache, std::move(vx));
-            }
-          }
-        }
+      // a piece of a part with a range counts its voxels in the range
+      // column
+      if (hasRange && (a.min_[part + 1] != a.max_[part + 1])) {
+        a.addRangeNode(rangeColumn, piecenode, voxels);
       }
     }
+    void endOrientation() override {}
 
-    // a part that must be used and fits nowhere
-    if (placements == 0 && problem_.getPartMinimum(pc) > 0) {
-      return -asInt(problem_.getShapeIdOfPart(pc));
-    }
-  }
+    Assembler1& a;
+    const std::vector<unsigned int>& columns;
+    bool hasRange;
+    unsigned int rangeColumn;
+    unsigned int voxels = 0;
+  };
+  Rows rows(*this, columns, hasRange, rangeColumn);
 
-  return kPrepared;
+  // a part that need not be used may fit nowhere
+  const PlaceParts how{strictColors_,   startLocks_, freeStarts_, partTransforms_,
+                       symBreakerShape, resultSym,   false};
+  return placeParts(puzzle_, problem_, how, rows, prepare_.piece, stop);
 }
 
 AssemblerError Assembler1::createMatrix(const MatrixOptions& options, const StopToken& stop) {
@@ -678,7 +477,7 @@ AssemblerError Assembler1::createMatrix(const MatrixOptions& options, const Stop
       problem_.resultShape(puzzle_).countState(Voxel::kFilled) + resVari;
 
   // Sliding lets the pieces leave normal cells empty.
-  if (isSliding(puzzle_)) {
+  if (sliding::isSliding(puzzle_)) {
     resVari = resFilled;
   }
 
@@ -696,7 +495,7 @@ AssemblerError Assembler1::createMatrix(const MatrixOptions& options, const Stop
   // the problem has 0 or 1 of may be left out, whatever that leaves empty
   // (the original's maxHoles for sliding was only the slack that let the
   // assembler accept the tray; its hole count did not hold either).
-  if (isSliding(puzzle_)) {
+  if (sliding::isSliding(puzzle_)) {
     holes_ = 0xFFFFFF;
   } else if (min == max) {
     holes_ = resFilled - min;
@@ -790,100 +589,33 @@ void Assembler1::removeColumn(unsigned int c) {
 // signature and only compared exactly within a group, which is linear in the
 // number of nodes. Returns the number of columns removed.
 unsigned int Assembler1::clumpify() {
-  const Links& n = links_;
+  const std::vector<ColumnTwin> twins = columnTwins(
+      links_, piecePositions_,
+      [this](unsigned int col, std::vector<std::uint64_t>& out) {
+        out.push_back(min_[col]);
+        out.push_back(max_[col]);
+      },
+      [this](unsigned int node, std::vector<std::uint64_t>& out) {
+        out.push_back(links_.weight[node]);
+      });
 
-  // the columns in header ring order; the first of each group survives
-  std::vector<unsigned int> cols;
-  for (unsigned int c = n.right[0]; c; c = n.right[c]) {
-    cols.push_back(c);
+  for (const ColumnTwin& t : twins) {
+    // The cells a merged hole column stood for are empty exactly when
+    // the survivor is (the same rows fill both), so the survivor counts
+    // them from now on: a cell with one placement merges into that
+    // piece's column, and the piece left out leaves the cell a hole.
+    if (holeWeight_[t.column] != 0) {
+      if (holeWeight_[t.first] == 0) {
+        holeColumns_.push_back(t.first);
+      }
+      holeWeight_[t.first] += holeWeight_[t.column];
+      holeWeight_[t.column] = 0;
+      std::erase(holeColumns_, t.column);
+    }
+    removeColumn(t.column);
   }
 
-  // all signatures back to back, with the start of each
-  std::vector<unsigned long> sigData;
-  std::vector<unsigned long> sigStart;
-  std::vector<unsigned long long> sigHash;
-
-  sigStart.reserve(cols.size() + 1);
-  sigHash.reserve(cols.size());
-
-  for (const unsigned int col : cols) {
-    sigStart.push_back(sigData.size());
-
-    unsigned long long h = 14695981039346656037ULL;
-    h = (h ^ min_[col]) * 1099511628211ULL;
-    h = (h ^ max_[col]) * 1099511628211ULL;
-
-    unsigned int line = 0;
-
-    for (unsigned int row = n.down(col); row != col; row = n.down(row)) {
-      // the placement row of this node; nodes come in increasing order so
-      // the line only ever advances
-      while ((line + 1 < piecePositions_.size()) && (piecePositions_[line + 1].row <= row)) {
-        line++;
-      }
-
-      sigData.push_back(line);
-      sigData.push_back(n.weight[row]);
-
-      h = (h ^ line) * 1099511628211ULL;
-      h = (h ^ static_cast<unsigned long long>(n.weight[row])) * 1099511628211ULL;
-    }
-
-    sigHash.push_back(h);
-  }
-
-  sigStart.push_back(sigData.size());
-
-  std::unordered_map<unsigned long long, std::vector<std::size_t>> groups;
-
-  unsigned int removed = 0;
-
-  for (std::size_t i = 0; i < cols.size(); i++) {
-    std::vector<std::size_t>& group = groups[sigHash[i]];
-
-    bool dup = false;
-    unsigned int keep = 0;
-
-    for (const std::size_t j : group) {
-      if (min_[cols[i]] != min_[cols[j]] || max_[cols[i]] != max_[cols[j]]) {
-        continue;
-      }
-
-      const unsigned long leni = sigStart[i + 1] - sigStart[i];
-
-      if (leni != sigStart[j + 1] - sigStart[j]) {
-        continue;
-      }
-
-      if ((leni == 0) || (std::memcmp(&sigData[sigStart[i]], &sigData[sigStart[j]],
-                                      leni * sizeof(unsigned long)) == 0)) {
-        dup = true;
-        keep = cols[j];
-        break;
-      }
-    }
-
-    if (dup) {
-      // The cells a merged hole column stood for are empty exactly when
-      // the survivor is (the same rows fill both), so the survivor counts
-      // them from now on: a cell with one placement merges into that
-      // piece's column, and the piece left out leaves the cell a hole.
-      if (holeWeight_[cols[i]] != 0) {
-        if (holeWeight_[keep] == 0) {
-          holeColumns_.push_back(keep);
-        }
-        holeWeight_[keep] += holeWeight_[cols[i]];
-        holeWeight_[cols[i]] = 0;
-        std::erase(holeColumns_, cols[i]);
-      }
-      removeColumn(cols[i]);
-      removed++;
-    } else {
-      group.push_back(i);
-    }
-  }
-
-  return removed;
+  return static_cast<unsigned int>(twins.size());
 }
 
 void Assembler1::removeRow(unsigned int r) {
@@ -1205,7 +937,8 @@ Assembly Assembler1::currentAssembly() const { return assemblyFromRows(stacks_.r
 // thread: dropped when a rotation of it is smaller, else handed over.
 void Assembler1::solution(SearchRun& run) {
   if (run.hasCallback()) {
-    if (rowCheck_ != nullptr && rowCheckRejects(stacks_.rows, rowScratch_)) {
+    if (rowCheck_ != nullptr && rowCheckRejects(*rowCheck_, rowOfNode_, stacks_.rows.data(),
+                                                stacks_.rows.size(), rowScratch_)) {
       return;
     }
 
@@ -1249,34 +982,32 @@ float Assembler1::serialFraction() const {
 //   6  take the current row out, hide it for the rest, go on with the next
 //   7  all rows tried: show the hidden rows, return
 // Only states 1, 2 and 5 can be saved and restored; a stop waits for one.
-void Assembler1::iterative(SearchRun& run) {
-  Links& n = links_;
-  SearchStacks& s = stacks_;
+//
+// One machine for the three searches that run it (the original has a copy
+// of it for each, and every fix went into three places): the plain search
+// on the caller's thread (iterative), a thread's search of a task (Worker)
+// and the making of the tasks (generateTasksAtDepth). What differs between
+// them is in `hooks`, whose calls are inlined into the machine made for
+// each:
+//   more(s)       whether the search goes on (its part of the stack is not
+//                 through)
+//   step(state)   before every step: counts it and looks at the stop; false
+//                 ends the search
+//   assembly(s)   every column is covered; false ends the search
+//   cutOff(s)     true for a frame that is not searched (the task maker's
+//                 depth)
+//   rowsBegin(count), rowDone(), rowsEnd()
+//                 the plain search's progress stacks: a column's rows are
+//                 begun, one of them is through, all of them are
+// False when a hook ended the search, true when it ran out.
+template <class Hooks>
+bool Assembler1::searchMachine(Links& n, SearchStacks& s, Hooks& hooks) const {
   unsigned int row = 0;
   unsigned int col = 0;
-  unsigned int sincePublished = 0;
 
-  while (!s.taskStack.empty()) {
-    iterations_.store(iterations_.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
-    if (++sincePublished == 4096) {
-      sincePublished = 0;
-      publishSerialProgress();
-    }
-
-    // a stop waits for a state that can be restored
-    const unsigned int state = s.taskStack.back();
-    const bool restorable = state == 1 || state == 2 || state == 5;
-    if (restorable && run.stopRequested()) {
-      break;
-    }
-
-    // the debugger
-    if (debug_ && restorable) {
-      if (debugLoops_ <= 0) {
-        break;
-      }
-
-      debugLoops_--;
+  while (hooks.more(s)) {
+    if (!hooks.step(s.taskStack.back())) {
+      return false;
     }
 
     switch (s.taskStack.back()) {
@@ -1288,17 +1019,25 @@ void Assembler1::iterative(SearchRun& run) {
           break;
         }
 
-        // called with a header node (0 included): all rows are done, choose
-        // a new column
-        if (s.nextRowStack.back() < headerNodes_) {
-          // no column left: an assembly
-          if (n.right[0] == 0) {
-            solution(run);
-            s.nextRowStack.pop_back();
-            s.taskStack.pop_back();
-            break;
+        // called with a header node (0 included) and no column left: an
+        // assembly
+        if (s.nextRowStack.back() < headerNodes_ && n.right[0] == 0) {
+          if (!hooks.assembly(s)) {
+            return false;
           }
+          s.nextRowStack.pop_back();
+          s.taskStack.pop_back();
+          break;
+        }
 
+        if (hooks.cutOff(s)) {
+          s.nextRowStack.pop_back();
+          s.taskStack.pop_back();
+          break;
+        }
+
+        // called with a header node: all rows are done, choose a new column
+        if (s.nextRowStack.back() < headerNodes_) {
           // the column with the fewest possibilities, as in the dancing
           // links search
           const unsigned int c = findBestUnclosedColumn(n);
@@ -1350,8 +1089,7 @@ void Assembler1::iterative(SearchRun& run) {
         // The column's condition may already be met without another row:
         // then search on with its remaining rows taken out first.
         if (columnConditionFulfilled(n, col)) {
-          finishedB_.push_back(n.colCount[n.colCount[s.nextRowStack.back()]] + 1);
-          finishedA_.push_back(0);
+          hooks.rowsBegin(n.colCount[col] + 1);
 
           // the column's value must not change any more
           n.coverColumnRows(col);
@@ -1367,8 +1105,7 @@ void Assembler1::iterative(SearchRun& run) {
           break;
         }
 
-        finishedB_.push_back(n.colCount[n.colCount[s.nextRowStack.back()]]);
-        finishedA_.push_back(0);
+        hooks.rowsBegin(n.colCount[col]);
 
         s.taskStack.back() = 3;
         break;
@@ -1386,7 +1123,7 @@ void Assembler1::iterative(SearchRun& run) {
         // put the column's rows back
         n.uncoverColumnRows(n.colCount[s.nextRowStack.back()]);
 
-        finishedA_.back()++;
+        hooks.rowDone();
 
         [[fallthrough]];
       case 3:
@@ -1471,7 +1208,7 @@ void Assembler1::iterative(SearchRun& run) {
 
         s.rows.pop_back();
 
-        finishedA_.back()++;
+        hooks.rowDone();
 
         // done with this row: it is not used again here
         n.hideRow(row);
@@ -1490,8 +1227,7 @@ void Assembler1::iterative(SearchRun& run) {
         // show the rows hidden while trying the rows of this column
         n.unhideRows(s.hiddenRows);
 
-        finishedA_.pop_back();
-        finishedB_.pop_back();
+        hooks.rowsEnd();
 
         s.nextRowStack.pop_back();
         s.taskStack.pop_back();
@@ -1502,6 +1238,65 @@ void Assembler1::iterative(SearchRun& run) {
         break;
     }
   }
+  return true;
+}
+
+// The search on the caller's thread: its steps counted and published now
+// and then, the stop and the debugger at the states that can be restored,
+// and the progress stacks kept (serialFraction).
+void Assembler1::iterative(SearchRun& run) {
+  struct Hooks {
+    Assembler1& a;
+    SearchRun& run;
+    unsigned int sincePublished = 0;
+
+    [[nodiscard]] static bool more(const SearchStacks& s) { return !s.taskStack.empty(); }
+
+    [[nodiscard]] bool step(unsigned int state) {
+      a.iterations_.store(a.iterations_.load(std::memory_order_relaxed) + 1,
+                          std::memory_order_relaxed);
+      if (++sincePublished == 4096) {
+        sincePublished = 0;
+        a.publishSerialProgress();
+      }
+
+      // a stop waits for a state that can be restored
+      const bool restorable = state == 1 || state == 2 || state == 5;
+      if (restorable && run.stopRequested()) {
+        return false;
+      }
+
+      // the debugger
+      if (a.debug_ && restorable) {
+        if (a.debugLoops_ <= 0) {
+          return false;
+        }
+
+        a.debugLoops_--;
+      }
+      return true;
+    }
+
+    [[nodiscard]] bool assembly(const SearchStacks& /*s*/) {
+      a.solution(run);
+      return true;
+    }
+
+    [[nodiscard]] static bool cutOff(const SearchStacks& /*s*/) { return false; }
+
+    void rowsBegin(unsigned int count) {
+      a.finishedB_.push_back(count);
+      a.finishedA_.push_back(0);
+    }
+    void rowDone() { a.finishedA_.back()++; }
+    void rowsEnd() {
+      a.finishedA_.pop_back();
+      a.finishedB_.pop_back();
+    }
+  };
+
+  Hooks hooks{*this, run};
+  (void)searchMachine(links_, stacks_, hooks);
 }
 
 // ---- the search split over threads -----------------------------------------------
@@ -1560,190 +1355,48 @@ class Assembler1::Worker {
   // that waits for the frame above it: states 0, 1, 2 and 5), which takes a
   // few steps at most.
   bool search(std::size_t baseDepth) {
-    const Assembler1& p = parent_;
-    Links& n = n_;
-    SearchStacks& s = s_;
-    unsigned int row = 0;
-    unsigned int col = 0;
+    struct Hooks {
+      Worker& w;
+      std::size_t baseDepth;
 
-    while (s.taskStack.size() >= baseDepth) {
-      if (run_.stopRequested()) {
-        const unsigned int state = s.taskStack.back();
-        if (state == 0 || state == 1 || state == 2 || state == 5) {
-          leave(baseDepth);
+      [[nodiscard]] bool more(const SearchStacks& s) const {
+        return s.taskStack.size() >= baseDepth;
+      }
+
+      [[nodiscard]] bool step(unsigned int state) {
+        if (w.run_.stopRequested()) {
+          if (state == 0 || state == 1 || state == 2 || state == 5) {
+            w.leave(baseDepth);
+            return false;
+          }
+        }
+        w.begun_ = true;
+
+        w.localIterations_++;
+        if ((w.localIterations_ - w.flushedIterations_) >= 128) {
+          w.flushIterations();
+        }
+        return true;
+      }
+
+      // An assembly found once the run is stopped is not handed over: the
+      // frame is left as not begun, and the next run finds it again.
+      [[nodiscard]] bool assembly(const SearchStacks& s) {
+        if (!w.parent_.reportParallelSolution(w.run_, s.rows, w.rowScratch_)) {
+          w.leave(baseDepth);
           return false;
         }
-      }
-      begun_ = true;
-
-      localIterations_++;
-      if ((localIterations_ - flushedIterations_) >= 128) {
-        flushIterations();
+        return true;
       }
 
-      switch (s.taskStack.back()) {
-        case 0:
-          if (p.tooManyHoles(n)) {
-            s.nextRowStack.pop_back();
-            s.taskStack.pop_back();
-            break;
-          }
+      [[nodiscard]] static bool cutOff(const SearchStacks& /*s*/) { return false; }
+      static void rowsBegin(unsigned int /*count*/) {}
+      static void rowDone() {}
+      static void rowsEnd() {}
+    };
 
-          if (s.nextRowStack.back() < p.headerNodes_) {
-            if (n.right[0] == 0) {
-              // An assembly found once the run is stopped is not handed
-              // over: the frame is left as not begun, and the next run
-              // finds it again.
-              if (!parent_.reportParallelSolution(run_, s.rows, rowScratch_)) {
-                leave(baseDepth);
-                return false;
-              }
-              s.nextRowStack.pop_back();
-              s.taskStack.pop_back();
-              break;
-            }
-
-            const unsigned int c = p.findBestUnclosedColumn(n);
-            if (c == 0) {
-              s.nextRowStack.pop_back();
-              s.taskStack.pop_back();
-              break;
-            }
-
-            if (n.colCount[c] == 0) {
-              if (p.columnConditionFulfilled(n, c)) {
-                n.coverColumnOnly(c);
-                s.columnStack.push_back(c);
-                s.taskStack.back() = 1;
-                s.taskStack.push_back(0);
-                s.nextRowStack.push_back(0);
-                break;
-              }
-            } else {
-              n.coverColumnOnly(c);
-              s.columnStack.push_back(c);
-              s.taskStack.back() = 1;
-              s.taskStack.push_back(0);
-              s.nextRowStack.push_back(n.down(c));
-              break;
-            }
-
-            s.nextRowStack.pop_back();
-            s.taskStack.pop_back();
-            break;
-          }
-
-          col = n.colCount[s.nextRowStack.back()];
-          BT_ASSERT(p.columnConditionFulfillable(n, col));
-
-          if (p.columnConditionFulfilled(n, col)) {
-            n.coverColumnRows(col);
-            if (p.openColumnConditionsFulfillable(n)) {
-              s.taskStack.back() = 2;
-              s.taskStack.push_back(0);
-              s.nextRowStack.push_back(0);
-              break;
-            }
-            s.taskStack.back() = 2;
-            break;
-          }
-
-          s.taskStack.back() = 3;
-          break;
-
-        case 1:
-          n.uncoverColumnOnly(s.columnStack.back());
-          s.columnStack.pop_back();
-          s.nextRowStack.pop_back();
-          s.taskStack.pop_back();
-          break;
-
-        case 2:
-          n.uncoverColumnRows(n.colCount[s.nextRowStack.back()]);
-          [[fallthrough]];
-
-        case 3:
-          s.hiddenRows.push_back(0);
-          row = s.nextRowStack.back();
-          if (n.up(row) >= row) {
-            s.taskStack.back() = 7;
-            break;
-          }
-          s.rows.push_back(row);
-          [[fallthrough]];
-
-        case 4:
-          row = s.rows.back();
-          col = n.colCount[s.nextRowStack.back()];
-          n.weight[n.colCount[row]] += n.weight[row];
-          for (unsigned int r = n.right[row]; r != row; r = n.right[r]) {
-            n.weight[n.colCount[r]] += n.weight[r];
-          }
-
-          if (p.openColumnConditionsFulfillable(n)) {
-            n.hideRows(row, s.hiddenRows, p.max_);
-            if (p.openColumnConditionsFulfillable(n)) {
-              if (n.colCount[col] == 0) {
-                if (p.columnConditionFulfilled(n, col)) {
-                  s.taskStack.back() = 5;
-                  s.taskStack.push_back(0);
-                  s.nextRowStack.push_back(0);
-                  break;
-                }
-              } else {
-                if (p.columnConditionFulfillable(n, col)) {
-                  unsigned int newrow = row;
-                  while ((n.down(newrow) >= p.headerNodes_) && n.up(n.down(newrow)) != newrow) {
-                    newrow = n.down(newrow);
-                  }
-                  s.taskStack.back() = 5;
-                  s.taskStack.push_back(0);
-                  s.nextRowStack.push_back(newrow);
-                  break;
-                }
-              }
-            }
-          } else {
-            s.taskStack.back() = 6;
-            break;
-          }
-          [[fallthrough]];
-
-        case 5:
-          n.unhideRows(s.hiddenRows);
-          [[fallthrough]];
-
-        case 6:
-          row = s.rows.back();
-          for (unsigned int r = n.left[row]; r != row; r = n.left[r]) {
-            n.weight[n.colCount[r]] -= n.weight[r];
-          }
-          n.weight[n.colCount[row]] -= n.weight[row];
-          s.rows.pop_back();
-
-          n.hideRow(row);
-          s.hiddenRows.push_back(row);
-
-          row = n.down(row);
-          if (n.up(row) < row) {
-            s.rows.push_back(row);
-            s.taskStack.back() = 4;
-            break;
-          }
-          [[fallthrough]];
-
-        case 7:
-          n.unhideRows(s.hiddenRows);
-          s.nextRowStack.pop_back();
-          s.taskStack.pop_back();
-          break;
-
-        default:
-          BT_ASSERT_MSG(false, "assembler 1: a state that does not exist");
-          break;
-      }
-    }
-    return true;
+    Hooks hooks{*this, baseDepth};
+    return parent_.searchMachine(n_, s_, hooks);
   }
 
   void flushIterations() {
@@ -1776,57 +1429,49 @@ class Assembler1::Worker {
 bool Assembler1::reportParallelSolution(SearchRun& run,
                                         const std::vector<unsigned int>& solutionRows,
                                         RowRotationCheck::Scratch& scratch) {
-  if (!run.hasCallback()) {
-    return true;
-  }
-
-  if (rowCheck_ != nullptr && rowCheckRejects(solutionRows, scratch)) {
-    return true;
-  }
-
-  Assembly assembly = assemblyFromRows(solutionRows);
-
-  if (rowCheck_ == nullptr && filter_.rejects(assembly, puzzle_, problem_, strictColors_)) {
-    return true;
-  }
-
-  // one task, the whole search, left exactly at every stop: nothing is
-  // found twice
-  if (split_.exact) {
-    return run.deliverUnlessStopped(std::move(assembly));
-  }
-
-  // What tells this assembly from the others, to report it once only. It is
-  // taken from the sorted assembly, so that it is the same whatever order
-  // the rows were found in: the plain and the vector search place them in
-  // different orders, and so may two tasks that both hold it. A search
-  // loaded from a file of an older version (rowOrderSignatures_) has
-  // signatures taken from the rows in the order of the plain search, and
-  // goes on with those.
-  std::uint64_t sig = kFnvOffset;
-  if (rowOrderSignatures_) {
-    for (const unsigned int row : solutionRows) {
-      const PiecePosition& pp = placementOf(row);
-      sig = fnvMix(sig, pp.piece);
-      sig = fnvMix(sig, pp.transformation);
-      sig = fnvMix(sig, static_cast<std::uint32_t>(pp.x));
-      sig = fnvMix(sig, static_cast<std::uint32_t>(pp.y));
-      sig = fnvMix(sig, static_cast<std::uint32_t>(pp.z));
-    }
-  } else {
-    for (const Placement& pl : assembly.getPlacements()) {
-      if (pl.transformation != kUnplacedTrans) {
-        sig = fnvMix(sig, pl.transformation);
-        sig = fnvMix(sig, static_cast<std::uint32_t>(pl.xpos));
-        sig = fnvMix(sig, static_cast<std::uint32_t>(pl.ypos));
-        sig = fnvMix(sig, static_cast<std::uint32_t>(pl.zpos));
-      } else {
-        sig = fnvMix(sig, 0xFF);
-      }
-    }
-  }
-
-  return run.deliverOnce(std::move(assembly), sig, split_.reported);
+  return reportSplitAssembly(
+      run, split_,
+      [&] {
+        return rowCheck_ != nullptr &&
+               rowCheckRejects(*rowCheck_, rowOfNode_, solutionRows.data(), solutionRows.size(),
+                               scratch);
+      },
+      [&] { return assemblyFromRows(solutionRows); },
+      [&](const Assembly& assembly) {
+        return rowCheck_ == nullptr && filter_.rejects(assembly, puzzle_, problem_, strictColors_);
+      },
+      [&](const Assembly& assembly) {
+        // What tells this assembly from the others, to report it once only.
+        // It is taken from the sorted assembly, so that it is the same
+        // whatever order the rows were found in: the plain and the vector
+        // search place them in different orders, and so may two tasks that
+        // both hold it. A search loaded from a file of an older version
+        // (rowOrderSignatures_) has signatures taken from the rows in the
+        // order of the plain search, and goes on with those.
+        std::uint64_t sig = kFnvOffset;
+        if (rowOrderSignatures_) {
+          for (const unsigned int row : solutionRows) {
+            const PiecePosition& pp = placementOf(row);
+            sig = fnvMix(sig, pp.piece);
+            sig = fnvMix(sig, pp.transformation);
+            sig = fnvMix(sig, static_cast<std::uint32_t>(pp.x));
+            sig = fnvMix(sig, static_cast<std::uint32_t>(pp.y));
+            sig = fnvMix(sig, static_cast<std::uint32_t>(pp.z));
+          }
+        } else {
+          for (const Placement& pl : assembly.getPlacements()) {
+            if (pl.transformation != kUnplacedTrans) {
+              sig = fnvMix(sig, pl.transformation);
+              sig = fnvMix(sig, static_cast<std::uint32_t>(pl.xpos));
+              sig = fnvMix(sig, static_cast<std::uint32_t>(pl.ypos));
+              sig = fnvMix(sig, static_cast<std::uint32_t>(pl.zpos));
+            } else {
+              sig = fnvMix(sig, 0xFF);
+            }
+          }
+        }
+        return sig;
+      });
 }
 
 // The tasks of a split search: the plain search from its start, cut off
@@ -1845,177 +1490,43 @@ void Assembler1::generateTasksAtDepth(SearchRun& run, unsigned int cutoffDepth,
   s.taskStack = {0};
   s.nextRowStack = {0};
 
-  unsigned int row = 0;
-  unsigned int col = 0;
+  // The search to a stop or its end, every frame at the depth and every
+  // assembly above it a task, as the stacks stand there.
+  struct Hooks {
+    Assembler1& a;
+    SearchRun& run;
+    unsigned int cutoffDepth;
+    std::vector<SearchStacks>& tasks;
 
-  while (!s.taskStack.empty() && !run.stopRequested()) {
-    iterations_.fetch_add(1, std::memory_order_relaxed);
-
-    switch (s.taskStack.back()) {
-      case 0:
-        if (tooManyHoles(n)) {
-          s.nextRowStack.pop_back();
-          s.taskStack.pop_back();
-          break;
-        }
-
-        if (s.nextRowStack.back() < headerNodes_ && n.right[0] == 0) {
-          tasks.push_back(s);
-
-          s.nextRowStack.pop_back();
-          s.taskStack.pop_back();
-          break;
-        }
-
-        if (s.rows.size() >= cutoffDepth) {
-          tasks.push_back(s);
-
-          s.nextRowStack.pop_back();
-          s.taskStack.pop_back();
-          break;
-        }
-
-        if (s.nextRowStack.back() < headerNodes_) {
-          const unsigned int c = findBestUnclosedColumn(n);
-          if (c == 0) {
-            s.nextRowStack.pop_back();
-            s.taskStack.pop_back();
-            break;
-          }
-
-          if (n.colCount[c] == 0) {
-            if (columnConditionFulfilled(n, c)) {
-              n.coverColumnOnly(c);
-              s.columnStack.push_back(c);
-              s.taskStack.back() = 1;
-              s.taskStack.push_back(0);
-              s.nextRowStack.push_back(0);
-              break;
-            }
-          } else {
-            n.coverColumnOnly(c);
-            s.columnStack.push_back(c);
-            s.taskStack.back() = 1;
-            s.taskStack.push_back(0);
-            s.nextRowStack.push_back(n.down(c));
-            break;
-          }
-
-          s.nextRowStack.pop_back();
-          s.taskStack.pop_back();
-          break;
-        }
-
-        col = n.colCount[s.nextRowStack.back()];
-        BT_ASSERT(columnConditionFulfillable(n, col));
-
-        if (columnConditionFulfilled(n, col)) {
-          n.coverColumnRows(col);
-          if (openColumnConditionsFulfillable(n)) {
-            s.taskStack.back() = 2;
-            s.taskStack.push_back(0);
-            s.nextRowStack.push_back(0);
-            break;
-          }
-          s.taskStack.back() = 2;
-          break;
-        }
-
-        s.taskStack.back() = 3;
-        break;
-
-      case 1:
-        n.uncoverColumnOnly(s.columnStack.back());
-        s.columnStack.pop_back();
-        s.nextRowStack.pop_back();
-        s.taskStack.pop_back();
-        break;
-
-      case 2:
-        n.uncoverColumnRows(n.colCount[s.nextRowStack.back()]);
-        [[fallthrough]];
-
-      case 3:
-        s.hiddenRows.push_back(0);
-        row = s.nextRowStack.back();
-        if (n.up(row) >= row) {
-          s.taskStack.back() = 7;
-          break;
-        }
-        s.rows.push_back(row);
-        [[fallthrough]];
-
-      case 4:
-        row = s.rows.back();
-        col = n.colCount[s.nextRowStack.back()];
-        n.weight[n.colCount[row]] += n.weight[row];
-        for (unsigned int r = n.right[row]; r != row; r = n.right[r]) {
-          n.weight[n.colCount[r]] += n.weight[r];
-        }
-
-        if (openColumnConditionsFulfillable(n)) {
-          n.hideRows(row, s.hiddenRows, max_);
-          if (openColumnConditionsFulfillable(n)) {
-            if (n.colCount[col] == 0) {
-              if (columnConditionFulfilled(n, col)) {
-                s.taskStack.back() = 5;
-                s.taskStack.push_back(0);
-                s.nextRowStack.push_back(0);
-                break;
-              }
-            } else {
-              if (columnConditionFulfillable(n, col)) {
-                unsigned int newrow = row;
-                while ((n.down(newrow) >= headerNodes_) && n.up(n.down(newrow)) != newrow) {
-                  newrow = n.down(newrow);
-                }
-                s.taskStack.back() = 5;
-                s.taskStack.push_back(0);
-                s.nextRowStack.push_back(newrow);
-                break;
-              }
-            }
-          }
-        } else {
-          s.taskStack.back() = 6;
-          break;
-        }
-        [[fallthrough]];
-
-      case 5:
-        n.unhideRows(s.hiddenRows);
-        [[fallthrough]];
-
-      case 6:
-        row = s.rows.back();
-        for (unsigned int r = n.left[row]; r != row; r = n.left[r]) {
-          n.weight[n.colCount[r]] -= n.weight[r];
-        }
-        n.weight[n.colCount[row]] -= n.weight[row];
-        s.rows.pop_back();
-
-        n.hideRow(row);
-        s.hiddenRows.push_back(row);
-
-        row = n.down(row);
-        if (n.up(row) < row) {
-          s.rows.push_back(row);
-          s.taskStack.back() = 4;
-          break;
-        }
-        [[fallthrough]];
-
-      case 7:
-        n.unhideRows(s.hiddenRows);
-        s.nextRowStack.pop_back();
-        s.taskStack.pop_back();
-        break;
-
-      default:
-        BT_ASSERT_MSG(false, "assembler 1: a state that does not exist");
-        break;
+    [[nodiscard]] bool more(const SearchStacks& st) const {
+      return !st.taskStack.empty() && !run.stopRequested();
     }
-  }
+
+    [[nodiscard]] bool step(unsigned int /*state*/) {
+      a.iterations_.fetch_add(1, std::memory_order_relaxed);
+      return true;
+    }
+
+    [[nodiscard]] bool assembly(const SearchStacks& st) {
+      tasks.push_back(st);
+      return true;
+    }
+
+    [[nodiscard]] bool cutOff(const SearchStacks& st) {
+      if (st.rows.size() >= cutoffDepth) {
+        tasks.push_back(st);
+        return true;
+      }
+      return false;
+    }
+
+    static void rowsBegin(unsigned int /*count*/) {}
+    static void rowDone() {}
+    static void rowsEnd() {}
+  };
+
+  Hooks hooks{*this, run, cutoffDepth, tasks};
+  (void)searchMachine(n, s, hooks);
 
   s = SearchStacks{};
   s.taskStack = {0};
@@ -2135,59 +1646,38 @@ void Assembler1::parallelMultiSearch(SearchRun& run, unsigned int workers,
 
   SplitTasks<SearchStacks> tasks(split_, run, taskProgress_);
 
-  // One thread's search of its tasks: the vector search for subtrees (as
-  // the split made them, or as a vector search handed them on), whose
-  // branches become tasks here; the plain worker without a vector search,
-  // and for a task that stands where a plain worker stopped.
-  struct TaskSearch final : SubtreeSplitter {
-    TaskSearch(Assembler1& a, SearchRun& r, SplitTasks<SearchStacks>& t,
-               const SimdHuangCoverBase* solver, unsigned int s)
+  // One thread's search of its tasks (SplitTaskSearch): the vector search
+  // for subtrees (as the split made them, or as a vector search handed them
+  // on), whose branches become tasks here; the plain worker without a
+  // vector search, and for a task that stands where a plain worker stopped.
+  struct Search {
+    using Task = SearchStacks;
+
+    Search(Assembler1& a, SearchRun& r, SplitTasks<SearchStacks>& t,
+           const SimdHuangCoverBase* solver, unsigned int s)
         : self(a), run(r), tasks(t), simd(solver), slot(s) {}
 
-    bool operator()(std::size_t index, const SearchStacks& task, std::uint64_t taskUnits) {
-      if (simd == nullptr || !(task.rowSet() || task.atSubtreeRoot())) {
-        if (!plain) {
-          plain = std::make_unique<Worker>(self, run, tasks, slot);
-        }
-        return (*plain)(index, task);
+    [[nodiscard]] bool plainTakes(const SearchStacks& task) const {
+      return simd == nullptr || !(task.rowSet() || task.atSubtreeRoot());
+    }
+
+    bool plain(std::size_t index, const SearchStacks& task, std::uint64_t /*taskUnits*/) {
+      if (!worker) {
+        worker = std::make_unique<Worker>(self, run, tasks, slot);
       }
+      return (*worker)(index, task);
+    }
 
-      taskIndex = index;
-      units = taskUnits;
+    bool vector(const SearchStacks& task, SimdHuangCoverBase::SolutionCallback cover,
+                const StopToken& stop, std::atomic<std::uint64_t>& iterations,
+                SimdHuangCoverBase::ProgressCallback progress, SubtreeSplitter* splitter) {
       hidden = &task.hiddenRows;
-      std::atomic<std::uint64_t> taskIter{0};
-      auto drain = [this, &taskIter] {
-        self.iterations_.fetch_add(taskIter.exchange(0, std::memory_order_relaxed),
-                                   std::memory_order_relaxed);
-      };
-      const bool through = simd->solveSubtree(
-          task.rows, task.hiddenRows,
-          [this, &drain](const std::vector<unsigned int>& nodes) -> bool {
-            drain();
-            return self.reportParallelSolution(run, nodes, rowScratch);
-          },
-          run.token(), taskIter,
-          [this, &drain](float fraction) {
-            drain();
-            self.taskProgress_.reportUnits(slot, units, fraction);
-          },
-          this);
-      drain();
-      return through;
+      return simd->solveSubtree(task.rows, task.hiddenRows, std::move(cover), stop, iterations,
+                                std::move(progress), splitter);
     }
 
-    [[nodiscard]] bool wanted() const override { return tasks.wanted(); }
-
-    void handOff(SubtreeBranches&& branches) override {
-      TaskSplit<SearchStacks> split = toSplit(branches);
-      split.rest = toTask(branches.rest, branches.restHidden);
-      split.restShare = branches.restShare;
-      split.restFraction = branches.restFraction;
-      units = tasks.handOff(slot, taskIndex, std::move(split));
-    }
-
-    void leave(SubtreeBranches&& branches) override {
-      tasks.leave(slot, taskIndex, toSplit(branches));
+    bool report(const std::vector<unsigned int>& nodes, RowRotationCheck::Scratch& scratch) {
+      return self.reportParallelSolution(run, nodes, scratch);
     }
 
     // A branch as a task: its rows, and hidden the rows the task in hand
@@ -2205,15 +1695,11 @@ void Assembler1::parallelMultiSearch(SearchRun& run, unsigned int workers,
       t.hiddenRows.insert(t.hiddenRows.end(), more.begin(), more.end());
       return t;
     }
-
-    [[nodiscard]] TaskSplit<SearchStacks> toSplit(const SubtreeBranches& branches) const {
-      TaskSplit<SearchStacks> split;
-      split.shares = branches.shares;
-      split.branches.reserve(branches.branches.size());
-      for (std::size_t i = 0; i < branches.branches.size(); i++) {
-        split.branches.push_back(toTask(branches.branches[i], branches.hidden[i]));
-      }
-      return split;
+    [[nodiscard]] SearchStacks branchTask(const SubtreeBranches& branches, std::size_t i) const {
+      return toTask(branches.branches[i], branches.hidden[i]);
+    }
+    [[nodiscard]] SearchStacks restTask(const SubtreeBranches& branches) const {
+      return toTask(branches.rest, branches.restHidden);
     }
 
     Assembler1& self;
@@ -2221,17 +1707,15 @@ void Assembler1::parallelMultiSearch(SearchRun& run, unsigned int workers,
     SplitTasks<SearchStacks>& tasks;
     const SimdHuangCoverBase* simd;
     unsigned int slot;
-    std::unique_ptr<Worker> plain;
-    std::size_t taskIndex = 0;
-    std::uint64_t units = 0;
+    std::unique_ptr<Worker> worker;
     /// The hidden rows of the task in hand (the worker's copy of it, which
     /// stays while the task is searched).
     const std::vector<unsigned int>* hidden = nullptr;
-    RowRotationCheck::Scratch rowScratch;
   };
 
   runSplitTasks(tasks, workers, options.pool, run, [this, &run, &tasks, simd](unsigned int slot) {
-    return TaskSearch(*this, run, tasks, simd, slot);
+    return SplitTaskSearch<Search>(Search(*this, run, tasks, simd, slot), tasks, slot,
+                                   iterations_, taskProgress_, run.token());
   });
 
   if (std::find(split_.completed.begin(), split_.completed.end(), 0) ==
@@ -2438,53 +1922,25 @@ std::unique_ptr<SimdHuangCoverBase> Assembler1::createSimdSolver(SimdKernels ker
 }
 
 void Assembler1::simdSearch(SearchRun& run, const SearchOptions& options) {
-  auto solver = createSimdSolver(options.kernels);
-  std::atomic<std::uint64_t> simdIter{0};
+  const std::unique_ptr<SimdHuangCoverBase> solver = createSimdSolver(options.kernels);
 
-  // reported as one task, so that finished() has something to say while it
-  // runs; the iterations go over as it goes, not only at the end
-  taskProgress_.begin({1.0}, {0});
-
-  auto drain = [this, &simdIter] {
-    iterations_.fetch_add(simdIter.exchange(0, std::memory_order_relaxed),
-                          std::memory_order_relaxed);
-  };
-
-  split_.vectorDone = 0;
-  solver->solve(
-      [this, &run, &drain](const std::vector<unsigned int>& solutionNodes) -> bool {
-        drain();
-        // already reported before the search was stopped
-        if (split_.vectorDone++ < split_.vectorSkip) {
-          return !run.stopRequested();
-        }
+  const bool through = vectorSearchWhole(
+      *solver, run, split_, taskProgress_, iterations_,
+      [this, &run](const std::vector<unsigned int>& solutionNodes) {
         stacks_.rows = solutionNodes;
         solution(run);
-        return !run.stopRequested();
-      },
-      run.token(), simdIter,
-      [this, &drain](float fraction) {
-        drain();
-        taskProgress_.report(0, 0, fraction);
       });
 
-  drain();
-
-  if (run.stopRequested()) {
-    // the rows held the last solution, not a place in the matrix: back to
-    // the start, passing over what was reported on the next run
-    stacks_.rows.clear();
-    split_.vectorSkip = std::max(split_.vectorSkip, split_.vectorDone);
-    split_.interrupted = true;
-  } else {
-    taskProgress_.finish(0, 0);
-    split_.vectorSkip = 0;
-    split_.interrupted = false;
+  if (through) {
     // as the other searches leave it when they are through; the rows held
     // the last solution, which a saved position must not carry (no restore
     // accepts rows without frames)
     stacks_.nextRowStack.clear();
     stacks_.taskStack.clear();
+    stacks_.rows.clear();
+  } else {
+    // the rows held the last solution, not a place in the matrix: back to
+    // the start, passing over what was reported on the next run
     stacks_.rows.clear();
   }
 }
@@ -2497,7 +1953,8 @@ RunEnd Assembler1::assemble(const AssemblyCallback& callback, const SearchOption
 
   SearchRun run(stop, callback);
   debug_ = false;
-  prepareRowCheck(options);
+  rowCheck_ = makeRowCheck(options, puzzle_, problem_, filter_, piecePositions_,
+                           links_.left.size(), rowOfNode_);
 
   // a previous split run leaves its tasks all done, which would make
   // finished() report 1 for this run before it has done anything

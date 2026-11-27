@@ -270,6 +270,27 @@ class SimdHuangCover : public SimdHuangCoverBase {
                   bool filterMonotonic, unsigned int chosenShapeRowIdx, bool checkRange,
                   unsigned int maxAllowedRangeWeight, std::vector<std::uint32_t>& dst) const;
 
+  /// What every kernel of filterRows() asks of a row before it compares the
+  /// cells: true for the chosen row itself, for a row of the chosen row's
+  /// shape when the shape has all its pieces or the row comes no later in
+  /// the shape's order (each set of placements once), and for a row whose
+  /// range weight no longer fits. Written once and inlined into each kernel
+  /// (it has no target attribute, so it may be inlined into all of them): a
+  /// fix reaches every platform.
+  [[nodiscard]] static bool ruledOut(const Row& cand, std::uint32_t idx, std::uint32_t chosenIdx,
+                                     unsigned int chosenShape, bool shapeIsFull,
+                                     bool filterMonotonic, unsigned int chosenShapeRowIdx,
+                                     bool checkRange, unsigned int maxAllowedRangeWeight) {
+    if (idx == chosenIdx) {
+      return true;
+    }
+    if (cand.shapeId == chosenShape &&
+        (shapeIsFull || (filterMonotonic && cand.shapeRowIdx <= chosenShapeRowIdx))) {
+      return true;
+    }
+    return checkRange && cand.rangeWeight > maxAllowedRangeWeight;
+  }
+
 #if defined(BT_SIMD_X86)
   // the targets on the declarations too: with them at the definitions only,
   // Apple clang 21 compiled filterRowsAvx2 for x86-64 without AVX and refused

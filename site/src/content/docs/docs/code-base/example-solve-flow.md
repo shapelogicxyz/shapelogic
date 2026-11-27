@@ -410,26 +410,29 @@ above gains a second pipeline inside the same run:
   that the grid has a disassembler (`Disassembler::canDisassemble`: cubes
   and prisms).
 - In step 9, before the search starts, `startWorkers()` makes a second
-  `ThreadPool` for the take-aparts and one `Disassembler` per worker
-  (`chooseWorkers` picks how many from the thread budget), each with the
-  options' rotations (`checkRotations`) and solver (Classic is complete;
-  Crowell takes a limited number of successors from each position and has
-  its own turn generator). Each worker runs `workerLoop` on a thread of
-  its own.
-- In step 10, `onAssembly` no longer stores the assembly. It makes a
-  `Task {assembly, assemblyNumber, solutionNumber}` and `enqueue`s it on
-  a bounded queue (at least 64 entries). When the queue is full the
-  search thread waits, lending its cores to the take-aparts meanwhile. A
-  one-piece assembly needs no take-apart and is counted at once.
-- `workerLoop` pops a task and calls `processTask`, which calls
-  `disassembler.disassemble(task.assembly, runToken())`
+  `ThreadPool` for the take-aparts and a `TakeApartPool`
+  (`solve/take_apart_pool.cpp`, the pool the command line program uses
+  too) with one `Disassembler` per worker (`chooseWorkers` picks how many
+  from the thread budget), each with the options' rotations
+  (`checkRotations`) and solver (Classic is complete; Crowell takes a
+  limited number of successors from each position and has its own turn
+  generator). Each worker runs on a thread of its own.
+- In step 10, `onAssembly` no longer stores the assembly. It `enqueue`s
+  it, with its assembly and solution numbers, into the pool
+  (`TakeApartPool::submit`), which holds a bounded number of unfinished
+  assemblies (at least 256). When that many wait the search thread waits
+  too, lending its cores to the take-aparts meanwhile. A one-piece
+  assembly needs no take-apart and is counted at once.
+- A worker takes a few assemblies at a time (more when they are small)
+  and calls `disassembler.disassemble(assembly, stop)`
   (`solve/disassembler.cpp`): a breadth-first search over positions,
   level by level, with `MovementAnalysator` finding the moves from each
   position (Bill Cutler's algorithm over a `MovementCacheBricks`), and
   `RotationRules` and a `RotationMoves` generator adding 90 degree turns
   when Check Rotations is on. A position where a group of pieces comes
   free splits the problem in two, each taken apart in turn. The result is
-  a `TakeApartResult`: a `Separation` tree, or none.
+  a `TakeApartResult`: a `Separation` tree, or none. The worker hands it
+  to the session's `takenApart()` as soon as it is there.
 - An assembly that does not come apart is counted as inseparable and
   dropped. One that does goes to `addSolution(task, separation)`: with
   Sort by **Moves** (the default) it is inserted after every solution with
@@ -439,9 +442,9 @@ above gains a second pipeline inside the same run:
 - The progress event now also carries `disasmCompleted`, `disasmPending`,
   `disasmWorkers` and the take-aparts under way, which the Run section
   shows. The status line adds "N can be disassembled".
-- In step 13, when the search is through but tasks are still queued, the
-  state moves to `Draining` until `waitDrained()` returns; then
-  `stopWorkers()` joins the worker threads.
+- In step 13, when the search is through but assemblies are still to be
+  taken apart, the state moves to `Draining` until the pool's `finish()`
+  returns, which also ends the worker threads.
 
 ## Pause, Continue and Clear, briefly
 

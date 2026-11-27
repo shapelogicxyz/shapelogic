@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Ported from src/lib/solvethread.cpp (solveThread_c: run, runStacking, the
-// take-apart queue and its workers, processDisassembly, the assembly
-// callback with its sliding branch, slidingSummary, trimSavedSolutions, the
-// progress snapshot and the statistics) and from the original GUI: Solve,
-// Prepare, Continue and Abort, with their stacking branches
-// (src/gui/mainwindow_solve.cpp), recordSearchStats (src/gui/mainwindow.cpp).
+// Ported from src/lib/solvethread.cpp (solveThread_c: run, runStacking,
+// processDisassembly, the assembly callback with its sliding branch,
+// slidingSummary, trimSavedSolutions, the progress snapshot and the
+// statistics; its take-apart queue and workers are take_apart_pool.cpp's)
+// and from the original GUI: Solve, Prepare, Continue and Abort, with their
+// stacking branches (src/gui/mainwindow_solve.cpp), recordSearchStats
+// (src/gui/mainwindow.cpp).
 #include "shapelogic/solve/solve_session.h"
 
 #include "shapelogic/base/assert.h"
@@ -85,30 +86,6 @@ TakeApartThreads chooseWorkers(const SolveOptions& o, unsigned int budget) {
   }
   return t;
 }
-
-// The assembly search's cores in the take-apart pool's load, for as long
-// as it runs (load_c of the solve thread). While it waits at a full queue
-// it gives them up (enqueue), and `held` says how many are left to return.
-class AssemblyLoad {
- public:
-  AssemblyLoad(ThreadPool* pool, int cores, std::atomic<int>& held) : pool_(pool), held_(held) {
-    if (pool_ != nullptr) {
-      pool_->addLoad(cores);
-      held_.store(cores, std::memory_order_release);
-    }
-  }
-  ~AssemblyLoad() {
-    if (pool_ != nullptr) {
-      pool_->addLoad(-held_.exchange(0, std::memory_order_acq_rel));
-    }
-  }
-  AssemblyLoad(const AssemblyLoad&) = delete;
-  AssemblyLoad& operator=(const AssemblyLoad&) = delete;
-
- private:
-  ThreadPool* pool_;
-  std::atomic<int>& held_;
-};
 
 }  // namespace
 
@@ -219,16 +196,10 @@ Result<void> SolveSession::prepare() { return launch(Mode::Prepare); }
 
 Result<void> SolveSession::resume() { return launch(Mode::Resume); }
 
-void SolveSession::requestStop(const StopSource& source, StopKind kind) {
-  // With the queue's mutex held: a thread that has looked at the stop under
-  // it and is about to sleep cannot miss the wake-up below.
-  {
-    const std::lock_guard<std::mutex> lock(queueMutex_);
-    source.request(kind);
-  }
-  queueCv_.notify_all();
-  spaceCv_.notify_all();
-}
+// Nobody sleeps on a stop: the searches and the take-aparts look at the
+// token, and a submit() that waits for room gets it as the take-aparts,
+// stopped, come back at once (TakeApartPool).
+void SolveSession::requestStop(const StopSource& source, StopKind kind) { source.request(kind); }
 
 void SolveSession::pause() {
   StopSource s;
@@ -567,7 +538,6 @@ void SolveSession::resetRun(const SolveOptions& o, Plan& plan) {
   {
     const std::lock_guard<std::mutex> lock(failureMutex_);
     failure_.reset();
-    workerError_ = nullptr;
     note_.clear();
     folderFailure_.reset();
   }
@@ -814,9 +784,13 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
   search.threads = assemblyThreads;
   search.pool = &assemblyPool;
 
+  // The take-aparts of this run (none: a run that only assembles, or a
+  // sliding one); the search's threads count as busy cores of theirs while
+  // it runs beside them.
+  TakeApartPool* takeAparts = nullptr;
   if (o.disassemble && !sliding_) {
     const TakeApartThreads workers = chooseWorkers(o, budget);
-    startWorkers(plan, workers.workers, workers.beside, budget);
+    takeAparts = startWorkers(plan, workers.workers, workers.beside, budget, assemblyThreads);
   }
   // a sliding run searches each start in the assembly's callback; a full
   // search spreads its levels over the solve's threads (solveThreadBudget)
@@ -847,7 +821,7 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
       const std::lock_guard<std::mutex> lock(resultsMutex_);
       problem_.addPending(std::move(p));
     } else {
-      enqueue(Task{std::move(p.assembly), p.assemblyNumber, p.solutionNumber});
+      enqueue(TakeApartTask{std::move(p.assembly), p.assemblyNumber, p.solutionNumber, 0});
     }
   }
 
@@ -855,37 +829,31 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
   // a carried-on start that ran out of disk again pauses the run before
   // any new start is found
   if (!slideDiskHalted_) {
-    const AssemblyLoad load(o.disassemble && !sliding_ ? takeApartPool_.get() : nullptr,
-                            static_cast<int>(assemblyThreads), assemblyLoad_);
     end = assembler_->assemble([this](Assembly a) { return onAssembly(std::move(a)); }, search,
                                plan.assemblyToken);
   }
   endPhase(assemblyMs_);
-  {
+  if (takeAparts != nullptr) {
     // no search beside the take-aparts any more: every worker may work
-    const std::lock_guard<std::mutex> lock(queueMutex_);
-    searchBeside_ = false;
+    takeAparts->searchOver();
   }
-  queueCv_.notify_all();
 
-  if (!runStopRequested()) {
+  // What is left to take apart. After a stop that is soon over: the
+  // take-aparts under way end, and they and those not begun come back to
+  // wait for the next run (takenApart). What a worker threw comes out here.
+  const bool drain = !runStopRequested();
+  if (drain) {
     beginPhase(Phase::Drain);
     if (o.disassemble && pending_.load(std::memory_order_acquire) > 0) {
       state_.advance(SolveState::Draining);
     }
-    waitDrained();
+  }
+  if (takeAparts != nullptr) {
+    takeAparts->finish();
+    pending_.store(0, std::memory_order_relaxed);
+  }
+  if (drain) {
     endPhase(drainMs_);
-  }
-
-  stopWorkers();
-
-  std::exception_ptr workerError;
-  {
-    const std::lock_guard<std::mutex> lock(failureMutex_);
-    workerError = workerError_;
-  }
-  if (workerError) {
-    std::rethrow_exception(workerError);
   }
   slidePool_.reset();
 
@@ -1244,7 +1212,7 @@ bool SolveSession::onAssembly(Assembly assembly) {
         }
         problem_.incNumSolutions();
       } else {
-        Task task{std::move(assembly), 0, 0};
+        TakeApartTask task{std::move(assembly), 0, 0, 0};
         {
           const std::lock_guard<std::mutex> lock(resultsMutex_);
           task.assemblyNumber = problem_.getNumAssemblies();
@@ -1486,54 +1454,16 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
   return "";
 }
 
-void SolveSession::enqueue(Task task) {
+void SolveSession::enqueue(TakeApartTask task) {
   const unsigned int p = pending_.fetch_add(1, std::memory_order_acq_rel) + 1;
   unsigned int peak = peakPending_.load(std::memory_order_relaxed);
   while (p > peak &&
          !peakPending_.compare_exchange_weak(peak, p, std::memory_order_relaxed)) {
   }
 
-  {
-    // When assemblies come faster than they are taken apart, the thread
-    // that found this one waits here until there is room: the queue (and
-    // the memory it takes) stays small and the cores go to the take-aparts.
-    // A pause ends the wait; what is queued is kept.
-    std::unique_lock<std::mutex> lock(queueMutex_);
-    const auto room = [this] {
-      return queue_.size() < queueLimit_ || runStopRequested() || workersStop_;
-    };
-    if (!room()) {
-      // The assembly search stands still while this waits (its other
-      // threads soon wait behind this one): its cores are not in use, and
-      // the take-aparts may borrow them for their levels. They are behind,
-      // too: every worker may work until the queue is nearly empty again.
-      if (!behind_) {
-        behind_ = true;
-        queueCv_.notify_all();
-      }
-      const int given = assemblyLoad_.exchange(0, std::memory_order_acq_rel);
-      if (given != 0) {
-        takeApartPool_->addLoad(-given);
-      }
-      spaceCv_.wait(lock, room);
-      if (given != 0) {
-        takeApartPool_->addLoad(given);
-        assemblyLoad_.fetch_add(given, std::memory_order_acq_rel);
-      }
-    }
-    queue_.push_back(std::move(task));
-  }
-  queueCv_.notify_one();
-}
-
-void SolveSession::processTask(Task& task, Disassembler& disassembler) {
-  const std::int64_t t0 = nowNs();
-  const auto done = [this, t0] {
-    disasmMsTotal_.fetch_add(msSince(t0), std::memory_order_relaxed);
-    completed_.fetch_add(1, std::memory_order_relaxed);
-  };
-
   if (task.assembly.placementCount() <= 1) {
+    // one piece (of a file's waiting assemblies: onAssembly() keeps its
+    // own): nothing to take apart
     {
       const std::lock_guard<std::mutex> lock(resultsMutex_);
       if (action_ == Action::SaveSolutions) {
@@ -1541,11 +1471,33 @@ void SolveSession::processTask(Task& task, Disassembler& disassembler) {
       }
       problem_.incNumSolutions();
     }
-    done();
+    completed_.fetch_add(1, std::memory_order_relaxed);
+    pending_.fetch_sub(1, std::memory_order_acq_rel);
     return;
   }
 
-  TakeApartResult r = disassembler.disassemble(task.assembly, runToken());
+  // When assemblies come faster than they are taken apart, the thread that
+  // found this one waits in submit() until there is room: the queue (and
+  // the memory it takes) stays small and the cores go to the take-aparts.
+  // A stop ends the wait: what is queued comes back as stopped.
+  BT_ASSERT(takeAparts_ != nullptr);
+  takeAparts_->submit(std::move(task.assembly), task.assemblyNumber, task.solutionNumber);
+}
+
+// What a take-apart found, from the pool's workers, several at once, in no
+// order (the lists are sorted by what is in them, and by the numbers the
+// assembly was found with).
+void SolveSession::takenApart(TakeApartTask& task, TakeApartResult& r) {
+  // one assembly less to take apart, however this ends
+  struct OneLess {
+    std::atomic<unsigned int>& pending;
+    ~OneLess() { pending.fetch_sub(1, std::memory_order_acq_rel); }
+  };
+  const OneLess oneLess{pending_};
+  const auto done = [this, &task] {
+    disasmMsTotal_.fetch_add(task.takeApartNs / 1'000'000, std::memory_order_relaxed);
+    completed_.fetch_add(1, std::memory_order_relaxed);
+  };
 
   if (r.tooDeep) {
     // Neither a solution nor an assembly that cannot be taken apart: the
@@ -1555,7 +1507,8 @@ void SolveSession::processTask(Task& task, Disassembler& disassembler) {
   }
   if (!r.separation) {
     if (r.stopped) {
-      // stopped part way is not "cannot come apart": again on the next run
+      // stopped part way (or before it began) is not "cannot come apart":
+      // counted already, taken apart on the next run
       const std::lock_guard<std::mutex> lock(resultsMutex_);
       problem_.addPending(PendingAssembly{std::move(task.assembly), true, task.assemblyNumber,
                                           task.solutionNumber});
@@ -1589,7 +1542,7 @@ void SolveSession::processTask(Task& task, Disassembler& disassembler) {
 }
 
 // Under resultsMutex_.
-void SolveSession::addSolution(Task& task, Separation separation) {
+void SolveSession::addSolution(TakeApartTask& task, Separation separation) {
   const SolveOptions& o = runOptions_;
   const std::uint64_t asmNum = task.assemblyNumber;
 
@@ -1717,162 +1670,55 @@ void SolveSession::applyLiveSort() {
 
 // ---- the take-apart workers --------------------------------------------------------
 
-void SolveSession::startWorkers(const Plan& plan, unsigned int workers, unsigned int beside,
-                                unsigned int budget) {
+TakeApartPool* SolveSession::startWorkers(const Plan& plan, unsigned int workers,
+                                          unsigned int beside, unsigned int budget,
+                                          unsigned int searchCores) {
   const SolveOptions& o = plan.options;
   workerCount_.store(workers, std::memory_order_relaxed);
-  queueLimit_ = std::max<std::size_t>(64, std::size_t{8} * workers);
-  {
-    const std::lock_guard<std::mutex> lock(queueMutex_);
-    workersStop_ = false;
-    queue_.clear();
-    workersTotal_ = workers;
-    workersBeside_ = std::min(beside, workers);
-    working_ = 0;
-    searchBeside_ = true;
-    behind_ = false;
-  }
 
   // A take-apart with no others waiting spreads each level of its search
   // over the cores nothing else is using. The shapes are final here (the
   // hotspots were reset before the matrix): the disassemblers warm their
   // caches.
-  auto pool = std::make_unique<ThreadPool>(budget);
-  DisassemblerOptions d = o.takeApart;
-  d.rotations = o.checkRotations;
-  d.solver = o.solver;
-  d.pool = pool.get();
-  d.sample = &sample_;
-  std::vector<std::unique_ptr<Disassembler>> made;
-  made.reserve(workers);
-  for (unsigned int i = 0; i < workers; i++) {
-    made.push_back(std::make_unique<Disassembler>(puzzle_, problem_, d));
-  }
+  auto threads = std::make_unique<ThreadPool>(budget);
+  TakeApartPoolOptions po;
+  po.workers = workers;
+  po.besideSearch = std::min(beside, workers);
+  po.searchCores = searchCores;
+  po.takeApart = o.takeApart;
+  po.takeApart.rotations = o.checkRotations;
+  po.takeApart.solver = o.solver;
+  po.takeApart.pool = threads.get();
+  po.takeApart.sample = &sample_;
+  // each result as it is there: no solution waits for a long take-apart
+  // found before it
+  po.ordered = false;
+  // a worker that throws ends the run (assembleAndTakeApart gets what it
+  // threw from finish())
+  po.onFailure = [this] { requestStop(runStop_, StopKind::Abort); };
+  auto pool = std::make_unique<TakeApartPool>(
+      puzzle_, problem_, po,
+      [this](TakeApartTask& task, TakeApartResult& r) { takenApart(task, r); }, runToken());
+  TakeApartPool* running = pool.get();
   {
-    // the last run's disassemblers go before the pool they used
+    // the last run's take-aparts go before the threads they used
     const std::lock_guard<std::mutex> lock(runMutex_);
-    disassemblers_ = std::move(made);
-    takeApartPool_ = std::move(pool);
+    takeAparts_.swap(pool);
+    takeApartThreads_.swap(threads);
   }
-
-  workers_.reserve(workers);
-  for (unsigned int i = 0; i < workers; i++) {
-    Disassembler& dis = *disassemblers_[i];
-    workers_.emplace_back([this, &dis] { workerLoop(dis); });
-  }
+  pool.reset();
+  threads.reset();
+  return running;
 }
 
-void SolveSession::workerLoop(Disassembler& disassembler) {
-  // this worker took a task (it counts in working_ until it is back here)
-  bool worked = false;
-  for (;;) {
-    std::optional<Task> task;
-    {
-      std::unique_lock<std::mutex> lock(queueMutex_);
-      if (worked) {
-        working_--;
-      }
-      // With a thread limit only workersBeside_ work while the search runs
-      // beside them (the search's threads and they are the limit); all do
-      // when the take-aparts are behind (the search waits for them in
-      // enqueue()), when the search is over, and to clear the queue at a
-      // stop.
-      queueCv_.wait(lock, [this] {
-        const unsigned int limit = behind_ || !searchBeside_ ? workersTotal_ : workersBeside_;
-        return workersStop_ || (!queue_.empty() && working_ < limit);
-      });
-      if (queue_.empty()) {
-        return;
-      }
-      task.emplace(std::move(queue_.front()));
-      queue_.pop_front();
-      working_++;
-      worked = true;
-      // caught up with the search: back to the workers that run beside it
-      if (behind_ && queue_.size() <= queueLimit_ / 4) {
-        behind_ = false;
-      }
-    }
-    spaceCv_.notify_one();
-
-    if (runStopRequested()) {
-      // counted already; taken apart on the next run
-      {
-        const std::lock_guard<std::mutex> lock(resultsMutex_);
-        problem_.addPending(PendingAssembly{std::move(task->assembly), true,
-                                            task->assemblyNumber, task->solutionNumber});
-      }
-      taskDone();
-      continue;
-    }
-
-    // this thread uses a core now: fewer to lend to the others' levels
-    takeApartPool_->addLoad(1);
-    try {
-      processTask(*task, disassembler);
-    } catch (...) {
-      recordFailure(std::current_exception());
-    }
-    takeApartPool_->addLoad(-1);
-    taskDone();
-  }
-}
-
-// One assembly less to take apart; wakes waitDrained() when it was the
-// last. The mutex is taken for a moment before waking: without it the
-// waiter could look at the count, be overtaken here, and sleep through the
-// wake-up.
-void SolveSession::taskDone() {
-  if (pending_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-    { const std::lock_guard<std::mutex> lock(queueMutex_); }
-    queueCv_.notify_all();
-  }
-}
-
-void SolveSession::waitDrained() {
-  std::unique_lock<std::mutex> lock(queueMutex_);
-  queueCv_.wait(lock, [this] {
-    return runStopRequested() ||
-           (queue_.empty() && pending_.load(std::memory_order_acquire) == 0);
-  });
-}
-
+// The end of a run that failed: the take-aparts stop, and what they had
+// not handed on is dropped with everything else the solve found. Nothing
+// to do after a run that ended as it should (finish()).
 void SolveSession::stopWorkers() {
-  {
-    const std::lock_guard<std::mutex> lock(queueMutex_);
-    workersStop_ = true;
-  }
-  queueCv_.notify_all();
-  spaceCv_.notify_all();
-  for (std::thread& t : workers_) {
-    t.join();
-  }
-  workers_.clear();
-
-  // what is still queued was counted: it goes first on the next run
-  std::deque<Task> left;
-  {
-    const std::lock_guard<std::mutex> lock(queueMutex_);
-    left.swap(queue_);
-  }
-  if (!left.empty()) {
-    const std::lock_guard<std::mutex> lock(resultsMutex_);
-    for (Task& t : left) {
-      problem_.addPending(
-          PendingAssembly{std::move(t.assembly), true, t.assemblyNumber, t.solutionNumber});
-    }
+  if (takeAparts_) {
+    takeAparts_->close();
   }
   pending_.store(0, std::memory_order_relaxed);
-}
-
-void SolveSession::recordFailure(const std::exception_ptr& error) {
-  {
-    const std::lock_guard<std::mutex> lock(failureMutex_);
-    if (!workerError_) {
-      workerError_ = error;
-    }
-  }
-  requestStop(runStop_, StopKind::Abort);
 }
 
 // ---- progress and statistics -------------------------------------------------------
@@ -2003,13 +1849,10 @@ SolveProgress SolveSession::progress() const {
       prep = published_->prepareProgress();
     }
     // the take-aparts under way
-    for (const std::unique_ptr<Disassembler>& d : disassemblers_) {
-      const DisassemblyProgress dp = d->progress();
-      if (dp.active) {
-        p.running.push_back(dp);
-      }
+    if (takeAparts_) {
+      p.running = takeAparts_->progress();
     }
-    p.disassembly = runOptions_.disassemble && !disassemblers_.empty();
+    p.disassembly = runOptions_.disassemble && takeAparts_ != nullptr;
   }
   af = std::clamp(af, 0.0F, 1.0F);
   p.assemblyFraction = af;
@@ -2280,13 +2123,10 @@ SolveStats SolveSession::stats() const {
       s.iterations = published_->iterations();
       s.assemblyProgress = published_->finished();
     }
-    for (const std::unique_ptr<Disassembler>& d : disassemblers_) {
-      rotationUs += d->getRotationSearchUs();
-      linearUs += d->getLinearSearchUs();
-      const DisassemblyProgress dp = d->progress();
-      if (dp.active) {
-        s.running.push_back(dp);
-      }
+    if (takeAparts_) {
+      rotationUs = takeAparts_->rotationSearchUs();
+      linearUs = takeAparts_->linearSearchUs();
+      s.running = takeAparts_->progress();
     }
   }
   s.rotationSearchMs = rotationUs / 1000;

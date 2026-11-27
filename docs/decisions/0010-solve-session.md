@@ -32,7 +32,11 @@ run's thread writes the state. Between runs the owner's calls move it
 **Stops.** One `StopSource` per run with a child for the assembly search
 alone (the save point, the original's `stopSoft`). Callers only ask; the
 run's thread winds the run down. A stop is asked for under the take-apart
-queue's mutex and its waits are woken, so none misses it.
+queue's mutex and its waits are woken, so none misses it. (Amended
+2026-11-27, cleanup item 20.2: nobody waits on a stop any more. The queue
+is `TakeApartPool`'s; its workers look at the run's token, and after a stop
+every assembly comes back at once, as stopped, so a hand-over that waits
+for room goes on.)
 
 **Results.** While a run is active the session alone writes its problem,
 under its own mutex; others read through `readProblem(f)`. The saved
@@ -48,7 +52,10 @@ threads to the levels. One pool for both would keep the assembly's lent
 threads while it waits at a full queue, so the levels could not use those
 cores; this is the one exception to decision 0009's one pool per solve.
 The take-apart workers are threads of the session's own, one
-`Disassembler` each.
+`Disassembler` each. (Amended 2026-11-27, cleanup item 20.2: they are the
+workers of a `TakeApartPool`, the one the CLI has, which the session makes
+for a run and keeps for its statistics; the results come as they are
+finished, with the numbers the assemblies were counted by.)
 
 **BurrTools 2** keeps its saved-position format (decision 0009), with one
 addition: a search that is through is saved as the dancing links position

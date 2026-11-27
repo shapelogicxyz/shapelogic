@@ -36,8 +36,6 @@ class RotationMovesCrowell final : public RotationMoves {
   NodeRef find() override;
 
  private:
-  void collectWorldCells(unsigned int pieceIdx, std::vector<RotationRules::Cell>& out) const;
-  [[nodiscard]] unsigned int countFilled(unsigned int pieceIdx) const;
   void loadSubsetCells();
   void rebuildPivotCells(unsigned int axis);
   void startAxis();
@@ -68,6 +66,8 @@ class RotationMovesCrowell final : public RotationMoves {
   std::vector<RotationRules::Cell> cachedOccupied_;
   unsigned int cachedMask_ = 0;
   bool cellsReady_ = false;
+  /// Each piece's cells at the current position; empty for one that left.
+  std::vector<std::vector<RotationRules::Cell>> pieceCells_;
 };
 
 }  // namespace bt

@@ -8,6 +8,7 @@
 /// Ported from src/lib/assembler_0.cpp (the matrix part).
 
 #include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/matrix_build.h"
 #include "shapelogic/solve/rotation_filter.h"
 
 #include <atomic>
@@ -98,15 +99,46 @@ struct DlxNodes {
       uncover(colCount[j]);
     }
   }
+
+  /// The column a search fills next: of the columns that must be filled
+  /// (the header ring) the one with the fewest rows. 0 when the branch ends
+  /// here: no such column is left, one of them has no row, or more variable
+  /// voxels (the ring headed by `varivoxelEnd`) have no row left than
+  /// `holes` may stay empty. (Node 0 heads no column and counts no rows.)
+  [[nodiscard]] unsigned int chooseColumn(unsigned int varivoxelEnd, unsigned int holes) const {
+    unsigned int c = right[0];
+    unsigned int s = colCount[c];
+
+    if (s == 0) {
+      return 0;
+    }
+
+    for (unsigned int j = right[c]; j != 0; j = right[j]) {
+      if (colCount[j] < s) {
+        c = j;
+        s = colCount[c];
+
+        if (s == 0) {
+          return 0;
+        }
+      }
+    }
+
+    for (unsigned int j = right[varivoxelEnd]; j != varivoxelEnd; j = right[j]) {
+      if (colCount[j] == 0) {
+        if (holes == 0) {
+          return 0;
+        }
+        holes--;
+      }
+    }
+
+    return c;
+  }
 };
 
 /// The placement a row stands for.
-struct DlxPlacement {
-  int x, y, z;                   ///< the position of the piece's hotspot
-  unsigned char transformation;  ///< its orientation
-  unsigned int row;              ///< first node of the row
-  unsigned int piece;            ///< the piece (each part is one piece)
-};
+using DlxPlacement = RowPlacement;
 
 /// The matrix of a problem where every part is exactly one piece. Rows are
 /// piece placements; the columns are the pieces (1 .. pieces), the filled

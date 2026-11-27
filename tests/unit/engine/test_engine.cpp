@@ -1290,32 +1290,46 @@ TEST_CASE("engine: solution.page gives the order a sort of the list gives", "[en
 // moves stand as the list has them (every solution has a disassembly here,
 // so by moves the comparison is an ordering). A key kept for the wrong
 // solution, or not worked out again, would put a row out of place.
+//
+// A longer list must be sorted after a shorter one of the same solve, four
+// times at least. How many looks this thread gets at a solve is the
+// machine's affair (on a busy one the solve was through after three, the
+// more so since its take-aparts come a batch at a time: cleanup item 20.2),
+// so the problem is solved again until the lists have grown as often.
 TEST_CASE("engine: solution.page of a list that grows under a solve", "[engine][parallel]") {
   Harness h;
   h.result("document.open", {{"path", "tests/data/puzzles/DemoPieceGenerator.xmpuzzle"}});
   const std::string p = h.result("problem.list")["problems"][0]["id"];
-  h.result("solve.start", {{"problem", p}, {"options", {{"disassemble", true}, {"keepAtMost", 0}, {"threads", 2}}}});
-  std::set<std::size_t> sizes;
-  for (int round = 0; round < 600000 && h.engine.busy(); round++) {
-    h.engine.poll();
-    const Json page = h.result("solution.page", {{"problem", p}, {"sortBy", "moves"}, {"limit", 10000}});
-    const Json& rows = page["rows"];
-    bool sorted = true;
-    for (std::size_t i = 1; i < rows.size(); i++) {
-      const unsigned int a = rows[i - 1]["moves"];
-      const unsigned int b = rows[i]["moves"];
-      sorted = sorted && (a < b || (a == b && rows[i - 1]["index"].get<unsigned int>() <
-                                                  rows[i]["index"].get<unsigned int>()));
+  unsigned int grew = 0;
+  std::size_t longest = 0;
+  for (int solve = 0; solve < 50 && grew < 4; solve++) {
+    h.result("solve.start", {{"problem", p}, {"options", {{"disassemble", true}, {"keepAtMost", 0}, {"threads", 2}}}});
+    std::size_t last = 0;
+    bool first = true;
+    for (int round = 0; round < 600000 && h.engine.busy(); round++) {
+      h.engine.poll();
+      const Json page = h.result("solution.page", {{"problem", p}, {"sortBy", "moves"}, {"limit", 10000}});
+      const Json& rows = page["rows"];
+      bool sorted = true;
+      for (std::size_t i = 1; i < rows.size(); i++) {
+        const unsigned int a = rows[i - 1]["moves"];
+        const unsigned int b = rows[i]["moves"];
+        sorted = sorted && (a < b || (a == b && rows[i - 1]["index"].get<unsigned int>() <
+                                                    rows[i]["index"].get<unsigned int>()));
+      }
+      REQUIRE(sorted);
+      REQUIRE(rows.size() == page["total"].get<std::size_t>());
+      grew += !first && rows.size() > last ? 1U : 0U;
+      first = false;
+      last = rows.size();
+      longest = std::max(longest, last);
     }
-    REQUIRE(sorted);
-    REQUIRE(rows.size() == page["total"].get<std::size_t>());
-    sizes.insert(rows.size());
+    REQUIRE_FALSE(h.engine.busy());
+    h.engine.poll();
   }
-  REQUIRE_FALSE(h.engine.busy());
-  h.engine.poll();
   // lists of several lengths were sorted, one after the other
-  CHECK(sizes.size() >= 5);
-  CHECK(*sizes.rbegin() > 300);
+  CHECK(grew >= 4);
+  CHECK(longest > 300);
   checkEverySort(h, p);
 }
 

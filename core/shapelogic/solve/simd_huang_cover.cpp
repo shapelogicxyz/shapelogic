@@ -117,16 +117,9 @@ __attribute__((target("avx512f"))) void SimdHuangCover<BitsetType>::filterRowsAv
     }
 
     for (const std::uint32_t idx : src) {
-      if (idx == chosenIdx) {
-        continue;
-      }
       const Row& cand = rows_[idx];
-      if (cand.shapeId == chosenShape) {
-        if (shapeIsFull || (filterMonotonic && cand.shapeRowIdx <= chosenShapeRowIdx)) {
-          continue;
-        }
-      }
-      if (checkRange && cand.rangeWeight > maxAllowedRangeWeight) {
+      if (ruledOut(cand, idx, chosenIdx, chosenShape, shapeIsFull, filterMonotonic,
+                   chosenShapeRowIdx, checkRange, maxAllowedRangeWeight)) {
         continue;
       }
 
@@ -162,16 +155,9 @@ __attribute__((target("avx2"))) void SimdHuangCover<BitsetType>::filterRowsAvx2(
   }
 
   for (const std::uint32_t idx : src) {
-    if (idx == chosenIdx) {
-      continue;
-    }
     const Row& cand = rows_[idx];
-    if (cand.shapeId == chosenShape) {
-      if (shapeIsFull || (filterMonotonic && cand.shapeRowIdx <= chosenShapeRowIdx)) {
-        continue;
-      }
-    }
-    if (checkRange && cand.rangeWeight > maxAllowedRangeWeight) {
+    if (ruledOut(cand, idx, chosenIdx, chosenShape, shapeIsFull, filterMonotonic,
+                 chosenShapeRowIdx, checkRange, maxAllowedRangeWeight)) {
       continue;
     }
 
@@ -203,16 +189,9 @@ void SimdHuangCover<BitsetType>::filterRowsNeon(
   }
 
   for (const std::uint32_t idx : src) {
-    if (idx == chosenIdx) {
-      continue;
-    }
     const Row& cand = rows_[idx];
-    if (cand.shapeId == chosenShape) {
-      if (shapeIsFull || (filterMonotonic && cand.shapeRowIdx <= chosenShapeRowIdx)) {
-        continue;
-      }
-    }
-    if (checkRange && cand.rangeWeight > maxAllowedRangeWeight) {
+    if (ruledOut(cand, idx, chosenIdx, chosenShape, shapeIsFull, filterMonotonic,
+                 chosenShapeRowIdx, checkRange, maxAllowedRangeWeight)) {
       continue;
     }
 
@@ -263,16 +242,9 @@ void SimdHuangCover<BitsetType>::filterRows(
 #endif
 
   for (const std::uint32_t idx : src) {
-    if (idx == chosenIdx) {
-      continue;
-    }
     const Row& cand = rows_[idx];
-    if (cand.shapeId == chosenShape) {
-      if (shapeIsFull || (filterMonotonic && cand.shapeRowIdx <= chosenShapeRowIdx)) {
-        continue;
-      }
-    }
-    if (checkRange && cand.rangeWeight > maxAllowedRangeWeight) {
+    if (ruledOut(cand, idx, chosenIdx, chosenShape, shapeIsFull, filterMonotonic,
+                 chosenShapeRowIdx, checkRange, maxAllowedRangeWeight)) {
       continue;
     }
 
