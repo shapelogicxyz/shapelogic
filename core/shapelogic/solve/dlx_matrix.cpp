@@ -661,7 +661,7 @@ unsigned int DlxMatrix::piecePlacement(unsigned int node, int delta, unsigned in
   *y = pp.y;
   *z = pp.z;
 
-  BT_ASSERT(pp.piece == piece);
+  SL_ASSERT(pp.piece == piece);
 
   return node;
 }

@@ -97,20 +97,20 @@ class DisassemblerNode {
   [[nodiscard]] bool operator==(const DisassemblerNode& b) const;
 
   [[nodiscard]] int getX(unsigned int i) const {
-    BT_ASSERT(i < piecenumber_);
+    SL_ASSERT(i < piecenumber_);
     return dat_[4 * std::size_t{i} + 0];
   }
   [[nodiscard]] int getY(unsigned int i) const {
-    BT_ASSERT(i < piecenumber_);
+    SL_ASSERT(i < piecenumber_);
     return dat_[4 * std::size_t{i} + 1];
   }
   [[nodiscard]] int getZ(unsigned int i) const {
-    BT_ASSERT(i < piecenumber_);
+    SL_ASSERT(i < piecenumber_);
     return dat_[4 * std::size_t{i} + 2];
   }
   /// The orientation of piece i.
   [[nodiscard]] unsigned int getTrans(unsigned int i) const {
-    BT_ASSERT(i < piecenumber_);
+    SL_ASSERT(i < piecenumber_);
     return static_cast<unsigned char>(dat_[4 * std::size_t{i} + 3]);
   }
 
@@ -118,8 +118,8 @@ class DisassemblerNode {
 
   /// Piece i leaves the puzzle in direction (x, y, z).
   void setRemove(unsigned int i, int x, int y, int z) {
-    BT_ASSERT(i < piecenumber_);
-    BT_ASSERT(std::abs(x) < kMaxMove && std::abs(y) < kMaxMove && std::abs(z) < kMaxMove);
+    SL_ASSERT(i < piecenumber_);
+    SL_ASSERT(std::abs(x) < kMaxMove && std::abs(y) < kMaxMove && std::abs(z) < kMaxMove);
     dat_[4 * std::size_t{i} + 0] = static_cast<std::int16_t>(x);
     dat_[4 * std::size_t{i} + 1] = static_cast<std::int16_t>(y);
     dat_[4 * std::size_t{i} + 2] = static_cast<std::int16_t>(z);
@@ -129,8 +129,8 @@ class DisassemblerNode {
 
   /// Puts piece i at (x, y, z) in orientation tr.
   void set(unsigned int i, int x, int y, int z, unsigned int tr) {
-    BT_ASSERT(i < piecenumber_);
-    BT_ASSERT(std::abs(x) < kMaxMove && std::abs(y) < kMaxMove && std::abs(z) < kMaxMove);
+    SL_ASSERT(i < piecenumber_);
+    SL_ASSERT(std::abs(x) < kMaxMove && std::abs(y) < kMaxMove && std::abs(z) < kMaxMove);
     dat_[4 * std::size_t{i} + 0] = static_cast<std::int16_t>(x);
     dat_[4 * std::size_t{i} + 1] = static_cast<std::int16_t>(y);
     dat_[4 * std::size_t{i} + 2] = static_cast<std::int16_t>(z);
@@ -141,10 +141,10 @@ class DisassemblerNode {
   /// Puts piece i where it was in the node this one came from, moved by
   /// (tx, ty, tz).
   void set(unsigned int i, int tx, int ty, int tz) {
-    BT_ASSERT(i < piecenumber_);
-    BT_ASSERT(comefrom_);
+    SL_ASSERT(i < piecenumber_);
+    SL_ASSERT(comefrom_);
     const std::int16_t* from = comefrom_->dat_.get() + 4 * std::size_t{i};
-    BT_ASSERT(std::abs(from[0] + tx) < kMaxMove && std::abs(from[1] + ty) < kMaxMove &&
+    SL_ASSERT(std::abs(from[0] + tx) < kMaxMove && std::abs(from[1] + ty) < kMaxMove &&
               std::abs(from[2] + tz) < kMaxMove);
     dat_[4 * std::size_t{i} + 0] = static_cast<std::int16_t>(from[0] + tx);
     dat_[4 * std::size_t{i} + 1] = static_cast<std::int16_t>(from[1] + ty);
@@ -155,7 +155,7 @@ class DisassemblerNode {
 
   /// Piece nr has left the puzzle in this position.
   [[nodiscard]] bool isPieceRemoved(unsigned int nr) const {
-    BT_ASSERT(nr < piecenumber_);
+    SL_ASSERT(nr < piecenumber_);
     return dat_[4 * std::size_t{nr} + 3] == kRemoved;
   }
 
@@ -256,7 +256,7 @@ inline NodeRef NodeRef::share(DisassemblerNode* node) noexcept {
 inline void NodeRef::reset() noexcept {
   DisassemblerNode* p = std::exchange(p_, nullptr);
   if (p != nullptr) {
-    BT_ASSERT(p->refcount_ > 0);
+    SL_ASSERT(p->refcount_ > 0);
     if (--p->refcount_ == 0) {
       // the node owns its comefrom reference; a long chain goes with it
       std::unique_ptr<DisassemblerNode> gone(p);

@@ -35,7 +35,7 @@ RpcResult<unsigned int> trayIndex(const State& s, app::Id tray) {
   if (!sliding::isSliding(s.document().puzzle())) {
     return coreError(Errc::Unsupported, "only sliding puzzles have start/goal shapes");
   }
-  BTE_TRY(const unsigned int t, s.document().shapeIndex(tray));
+  SLE_TRY(const unsigned int t, s.document().shapeIndex(tray));
   if (!sliding::isStartGoalShape(&s.document().puzzle().getShape(t))) {
     return coreError(Errc::InvalidArgument, "Choose a start/goal shape.");
   }
@@ -53,8 +53,8 @@ Reply slidingAddStartGoal(State& s, Params& p) {
               static_cast<unsigned int>(c[2])};
     }
   }
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::Id id, app::SlidingEdits(s.document()).addStartGoal(size));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::Id id, app::SlidingEdits(s.document()).addStartGoal(size));
   return Json{{"shape", formatId(IdKind::Shape, id)}, {"revision", s.revision()}};
 }
 
@@ -64,8 +64,8 @@ Reply slidingPlace(State& s, Params& p) {
   const std::array<int, 3> at = p.pointOrCell("at", 0);
   const bool goal = p.boolean("goal");
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
-  BTE_CHECK(p.finish());
-  BTE_TRY(
+  SLE_CHECK(p.finish());
+  SLE_TRY(
       const bool placed,
       app::SlidingEdits(s.document()).placeStamp(tray, piece, at[0], at[1], at[2], goal, problem));
   return Json{{"placed", placed}, {"revision", s.revision()}};
@@ -76,8 +76,8 @@ Reply slidingClearAt(State& s, Params& p) {
   const std::array<int, 3> at = p.pointOrCell("at", 0);
   const bool goal = p.boolean("goal");
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
-  BTE_CHECK(p.finish());
-  BTE_TRY(const bool cleared,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const bool cleared,
           app::SlidingEdits(s.document()).clearStampAt(tray, at[0], at[1], at[2], goal, problem));
   return Json{{"cleared", cleared}, {"revision", s.revision()}};
 }
@@ -86,8 +86,8 @@ Reply slidingClone(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
   const bool toGoal = p.boolean("toGoal");
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
-  BTE_CHECK(p.finish());
-  BTE_CHECK(app::SlidingEdits(s.document()).cloneStamps(tray, toGoal, problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(app::SlidingEdits(s.document()).cloneStamps(tray, toGoal, problem));
   return Json{{"revision", s.revision()}};
 }
 
@@ -95,17 +95,17 @@ Reply slidingClear(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
   const bool goal = p.boolean("goal");
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
-  BTE_CHECK(p.finish());
-  BTE_TRY(const bool cleared, app::SlidingEdits(s.document()).clearStamps(tray, goal, problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const bool cleared, app::SlidingEdits(s.document()).clearStamps(tray, goal, problem));
   return Json{{"cleared", cleared}, {"revision", s.revision()}};
 }
 
 Reply slidingTray(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int t, trayIndex(s, tray));
-  BTE_TRY(const Problem* on, app::SlidingEdits(s.document()).trayProblemOf(problem, t));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int t, trayIndex(s, tray));
+  SLE_TRY(const Problem* on, app::SlidingEdits(s.document()).trayProblemOf(problem, t));
   const Puzzle& puzzle = s.document().puzzle();
   const Voxel& v = puzzle.getShape(t);
   // the starts and goals are the problem's (decision 0027): the one named,
@@ -172,10 +172,10 @@ Reply slidingPreview(State& s, Params& p) {
   const std::array<int, 3> at = p.pointOrCell("at", 0);
   const bool goal = p.boolean("goal");
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int t, trayIndex(s, tray));
-  BTE_TRY(const Problem* on, app::SlidingEdits(s.document()).trayProblemOf(problem, t));
-  BTE_TRY(const unsigned int i, s.document().shapeIndex(piece));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int t, trayIndex(s, tray));
+  SLE_TRY(const Problem* on, app::SlidingEdits(s.document()).trayProblemOf(problem, t));
+  SLE_TRY(const unsigned int i, s.document().shapeIndex(piece));
   const Puzzle& puzzle = s.document().puzzle();
   const Voxel& trayShape = puzzle.getShape(t);
   const Voxel& pieceShape = puzzle.getShape(i);
@@ -203,8 +203,8 @@ Reply slidingPreview(State& s, Params& p) {
 
 Reply slidingGridAdvice(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int index, s.document().problemIndex(problem));
   const Puzzle& puzzle = s.document().puzzle();
   if (!sliding::isSliding(puzzle)) {
     return coreError(Errc::Unsupported, "only sliding puzzles have optimized paths");
@@ -216,13 +216,13 @@ Reply slidingGridAdvice(State& s, Params& p) {
 Reply slidingResumeAdvice(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const Json given = p.has("options") ? p.value("options") : Json(nullptr);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const SolveOptions options, solveOptionsFrom(s, given));
-  BTE_CHECK(s.document().problemIndex(problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const SolveOptions options, solveOptionsFrom(s, given));
+  SLE_CHECK(s.document().problemIndex(problem));
   if (!sliding::isSliding(s.document().puzzle())) {
     return coreError(Errc::Unsupported, "only sliding puzzles have sliding searches");
   }
-  BTE_TRY(const bool alone, s.document().slideFromStartAlone(problem, options.sliding));
+  SLE_TRY(const bool alone, s.document().slideFromStartAlone(problem, options.sliding));
   return Json{{"fromStartAlone", alone}};
 }
 
@@ -309,8 +309,8 @@ RpcResult<const Problem*> playProblem(const State& s, app::Id problem) {
 
 Reply slidingPlayStart(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const Problem* pr, playProblem(s, problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const Problem* pr, playProblem(s, problem));
   const Puzzle& puzzle = s.document().puzzle();
   const sliding::PlayStart start = sliding::playStart(puzzle, *pr);
   // the board, also when the starts place no layout yet
@@ -377,9 +377,9 @@ Reply slidingPlayReach(State& s, Params& p) {
   const std::vector<sliding::TrayCell> places = placesOf(p);
   const unsigned int piece = p.count("piece", static_cast<unsigned int>(kMostPlaces));
   const sliding::PlayRules rules = rulesOf(p);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const Problem* pr, playProblem(s, problem));
-  BTE_TRY(const std::vector<sliding::PlayGroup> reach,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const Problem* pr, playProblem(s, problem));
+  SLE_TRY(const std::vector<sliding::PlayGroup> reach,
           sliding::playReach(s.document().puzzle(), *pr, places, piece, rules));
   Json groups = Json::array();
   for (const sliding::PlayGroup& g : reach) {
@@ -425,9 +425,9 @@ Reply slidingPlayReplay(State& s, Params& p) {
     }
   }
   const sliding::PlayRules rules = rulesOf(p);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const Problem* pr, playProblem(s, problem));
-  BTE_TRY(const sliding::PlayReplay replay,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const Problem* pr, playProblem(s, problem));
+  SLE_TRY(const sliding::PlayReplay replay,
           sliding::playReplay(s.document().puzzle(), *pr, places, moves, rules));
   Json steps = Json::array();
   for (const sliding::PlayStep& step : replay.steps) {
@@ -444,8 +444,8 @@ Reply slidingSetLayout(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const bool goal = p.boolean("goal");
   const std::vector<sliding::TrayCell> places = placesOf(p);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const bool changed,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const bool changed,
           app::SlidingEdits(s.document()).setSlideLayout(problem, goal, places));
   return Json{{"changed", changed}, {"revision", s.revision()}};
 }

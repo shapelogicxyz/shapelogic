@@ -51,7 +51,7 @@ class TableSymmetries final : public Symmetries {
   unsigned int getNumSymmetryGroups() const override { return kNumGroups; }
 
   bool symmetryContainsMirror(Symmetry sym) const override {
-    BT_ASSERT(sym < kNumGroups);
+    SL_ASSERT(sym < kNumGroups);
     // any bit at or above kNumTrans is a mirror transformation
     for (unsigned int t = kNumTrans; t < kNumTransMirror; t++) {
       if (maskGet(t_.symmetries[sym], t)) {
@@ -62,38 +62,38 @@ class TableSymmetries final : public Symmetries {
   }
 
   unsigned char transAdd(unsigned char t1, unsigned char t2) const override {
-    BT_ASSERT(t1 < kNumTransMirror);
-    BT_ASSERT(t2 < kNumTransMirror);
+    SL_ASSERT(t1 < kNumTransMirror);
+    SL_ASSERT(t2 < kNumTransMirror);
     return static_cast<unsigned char>(t_.transMult[t1][t2]);
   }
 
   bool symmetrieContainsTransformation(Symmetry s, unsigned int t) const override {
-    BT_ASSERT(s < kNumGroups);
-    BT_ASSERT(t < kNumTransMirror);
+    SL_ASSERT(s < kNumGroups);
+    SL_ASSERT(t < kNumTransMirror);
     return maskGet(t_.symmetries[s], t);
   }
 
   bool isTransformationUnique(Symmetry s, unsigned int t) const override {
-    BT_ASSERT(s < kNumGroups);
-    BT_ASSERT(t < kNumTransMirror);
+    SL_ASSERT(s < kNumGroups);
+    SL_ASSERT(t < kNumTransMirror);
     return maskGet(t_.uniqueSymmetries[s], t);
   }
 
   unsigned char minimizeTransformation(Symmetry s, unsigned char trans) const override {
-    BT_ASSERT(s < kNumGroups);
-    BT_ASSERT(trans < kNumTransMirror);
+    SL_ASSERT(s < kNumGroups);
+    SL_ASSERT(trans < kNumTransMirror);
     return t_.transformationMinimizer[s][trans];
   }
 
   unsigned int countSymmetryIntersection(Symmetry res, Symmetry s2) const override {
-    BT_ASSERT(res < kNumGroups);
-    BT_ASSERT(s2 < kNumGroups);
+    SL_ASSERT(res < kNumGroups);
+    SL_ASSERT(s2 < kNumGroups);
     return maskCount(t_.unifiedSymmetries[res] & t_.symmetries[s2]);
   }
 
   bool symmetriesLeft(Symmetry resultSym, Symmetry s2) const override {
-    BT_ASSERT(resultSym < kNumGroups);
-    BT_ASSERT(s2 < kNumGroups);
+    SL_ASSERT(resultSym < kNumGroups);
+    SL_ASSERT(s2 < kNumGroups);
     const Mask s = t_.symmetries[resultSym] & t_.unifiedSymmetries[s2];
     // the identity (bit 0) does not count
     for (unsigned int t = 1; t < kNumTransMirror; t++) {
@@ -122,7 +122,7 @@ class TableSymmetries final : public Symmetries {
   }
 
   Symmetry calculateSymmetry(const Voxel& pp) const override {
-    BT_ASSERT(symmetryKnown(pp));
+    SL_ASSERT(symmetryKnown(pp));
     return calc_(pp);
   }
 

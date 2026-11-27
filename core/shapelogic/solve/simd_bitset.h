@@ -20,9 +20,9 @@
 #endif
 
 #if (defined(__x86_64__) || defined(_M_X64)) && (defined(__GNUC__) || defined(__clang__))
-#define BT_SIMD_X86 1
+#define SL_SIMD_X86 1
 #elif defined(__aarch64__) || defined(__ARM_NEON)
-#define BT_SIMD_NEON 1
+#define SL_SIMD_NEON 1
 #endif
 
 namespace bt {
@@ -50,17 +50,17 @@ struct alignas(64) SimdBitset {
   constexpr SimdBitset() : words{} {}
 
   void set(unsigned int bit) {
-    BT_ASSERT(bit < N_WORDS * 64);
+    SL_ASSERT(bit < N_WORDS * 64);
     words[bit >> 6] |= (1ULL << (bit & 63));
   }
 
   void reset(unsigned int bit) {
-    BT_ASSERT(bit < N_WORDS * 64);
+    SL_ASSERT(bit < N_WORDS * 64);
     words[bit >> 6] &= ~(1ULL << (bit & 63));
   }
 
   [[nodiscard]] bool test(unsigned int bit) const {
-    BT_ASSERT(bit < N_WORDS * 64);
+    SL_ASSERT(bit < N_WORDS * 64);
     return (words[bit >> 6] & (1ULL << (bit & 63))) != 0;
   }
 
@@ -142,7 +142,7 @@ template <std::size_t N_WORDS>
   return true;
 }
 
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
 /// isDisjointScalar with AVX2; call only when the processor has it.
 template <std::size_t N_WORDS>
 __attribute__((target("avx2"))) inline bool isDisjointAvx2(const SimdBitset<N_WORDS>& a,
@@ -184,7 +184,7 @@ __attribute__((target("avx512f"))) inline bool isDisjointAvx512(const SimdBitset
 }
 #endif
 
-#if defined(BT_SIMD_NEON)
+#if defined(SL_SIMD_NEON)
 /// isDisjointScalar with NEON.
 template <std::size_t N_WORDS>
 inline bool isDisjointNeon(const SimdBitset<N_WORDS>& a, const SimdBitset<N_WORDS>& b) {
@@ -223,7 +223,7 @@ enum class SimdKernel : std::uint8_t { Scalar, Avx2, Avx512, Neon };
 /// original's dispatch ladder: AVX-512 when the bit set has the 8 words it
 /// needs, else AVX2, else scalar; NEON on ARM).
 [[nodiscard]] inline SimdKernel chooseKernel(const SimdKernels& k, bool wideEnough) noexcept {
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
   if (k.avx2 && k.avx512 && wideEnough && cpuHasAvx512()) {
     return SimdKernel::Avx512;
   }
@@ -231,7 +231,7 @@ enum class SimdKernel : std::uint8_t { Scalar, Avx2, Avx512, Neon };
     return SimdKernel::Avx2;
   }
   return SimdKernel::Scalar;
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
   (void)wideEnough;
   return k.neon ? SimdKernel::Neon : SimdKernel::Scalar;
 #else

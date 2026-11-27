@@ -86,8 +86,8 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
 - Ownership: value types and `std::unique_ptr`. No owning raw pointers, no
   `new`/`delete`, no hand-written copy assignment that lists members.
 - Errors: recoverable problems return `bt::Result<T>` (base/error.h); broken
-  invariants use `BT_ASSERT` (base/assert.h), which is on in every build.
-  Never put side effects inside `BT_ASSERT`.
+  invariants use `SL_ASSERT` (base/assert.h), which is on in every build.
+  Never put side effects inside `SL_ASSERT`.
 - Cancellation: long work takes a `bt::StopToken` and polls it. No search
   has a stop flag of its own, and nothing resets a token (decision 0004). A
   search that must end its own run makes a `StopSource` from the token it

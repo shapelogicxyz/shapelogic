@@ -56,7 +56,7 @@ struct Disassembler::Expansion {
 Disassembler::Disassembler(const Puzzle& puzzle, const Problem& problem,
                            DisassemblerOptions options)
     : puzzle_(puzzle), problem_(problem), options_(options) {
-  BT_ASSERT_MSG(canDisassemble(puzzle), "a grid without a take-apart");
+  SL_ASSERT_MSG(canDisassemble(puzzle), "a grid without a take-apart");
 
   if (options_.solver == SolverType::Crowell) {
     maxSuccessors_ = kCrowellMaxSuccessors;
@@ -64,7 +64,7 @@ Disassembler::Disassembler(const Puzzle& puzzle, const Problem& problem,
   if (!options_.levelThreads) {
     options_.pool = nullptr;
   }
-  BT_ASSERT_MSG(options_.maxDepth <= kMaxSeparationDepth,
+  SL_ASSERT_MSG(options_.maxDepth <= kMaxSeparationDepth,
                 "a take-apart may not make a tree deeper than a file may hold");
 
   // the level threads read the shapes (through their movement caches)
@@ -427,7 +427,7 @@ NodeRef Disassembler::searchLevels(const std::vector<unsigned int>& pieces,
         return {};
       }
 
-      BT_ASSERT(done > 0);
+      SL_ASSERT(done > 0);
 
       pos += done;
       progNodes_.fetch_add(done, std::memory_order_relaxed);
@@ -499,7 +499,7 @@ NodeRef newSubproblemStart(const DisassemblerNode* st, std::vector<unsigned int>
     }
   }
 
-  BT_ASSERT(num == part);
+  SL_ASSERT(num == part);
   return n;
 }
 
@@ -553,7 +553,7 @@ std::unique_ptr<Separation> Disassembler::separationOf(Round& round) {
       if (st2->isPieceRemoved(i)) {
         // a removed piece has a position before
         const DisassemblerNode* before = st2->getComefrom();
-        BT_ASSERT(before != nullptr);
+        SL_ASSERT(before != nullptr);
 
         s.set(i, before->getX(i) + movement::kRemovedScale * st2->getX(i), before->getY(i) + movement::kRemovedScale * st2->getY(i),
               before->getZ(i) + movement::kRemovedScale * st2->getZ(i), before->getTrans(i));
@@ -618,7 +618,7 @@ std::unique_ptr<Separation> Disassembler::takeApart(std::vector<unsigned int> pi
         }
       }
       // each part has a piece at least
-      BT_ASSERT(round.staying > 0 && round.leaving > 0);
+      SL_ASSERT(round.staying > 0 && round.leaving > 0);
       round.found = std::move(found);
       round.pieces = std::move(part);
       rounds.push_back(std::move(round));
@@ -707,7 +707,7 @@ bool Disassembler::subProbGrouping(const std::vector<unsigned int>& pn) {
 }
 
 TakeApartResult Disassembler::disassemble(const Assembly& assembly, const StopToken& stop) {
-  BT_ASSERT(problem_.getNumberOfPieces() == assembly.placementCount());
+  SL_ASSERT(problem_.getNumberOfPieces() == assembly.placementCount());
   groups_.reSet();
 
   stop_ = stop;

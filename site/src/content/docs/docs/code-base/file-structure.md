@@ -33,7 +33,7 @@ everything below it, `base` uses nothing.
 
 | Module | What it holds |
 |---|---|
-| `base/` | `StopSource` and `StopToken` (cancellation), `SolveState`, `Result<T>` and `Error`, `BT_ASSERT`, `ThreadPool`, `ClonePtr`, the version |
+| `base/` | `StopSource` and `StopToken` (cancellation), `SolveState`, `Result<T>` and `Error`, `SL_ASSERT`, `ThreadPool`, `ClonePtr`, the version |
 | `grid/` | `GridType`, the abstract `Voxel` space and one class per grid (`voxel_bricks`, `voxel_prisms`, `voxel_spheres`, `voxel_rhombic`, `voxel_tetra_octa`), the symmetry tables in `tabs_0/`, `tabs_1/`, `tabs_2/`, `VoxelTable` |
 | `model/` | `Puzzle`, `Problem`, `Assembly`, `Disassembly` and `Separation`, `Solution`, the sliding and stacking models, grid conversion |
 | `io/` | `.xmpuzzle` reading and writing (XML pull parser, XML writer, gzip), the paused solve file, the PuzzleSolver3D and Puzzlecad imports |
@@ -50,7 +50,7 @@ comment at the top.
 |---|---|
 | `main.cpp` | the process: `--version`, binary stdio on Windows, runs `Engine` |
 | `engine.h`, `engine.cpp` | `Engine` (the dispatcher and the run loop with its reader thread), `State` (the document, settings, handles, the watches of running solves) |
-| `rpc.h`, `rpc.cpp` | error codes, `Params` (reads a method's fields, refusing unknown ones), the id formats (`s7`, `p1`, `sol42`, `pb1`), `BTE_TRY` and `BTE_CHECK` |
+| `rpc.h`, `rpc.cpp` | error codes, `Params` (reads a method's fields, refusing unknown ones), the id formats (`s7`, `p1`, `sol42`, `pb1`), `SLE_TRY` and `SLE_CHECK` |
 | `output.h`, `output.cpp` | writing lines and binary frames, `FrameBuilder` |
 | `convert.h`, `convert.cpp` | the JSON of every item: snapshots, summaries, options, progress, failures, rows |
 | `methods_<area>.cpp` | one file per schema file: `document`, `shape`, `color`, `problem`, `solve`, `solution`, `playback`, `explore`, `sliding`, `stacking`, `export`, `engine` |

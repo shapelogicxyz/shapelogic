@@ -29,38 +29,38 @@ namespace {
 constexpr std::int64_t kMaxPlace = 0xFFFF;
 
 Reply stackingAddRodSet(State& s, Params& p) {
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::Id id, app::StackingEdits(s.document()).addRodSet());
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::Id id, app::StackingEdits(s.document()).addRodSet());
   return Json{{"rodSet", formatId(IdKind::RodSet, id)}, {"revision", s.revision()}};
 }
 
 Reply stackingDuplicateRodSet(State& s, Params& p) {
   const app::Id r = p.id("rodSet", IdKind::RodSet);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::Id id, app::StackingEdits(s.document()).duplicateRodSet(r));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::Id id, app::StackingEdits(s.document()).duplicateRodSet(r));
   return Json{{"rodSet", formatId(IdKind::RodSet, id)}, {"revision", s.revision()}};
 }
 
 Reply stackingDeleteRodSet(State& s, Params& p) {
   const app::Id r = p.id("rodSet", IdKind::RodSet);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(app::StackingEdits(s.document()).deleteRodSet(r));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(app::StackingEdits(s.document()).deleteRodSet(r));
   return s.changed();
 }
 
 Reply stackingRenameRodSet(State& s, Params& p) {
   const app::Id r = p.id("rodSet", IdKind::RodSet);
   std::string name = p.string("name");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(app::StackingEdits(s.document()).renameRodSet(r, std::move(name)));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(app::StackingEdits(s.document()).renameRodSet(r, std::move(name)));
   return s.changed();
 }
 
 Reply stackingMoveRodSet(State& s, Params& p) {
   const app::Id r = p.id("rodSet", IdKind::RodSet);
   const unsigned int to = p.count("toIndex");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(app::StackingEdits(s.document()).moveRodSet(r, to));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(app::StackingEdits(s.document()).moveRodSet(r, to));
   return s.changed();
 }
 
@@ -69,11 +69,11 @@ Reply stackingMoveRodSet(State& s, Params& p) {
 Reply stackingSetRules(State& s, Params& p) {
   const app::Id r = p.id("rodSet", IdKind::RodSet);
   const Json& given = p.value("rules");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   if (!given.is_object()) {
     return std::unexpected(invalidParams("'rules' must be an object"));
   }
-  BTE_TRY(const unsigned int index, s.document().rodSetIndex(r));
+  SLE_TRY(const unsigned int index, s.document().rodSetIndex(r));
   // what is not given stays as the fields show it (the core's struct, not
   // its JSON)
   const stacking::RodSet shown = rodSetFields(s.document().puzzle().getRodSet(index));
@@ -97,23 +97,23 @@ Reply stackingSetRules(State& s, Params& p) {
     err.message = "rules: " + err.message;
     return std::unexpected(err);
   }
-  BTE_CHECK(app::StackingEdits(s.document()).setRodSetRules(r, f));
+  SLE_CHECK(app::StackingEdits(s.document()).setRodSetRules(r, f));
   return s.changed();
 }
 
 Reply stackingSetDiscSize(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const auto size = static_cast<unsigned int>(p.integer("size", 1, stacking::kMaxDiscSize));
-  BTE_CHECK(p.finish());
-  BTE_CHECK(app::StackingEdits(s.document()).setDiscSize(shape, size));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(app::StackingEdits(s.document()).setDiscSize(shape, size));
   return s.changed();
 }
 
 Reply stackingSetProblemRodSet(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id r = p.id("rodSet", IdKind::RodSet);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(app::StackingEdits(s.document()).setProblemRodSet(problem, r));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(app::StackingEdits(s.document()).setProblemRodSet(problem, r));
   return s.changed();
 }
 
@@ -122,8 +122,8 @@ Reply stackingPlaceDisc(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const auto rod = static_cast<unsigned int>(p.integer("rod", 0, kMaxPlace));
   const bool goal = p.boolean("goal");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(app::StackingEdits(s.document()).placeDisc(problem, shape, rod, goal));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(app::StackingEdits(s.document()).placeDisc(problem, shape, rod, goal));
   return s.changed();
 }
 
@@ -131,8 +131,8 @@ Reply stackingPlaceAll(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const auto rod = static_cast<unsigned int>(p.integer("rod", 0, kMaxPlace));
   const bool goal = p.boolean("goal");
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::DiscsPlaced placed,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::DiscsPlaced placed,
           app::StackingEdits(s.document()).placeAllDiscs(problem, rod, goal));
   return Json{{"placed", placed.placed},
               {"error", placed.error.empty() ? Json(nullptr) : Json(placed.error)},
@@ -144,16 +144,16 @@ Reply stackingRemoveDisc(State& s, Params& p) {
   const bool goal = p.boolean("goal");
   const auto rod = static_cast<unsigned int>(p.integer("rod", 0, kMaxPlace));
   const auto index = static_cast<unsigned int>(p.integer("index", 0, kMaxPlace));
-  BTE_CHECK(p.finish());
-  BTE_CHECK(app::StackingEdits(s.document()).removeDisc(problem, goal, rod, index));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(app::StackingEdits(s.document()).removeDisc(problem, goal, rod, index));
   return s.changed();
 }
 
 Reply stackingClear(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const bool goal = p.boolean("goal");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(app::StackingEdits(s.document()).clearStacks(problem, goal));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(app::StackingEdits(s.document()).clearStacks(problem, goal));
   return s.changed();
 }
 
@@ -163,8 +163,8 @@ Reply stackingMoveDisc(State& s, Params& p) {
   const auto rod = static_cast<unsigned int>(p.integer("rod", 0, kMaxPlace));
   const auto index = static_cast<unsigned int>(p.integer("index", 0, kMaxPlace));
   const auto delta = static_cast<int>(p.integer("delta", -1, 1));
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int at,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int at,
           app::StackingEdits(s.document()).moveDisc(problem, goal, rod, index, delta));
   return Json{{"index", at}, {"revision", s.revision()}};
 }
@@ -189,12 +189,12 @@ Json rodsJson(const stacking::RodSet& board, unsigned int discs) {
 Reply stackingBoard(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const bool goal = p.boolean("goal");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   const app::Document& d = s.document();
   if (!stacking::isStacking(d.puzzle())) {
     return coreError(Errc::Unsupported, "only stacking puzzles have rods");
   }
-  BTE_TRY(const unsigned int index, d.problemIndex(problem));
+  SLE_TRY(const unsigned int index, d.problemIndex(problem));
   const Puzzle& puzzle = d.puzzle();
   return d.readProblem(index, [&s, &puzzle, goal](const Problem& pr) -> Reply {
     const std::string error = stacking::setupError(puzzle, pr);
@@ -222,8 +222,8 @@ Reply stackingBoard(State& s, Params& p) {
 // A rod set drawn alone (the Entities tab's view of it).
 Reply stackingRodSetLayout(State& s, Params& p) {
   const app::Id r = p.id("rodSet", IdKind::RodSet);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int index, s.document().rodSetIndex(r));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int index, s.document().rodSetIndex(r));
   return layoutJson(s, app::rodSetLayout(s.document().puzzle(), index), {});
 }
 
@@ -291,8 +291,8 @@ RpcResult<const Problem*> playProblem(const State& s, app::Id problem) {
 
 Reply stackingPlayStart(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const Problem* pr, playProblem(s, problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const Problem* pr, playProblem(s, problem));
   const Puzzle& puzzle = s.document().puzzle();
   const stacking::PlayStart start = stacking::playStart(puzzle, *pr);
   // the board, also when the start is no position yet
@@ -321,9 +321,9 @@ Reply stackingPlayStart(State& s, Params& p) {
 Reply stackingPlayMoves(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const stacking::Stacking stacks = stacksOf(p);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const Problem* pr, playProblem(s, problem));
-  BTE_TRY(const std::vector<stacking::PlayTransfer> allowed,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const Problem* pr, playProblem(s, problem));
+  SLE_TRY(const std::vector<stacking::PlayTransfer> allowed,
           stacking::playMoves(s.document().puzzle(), *pr, stacks));
   Json moves = Json::array();
   for (const stacking::PlayTransfer& t : allowed) {
@@ -356,9 +356,9 @@ Reply stackingPlayReplay(State& s, Params& p) {
           stacking::PlayMove{static_cast<unsigned int>(from), static_cast<unsigned int>(to)});
     }
   }
-  BTE_CHECK(p.finish());
-  BTE_TRY(const Problem* pr, playProblem(s, problem));
-  BTE_TRY(const stacking::PlayReplay replay,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const Problem* pr, playProblem(s, problem));
+  SLE_TRY(const stacking::PlayReplay replay,
           stacking::playReplay(s.document().puzzle(), *pr, stacks, moves));
   Json steps = Json::array();
   for (const stacking::PlayStep& step : replay.steps) {
@@ -371,8 +371,8 @@ Reply stackingSetStacks(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const bool goal = p.boolean("goal");
   const stacking::Stacking stacks = stacksOf(p);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const bool changed, app::StackingEdits(s.document()).setStacks(problem, goal, stacks));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const bool changed, app::StackingEdits(s.document()).setStacks(problem, goal, stacks));
   return Json{{"changed", changed}, {"revision", s.revision()}};
 }
 

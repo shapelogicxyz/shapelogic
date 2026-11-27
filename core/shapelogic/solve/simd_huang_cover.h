@@ -291,7 +291,7 @@ class SimdHuangCover : public SimdHuangCoverBase {
     return checkRange && cand.rangeWeight > maxAllowedRangeWeight;
   }
 
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
   // the targets on the declarations too: with them at the definitions only,
   // Apple clang 21 compiled filterRowsAvx2 for x86-64 without AVX and refused
   // its intrinsics (found by the first x86-64 build, release-x64)
@@ -305,7 +305,7 @@ class SimdHuangCover : public SimdHuangCoverBase {
       const BitsetType& chosenVoxelMask, unsigned int chosenShape, bool shapeIsFull,
       bool filterMonotonic, unsigned int chosenShapeRowIdx, bool checkRange,
       unsigned int maxAllowedRangeWeight, std::vector<std::uint32_t>& dst) const;
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
   void filterRowsNeon(const std::vector<std::uint32_t>& src, std::uint32_t chosenIdx,
                       const BitsetType& chosenVoxelMask, unsigned int chosenShape,
                       bool shapeIsFull, bool filterMonotonic, unsigned int chosenShapeRowIdx,

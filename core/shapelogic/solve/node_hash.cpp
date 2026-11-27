@@ -38,13 +38,13 @@ bool CountingNodeHash::insert(const NodeRef& n) {
 }
 
 void CountingNodeHash::initScan() {
-  BT_ASSERT(!scanActive_);
+  SL_ASSERT(!scanActive_);
   scanPos_ = order_.size();
   scanActive_ = true;
 }
 
 const DisassemblerNode* CountingNodeHash::nextScan() {
-  BT_ASSERT(scanActive_);
+  SL_ASSERT(scanActive_);
 
   if (scanPos_ == 0) {
     scanActive_ = false;

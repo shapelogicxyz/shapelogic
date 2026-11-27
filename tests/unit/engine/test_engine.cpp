@@ -334,7 +334,7 @@ TEST_CASE("engine: the run loop ends when its output is refused", "[engine][para
 }
 
 // Cleanup item 15.1: an exception outside a method's handler (a failed
-// BT_ASSERT in Document::poll, say) used to reach std::terminate, and the
+// SL_ASSERT in Document::poll, say) used to reach std::terminate, and the
 // solves were never paused. It is logged, once while it repeats, and the
 // engine goes on answering.
 TEST_CASE("engine: a broken invariant in a poll is logged and the run loop goes on",
@@ -356,7 +356,7 @@ TEST_CASE("engine: a broken invariant in a poll is logged and the run loop goes 
   e.setPollHook([&out] {
     const std::string written = out.str();
     const auto replies = std::count(written.begin(), written.end(), '\n');
-    BT_ASSERT_MSG(replies == 3, "the test broke an invariant");
+    SL_ASSERT_MSG(replies == 3, "the test broke an invariant");
   });
   CHECK(e.run(in));
   const Captured c = parse(out.str());

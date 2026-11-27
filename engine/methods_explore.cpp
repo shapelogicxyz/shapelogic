@@ -57,13 +57,13 @@ Reply exploreOpenAssembly(State& s, Params& p) {
   m.completeRotations = p.optBoolean("completeRotations", false);
   m.strictColors = p.optBoolean("strictColors", false);
   const bool reduce = p.optBoolean("reduce", true);
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   // The copy of the puzzle now, under the lock a solve of the problem
   // writes with; the matrix on a thread of the explorer's own (cleanup item
   // 18.1: built here, a big problem's held this thread, and with it Pause,
   // Abort, the events and every other call, for minutes). The poll tells
   // explore.ready when the handle can be used (events.cpp).
-  BTE_TRY(app::AssemblyExplorer e, s.document().exploreAssembly(problem, solver, m));
+  SLE_TRY(app::AssemblyExplorer e, s.document().exploreAssembly(problem, solver, m));
   const std::uint64_t handle = s.newHandle();
   Json j = Json{{"handle", formatId(IdKind::AssemblyExplorer, handle)}, {"pieces", e.pieceCount()}};
   s.explorerBuilds.emplace(
@@ -75,8 +75,8 @@ Reply exploreOpenAssembly(State& s, Params& p) {
 Reply explorePlacements(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::AssemblyExplorer);
   const unsigned int piece = p.count("piece");
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::AssemblyExplorer* e, assemblyExplorer(s, handle));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::AssemblyExplorer* e, assemblyExplorer(s, handle));
   if (!e->placementsSupported()) {
     return coreError(Errc::Unsupported, "this assembler has no placement browser");
   }
@@ -94,8 +94,8 @@ Reply exploreStep(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::AssemblyExplorer);
   // capped (kMaxExploreSteps)
   const auto steps = static_cast<unsigned long>(p.optInteger("steps", 1, 1, kMaxExploreSteps));
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::AssemblyExplorer* e, assemblyExplorer(s, handle));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::AssemblyExplorer* e, assemblyExplorer(s, handle));
   e->step(steps);
   return Json{{"finished", e->finished()}, {"placements", placementsJson(e->currentAssembly())}};
 }
@@ -104,8 +104,8 @@ Reply exploreOpenMovements(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id solution = p.id("solution", IdKind::Solution);
   const bool rotations = p.optBoolean("rotations", false);
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::MovementExplorer m, s.document().exploreMovements(problem, solution, rotations));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::MovementExplorer m, s.document().exploreMovements(problem, solution, rotations));
   Json vectors = Json::array();
   for (const std::array<int, 3>& v : m.directionVectors()) {
     vectors.push_back(Json::array({v[0], v[1], v[2]}));
@@ -122,19 +122,19 @@ Reply exploreOpenMovements(State& s, Params& p) {
 Reply exploreNode(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::MovementExplorer);
   const unsigned int id = p.count("node");
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::MovementExplorer* m, movementExplorer(s, handle));
-  BTE_TRY(const app::MovementExplorer::Node* n, node(*m, id));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::MovementExplorer* m, movementExplorer(s, handle));
+  SLE_TRY(const app::MovementExplorer::Node* n, node(*m, id));
   return nodeJson(*n);
 }
 
 Reply exploreAnalyse(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::MovementExplorer);
   const unsigned int id = p.count("node");
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::MovementExplorer* m, movementExplorer(s, handle));
-  BTE_CHECK(node(*m, id));
-  BTE_TRY(const std::vector<unsigned int> added, m->analyse(id));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::MovementExplorer* m, movementExplorer(s, handle));
+  SLE_CHECK(node(*m, id));
+  SLE_TRY(const std::vector<unsigned int> added, m->analyse(id));
   Json nodes = Json::array();
   for (const unsigned int n : added) {
     nodes.push_back(nodeJson(m->node(n)));
@@ -160,10 +160,10 @@ Reply exploreAddMove(State& s, Params& p) {
   }
   const unsigned int direction = p.count("direction", 0xFFFF);
   const bool reverse = p.optBoolean("reverse", false);
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::MovementExplorer* m, movementExplorer(s, handle));
-  BTE_CHECK(node(*m, id));
-  BTE_TRY(const unsigned int n, m->addMove(id, pieces, direction, reverse));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::MovementExplorer* m, movementExplorer(s, handle));
+  SLE_CHECK(node(*m, id));
+  SLE_TRY(const unsigned int n, m->addMove(id, pieces, direction, reverse));
   return nodeJson(m->node(n));
 }
 
@@ -172,26 +172,26 @@ Reply exploreFindMatching(State& s, Params& p) {
   const unsigned int id = p.count("node");
   const unsigned int piece = p.count("piece", 0xFFFF);
   const std::array<int, 3> delta = p.cell("delta");
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::MovementExplorer* m, movementExplorer(s, handle));
-  BTE_CHECK(node(*m, id));
-  BTE_TRY(const unsigned int n, m->findMatching(id, piece, delta[0], delta[1], delta[2]));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::MovementExplorer* m, movementExplorer(s, handle));
+  SLE_CHECK(node(*m, id));
+  SLE_TRY(const unsigned int n, m->findMatching(id, piece, delta[0], delta[1], delta[2]));
   return nodeJson(m->node(n));
 }
 
 Reply explorePrune(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::MovementExplorer);
   const unsigned int id = p.count("node");
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::MovementExplorer* m, movementExplorer(s, handle));
-  BTE_CHECK(node(*m, id));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::MovementExplorer* m, movementExplorer(s, handle));
+  SLE_CHECK(node(*m, id));
   m->prune(id);
   return Json::object();
 }
 
 Reply exploreClose(State& s, Params& p) {
   const std::string handle = p.string("handle");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   if (const std::optional<std::uint64_t> a = parseId(IdKind::AssemblyExplorer, handle)) {
     // one still being prepared is stopped, and nobody waits for it
     if (s.assemblyExplorers.erase(*a) == 0 && !s.stopExplorerBuild(*a)) {

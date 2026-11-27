@@ -72,7 +72,7 @@ bool Assembly::transform(unsigned char trans, const Puzzle& puzzle, const Proble
   }
 
   // mirroring needs the mirror information of the pieces
-  BT_ASSERT(trans < sym().getNumTransformations() || mir != nullptr);
+  SL_ASSERT(trans < sym().getNumTransformations() || mir != nullptr);
 
   const Voxel& result = problem.resultShape(puzzle);
 
@@ -213,8 +213,8 @@ bool Assembly::transform(unsigned char trans, const Puzzle& puzzle, const Proble
           unsigned char tInv = 0;
 
           const bool partnerKnown = mir->getPieceInfo(p2, &p3, &tInv);
-          BT_ASSERT_MSG(partnerKnown, "piece info could not be found");
-          BT_ASSERT(p3 == p);
+          SL_ASSERT_MSG(partnerKnown, "piece info could not be found");
+          SL_ASSERT(p3 == p);
 
           unsigned int i2 = 0;
           {
@@ -236,8 +236,8 @@ bool Assembly::transform(unsigned char trans, const Puzzle& puzzle, const Proble
             return false;
           }
 
-          BT_ASSERT(shape1.normalizeTransformation(sym().transAdd(t, tInv)) == 0);
-          BT_ASSERT(shape2.normalizeTransformation(sym().transAdd(tInv, t)) == 0);
+          SL_ASSERT(shape1.normalizeTransformation(sym().transAdd(t, tInv)) == 0);
+          SL_ASSERT(shape2.normalizeTransformation(sym().transAdd(tInv, t)) == 0);
 
           /* piece p is replaced by piece p2: find the target orientations of
            * both and move them by their hotspots */
@@ -253,7 +253,7 @@ bool Assembly::transform(unsigned char trans, const Puzzle& puzzle, const Proble
             unsigned char p2t = placements_[p2].transformation;
 
             // the partner must be mirrored, too
-            BT_ASSERT(p2t >= sym().getNumTransformations());
+            SL_ASSERT(p2t >= sym().getNumTransformations());
 
             int hx = 0;
             int hy = 0;
@@ -362,7 +362,7 @@ bool Assembly::transform(unsigned char trans, const Puzzle& puzzle, const Proble
 }
 
 bool Assembly::compare(const Assembly& b, unsigned int pivot) const {
-  BT_ASSERT(placements_.size() == b.placements_.size());
+  SL_ASSERT(placements_.size() == b.placements_.size());
 
   /* the pivot piece first: it is the one with reduced placements, which may
    * not occur in all positions, so the reduction could otherwise pick an
@@ -533,7 +533,7 @@ bool Assembly::smallerUnder(unsigned char t, const Puzzle& puzzle, const Problem
                             unsigned int pivot, const MirrorInfo* mir, Assembly& scratch) const {
   scratch = *this;
   const bool transformed = scratch.transform(t, puzzle, problem, mir);
-  BT_ASSERT(transformed);
+  SL_ASSERT(transformed);
 
   /* an orientation that needs mirrored pieces is invalid; so is one that
    * uses a wrong number of pieces of a shape, which can happen when a
@@ -547,13 +547,13 @@ bool Assembly::smallerUnder(unsigned char t, const Puzzle& puzzle, const Problem
 }
 
 void Assembly::exchangeShape(unsigned int s1, unsigned int s2) {
-  BT_ASSERT(s1 < placements_.size());
-  BT_ASSERT(s2 < placements_.size());
+  SL_ASSERT(s1 < placements_.size());
+  SL_ASSERT(s2 < placements_.size());
   std::swap(placements_[s1], placements_[s2]);
 }
 
 int Assembly::comparePieces(const Assembly& b) const {
-  BT_ASSERT(placements_.size() == b.placements_.size());
+  SL_ASSERT(placements_.size() == b.placements_.size());
 
   for (unsigned int piece = 0; piece < placements_.size(); piece++) {
     if (placements_[piece].transformation == kUnplacedTrans &&
@@ -592,7 +592,7 @@ std::unique_ptr<Voxel> Assembly::createSpace(const Puzzle& puzzle, const Problem
     std::unique_ptr<Voxel> pc = problem.partShape(puzzle, j).clone();
 
     const bool transformed = pc->transform(placements_[i].transformation);
-    BT_ASSERT(transformed);
+    SL_ASSERT(transformed);
 
     const int dx = placements_[i].xpos - pc->getHx();
     const int dy = placements_[i].ypos - pc->getHy();
@@ -694,10 +694,10 @@ void Assembly::removePieces(unsigned int from, unsigned int cnt) {
     return;
   }
 
-  BT_ASSERT(from + cnt <= placements_.size());
+  SL_ASSERT(from + cnt <= placements_.size());
 
   for (unsigned int i = 0; i < cnt; i++) {
-    BT_ASSERT(!isPlaced(from + i));
+    SL_ASSERT(!isPlaced(from + i));
   }
 
   placements_.erase(placements_.begin() + from, placements_.begin() + from + cnt);
@@ -708,7 +708,7 @@ void Assembly::addNonPlacedPieces(unsigned int from, unsigned int cnt) {
     return;
   }
 
-  BT_ASSERT(from <= placements_.size());
+  SL_ASSERT(from <= placements_.size());
 
   placements_.insert(placements_.begin() + from, cnt, Placement{kUnplacedTrans, 0, 0, 0});
 }

@@ -74,15 +74,15 @@ std::vector<Matrix> prismMatrices(unsigned int fold) {
 
 DerivedSymmetries::DerivedSymmetries(std::vector<Matrix> matrices, unsigned int plain)
     : m_(std::move(matrices)), plain_(plain), n_(static_cast<unsigned int>(m_.size())) {
-  BT_ASSERT(n_ >= 1 && n_ <= 64 && plain_ <= n_);
-  BT_ASSERT(sameMatrix(m_[0], Matrix{1, 0, 0, 0, 1, 0, 0, 0, 1}));
+  SL_ASSERT(n_ >= 1 && n_ <= 64 && plain_ <= n_);
+  SL_ASSERT(sameMatrix(m_[0], Matrix{1, 0, 0, 0, 1, 0, 0, 0, 1}));
 
   // t1 then t2: the matrix of t2 times that of t1
   mult_.assign(n_, std::vector<unsigned char>(n_, 0));
   for (unsigned int t1 = 0; t1 < n_; t1++) {
     for (unsigned int t2 = 0; t2 < n_; t2++) {
       const std::optional<unsigned int> r = transformationOf(multiply(m_[t2], m_[t1]));
-      BT_ASSERT_MSG(r.has_value(), "the transformation matrices are not closed under products");
+      SL_ASSERT_MSG(r.has_value(), "the transformation matrices are not closed under products");
       mult_[t1][t2] = static_cast<unsigned char>(*r);
     }
   }
@@ -193,27 +193,27 @@ std::optional<unsigned int> DerivedSymmetries::transformationOf(const Matrix& m)
 }
 
 const DerivedSymmetries::Group& DerivedSymmetries::group(Symmetry s) const {
-  BT_ASSERT(s < groups_.size());
+  SL_ASSERT(s < groups_.size());
   return groups_[s];
 }
 
 bool DerivedSymmetries::symmetrieContainsTransformation(Symmetry s, unsigned int t) const {
-  BT_ASSERT(t < n_);
+  SL_ASSERT(t < n_);
   return (group(s).sym & (std::uint64_t{1} << t)) != 0;
 }
 
 bool DerivedSymmetries::isTransformationUnique(Symmetry s, unsigned int t) const {
-  BT_ASSERT(t < n_);
+  SL_ASSERT(t < n_);
   return (group(s).unique & (std::uint64_t{1} << t)) != 0;
 }
 
 unsigned char DerivedSymmetries::transAdd(unsigned char t1, unsigned char t2) const {
-  BT_ASSERT(t1 < n_ && t2 < n_);
+  SL_ASSERT(t1 < n_ && t2 < n_);
   return mult_[t1][t2];
 }
 
 unsigned char DerivedSymmetries::minimizeTransformation(Symmetry s, unsigned char trans) const {
-  BT_ASSERT(trans < n_);
+  SL_ASSERT(trans < n_);
   return group(s).minimizer[trans];
 }
 
@@ -246,7 +246,7 @@ std::uint64_t DerivedSymmetries::symmetryList(const Voxel& v) const {
 
 Symmetry DerivedSymmetries::calculateSymmetry(const Voxel& v) const {
   const auto it = index_.find(symmetryList(v));
-  BT_ASSERT_MSG(it != index_.end(), "a shape's symmetries are not a subgroup");
+  SL_ASSERT_MSG(it != index_.end(), "a shape's symmetries are not a subgroup");
   return it->second;
 }
 

@@ -22,7 +22,7 @@ Reply documentNew(State& s, Params& p) {
   const bool tilted = p.has("tray");
   const Json none;
   const Json& given = tilted ? p.value("tray") : none;
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   const app::DocumentSettings settings{s.settings.undoDepth};
   if (tilted) {
     // a Tilted Square puzzle: a cube-grid puzzle with a tray (decision 0045)
@@ -33,7 +33,7 @@ Reply documentNew(State& s, Params& p) {
     if (!tray) {
       return std::unexpected(tray.error());
     }
-    BTE_TRY(app::Document doc, app::Document::newTilted(std::move(*tray), settings));
+    SLE_TRY(app::Document doc, app::Document::newTilted(std::move(*tray), settings));
     s.replaceDocument(std::move(doc), std::nullopt);
     return snapshot(s);
   }
@@ -57,8 +57,8 @@ Reply documentOpen(State& s, Params& p) {
     }
   }
   const bool dirty = p.optBoolean("dirty", false);
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::Document d,
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::Document d,
           app::Document::open(path, app::DocumentSettings{s.settings.undoDepth}));
   if (dirty) {
     d.markUnsaved();
@@ -71,7 +71,7 @@ Reply documentOpenBytes(State& s, Params& p) {
   const std::string data = p.string("data");
   const std::optional<std::string> path = p.optString("path");
   const bool dirty = p.optBoolean("dirty", false);
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   const std::optional<std::string> bytes = base64Decode(data);
   if (!bytes) {
     return coreError(Errc::InvalidArgument, "'data' is not base64");
@@ -79,7 +79,7 @@ Reply documentOpenBytes(State& s, Params& p) {
   if (path && path->empty()) {
     return coreError(Errc::InvalidArgument, "'path' is empty");
   }
-  BTE_TRY(app::Document d,
+  SLE_TRY(app::Document d,
           app::Document::openBytes(*bytes, app::DocumentSettings{s.settings.undoDepth}));
   if (dirty) {
     d.markUnsaved();
@@ -93,7 +93,7 @@ Reply documentImport(State& s, Params& p) {
   const app::ImportFormat format = p.choice("format", importFormatNames());
   const std::optional<std::string> path = p.optString("path");
   const std::optional<std::string> data = p.optString("data");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   if (path.has_value() == data.has_value()) {
     return coreError(Errc::InvalidArgument, "give the file's 'path' or its 'data', one of the two");
   }
@@ -108,7 +108,7 @@ Reply documentImport(State& s, Params& p) {
     }
     return app::Document::importBytes(format, *bytes, settings);
   }();
-  BTE_CHECK(d);
+  SLE_CHECK(d);
   // no path: Save must not write over the other program's file
   s.replaceDocument(std::move(*d), std::nullopt);
   return openedSnapshot(s);
@@ -129,23 +129,23 @@ Reply documentExportPuzzlecad(State& s, Params& p) {
       p.fail("give 'problem' or 'shapes', not both");
     }
   }
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   for (const app::Id id : shapes) {
-    BTE_TRY(const unsigned int index, s.document().shapeIndex(id));
+    SLE_TRY(const unsigned int index, s.document().shapeIndex(id));
     options.shapes.push_back(index);
   }
   // the name goes into a comment line of the file
-  BTE_CHECK(checkFileName(name));
+  SLE_CHECK(checkFileName(name));
   // the puzzle's file, or the export's when it has none (cb_Export_Scad)
   const std::string source = s.path ? s.path->string() : name;
-  BTE_TRY(std::string text, s.document().exportPuzzlecad(problem, source, options));
+  SLE_TRY(std::string text, s.document().exportPuzzlecad(problem, source, options));
   return Json{{"text", std::move(text)}};
 }
 
 Reply documentConvertGrid(State& s, Params& p) {
   const GridKind grid = p.choice("grid", gridNames());
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::Document d, s.document().convertGrid(grid));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::Document d, s.document().convertGrid(grid));
   // the original kept the file name (cb_Convert): Save writes there
   const std::optional<std::filesystem::path> path = s.path;
   s.replaceDocument(std::move(d), path);
@@ -154,19 +154,19 @@ Reply documentConvertGrid(State& s, Params& p) {
 
 Reply documentSave(State& s, Params& p) {
   const std::optional<std::string> given = p.optString("path");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   if (!given && !s.path) {
     return coreError(Errc::InvalidArgument, "the document has no file yet: give a path");
   }
   const std::filesystem::path path = given ? std::filesystem::path(*given) : *s.path;
-  BTE_CHECK(s.document().save(path));
+  SLE_CHECK(s.document().save(path));
   s.path = path;
   return Json{{"revision", s.revision()}, {"path", path.string()}};
 }
 
 Reply documentSaveBytes(State& s, Params& p) {
-  BTE_CHECK(p.finish());
-  BTE_TRY(const std::string bytes, s.document().saveBytes());
+  SLE_CHECK(p.finish());
+  SLE_TRY(const std::string bytes, s.document().saveBytes());
   return Json{{"data", base64Encode(bytes)}};
 }
 
@@ -174,62 +174,62 @@ Reply documentSaveRescue(State& s, Params& p) {
   const std::string path = p.string("path");
   const auto revision =
       static_cast<std::uint64_t>(p.integer("revision", 0, std::numeric_limits<std::int64_t>::max()));
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   // the copy is of the document the caller saw: one opened since (a call
   // ahead of this one, or a new engine after a crash) is not its puzzle
   if (revision < s.documentSince() || revision > s.revision()) {
     return coreError(Errc::InvalidState, "the document is not the one of that revision");
   }
-  BTE_TRY(const std::string bytes, s.document().saveBytes());
+  SLE_TRY(const std::string bytes, s.document().saveBytes());
   // compressed (cleanup item 4.5: plain XML over about 48 MiB came back
   // from saveBytes in base64 longer than the 64 MiB line the engine reads),
   // at the fast level: the copy is written after every change, on the
   // thread that answers the edits, and level 9 took about as long again as
   // writing the XML
-  BTE_CHECK(io::writeFileWhole(path, io::gzipCompress(bytes, io::kGzipFast)));
+  SLE_CHECK(io::writeFileWhole(path, io::gzipCompress(bytes, io::kGzipFast)));
   return Json{{"revision", s.revision()}};
 }
 
 Reply documentGet(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   return snapshot(s);
 }
 
 Reply documentSetNotes(State& s, Params& p) {
   std::string text = p.string("text");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setNotes(text));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setNotes(text));
   return s.changed();
 }
 
 Reply editUndo(State& s, Params& p) {
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().undo());
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().undo());
   return s.changed();
 }
 
 Reply editRedo(State& s, Params& p) {
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().redo());
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().redo());
   return s.changed();
 }
 
 Reply editHistory(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   const app::HistoryInfo h = s.document().history();
   return Json{{"undo", h.undo}, {"redo", h.redo}};
 }
 
 Reply editBegin(State& s, Params& p) {
   std::string label = p.optString("label").value_or("Edit");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().beginGroup(std::move(label)));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().beginGroup(std::move(label)));
   return Json::object();
 }
 
 Reply editEnd(State& s, Params& p) {
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().endGroup());
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().endGroup());
   return s.changed();
 }
 

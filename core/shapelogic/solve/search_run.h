@@ -215,7 +215,7 @@ class SplitTasks {
  public:
   SplitTasks(SplitSearchState<Task>& state, SearchRun& run, TaskProgress& progress)
       : state_(state), run_(run), progress_(progress), units_(progress.units()) {
-    BT_ASSERT(units_.size() == state_.tasks.size());
+    SL_ASSERT(units_.size() == state_.tasks.size());
     for (std::size_t i = 0; i < state_.completed.size(); i++) {
       if (!state_.completed[i]) {
         queue_.push_back(i);

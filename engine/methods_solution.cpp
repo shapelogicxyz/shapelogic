@@ -138,8 +138,8 @@ Reply solutionPage(State& s, Params& p) {
   const bool descending = p.optBoolean("descending", false);
   const auto offset = static_cast<std::size_t>(p.optInteger("offset", 0, 0, 0xFFFFFFFF));
   const auto limit = static_cast<std::size_t>(p.optInteger("limit", kDefaultPage, 1, kMaxPageLimit));
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int index, s.document().problemIndex(problem));
   // sorted as a view, under the lock a running solve writes with: the
   // order is kept from page to page (pageOrder)
   const bool stackingPuzzle = stacking::isStacking(s.document().puzzle());
@@ -161,8 +161,8 @@ Reply solutionPage(State& s, Params& p) {
 Reply solutionGet(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id solution = p.id("solution", IdKind::Solution);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int index, s.document().problemIndex(problem));
   return s.document().readProblem(index, [&](const Problem& pr) -> Reply {
     for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
       const Solution& sol = pr.getSavedSolution(i);
@@ -179,22 +179,22 @@ Reply solutionDelete(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::SolutionsToDelete which = p.choice("which", solutionsToDeleteNames());
   const std::optional<app::Id> solution = p.optId("solution", IdKind::Solution);
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   const bool relative = which == app::SolutionsToDelete::One ||
                         which == app::SolutionsToDelete::Before ||
                         which == app::SolutionsToDelete::After;
   if (relative && !solution) {
     return coreError(Errc::InvalidArgument, "'solution' names the one to remove from");
   }
-  BTE_CHECK(s.document().deleteSolutions(problem, which, solution.value_or(0)));
+  SLE_CHECK(s.document().deleteSolutions(problem, which, solution.value_or(0)));
   return s.changed();
 }
 
 Reply solutionDeleteDisassembly(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const std::optional<app::Id> solution = p.optId("solution", IdKind::Solution);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().deleteDisassemblies(problem, solution));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().deleteDisassemblies(problem, solution));
   return s.changed();
 }
 
@@ -214,8 +214,8 @@ Reply solutionToShapes(State& s, Params& p) {
   o.target = p.optId("target", IdKind::Problem);
   o.min = static_cast<unsigned int>(p.optInteger("min", 1, 0, kMaxPartCount));
   o.max = static_cast<unsigned int>(p.optInteger("max", 1, 0, kMaxPartCount));
-  BTE_CHECK(p.finish());
-  BTE_TRY(const std::vector<app::Id> shapes, s.document().assembliesToShapes(problem, o));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const std::vector<app::Id> shapes, s.document().assembliesToShapes(problem, o));
   Json ids = Json::array();
   for (const app::Id id : shapes) {
     ids.push_back(formatId(IdKind::Shape, id));
@@ -231,14 +231,14 @@ Reply solutionAnalyse(State& s, Params& p) {
   o.solver = p.optChoice("solver", solverNames()).value_or(s.settings.solver);
   o.rotations = p.optBoolean("rotations", false);
   o.threads = static_cast<unsigned int>(p.optInteger("threads", s.settings.threads, 0, kMaxThreads));
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   if (o.which == app::AnalyseWhich::One) {
     if (!solution) {
       return coreError(Errc::InvalidArgument, "'solution' names the one to take apart");
     }
     o.solution = *solution;
   }
-  BTE_TRY(const unsigned int total, s.document().analyseStart(problem, o));
+  SLE_TRY(const unsigned int total, s.document().analyseStart(problem, o));
   if (total > 0) {
     State::Watch& w = s.watches[problem];
     w.analysing = true;
@@ -249,8 +249,8 @@ Reply solutionAnalyse(State& s, Params& p) {
 
 Reply solutionAnalyseStop(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().analyseStop(problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().analyseStop(problem));
   return Json::object();
 }
 
@@ -266,8 +266,8 @@ Json analyseJson(const app::AnalyseProgress& a) {
 
 Reply solutionAnalyseStatus(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::AnalyseProgress a, s.document().analyseProgress(problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::AnalyseProgress a, s.document().analyseProgress(problem));
   return analyseJson(a);
 }
 

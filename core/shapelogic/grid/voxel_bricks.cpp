@@ -24,7 +24,7 @@ constexpr int kRotationMatrices[NUM_TRANSFORMATIONS_MIRROR][9] = {
 // The cube grid can compute the new size, bounding box and hotspot directly,
 // which makes this faster than the sphere and prism versions.
 bool VoxelBricks::transform(unsigned int nr) {
-  BT_ASSERT(nr < NUM_TRANSFORMATIONS_MIRROR);
+  SL_ASSERT(nr < NUM_TRANSFORMATIONS_MIRROR);
   const int* m = kRotationMatrices[nr];
 
   // transform the corner opposite (0, 0, 0) to find the new size and the
@@ -51,7 +51,7 @@ bool VoxelBricks::transform(unsigned int nr) {
     const int ox = m[0] * x + m[1] * y + m[2] * z + shx;
     const int oy = m[3] * x + m[4] * y + m[5] * z + shy;
     const int oz = m[6] * x + m[7] * y + m[8] * z + shz;
-    BT_ASSERT(ox >= 0 && oy >= 0 && oz >= 0);
+    SL_ASSERT(ox >= 0 && oy >= 0 && oz >= 0);
     return asUnsigned(ox + nsx * (oy + nsy * oz));
   };
 
@@ -135,7 +135,7 @@ bool VoxelBricks::transform(unsigned int nr) {
 }
 
 void VoxelBricks::transformPoint(int* x, int* y, int* z, unsigned int trans) const {
-  BT_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
+  SL_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
   const int* m = kRotationMatrices[trans];
 
   const int sx = *x;
@@ -148,7 +148,7 @@ void VoxelBricks::transformPoint(int* x, int* y, int* z, unsigned int trans) con
 }
 
 void VoxelBricks::getTransformMatrix(unsigned int trans, double m[9]) const {
-  BT_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
+  SL_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
   for (int i = 0; i < 9; i++) {
     m[i] = kRotationMatrices[trans][i];
   }

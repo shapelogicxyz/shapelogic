@@ -39,7 +39,7 @@ int kindOf(int x, int y) noexcept {
 
 std::array<Point, 5> pentagon(int x, int y) noexcept {
   const int k = kindOf(x, y);
-  BT_ASSERT(k >= 0);
+  SL_ASSERT(k >= 0);
   const int dx = x - kBase[k][0];
   const int dy = y - kBase[k][1];
   std::array<Point, 5> p{};
@@ -62,7 +62,7 @@ Fix fixToLattice(int u, int v) noexcept {
       }
     }
   }
-  BT_ASSERT(bestSum < 100);
+  SL_ASSERT(bestSum < 100);
   return best;
 }
 
@@ -107,8 +107,8 @@ const Around& around(int kind) noexcept {
           }
         }
       }
-      BT_ASSERT(std::ranges::all_of(found, [](bool f) { return f; }));
-      BT_ASSERT(!a.corners.empty());
+      SL_ASSERT(std::ranges::all_of(found, [](bool f) { return f; }));
+      SL_ASSERT(!a.corners.empty());
     }
     return out;
   }();

@@ -225,9 +225,9 @@ std::string startLine(std::uint64_t openFiles) {
   const char* build = "debug build";
 #endif
   // the vector paths the covers choose (each behind runtime detection)
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
   const char* vectors = cpuHasAvx512() ? "AVX-512" : cpuHasAvx2() ? "AVX2" : "scalar (no AVX2)";
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
   const char* vectors = "NEON";
 #else
   const char* vectors = "scalar";

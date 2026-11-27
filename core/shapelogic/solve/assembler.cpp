@@ -89,14 +89,14 @@ AssemblerError beginSolving(Problem& problem, Assembler& assembler) {
 
     problem.clearAssemblerState();
   } else {
-    BT_ASSERT(problem.getSolveState() == ProblemState::Unsolved);
+    SL_ASSERT(problem.getSolveState() == ProblemState::Unsolved);
     problem.markSolving();
   }
   return AssemblerError::None;
 }
 
 void storePosition(Problem& problem, const Assembler& assembler) {
-  BT_ASSERT(problem.getSolveState() == ProblemState::Solving);
+  SL_ASSERT(problem.getSolveState() == ProblemState::Solving);
   SavedPosition p = assembler.savePosition();
   problem.setAssemblerState(std::move(p.text), std::move(p.version));
 }

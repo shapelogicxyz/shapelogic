@@ -601,7 +601,7 @@ struct SlideSpace {
   [[nodiscard]] static std::uint64_t rank(const Pack& pk, const int* codes) {
     std::uint64_t r = 0;
     for (std::size_t j = 0; j < pk.pieces.size(); j++) {
-      BT_ASSERT(j == 0 || codes[j] > codes[j - 1]);
+      SL_ASSERT(j == 0 || codes[j] > codes[j - 1]);
       r += pk.choose[j * pk.span + idx(codes[j])];
     }
     return r;
@@ -675,7 +675,7 @@ struct SlideSpace {
       }
       for (std::size_t k = 0; k < group.size(); k++) {
         codes[k] = t[group[k]].code[idx(rows[group[k]])];
-        BT_ASSERT(codes[k] >= 0);
+        SL_ASSERT(codes[k] >= 0);
       }
       std::sort(codes, codes + group.size());
       const int* from = codes;
@@ -726,7 +726,7 @@ struct SlideSpace {
       return clear | own(i, p);
     }
     const int code = t[i].code[idx(p)];
-    BT_ASSERT(code >= 0);
+    SL_ASSERT(code >= 0);
     // the copies' numbers with the code in its place among the others
     Key key = clear;
     std::size_t next = 0;
@@ -752,14 +752,14 @@ struct SlideSpace {
   // at: the others have no code. For a piece with a field of its own.
   [[nodiscard]] Key own(unsigned int i, int p) const {
     const int code = t[i].code[idx(p)];
-    BT_ASSERT(code >= 0);
+    SL_ASSERT(code >= 0);
     return keyAt<Key>(static_cast<std::uint64_t>(code), t[i].shift);
   }
 
   // The same, for the searches whose keys are not packed (those with loose
   // stops work on the fields themselves).
   [[nodiscard]] Key field(unsigned int i, int p) const {
-    BT_ASSERT(!packed);
+    SL_ASSERT(!packed);
     return own(i, p);
   }
 
@@ -1195,7 +1195,7 @@ class SlideMover {
   // holds behind (cur's own move takes all of it).
   template <class F>
   bool movesBack(const Key cur, F&& emit) {
-    BT_ASSERT(s_.backMoves);
+    SL_ASSERT(s_.backMoves);
     if (expand(cur, [&](Key before, bool) { return emit(before, false); }, true)) {
       return true;
     }
@@ -1900,7 +1900,7 @@ class SlideMover {
   // soft as for fillFrom. (Arrangements with loose stops are never packed.)
   std::uint64_t floodGroup(Key cur, const unsigned int* group, unsigned int members,
                            const std::uint64_t* blocked, const std::uint64_t* soft) {
-    BT_ASSERT(!s_.packed);
+    SL_ASSERT(!s_.packed);
     const std::size_t words = s_.words;
     std::uint64_t touched = 0;
     groupStops_.clear();
@@ -2147,7 +2147,7 @@ void placeChain(const SlideSpace<Key>& s, SlideMover<Key>& mover, const std::vec
         }
       }
     }
-    BT_ASSERT(have);
+    SL_ASSERT(have);
     at = from;
     placed.push_back(at);
   }
@@ -2183,7 +2183,7 @@ void chainToPath(const SlideSpace<Key>& s, const std::vector<Key>& kept,
         mover.emitted(key, next.data());
         return true;
       });
-      BT_ASSERT(reached);
+      SL_ASSERT(reached);
     }
     real = next;
     path.push_back(s.stateOf(real.data()));

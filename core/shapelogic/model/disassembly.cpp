@@ -222,14 +222,14 @@ State State::withoutOrientations(unsigned int pn) {
 }
 
 void State::set(unsigned int piece, int x, int y, int z) {
-  BT_ASSERT(piece < dx_.size());
+  SL_ASSERT(piece < dx_.size());
   dx_[piece] = x;
   dy_[piece] = y;
   dz_[piece] = z;
 }
 
 void State::set(unsigned int piece, int x, int y, int z, unsigned int orient) {
-  BT_ASSERT(piece < dx_.size());
+  SL_ASSERT(piece < dx_.size());
   dx_[piece] = x;
   dy_[piece] = y;
   dz_[piece] = z;
@@ -256,7 +256,7 @@ void State::clearRotationArrival() {
 }
 
 bool State::pieceRemoved(unsigned int i) const {
-  BT_ASSERT(i < dx_.size());
+  SL_ASSERT(i < dx_.size());
   return std::abs(dx_[i]) > movement::kRemovedBeyond || std::abs(dy_[i]) > movement::kRemovedBeyond ||
          std::abs(dz_[i]) > movement::kRemovedBeyond;
 }
@@ -341,7 +341,7 @@ void Separation::eachBranch(const F& f) const {
 unsigned int Separation::sumMoves() const {
   unsigned int erg = 0;
   eachBranch([&erg](const Separation& s) {
-    BT_ASSERT(!s.states_.empty());
+    SL_ASSERT(!s.states_.empty());
     erg += s.getSlides();
   });
   return erg;
@@ -398,17 +398,17 @@ std::size_t Separation::byteEstimate() const {
 }
 
 void Separation::addstate(State st) {
-  BT_ASSERT(st.getPiecenumber() == pieces_.size());
+  SL_ASSERT(st.getPiecenumber() == pieces_.size());
   states_.push_front(std::move(st));
 }
 
 void Separation::appendState(State st) {
-  BT_ASSERT(st.getPiecenumber() == pieces_.size());
+  SL_ASSERT(st.getPiecenumber() == pieces_.size());
   states_.push_back(std::move(st));
 }
 
 std::string Separation::movesText() const {
-  BT_ASSERT(!states_.empty());
+  SL_ASSERT(!states_.empty());
   return levelText(SeparationShape{}, this, sumRotations() > 0);
 }
 
@@ -461,7 +461,7 @@ void Separation::removePieces(unsigned int from, unsigned int cnt) {
   // none of the removed pieces is used here (else the solution was deleted),
   // so only the numbers above them move down
   for (unsigned int& p : pieces_) {
-    BT_ASSERT(p < from || p >= from + cnt);
+    SL_ASSERT(p < from || p >= from + cnt);
     if (p >= from + cnt) {
       p -= cnt;
     }
@@ -495,7 +495,7 @@ void Separation::addNonPlacedPieces(unsigned int from, unsigned int cnt) {
 SeparationInfo::SeparationInfo(std::vector<unsigned int> values,
                                std::vector<unsigned int> rotValues)
     : values_(std::move(values)), rotValues_(std::move(rotValues)) {
-  BT_ASSERT(values_.size() == rotValues_.size());
+  SL_ASSERT(values_.size() == rotValues_.size());
 }
 
 /* Pre-order in the order of the animation and movesText: the node, its

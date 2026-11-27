@@ -57,7 +57,7 @@ const Symmetries& derivedSymmetries(GridKind kind) {
     case GridKind::Sliding:
     case GridKind::Stacking: break;
   }
-  BT_ASSERT_MSG(false, "the grid's symmetries are not derived");
+  SL_ASSERT_MSG(false, "the grid's symmetries are not derived");
   return hexagonalSymmetries();
 }
 }  // namespace detail

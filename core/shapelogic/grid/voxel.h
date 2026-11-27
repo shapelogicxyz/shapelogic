@@ -76,7 +76,7 @@ class Voxel {
 
   /// The index of a cell.
   [[nodiscard]] unsigned int getIndex(unsigned int x, unsigned int y, unsigned int z) const {
-    BT_ASSERT(x < sx_ && y < sy_ && z < sz_);
+    SL_ASSERT(x < sx_ && y < sy_ && z < sz_);
     return x + sx_ * (y + sy_ * z);
   }
 
@@ -101,7 +101,7 @@ class Voxel {
   }
   /// The cell value at an index.
   [[nodiscard]] VoxelType get(unsigned int p) const {
-    BT_ASSERT(p < voxels_);
+    SL_ASSERT(p < voxels_);
     return space_[p];
   }
 
@@ -169,7 +169,7 @@ class Voxel {
     setColor(getIndex(x, y, z), color);
   }
   void setColor(unsigned int i, unsigned int color) {
-    BT_ASSERT(color < 64);
+    SL_ASSERT(color < 64);
     set(i, static_cast<VoxelType>((get(i) & 0x3u) | color << 2));
   }
 
@@ -427,7 +427,7 @@ class Voxel {
   /// The hotspot after transformation `trans`; false when the transformation
   /// is not possible for this shape.
   bool getHotspot(unsigned char trans, int* x, int* y, int* z) const {
-    BT_ASSERT(x && y && z);
+    SL_ASSERT(x && y && z);
     const int* e = transformCacheEntry(trans);
     if (e[0] == kCacheNotDef) {
       return false;
@@ -588,7 +588,7 @@ class Voxel {
   /// ask for every piece of every assembly (the cache holds an entry for
   /// each transformation of the grid, so its size bounds `trans`).
   const int* transformCacheEntry(unsigned char trans) const {
-    BT_ASSERT(9 * std::size_t{trans} < bbHsCache_.size());
+    SL_ASSERT(9 * std::size_t{trans} < bbHsCache_.size());
     const int* e = &bbHsCache_[9 * std::size_t{trans}];
     if (e[0] == kCacheUninit || e[3] == kCacheUninit) {
       fillTransformCache(trans);
@@ -645,7 +645,7 @@ void Voxel::rebuildTurned(Turn turn, Fit fit) {
                                    static_cast<unsigned int>(high[2] - low[2] + 1)};
   fit(low, size);
   const auto at = [&](const auto& c) {
-    BT_ASSERT(c.x >= low[0] && c.y >= low[1] && c.z >= low[2]);
+    SL_ASSERT(c.x >= low[0] && c.y >= low[1] && c.z >= low[2]);
     return static_cast<unsigned int>(c.x - low[0]) +
            size[0] * (static_cast<unsigned int>(c.y - low[1]) +
                       size[1] * static_cast<unsigned int>(c.z - low[2]));

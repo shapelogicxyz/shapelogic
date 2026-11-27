@@ -32,7 +32,7 @@ int addCornerFace(Polyhedron& poly, VertexList& vl, const std::vector<float>& c)
   }
   // three or four corners on the original's grids; the new grids' faces
   // have up to six
-  BT_ASSERT(c.size() >= 9 && c.size() % 3 == 0);
+  SL_ASSERT(c.size() >= 9 && c.size() % 3 == 0);
   std::vector<int> corners;
   for (std::size_t i = 0; i < c.size(); i += 3) {
     corners.push_back(vl.get(c[i], c[i + 1], c[i + 2]));
@@ -111,7 +111,7 @@ Polyhedron cellMesh(const Voxel& v, double bevel, double offset, bool fast) {
               // a face toward an empty neighbor
               faceCorners.clear();
               connectionFace(v, ix, iy, iz, asInt(n), bevel, offset, faceCorners);
-              BT_ASSERT(!faceCorners.empty());
+              SL_ASSERT(!faceCorners.empty());
               const int f = addCornerFace(res, vl, faceCorners);
               Face& ff = res.face(f);
               ff.flags = type;
@@ -138,15 +138,15 @@ Polyhedron cellMesh(const Voxel& v, double bevel, double offset, bool fast) {
                 }
                 n2++;
               }
-              BT_ASSERT(found);
+              SL_ASSERT(found);
 
               faceCorners.clear();
               connectionFace(v, ix, iy, iz, asInt(n), bevel, offset, faceCorners);
               faceCorners2.clear();
               connectionFace(v, nx, ny, nz, asInt(n2), bevel, offset, faceCorners2);
 
-              BT_ASSERT(faceCorners.size() == faceCorners2.size());
-              BT_ASSERT(faceCorners.size() % 3 == 0);
+              SL_ASSERT(faceCorners.size() == faceCorners2.size());
+              SL_ASSERT(faceCorners.size() % 3 == 0);
 
               const std::size_t corners = faceCorners.size() / 3;
               for (std::size_t i = 0; i < corners; i++) {
@@ -266,7 +266,7 @@ Polyhedron shapeMesh(const Voxel& v, MeshStyle style) {
       return cellMesh(v, 0.03, 0.005, true);
     }
   }
-  BT_ASSERT_MSG(false, "unknown mesh style");
+  SL_ASSERT_MSG(false, "unknown mesh style");
   return {};
 }
 

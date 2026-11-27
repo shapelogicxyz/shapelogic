@@ -93,21 +93,21 @@ class State {
   void set(unsigned int piece, int x, int y, int z, unsigned int orient);
 
   [[nodiscard]] int getX(unsigned int i) const {
-    BT_ASSERT(i < dx_.size());
+    SL_ASSERT(i < dx_.size());
     return dx_[i];
   }
   [[nodiscard]] int getY(unsigned int i) const {
-    BT_ASSERT(i < dy_.size());
+    SL_ASSERT(i < dy_.size());
     return dy_[i];
   }
   [[nodiscard]] int getZ(unsigned int i) const {
-    BT_ASSERT(i < dz_.size());
+    SL_ASSERT(i < dz_.size());
     return dz_[i];
   }
 
   /// The orientation of a piece; 0 when the state has none (older files).
   [[nodiscard]] unsigned int getOrient(unsigned int i) const {
-    BT_ASSERT(i < dx_.size());
+    SL_ASSERT(i < dx_.size());
     return dt_.empty() ? 0 : static_cast<unsigned int>(dt_[i]);
   }
 
@@ -197,7 +197,7 @@ class Separation final : public Disassembly {
     return static_cast<unsigned int>(states_.size());
   }
   [[nodiscard]] const State& getState(unsigned int num) const {
-    BT_ASSERT(num < states_.size());
+    SL_ASSERT(num < states_.size());
     return states_[num];
   }
 
@@ -216,7 +216,7 @@ class Separation final : public Disassembly {
     return static_cast<unsigned int>(pieces_.size());
   }
   [[nodiscard]] unsigned int getPieceName(unsigned int num) const {
-    BT_ASSERT(num < pieces_.size());
+    SL_ASSERT(num < pieces_.size());
     return pieces_[num];
   }
   [[nodiscard]] const std::vector<unsigned int>& getPieces() const { return pieces_; }

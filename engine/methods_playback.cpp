@@ -24,8 +24,8 @@ RpcResult<app::PlaybackSampler*> sampler(State& s, std::uint64_t handle) {
 Reply playbackOpen(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id solution = p.id("solution", IdKind::Solution);
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::PlaybackSampler ps, s.document().playback(problem, solution));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::PlaybackSampler ps, s.document().playback(problem, solution));
   Json pieces = Json::array();
   for (const app::PlaybackPiece& piece : ps.pieces()) {
     pieces.push_back(Json{{"piece", piece.piece},
@@ -48,8 +48,8 @@ Reply playbackMesh(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::Playback);
   const unsigned int piece = p.count("piece");
   const mesh::MeshStyle style = p.optChoice("style", meshStyleNames()).value_or(mesh::MeshStyle::Drawing);
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::PlaybackSampler* ps, sampler(s, handle));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::PlaybackSampler* ps, sampler(s, handle));
   if (piece >= ps->pieces().size()) {
     return coreError(Errc::InvalidArgument, "there is no such piece in the playback");
   }
@@ -85,8 +85,8 @@ Reply playbackPoses(State& s, Params& p) {
   const std::optional<std::int64_t> from = p.maybeInteger("from", 0, 0xFFFFFFFF);
   const std::optional<std::int64_t> to = p.maybeInteger("to", 0, 0xFFFFFFFF);
   const auto samples = static_cast<unsigned int>(p.optInteger("samplesPerStep", 8, 1, kMaxSamplesPerStep));
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::PlaybackSampler* ps, sampler(s, handle));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::PlaybackSampler* ps, sampler(s, handle));
   const auto first = static_cast<unsigned int>(from.value_or(0));
   const auto last = static_cast<unsigned int>(to.value_or(ps->stepCount()));
   if (first > last || last > ps->stepCount()) {
@@ -101,7 +101,7 @@ Reply playbackPoses(State& s, Params& p) {
   std::vector<std::vector<app::PiecePose>> poses;
   for (std::uint64_t k = 0; k < count; k++) {
     const float step = static_cast<float>(first) + static_cast<float>(k) / static_cast<float>(samples);
-    BTE_TRY(std::vector<app::PiecePose> at, ps->sample(step));
+    SLE_TRY(std::vector<app::PiecePose> at, ps->sample(step));
     steps.push_back(step);
     poses.push_back(std::move(at));
   }
@@ -115,20 +115,20 @@ Reply playbackTrack(State& s, Params& p) {
       p.optInteger("samplesPerStep", o.samplesPerStep, 1, kMaxSamplesPerStep));
   o.secondsPerStep = static_cast<float>(p.optNumber("secondsPerStep", static_cast<double>(o.secondsPerStep), 0.001, 3600));
   o.reassemble = p.optBoolean("reassemble", o.reassemble);
-  BTE_CHECK(p.finish());
-  BTE_TRY(app::PlaybackSampler* ps, sampler(s, handle));
+  SLE_CHECK(p.finish());
+  SLE_TRY(app::PlaybackSampler* ps, sampler(s, handle));
   const std::uint64_t estimate =
       (std::uint64_t{ps->stepCount()} * o.samplesPerStep * 2 + 4) * ps->pieces().size();
   if (estimate > kMaxPoses) {
     return coreError(Errc::InvalidArgument, "too many poses for one frame: fewer samples per step");
   }
-  BTE_TRY(const app::PlaybackTrack track, ps->track(o));
+  SLE_TRY(const app::PlaybackTrack track, ps->track(o));
   return posesReply(s, track.times, "time", track.poses, ps->pieces().size());
 }
 
 Reply playbackClose(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::Playback);
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   if (s.playbacks.erase(handle) == 0) {
     return coreError(Errc::NotFound, "there is no such playback");
   }

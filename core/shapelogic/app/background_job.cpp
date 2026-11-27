@@ -10,7 +10,7 @@
 namespace bt::app {
 
 BackgroundJob::~BackgroundJob() {
-  BT_ASSERT_MSG(!thread_.joinable(), "a job's destructor must finish() its thread");
+  SL_ASSERT_MSG(!thread_.joinable(), "a job's destructor must finish() its thread");
 }
 
 void BackgroundJob::stop() {

@@ -24,7 +24,7 @@ ShapeLogic is three programs over one library:
    io      XML, gzip, .xmpuzzle reader/writer
    model   Puzzle, Problem, Assembly, Disassembly, Solution
    grid    grid types, voxel spaces, symmetry tables
-   base    StopToken, SolveState, Result/Error, BT_ASSERT, thread pool
+   base    StopToken, SolveState, Result/Error, SL_ASSERT, thread pool
 ```
 
 - **The core** (`core/`) is a C++ library. It knows nothing about windows,

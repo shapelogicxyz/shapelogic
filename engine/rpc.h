@@ -72,24 +72,24 @@ using Reply = RpcResult<Json>;
   return std::unexpected(toRpc(Error{code, std::move(message)}));
 }
 
-#define BTE_CAT_(a, b) a##b
-#define BTE_CAT(a, b) BTE_CAT_(a, b)
+#define SLE_CAT_(a, b) a##b
+#define SLE_CAT(a, b) SLE_CAT_(a, b)
 
 /// In a method: evaluates a Result<T> or RpcResult<T>; on an error returns
 /// it as the reply, else declares `decl` with the value.
-#define BTE_TRY(decl, expr)                                                               \
-  auto&& BTE_CAT(bteResult, __LINE__) = (expr);                                           \
-  if (!BTE_CAT(bteResult, __LINE__)) {                                                    \
-    return std::unexpected(::bt::engine::toRpc(BTE_CAT(bteResult, __LINE__).error()));   \
+#define SLE_TRY(decl, expr)                                                               \
+  auto&& SLE_CAT(sleResult, __LINE__) = (expr);                                           \
+  if (!SLE_CAT(sleResult, __LINE__)) {                                                    \
+    return std::unexpected(::bt::engine::toRpc(SLE_CAT(sleResult, __LINE__).error()));   \
   }                                                                                       \
-  decl = std::move(*BTE_CAT(bteResult, __LINE__))
+  decl = std::move(*SLE_CAT(sleResult, __LINE__))
 
 /// The same for a Result<void> or RpcResult<void>.
-#define BTE_CHECK(expr)                                                                   \
+#define SLE_CHECK(expr)                                                                   \
   do {                                                                                    \
-    auto&& BTE_CAT(bteResult, __LINE__) = (expr);                                         \
-    if (!BTE_CAT(bteResult, __LINE__)) {                                                  \
-      return std::unexpected(::bt::engine::toRpc(BTE_CAT(bteResult, __LINE__).error())); \
+    auto&& SLE_CAT(sleResult, __LINE__) = (expr);                                         \
+    if (!SLE_CAT(sleResult, __LINE__)) {                                                  \
+      return std::unexpected(::bt::engine::toRpc(SLE_CAT(sleResult, __LINE__).error())); \
     }                                                                                     \
   } while (false)
 

@@ -15,7 +15,7 @@ SimdHuangCover<BitsetType>::SimdHuangCover(unsigned int numCols, unsigned int nu
     : numColumns_(numCols),
       numShapes_(numS),
       kernel_(chooseKernel(kernels, BitsetType::kNumWords >= 8)) {
-  BT_ASSERT(numCols <= BitsetType::kNumWords * 64);
+  SL_ASSERT(numCols <= BitsetType::kNumWords * 64);
   columns_.resize(numColumns_ + 1);
 }
 
@@ -23,13 +23,13 @@ template <typename BitsetType>
 void SimdHuangCover<BitsetType>::setColumnBounds(unsigned int col, unsigned int minW,
                                                  unsigned int maxW, bool isVoxel, bool isShape,
                                                  bool isRange, bool isHole) {
-  BT_ASSERT(col <= numColumns_);
-  BT_ASSERT(col <= BitsetType::kNumWords * 64);
+  SL_ASSERT(col <= numColumns_);
+  SL_ASSERT(col <= BitsetType::kNumWords * 64);
 
   // search() checks voxel columns with placedVoxels.containsAll(requiredVoxels),
   // a presence test that cannot tell weight 1 from weight n: a voxel column
   // demanding more than one unit would count as satisfied at one.
-  BT_ASSERT(!isVoxel || minW <= 1);
+  SL_ASSERT(!isVoxel || minW <= 1);
 
   if (col >= columns_.size()) {
     columns_.resize(col + 1);
@@ -84,8 +84,8 @@ std::uint32_t SimdHuangCover<BitsetType>::addRow(unsigned int nodeId, unsigned i
   r.weights = weights;
 
   for (const unsigned int c : cols) {
-    BT_ASSERT(c <= numColumns_);
-    BT_ASSERT(c <= BitsetType::kNumWords * 64);
+    SL_ASSERT(c <= numColumns_);
+    SL_ASSERT(c <= BitsetType::kNumWords * 64);
     if (c > 0 && c <= numColumns_ && (c - 1) < BitsetType::kNumWords * 64 &&
         columns_[c].isVoxel) {
       r.voxelMask.set(c - 1);
@@ -102,7 +102,7 @@ void SimdHuangCover<BitsetType>::registerNodeAlias(unsigned int nodeId, std::uin
   nodeToRowIdx_[nodeId] = rowIdx;
 }
 
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
 template <typename BitsetType>
 __attribute__((target("avx512f"))) void SimdHuangCover<BitsetType>::filterRowsAvx512(
     const std::vector<std::uint32_t>& src, std::uint32_t chosenIdx,
@@ -175,7 +175,7 @@ __attribute__((target("avx2"))) void SimdHuangCover<BitsetType>::filterRowsAvx2(
     }
   }
 }
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
 template <typename BitsetType>
 void SimdHuangCover<BitsetType>::filterRowsNeon(
     const std::vector<std::uint32_t>& src, std::uint32_t chosenIdx,
@@ -222,7 +222,7 @@ void SimdHuangCover<BitsetType>::filterRows(
     dst.reserve(src.size());
   }
 
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
   if (kernel_ == SimdKernel::Avx512) {
     filterRowsAvx512(src, chosenIdx, chosenVoxelMask, chosenShape, shapeIsFull, filterMonotonic,
                      chosenShapeRowIdx, checkRange, maxAllowedRangeWeight, dst);
@@ -233,7 +233,7 @@ void SimdHuangCover<BitsetType>::filterRows(
                    chosenShapeRowIdx, checkRange, maxAllowedRangeWeight, dst);
     return;
   }
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
   if (kernel_ == SimdKernel::Neon) {
     filterRowsNeon(src, chosenIdx, chosenVoxelMask, chosenShape, shapeIsFull, filterMonotonic,
                    chosenShapeRowIdx, checkRange, maxAllowedRangeWeight, dst);
@@ -742,7 +742,7 @@ void SimdHuangCover<BitsetType>::search(unsigned int depth, SearchContext& ctx,
   // No resize of ctx.scratchActiveRows here: currActive is a reference into
   // it, which a reallocation would leave dangling. The depth stays within
   // the list: see searchDepthBound() and initContext().
-  BT_ASSERT(depth + 1 < ctx.scratchActiveRows.size());
+  SL_ASSERT(depth + 1 < ctx.scratchActiveRows.size());
 
   // isCandidate(), written out here: this runs for every row still possible
   // at every node, and the call was not inlined
@@ -887,7 +887,7 @@ std::size_t SimdHuangCover<BitsetType>::stackPerLevel() {
     };
     const std::uintptr_t shallow = reportedAt(4);
     const std::uintptr_t deep = reportedAt(20);
-    BT_ASSERT(shallow != 0 && deep != 0);
+    SL_ASSERT(shallow != 0 && deep != 0);
     const std::size_t measured =
         static_cast<std::size_t>(std::max(shallow, deep) - std::min(shallow, deep)) / 16;
     // Nothing to measure where the levels are kept off this stack

@@ -94,7 +94,7 @@ Result<AssemblyExplorer> AssemblyExplorer::copy(const Puzzle& puzzle, unsigned i
 }
 
 Result<void> AssemblyExplorer::build(bool reduce, const StopToken& stop) {
-  BT_ASSERT_MSG(!built_, "an assembly explorer is built once");
+  SL_ASSERT_MSG(!built_, "an assembly explorer is built once");
   const AssemblerError err = assembler_->createMatrix(matrix_, stop);
   if (err == AssemblerError::Stopped) {
     return fail(Errc::InvalidState, "the explorer's preparation was stopped");
@@ -140,7 +140,7 @@ PrepareProgress AssemblyExplorerBuild::progress() const { return explorer_.prepa
 bool AssemblyExplorerBuild::reducing() const { return explorer_.reducing(); }
 
 Result<AssemblyExplorer> AssemblyExplorerBuild::take() {
-  BT_ASSERT_MSG(!active(), "an explorer is taken once its build has ended");
+  SL_ASSERT_MSG(!active(), "an explorer is taken once its build has ended");
   const std::lock_guard<std::mutex> lock(mutex_);
   if (failure_) {
     return fail(Errc::Internal, *failure_);
@@ -152,7 +152,7 @@ Result<AssemblyExplorer> AssemblyExplorerBuild::take() {
 }
 
 bool AssemblyExplorer::placementsSupported() const {
-  BT_ASSERT(built_);
+  SL_ASSERT(built_);
   return assembler_->piecePlacementSupported();
 }
 
@@ -161,7 +161,7 @@ unsigned int AssemblyExplorer::pieceCount() const {
 }
 
 std::vector<PiecePlacement> AssemblyExplorer::placements(unsigned int piece) const {
-  BT_ASSERT(built_);
+  SL_ASSERT(built_);
   std::vector<PiecePlacement> out;
   if (!assembler_->piecePlacementSupported() || piece >= pieceCount()) {
     return out;
@@ -178,17 +178,17 @@ std::vector<PiecePlacement> AssemblyExplorer::placements(unsigned int piece) con
 }
 
 void AssemblyExplorer::step(unsigned long steps) {
-  BT_ASSERT(built_);
+  SL_ASSERT(built_);
   assembler_->debugStep(steps);
 }
 
 Assembly AssemblyExplorer::currentAssembly() const {
-  BT_ASSERT(built_);
+  SL_ASSERT(built_);
   return assembler_->currentAssembly();
 }
 
 float AssemblyExplorer::finished() const {
-  BT_ASSERT(built_);
+  SL_ASSERT(built_);
   return assembler_->finished();
 }
 
@@ -333,7 +333,7 @@ Result<MovementExplorer> MovementExplorer::make(const Puzzle& puzzle, unsigned i
 }
 
 const MovementExplorer::Node& MovementExplorer::node(unsigned int id) const {
-  BT_ASSERT(id < impl_->nodes.size());
+  SL_ASSERT(id < impl_->nodes.size());
   return impl_->nodes[id];
 }
 

@@ -76,7 +76,7 @@ void Problem::renewUid() { uid_ = newProblemUid(); }
 // ---- result and goal ------------------------------------------------------------
 
 void Problem::setResultId(const Puzzle& puzzle, unsigned int shape) {
-  BT_ASSERT(shape < puzzle.getNumberOfShapes());
+  SL_ASSERT(shape < puzzle.getNumberOfShapes());
 
   if (shape != result_) {
     removeAllSolutions();
@@ -96,7 +96,7 @@ const Voxel& Problem::resultShape(const Puzzle& puzzle) const {
 }
 
 void Problem::setGoalId(const Puzzle& puzzle, unsigned int shape) {
-  BT_ASSERT(shape < puzzle.getNumberOfShapes());
+  SL_ASSERT(shape < puzzle.getNumberOfShapes());
 
   if (shape != goal_) {
     removeAllSolutions();
@@ -200,12 +200,12 @@ void Problem::eraseSolution(std::size_t s) {
 }
 
 void Problem::setShapeMinimum(const Puzzle& puzzle, unsigned int shape, unsigned int count) {
-  BT_ASSERT(shape < puzzle.getNumberOfShapes());
+  SL_ASSERT(shape < puzzle.getNumberOfShapes());
   setShapeMinimumUnchecked(shape, count);
 }
 
 void Problem::setShapeMinimumUnchecked(unsigned int shape, unsigned int count) {
-  BT_ASSERT(count <= kMaxPartCount);
+  SL_ASSERT(count <= kMaxPartCount);
   editProblem();
 
   unsigned int pieceIdx = 0;
@@ -249,12 +249,12 @@ void Problem::setShapeMinimumUnchecked(unsigned int shape, unsigned int count) {
 }
 
 void Problem::setShapeMaximum(const Puzzle& puzzle, unsigned int shape, unsigned int count) {
-  BT_ASSERT(shape < puzzle.getNumberOfShapes());
+  SL_ASSERT(shape < puzzle.getNumberOfShapes());
   setShapeMaximumUnchecked(shape, count);
 }
 
 void Problem::setShapeMaximumUnchecked(unsigned int shape, unsigned int count) {
-  BT_ASSERT(count <= kMaxPartCount);
+  SL_ASSERT(count <= kMaxPartCount);
   unsigned int pieceIdx = 0;
 
   for (std::size_t id = 0; id < parts_.size(); id++) {
@@ -373,18 +373,18 @@ unsigned int Problem::getPartIdForShape(unsigned int shapeId) const {
       return static_cast<unsigned int>(i);
     }
   }
-  BT_ASSERT_MSG(false, "the shape is not a part of the problem");
+  SL_ASSERT_MSG(false, "the shape is not a part of the problem");
   return 0;
 }
 
 const Voxel& Problem::partShape(const Puzzle& puzzle, unsigned int partId) const {
-  BT_ASSERT(partId < parts_.size());
+  SL_ASSERT(partId < parts_.size());
   return puzzle.getShape(parts_[partId].shapeId);
 }
 
 void Problem::exchangeParts(unsigned int partId1, unsigned int partId2) {
-  BT_ASSERT(partId1 < parts_.size());
-  BT_ASSERT(partId2 < parts_.size());
+  SL_ASSERT(partId1 < parts_.size());
+  SL_ASSERT(partId2 < parts_.size());
 
   if (partId1 == partId2) {
     return;
@@ -408,7 +408,7 @@ void Problem::exchangeParts(unsigned int partId1, unsigned int partId2) {
   const unsigned int p2Count = parts_[partId2].max;
 
   // only neighboring parts can be exchanged
-  BT_ASSERT(p1Start + p1Count == p2Start);
+  SL_ASSERT(p1Start + p1Count == p2Start);
 
   std::swap(parts_[partId1], parts_[partId2]);
 
@@ -431,7 +431,7 @@ void Problem::exchangeParts(unsigned int partId1, unsigned int partId2) {
         j++;
       }
 
-      BT_ASSERT(j < p1Count + p2Count);
+      SL_ASSERT(j < p1Count + p2Count);
 
       for (Solution& sol : solutions_) {
         sol.exchangeShape(p1Start + i, p1Start + j);
@@ -458,7 +458,7 @@ unsigned int Problem::getPartIdToPieceId(unsigned int pieceId) const {
     pieceId -= parts_[part].max;
     part++;
   }
-  BT_ASSERT(part < parts_.size());
+  SL_ASSERT(part < parts_.size());
   return part;
 }
 
@@ -468,15 +468,15 @@ unsigned int Problem::getPartIndexToPieceId(unsigned int pieceId) const {
     pieceId -= parts_[part].max;
     part++;
   }
-  BT_ASSERT(part < parts_.size());
+  SL_ASSERT(part < parts_.size());
   return pieceId;
 }
 
 // ---- colors --------------------------------------------------------------------
 
 void Problem::allowPlacement(const Puzzle& puzzle, unsigned int pc, unsigned int res) {
-  BT_ASSERT(pc <= puzzle.colorNumber());
-  BT_ASSERT(res <= puzzle.colorNumber());
+  SL_ASSERT(pc <= puzzle.colorNumber());
+  SL_ASSERT(res <= puzzle.colorNumber());
 
   if (pc == 0 || res == 0) {
     return;
@@ -486,8 +486,8 @@ void Problem::allowPlacement(const Puzzle& puzzle, unsigned int pc, unsigned int
 }
 
 void Problem::disallowPlacement(const Puzzle& puzzle, unsigned int pc, unsigned int res) {
-  BT_ASSERT(pc <= puzzle.colorNumber());
-  BT_ASSERT(res <= puzzle.colorNumber());
+  SL_ASSERT(pc <= puzzle.colorNumber());
+  SL_ASSERT(res <= puzzle.colorNumber());
 
   if (pc == 0 || res == 0) {
     return;
@@ -498,8 +498,8 @@ void Problem::disallowPlacement(const Puzzle& puzzle, unsigned int pc, unsigned 
 
 bool Problem::placementAllowed(const Puzzle& puzzle, unsigned int pc, unsigned int res,
                                bool strict) const {
-  BT_ASSERT(pc <= puzzle.colorNumber());
-  BT_ASSERT(res <= puzzle.colorNumber());
+  SL_ASSERT(pc <= puzzle.colorNumber());
+  SL_ASSERT(res <= puzzle.colorNumber());
 
   if (puzzle.colorNumber() == 0) {
     return true;
@@ -516,7 +516,7 @@ bool Problem::placementAllowed(const Puzzle& puzzle, unsigned int pc, unsigned i
 // ---- groups ---------------------------------------------------------------------
 
 void Problem::setPartGroup(unsigned int partId, unsigned short groupId, unsigned short count) {
-  BT_ASSERT(partId < parts_.size());
+  SL_ASSERT(partId < parts_.size());
   std::vector<PartGroup>& groups = parts_[partId].groups;
 
   for (std::size_t i = 0; i < groups.size(); i++) {
@@ -538,19 +538,19 @@ void Problem::setPartGroup(unsigned int partId, unsigned short groupId, unsigned
 }
 
 unsigned short Problem::getNumberOfPartGroups(unsigned int partId) const {
-  BT_ASSERT(partId < parts_.size());
+  SL_ASSERT(partId < parts_.size());
   return static_cast<unsigned short>(parts_[partId].groups.size());
 }
 
 unsigned short Problem::getPartGroupId(unsigned int partId, unsigned int groupIdx) const {
-  BT_ASSERT(partId < parts_.size());
-  BT_ASSERT(groupIdx < parts_[partId].groups.size());
+  SL_ASSERT(partId < parts_.size());
+  SL_ASSERT(groupIdx < parts_[partId].groups.size());
   return parts_[partId].groups[groupIdx].group;
 }
 
 unsigned short Problem::getPartGroupCount(unsigned int partId, unsigned int groupIdx) const {
-  BT_ASSERT(partId < parts_.size());
-  BT_ASSERT(groupIdx < parts_[partId].groups.size());
+  SL_ASSERT(partId < parts_.size());
+  SL_ASSERT(groupIdx < parts_[partId].groups.size());
   return parts_[partId].groups[groupIdx].count;
 }
 
@@ -662,7 +662,7 @@ std::size_t Problem::solutionBytes() const {
 void Problem::addSolution(Assembly assm) { addSolution(std::move(assm), numAssemblies_); }
 
 void Problem::addSolution(Assembly assm, std::uint64_t assemblyNumber) {
-  BT_ASSERT(state_ == ProblemState::Solving);
+  SL_ASSERT(state_ == ProblemState::Solving);
   solutions_.emplace_back(std::move(assm), assemblyNumber);
   solutions_.back().setId(nextSolutionId_++);
   touchSolutions();
@@ -670,7 +670,7 @@ void Problem::addSolution(Assembly assm, std::uint64_t assemblyNumber) {
 
 void Problem::addSolution(Assembly assm, Separation disasm, std::uint64_t assemblyNumber,
                           std::uint64_t solutionNumber, unsigned int pos) {
-  BT_ASSERT(state_ == ProblemState::Solving);
+  SL_ASSERT(state_ == ProblemState::Solving);
 
   Solution sol(std::move(assm), assemblyNumber, std::move(disasm), solutionNumber);
   sol.setId(nextSolutionId_++);
@@ -685,7 +685,7 @@ void Problem::addSolution(Assembly assm, Separation disasm, std::uint64_t assemb
 
 void Problem::addSolution(Assembly assm, SeparationInfo disasm, std::uint64_t assemblyNumber,
                           std::uint64_t solutionNumber, unsigned int pos) {
-  BT_ASSERT(state_ == ProblemState::Solving);
+  SL_ASSERT(state_ == ProblemState::Solving);
 
   Solution sol(std::move(assm), assemblyNumber, std::move(disasm), solutionNumber);
   sol.setId(nextSolutionId_++);
@@ -716,7 +716,7 @@ void Problem::assignSolutionIds() {
 }
 
 void Problem::removeSolution(unsigned int sol) {
-  BT_ASSERT(sol < solutions_.size());
+  SL_ASSERT(sol < solutions_.size());
   solutions_.erase(solutions_.begin() + sol);
   touchSolutions();
   if (sol < sortedUpTo_) {

@@ -121,7 +121,7 @@ class Polyhedron {
   /// The number of corners of a face.
   [[nodiscard]] int faceSize(int f) const;
 
-  /// Checks the structure; true when sound (BT_ASSERTs on the first fault).
+  /// Checks the structure; true when sound (SL_ASSERTs on the first fault).
   [[nodiscard]] bool check(bool holesFilled) const;
 
  private:

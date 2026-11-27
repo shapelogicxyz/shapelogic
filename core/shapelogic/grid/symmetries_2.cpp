@@ -118,23 +118,23 @@ class SphereSymmetries final : public Symmetries {
   }
 
   unsigned char transAdd(unsigned char t1, unsigned char t2) const override {
-    BT_ASSERT(t1 < NUM_TRANSFORMATIONS_MIRROR);
-    BT_ASSERT(t2 < NUM_TRANSFORMATIONS_MIRROR);
+    SL_ASSERT(t1 < NUM_TRANSFORMATIONS_MIRROR);
+    SL_ASSERT(t2 < NUM_TRANSFORMATIONS_MIRROR);
     return kTransMult[t1][t2];
   }
 
   bool symmetrieContainsTransformation(Symmetry s, unsigned int t) const override {
-    BT_ASSERT(t < NUM_TRANSFORMATIONS_MIRROR);
+    SL_ASSERT(t < NUM_TRANSFORMATIONS_MIRROR);
     return group(s).sym.get(t);
   }
 
   bool isTransformationUnique(Symmetry s, unsigned int t) const override {
-    BT_ASSERT(t < NUM_TRANSFORMATIONS_MIRROR);
+    SL_ASSERT(t < NUM_TRANSFORMATIONS_MIRROR);
     return group(s).unique.get(t);
   }
 
   unsigned char minimizeTransformation(Symmetry s, unsigned char trans) const override {
-    BT_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
+    SL_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
     return group(s).minimizer[trans];
   }
 
@@ -174,7 +174,7 @@ class SphereSymmetries final : public Symmetries {
       return {kSymmetries[s], kUnifiedSymmetries[s], kUniqueSymmetries[s],
               kTransformationMinimizer[s]};
     }
-    BT_ASSERT(s < size());
+    SL_ASSERT(s < size());
     const Group& g = appended(s);
     return {g.sym, g.unified, g.unique, g.minimizer};
   }
@@ -204,7 +204,7 @@ class SphereSymmetries final : public Symmetries {
     if (i < m) {
       return static_cast<Symmetry>(i);
     }
-    BT_ASSERT(m < kSymmetryInvalid);
+    SL_ASSERT(m < kSymmetryInvalid);
     const unsigned int slot = m - NUM_SYMMETRY_GROUPS;
     Group* block = blocks_[slot / kBlock].load(std::memory_order_relaxed);
     if (block == nullptr) {

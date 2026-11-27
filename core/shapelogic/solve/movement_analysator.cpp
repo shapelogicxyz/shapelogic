@@ -79,7 +79,7 @@ void rowsBelowScalar(const unsigned int* block, std::size_t n, std::size_t width
   }
 }
 
-#if defined(BT_SIMD_NEON)
+#if defined(SL_SIMD_NEON)
 void closeBlockNeon(unsigned int* block, std::size_t n, std::size_t width) {
   for (std::size_t k = 0; k < n; k++) {
     const unsigned int* via = block + k * width;
@@ -125,7 +125,7 @@ void rowsBelowNeon(const unsigned int* block, std::size_t n, std::size_t width, 
 }
 #endif
 
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
 __attribute__((target("avx2"))) void closeBlockAvx2(unsigned int* block, std::size_t n,
                                                     std::size_t width) {
   for (std::size_t k = 0; k < n; k++) {
@@ -179,7 +179,7 @@ MovementAnalysator::MovementAnalysator(const Puzzle& puzzle, const Problem& prob
       options_(options),
       piecenumber_(problem.getNumberOfPieces()) {
   // only a grid with a take-apart gets here
-  BT_ASSERT(cache_);
+  SL_ASSERT(cache_);
 
   dirs_ = cache_->numDirections();
   matrix_.assign(std::size_t{dirs_} * piecenumber_ * piecenumber_, 0);
@@ -192,13 +192,13 @@ MovementAnalysator::MovementAnalysator(const Puzzle& puzzle, const Problem& prob
   closeBlock_ = closeBlockScalar;
   rowsBelow_ = rowsBelowScalar;
   switch (chooseKernel(options.kernels, false)) {
-#if defined(BT_SIMD_NEON)
+#if defined(SL_SIMD_NEON)
     case SimdKernel::Neon:
       closeBlock_ = closeBlockNeon;
       rowsBelow_ = rowsBelowNeon;
       break;
 #endif
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
     case SimdKernel::Avx2:
       closeBlock_ = closeBlockAvx2;
       rowsBelow_ = rowsBelowAvx2;
@@ -478,7 +478,7 @@ bool MovementAnalysator::checkmovement(unsigned int maxPieces, unsigned int step
   bool finished = false;
   const unsigned int nd = nextdir_ >> 1;
   const unsigned int dirs = cache_->numDirections();
-  BT_ASSERT(nd < dirs);
+  SL_ASSERT(nd < dirs);
   const std::size_t rowIdx = std::size_t{piecenumber_ - static_cast<unsigned int>(nextPn_)} * dirs;
   const std::size_t rowIdx2 = std::size_t{piecenumber_} * dirs;
   const std::size_t rowIdx3 =
@@ -565,7 +565,7 @@ bool MovementAnalysator::checkmovement(unsigned int maxPieces, unsigned int step
 bool MovementAnalysator::checkmovementMasks(unsigned int maxPieces, unsigned int step) {
   const auto n = static_cast<unsigned int>(nextPn_);
   const unsigned int nd = nextdir_ >> 1;
-  BT_ASSERT(nd < dirs_);
+  SL_ASSERT(nd < dirs_);
 
   // slot 0 is a removal, slots 1 .. kPushSlots - 1 the steps of that length
   const unsigned int slot = step < kPushSlots ? step : (step == movement::kRemoveStep ? 0 : kPushSlots);
@@ -615,7 +615,7 @@ NodeRef MovementAnalysator::newNode(unsigned int amount) {
 
   for (std::size_t i = 0; i < pieces_->size(); i++) {
     if (movement_[i] != 0) {
-      BT_ASSERT(amount == movement_[i]);
+      SL_ASSERT(amount == movement_[i]);
       moveWeight = std::max(moveWeight, weights_[(*pieces_)[i]]);
     } else {
       stilWeight = std::max(stilWeight, weights_[(*pieces_)[i]]);
@@ -673,8 +673,8 @@ NodeRef MovementAnalysator::newNode(unsigned int amount) {
 // everything).
 NodeRef MovementAnalysator::newNodeMerge(const DisassemblerNode* n0, const DisassemblerNode* n1) {
   // both along the same axis
-  BT_ASSERT((nextdir_ | 1) == (n0->getDirection() | 1));
-  BT_ASSERT((nextdir_ | 1) == (n1->getDirection() | 1));
+  SL_ASSERT((nextdir_ | 1) == (n0->getDirection() | 1));
+  SL_ASSERT((nextdir_ | 1) == (n1->getDirection() | 1));
 
   const bool invert0 = nextdir_ != n0->getDirection();
   const bool invert1 = nextdir_ != n1->getDirection();
@@ -824,7 +824,7 @@ NodeRef MovementAnalysator::find() {
         if (nextstep_ <= maxstep_ &&
             checkmovement(static_cast<unsigned int>(nextPn_ / 2), nextstep_)) {
           n = newNode(nextstep_);
-          BT_ASSERT(n);
+          SL_ASSERT(n);
 
           // Merge it with the positions found before in this direction with
           // the same step, which may give more (below, state 99). A position
@@ -940,7 +940,7 @@ NodeRef MovementAnalysator::findMatching(DisassemblerNode* nd, const std::vector
     while (i < pcs.size() && pcs[i] != piece) {
       i++;
     }
-    BT_ASSERT(i < pcs.size());
+    SL_ASSERT(i < pcs.size());
     nextpiece_ = static_cast<int>(i);
   }
 
@@ -955,7 +955,7 @@ NodeRef MovementAnalysator::findMatching(DisassemblerNode* nd, const std::vector
 
   if (checkmovement(static_cast<unsigned int>(nextPn_ / 2), nextstep_)) {
     NodeRef n = newNode(nextstep_);
-    BT_ASSERT(n);
+    SL_ASSERT(n);
     return n;
   }
 

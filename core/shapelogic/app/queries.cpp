@@ -138,7 +138,7 @@ std::vector<ShapeInfo> shapeTable(const Puzzle& puzzle) {
 }
 
 ShapeInfo shapeInfo(const Puzzle& puzzle, unsigned int shapeIndex) {
-  BT_ASSERT(shapeIndex < puzzle.getNumberOfShapes());
+  SL_ASSERT(shapeIndex < puzzle.getNumberOfShapes());
   VoxelTable tab = earlierShapes(puzzle);
   for (unsigned int s = 0; s < shapeIndex; s++) {
     addEarlierShape(tab, s);

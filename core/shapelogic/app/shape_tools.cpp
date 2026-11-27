@@ -533,7 +533,7 @@ Result<TaskOutcome> applyTask(Voxel& v, ShapeTask task) {
   if (!taskOffered(grid, task)) {
     return fail(Errc::Unsupported, "this grid has no such shape operation");
   }
-  BT_ASSERT_MSG(task != ShapeTask::Minimize, "minimize goes through minimizeShapes");
+  SL_ASSERT_MSG(task != ShapeTask::Minimize, "minimize goes through minimizeShapes");
 
   const std::unique_ptr<Voxel> before = v.clone();
 
@@ -597,7 +597,7 @@ Result<TaskOutcome> applyTask(Voxel& v, ShapeTask task) {
         v.scale(grid == GridKind::Rhombic ? 7 : 5, true);
         break;
       default:
-        BT_ASSERT_MSG(false, "a task in the set without an action");
+        SL_ASSERT_MSG(false, "a task in the set without an action");
     }
   }
   v.initHotspot();

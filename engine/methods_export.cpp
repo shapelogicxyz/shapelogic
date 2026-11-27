@@ -54,7 +54,7 @@ std::vector<double> readValues(const State& s, Params& p) {
 Reply exportStlParameters(State& s, Params& p) {
   const GridKind grid =
       p.optChoice("grid", gridNames()).value_or(s.document().puzzle().getGridType().getType());
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   Json out = Json::array();
   for (const mesh::StlParameter& q : mesh::stlParameters(grid)) {
     out.push_back(Json{{"name", q.name},
@@ -68,8 +68,8 @@ Reply exportStlParameters(State& s, Params& p) {
 Reply exportStlMesh(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const std::vector<double> values = readValues(s, p);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const mesh::Polyhedron poly, s.document().stlMesh(shape, values));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const mesh::Polyhedron poly, s.document().stlMesh(shape, values));
   Json out = meshReply(s, mesh::toDrawMesh(poly, false));
   out["volume"] = mesh::volume(poly);
   return out;
@@ -80,10 +80,10 @@ Reply exportStl(State& s, Params& p) {
   const std::vector<double> values = readValues(s, p);
   const bool binary = p.optBoolean("binary", true);
   const std::string name = p.optString("name").value_or("");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   // the solid's name
-  BTE_CHECK(checkFileName(name));
-  BTE_TRY(const mesh::Polyhedron poly, s.document().stlMesh(shape, values));
+  SLE_CHECK(checkFileName(name));
+  SLE_TRY(const mesh::Polyhedron poly, s.document().stlMesh(shape, values));
   const std::vector<std::uint8_t> file = mesh::stlFile(poly, name, binary);
   FrameBuilder f;
   f.add("file", file);
@@ -93,8 +93,8 @@ Reply exportStl(State& s, Params& p) {
 Reply exportSolutionPieces(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id solution = p.id("solution", IdKind::Solution);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const std::vector<app::StlPiece> pieces, s.document().stlPieces(problem, solution));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const std::vector<app::StlPiece> pieces, s.document().stlPieces(problem, solution));
   Json out = Json::array();
   for (const app::StlPiece& piece : pieces) {
     out.push_back(Json{{"shape", shapeId(s, piece.shape)},
@@ -106,10 +106,10 @@ Reply exportSolutionPieces(State& s, Params& p) {
 
 Reply exportStlFileNames(State& s, Params& p) {
   const std::vector<app::Id> ids = readShapeIds(p, p.value("shapes"));
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   std::vector<unsigned int> shapes;
   for (const app::Id id : ids) {
-    BTE_TRY(const unsigned int index, s.document().shapeIndex(id));
+    SLE_TRY(const unsigned int index, s.document().shapeIndex(id));
     shapes.push_back(index);
   }
   return Json{{"fileNames", app::stlFileNames(s.document().puzzle(), shapes)}};

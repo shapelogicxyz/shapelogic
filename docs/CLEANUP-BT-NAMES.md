@@ -252,12 +252,16 @@ reviews the whole branch before it merges.
 Scope: `core/`, `engine/`, `cli/`, `python/`, `tests/`, `.clang-tidy`, the
 CMake files that pass `BT_VERSION_STRING`, the live docs.
 
-- [ ] Rename the macros (`BT_ASSERT*`, `BTE_*` with `bteResult`,
+- [x] Rename the macros (`BT_ASSERT*`, `BTE_*` with `bteResult`,
       `BT_SIMD_*`, `BT_VERSION_STRING`): `rename.py 1 .`. The new names are
       as long as the old, so the aligned `\` of `engine/rpc.h` stay.
-- [ ] Test: `just build dev`, `just build release`, `just check`,
+- [x] Test: `just build dev`, `just build release`, `just check`,
       `just test`, `just python-test`.
-- [ ] Commit: "Rename the BT_ / BTE_ macros to SL_ / SLE_".
+- [x] Commit: "Rename the BT_ / BTE_ macros to SL_ / SLE_".
+- Done (2026-11-27): 834 replacements in 115 files, as the map counts;
+  only the dated docs keep the old names. Dev and release built from
+  clean without a warning, `just test` 31 of 31, `just python-test` 43,
+  `just check` clean (226 files); the demo rebuilt.
 
 ### Step 2: the C++ namespace (Opus 5.5 High)
 

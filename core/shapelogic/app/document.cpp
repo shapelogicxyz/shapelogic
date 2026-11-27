@@ -342,7 +342,7 @@ Document::StepGuard::StepGuard(Document& doc, std::string label)
     : doc_(doc), grouped_(doc.grouping_), touches_(doc.touches_) {
   doc_.lastChange_ = ChangeSet{};
   if (!grouped_) {
-    BT_ASSERT(doc_.open_ == nullptr);
+    SL_ASSERT(doc_.open_ == nullptr);
     doc_.open_ = std::make_unique<Step>();
     doc_.open_->label = std::move(label);
   }
@@ -391,7 +391,7 @@ void Document::StepGuard::commit(std::uint32_t what) {
 }
 
 bool Document::covered(SnapshotKind kind, unsigned int index) const {
-  BT_ASSERT_MSG(open_ != nullptr, "an edit outside a command");
+  SL_ASSERT_MSG(open_ != nullptr, "an edit outside a command");
   for (const Snapshot& s : open_->parts) {
     // after a whole copy nothing more is needed: undo puts it back last
     if (s.kind == SnapshotKind::Whole) {
@@ -418,7 +418,7 @@ void Document::touchShape(unsigned int index) {
 
 void Document::touchProblem(unsigned int index) {
   touches_++;
-  BT_ASSERT_MSG(open_ != nullptr, "an edit outside a command");
+  SL_ASSERT_MSG(open_ != nullptr, "an edit outside a command");
   Snapshot* settings = nullptr;
   for (Snapshot& s : open_->parts) {
     // after a whole copy nothing more is needed: undo puts it back last
@@ -576,13 +576,13 @@ void Document::swapIn(Snapshot& s) {
       if (s.shape == nullptr) {
         // the shape is in the document: out with it (it is last, and no
         // problem uses it)
-        BT_ASSERT(puzzle_->getNumberOfShapes() == s.index + 1);
+        SL_ASSERT(puzzle_->getNumberOfShapes() == s.index + 1);
         s.shape = puzzle_->getShape(s.index).clone();
         s.ids.shapes = {ids_.shapes.back()};
         puzzle_->removeShape(s.index);
         ids_.shapes.pop_back();
       } else {
-        BT_ASSERT(puzzle_->getNumberOfShapes() == s.index);
+        SL_ASSERT(puzzle_->getNumberOfShapes() == s.index);
         (void)puzzle_->addShape(std::move(s.shape));
         ids_.shapes.push_back(s.ids.shapes.front());
       }
@@ -591,13 +591,13 @@ void Document::swapIn(Snapshot& s) {
       if (!s.problem) {
         // the problem is in the document: out with it (it is last; undo
         // and redo end the sessions first)
-        BT_ASSERT(puzzle_->getNumberOfProblems() == s.index + 1);
+        SL_ASSERT(puzzle_->getNumberOfProblems() == s.index + 1);
         s.problem = std::move(puzzle_->getProblem(s.index));
         s.ids.problems = {ids_.problems.back()};
         puzzle_->removeProblem(s.index);
         ids_.problems.pop_back();
       } else {
-        BT_ASSERT(puzzle_->getNumberOfProblems() == s.index);
+        SL_ASSERT(puzzle_->getNumberOfProblems() == s.index);
         (void)puzzle_->appendProblem(std::move(*s.problem));
         s.problem.reset();
         ids_.problems.push_back(s.ids.problems.front());
@@ -775,7 +775,7 @@ Result<unsigned int> Document::freeProblem(Id problem) const {
 }
 
 void Document::endSessions() {
-  BT_ASSERT(!solving());
+  SL_ASSERT(!solving());
   sessions_.clear();
   fitEnds_.clear();
 }
@@ -786,7 +786,7 @@ void Document::endSession(unsigned int problem) {
   fitEnds_.erase(ids_.problems[problem]);
   const auto it = sessions_.find(ids_.problems[problem]);
   if (it != sessions_.end()) {
-    BT_ASSERT(!isActive(it->second->state()));
+    SL_ASSERT(!isActive(it->second->state()));
     sessions_.erase(it);
   }
 }
@@ -859,7 +859,7 @@ void Document::prepareShapesForSolving() {
 // ---- the step of a run (decision 0011, amended 2026-11-24) ---------------------------
 
 void Document::openRunStep(unsigned int problem, RunKind kind) {
-  BT_ASSERT(open_ == nullptr && !grouping_);
+  SL_ASSERT(open_ == nullptr && !grouping_);
   const Id id = ids_.problems[problem];
   open_ = std::make_unique<Step>();
   open_->label = std::string(kind == RunKind::Solve ? "Solve " : "Take apart ") + problemLabel(problem);
@@ -876,7 +876,7 @@ void Document::openRunStep(unsigned int problem, RunKind kind) {
 }
 
 void Document::closeRunStep(bool started) {
-  BT_ASSERT(open_ != nullptr);
+  SL_ASSERT(open_ != nullptr);
   std::unique_ptr<Step> step = std::move(open_);
   if (!started) {
     // refused: nothing was started, and nothing is recorded
@@ -1372,7 +1372,7 @@ bool Document::poll() {
       case BackgroundJob::Kind::Analysis: {
         auto& a = static_cast<Analysis&>(*it->second);
         const Result<unsigned int> p = problemIndex(id);
-        BT_ASSERT_MSG(p.has_value(), "a problem was removed while being analysed");
+        SL_ASSERT_MSG(p.has_value(), "a problem was removed while being analysed");
         Problem& pr = puzzle_->getProblem(*p);
         analysisEnds_[id] = a.progress();
         // where each solution is, looked up once (a search of the list for

@@ -15,7 +15,7 @@ DisassemblerNode::DisassemblerNode(unsigned int pn, NodeRef comefrom, int dir, i
       dat_(std::make_unique_for_overwrite<std::int16_t[]>(4 * std::size_t{pn})),
       dir_(static_cast<unsigned int>(dir)),
       amount_(amount) {
-  BT_ASSERT(comefrom_);
+  SL_ASSERT(comefrom_);
   waylength_ = comefrom_->waylength_ + static_cast<unsigned int>(step);
 }
 
@@ -40,7 +40,7 @@ DisassemblerNode::DisassemblerNode(const Assembly& assembly)
   std::size_t pc = 0;
   for (unsigned int j = 0; j < assembly.placementCount(); j++) {
     if (assembly.isPlaced(j)) {
-      BT_ASSERT(std::abs(assembly.getX(j)) < kMaxMove && std::abs(assembly.getY(j)) < kMaxMove &&
+      SL_ASSERT(std::abs(assembly.getX(j)) < kMaxMove && std::abs(assembly.getY(j)) < kMaxMove &&
                 std::abs(assembly.getZ(j)) < kMaxMove);
 
       dat_[4 * pc + 0] = static_cast<std::int16_t>(assembly.getX(j));
@@ -56,8 +56,8 @@ DisassemblerNode::~DisassemblerNode() = default;
 
 void DisassemblerNode::replaceNode(const DisassemblerNode& n) {
   // the same position, the whole puzzle maybe shifted
-  BT_ASSERT(piecenumber_ == n.piecenumber_);
-  BT_ASSERT(hashValue_ == n.hashValue_);
+  SL_ASSERT(piecenumber_ == n.piecenumber_);
+  SL_ASSERT(hashValue_ == n.hashValue_);
 
   std::copy_n(n.dat_.get(), 4 * std::size_t{piecenumber_}, dat_.get());
   dir_ = n.dir_;

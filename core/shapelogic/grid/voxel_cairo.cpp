@@ -65,7 +65,7 @@ const std::array<std::array<int, 2>, 16>& offsets() {
   static const std::array<std::array<int, 2>, 16> all = [] {
     std::array<std::array<int, 2>, 16> out{};
     const unsigned int n = detail::cairoSymmetries().getNumTransformationsMirror();
-    BT_ASSERT(n == 16);
+    SL_ASSERT(n == 16);
     for (unsigned int t = 0; t < n; t++) {
       const Plane p = planeOf(t);
       bool found = false;
@@ -99,7 +99,7 @@ const std::array<std::array<int, 2>, 16>& offsets() {
           }
         }
       }
-      BT_ASSERT_MSG(found, "a cairo transformation lands between cells");
+      SL_ASSERT_MSG(found, "a cairo transformation lands between cells");
     }
     return out;
   }();
@@ -115,7 +115,7 @@ Cell turned(int x, int y, int z, unsigned int trans) {
 }  // namespace
 
 void VoxelCairo::transformPoint(int* x, int* y, int* z, unsigned int trans) const {
-  BT_ASSERT(trans < detail::cairoSymmetries().getNumTransformationsMirror());
+  SL_ASSERT(trans < detail::cairoSymmetries().getNumTransformationsMirror());
   const Cell c = turned(*x, *y, *z, trans);
   *x = c.x;
   *y = c.y;
@@ -123,7 +123,7 @@ void VoxelCairo::transformPoint(int* x, int* y, int* z, unsigned int trans) cons
 }
 
 void VoxelCairo::getTransformMatrix(unsigned int trans, double m[9]) const {
-  BT_ASSERT(trans < detail::cairoSymmetries().getNumTransformationsMirror());
+  SL_ASSERT(trans < detail::cairoSymmetries().getNumTransformationsMirror());
   const auto& r = detail::cairoSymmetries().matrix(trans);
   for (int i = 0; i < 9; i++) {
     m[i] = r[static_cast<std::size_t>(i)];
@@ -134,7 +134,7 @@ bool VoxelCairo::transform(unsigned int nr) {
   if (nr == 0) {
     return true;
   }
-  BT_ASSERT(nr < detail::cairoSymmetries().getNumTransformationsMirror());
+  SL_ASSERT(nr < detail::cairoSymmetries().getNumTransformationsMirror());
   rebuildTurned([nr](int x, int y, int z) { return turned(x, y, z, nr); },
                 [](std::array<int, 3>& low, std::array<unsigned int, 3>& size) {
                   // move the shape into the box by a lattice vector, so

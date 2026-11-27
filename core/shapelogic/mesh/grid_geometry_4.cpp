@@ -46,7 +46,7 @@ void connectionFaceTetraOcta(int x, int y, int z, int n, double bevel, double of
   }
 
   const int p = kVoxels[xs + 6 * (ys + 3 * zs)];
-  BT_ASSERT(p != -1);
+  SL_ASSERT(p != -1);
 
   if (n < 0) {
     n = -1 - n;

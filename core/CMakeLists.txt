@@ -142,7 +142,7 @@ endforeach()
 target_include_directories(btcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 # The version reaches only version.cpp: a new tag recompiles one file.
 set_source_files_properties(shapelogic/base/version.cpp PROPERTIES
-  COMPILE_DEFINITIONS BT_VERSION_STRING="${PROJECT_VERSION}")
+  COMPILE_DEFINITIONS SL_VERSION_STRING="${PROJECT_VERSION}")
 target_compile_features(btcore PUBLIC cxx_std_23)
 target_link_libraries(btcore PRIVATE ZLIB::ZLIB manifold::manifold libzstd_static)
 if(APPLE)

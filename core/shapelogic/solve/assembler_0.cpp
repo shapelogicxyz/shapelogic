@@ -38,7 +38,7 @@ Assembler0::Assembler0(const Puzzle& puzzle, const Problem& problem)
 Assembler0::~Assembler0() = default;
 
 AssemblerError Assembler0::createMatrix(const MatrixOptions& options, const StopToken& stop) {
-  BT_ASSERT(problem_.resultValid());
+  SL_ASSERT(problem_.resultValid());
 
   filter_.complete = options.completeRotations;
   strictColors_ = options.strictColors;
@@ -874,7 +874,7 @@ void Assembler0::simdSearch(SearchRun& run, const SearchOptions& options) {
 
 RunEnd Assembler0::assemble(const AssemblyCallback& callback, const SearchOptions& options,
                             const StopToken& stop) {
-  BT_ASSERT_MSG(errorsState_ == AssemblerError::None, "assemble() after a failed createMatrix()");
+  SL_ASSERT_MSG(errorsState_ == AssemblerError::None, "assemble() after a failed createMatrix()");
 
   debug_ = false;
 
@@ -923,8 +923,8 @@ float Assembler0::finished() const {
 AssemblerError Assembler0::restorePosition(std::string_view text, std::string_view version) {
   // the matrix must stand at the start, otherwise the stack would need
   // cleaning
-  BT_ASSERT_MSG(!rows_.empty(), "restorePosition() before createMatrix()");
-  BT_ASSERT(atStart());
+  SL_ASSERT_MSG(!rows_.empty(), "restorePosition() before createMatrix()");
+  SL_ASSERT(atStart());
   split_ = SplitSearchState<SubtreeTask>{};
 
   if (version != kVersion) {
@@ -1120,7 +1120,7 @@ void Assembler0::uncoverLevels(const std::vector<PrefixStep>& levels, unsigned i
 }
 
 SavedPosition Assembler0::savePosition() const {
-  BT_ASSERT_MSG(pos_ > matrix_.pieces || pos_ < rows_.size(),
+  SL_ASSERT_MSG(pos_ > matrix_.pieces || pos_ < rows_.size(),
                 "savePosition() before createMatrix()");
 
   // the leading flag, see restorePosition()

@@ -2,13 +2,13 @@
 #pragma once
 
 /// @file
-/// Invariant checks. BT_ASSERT is on in every build, release included: the
+/// Invariant checks. SL_ASSERT is on in every build, release included: the
 /// checks are cheap next to the searches, and a broken invariant must stop
 /// the run with a report rather than produce wrong answers.
 ///
 /// A failed check throws bt::InternalError. The solve session catches it and
 /// moves the run to SolveState::Error; the engine process keeps running.
-/// Never put an expression with side effects inside BT_ASSERT.
+/// Never put an expression with side effects inside SL_ASSERT.
 
 #include <stdexcept>
 #include <string>
@@ -33,8 +33,8 @@ namespace detail {
 
 }  // namespace bt
 
-#define BT_ASSERT(cond) \
+#define SL_ASSERT(cond) \
   ((cond) ? static_cast<void>(0) : ::bt::detail::assertionFailed(#cond, nullptr, __FILE__, __LINE__))
 
-#define BT_ASSERT_MSG(cond, msg) \
+#define SL_ASSERT_MSG(cond, msg) \
   ((cond) ? static_cast<void>(0) : ::bt::detail::assertionFailed(#cond, (msg), __FILE__, __LINE__))

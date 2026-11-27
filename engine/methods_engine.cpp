@@ -38,7 +38,7 @@ std::string_view stackingSolverLabel(stacking::StackingSolver s) {
 
 Reply engineHello(State& s, Params& p) {
   const std::int64_t protocol = p.integer("protocol", 1, std::numeric_limits<std::int64_t>::max());
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   (void)s;
   if (protocol != kProtocol) {
     return coreError(Errc::Unsupported, "this engine speaks protocol " + std::to_string(kProtocol) +
@@ -49,7 +49,7 @@ Reply engineHello(State& s, Params& p) {
 }
 
 Reply engineInfo(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   Json grids = Json::array();
   for (const auto& [name, kind] : gridNames()) {
     const unsigned int caps = GridType(kind).getCapabilities();
@@ -105,7 +105,7 @@ Reply engineInfo(State& s, Params& p) {
 }
 
 Reply engineShutdown(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   s.shutdown = true;
   return Json::object();
 }
@@ -123,7 +123,7 @@ Json settingsJson(const State& s) {
 }
 
 Reply settingsGet(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   return settingsJson(s);
 }
 
@@ -142,7 +142,7 @@ Reply settingsSet(State& s, Params& p) {
           ? std::optional<double>(p.number("searchMemoryGB", 0, Settings::kMaxSearchMemoryGB))
           : std::nullopt;
   const std::optional<LogSetting> log = p.optChoice("log", logSettingNames());
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   if (depth) {
     s.settings.undoDepth = static_cast<unsigned int>(*depth);
     s.document().setSettings(app::DocumentSettings{s.settings.undoDepth});

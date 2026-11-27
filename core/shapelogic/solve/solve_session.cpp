@@ -389,7 +389,7 @@ Result<void> SolveSession::launch(Mode mode) {
                 "position): start() solves it again");
   }
   // an assembler is only kept across a pause
-  BT_ASSERT(!reuse || st == SolveState::Paused);
+  SL_ASSERT(!reuse || st == SolveState::Paused);
 
   // What a sliding run sets up first (the solve thread did it as it began):
   // the problem's maximum of holes, once nothing can refuse the run any
@@ -552,7 +552,7 @@ bool SolveSession::prepareSearch(const Plan& plan) {
   const AssemblerError err = a->createMatrix(matrix, runToken());
   endPhase(prepareMs_);
   const bool built = err != AssemblerError::Stopped;
-  BT_ASSERT_MSG(built || runStopRequested(), "a matrix build stopped without a stop request");
+  SL_ASSERT_MSG(built || runStopRequested(), "a matrix build stopped without a stop request");
   if (!built) {
     addLog(LogLevel::Debug, "The preparation was stopped while the placements were looked for (" +
                                 withCommas(a->prepareProgress().placements) + " found by then).");
@@ -960,7 +960,7 @@ void SolveSession::enqueue(TakeApartTask task) {
   // found this one waits in submit() until there is room: the queue (and
   // the memory it takes) stays small and the cores go to the take-aparts.
   // A stop ends the wait: what is queued comes back as stopped.
-  BT_ASSERT(takeAparts_ != nullptr);
+  SL_ASSERT(takeAparts_ != nullptr);
   takeAparts_->submit(std::move(task.assembly), task.assemblyNumber, task.solutionNumber);
 }
 

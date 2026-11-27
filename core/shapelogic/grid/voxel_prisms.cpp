@@ -73,7 +73,7 @@ bool VoxelPrisms::transform(unsigned int nr) {
   if (nr == 0) {
     return true;
   }
-  BT_ASSERT(nr < NUM_TRANSFORMATIONS_MIRROR);
+  SL_ASSERT(nr < NUM_TRANSFORMATIONS_MIRROR);
   const double* r = rotationMatrices()[nr];
 
   int minx = 100000;
@@ -181,7 +181,7 @@ bool VoxelPrisms::identicalInBB(const Voxel& op, bool includeColors) const {
 }
 
 void VoxelPrisms::transformPoint(int* x, int* y, int* z, unsigned int trans) const {
-  BT_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
+  SL_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
   const Cell c = rotateCell(rotationMatrices()[trans], *x, *y, *z);
   *x = c.x;
   *y = c.y;
@@ -189,7 +189,7 @@ void VoxelPrisms::transformPoint(int* x, int* y, int* z, unsigned int trans) con
 }
 
 void VoxelPrisms::getTransformMatrix(unsigned int trans, double m[9]) const {
-  BT_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
+  SL_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
   for (int i = 0; i < 9; i++) {
     m[i] = rotationMatrices()[trans][i];
   }

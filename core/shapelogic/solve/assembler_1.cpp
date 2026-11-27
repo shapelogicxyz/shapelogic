@@ -228,7 +228,7 @@ std::size_t Assembler1::rowIndexOf(unsigned int node) const {
 
 void Assembler1::addVoxelNode(unsigned int col, unsigned int piecenode) {
   Links& n = links_;
-  BT_ASSERT(n.left.size() == n.right.size() && 2 * n.left.size() == n.upDown.size() &&
+  SL_ASSERT(n.left.size() == n.right.size() && 2 * n.left.size() == n.upDown.size() &&
             n.left.size() == n.colCount.size() && n.left.size() == n.weight.size());
 
   const auto newnode = static_cast<unsigned int>(n.left.size());
@@ -457,7 +457,7 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
 }
 
 AssemblerError Assembler1::createMatrix(const MatrixOptions& options, const StopToken& stop) {
-  BT_ASSERT(problem_.resultValid());
+  SL_ASSERT(problem_.resultValid());
 
   filter_.complete = options.completeRotations;
   strictColors_ = options.strictColors;
@@ -1084,7 +1084,7 @@ bool Assembler1::searchMachine(Links& n, SearchStacks& s, Hooks& hooks) const {
         col = n.colCount[s.nextRowStack.back()];
 
         // checked before this frame was entered
-        BT_ASSERT(columnConditionFulfillable(n, col));
+        SL_ASSERT(columnConditionFulfillable(n, col));
 
         // The column's condition may already be met without another row:
         // then search on with its remaining rows taken out first.
@@ -1234,7 +1234,7 @@ bool Assembler1::searchMachine(Links& n, SearchStacks& s, Hooks& hooks) const {
         break;
 
       default:
-        BT_ASSERT_MSG(false, "assembler 1: a state that does not exist");
+        SL_ASSERT_MSG(false, "assembler 1: a state that does not exist");
         break;
     }
   }
@@ -1949,7 +1949,7 @@ void Assembler1::simdSearch(SearchRun& run, const SearchOptions& options) {
 
 RunEnd Assembler1::assemble(const AssemblyCallback& callback, const SearchOptions& options,
                             const StopToken& stop) {
-  BT_ASSERT_MSG(errorsState_ == AssemblerError::None, "assemble() after a failed createMatrix()");
+  SL_ASSERT_MSG(errorsState_ == AssemblerError::None, "assemble() after a failed createMatrix()");
 
   SearchRun run(stop, callback);
   debug_ = false;
@@ -2042,7 +2042,7 @@ void Assembler1::replay(Links& n, const SearchStacks& s, bool task) const {
         break;
       }
       default:
-        BT_ASSERT_MSG(false, "assembler 1: a state that cannot be replayed");
+        SL_ASSERT_MSG(false, "assembler 1: a state that cannot be replayed");
         break;
     }
   }
@@ -2489,7 +2489,7 @@ unsigned int Assembler1::piecePlacement(unsigned int node, int delta, unsigned i
   *y = p.y;
   *z = p.z;
 
-  BT_ASSERT(p.piece == shape);
+  SL_ASSERT(p.piece == shape);
 
   return node;
 }

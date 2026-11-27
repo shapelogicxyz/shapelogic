@@ -86,7 +86,7 @@ Corners rhombicCorners(int x, int y, int z) {
     if (x == 4 && y == 3) {
       return {m, {x0 + 2, y0 + 1}, {x0 + 2, y0 + 2}};
     }
-    BT_ASSERT_MSG(false, "a rhombic cell the editor has no triangle for");
+    SL_ASSERT_MSG(false, "a rhombic cell the editor has no triangle for");
   }
   if (x < 2) {
     return {{x0, y0}, m, {x0, y0 + 2}};
@@ -120,7 +120,7 @@ Corners tetraOctaCorners(int x, int y, int z) {
   if (x == 0 && y == 2) {
     return {{xc, yc + 1}, {xc, yc}, {xc + 1, yc + 1}};
   }
-  BT_ASSERT_MSG(x == 2 && y == 2, "a tetrahedra-octahedra cell the editor has no polygon for");
+  SL_ASSERT_MSG(x == 2 && y == 2, "a tetrahedra-octahedra cell the editor has no polygon for");
   return {{xc + 1, yc + 1}, {xc, yc + 1}, {xc + 1, yc}};
 }
 

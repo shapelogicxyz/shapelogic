@@ -91,8 +91,8 @@ class Assembly {
   /// Appends a placed piece; mirrored only where the matrix was asked for
   /// it (MatrixOptions::partTransforms: a sliding piece placed mirrored).
   void addPlacement(unsigned char tran, int x, int y, int z) {
-    BT_ASSERT(tran < sym().getNumTransformationsMirror());
-    BT_ASSERT(tran != kUnplacedTrans);
+    SL_ASSERT(tran < sym().getNumTransformationsMirror());
+    SL_ASSERT(tran != kUnplacedTrans);
     placements_.push_back(Placement{tran, x, y, z});
   }
 
@@ -112,7 +112,7 @@ class Assembly {
   [[nodiscard]] const std::vector<Placement>& getPlacements() const { return placements_; }
 
   [[nodiscard]] bool isPlaced(unsigned int num) const {
-    BT_ASSERT(num < placements_.size());
+    SL_ASSERT(num < placements_.size());
     return placements_[num].transformation != kUnplacedTrans;
   }
 
@@ -180,8 +180,8 @@ class Assembly {
  private:
   [[nodiscard]] const Symmetries& sym() const { return *sym_; }
   [[nodiscard]] const Placement& placed(unsigned int num) const {
-    BT_ASSERT(num < placements_.size());
-    BT_ASSERT(placements_[num].transformation != kUnplacedTrans);
+    SL_ASSERT(num < placements_.size());
+    SL_ASSERT(placements_[num].transformation != kUnplacedTrans);
     return placements_[num];
   }
 

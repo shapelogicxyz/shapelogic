@@ -52,7 +52,7 @@ class SolveStateCell {
  public:
   [[nodiscard]] SolveState load() const noexcept { return state_.load(std::memory_order_acquire); }
 
-  /// Move to `to`. Asserts (BT_ASSERT) that the move is in the table, and
+  /// Move to `to`. Asserts (SL_ASSERT) that the move is in the table, and
   /// that no other thread moved the state meanwhile (a second writer).
   void advance(SolveState to);
 

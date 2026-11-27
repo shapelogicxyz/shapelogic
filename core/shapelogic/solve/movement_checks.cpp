@@ -97,8 +97,8 @@ std::optional<MovementDirections> movementDirections(GridKind kind) {
 
 Result<MovementChecks> deriveMovementChecks(GridKind kind, const MovementDirections& moves,
                                             int reachPeriods) {
-  BT_ASSERT(reachPeriods >= 1);
-  BT_ASSERT(moves.period[0] > 0 && moves.period[1] > 0 && moves.period[2] > 0);
+  SL_ASSERT(reachPeriods >= 1);
+  SL_ASSERT(moves.period[0] > 0 && moves.period[1] > 0 && moves.period[2] > 0);
 
   MovementChecks out;
   out.period = moves.period;
@@ -169,9 +169,9 @@ namespace {
 // the grid's tables, not of a puzzle.
 MovementChecks derived(GridKind kind) {
   const std::optional<MovementDirections> moves = movementDirections(kind);
-  BT_ASSERT(moves.has_value());
+  SL_ASSERT(moves.has_value());
   Result<MovementChecks> checks = deriveMovementChecks(kind, *moves);
-  BT_ASSERT_MSG(checks.has_value(), "the movement checks of a grid cannot be derived");
+  SL_ASSERT_MSG(checks.has_value(), "the movement checks of a grid cannot be derived");
   return std::move(*checks);
 }
 

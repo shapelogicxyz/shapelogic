@@ -15,7 +15,7 @@
 #       where each has its own reason, said in a comment
 #   bugprone-macro-parentheses  it finds the Manifold library's own
 #       -DMANIFOLD_PAR=-1 on every compile line, which no comment in a
-#       source can answer, and BTE_TRY's `decl`, which is a declaration
+#       source can answer, and SLE_TRY's `decl`, which is a declaration
 #   bugprone-throwing-static-initialization  the statics are constinit
 #       tables and arrays of numbers (sqrt of constants): nothing throws
 #   clang-analyzer-optin.core.EnumCastOutOfRange  fires inside Catch2's

@@ -27,17 +27,17 @@ TEST_CASE("error: results carry a value or an error", "[base][error]") {
   CHECK(bt::toString(bad.error().code) == "invalid_argument");
 }
 
-TEST_CASE("error: BT_ASSERT throws an InternalError naming the check", "[base][error]") {
+TEST_CASE("error: SL_ASSERT throws an InternalError naming the check", "[base][error]") {
   try {
-    BT_ASSERT_MSG(1 + 1 == 3, "arithmetic");
-    FAIL("BT_ASSERT did not throw");
+    SL_ASSERT_MSG(1 + 1 == 3, "arithmetic");
+    FAIL("SL_ASSERT did not throw");
   } catch (const bt::InternalError& e) {
     const std::string what = e.what();
     CHECK(what.find("1 + 1 == 3") != std::string::npos);
     CHECK(what.find("arithmetic") != std::string::npos);
     CHECK(e.line() > 0);
   }
-  CHECK_NOTHROW(BT_ASSERT(2 > 1));
+  CHECK_NOTHROW(SL_ASSERT(2 > 1));
 }
 
 TEST_CASE("version: set from CMake", "[base]") {

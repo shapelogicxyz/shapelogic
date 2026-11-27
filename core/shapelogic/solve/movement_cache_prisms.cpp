@@ -75,7 +75,7 @@ std::vector<unsigned int> MovementCachePrisms::moCalcValues(const Voxel& sh1, co
           int yp = asInt(y) - dy;
           int zp = asInt(z) - dz;
 
-          BT_ASSERT(sh2.isEmpty2(xp, yp, zp));
+          SL_ASSERT(sh2.isEmpty2(xp, yp, zp));
 
           // only up to the smallest distance found so far
           for (unsigned int d = 0; d < m; d++) {
@@ -130,7 +130,7 @@ std::vector<unsigned int> MovementCachePrisms::moCalcValues(const Voxel& sh1, co
 }
 
 void MovementCachePrisms::getDirection(unsigned int dir, int* x, int* y, int* z) const {
-  BT_ASSERT(dir < kDirections);
+  SL_ASSERT(dir < kDirections);
   *x = kDirs[dir][0];
   *y = kDirs[dir][1];
   *z = kDirs[dir][2];

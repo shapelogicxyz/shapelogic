@@ -16,8 +16,8 @@ Puzzle::Puzzle(GridType gt) : gt_(gt) {
 }
 
 unsigned int Puzzle::addShape(std::unique_ptr<Voxel> p) {
-  BT_ASSERT(p != nullptr);
-  BT_ASSERT(p->getGridType() == gt_);
+  SL_ASSERT(p != nullptr);
+  SL_ASSERT(p->getGridType() == gt_);
   shapes_.emplace_back(std::move(p));
   return static_cast<unsigned int>(shapes_.size() - 1);
 }
@@ -27,7 +27,7 @@ unsigned int Puzzle::addShape(unsigned int sx, unsigned int sy, unsigned int sz)
 }
 
 void Puzzle::removeShape(unsigned int idx) {
-  BT_ASSERT(idx < shapes_.size());
+  SL_ASSERT(idx < shapes_.size());
 
   // first the problems, then the shape itself
   for (ClonePtr<Problem>& p : problems_) {
@@ -38,7 +38,7 @@ void Puzzle::removeShape(unsigned int idx) {
 }
 
 void Puzzle::setTray(std::optional<tilted::Tray> tray) {
-  BT_ASSERT(!tray || (tray->valid() && gt_.getType() == GridKind::Bricks));
+  SL_ASSERT(!tray || (tray->valid() && gt_.getType() == GridKind::Bricks));
   tray_ = std::move(tray);
 }
 
@@ -82,17 +82,17 @@ bool Puzzle::imageUsed(unsigned int id) const {
 }
 
 std::unique_ptr<Voxel> Puzzle::replaceShape(unsigned int idx, std::unique_ptr<Voxel> v) {
-  BT_ASSERT(idx < shapes_.size());
-  BT_ASSERT(v != nullptr);
-  BT_ASSERT(v->getGridType() == gt_);
+  SL_ASSERT(idx < shapes_.size());
+  SL_ASSERT(v != nullptr);
+  SL_ASSERT(v->getGridType() == gt_);
   std::unique_ptr<Voxel> old = shapes_[idx].release();
   shapes_[idx].reset(std::move(v));
   return old;
 }
 
 void Puzzle::exchangeShapes(unsigned int s1, unsigned int s2) {
-  BT_ASSERT(s1 < shapes_.size());
-  BT_ASSERT(s2 < shapes_.size());
+  SL_ASSERT(s1 < shapes_.size());
+  SL_ASSERT(s2 < shapes_.size());
 
   std::swap(shapes_[s1], shapes_[s2]);
 
@@ -102,14 +102,14 @@ void Puzzle::exchangeShapes(unsigned int s1, unsigned int s2) {
 }
 
 unsigned int Puzzle::addColor(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
-  BT_ASSERT(colors_.size() < kMaxColors);  // color 0 is "none"
+  SL_ASSERT(colors_.size() < kMaxColors);  // color 0 is "none"
   colors_.push_back(static_cast<std::uint32_t>(r) | static_cast<std::uint32_t>(g) << 8 |
                     static_cast<std::uint32_t>(b) << 16);
   return static_cast<unsigned int>(colors_.size() - 1);
 }
 
 void Puzzle::removeColor(unsigned int col) {
-  BT_ASSERT(col >= 1 && col <= colors_.size());
+  SL_ASSERT(col >= 1 && col <= colors_.size());
 
   // the shapes stop using the color, higher colors move down
   for (ClonePtr<Voxel>& shape : shapes_) {
@@ -157,13 +157,13 @@ void Puzzle::removeColor(unsigned int col) {
 }
 
 void Puzzle::changeColor(unsigned int idx, std::uint8_t r, std::uint8_t g, std::uint8_t b) {
-  BT_ASSERT(idx < colors_.size());
+  SL_ASSERT(idx < colors_.size());
   colors_[idx] = static_cast<std::uint32_t>(r) | static_cast<std::uint32_t>(g) << 8 |
                  static_cast<std::uint32_t>(b) << 16;
 }
 
 Rgb Puzzle::getColor(unsigned int idx) const {
-  BT_ASSERT(idx < colors_.size());
+  SL_ASSERT(idx < colors_.size());
   const std::uint32_t c = colors_[idx];
   return Rgb{static_cast<std::uint8_t>(c & 0xFF), static_cast<std::uint8_t>((c >> 8) & 0xFF),
              static_cast<std::uint8_t>((c >> 16) & 0xFF)};
@@ -195,7 +195,7 @@ unsigned int Puzzle::addRodSet(const stacking::RodSet& set) {
 }
 
 void Puzzle::removeRodSet(unsigned int idx) {
-  BT_ASSERT(idx < rodSets_.size());
+  SL_ASSERT(idx < rodSets_.size());
   for (ClonePtr<Problem>& pp : problems_) {
     Problem& p = *pp;
     const unsigned int id = p.getRodSetId();
@@ -209,8 +209,8 @@ void Puzzle::removeRodSet(unsigned int idx) {
 }
 
 void Puzzle::exchangeRodSets(unsigned int a, unsigned int b) {
-  BT_ASSERT(a < rodSets_.size());
-  BT_ASSERT(b < rodSets_.size());
+  SL_ASSERT(a < rodSets_.size());
+  SL_ASSERT(b < rodSets_.size());
   std::swap(rodSets_[a], rodSets_[b]);
   for (ClonePtr<Problem>& pp : problems_) {
     Problem& p = *pp;
@@ -224,13 +224,13 @@ void Puzzle::exchangeRodSets(unsigned int a, unsigned int b) {
 }
 
 void Puzzle::removeProblem(unsigned int p) {
-  BT_ASSERT(p < problems_.size());
+  SL_ASSERT(p < problems_.size());
   problems_.erase(problems_.begin() + p);
 }
 
 void Puzzle::exchangeProblems(unsigned int p1, unsigned int p2) {
-  BT_ASSERT(p1 < problems_.size());
-  BT_ASSERT(p2 < problems_.size());
+  SL_ASSERT(p1 < problems_.size());
+  SL_ASSERT(p2 < problems_.size());
   std::swap(problems_[p1], problems_[p2]);
 }
 

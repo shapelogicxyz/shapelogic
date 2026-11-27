@@ -2,7 +2,7 @@
 // Ported from test/test_puzzle_model.cpp of the original. Left out: the
 // PuzzleSolver3D and OpenSCAD import cases (imports come later) and the undo
 // cases (stage 6). Assertions that only fired in the original's debug builds
-// always fire here (BT_ASSERT is on in every build).
+// always fire here (SL_ASSERT is on in every build).
 
 #include "../grid/grid_test_helpers.h"
 #include "model_test_helpers.h"

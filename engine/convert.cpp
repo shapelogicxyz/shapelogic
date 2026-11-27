@@ -311,7 +311,7 @@ RpcResult<const Problem*> playProblem(const State& s, app::Id problem,
   if (!isKind(s.document().puzzle())) {
     return coreError(Errc::Unsupported, std::string(refusal));
   }
-  BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
+  SLE_TRY(const unsigned int index, s.document().problemIndex(problem));
   return &s.document().puzzle().getProblem(index);
 }
 

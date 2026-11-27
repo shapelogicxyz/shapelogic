@@ -51,7 +51,7 @@ void connectionFaceRhombic(int x, int y, int z, int n, double bevel, double offs
   const int zs = z - 5 * zc;
 
   const int p = kVoxels[xs + 5 * (ys + 5 * zs)];
-  BT_ASSERT(p != -1);
+  SL_ASSERT(p != -1);
 
   xc *= 2;
   yc *= 2;

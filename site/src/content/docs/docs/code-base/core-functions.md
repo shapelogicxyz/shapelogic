@@ -16,7 +16,7 @@ repository.
 | Stopping long work | `base/stop.h` | `StopSource`, `StopToken`, `StopKind` (Pause or Abort); one source per run, never reset; `child()` for a stage-level stop |
 | The state of a solve | `base/solve_state.h` | `SolveState` (Idle, Preparing, Assembling, Draining, Paused, Finished, Error), `SolveStateCell`, `isActive()` |
 | Recoverable errors | `base/error.h` | `Errc`, `Error`, `Result<T>` (a `std::expected`), `fail()` |
-| Broken invariants | `base/assert.h` | `BT_ASSERT`, on in every build |
+| Broken invariants | `base/assert.h` | `SL_ASSERT`, on in every build |
 | Threads of a solve | `base/thread_pool.h` | `ThreadPool` (`run`, `addLoad`), `kMaxThreads`, `hardwareThreads()`, `splitThreads()` |
 
 ## Grids, voxels and symmetry (`grid/`)

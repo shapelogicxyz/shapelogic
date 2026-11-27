@@ -41,7 +41,7 @@ std::vector<std::unique_ptr<Voxel>> orientedPieces(const Puzzle& puzzle, const P
       if (assembly.isPlaced(pc)) {
         pieces[pc] = problem.partShape(puzzle, i).clone();
         const bool turned = pieces[pc]->transform(assembly.getTransformation(pc));
-        BT_ASSERT(turned);
+        SL_ASSERT(turned);
       }
       pc++;
     }
@@ -181,7 +181,7 @@ void printPuzzle(std::FILE* out, const Puzzle& puzzle) {
 void printSeparation(std::FILE* out, const Puzzle& puzzle, const Problem& problem,
                      const Separation& separation, const Assembly& assembly,
                      bool originalDrawings) {
-  BT_ASSERT(problem.resultValid());
+  SL_ASSERT(problem.resultValid());
   const Voxel& res = problem.resultShape(puzzle);
   const std::vector<std::unique_ptr<Voxel>> pieces = orientedPieces(puzzle, problem, assembly);
 
@@ -199,7 +199,7 @@ void printSeparation(std::FILE* out, const Puzzle& puzzle, const Problem& proble
 
 void printAssembly(std::FILE* out, const Puzzle& puzzle, const Problem& problem,
                    const Assembly& assembly) {
-  BT_ASSERT(problem.resultValid());
+  SL_ASSERT(problem.resultValid());
   const Voxel& res = problem.resultShape(puzzle);
   const std::vector<std::unique_ptr<Voxel>> pieces = orientedPieces(puzzle, problem, assembly);
   const int sx = static_cast<int>(res.getX());

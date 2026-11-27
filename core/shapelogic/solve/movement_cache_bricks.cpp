@@ -113,7 +113,7 @@ void MovementCacheBricks::getDirection(unsigned int dir, int* x, int* y, int* z)
       *x = *y = 0;
       break;
     default:
-      BT_ASSERT_MSG(false, "a direction the cube grid does not have");
+      SL_ASSERT_MSG(false, "a direction the cube grid does not have");
       break;
   }
 }

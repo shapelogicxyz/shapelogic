@@ -947,7 +947,7 @@ std::string layoutRefusal(const Puzzle& puzzle, const Problem& problem, bool goa
 
 SlideMarks layoutMarks(const Puzzle& puzzle, const Problem& problem, bool goal,
                        std::span<const TrayCell> at) {
-  BT_ASSERT_MSG(layoutRefusal(puzzle, problem, goal, at).empty(), "a layout that is refused");
+  SL_ASSERT_MSG(layoutRefusal(puzzle, problem, goal, at).empty(), "a layout that is refused");
   const Voxel& tray = problem.resultShape(puzzle);
   SlideMarks marks = problem.slideMarks();
   for (std::size_t i = marks.size(goal); i-- > 0;) {
@@ -1775,7 +1775,7 @@ BoardEdit beginBoardEdit(const Puzzle& puzzle, unsigned int trayShape, Voxel& v)
   BoardEdit edit;
   edit.tray = trayShape;
   const Voxel& tray = puzzle.getShape(trayShape);
-  BT_ASSERT(v.getXYZ() == tray.getXYZ());
+  SL_ASSERT(v.getXYZ() == tray.getXYZ());
   std::map<unsigned int, unsigned int> tagOf;
   for (unsigned int p = 0; p < puzzle.getNumberOfProblems(); p++) {
     if (onTray(puzzle.getProblem(p), trayShape)) {
@@ -1806,7 +1806,7 @@ void readBoardTags(BoardEdit& edit, Voxel& v) {
 }
 
 std::vector<unsigned int> applyBoardEdit(Puzzle& puzzle, const BoardEdit& edit) {
-  BT_ASSERT(edit.moved.size() == edit.cells.size());
+  SL_ASSERT(edit.moved.size() == edit.cells.size());
   for (unsigned int p = 0; p < puzzle.getNumberOfProblems(); p++) {
     if (onTray(puzzle.getProblem(p), edit.tray)) {
       puzzle.getProblem(p).editSlideMarks().clear();

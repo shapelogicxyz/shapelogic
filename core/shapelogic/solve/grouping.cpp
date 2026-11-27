@@ -53,7 +53,7 @@ bool Grouping::addPieceToSet(unsigned int pc) {
     return false;
   }
 
-  BT_ASSERT(!sets_.empty());
+  SL_ASSERT(!sets_.empty());
 
   auto set = static_cast<unsigned int>(sets_.size() - 1);
 

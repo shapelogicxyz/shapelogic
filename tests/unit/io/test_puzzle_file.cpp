@@ -767,7 +767,7 @@ std::vector<NumberSite> numberSites(const std::string& xml) {
 /// What the app does with a puzzle it opened, as far as the model goes: it
 /// is written, and each solution's assembly and disassembly are walked the
 /// way the level text, the playback and "assemblies to shapes" walk them.
-/// A broken invariant a BT_ASSERT catches (an InternalError) is an answer,
+/// A broken invariant a SL_ASSERT catches (an InternalError) is an answer,
 /// counted in `asserted`; what the sanitizers find is not.
 void walkAsTheAppDoes(const Puzzle& p, std::size_t& asserted) {
   const std::string written = io::writePuzzle(p);

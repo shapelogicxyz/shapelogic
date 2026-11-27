@@ -219,7 +219,7 @@ class SimdExactCover : public SimdExactCoverBase {
   void filterRows(const std::vector<std::uint32_t>& src, const BitsetType& chosenMask,
                   std::vector<std::uint32_t>& dst) const;
 
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
   // the targets on the declarations too: with them at the definitions only,
   // Apple clang 21 compiled filterRowsAvx2 for x86-64 without AVX and refused
   // its intrinsics (found by the first x86-64 build, release-x64)
@@ -229,7 +229,7 @@ class SimdExactCover : public SimdExactCoverBase {
   __attribute__((target("avx2"))) void filterRowsAvx2(const std::vector<std::uint32_t>& src,
                                                       const BitsetType& chosenMask,
                                                       std::vector<std::uint32_t>& dst) const;
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
   void filterRowsNeon(const std::vector<std::uint32_t>& src, const BitsetType& chosenMask,
                       std::vector<std::uint32_t>& dst) const;
 #endif

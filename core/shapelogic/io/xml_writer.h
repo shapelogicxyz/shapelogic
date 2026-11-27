@@ -20,7 +20,7 @@ namespace bt::io {
 
 /// Writes an XML document into a string. Misuse (an attribute after
 /// content, an attribute given twice in a tag, closing the wrong tag, ...)
-/// is a programming error and fails a BT_ASSERT.
+/// is a programming error and fails a SL_ASSERT.
 class XmlWriter {
  public:
   /// Starts the document with the `<?xml version="1.0"?>` line.

@@ -930,7 +930,7 @@ Polyhedron mergeCoplanarFaces(const Polyhedron& src) {
       if (mergeGroup(res, vl, src, group, inGroup)) {
         continue;
       }
-      BT_ASSERT(res.numFaces() == facesBefore);
+      SL_ASSERT(res.numFaces() == facesBefore);
     }
     for (const int f : group) {
       copyFace(res, vl, src, f);

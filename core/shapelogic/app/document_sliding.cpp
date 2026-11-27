@@ -65,7 +65,7 @@ void Document::syncSliding() {
   const bool lost = boardsAbovePieces();
   // the problems are the user's: none comes or goes (syncSlidingParts)
   sliding::syncSlidingParts(*puzzle_);
-  BT_ASSERT(ids_.problems.size() == puzzle_->getNumberOfProblems());
+  SL_ASSERT(ids_.problems.size() == puzzle_->getNumberOfProblems());
   // parts changed: everything is news
   lastChange_.shapes.clear();
   lastChange_.problems.clear();
@@ -256,13 +256,13 @@ Result<bool> SlidingEdits::placeStamp(Id tray, Id piece, int x, int y, int z, bo
   if (there) {
     const std::vector<sliding::TrayCell> cells =
         sliding::stampCells(&v, marks, &d_.puzzle_->getShape(*s), *s, x, y, z, goal, copies);
-    BT_ASSERT_MSG(!cells.empty(), "a stamp that was there has no cells");
+    SL_ASSERT_MSG(!cells.empty(), "a stamp that was there has no cells");
     const sliding::TrayCell& c = cells.front();
     (void)sliding::clearCopyAt(&v, marks, &d_.puzzle_->getShape(*s), *s, c[0], c[1], c[2], goal);
   } else {
     const std::string why =
         sliding::stampPiece(&v, marks, &d_.puzzle_->getShape(*s), *s, x, y, z, goal, copies);
-    BT_ASSERT_MSG(why.empty(), "a stamp that fit did not");
+    SL_ASSERT_MSG(why.empty(), "a stamp that fit did not");
   }
   d_.syncSliding();
   // the problem loses what it had found; the others on this board have
@@ -334,7 +334,7 @@ Result<void> SlidingEdits::cloneStamps(Id tray, bool toGoal, Id problem) {
   Document::StepGuard g(d_, toGoal ? "Clone start to goal" : "Clone goal to start");
   d_.touchWhole();
   const std::string why = sliding::copyStamps(*d_.puzzle_, d_.puzzle_->getProblem(*p), toGoal);
-  BT_ASSERT_MSG(why.empty(), "a clone that was checked was refused");
+  SL_ASSERT_MSG(why.empty(), "a clone that was checked was refused");
   d_.syncSliding();
   d_.problemChanged(*p);
   g.commit(kChangeAll);

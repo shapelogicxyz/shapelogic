@@ -239,7 +239,7 @@ bool Engine::guarded(std::string_view where, F&& f) {
     std::forward<F>(f)();
     return true;
   } catch (const std::exception& e) {
-    // InternalError (a failed BT_ASSERT) among them
+    // InternalError (a failed SL_ASSERT) among them
     failedOutside(where, e.what());
     return false;
   }

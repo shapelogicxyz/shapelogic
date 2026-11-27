@@ -18,7 +18,7 @@ Rgb readRgb(Params& p) {
 }
 
 Reply colorList(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   Json colors = Json::array();
   for (unsigned int i = 0; i < s.document().puzzle().colorNumber(); i++) {
     colors.push_back(colorJson(s, i));
@@ -28,23 +28,23 @@ Reply colorList(State& s, Params& p) {
 
 Reply colorAdd(State& s, Params& p) {
   const Rgb rgb = readRgb(p);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::Id id, s.document().addColor(rgb));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::Id id, s.document().addColor(rgb));
   return Json{{"color", formatId(IdKind::Color, id)}, {"revision", s.revision()}};
 }
 
 Reply colorEdit(State& s, Params& p) {
   const app::Id color = p.id("color", IdKind::Color);
   const Rgb rgb = readRgb(p);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().editColor(color, rgb));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().editColor(color, rgb));
   return s.changed();
 }
 
 Reply colorDelete(State& s, Params& p) {
   const app::Id color = p.id("color", IdKind::Color);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().deleteColor(color));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().deleteColor(color));
   return s.changed();
 }
 

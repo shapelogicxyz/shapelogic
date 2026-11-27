@@ -25,7 +25,7 @@ constexpr unsigned char kRotZM90 = 20;
 unsigned char rotationTransformId(unsigned int axis, unsigned int sense) {
   static constexpr unsigned char kIds[3][2] = {
       {kRotXP90, kRotXM90}, {kRotYP90, kRotYM90}, {kRotZP90, kRotZM90}};
-  BT_ASSERT(axis < 3 && sense < 2);
+  SL_ASSERT(axis < 3 && sense < 2);
   return kIds[axis][sense];
 }
 
@@ -61,7 +61,7 @@ void RotationMoves::collectWorldCells(MovementCache& cache, const DisassemblerNo
 
 RotationMoves::TurnBox RotationMoves::turnBox(const std::vector<RotationRules::Cell>& moving,
                                               unsigned int axis) {
-  BT_ASSERT(!moving.empty());
+  SL_ASSERT(!moving.empty());
 
   auto planeU = [axis](const RotationRules::Cell& p) { return (axis == 0) ? p.y : p.x; };
   auto planeV = [axis](const RotationRules::Cell& p) { return (axis == 2) ? p.y : p.z; };
@@ -95,7 +95,7 @@ NodeRef RotationMoves::turnedNode(DisassemblerNode* from, const Symmetries& sym,
   while (primaryPiece < n && (moveMask & (1U << primaryPiece)) == 0) {
     primaryPiece++;
   }
-  BT_ASSERT(primaryPiece < n);
+  SL_ASSERT(primaryPiece < n);
 
   const unsigned char rotId = rotationTransformId(axis, sense);
   bool changed = false;

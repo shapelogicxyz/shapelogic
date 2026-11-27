@@ -19,7 +19,7 @@ unsigned int MovementCacheDerived::numDirections() const {
 }
 
 void MovementCacheDerived::getDirection(unsigned int dir, int* x, int* y, int* z) const {
-  BT_ASSERT(dir < checks_.directions.size());
+  SL_ASSERT(dir < checks_.directions.size());
   *x = checks_.directions[dir][0];
   *y = checks_.directions[dir][1];
   *z = checks_.directions[dir][2];
@@ -66,7 +66,7 @@ std::vector<unsigned int> MovementCacheDerived::moCalcValues(const Voxel& sh1, c
           int yp = asInt(y) - dy;
           int zp = asInt(z) - dz;
 
-          BT_ASSERT(sh2.isEmpty2(xp, yp, zp));
+          SL_ASSERT(sh2.isEmpty2(xp, yp, zp));
 
           // only up to the smallest distance found so far
           for (unsigned int d = 0; d < m; d++) {

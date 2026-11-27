@@ -476,7 +476,7 @@ class Mesher {
       return it->second;
     }
     const CellPolyhedron* g = cell(c);
-    BT_ASSERT(g != nullptr);
+    SL_ASSERT(g != nullptr);
     const std::size_t n = g->faces[asUnsigned(face)].size();
     std::vector<float> m(n, 1.0F);
     if (o_.convexBevelOnly && !o_.bumpy && bevel_ > 0) {
@@ -496,7 +496,7 @@ class Mesher {
   // of the two edges at it.
   int vertexOf(const CellAt& c, int face, int corner) {
     const CellPolyhedron* g = cell(c);
-    BT_ASSERT(g != nullptr);
+    SL_ASSERT(g != nullptr);
     const CellFace& f = g->faces[asUnsigned(face)];
     const std::size_t n = f.size();
     const std::size_t i = asUnsigned(corner) % n;
@@ -506,7 +506,7 @@ class Mesher {
       return it->second;
     }
     const std::vector<std::vector<CornerVectors>>* vecs = vectorsOf(c);
-    BT_ASSERT(vecs != nullptr);
+    SL_ASSERT(vecs != nullptr);
     const std::vector<float>& m = mults(c, face);
     const CornerVectors& k = (*vecs)[asUnsigned(face)][i];
     const Vec3 p = f.corners[i] + k.offset * offset_ + k.bevelPrev * (bevel_ * m[(i + n - 1) % n]) +

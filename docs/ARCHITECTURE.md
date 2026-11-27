@@ -33,7 +33,7 @@ module's rules, shortly. No prose sections, no stage labels.
    io      XML, gzip, .xmpuzzle reader/writer, paused solves, imports
    model   Puzzle, Problem, Assembly, Disassembly, Solution, sliding, stacking, tilted trays
    grid    grid types, voxel spaces, symmetry tables
-   base    StopToken, SolveState, Result/Error, BT_ASSERT, thread pool
+   base    StopToken, SolveState, Result/Error, SL_ASSERT, thread pool
 ```
 
 Dependencies point downwards only: `app` may use everything below it, `base`
@@ -65,7 +65,7 @@ programs: nothing in the core calls it).
 ## base
 
 Files in `core/shapelogic/base/`:
-- `assert.{h,cpp}`: `BT_ASSERT`, `BT_ASSERT_MSG`, `InternalError`; on in every build.
+- `assert.{h,cpp}`: `SL_ASSERT`, `SL_ASSERT_MSG`, `InternalError`; on in every build.
 - `base64.{h,cpp}`: base64 for the engine's JSON and a puzzle file's images (decision 0038).
 - `clone_ptr.h`: `ClonePtr<T>`, an owning pointer that copies its object (`clone()` when T has one), so classes with polymorphic or recursive members keep `= default` copies.
 - `compress.{h,cpp}`: zstd blocks for the slide search's level files (decision 0040); the only code that sees the library.
@@ -467,7 +467,7 @@ Files in `engine/`:
 - `main.cpp`: the process's entry.
 - `methods_{color,document,engine,explore,export,playback,problem,shape,sliding,solution,solve,stacking,tray}.cpp`: one file per schema file in `api/` (`document.*` with `edit.*`, `engine.*` with `settings.*`, `shape.*` with `grid.*`).
 - `output.{h,cpp}`: `Output` (lines and frames), `FrameBuilder` (typed arrays at multiples of four, described for the reply).
-- `rpc.{h,cpp}`: the error codes (`Errc` → `-32001`…, `data.errc` on every error), `Params`, the ids, `BTE_TRY` / `BTE_CHECK`.
+- `rpc.{h,cpp}`: the error codes (`Errc` → `-32001`…, `data.errc` on every error), `Params`, the ids, `SLE_TRY` / `SLE_CHECK`.
 - `wasm_main.cpp`: the engine compiled with Emscripten for the site's demo.
 
 Rules (decisions 0012, 0028, 0043):
@@ -837,7 +837,7 @@ the original (`tests/data/*_by_original/`, the dumps), fixed data now.
 AGENTS.md has the full list; the load-bearing ones:
 1. Cancellation only through `StopToken`; nothing resets a stop request.
 2. A `SolveStateCell` has one writer at a time (base's rules).
-3. Recoverable errors are `Result<T>`; broken invariants are `BT_ASSERT`.
+3. Recoverable errors are `Result<T>`; broken invariants are `SL_ASSERT`.
 4. No owning raw pointers; value types and `unique_ptr`.
 5. No global state or environment switches in `core/`.
 6. Ported code keeps the recorded answers (the regression suite) before it is reshaped.

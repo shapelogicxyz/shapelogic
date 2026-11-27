@@ -140,7 +140,7 @@ class Problem {
   void clearResult();
   [[nodiscard]] bool resultValid() const { return result_ != kNoShape; }
   [[nodiscard]] unsigned int getResultId() const {
-    BT_ASSERT(resultValid());
+    SL_ASSERT(resultValid());
     return result_;
   }
   /// The result shape's voxel space.
@@ -151,7 +151,7 @@ class Problem {
   void clearGoal();
   [[nodiscard]] bool goalValid() const { return goal_ != kNoShape; }
   [[nodiscard]] unsigned int getGoalId() const {
-    BT_ASSERT(goalValid());
+    SL_ASSERT(goalValid());
     return goal_;
   }
 
@@ -208,15 +208,15 @@ class Problem {
   }
   [[nodiscard]] const std::vector<Part>& getParts() const { return parts_; }
   [[nodiscard]] unsigned int getPartMinimum(unsigned int partId) const {
-    BT_ASSERT(partId < parts_.size());
+    SL_ASSERT(partId < parts_.size());
     return parts_[partId].min;
   }
   [[nodiscard]] unsigned int getPartMaximum(unsigned int partId) const {
-    BT_ASSERT(partId < parts_.size());
+    SL_ASSERT(partId < parts_.size());
     return parts_[partId].max;
   }
   [[nodiscard]] unsigned int getShapeIdOfPart(unsigned int partId) const {
-    BT_ASSERT(partId < parts_.size());
+    SL_ASSERT(partId < parts_.size());
     return parts_[partId].shapeId;
   }
   /// The part of a shape; the shape must be a part.
@@ -263,11 +263,11 @@ class Problem {
 
   [[nodiscard]] bool maxHolesDefined() const { return maxHoles_ != kNoMaxHoles; }
   [[nodiscard]] unsigned int getMaxHoles() const {
-    BT_ASSERT(maxHolesDefined());
+    SL_ASSERT(maxHolesDefined());
     return maxHoles_;
   }
   void setMaxHoles(unsigned int value) {
-    BT_ASSERT(value < kNoMaxHoles);
+    SL_ASSERT(value < kNoMaxHoles);
     maxHoles_ = value;
   }
   void setMaxHolesInvalid() { maxHoles_ = kNoMaxHoles; }
@@ -279,21 +279,21 @@ class Problem {
   [[nodiscard]] bool numSolutionsKnown() const { return state_ != ProblemState::Unsolved; }
   [[nodiscard]] bool usedTimeKnown() const { return state_ != ProblemState::Unsolved; }
   [[nodiscard]] std::uint64_t getNumAssemblies() const {
-    BT_ASSERT(numAssembliesKnown());
+    SL_ASSERT(numAssembliesKnown());
     return numAssemblies_;
   }
   [[nodiscard]] std::uint64_t getNumSolutions() const {
-    BT_ASSERT(numSolutionsKnown());
+    SL_ASSERT(numSolutionsKnown());
     return numSolutions_;
   }
   /// Time spent solving, in whole seconds.
   [[nodiscard]] std::uint64_t getUsedTime() const {
-    BT_ASSERT(usedTimeKnown());
+    SL_ASSERT(usedTimeKnown());
     return usedMs_ / 1000;
   }
   /// Time spent solving, in milliseconds.
   [[nodiscard]] std::uint64_t getUsedMs() const {
-    BT_ASSERT(usedTimeKnown());
+    SL_ASSERT(usedTimeKnown());
     return usedMs_;
   }
 
@@ -334,15 +334,15 @@ class Problem {
   void makeUnknown();
 
   void incNumAssemblies() {
-    BT_ASSERT(state_ == ProblemState::Solving);
+    SL_ASSERT(state_ == ProblemState::Solving);
     numAssemblies_++;
   }
   void incNumSolutions() {
-    BT_ASSERT(state_ == ProblemState::Solving);
+    SL_ASSERT(state_ == ProblemState::Solving);
     numSolutions_++;
   }
   void addTimeMs(std::uint64_t ms) {
-    BT_ASSERT(state_ == ProblemState::Solving);
+    SL_ASSERT(state_ == ProblemState::Solving);
     usedMs_ += ms;
   }
 
@@ -375,11 +375,11 @@ class Problem {
     return static_cast<unsigned int>(solutions_.size());
   }
   [[nodiscard]] const Solution& getSavedSolution(unsigned int sol) const {
-    BT_ASSERT(sol < solutions_.size());
+    SL_ASSERT(sol < solutions_.size());
     return solutions_[sol];
   }
   [[nodiscard]] Solution& getSavedSolution(unsigned int sol) {
-    BT_ASSERT(sol < solutions_.size());
+    SL_ASSERT(sol < solutions_.size());
     return solutions_[sol];
   }
   /// The id the newest saved solution got (Solution::getId()); 0 before

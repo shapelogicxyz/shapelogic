@@ -58,11 +58,11 @@ class Puzzle {
     return static_cast<unsigned int>(shapes_.size());
   }
   [[nodiscard]] const Voxel& getShape(unsigned int idx) const {
-    BT_ASSERT(idx < shapes_.size());
+    SL_ASSERT(idx < shapes_.size());
     return *shapes_[idx];
   }
   [[nodiscard]] Voxel& getShape(unsigned int idx) {
-    BT_ASSERT(idx < shapes_.size());
+    SL_ASSERT(idx < shapes_.size());
     return *shapes_[idx];
   }
   /// Removes a shape; the problems drop it and renumber the shapes above it.
@@ -104,11 +104,11 @@ class Puzzle {
     return static_cast<unsigned int>(problems_.size());
   }
   [[nodiscard]] const Problem& getProblem(unsigned int p) const {
-    BT_ASSERT(p < problems_.size());
+    SL_ASSERT(p < problems_.size());
     return *problems_[p];
   }
   [[nodiscard]] Problem& getProblem(unsigned int p) {
-    BT_ASSERT(p < problems_.size());
+    SL_ASSERT(p < problems_.size());
     return *problems_[p];
   }
   void removeProblem(unsigned int p);
@@ -129,11 +129,11 @@ class Puzzle {
     return static_cast<unsigned int>(rodSets_.size());
   }
   [[nodiscard]] const stacking::RodSet& getRodSet(unsigned int idx) const {
-    BT_ASSERT(idx < rodSets_.size());
+    SL_ASSERT(idx < rodSets_.size());
     return rodSets_[idx];
   }
   [[nodiscard]] stacking::RodSet& getRodSet(unsigned int idx) {
-    BT_ASSERT(idx < rodSets_.size());
+    SL_ASSERT(idx < rodSets_.size());
     return rodSets_[idx];
   }
 

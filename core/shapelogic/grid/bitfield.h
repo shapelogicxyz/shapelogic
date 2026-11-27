@@ -27,7 +27,7 @@ class Bitfield {
   /// The bits of a hexadecimal number, most significant digit first, no
   /// prefix. Shorter strings leave the upper bits clear.
   constexpr explicit Bitfield(std::string_view hex) {
-    BT_ASSERT(4 * hex.size() <= static_cast<std::size_t>(bits));
+    SL_ASSERT(4 * hex.size() <= static_cast<std::size_t>(bits));
     int word = 0;
     int bitPos = 0;
     for (auto it = hex.rbegin(); it != hex.rend(); ++it) {
@@ -40,7 +40,7 @@ class Bitfield {
       } else if (c >= 'A' && c <= 'F') {
         v = static_cast<std::uint64_t>(c - 'A' + 10);
       } else {
-        BT_ASSERT_MSG(false, "not a hexadecimal digit");
+        SL_ASSERT_MSG(false, "not a hexadecimal digit");
       }
       field_[static_cast<std::size_t>(word)] |= v << bitPos;
       bitPos += 4;
@@ -56,17 +56,17 @@ class Bitfield {
 
   /// True when bit `pos` is set.
   [[nodiscard]] constexpr bool get(unsigned int pos) const {
-    BT_ASSERT(pos < static_cast<unsigned int>(bits));
+    SL_ASSERT(pos < static_cast<unsigned int>(bits));
     return (field_[pos >> 6] & (std::uint64_t{1} << (pos & 63))) != 0;
   }
   /// Sets bit `pos`.
   constexpr void set(unsigned int pos) {
-    BT_ASSERT(pos < static_cast<unsigned int>(bits));
+    SL_ASSERT(pos < static_cast<unsigned int>(bits));
     field_[pos >> 6] |= std::uint64_t{1} << (pos & 63);
   }
   /// Clears bit `pos`.
   constexpr void reset(unsigned int pos) {
-    BT_ASSERT(pos < static_cast<unsigned int>(bits));
+    SL_ASSERT(pos < static_cast<unsigned int>(bits));
     field_[pos >> 6] &= ~(std::uint64_t{1} << (pos & 63));
   }
   /// True when at least one bit is set.

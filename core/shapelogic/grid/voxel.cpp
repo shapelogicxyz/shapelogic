@@ -48,7 +48,7 @@ unsigned int Voxel::getBiggestDimension() const {
 void Voxel::recalcBoundingBox() {
   // a rebuild of space_ that did not move the marks (moveMarks) leaves
   // them the wrong length: a stale list, read past its end later
-  BT_ASSERT(marksFit());
+  SL_ASSERT(marksFit());
   if (!doRecalc_) {
     recalcSkipped_ = true;
     return;
@@ -92,7 +92,7 @@ void Voxel::invalidateTransformCache() {
 }
 
 void Voxel::set(unsigned int p, VoxelType val) {
-  BT_ASSERT(p < voxels_);
+  SL_ASSERT(p < voxels_);
   const VoxelType old = space_[p];
   // An empty cell has no color. The bounding box's pass drops the colors of
   // all of them; this one's goes here, so that a cell emptied and filled
@@ -526,7 +526,7 @@ bool Voxel::neighbor(unsigned int p, VoxelType val) const {
   const unsigned int y = ((p - x) / sx_) % sy_;
   const unsigned int z = (((p - x) / sx_) - y) / sy_;
 
-  BT_ASSERT(x + sx_ * (y + sy_ * z) == p);
+  SL_ASSERT(x + sx_ * (y + sy_ * z) == p);
 
   if (x > 0 && space_[p - 1] == val) {
     return true;

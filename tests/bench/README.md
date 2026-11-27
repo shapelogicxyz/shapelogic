@@ -123,7 +123,7 @@ Burr-Glar on one thread (1.06 at the start of the stage) is closed: the
 profile (macOS `sample`) showed the rotation check of each of its 3.1
 million assemblies paying for small out-of-line calls that the original's
 build, with its assertions off, did not make: `GridType::getSymmetries()`
-(a switch and a function per call, from `BT_ASSERT`s and
+(a switch and a function per call, from `SL_ASSERT`s and
 `normalizeTransformation`), `Problem::getPartMaximum` / `partShape`, the
 voxel transformation cache's lookup, and an `Assembly` copied for every
 symmetry checked. They are inline now (the tables behind

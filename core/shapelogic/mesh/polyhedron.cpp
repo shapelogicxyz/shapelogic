@@ -52,13 +52,13 @@ std::map<std::pair<int, int>, int> unmatchedHalfEdges(const Polyhedron& poly) {
     if (poly.he(h).twin == kNone) {
       const int a = poly.he(poly.prev(h)).dst;
       const int b = poly.he(h).dst;
-      BT_ASSERT(a != b);
+      SL_ASSERT(a != b);
       // repeated half-edge after processing: only manifolds are supported
-      BT_ASSERT(!connections.contains({a, b}));
-      BT_ASSERT(!connections.contains({b, a}));
+      SL_ASSERT(!connections.contains({a, b}));
+      SL_ASSERT(!connections.contains({b, a}));
       connections[{a, b}] = h;
     } else {
-      BT_ASSERT(poly.he(poly.he(h).twin).twin == h);
+      SL_ASSERT(poly.he(poly.he(h).twin).twin == h);
     }
   }
   return connections;
@@ -130,10 +130,10 @@ int Polyhedron::numHoles() const {
 
 int Polyhedron::prev(int h) const {
   int p = he(h).next;
-  BT_ASSERT(p != kNone);
+  SL_ASSERT(p != kNone);
   while (he(p).next != h) {
     p = he(p).next;
-    BT_ASSERT(p != kNone);
+    SL_ASSERT(p != kNone);
   }
   return p;
 }
@@ -162,7 +162,7 @@ int Polyhedron::faceSize(int f) const {
 }
 
 void Polyhedron::finalize() {
-  BT_ASSERT(check(false));
+  SL_ASSERT(check(false));
 
   // Joins the half-edges: after all the addFace calls their twins are
   // missing. The library's version took only two half-edges between two
@@ -205,12 +205,12 @@ void Polyhedron::finalize() {
       const int h1 = cit->second;
       ++cit;
       const int h2 = cit->second;
-      BT_ASSERT(h1 != h2);
+      SL_ASSERT(h1 != h2);
       he(h1).twin = h2;
       he(h2).twin = h1;
     } else {
       // an odd number of faces at one edge cannot be paired
-      BT_ASSERT(n % 2 == 0);
+      SL_ASSERT(n % 2 == 0);
 
       // Sorted by the angle of their faces around the edge: neighboring
       // faces (by angle) that enclose the same filled region are paired.
@@ -264,17 +264,17 @@ void Polyhedron::finalize() {
 
       for (std::size_t k = 0; k < info.size(); k += 2) {
         // the two run in opposite directions
-        BT_ASSERT(he(prev(info[k].h)).dst == he(info[k + 1].h).dst);
-        BT_ASSERT(he(prev(info[k + 1].h)).dst == he(info[k].h).dst);
+        SL_ASSERT(he(prev(info[k].h)).dst == he(info[k + 1].h).dst);
+        SL_ASSERT(he(prev(info[k + 1].h)).dst == he(info[k].h).dst);
         he(info[k].h).twin = info[k + 1].h;
         he(info[k + 1].h).twin = info[k].h;
       }
     }
   }
 
-  BT_ASSERT(check(false));
+  SL_ASSERT(check(false));
   closeSurface();
-  BT_ASSERT(check(true));
+  SL_ASSERT(check(true));
 }
 
 // Adds the hole faces that make the surface closed (the free function
@@ -298,7 +298,7 @@ void Polyhedron::closeSurface() {
     std::set<int> visited;
     visited.insert(pts.first);
     visited.insert(pts.second);
-    BT_ASSERT(visited.size() == s.size());
+    SL_ASSERT(visited.size() == s.size());
     do {
       // the next half-edge of the hole, through pinched vertices
       e = prev(e);
@@ -307,7 +307,7 @@ void Polyhedron::closeSurface() {
         seen.insert(e);
         e = prev(he(e).twin);
       }
-      BT_ASSERT(he(e).face != kNone);
+      SL_ASSERT(he(e).face != kNone);
       if (seen.contains(e)) {
         break;
       }
@@ -317,16 +317,16 @@ void Polyhedron::closeSurface() {
       if (visited.contains(v)) {
         std::vector<int> corners;
         corners.push_back(v);
-        BT_ASSERT(s.top() != v);
+        SL_ASSERT(s.top() != v);
         do {
           const int p = s.top();
           corners.push_back(p);
           s.pop();
-          BT_ASSERT(visited.contains(p));
+          SL_ASSERT(visited.contains(p));
           visited.erase(p);
-          BT_ASSERT(visited.size() == s.size());
+          SL_ASSERT(visited.size() == s.size());
         } while (s.top() != v);
-        BT_ASSERT(s.top() == v);
+        SL_ASSERT(s.top() == v);
         s.pop();
 
         std::reverse(corners.begin(), corners.end());
@@ -341,58 +341,58 @@ void Polyhedron::closeSurface() {
           const int aux = prev(h);
           const int a = he(aux).dst;
           const int b = he(h).dst;
-          BT_ASSERT(a != b);
+          SL_ASSERT(a != b);
           const auto t = connections.find({b, a});
-          BT_ASSERT(t != connections.end());
+          SL_ASSERT(t != connections.end());
           const int tw = t->second;
           connections.erase(t);
-          BT_ASSERT(tw != h);
-          BT_ASSERT(he(tw).dst != he(h).dst);
+          SL_ASSERT(tw != h);
+          SL_ASSERT(he(tw).dst != he(h).dst);
           he(tw).twin = h;
           he(h).twin = tw;
-          BT_ASSERT(src(h) == a);
+          SL_ASSERT(src(h) == a);
           h = aux;
         } while (h != sentinel);
       }
 
       visited.insert(v);
       s.push(v);
-      BT_ASSERT(visited.size() == s.size());
+      SL_ASSERT(visited.size() == s.size());
     } while (v != start);
   }
 }
 
 bool Polyhedron::check(bool holesFilled) const {
   for (int i = 0; i < numVertices(); i++) {
-    BT_ASSERT(vertex(i).index == i);
+    SL_ASSERT(vertex(i).index == i);
   }
   for (int i = 0; i < numHalfEdges(); i++) {
     const int h = halfEdgeAt(i);
     const HalfEdge& e = he(h);
-    BT_ASSERT(e.index == i);
-    BT_ASSERT(e.next != kNone);
-    BT_ASSERT(e.face != kNone);
-    BT_ASSERT(e.dst != kNone);
-    BT_ASSERT(he(prev(h)).next == h);
-    BT_ASSERT(he(prev(h)).dst != e.dst);
+    SL_ASSERT(e.index == i);
+    SL_ASSERT(e.next != kNone);
+    SL_ASSERT(e.face != kNone);
+    SL_ASSERT(e.dst != kNone);
+    SL_ASSERT(he(prev(h)).next == h);
+    SL_ASSERT(he(prev(h)).dst != e.dst);
     if (holesFilled) {
-      BT_ASSERT(e.twin != kNone);
-      BT_ASSERT(e.twin != h);
-      BT_ASSERT(he(e.twin).twin == h);
-      BT_ASSERT(he(prev(h)).dst == he(e.twin).dst);
+      SL_ASSERT(e.twin != kNone);
+      SL_ASSERT(e.twin != h);
+      SL_ASSERT(he(e.twin).twin == h);
+      SL_ASSERT(he(prev(h)).dst == he(e.twin).dst);
       // no two holes side by side
-      BT_ASSERT(!face(e.face).hole || !face(he(e.twin).face).hole);
+      SL_ASSERT(!face(e.face).hole || !face(he(e.twin).face).hole);
     }
   }
   for (int i = 0; i < numFaces(); i++) {
     const int f = faceAt(i);
-    BT_ASSERT(face(f).index == i);
+    SL_ASSERT(face(f).index == i);
     std::set<int> visited;
     int h = face(f).edge;
     const int sentinel = h;
     do {
-      BT_ASSERT(he(h).face == f);
-      BT_ASSERT(visited.insert(h).second);
+      SL_ASSERT(he(h).face == f);
+      SL_ASSERT(visited.insert(h).second);
       h = he(h).next;
     } while (h != sentinel);
   }
@@ -401,7 +401,7 @@ bool Polyhedron::check(bool holesFilled) const {
 
 VertexList::VertexList(Polyhedron& poly) : poly_(poly) {
   // the mesh is empty: nothing to look up
-  BT_ASSERT(poly.numVertices() == 0);
+  SL_ASSERT(poly.numVertices() == 0);
 }
 
 int VertexList::get(float x, float y, float z) {

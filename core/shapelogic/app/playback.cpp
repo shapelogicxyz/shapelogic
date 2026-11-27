@@ -522,7 +522,7 @@ Result<PlaybackTrack> PlaybackSampler::track(const TrackOptions& opt) {
 mesh::DrawMesh PlaybackSampler::pieceMesh(unsigned int i, mesh::MeshStyle style) const {
   // make() checked that the shape takes its orientation
   Result<mesh::DrawMesh> m = orientedMesh(*data_[i].shape, data_[i].trans0, style);
-  BT_ASSERT(m.has_value());
+  SL_ASSERT(m.has_value());
   return std::move(*m);
 }
 

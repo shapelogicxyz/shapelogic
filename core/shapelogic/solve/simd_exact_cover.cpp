@@ -14,13 +14,13 @@ SimdExactCover<BitsetType>::SimdExactCover(unsigned int cols, unsigned int piece
     : numColumns_(cols),
       numPieces_(pieces),
       kernel_(chooseKernel(kernels, BitsetType::kNumWords >= 8)) {
-  BT_ASSERT(numColumns_ <= BitsetType::kNumWords * 64);
+  SL_ASSERT(numColumns_ <= BitsetType::kNumWords * 64);
 }
 
 template <typename BitsetType>
 void SimdExactCover<BitsetType>::setRequiredColumn(unsigned int col) {
-  BT_ASSERT(col < numColumns_);
-  BT_ASSERT(col < BitsetType::kNumWords * 64);
+  SL_ASSERT(col < numColumns_);
+  SL_ASSERT(col < BitsetType::kNumWords * 64);
   if (!requiredColumns_.test(col)) {
     requiredColumns_.set(col);
     activeColumnList_.push_back(col);
@@ -40,9 +40,9 @@ void SimdExactCover<BitsetType>::setRequiredColumns(const BitsetType& required) 
 
 template <typename BitsetType>
 void SimdExactCover<BitsetType>::setOptionalColumn(unsigned int col) {
-  BT_ASSERT(col < numColumns_);
-  BT_ASSERT(col < BitsetType::kNumWords * 64);
-  BT_ASSERT(!requiredColumns_.test(col));
+  SL_ASSERT(col < numColumns_);
+  SL_ASSERT(col < BitsetType::kNumWords * 64);
+  SL_ASSERT(!requiredColumns_.test(col));
   if (!optionalColumns_.test(col)) {
     optionalColumns_.set(col);
     optionalColumnList_.push_back(col);
@@ -72,8 +72,8 @@ std::uint32_t SimdExactCover<BitsetType>::addRow(unsigned int nodeId, unsigned i
   r.pieceId = pieceId;
   r.columns = cols;
   for (const unsigned int c : cols) {
-    BT_ASSERT(c < numColumns_);
-    BT_ASSERT(c < BitsetType::kNumWords * 64);
+    SL_ASSERT(c < numColumns_);
+    SL_ASSERT(c < BitsetType::kNumWords * 64);
     r.mask.set(c);
   }
   const auto idx = static_cast<std::uint32_t>(rows_.size());
@@ -87,7 +87,7 @@ void SimdExactCover<BitsetType>::registerNodeAlias(unsigned int nodeId, std::uin
   nodeToRowIdx_[nodeId] = rowIdx;
 }
 
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
 template <typename BitsetType>
 __attribute__((target("avx512f"))) void SimdExactCover<BitsetType>::filterRowsAvx512(
     const std::vector<std::uint32_t>& src, const BitsetType& chosenMask,
@@ -143,7 +143,7 @@ __attribute__((target("avx2"))) void SimdExactCover<BitsetType>::filterRowsAvx2(
     }
   }
 }
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
 template <typename BitsetType>
 void SimdExactCover<BitsetType>::filterRowsNeon(const std::vector<std::uint32_t>& src,
                                                 const BitsetType& chosenMask,
@@ -179,7 +179,7 @@ void SimdExactCover<BitsetType>::filterRows(const std::vector<std::uint32_t>& sr
   if (dst.capacity() < src.size()) {
     dst.reserve(src.size());
   }
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
   if (kernel_ == SimdKernel::Avx512) {
     filterRowsAvx512(src, chosenMask, dst);
     return;
@@ -188,7 +188,7 @@ void SimdExactCover<BitsetType>::filterRows(const std::vector<std::uint32_t>& sr
     filterRowsAvx2(src, chosenMask, dst);
     return;
   }
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
   if (kernel_ == SimdKernel::Neon) {
     filterRowsNeon(src, chosenMask, dst);
     return;
@@ -568,7 +568,7 @@ std::size_t SimdExactCover<BitsetType>::stackPerLevel() {
     };
     const std::uintptr_t shallow = reportedAt(4);
     const std::uintptr_t deep = reportedAt(20);
-    BT_ASSERT(shallow != 0 && deep != 0);
+    SL_ASSERT(shallow != 0 && deep != 0);
     const std::size_t measured =
         static_cast<std::size_t>(std::max(shallow, deep) - std::min(shallow, deep)) / 16;
     // Nothing to measure where the levels are kept off this stack

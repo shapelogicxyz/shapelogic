@@ -31,7 +31,7 @@ Nothing is "improved" while it is being ported.
 - Ownership is value types and `std::unique_ptr`. No owning raw pointers,
   no `new` or `delete`.
 - Recoverable problems return `bt::Result<T>`; broken invariants use
-  `BT_ASSERT`, which is on in every build and never has side effects
+  `SL_ASSERT`, which is on in every build and never has side effects
   inside it.
 - Long work takes a `bt::StopToken` and polls it. No search has a stop
   flag of its own and nothing resets a token.

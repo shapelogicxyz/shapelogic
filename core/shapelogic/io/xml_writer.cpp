@@ -39,7 +39,7 @@ void outString(std::string& out, std::string_view text) {
 XmlWriter::XmlWriter() { out_ = "<?xml version=\"1.0\"?>\n"; }
 
 void XmlWriter::newTag(std::string_view name) {
-  BT_ASSERT_MSG(state_ != State::InContent, "a new element inside an element with text");
+  SL_ASSERT_MSG(state_ != State::InContent, "a new element inside an element with text");
 
   if (state_ == State::InTag) {
     // finish the open start tag first
@@ -55,7 +55,7 @@ void XmlWriter::newTag(std::string_view name) {
 }
 
 void XmlWriter::startAttrib(std::string_view attrib) {
-  BT_ASSERT_MSG(state_ == State::InTag, "an attribute outside a start tag");
+  SL_ASSERT_MSG(state_ == State::InTag, "an attribute outside a start tag");
   // An attribute given twice is not well-formed, and the parser refuses the
   // file: the save would be one that cannot be opened again. It happens
   // when a writer emits an attribute its reader's list of known ones lacks:
@@ -63,7 +63,7 @@ void XmlWriter::startAttrib(std::string_view attrib) {
   // writes it beside the writer's own (cleanup item 19.3).
   const std::string_view written(out_);
   for (const auto& [at, length] : tagAttribs_) {
-    BT_ASSERT_MSG(written.substr(at, length) != attrib,
+    SL_ASSERT_MSG(written.substr(at, length) != attrib,
                   "an attribute given twice in a start tag");
   }
   out_ += ' ';
@@ -85,8 +85,8 @@ void XmlWriter::newAttribRaw(std::string_view attrib, std::string_view value) {
 }
 
 void XmlWriter::endTag(std::string_view name) {
-  BT_ASSERT_MSG(!tagStack_.empty(), "closing an element, but none is open");
-  BT_ASSERT_MSG(name == tagStack_.back(), "closing an element with the wrong name");
+  SL_ASSERT_MSG(!tagStack_.empty(), "closing an element, but none is open");
+  SL_ASSERT_MSG(name == tagStack_.back(), "closing an element with the wrong name");
 
   switch (state_) {
     case State::InTag:
@@ -110,7 +110,7 @@ void XmlWriter::endTag(std::string_view name) {
 }
 
 void XmlWriter::startContent() {
-  BT_ASSERT_MSG(state_ != State::Base, "text outside an element, or after a child element");
+  SL_ASSERT_MSG(state_ != State::Base, "text outside an element, or after a child element");
   if (state_ == State::InTag) {
     out_ += '>';
   }
@@ -145,7 +145,7 @@ void XmlWriter::writeElement(const XmlElement& e) {
 }
 
 const std::string& XmlWriter::str() const {
-  BT_ASSERT_MSG(tagStack_.empty(), "not all elements were closed");
+  SL_ASSERT_MSG(tagStack_.empty(), "not all elements were closed");
   return out_;
 }
 

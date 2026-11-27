@@ -495,10 +495,10 @@ Result<void> replaceWith(const std::filesystem::path& written,
 
 std::string gzipCompress(std::string_view data, int level) {
   // the gzip wrapper (window bits + 16); level 9 is gzopen's "wb9"
-  BT_ASSERT(level >= 1 && level <= 9);
+  SL_ASSERT(level >= 1 && level <= 9);
   z_stream z{};
   const int init = deflateInit2(&z, level, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
-  BT_ASSERT_MSG(init == Z_OK, "zlib could not start compressing");
+  SL_ASSERT_MSG(init == Z_OK, "zlib could not start compressing");
   std::string out;
   std::array<char, 65536> buf{};
   z.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(data.data()));
@@ -516,7 +516,7 @@ std::string gzipCompress(std::string_view data, int level) {
       out.append(buf.data(), buf.size() - z.avail_out);
     } while (z.avail_out == 0);
   } while (left > 0);
-  BT_ASSERT(ret == Z_STREAM_END);
+  SL_ASSERT(ret == Z_STREAM_END);
   deflateEnd(&z);
   return out;
 }

@@ -23,7 +23,7 @@ namespace {
 constexpr std::uint64_t kMaxLayerCells = std::uint64_t{1} << 16;
 
 Reply shapeList(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   Json shapes = Json::array();
   for (unsigned int i = 0; i < s.document().puzzle().getNumberOfShapes(); i++) {
     shapes.push_back(shapeSummary(s, i));
@@ -34,8 +34,8 @@ Reply shapeList(State& s, Params& p) {
 Reply shapeGet(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const std::optional<std::int64_t> layer = p.maybeInteger("layer", 0, std::numeric_limits<int>::max());
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int index, s.document().shapeIndex(shape));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int index, s.document().shapeIndex(shape));
   const Voxel& v = s.document().puzzle().getShape(index);
   const unsigned int colors = s.document().puzzle().colorNumber();
   Json cells = Json::array();
@@ -85,38 +85,38 @@ Reply shapeCreate(State& s, Params& p) {
   if (p.has("size")) {
     size = readSize(p, "size");
   }
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::Id id, s.document().createShape(size));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::Id id, s.document().createShape(size));
   return made(s, id);
 }
 
 Reply shapeDuplicate(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::Id id, s.document().duplicateShape(shape));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::Id id, s.document().duplicateShape(shape));
   return made(s, id);
 }
 
 Reply shapeDelete(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().deleteShape(shape));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().deleteShape(shape));
   return s.changed();
 }
 
 Reply shapeMove(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const unsigned int to = p.count("toIndex");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().moveShape(shape, to));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().moveShape(shape, to));
   return s.changed();
 }
 
 Reply shapeRename(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   std::string name = p.string("name");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().renameShape(shape, std::move(name)));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().renameShape(shape, std::move(name)));
   return s.changed();
 }
 
@@ -124,16 +124,16 @@ Reply shapeSetWeight(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const auto weight = static_cast<int>(
       p.integer("weight", std::numeric_limits<int>::min(), std::numeric_limits<int>::max()));
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setShapeWeight(shape, weight));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setShapeWeight(shape, weight));
   return s.changed();
 }
 
 Reply shapeSetColor(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const std::optional<std::uint32_t> color = readRgbOrNull(p, "rgb");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setShapeColor(shape, color));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setShapeColor(shape, color));
   return s.changed();
 }
 
@@ -190,8 +190,8 @@ Reply shapeSetImage(State& s, Params& p) {
     p.fail("'src' must be [x, y, width, height] in pixels");
   }
   choice.border = p.optBoolean("border", false);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setShapeImage(shape, choice));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setShapeImage(shape, choice));
   return s.changed();
 }
 
@@ -236,16 +236,16 @@ Reply shapeSetImages(State& s, Params& p) {
     }
   }
   const bool border = p.optBoolean("border", false);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setShapeImages(shape, layers, border));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setShapeImages(shape, layers, border));
   return s.changed();
 }
 
 Reply shapeClearImage(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const bool border = p.optBoolean("border", false);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().clearShapeImage(shape, border));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().clearShapeImage(shape, border));
   return s.changed();
 }
 
@@ -263,14 +263,14 @@ Reply shapeSetBorder(State& s, Params& p) {
   if (p.has("color")) {
     change.color = readRgbOrNull(p, "color");
   }
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setTrayBorder(shape, change));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setTrayBorder(shape, change));
   return s.changed();
 }
 
 Reply shapeImageData(State& s, Params& p) {
   const auto id = static_cast<int>(p.integer("image", 0, 0x7FFFFFFF));
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   const PuzzleImage* im = s.document().puzzle().findImage(id);
   if (im == nullptr) {
     return coreError(Errc::NotFound, "the puzzle has no picture " + std::to_string(id));
@@ -344,8 +344,8 @@ Reply shapeSetCells(State& s, Params& p) {
       cells.push_back(app::CellEdit{coord(c[0]), coord(c[1]), coord(c[2])});
     }
   }
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int n, s.document().editCells(shape, tool, color, symmetry, cells));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int n, s.document().editCells(shape, tool, color, symmetry, cells));
   return cellsChanged(s, n);
 }
 
@@ -356,9 +356,9 @@ Reply shapeSetBox(State& s, Params& p) {
   const std::uint8_t symmetry = readSymmetry(p);
   const std::array<int, 3> from = p.cell("from");
   const std::array<int, 3> to = p.cell("to");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   const app::CellBox box{from[0], from[1], from[2], to[0], to[1], to[2]};
-  BTE_TRY(const unsigned int n, s.document().editBox(shape, tool, color, symmetry, box));
+  SLE_TRY(const unsigned int n, s.document().editBox(shape, tool, color, symmetry, box));
   return cellsChanged(s, n);
 }
 
@@ -366,14 +366,14 @@ Reply shapeResize(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const std::optional<std::array<unsigned int, 3>> size = readSize(p, "size");
   const bool toAll = p.optBoolean("toAll", false);
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): p.finish() passed, so the size was read
-  BTE_CHECK(s.document().resizeShape(shape, (*size)[0], (*size)[1], (*size)[2], toAll));
+  SLE_CHECK(s.document().resizeShape(shape, (*size)[0], (*size)[1], (*size)[2], toAll));
   return s.changed();
 }
 
 Reply shapeTaskSet(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   Json tasks = Json::array();
   for (const app::ShapeTaskInfo& t : app::taskSet(s.document().puzzle().getGridType().getType())) {
     tasks.push_back(Json{{"task", nameOf(shapeTaskNames(), t.task)},
@@ -388,29 +388,29 @@ Reply shapeTask(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const app::ShapeTask task = p.choice("task", shapeTaskNames());
   const bool toAll = p.optBoolean("toAll", false);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::TaskOutcome o, s.document().shapeTask(shape, task, toAll));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::TaskOutcome o, s.document().shapeTask(shape, task, toAll));
   return Json{{"revision", s.revision()}, {"changed", o.changed}, {"cellsChanged", o.cellsChanged}};
 }
 
 Reply shapeTaskPreview(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const app::ShapeTask task = p.choice("task", shapeTaskNames());
-  BTE_CHECK(p.finish());
-  BTE_TRY(const mesh::DrawMesh m, s.document().shapeTaskPreview(shape, task));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const mesh::DrawMesh m, s.document().shapeTaskPreview(shape, task));
   return meshReply(s, m);
 }
 
 Reply shapeInfo(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int index, s.document().shapeIndex(shape));
-  BTE_TRY(const app::ShapeInfo row, s.document().shapeInfo(shape));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int index, s.document().shapeIndex(shape));
+  SLE_TRY(const app::ShapeInfo row, s.document().shapeInfo(shape));
   return shapeInfoJson(s, row, index);
 }
 
 Reply shapeTable(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   const std::vector<app::ShapeInfo> rows = s.document().shapeTable();
   Json out = Json::array();
   for (unsigned int i = 0; i < rows.size(); i++) {
@@ -423,19 +423,19 @@ Reply shapeMesh(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const mesh::MeshStyle style = p.optChoice("style", meshStyleNames()).value_or(mesh::MeshStyle::Drawing);
   const std::optional<std::int64_t> transformation = p.maybeInteger("transformation", 0, 0xFFFF);
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   std::optional<unsigned int> turned;
   if (transformation) {
     turned = static_cast<unsigned int>(*transformation);
   }
-  BTE_TRY(const mesh::DrawMesh m, s.document().shapeMesh(shape, style, turned));
+  SLE_TRY(const mesh::DrawMesh m, s.document().shapeMesh(shape, style, turned));
   return meshReply(s, m);
 }
 
 Reply gridGeometry(State& s, Params& p) {
   const std::optional<std::array<unsigned int, 3>> size = readSize(p, "size");
   const unsigned int layer = p.count("layer");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): p.finish() passed, so the size was read
   const auto [x, y, z] = *size;
   if (std::uint64_t{x} * y * z > app::kMaxShapeCells || std::uint64_t{x} * y > kMaxLayerCells) {
@@ -473,7 +473,7 @@ Reply gridNeighbor(State& s, Params& p) {
   const std::optional<std::array<unsigned int, 3>> size = readSize(p, "size");
   const std::array<int, 3> cell = p.cell("cell");
   const unsigned int face = p.count("face");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): p.finish() passed, so the size was read
   const auto [x, y, z] = *size;
   if (std::uint64_t{x} * y * z > app::kMaxShapeCells) {

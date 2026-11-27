@@ -15,10 +15,10 @@ enum class Launch : std::uint8_t { Start, Prepare, Continue };
 Reply launch(State& s, Params& p, Launch how) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const Json given = p.has("options") ? p.value("options") : Json(nullptr);
-  BTE_CHECK(p.finish());
-  BTE_TRY(SolveOptions options, solveOptionsFrom(s, given));
+  SLE_CHECK(p.finish());
+  SLE_TRY(SolveOptions options, solveOptionsFrom(s, given));
   app::Document& d = s.document();
-  BTE_CHECK(d.problemIndex(problem));
+  SLE_CHECK(d.problemIndex(problem));
   // solve.continue without options: a solve paused in memory goes on as it
   // ran (the caller need not have kept its options: the autosave, a page
   // reloaded); any other is carried on with the defaults, as it is started
@@ -34,7 +34,7 @@ Reply launch(State& s, Params& p, Launch how) {
   } else {
     defaultStackingSolver(s, problem, given, options);
   }
-  BTE_CHECK(how == Launch::Start     ? d.solveStart(problem, options)
+  SLE_CHECK(how == Launch::Start     ? d.solveStart(problem, options)
             : how == Launch::Prepare ? d.solvePrepare(problem, options)
                                      : d.solveResume(problem, options));
   s.watches[problem].launched = true;
@@ -48,7 +48,7 @@ Reply solveContinue(State& s, Params& p) { return launch(s, p, Launch::Continue)
 
 // A pause is for a run under way (the original's Pause button).
 RpcResult<void> running(const State& s, app::Id problem) {
-  BTE_CHECK(s.document().problemIndex(problem));
+  SLE_CHECK(s.document().problemIndex(problem));
   if (!isActive(s.document().solveState(problem))) {
     return std::unexpected(toRpc(Error{Errc::InvalidState, "the problem is not being solved"}));
   }
@@ -57,16 +57,16 @@ RpcResult<void> running(const State& s, app::Id problem) {
 
 Reply solvePause(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(running(s, problem));
-  BTE_CHECK(s.document().solvePause(problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(running(s, problem));
+  SLE_CHECK(s.document().solvePause(problem));
   return Json::object();
 }
 
 Reply solveSavePoint(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(running(s, problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(running(s, problem));
   // the original never autosaved a stacking solve: its search saves itself
   // (by base/save_cadence.h's rule as it runs, and when it stops), and has
   // no point to pause at for the puzzle's save
@@ -74,36 +74,36 @@ Reply solveSavePoint(State& s, Params& p) {
     return coreError(Errc::Unsupported,
                      "a stacking search saves itself: it has no save point (pause it instead)");
   }
-  BTE_CHECK(s.document().solvePauseAtSavePoint(problem));
+  SLE_CHECK(s.document().solvePauseAtSavePoint(problem));
   return Json::object();
 }
 
 Reply solveAbort(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().solveAbort(problem, s.settings.panexFolder));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().solveAbort(problem, s.settings.panexFolder));
   return s.changed();
 }
 
 Reply solveReset(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().solveReset(problem, s.settings.panexFolder));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().solveReset(problem, s.settings.panexFolder));
   return s.changed();
 }
 
 Reply solveStatus(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   app::Document& d = s.document();
-  BTE_TRY(const SolveProgress progress, d.solveProgress(problem));
-  BTE_TRY(const SolveStats stats, d.solveStats(problem));
+  SLE_TRY(const SolveProgress progress, d.solveProgress(problem));
+  SLE_TRY(const SolveStats stats, d.solveStats(problem));
   const std::optional<SolveFailure> failure = d.solveFailure(problem);
   const std::string note = d.solveNote(problem);
   const std::optional<FolderFailure> folder = d.solveFolderFailure(problem);
-  BTE_TRY(const std::optional<app::SavedSearchInfo> saved,
+  SLE_TRY(const std::optional<app::SavedSearchInfo> saved,
           d.savedSearch(problem, s.settings.panexFolder));
-  BTE_TRY(const bool startsOver, d.continueStartsOver(problem, s.settings.slideFolder));
+  SLE_TRY(const bool startsOver, d.continueStartsOver(problem, s.settings.slideFolder));
   Json savedJson = nullptr;
   if (saved) {
     savedJson = Json{{"description", saved->description},
@@ -126,8 +126,8 @@ Reply solveStatus(State& s, Params& p) {
 Reply solvePreview(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const bool on = p.boolean("on");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().problemIndex(problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().problemIndex(problem));
   s.watches[problem].preview = on;
   if (on) {
     s.document().requestSolveSample(problem);
@@ -137,8 +137,8 @@ Reply solvePreview(State& s, Params& p) {
 
 Reply solveSearchFolders(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const std::vector<std::string> folders,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const std::vector<std::string> folders,
           s.document().searchFolders(problem, s.settings.slideFolder, s.settings.panexFolder));
   return Json{{"folders", folders}};
 }
@@ -147,15 +147,15 @@ Reply solveExportPaused(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const std::string path = p.string("path");
   const bool withLevels = p.optBoolean("withLevels", true);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().exportPaused(problem, path,
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().exportPaused(problem, path,
                                       app::PausedExport{s.settings.panexFolder, withLevels}));
   return Json::object();
 }
 
 Reply solveImportPaused(State& s, Params& p) {
   const std::string path = p.string("path");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   // A stacking search the file carries is unpacked into the Panex folder,
   // its folder emptied first, before the open document goes; a stacking
   // search of that document still running would write the same folder as
@@ -166,7 +166,7 @@ Reply solveImportPaused(State& s, Params& p) {
                      "a stacking puzzle is being solved: pause it first (an import writes into "
                      "the folder its search saves in)");
   }
-  BTE_TRY(auto imported,
+  SLE_TRY(auto imported,
           app::Document::importPaused(path, app::DocumentSettings{s.settings.undoDepth},
                                       s.settings.panexFolder));
   const app::Id problem = imported.second;

@@ -46,7 +46,7 @@ void connectionFace(const Voxel& v, int x, int y, int z, int n, double bevel, do
       detail::connectionFaceCairo(x, y, z, n, corners);
       return;
   }
-  BT_ASSERT_MSG(false, "unknown grid");
+  SL_ASSERT_MSG(false, "unknown grid");
 }
 
 void calculateSize(const Voxel& v, float* x, float* y, float* z) {
@@ -95,7 +95,7 @@ void calculateSize(const Voxel& v, float* x, float* y, float* z) {
       *z = static_cast<float>(sz);
       return;
   }
-  BT_ASSERT_MSG(false, "unknown grid");
+  SL_ASSERT_MSG(false, "unknown grid");
 }
 
 void recalcSpaceCoordinates(const Voxel& v, float* x, float* y, float* z) {
@@ -133,7 +133,7 @@ void recalcSpaceCoordinates(const Voxel& v, float* x, float* y, float* z) {
       *y = static_cast<float>(static_cast<double>(*y) * cairo::kScale);
       return;
   }
-  BT_ASSERT_MSG(false, "unknown grid");
+  SL_ASSERT_MSG(false, "unknown grid");
 }
 
 namespace {
@@ -174,7 +174,7 @@ SpaceRule spaceRule(GridKind kind) {
       return {diagonal(cairo::kScale, cairo::kScale, 1), 1, diagonal(cairo::kScale, cairo::kScale, 1),
               {cairo::kScale, cairo::kScale, 0}};
   }
-  BT_ASSERT_MSG(false, "unknown grid");
+  SL_ASSERT_MSG(false, "unknown grid");
   return {};
 }
 

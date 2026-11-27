@@ -42,12 +42,12 @@ bool canTransition(SolveState from, SolveState to) noexcept {
 
 void SolveStateCell::advance(SolveState to) {
   SolveState from = state_.load(std::memory_order_relaxed);
-  BT_ASSERT_MSG(canTransition(from, to), "solve state move not in the transition table");
+  SL_ASSERT_MSG(canTransition(from, to), "solve state move not in the transition table");
   // release, as the plain store was; a state changed since the load is a
   // second writer, which the one-writer rule forbids
   const bool alone =
       state_.compare_exchange_strong(from, to, std::memory_order_release, std::memory_order_relaxed);
-  BT_ASSERT_MSG(alone, "two writers of a solve state");
+  SL_ASSERT_MSG(alone, "two writers of a solve state");
 }
 
 }  // namespace bt

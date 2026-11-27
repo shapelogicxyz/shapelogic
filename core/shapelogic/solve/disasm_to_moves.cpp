@@ -172,34 +172,34 @@ bool DisasmToMoves::routeAt(int step, unsigned int piece, float frac, float* xyz
 }
 
 float DisasmToMoves::getX(unsigned int piece) const {
-  BT_ASSERT(piece < maxPieceName_);
+  SL_ASSERT(piece < maxPieceName_);
   return moves_[4 * std::size_t{piece} + 0];
 }
 float DisasmToMoves::getY(unsigned int piece) const {
-  BT_ASSERT(piece < maxPieceName_);
+  SL_ASSERT(piece < maxPieceName_);
   return moves_[4 * std::size_t{piece} + 1];
 }
 float DisasmToMoves::getZ(unsigned int piece) const {
-  BT_ASSERT(piece < maxPieceName_);
+  SL_ASSERT(piece < maxPieceName_);
   return moves_[4 * std::size_t{piece} + 2];
 }
 float DisasmToMoves::getA(unsigned int piece) const {
-  BT_ASSERT(piece < maxPieceName_);
+  SL_ASSERT(piece < maxPieceName_);
   return moves_[4 * std::size_t{piece} + 3];
 }
 bool DisasmToMoves::moving(unsigned int piece) const {
-  BT_ASSERT(piece < maxPieceName_);
+  SL_ASSERT(piece < maxPieceName_);
   return mv_[piece];
 }
 unsigned int DisasmToMoves::getTrans(unsigned int piece) const {
-  BT_ASSERT(piece < maxPieceName_);
+  SL_ASSERT(piece < maxPieceName_);
   return orients_[piece];
 }
 
 bool DisasmToMoves::getRotationAnim(unsigned int piece, float* angleDeg, float* axisX,
                                     float* axisY, float* axisZ, float* pivotX, float* pivotY,
                                     float* pivotZ) const {
-  BT_ASSERT(piece < maxPieceName_);
+  SL_ASSERT(piece < maxPieceName_);
   if (rotAngle_[piece] == 0) {
     return false;
   }
@@ -276,7 +276,7 @@ bool DisasmToMoves::findRotationArrivalRec(const Separation* t, int step, unsign
 int DisasmToMoves::doRecursive(const Separation* tree, int step, float* array,
                                unsigned int* orientsOut, bool centerActive, int cx, int cy,
                                int cz) {
-  BT_ASSERT(tree != nullptr);
+  SL_ASSERT(tree != nullptr);
 
   auto f = [](int v) { return static_cast<float>(v); };
 
@@ -454,7 +454,7 @@ FixedPositions::FixedPositions(const DisassemblerNode& nd, const std::vector<uns
     : pieces_(pcs), x_(pcs, 0), y_(pcs, 0), z_(pcs, 0), visible_(pcs, false) {
   for (unsigned int p = 0; p < pc.size(); p++) {
     const unsigned int pi = pc[p];
-    BT_ASSERT(pi < pieces_);
+    SL_ASSERT(pi < pieces_);
     x_[pi] = nd.getX(p);
     y_[pi] = nd.getY(p);
     z_[pi] = nd.getZ(p);
@@ -463,15 +463,15 @@ FixedPositions::FixedPositions(const DisassemblerNode& nd, const std::vector<uns
 }
 
 float FixedPositions::getX(unsigned int piece) const {
-  BT_ASSERT(piece < pieces_);
+  SL_ASSERT(piece < pieces_);
   return static_cast<float>(x_[piece]);
 }
 float FixedPositions::getY(unsigned int piece) const {
-  BT_ASSERT(piece < pieces_);
+  SL_ASSERT(piece < pieces_);
   return static_cast<float>(y_[piece]);
 }
 float FixedPositions::getZ(unsigned int piece) const {
-  BT_ASSERT(piece < pieces_);
+  SL_ASSERT(piece < pieces_);
   return static_cast<float>(z_[piece]);
 }
 float FixedPositions::getA(unsigned int piece) const { return visible_[piece] ? 1.0F : 0.0F; }

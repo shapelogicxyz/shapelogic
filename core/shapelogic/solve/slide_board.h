@@ -141,7 +141,7 @@ class GoalCheck {
       }
     }
     // reached() counts the groups in an array of that size
-    BT_ASSERT(need_.size() <= kMaxGroups);
+    SL_ASSERT(need_.size() <= kMaxGroups);
   }
 
   // Whether a piece has goals for only some of its copies (then the

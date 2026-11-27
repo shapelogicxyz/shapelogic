@@ -50,7 +50,7 @@ bool VoxelSpheres::transform(unsigned int nr) {
   if (nr == 0) {
     return true;
   }
-  BT_ASSERT(nr < NUM_TRANSFORMATIONS_MIRROR);
+  SL_ASSERT(nr < NUM_TRANSFORMATIONS_MIRROR);
   const double* r = kRotationMatrices[nr];
 
   int minx = 100000;
@@ -176,7 +176,7 @@ bool VoxelSpheres::transform(unsigned int nr) {
   }
 
   // the new hotspot
-  BT_ASSERT(((hx_ + hy_ + hz_) & 1) == 0);
+  SL_ASSERT(((hx_ + hy_ + hz_) & 1) == 0);
 
   Point h = rotateSphere(r, hx_, hy_, hz_);
   h.x -= shx;
@@ -187,7 +187,7 @@ bool VoxelSpheres::transform(unsigned int nr) {
   hy_ = roundHalfAway(h.y) - miny;
   hz_ = roundHalfAway(h.z) - minz;
 
-  BT_ASSERT(((hx_ + hy_ + hz_) & 1) == 0);
+  SL_ASSERT(((hx_ + hy_ + hz_) & 1) == 0);
 
   sx_ = nsx;
   sy_ = nsy;
@@ -202,8 +202,8 @@ bool VoxelSpheres::transform(unsigned int nr) {
 }
 
 void VoxelSpheres::transformPoint(int* x, int* y, int* z, unsigned int trans) const {
-  BT_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
-  BT_ASSERT(((*x + *y + *z) & 1) == 0);
+  SL_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
+  SL_ASSERT(((*x + *y + *z) & 1) == 0);
 
   const Point p = rotateSphere(kRotationMatrices[trans], *x, *y, *z);
 
@@ -216,7 +216,7 @@ void VoxelSpheres::transformPoint(int* x, int* y, int* z, unsigned int trans) co
 }
 
 void VoxelSpheres::getTransformMatrix(unsigned int trans, double m[9]) const {
-  BT_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
+  SL_ASSERT(trans < NUM_TRANSFORMATIONS_MIRROR);
   for (int i = 0; i < 9; i++) {
     m[i] = kRotationMatrices[trans][i];
   }

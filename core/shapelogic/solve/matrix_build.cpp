@@ -49,7 +49,7 @@ std::size_t rowIndexOf(const std::vector<RowPlacement>& rows, unsigned int node)
     }
   }
 
-  BT_ASSERT_MSG(lo != 0, "getPieceInformation: no piece position for the node");
+  SL_ASSERT_MSG(lo != 0, "getPieceInformation: no piece position for the node");
 
   return lo - 1;
 }

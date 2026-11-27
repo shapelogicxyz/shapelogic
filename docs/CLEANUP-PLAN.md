@@ -30,7 +30,7 @@ helps an agent change the code correctly and cheaply:
 - files that nearly every feature must edit: they cost context to read and
   parallel sessions collide in them; split where the history shows a seam;
 - invariants an agent could break without noticing, made checked
-  (`static_assert`, `BT_ASSERT`, a type, a test);
+  (`static_assert`, `SL_ASSERT`, a type, a test);
 - docs that contradict the code (an agent believes them).
 
 Beside that: bugs that lose the user's work or give wrong answers,
@@ -1946,7 +1946,7 @@ helper.
   - *Change:* export `kMaxMark` from `model/sliding.h` (or `slide_marks.h`);
     size the array `kMaxMark + 1` and zero only the first `need_.size()`
     entries (the check runs for every emitted arrangement, so don't clear
-    1 KiB each time); `BT_ASSERT(need_.size() <= kMaxMark + 1)` in the
+    1 KiB each time); `SL_ASSERT(need_.size() <= kMaxMark + 1)` in the
     constructor.
   - *Tests:* a unit test with 70 parts that each have goals for some of
     their copies, solved to its goal; `just test-asan` (it would have
@@ -2081,7 +2081,7 @@ helper.
   - *Change:* `kMaxPartCount` in `model/problem.h`, defined from the field's
     type, with a `static_assert` that ties them. Use it at all seven places,
     with a refusal in the two that lack one (`InvalidArgument`, "a part holds
-    at most 65535 pieces"). Add `BT_ASSERT` in `Problem::setShapeMinimum`
+    at most 65535 pieces"). Add `SL_ASSERT` in `Problem::setShapeMinimum`
     and `setShapeMaximum`. `engine/methods_problem.cpp:12` and
     `engine/methods_solution.cpp:128-129` use the constant.
   - *Tests:* `test_document.cpp`: `addOneOfEach` on a part at 65535 is refused
@@ -2260,7 +2260,7 @@ helper.
     asserts the transition, then stores. The writers are listed in 3.3.
   - *Problem:* a second concurrent writer would pass unnoticed.
   - *Change:* `advance()` uses `compare_exchange_strong` from the state it
-    loaded, with `BT_ASSERT` on failure ("two writers of a solve state").
+    loaded, with `SL_ASSERT` on failure ("two writers of a solve state").
     The rule's text is in 3.3.
   - *Tests:* `just test-tsan`; the session tests.
   - Done (2026-11-24): `advance()` loads relaxed as before, asserts the
@@ -3249,9 +3249,9 @@ Done (2026-11-25), the whole stage:
 - [x] **8.2 A new tag recompiles every file** (speed; S)
   - *Where:*
     - `core/CMakeLists.txt:112`:
-      `target_compile_definitions(btcore PUBLIC BT_VERSION_STRING="${PROJECT_VERSION}")`;
+      `target_compile_definitions(btcore PUBLIC SL_VERSION_STRING="${PROJECT_VERSION}")`;
     - `core/shapelogic/base/version.h:9`:
-      `inline constexpr std::string_view kVersion = BT_VERSION_STRING;`;
+      `inline constexpr std::string_view kVersion = SL_VERSION_STRING;`;
     - `cmake/ProjectVersion.cmake:40-45`;
     - the users of `bt::kVersion`: `cli/options.cpp:277`, `engine/main.cpp`,
       `engine/methods_engine.cpp`, `python/src/module.cpp:49` and
@@ -3261,7 +3261,7 @@ Done (2026-11-25), the whole stage:
     though only 5 files read it. There were 12 tags between 2026-10-31 and
     11-23, and each rebuilt everything in every preset.
   - *Change:* a new `core/shapelogic/base/version.cpp` with
-    `std::string_view versionString()` returning `BT_VERSION_STRING`. The
+    `std::string_view versionString()` returning `SL_VERSION_STRING`. The
     define is set on that one file only (`set_source_files_properties(…
     COMPILE_DEFINITIONS …)`). `version.h` declares the function, and the
     five users call it.
@@ -4875,7 +4875,7 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     - One floor division and one `wholeUnits`.
     - Read marks only on the Sliding grid: refuse or drop them elsewhere
       (first grep `tests/data` for marks on other grids).
-    - `BT_ASSERT(marks_.empty() || marks_.size() == voxels_)` in
+    - `SL_ASSERT(marks_.empty() || marks_.size() == voxels_)` in
       `recalcBoundingBox`.
   - *Keep:* the ported grids' code (prisms are a port; change them only if
     the answers are certain to stay identical: otherwise leave them).
@@ -5038,7 +5038,7 @@ folder name, the change audit, the names pinned by tests) are stage 19.
       `disasm_to_moves.cpp:319-367`) is the original's file format: keep its
       values.
   - *Change:* named constants in one header, with `static_assert`s of how
-    they relate; `BT_ASSERT(v <= kFree)` on `getMoValue`'s cache-miss path.
+    they relate; `SL_ASSERT(v <= kFree)` on `getMoValue`'s cache-miss path.
   - *Keep:* every value.
   - *Tests:* `test_movement_checks`; the oracle's file comparison.
   - Done (2026-11-25): `model/movement_values.h` (namespace `movement`):
@@ -6477,7 +6477,7 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
         `announceChange` run outside the handler's try.
     - `engine/output.cpp:24` (`out_.write`).
     - `core/shapelogic/app/document.cpp:1212`: `Document::poll()` has a
-      `BT_ASSERT_MSG`, which throws `InternalError`.
+      `SL_ASSERT_MSG`, which throws `InternalError`.
     - `core/shapelogic/base/assert.h:9-10` promises "the engine process keeps
       running".
     - The front end: `web/src/main/index.ts` (`win.on('closed')` 512-529:
@@ -6551,7 +6551,7 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
       (an output that takes one line; the third line, a shutdown, never
       runs; on HEAD's sources it runs) and "a broken invariant in a poll
       is logged and the run loop goes on" (a poll hook, `setPollHook`,
-      fails a `BT_ASSERT` after three of four replies: four replies, two
+      fails a `SL_ASSERT` after three of four replies: four replies, two
       log lines; with the guard taken out the test aborts);
       `host.test.ts`: four cases of `EngineStops` (a quit held until two
       fake hosts' `stop()` settle, one failing; no quit asked for when
@@ -8990,7 +8990,7 @@ failing a test.
     - Tests that pin the folder names of a plain board, a board with packed
       keys and a Panex puzzle.
     - A test that pins one original fixture's worked-out uid to its value.
-    - A `BT_ASSERT` in `core/shapelogic/io/xml_writer.cpp` (56, 65) that a
+    - A `SL_ASSERT` in `core/shapelogic/io/xml_writer.cpp` (56, 65) that a
       tag never gets the same attribute twice.
   - *Tests:* the new pins; `tests/unit/test_search_folders.cpp`.
   - Done (2026-11-27, Fable): confirmed.
@@ -9031,7 +9031,7 @@ failing a test.
       PelikanBurr, Klotski and Panex Jr. (the sliding and Panex names above
       hold theirs too).
     - **The writer's check.** `XmlWriter::startAttrib` (the one place an
-      attribute is begun) fails a `BT_ASSERT` when the open tag has the
+      attribute is begun) fails a `SL_ASSERT` when the open tag has the
       name already; the names are kept as places in the output, so nothing
       is copied. The four readers' lists hold what their writers emit
       today (read against `writeVoxel`, `writeProblem`, `writeSolution` and

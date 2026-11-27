@@ -52,7 +52,7 @@ tilted::Point trayToBox(const tilted::Tray& tray, const tilted::Layout& lay, til
 /// The tray of a puzzle that has one.
 const tilted::Tray& trayOf(const Puzzle& puzzle) {
   const std::optional<tilted::Tray>& tray = puzzle.tray();
-  BT_ASSERT(tray.has_value());
+  SL_ASSERT(tray.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): asserted on the line above
   return *tray;
 }
@@ -98,7 +98,7 @@ bool onTray(const Voxel& v, const tilted::Layout& lay) {
 }
 
 unsigned int keepOnTray(Voxel& v, const Voxel& before, const tilted::Layout& lay) {
-  BT_ASSERT(v.getXYZ() == before.getXYZ() && v.getXYZ() == lay.cells.size());
+  SL_ASSERT(v.getXYZ() == before.getXYZ() && v.getXYZ() == lay.cells.size());
   unsigned int changed = 0;
   const Voxel::BatchEdit batch(v);
   for (unsigned int i = 0; i < v.getXYZ(); i++) {
@@ -236,7 +236,7 @@ Result<Document> Document::newTilted(tilted::Tray tray, DocumentSettings setting
 }
 
 const tilted::Layout& Document::trayLayout() const {
-  BT_ASSERT(tilted());
+  SL_ASSERT(tilted());
   if (!trayLayout_ || trayLayout_->first != trayOf(*puzzle_)) {
     trayLayout_ = std::make_unique<std::pair<tilted::Tray, tilted::Layout>>(
         trayOf(*puzzle_), tilted::layout(trayOf(*puzzle_)));
@@ -245,7 +245,7 @@ const tilted::Layout& Document::trayLayout() const {
 }
 
 const tilted::Placements& Document::trayPlacements() const {
-  BT_ASSERT(tilted());
+  SL_ASSERT(tilted());
   if (!trayPlacements_ || trayPlacements_->first != trayOf(*puzzle_)) {
     trayPlacements_ = std::make_unique<std::pair<tilted::Tray, tilted::Placements>>(
         trayOf(*puzzle_), tilted::placements(trayOf(*puzzle_)));

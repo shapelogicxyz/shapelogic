@@ -711,7 +711,7 @@ double Tray::degrees() const {
 }
 
 Tray withSize(const Tray& tray, unsigned int width, unsigned int height) {
-  BT_ASSERT(width >= 1 && width <= Tray::kMaxSize && height >= 1 && height <= Tray::kMaxSize);
+  SL_ASSERT(width >= 1 && width <= Tray::kMaxSize && height >= 1 && height <= Tray::kMaxSize);
   Tray out = tray;
   out.width = width;
   out.height = height;
@@ -733,7 +733,7 @@ Tray withSize(const Tray& tray, unsigned int width, unsigned int height) {
 }
 
 Point canonicalShift(const Tray& tray, Point shift) {
-  BT_ASSERT(tray.valid());
+  SL_ASSERT(tray.valid());
   const Geometry g(tray);
   // the tray's corner (0, 0) in grid coordinates; its whole part is taken off
   const Point corner = g.toGrid(0.0, 0.0, shift.x, shift.y);
@@ -746,7 +746,7 @@ Point canonicalShift(const Tray& tray, Point shift) {
 }
 
 Layout layout(const Tray& tray) {
-  BT_ASSERT(tray.valid());
+  SL_ASSERT(tray.valid());
   const Geometry g(tray);
   const double wide = g.width();
   const double high = g.height();
@@ -799,7 +799,7 @@ Layout layout(const Tray& tray) {
       maxJ = std::max(maxJ, j);
     }
   }
-  BT_ASSERT(minI.has_value());  // a tray with sides of 1 or more holds part of a cell
+  SL_ASSERT(minI.has_value());  // a tray with sides of 1 or more holds part of a cell
 
   Layout out;
   out.sizeX = static_cast<unsigned int>(maxI - *minI + 1);
@@ -836,7 +836,7 @@ Layout layout(const Tray& tray) {
 }
 
 Placed bestShift(const Tray& tray) {
-  BT_ASSERT(tray.valid());
+  SL_ASSERT(tray.valid());
   const Geometry g(tray);
   // every line the count can change on is swept
   Placed best;
@@ -883,7 +883,7 @@ Placed bestShift(const Tray& tray) {
 }
 
 Placements placements(const Tray& tray, const StopToken& stop, const PlacementLimits& limits) {
-  BT_ASSERT(tray.valid());
+  SL_ASSERT(tray.valid());
   const Geometry g(tray);
   const auto [ri, rj] = g.cellRange();
   const auto wide = static_cast<unsigned int>(ri.hi - ri.lo) + 1;

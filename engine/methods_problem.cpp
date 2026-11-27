@@ -14,7 +14,7 @@ Json made(State& s, app::Id problem) {
 }
 
 Reply problemList(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   Json problems = Json::array();
   for (unsigned int i = 0; i < s.document().puzzle().getNumberOfProblems(); i++) {
     problems.push_back(problemSummary(s, i));
@@ -24,59 +24,59 @@ Reply problemList(State& s, Params& p) {
 
 Reply problemGet(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const unsigned int index, s.document().problemIndex(problem));
   return problemDetail(s, index);
 }
 
 Reply problemCreate(State& s, Params& p) {
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::Id id, s.document().createProblem());
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::Id id, s.document().createProblem());
   return made(s, id);
 }
 
 Reply problemDuplicate(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::Id id, s.document().duplicateProblem(problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::Id id, s.document().duplicateProblem(problem));
   return made(s, id);
 }
 
 Reply problemDelete(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().deleteProblem(problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().deleteProblem(problem));
   return s.changed();
 }
 
 Reply problemMove(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const unsigned int to = p.count("toIndex");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().moveProblem(problem, to));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().moveProblem(problem, to));
   return s.changed();
 }
 
 Reply problemRename(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   std::string name = p.string("name");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().renameProblem(problem, name));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().renameProblem(problem, name));
   return s.changed();
 }
 
 Reply problemSetResult(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id shape = p.id("shape", IdKind::Shape);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setResult(problem, shape));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setResult(problem, shape));
   return s.changed();
 }
 
 Reply problemClearResult(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().clearResult(problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().clearResult(problem));
   return s.changed();
 }
 
@@ -85,24 +85,24 @@ Reply problemSetPieceCount(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const auto min = static_cast<unsigned int>(p.integer("min", 0, kMaxPartCount));
   const auto max = static_cast<unsigned int>(p.integer("max", 0, kMaxPartCount));
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setPieceCount(problem, shape, min, max));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setPieceCount(problem, shape, min, max));
   return s.changed();
 }
 
 Reply problemAddPiece(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id shape = p.id("shape", IdKind::Shape);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().addPiece(problem, shape));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().addPiece(problem, shape));
   return s.changed();
 }
 
 Reply problemRemovePiece(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id shape = p.id("shape", IdKind::Shape);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().removePiece(problem, shape));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().removePiece(problem, shape));
   return s.changed();
 }
 
@@ -110,22 +110,22 @@ Reply problemSetRangeAll(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const auto min = static_cast<unsigned int>(p.integer("min", 0, kMaxPartCount));
   const auto max = static_cast<unsigned int>(p.integer("max", 0, kMaxPartCount));
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setRangeAll(problem, min, max));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setRangeAll(problem, min, max));
   return s.changed();
 }
 
 Reply problemAddOneOfEach(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().addOneOfEach(problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().addOneOfEach(problem));
   return s.changed();
 }
 
 Reply problemRemoveAllPieces(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().removeAllPieces(problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().removeAllPieces(problem));
   return s.changed();
 }
 
@@ -136,8 +136,8 @@ Reply problemMovePart(State& s, Params& p) {
   if (delta == 0) {
     p.fail("'delta' must be -1 or 1");
   }
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().movePart(problem, shape, delta));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().movePart(problem, shape, delta));
   return s.changed();
 }
 
@@ -145,8 +145,8 @@ Reply problemSetGroup(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id shape = p.id("shape", IdKind::Shape);
   const auto group = static_cast<unsigned int>(p.integer("group", 0, kMaxPartGroup));
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setGroup(problem, shape, group));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setGroup(problem, shape, group));
   return s.changed();
 }
 
@@ -155,16 +155,16 @@ Reply problemSetGroupCount(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const auto group = static_cast<unsigned int>(p.integer("group", 1, kMaxPartGroup));
   const auto count = static_cast<unsigned int>(p.integer("count", 0, kMaxPartCount));
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setGroupCount(problem, shape, group, count));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setGroupCount(problem, shape, group, count));
   return s.changed();
 }
 
 Reply problemDeleteGroup(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const auto group = static_cast<unsigned int>(p.integer("group", 1, kMaxPartGroup));
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().deleteGroup(problem, group));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().deleteGroup(problem, group));
   return s.changed();
 }
 
@@ -173,30 +173,30 @@ Reply problemSetColorRule(State& s, Params& p) {
   const app::Id piece = p.id("pieceColor", IdKind::Color);
   const app::Id result = p.id("resultColor", IdKind::Color);
   const bool allowed = p.boolean("allowed");
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setColorRule(problem, piece, result, allowed));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setColorRule(problem, piece, result, allowed));
   return s.changed();
 }
 
 Reply problemSetColorRules(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::ColorPreset preset = p.choice("preset", colorPresetNames());
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setColorRules(problem, preset));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().setColorRules(problem, preset));
   return s.changed();
 }
 
 Reply problemFit(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::FitStats f, s.document().fit(problem));
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::FitStats f, s.document().fit(problem));
   return fitJson(f);
 }
 
 Reply problemKind(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().problemIndex(problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(s.document().problemIndex(problem));
   const app::ProblemKind kind = app::problemKind(s.document().puzzle());
   const std::string_view name = kind == app::ProblemKind::Sliding    ? "sliding"
                                 : kind == app::ProblemKind::Stacking ? "stacking"
@@ -215,9 +215,9 @@ Reply problemSetSolverSettings(State& s, Params& p) {
       p.fail(error);
     }
   }
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): p.finish() passed, so the options were read
-  BTE_CHECK(s.document().setSolverOptions(problem, *o));
+  SLE_CHECK(s.document().setSolverOptions(problem, *o));
   return s.changed();
 }
 

@@ -1969,7 +1969,7 @@ class LevelSearch {
     }
     // a level of the goal end is made of the arrangements that move into
     // the one before it
-    BT_ASSERT(!towardGoal);
+    SL_ASSERT(!towardGoal);
     // Try every arrangement of the level before, keeping the first.
     std::mutex bestMutex;
     std::optional<Key> best;
@@ -2020,7 +2020,7 @@ class LevelSearch {
       return false;
     }
     // there always is one; without it there is no path to give
-    BT_ASSERT(best.has_value());
+    SL_ASSERT(best.has_value());
     y = *best;
     return true;
   }
@@ -2054,7 +2054,7 @@ class LevelSearch {
         }
       }
       const SetPtr<Key> target = levelAt(side, c);
-      BT_ASSERT(target != nullptr);
+      SL_ASSERT(target != nullptr);
       const unsigned int r = level - c;
       // a search of its own, as long as the levels it crosses were: said
       // in a debug log (and where the tests stop a trace)
@@ -2087,7 +2087,7 @@ class LevelSearch {
           search_.traced->fetch_add(1, std::memory_order_relaxed);
         }
       }
-      BT_ASSERT(met.has_value());
+      SL_ASSERT(met.has_value());
       // from the meeting arrangement back through the search to x
       std::vector<Key> back;
       Key z = *met;
@@ -2185,7 +2185,7 @@ class LevelSearch {
       return GoalEnd::Stopped;
     }
     // some thread found one while the level was expanded
-    BT_ASSERT(best.has_value());
+    SL_ASSERT(best.has_value());
     const Key from = *best;
     // the goal it moves to: the first, in the order its moves are tried
     Key goalKey = 0;
@@ -2197,7 +2197,7 @@ class LevelSearch {
       goalKey = canon;
       return true;
     });
-    BT_ASSERT(reaches);
+    SL_ASSERT(reaches);
     chain.push_back(goalKey);
     chain.push_back(from);
     if (!traceSide(fwd_, from, fwd_.depth, chain)) {

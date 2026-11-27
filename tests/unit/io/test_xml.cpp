@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from test/test_xml.cpp of the original, plus cases for the tree
-// reader (xml_document.h). The writer reports misuse with BT_ASSERT, so the
+// reader (xml_document.h). The writer reports misuse with SL_ASSERT, so the
 // cases that expected xmlWriterException_c expect InternalError.
 
 #include "shapelogic/base/assert.h"

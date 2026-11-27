@@ -462,7 +462,7 @@ Result<void> StackingEdits::placeDisc(Id problem, Id shape, unsigned int rod, bo
   if (!err.empty()) {
     // a rod on the board: only a full part stops a disc placed without
     // its rules (what was touched goes back with the guard)
-    BT_ASSERT_MSG(err == kPartFullText, "a disc placed without its rules did not go");
+    SL_ASSERT_MSG(err == kPartFullText, "a disc placed without its rules did not go");
     return fail(Errc::InvalidArgument, err);
   }
   d_.endSession(*p);
@@ -613,7 +613,7 @@ Result<unsigned int> StackingEdits::moveDisc(Id problem, bool goal, unsigned int
   d_.touchProblemSettings(*p);
   const bool moved =
       stacking::moveDisk(*d_.puzzle_, d_.puzzle_->getProblem(*p), goal, rod, index, delta);
-  BT_ASSERT_MSG(moved, "a disc that could move did not");
+  SL_ASSERT_MSG(moved, "a disc that could move did not");
   d_.endSession(*p);
   d_.lastChange_.problems = {problem};
   g.commit(kChangeProblems);

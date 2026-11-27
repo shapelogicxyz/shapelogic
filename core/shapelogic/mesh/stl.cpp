@@ -213,7 +213,7 @@ void putNumbers(std::vector<std::uint8_t>& out, const char* prefix, Vec3 p) {
   const int n = std::snprintf(buf, sizeof(buf), "%s%9.4e %9.4e %9.4e\n", prefix,
                               static_cast<double>(p.x), static_cast<double>(p.y),
                               static_cast<double>(p.z));
-  BT_ASSERT(n > 0 && static_cast<std::size_t>(n) < sizeof(buf));
+  SL_ASSERT(n > 0 && static_cast<std::size_t>(n) < sizeof(buf));
   put(out, buf, static_cast<std::size_t>(n));
 }
 

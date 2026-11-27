@@ -30,7 +30,7 @@ hex::HexCell turned(int x, int y, int z, unsigned int trans) {
 }  // namespace
 
 void VoxelHex::transformPoint(int* x, int* y, int* z, unsigned int trans) const {
-  BT_ASSERT(trans < detail::hexagonalSymmetries().getNumTransformationsMirror());
+  SL_ASSERT(trans < detail::hexagonalSymmetries().getNumTransformationsMirror());
   const hex::HexCell c = turned(*x, *y, *z, trans);
   *x = c.x;
   *y = c.y;
@@ -38,7 +38,7 @@ void VoxelHex::transformPoint(int* x, int* y, int* z, unsigned int trans) const 
 }
 
 void VoxelHex::getTransformMatrix(unsigned int trans, double m[9]) const {
-  BT_ASSERT(trans < detail::hexagonalSymmetries().getNumTransformationsMirror());
+  SL_ASSERT(trans < detail::hexagonalSymmetries().getNumTransformationsMirror());
   const auto& r = detail::hexagonalSymmetries().matrix(trans);
   for (int i = 0; i < 9; i++) {
     m[i] = r[static_cast<std::size_t>(i)];
@@ -49,7 +49,7 @@ bool VoxelHex::transform(unsigned int nr) {
   if (nr == 0) {
     return true;
   }
-  BT_ASSERT(nr < detail::hexagonalSymmetries().getNumTransformationsMirror());
+  SL_ASSERT(nr < detail::hexagonalSymmetries().getNumTransformationsMirror());
   rebuildTurned([nr](int x, int y, int z) { return turned(x, y, z, nr); },
                 [this](std::array<int, 3>& low, std::array<unsigned int, 3>& size) {
                   // never make the space smaller than before; center the

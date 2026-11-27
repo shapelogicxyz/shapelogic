@@ -76,12 +76,12 @@ TEST_CASE("SimdBitset256 operations", "[solve][simd][bitset]") {
   disjointSet.set(2);
   REQUIRE(isDisjointScalar(b, disjointSet));
 
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
   if (cpuHasAvx2()) {
     REQUIRE(isDisjointAvx2(b, disjointSet));
     REQUIRE_FALSE(isDisjointAvx2(b, target));
   }
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
   REQUIRE(isDisjointNeon(b, disjointSet));
   REQUIRE_FALSE(isDisjointNeon(b, target));
 #endif
@@ -120,12 +120,12 @@ TEST_CASE("SimdBitset512 operations", "[solve][simd][bitset]") {
   disjointSet.set(300);
   REQUIRE(isDisjointScalar(b, disjointSet));
 
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
   if (cpuHasAvx2()) {
     REQUIRE(isDisjointAvx2(b, disjointSet));
     REQUIRE_FALSE(isDisjointAvx2(b, target));
   }
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
   REQUIRE(isDisjointNeon(b, disjointSet));
   REQUIRE_FALSE(isDisjointNeon(b, target));
 #endif
@@ -164,7 +164,7 @@ TEMPLATE_TEST_CASE("SimdBitset large sizes", "[solve][simd][bitset]", SimdBitset
   disjointSet.set(n - 20);
   REQUIRE(isDisjointScalar(b, disjointSet));
 
-#if defined(BT_SIMD_X86)
+#if defined(SL_SIMD_X86)
   if (cpuHasAvx2()) {
     REQUIRE(isDisjointAvx2(b, disjointSet));
     REQUIRE_FALSE(isDisjointAvx2(b, target));
@@ -173,7 +173,7 @@ TEMPLATE_TEST_CASE("SimdBitset large sizes", "[solve][simd][bitset]", SimdBitset
     REQUIRE(isDisjointAvx512(b, disjointSet));
     REQUIRE_FALSE(isDisjointAvx512(b, target));
   }
-#elif defined(BT_SIMD_NEON)
+#elif defined(SL_SIMD_NEON)
   REQUIRE(isDisjointNeon(b, disjointSet));
   REQUIRE_FALSE(isDisjointNeon(b, target));
 #endif

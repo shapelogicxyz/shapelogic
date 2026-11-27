@@ -15,7 +15,7 @@ namespace bt::app {
 PlacementFit::PlacementFit(std::unique_ptr<Puzzle> scratch, const tilted::Placements& boards,
                            SolveOptions options)
     : puzzle_(std::move(scratch)), options_(std::move(options)), complete_(boards.complete) {
-  BT_ASSERT(puzzle_->tray().has_value() && puzzle_->getNumberOfShapes() >= 1 &&
+  SL_ASSERT(puzzle_->tray().has_value() && puzzle_->getNumberOfShapes() >= 1 &&
             puzzle_->getNumberOfProblems() == 1);
   // the count alone: nothing kept, nothing taken apart
   options_.justCount = true;

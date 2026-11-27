@@ -141,7 +141,7 @@ tilted::Tray baseTray(const State& s) {
 
 Reply traySet(State& s, Params& p) {
   const Json& given = p.value("tray");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   if (!s.document().tilted()) {
     return coreError(Errc::Unsupported, "the puzzle has no tilted tray");
   }
@@ -149,14 +149,14 @@ Reply traySet(State& s, Params& p) {
   if (!tray) {
     return std::unexpected(tray.error());
   }
-  BTE_CHECK(app::TrayEdits(s.document()).setTray(std::move(*tray)));
+  SLE_CHECK(app::TrayEdits(s.document()).setTray(std::move(*tray)));
   return s.changed();
 }
 
 Reply traySetWalls(State& s, Params& p) {
   const Json& given = p.value("squares");
   const bool wall = p.boolean("wall");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   std::vector<std::array<unsigned int, 2>> squares;
   if (!given.is_array()) {
     return std::unexpected(invalidParams("'squares' must be an array"));
@@ -173,13 +173,13 @@ Reply traySetWalls(State& s, Params& p) {
     }
     squares.push_back({static_cast<unsigned int>(x), static_cast<unsigned int>(y)});
   }
-  BTE_TRY(const unsigned int changed, app::TrayEdits(s.document()).setTrayWalls(squares, wall));
+  SLE_TRY(const unsigned int changed, app::TrayEdits(s.document()).setTrayWalls(squares, wall));
   return Json{{"changed", changed}, {"revision", s.revision()}};
 }
 
 Reply trayPreview(State& s, Params& p) {
   const Json& given = p.value("tray");
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   RpcResult<tilted::Tray> read = readTraySettings(given, baseTray(s));
   if (!read) {
     return std::unexpected(read.error());
@@ -198,7 +198,7 @@ Reply trayPreview(State& s, Params& p) {
 }
 
 Reply trayPlacements(State& s, Params& p) {
-  BTE_CHECK(p.finish());
+  SLE_CHECK(p.finish());
   if (!s.document().tilted()) {
     return coreError(Errc::Unsupported, "the puzzle has no tilted tray");
   }
@@ -215,9 +215,9 @@ Reply trayPlacements(State& s, Params& p) {
 Reply trayFitPlacements(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const Json given = p.has("options") ? p.value("options") : Json(nullptr);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const SolveOptions options, solveOptionsFrom(s, given));
-  BTE_TRY(const unsigned int total,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const SolveOptions options, solveOptionsFrom(s, given));
+  SLE_TRY(const unsigned int total,
           app::TrayEdits(s.document()).fitPlacementsStart(problem, options));
   State::Watch& w = s.watches[problem];
   w.fitting = true;
@@ -227,15 +227,15 @@ Reply trayFitPlacements(State& s, Params& p) {
 
 Reply trayFitPlacementsStop(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_CHECK(app::TrayEdits(s.document()).fitPlacementsStop(problem));
+  SLE_CHECK(p.finish());
+  SLE_CHECK(app::TrayEdits(s.document()).fitPlacementsStop(problem));
   return Json::object();
 }
 
 Reply trayFitPlacementsStatus(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
-  BTE_CHECK(p.finish());
-  BTE_TRY(const app::PlacementFitProgress f,
+  SLE_CHECK(p.finish());
+  SLE_TRY(const app::PlacementFitProgress f,
           app::TrayEdits(s.document()).fitPlacementsProgress(problem));
   Json j = placementFitJson(f);
   j["active"] = f.active;

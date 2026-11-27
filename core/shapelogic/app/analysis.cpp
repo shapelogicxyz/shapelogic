@@ -71,7 +71,7 @@ AnalyseProgress Analysis::progress() const {
 }
 
 std::vector<std::pair<std::uint64_t, Separation>> Analysis::takeResults() {
-  BT_ASSERT_MSG(!active(), "the results of an analysis still running");
+  SL_ASSERT_MSG(!active(), "the results of an analysis still running");
   wait();
   const std::lock_guard<std::mutex> lock(mutex_);
   return std::move(results_);
