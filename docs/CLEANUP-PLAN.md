@@ -201,6 +201,12 @@ again, and comes last.
 - [x] Stage 15: subtle bugs: the engine's end, one solve setup, change reports, two solves at once, the Solve undo step (decided: D1; users notice: Undo takes a solve's results out, two sliding solves run at once, a quit waits for the solves to pause, Python's Tilted Square answers)
 - [x] Stage 16: damaged and hostile files (16.6 done first; a file whose disassembly nests more than 1000 deep is refused; its new finding is 18.5, the take-apart's own recursion; `just oracle-roundtrip` and `oracle-resume` not run: the reference checkout is not built)
 - [x] Stage 17: core speed (17.11 not needed and 17.13 not done, both measured; 17.10 in part: moving a problem, adding a color or a rod set and the sliding stamps still copy the whole puzzle, under the new byte budget; 17.1's `slidePhase` part `goal` is an `Engine:` commit of its own; users notice: "finding the move to the goal" as a search from the start alone ends, Fill holes and the status window at once on big shapes, the undo history held to 512 MiB; the Python transcripts differ from the original module's since before this stage: "Not in this plan")
+  - The oracle's reference, looked into on 2026-11-26 (between stages 17 and
+    18): `../burr-tools` is a clone of upstream BurrTools, not the original
+    the port was made from. That is why stages 1 to 17 found it "incomplete"
+    and "not built", and why the Python transcripts differed. No bug of the
+    port's was found. The harness now says which reference it was given,
+    and the gates that need the original wait for it: "Not in this plan".
 - [ ] Stage 18: the engine stays responsive
 - [ ] Stage 19: names and audits that must not drift
 - [ ] Stage 20: core deduplication under benchmarks
@@ -8783,8 +8789,93 @@ the release build's time.
   making them cheaper needs a part for a problem order (with `covered()`
   stopping at it), one for every problem's color rules and one for a rod
   set, each with its own byte-for-byte undo tests.
-- The Python module's transcripts against the original module of the
-  reference checkout's `build-rel` (stage 17's gates): 26 of 37 differ in
-  iteration counts on one thread and in some solutions' `moves_text` and
-  `total_moves`, from before stage 17. Worth a look once the checkout is
-  whole and built.
+- **The gates that need the original BurrTools.** Looked into on
+  2026-11-26, after stage 17 (`tests/oracle/oracle.py`, `tests/bench/bench.py`
+  and their READMEs changed; no source of the port).
+  - **What the reference checkout is.** `../burr-tools` is a clone of
+    upstream BurrTools (github.com/burr-tools/burr-tools, master at
+    d09cc299; its reflog holds one entry, the clone; its one build is
+    `build-rel` of 2026-11-15). The original the harness was written against
+    is the BurrTools the port was made from. None of that checkout's 93 refs
+    holds what the original has: `src/lib/sliding.h`, `stacking.h`,
+    `panex.h`, `bt2_assemble.h`, `blockpack.h`, `helperpool.h`, `tictest/`,
+    `test/test_rotation_solvers.xmpuzzle`. So nothing in it, built or not,
+    can stand in. Earlier notes in this plan that call it "incomplete" or
+    "not built" mean this.
+  - **The Python transcripts (26 of 37 differed).** Three causes, none a bug
+    of the port's and none a flaw of the comparison:
+    - the iterations on one thread (Pelikan Burr 36 there, 51 here):
+      upstream's search is another one. Ours are the original's: the
+      committed text baselines, recorded from the original, hold them, and
+      `compare-text`'s solve and quiet runs match (81 of 81 runs that need no
+      solved file, fast tier);
+    - `moves_text` and the repr that shows it (Pelikan Burr `98.2.4.2`
+      there, `99.3.4.2` here; Bermuda `1` and `1.1.1.1.1.1.1.1.1.1.1`): the
+      original's level text has a segment for each piece that leaves,
+      upstream's only the branches of several moves. Ours is the original's:
+      the summary baselines hold it, and `python/tests` has asserted
+      `99.3.4.2` since the module was ported (cc60ec9, with the comment
+      "0.7.1 prints 98.2.4.2"). The `total_moves` and placements that
+      differed on all threads were the same rows in another order: the
+      transcript sorts them by a key that holds the level text;
+    - the error cases: `build-rel` has the assertions off (`b_ndebug`), and
+      the exceptions of the error cases are those assertions. Its module
+      reads and writes past a shape's cells and ends Python with a bus
+      error at a solve without a result. A build of the same sources with
+      the assertions on (in the scratchpad) gives our error cases, line for
+      line.
+    - How old: the module of bedbde5, the commit the cleanup began from,
+      built in the scratchpad, gives this tree's transcripts, 37 of 37, the
+      iterations too. The cleanup changed nothing here.
+  - **What the harness does now.**
+    - It tells the original from another BurrTools by the original's
+      sources (`ORIGINAL_ONLY`) and says so in a note.
+    - `python` then leaves out the iterations and the level text
+      (`PYTHON_REFERENCE_DIFFERENCES`, each with its reason, printed), and
+      the error cases for a module built with its assertions off
+      (`assertions_off`). `just oracle-python --allow-missing`: 37 of 37, 0
+      differ, exit 0; against the scratch build with assertions, error cases
+      included, the same. A changed placement, `level` or `total_moves`, or
+      a dropped row, still shows (tried on three transcripts by hand).
+    - Every command that runs the reference's programs or builds a driver
+      against its library exits 2 with the reason (`NEEDS_THE_ORIGINAL`: the
+      baseline and record commands, `roundtrip`, `imports`, `resume-check`,
+      `panex-resume`, `blockpack-check`); so does `bench.py` unless
+      `--old-bin` is given. This matters most for `just gate`: with
+      `work/old` gone it runs `baseline-files` and `baseline-text`, and the
+      second rewrites the committed `baseline/text-*.json`. Against a built
+      upstream it would have put upstream's text there.
+    - `compare`, `compare-files` and `compare-text` still run: they read
+      only the reference's puzzle files.
+  - **Tried against a build of upstream in the scratchpad** (a copy of the
+    checkout, `meson setup build --wrap-mode=nodownload`; nothing downloaded,
+    the checkout untouched), before the refusals went in:
+    - `roundtrip`: 87 of 89 differ. 71 are sliding and stacking files
+      ("unknown grid type"), 16 the `timeMs` upstream does not write. None
+      is the port's;
+    - `imports`, `resume-check`, `panex-resume`, `blockpack-check`: their
+      drivers do not compile (`lib/scadloader.h`, `lib/bt2_assemble.h`,
+      `lib/panex.h`, `lib/blockpack.h` not found);
+    - `baseline-files`, in a scratch copy of the harness: upstream's
+      `burrTxt2 -R -d` writes the fast tier's files without a solution
+      (state `solving`), so `compare-files` differs in 18 of 18 and the 27
+      text runs that read them in 27 of 27;
+    - `bench.py`: upstream's `burrTxt` prints no solve time, has no
+      `--json`, and runs another search.
+  - **Waiting for the original** (a checkout of it at `../burr-tools` or
+    `BT_OLD_REPO`, built with `just build` and `just build-release` there):
+    - `just oracle-resume`, `oracle-roundtrip`, `oracle-imports`,
+      `oracle.py panex-resume` and `blockpack-check`: its library
+      (`build/libburr_core.a`, manifold);
+    - the `full` and `slow` tiers (158 and 3 puzzles): its `tictest/`
+      folder. The baselines are committed, only the puzzle files are
+      missing; they are not in this repo either;
+    - `oracle-files`, and the `retake` and `ask` runs of `oracle-text`: the
+      original's solved files (`oracle.py baseline-files`, into the
+      git-ignored `tests/oracle/work/old`), which need its `burrTxt2`;
+    - `oracle-python` with nothing left out: its module (`meson compile -C
+      build`);
+    - `bench.py`: its `build-rel/burrTxt`;
+    - the six corpus files `--allow-missing` excuses
+      (`test/test_rotation_solvers`, three sliding and two stacking
+      fixtures).

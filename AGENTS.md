@@ -3,7 +3,10 @@
 ShapeLogic is a rebuild of the ShapeLogic puzzle solver's core (C++23)
 with an engine process for a future web front end. The original application
 (`../burr-tools`, override with `BT_OLD_REPO`) is the **reference**:
-ported code must give the same answers on the comparison corpus.
+ported code must give the same answers on the comparison corpus. It is the
+BurrTools the port was made from, not upstream BurrTools, which lacks the
+sliding and stacking puzzles and answers differently: the harness says
+which one it was given (tests/oracle/README.md, "Setup").
 
 Read before starting any task:
 1. This file.

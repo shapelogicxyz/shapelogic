@@ -17,7 +17,11 @@ python3 tests/bench/bench.py --set identical-long  # the same, a minute a run in
 ```
 
 Each program reports the time of its own solve (reduce plus search, without
-loading the file), which is what is compared. The new release build keeps
+loading the file), which is what is compared. The original is the BurrTools
+the port was made from (tests/oracle/README.md, "Setup"); upstream
+BurrTools' `burrTxt` prints no solve time and runs another search, so the
+script refuses a reference checkout that is not the original (exit 2)
+unless `--old-bin` names the program. The new release build keeps
 `BT_ASSERT` on; the original's `build-rel` has its assertions off.
 
 Sets:

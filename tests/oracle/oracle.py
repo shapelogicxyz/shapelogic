@@ -119,6 +119,26 @@ def load_corpus(old_repo: Path, allow_missing: bool = False) -> list[Entry]:
     return [e for e in entries if not (e.tier == "full" and e.rel in slow)]
 
 
+# What tells the original from another BurrTools. The harness compares with
+# the BurrTools the port was made from (docs/PLAN.md), which has the sliding
+# and stacking puzzles, the Panex Solver and the BurrTools 2 solver;
+# upstream BurrTools (github.com/burr-tools/burr-tools) has none of them,
+# nor the rotation take-apart, burrTxt's --json and solve time, the level
+# text of the baselines or `timeMs` in its saves. A checkout without these
+# files is not the original: its puzzle files can still be read against the
+# committed baselines, but what its programs say is not the original's
+# answer. (On 2026-11-26 ../burr-tools was a clone of upstream's master:
+# its round trip "differed" in 87 of 89 files and its Python module in 26
+# of 37 transcripts, none of them a difference of the port's.)
+ORIGINAL_ONLY = ("src/lib/sliding.h", "src/lib/stacking.h", "src/lib/panex.h", "src/lib/bt2_assemble.h")
+
+
+def reference_lacks(old_repo: Path) -> list[str]:
+    """The files of ORIGINAL_ONLY the reference checkout has not: none for
+    the original."""
+    return [f for f in ORIGINAL_ONLY if not (old_repo / f).is_file()]
+
+
 # The sliding tier (`--tier sliding`) has one solver: "classic", the
 # default, runs both CLIs without --solver, which for a sliding puzzle is
 # the full search (the original's Sliding Full Solver, bt's Sliding Puzzle
@@ -1617,6 +1637,76 @@ def old_python_module(old_repo: Path) -> Path | None:
     return None
 
 
+def assertions_off(module_dir: Path) -> bool:
+    """Whether the original's module in this meson build folder was built
+    with the assertions off (b_ndebug: its `build-rel`, the benchmark
+    build). The exceptions of the transcript's error cases are the
+    original's assertions: without them a cell outside a shape is read and
+    written past the shape's cells, and a solve without a result shape ends
+    Python (a bus error), so the error cases are left out for such a
+    module."""
+    try:
+        options = {o["name"]: o["value"]
+                   for o in json.loads((module_dir / "meson-info" / "intro-buildoptions.json").read_text())}
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+    ndebug = options.get("b_ndebug")
+    return ndebug == "true" or (ndebug == "if-release" and options.get("buildtype") == "release")
+
+
+# What the Python module of a reference that is not the original
+# (reference_lacks) says differently, as (what, why): left out of both
+# transcripts before they are compared, and named in the result. Measured
+# on 2026-11-26 against upstream BurrTools' master (d09cc299), whose module
+# differed in these and in nothing else in 37 transcripts; the module of
+# the commit the cleanup began from (bedbde5) gave this tree's transcripts,
+# all 37, so neither is a change of the port's.
+PYTHON_REFERENCE_DIFFERENCES = (
+    ("the search's iterations",
+     "the original's search counts other iterations than upstream's (Pelikan Burr on one thread 51, upstream 36); "
+     "the committed text baselines hold the original's, and `compare-text`'s solve and quiet runs match them"),
+    ("a solution's level text (moves_text, and in its repr)",
+     "the original writes a segment for each piece that leaves, a split into two groups counted with the next "
+     "(Pelikan Burr 99.3.4.2, Bermuda 1.1.1.1.1.1.1.1.1.1.1), upstream only the branches of several moves "
+     "(98.2.4.2, 1); `level` and `total_moves` are compared here, and the level text by `compare` with the "
+     "summary baselines (python/tests asserts 99.3.4.2 too)"),
+)
+
+
+def without_reference_differences(transcript: str, one_thread: bool) -> str:
+    """A transcript without PYTHON_REFERENCE_DIFFERENCES: no iterations
+    lines, no level text in a solution's row or its repr. The rows of all
+    threads, which python_transcript.py sorted with their level text in
+    the key, are sorted again without it (a problem's rows follow each
+    other)."""
+    out: list[str] = []
+    rows: list[str] = []
+    label = None
+
+    def flush() -> None:
+        out.extend(rows if one_thread else sorted(rows))
+        rows.clear()
+
+    for line in transcript.splitlines():
+        parts = json.loads(line)
+        if len(parts) == 3 and parts[1] == "iterations":
+            continue
+        row = parts[-1]
+        if not (isinstance(row, dict) and "moves_text" in row):
+            flush()
+            out.append(line)
+            continue
+        if parts[0] != label:
+            flush()
+            label = parts[0]
+        del row["moves_text"]
+        if "repr" in row:
+            row["repr"] = re.sub(r" moves='[^']*'", "", row["repr"])
+        rows.append(json.dumps(parts, separators=(",", ":"), sort_keys=True))
+    flush()
+    return "".join(f"{line}\n" for line in out)
+
+
 def python_transcript(module_dir: Path, argv: list[str], timeout: float, old: bool,
                       one_thread: bool) -> tuple[str, str]:
     """python_transcript.py run with one module: (stdout, a failure or "")."""
@@ -1653,8 +1743,19 @@ def cmd_python(args: argparse.Namespace) -> int:
     if not list(args.new_module.glob("shapelogic*")):
         print(f"the new Python module not found in {args.new_module}", file=sys.stderr)
         return 2
-    jobs: list[tuple[str, list[str], bool]] = [
-        ("errors and generated puzzles", ["--errors", "--generated", str(args.generated)], True)]
+    # the module of a reference checkout that is not the original: compared
+    # without what it says differently (an --old-module given by hand is
+    # compared whole)
+    left_out = PYTHON_REFERENCE_DIFFERENCES if not args.old_module and reference_lacks(args.old_repo) else ()
+    for what, why in left_out:
+        print(f"left out, the reference not being the original: {what}: {why}")
+    first = ("errors and generated puzzles", ["--errors", "--generated", str(args.generated)], True)
+    if assertions_off(old_dir):
+        print(f"left out: the error cases: {old_dir} is built with the original's assertions off, which are what "
+              "raises them (its module reads and writes past a shape's cells there, and a solve without a result "
+              "ends Python); a build with them on (`meson compile -C build`) compares them")
+        first = ("generated puzzles (no error cases)", first[1][1:], True)
+    jobs: list[tuple[str, list[str], bool]] = [first]
     for e in select(load_corpus(args.old_repo, args.allow_missing), args.tier, args.filter):
         # a grid only the new core takes apart ("D"): the solves without the take-apart
         argv = [str(entry_path(args.old_repo, e.rel)), *(["--assemble-only"] if "D" in e.flags else []),
@@ -1669,6 +1770,8 @@ def cmd_python(args: argparse.Namespace) -> int:
         if old_err or new_err:
             return label, "MISMATCH" if old_err != new_err else "BOTH FAILED", \
                 f"original: {old_err or 'ok'}; new: {new_err or 'ok'}"
+        if left_out:
+            old, new = (without_reference_differences(t, one_thread) for t in (old, new))
         if old != new:
             ol, nl = old.splitlines(), new.splitlines()
             i = next((i for i, (a, b) in enumerate(zip(ol, nl)) if a != b), min(len(ol), len(nl)))
@@ -1683,7 +1786,11 @@ def cmd_python(args: argparse.Namespace) -> int:
                 failures += 1
             if status != "OK" or args.verbose:
                 print(f"{status:12} {label}  {detail}")
-    print(f"\n{len(jobs) - failures}/{len(jobs)} Python transcripts the same as the original module's")
+    whose = "the original module's"
+    if left_out:
+        whose = ("the reference module's, which is not the original's, without "
+                 + " and ".join(what for what, _ in left_out))
+    print(f"\n{len(jobs) - failures}/{len(jobs)} Python transcripts the same as {whose}")
     if len(jobs) == 1:
         print("no corpus puzzle was compared")
         failures += 1
@@ -2316,6 +2423,15 @@ def main() -> int:
         command.add_argument("--work", type=Path, default=argparse.SUPPRESS, help=work_help)
     args = p.parse_args()
     args.old_repo = args.old_repo.resolve()
+    lacks = reference_lacks(args.old_repo)
+    if lacks:
+        print(f"note: the reference checkout {args.old_repo} is not the original the port was made from: it has no "
+              f"{', '.join(lacks)} (upstream BurrTools has none of them). Its puzzle files are read against the "
+              "committed baselines; what its programs say is not the original's answer.", file=sys.stderr)
+        if args.cmd in NEEDS_THE_ORIGINAL:
+            print(f"`{args.cmd}` records or compares what the original's programs and library say: not run "
+                  "(point --old-repo or BT_OLD_REPO at the original, built)", file=sys.stderr)
+            return 2
     global RUN_DIR
     if args.work:
         RUN_DIR = args.work.resolve()
@@ -2337,8 +2453,7 @@ def main() -> int:
                 print(f"this run's outputs: {RUN_DIR}", file=sys.stderr)
 
 
-def run_command(args: argparse.Namespace) -> int:
-    return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
+COMMANDS = {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
             "compare-files": cmd_compare_files, "baseline-text": cmd_baseline_text,
             "compare-text": cmd_compare_text,
             "grid-dump": cmd_grid_dump, "roundtrip": cmd_roundtrip, "resume-check": cmd_resume_check,
@@ -2348,7 +2463,27 @@ def run_command(args: argparse.Namespace) -> int:
             "stacking-puzzles": cmd_stacking_puzzles, "panex-resume": cmd_panex_resume,
             "blockpack-check": cmd_blockpack_check,
             "record-positions": cmd_record_positions,
-            "imports": cmd_imports, "record-imports": cmd_record_imports, "python": cmd_python}[args.cmd](args)
+            "imports": cmd_imports, "record-imports": cmd_record_imports, "python": cmd_python}
+
+# The commands a reference that is not the original (reference_lacks) can
+# still serve: the three that compare the new programs with what is
+# committed or recorded, reading only the reference's puzzle files, and the
+# Python transcripts, which leave out what such a module says differently
+# (PYTHON_REFERENCE_DIFFERENCES).
+TAKES_ANY_REFERENCE = ("compare", "compare-files", "compare-text", "python")
+# Every other command runs the reference's programs or builds a driver
+# against its library, and records what they say (the baselines and
+# tests/data: committed) or compares with it. Run on another BurrTools, the
+# recording commands would put its answers in the original's place (`just
+# gate` records the solved files and the text baselines when work/old is
+# not there) and the comparing ones would list its differences from the
+# original as the port's: refused (exit 2).
+NEEDS_THE_ORIGINAL = tuple(c for c in COMMANDS if c not in TAKES_ANY_REFERENCE)
+assert set(TAKES_ANY_REFERENCE) <= set(COMMANDS)
+
+
+def run_command(args: argparse.Namespace) -> int:
+    return COMMANDS[args.cmd](args)
 
 
 if __name__ == "__main__":

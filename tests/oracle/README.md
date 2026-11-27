@@ -9,6 +9,29 @@ A solver stage is done only when the harness reports no differences
 
 - The original checkout at `../burr-tools` (or `BT_OLD_REPO`), built
   with `just build` there, so `build/burrTxt` and `build/burrTxt2` exist.
+  **The original is the BurrTools the port was made from**, with the
+  sliding and stacking puzzles, the Panex Solver, the BurrTools 2 solver
+  and the rotation take-apart. Upstream BurrTools
+  (github.com/burr-tools/burr-tools) is another program: it has none of
+  them, its `burrTxt` has no `--json` and prints no solve time, its level
+  text is the older one (`98.2.4.2` where the original writes `99.3.4.2`),
+  its saves have no `timeMs`, and its `burrTxt2 -R -d` wrote the fast
+  tier's files without a solution (state `solving`). The harness tells
+  the two apart by the original's sources (`ORIGINAL_ONLY` in `oracle.py`:
+  `src/lib/sliding.h`, `stacking.h`, `panex.h`, `bt2_assemble.h`) and says
+  so in a note. With a reference that is not the original:
+  - `compare`, `compare-files` and `compare-text` run: they compare the new
+    programs with what was recorded from the original (the committed
+    baselines; the solved files under `work/old`, which only the original
+    can record) and read only the reference's puzzle files
+    (`--allow-missing` for those it has not);
+  - `python` runs without what such a module says differently (see "The
+    Python module");
+  - every other command exits 2: it would record another program's answers
+    in the original's place (the baselines, `tests/data`), or list that
+    program's differences from the original as the port's. So does
+    `tests/bench/bench.py`, unless `--old-bin` names the program to time
+    against.
 - The new `shapelogic_cli` is built by `just oracle` itself (release preset).
 - What a run writes (the new side's solved files and text, the round
   trip's and the imports' saves, the search folders) goes to a folder of
@@ -456,8 +479,28 @@ summaries and the text runs do: some TIC files hold further problems that
 take hours (the third problem of ACornBox1n2 outlasts an hour in both
 modules, so the transcript never compared anything of that file). Each is
 run twice:
-on one thread (the original's module held to it by `SHAPELOGIC_THREADS=1`,
+on one thread (the original's module held to it by `BURRTOOLS_THREADS=1`,
 the new one by `threads=1`), compared in order with the numbers and the
 search's iterations; and on all threads, compared as sorted lists without
 the numbers. A file's texts that are not UTF-8 (Prisgon's comment) raise
 `UnicodeDecodeError` in both modules; the transcript records that.
+
+Two things are left out, each named in the run's output:
+
+- **The error cases, for a module built with the assertions off** (the
+  original's `build-rel`, which `python` takes when there is no `build`;
+  `assertions_off` reads the build folder's `b_ndebug`). The exceptions of
+  the error cases are the original's assertions: without them a cell
+  outside a shape is read and written past the shape's cells and a solve
+  without a result shape ends Python with a bus error. `python/tests`
+  checks the new module's exceptions either way.
+- **The iterations and the level text, for a reference that is not the
+  original** (`PYTHON_REFERENCE_DIFFERENCES`, each with its reason): the
+  original's search counts other iterations than upstream's, and its level
+  text has a segment for each piece that leaves. The lines with the
+  iterations go, `moves_text` and the `moves='…'` of a solution's repr go,
+  and the lists of all threads are sorted again (their key held the level
+  text); placements, counts, numbers, `level` and `total_moves` are
+  compared as ever. The last line then reads "the same as the reference
+  module's, which is not the original's, without …". A module named with
+  `--old-module` is compared whole.

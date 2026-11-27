@@ -183,6 +183,17 @@ def main() -> int:
         print("need both binaries: build the original (just build-release there) and `just build release` here",
               file=sys.stderr)
         return 2
+    # Another BurrTools than the original (the oracle's rule: upstream's
+    # burrTxt prints no solve time, so every row of it would read as
+    # failed, and its search is another one): nothing to compare with.
+    sys.path.insert(0, str(ROOT / "tests" / "oracle"))
+    from oracle import reference_lacks
+    lacks = reference_lacks(args.old_repo.resolve())
+    if lacks and not args.old_bin:
+        print(f"the reference checkout {args.old_repo} is not the original the port was made from (it has no "
+              f"{', '.join(lacks)}): its burrTxt is not the one to time against. Point --old-repo or BT_OLD_REPO "
+              "at the original, or --old-bin at another program to compare with.", file=sys.stderr)
+        return 2
     print(f"old: {old_bin}\nnew: {args.new_bin}\n")
 
     with tempfile.TemporaryDirectory() as tmpdir:
