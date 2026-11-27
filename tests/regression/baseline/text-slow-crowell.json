@@ -1,0 +1,28 @@
+{
+ "tests/data/puzzles/regression/benchmark_most_assemblies.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "bb8ac75d0143b42868cd004db790ae44bfd67d11947f2f2042122537b8748dd3",
+   "err": "482147978f605df302148feceef7418d85149e48e1d874b8b8e010298b1385eb",
+   "lines": 467
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "c7957face5672fef0b31e67a3d50fb08348fcb3b02cc3212cad91b32d29301e0",
+   "err": "6d9ab2a3175dfbac4a333a0912e105541c03b51bc1e6580c61dd9259b10a72e3",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "36104f10ef5477d6823676cb1a3481184bef9a77e9cfad0cfb994b817f82725b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ }
+}

@@ -4,6 +4,7 @@
 #include "convert.h"
 #include "engine.h"
 
+#include "shapelogic/app/sliding_edits.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/sliding.h"
 #include "shapelogic/solve/sliding_play.h"
@@ -53,7 +54,7 @@ Reply slidingAddStartGoal(State& s, Params& p) {
     }
   }
   BTE_CHECK(p.finish());
-  BTE_TRY(const app::Id id, s.document().addStartGoal(size));
+  BTE_TRY(const app::Id id, app::SlidingEdits(s.document()).addStartGoal(size));
   return Json{{"shape", formatId(IdKind::Shape, id)}, {"revision", s.revision()}};
 }
 
@@ -64,8 +65,9 @@ Reply slidingPlace(State& s, Params& p) {
   const bool goal = p.boolean("goal");
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
-  BTE_TRY(const bool placed,
-          s.document().placeStamp(tray, piece, at[0], at[1], at[2], goal, problem));
+  BTE_TRY(
+      const bool placed,
+      app::SlidingEdits(s.document()).placeStamp(tray, piece, at[0], at[1], at[2], goal, problem));
   return Json{{"placed", placed}, {"revision", s.revision()}};
 }
 
@@ -76,7 +78,7 @@ Reply slidingClearAt(State& s, Params& p) {
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
   BTE_TRY(const bool cleared,
-          s.document().clearStampAt(tray, at[0], at[1], at[2], goal, problem));
+          app::SlidingEdits(s.document()).clearStampAt(tray, at[0], at[1], at[2], goal, problem));
   return Json{{"cleared", cleared}, {"revision", s.revision()}};
 }
 
@@ -85,7 +87,7 @@ Reply slidingClone(State& s, Params& p) {
   const bool toGoal = p.boolean("toGoal");
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().cloneStamps(tray, toGoal, problem));
+  BTE_CHECK(app::SlidingEdits(s.document()).cloneStamps(tray, toGoal, problem));
   return Json{{"revision", s.revision()}};
 }
 
@@ -94,7 +96,7 @@ Reply slidingClear(State& s, Params& p) {
   const bool goal = p.boolean("goal");
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
-  BTE_TRY(const bool cleared, s.document().clearStamps(tray, goal, problem));
+  BTE_TRY(const bool cleared, app::SlidingEdits(s.document()).clearStamps(tray, goal, problem));
   return Json{{"cleared", cleared}, {"revision", s.revision()}};
 }
 
@@ -103,7 +105,7 @@ Reply slidingTray(State& s, Params& p) {
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
   BTE_TRY(const unsigned int t, trayIndex(s, tray));
-  BTE_TRY(const Problem* on, s.document().trayProblemOf(problem, t));
+  BTE_TRY(const Problem* on, app::SlidingEdits(s.document()).trayProblemOf(problem, t));
   const Puzzle& puzzle = s.document().puzzle();
   const Voxel& v = puzzle.getShape(t);
   // the starts and goals are the problem's (decision 0027): the one named,
@@ -172,7 +174,7 @@ Reply slidingPreview(State& s, Params& p) {
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
   BTE_TRY(const unsigned int t, trayIndex(s, tray));
-  BTE_TRY(const Problem* on, s.document().trayProblemOf(problem, t));
+  BTE_TRY(const Problem* on, app::SlidingEdits(s.document()).trayProblemOf(problem, t));
   BTE_TRY(const unsigned int i, s.document().shapeIndex(piece));
   const Puzzle& puzzle = s.document().puzzle();
   const Voxel& trayShape = puzzle.getShape(t);
@@ -443,7 +445,8 @@ Reply slidingSetLayout(State& s, Params& p) {
   const bool goal = p.boolean("goal");
   const std::vector<sliding::TrayCell> places = placesOf(p);
   BTE_CHECK(p.finish());
-  BTE_TRY(const bool changed, s.document().setSlideLayout(problem, goal, places));
+  BTE_TRY(const bool changed,
+          app::SlidingEdits(s.document()).setSlideLayout(problem, goal, places));
   return Json{{"changed", changed}, {"revision", s.revision()}};
 }
 

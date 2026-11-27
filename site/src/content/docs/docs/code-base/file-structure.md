@@ -18,7 +18,7 @@ output goes to `build/<preset>` and is never committed.
 | `api/` | the JSON Schema of the engine's methods and events, the validator `apischema.py` and the generator of `docs/API.md` |
 | `web/` | the desktop app: Electron, TypeScript and three.js |
 | `site/` | this website: the landing page, the user guide and the browser demo |
-| `tests/` | the C++ tests, the engine's contract tests, the CLI tests, the comparison harness and the benchmarks |
+| `tests/` | the C++ tests, the engine's contract tests, the CLI tests, the regression suite and the benchmarks |
 | `docs/` | the architecture document, the plans, the generated API reference, the decision records, the hand-off notes and the vendored design mockup |
 | `cmake/` | warnings, sanitizers, dependencies, and whether the Python module is built |
 | `assets/` | the project's icon |
@@ -89,10 +89,9 @@ comment at the top.
 | `unit/<module>/` | Catch2 tests, one directory per core module plus `engine/`; one binary `bt_tests` |
 | `contract/` | `test_engine.py` drives `shapelogic_engine` as a subprocess and checks every reply and event against the schema |
 | `cli/` | `test_cli.py`: the command line tool's options and modes on the fixtures |
-| `oracle/` | the comparison harness against the original BurrTools: `oracle.py`, the corpus list, small programs built against the original's sources, the recorded baselines |
-| `bench/` | `bench.py`: solve speed against the original, back to back |
-| `data/` | fixtures: `puzzles/`, and the original's recorded answers (`grid_dump.txt`, `model_dump.txt`, `saved_by_original/`, `analysed_by_original/`) |
-| `tools/` | small programs the harness drives (`roundtrip`, `resume`, `solutions`, `imports`) |
+| `regression/` | the regression suite: `regress.py`, the corpus list (files of this repository), the recorded answers |
+| `bench/` | `bench.py`, run on request only: speed and counts against upstream BurrTools, or two ShapeLogic builds |
+| `data/` | fixtures: `puzzles/` (with `regression/`, the regression suite's take-apart cases), and the original's recorded answers (`grid_dump.txt`, `model_dump.txt`, `saved_by_original/`, `analysed_by_original/`) |
 
 ## The website: `site/`
 

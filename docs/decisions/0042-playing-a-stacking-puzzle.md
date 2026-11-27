@@ -3,7 +3,7 @@
 **Status:** accepted; `core/shapelogic/model/stacking_play.h` (`playStart`,
 `playMoves`, `playReplay`, `positionRefusal`, `moveRefusal`, `positionMap`;
 defined at the end of `stacking.cpp`),
-`core/shapelogic/app/document_stacking.cpp` (`Document::setStacks`),
+`core/shapelogic/app/document_stacking.cpp` (`StackingEdits::setStacks`, `Document::setStacks` until cleanup item 21.6),
 `api/stacking.json` (`stacking.playStart`, `stacking.playMoves`,
 `stacking.playReplay`, `stacking.setStacks`), `web/src/renderer/play/`
 (`kind.ts`, `workspace.ts`, `sliding.ts`, `stacking.ts`, `stack-board.ts`,

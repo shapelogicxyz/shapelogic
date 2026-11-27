@@ -181,4 +181,4 @@ and `Solution` with the original module's names.
 | the client and the renderer's pure parts | `web/tests/unit/` |
 | the app against the real engine | `web/tests/engine/` (`solving.test.ts`, `solver.test.ts`, `session.test.ts` among them) |
 | the app end to end | `web/tests/e2e/*.e2e.ts` (`solver.e2e.ts` drives the Solver tab) |
-| against the original | `tests/oracle/` |
+| against the recorded answers | `tests/regression/` |

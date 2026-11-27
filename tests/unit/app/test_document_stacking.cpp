@@ -12,6 +12,7 @@
 #include "shapelogic/app/playback.h"
 #include "shapelogic/app/queries.h"
 #include "shapelogic/app/shape_tools.h"
+#include "shapelogic/app/stacking_edits.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/io/paused_solve.h"
@@ -140,9 +141,9 @@ TEST_CASE("stacking document: a paused Panex solve exported and imported carries
   // while it runs: refused, and the rod sets, the discs and its stacks
   // wait; its saved search is not told
   CHECK(d.exportPaused(p, file, {here.string(), true}).error().code == Errc::InvalidState);
-  CHECK(d.addRodSet().error().code == Errc::InvalidState);
-  CHECK(d.setDiscSize(d.shapeIds()[0], 2).error().code == Errc::InvalidState);
-  CHECK(d.moveDisc(p, false, 0, 0, 1).error().code == Errc::InvalidState);
+  CHECK(StackingEdits(d).addRodSet().error().code == Errc::InvalidState);
+  CHECK(StackingEdits(d).setDiscSize(d.shapeIds()[0], 2).error().code == Errc::InvalidState);
+  CHECK(StackingEdits(d).moveDisc(p, false, 0, 0, 1).error().code == Errc::InvalidState);
   CHECK_FALSE(d.savedSearch(p, here.string()).value().has_value());
   REQUIRE(d.solvePause(p).has_value());
   REQUIRE(d.solveWait(p).has_value());
@@ -270,7 +271,7 @@ TEST_CASE("stacking document: undo of a disc edit keeps the stacks", "[app][stac
   // a structural edit: one more copy of the first disc
   const unsigned int firstShape = pr.getShapeIdOfPart(0);
   const Id first = d.shapeIds()[firstShape];
-  REQUIRE(d.placeDisc(p, first, 1, false).has_value());
+  REQUIRE(StackingEdits(d).placeDisc(p, first, 1, false).has_value());
   REQUIRE(d.puzzle().getProblem(0).getShapeMaximum(firstShape) == 2);
   REQUIRE(d.undo().has_value());
 
@@ -294,7 +295,7 @@ TEST_CASE("stacking document: undo of a disc edit keeps the stacks", "[app][stac
     }
   }
   REQUIRE(found);
-  REQUIRE(d.removeDisc(p, false, rod, index).has_value());
+  REQUIRE(StackingEdits(d).removeDisc(p, false, rod, index).has_value());
   for (const stacking::StackMap* map :
        {&d.puzzle().getProblem(0).startStacks(), &d.puzzle().getProblem(0).goalStacks()}) {
     for (const auto& r : map->rods) {
@@ -320,52 +321,58 @@ TEST_CASE("stacking document: rod sets are added, copied, named, moved and delet
   CHECK(Document::rodSetLabel(0) == "R1");
 
   // new: the default rules, no name, at the end
-  const Id added = test::roundTrip(d, [](Document& x) { return x.addRodSet(); }).value();
+  const Id added =
+      test::roundTrip(d, [](Document& x) { return StackingEdits(x).addRodSet(); }).value();
   REQUIRE(d.rodSetIds().size() == 3);
   CHECK(d.rodSetIds()[2] == added);
   CHECK(d.puzzle().getRodSet(2) == stacking::RodSet{});
 
   // a copy: the rules and the name
-  const Id copy = test::roundTrip(d, [panex](Document& x) { return x.duplicateRodSet(panex); })
-                      .value();
+  const Id copy = test::roundTrip(d, [panex](Document& x) {
+                    return StackingEdits(x).duplicateRodSet(panex);
+                  }).value();
   CHECK(d.puzzle().getRodSet(3) == d.puzzle().getRodSet(1));
 
   // a name; what the file cannot hold is refused; the same name changes nothing
-  test::roundTrip(d, [copy](Document& x) { return x.renameRodSet(copy, "Panex copy"); });
+  test::roundTrip(
+      d, [copy](Document& x) { return StackingEdits(x).renameRodSet(copy, "Panex copy"); });
   CHECK(d.puzzle().getRodSet(3).name == "Panex copy");
   test::refused(d, Errc::InvalidArgument,
-                [copy](Document& x) { return x.renameRodSet(copy, "two\nlines"); });
+                [copy](Document& x) { return StackingEdits(x).renameRodSet(copy, "two\nlines"); });
   const std::size_t steps = d.history().undo.size();
-  REQUIRE(d.renameRodSet(copy, "Panex copy").has_value());
+  REQUIRE(StackingEdits(d).renameRodSet(copy, "Panex copy").has_value());
   CHECK(d.history().undo.size() == steps);
 
   // moved one place at a time: the problems keep their boards
-  test::roundTrip(d, [panex](Document& x) { return x.moveRodSet(panex, 0); });
+  test::roundTrip(d, [panex](Document& x) { return StackingEdits(x).moveRodSet(panex, 0); });
   CHECK(d.rodSetIds()[0] == panex);
   CHECK(d.rodSetIds()[1] == hanoi);
   CHECK(d.puzzle().getProblem(0).getRodSetId() == 1);
   CHECK(d.puzzle().getProblem(1).getRodSetId() == 0);
-  test::refused(d, Errc::InvalidArgument, [panex](Document& x) { return x.moveRodSet(panex, 9); });
+  test::refused(d, Errc::InvalidArgument,
+                [panex](Document& x) { return StackingEdits(x).moveRodSet(panex, 9); });
 
   // deleted: the problems on it stand on none, their stacks kept; the
   // others follow the renumbering
   const stacking::StackMap start = d.puzzle().getProblem(1).startStacks();
-  test::roundTrip(d, [panex](Document& x) { return x.deleteRodSet(panex); });
+  test::roundTrip(d, [panex](Document& x) { return StackingEdits(x).deleteRodSet(panex); });
   CHECK_FALSE(d.puzzle().getProblem(1).rodSetValid(d.puzzle()));
   CHECK(d.puzzle().getProblem(1).startStacks() == start);
   CHECK(d.puzzle().getProblem(0).getRodSetId() == 0);
   REQUIRE(d.undo().has_value());
-  REQUIRE(d.deleteRodSet(panex).has_value());
+  REQUIRE(StackingEdits(d).deleteRodSet(panex).has_value());
   CHECK(d.lastChange().problems == std::vector<Id>{p2});
   CHECK((d.lastChange().what & kChangeRodSets) != 0);
 
   // at least one is kept
-  REQUIRE(d.deleteRodSet(copy).has_value());
-  REQUIRE(d.deleteRodSet(added).has_value());
+  REQUIRE(StackingEdits(d).deleteRodSet(copy).has_value());
+  REQUIRE(StackingEdits(d).deleteRodSet(added).has_value());
   REQUIRE(d.rodSetIds() == std::vector<Id>{hanoi});
-  test::refused(d, Errc::InvalidArgument, [hanoi](Document& x) { return x.deleteRodSet(hanoi); });
-  CHECK(d.deleteRodSet(hanoi).error().message == "Keep at least one rod set");
-  test::refused(d, Errc::NotFound, [panex](Document& x) { return x.renameRodSet(panex, "x"); });
+  test::refused(d, Errc::InvalidArgument,
+                [hanoi](Document& x) { return StackingEdits(x).deleteRodSet(hanoi); });
+  CHECK(StackingEdits(d).deleteRodSet(hanoi).error().message == "Keep at least one rod set");
+  test::refused(d, Errc::NotFound,
+                [panex](Document& x) { return StackingEdits(x).renameRodSet(panex, "x"); });
 }
 
 // A file may hold more rods or a taller rod than the inputs allow (the
@@ -394,7 +401,7 @@ TEST_CASE("stacking document: rules past the bounds, as a file gave them, stay t
   // another rule changes: the count and the height stay
   stacking::RodSet f = d.puzzle().getRodSet(0);
   f.sizeMatters = !f.sizeMatters;
-  test::roundTrip(d, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  test::roundTrip(d, [r, &f](Document& x) { return StackingEdits(x).setRodSetRules(r, f); });
   CHECK(d.puzzle().getRodSet(0).rodCount == 20);
   CHECK(d.puzzle().getRodSet(0).definedHeight == 80);
   CHECK(d.puzzle().getRodSet(0).sizeMatters == f.sizeMatters);
@@ -404,17 +411,20 @@ TEST_CASE("stacking document: rules past the bounds, as a file gave them, stay t
   // and then the old one is past them like any other
   f = d.puzzle().getRodSet(0);
   f.rodCount = 21;
-  test::refused(d, Errc::InvalidArgument, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  test::refused(d, Errc::InvalidArgument,
+                [r, &f](Document& x) { return StackingEdits(x).setRodSetRules(r, f); });
   f.rodCount = 20;
   f.definedHeight = 81;
-  test::refused(d, Errc::InvalidArgument, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  test::refused(d, Errc::InvalidArgument,
+                [r, &f](Document& x) { return StackingEdits(x).setRodSetRules(r, f); });
   f.definedHeight = 80;
   f.rodCount = stacking::kMaxRods;
-  test::roundTrip(d, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  test::roundTrip(d, [r, &f](Document& x) { return StackingEdits(x).setRodSetRules(r, f); });
   CHECK(d.puzzle().getRodSet(0).rodCount == stacking::kMaxRods);
   CHECK(d.puzzle().getRodSet(0).definedHeight == 80);
   f.rodCount = 20;
-  test::refused(d, Errc::InvalidArgument, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  test::refused(d, Errc::InvalidArgument,
+                [r, &f](Document& x) { return StackingEdits(x).setRodSetRules(r, f); });
 }
 
 // cb_RodField: the fields as the GUI read them back, in its bounds (past
@@ -432,7 +442,7 @@ TEST_CASE("stacking document: a rod set's rules are bounded and follow Panex col
     out.rodCount = rods;
     out.definedHeight = height;
     out.pocketHeight = pocket;
-    const Result<void> refused = d.setRodSetRules(r, out);
+    const Result<void> refused = StackingEdits(d).setRodSetRules(r, out);
     REQUIRE_FALSE(refused.has_value());
     CHECK(refused.error().code == Errc::InvalidArgument);
     CHECK(d.puzzle().getRodSet(0) == before);
@@ -446,7 +456,7 @@ TEST_CASE("stacking document: a rod set's rules are bounded and follow Panex col
   f.pocketHeight = stacking::kMaxHeight;
   f.outsideChannel = true;
   f.canMoveOver = true;
-  test::roundTrip(d, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  test::roundTrip(d, [r, &f](Document& x) { return StackingEdits(x).setRodSetRules(r, f); });
   const stacking::RodSet& got = d.puzzle().getRodSet(0);
   CHECK(got.name == "Hanoi");
   CHECK(got.rodCount == 16);
@@ -467,15 +477,15 @@ TEST_CASE("stacking document: a rod set's rules are bounded and follow Panex col
   f.pocketColumn = true;
   f.outsideChannel = true;
   f.rodCount = 2;
-  test::roundTrip(d, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  test::roundTrip(d, [r, &f](Document& x) { return StackingEdits(x).setRodSetRules(r, f); });
   CHECK(d.puzzle().getRodSet(0).pocketColumn);
   CHECK_FALSE(d.puzzle().getRodSet(0).outsideChannel);
   f.rodCount = 3;
-  test::roundTrip(d, [r, &f](Document& x) { return x.setRodSetRules(r, f); });
+  test::roundTrip(d, [r, &f](Document& x) { return StackingEdits(x).setRodSetRules(r, f); });
   CHECK(d.puzzle().getRodSet(0).outsideChannel);
   // the same rules again change nothing
   const std::size_t steps = d.history().undo.size();
-  REQUIRE(d.setRodSetRules(r, d.puzzle().getRodSet(0)).has_value());
+  REQUIRE(StackingEdits(d).setRodSetRules(r, d.puzzle().getRodSet(0)).has_value());
   CHECK(d.history().undo.size() == steps);
 }
 
@@ -495,7 +505,7 @@ TEST_CASE("stacking document: discs are made and sized, not edited by cells",
     return x.createShape(std::array<unsigned int, 3>{3, 3, 1});
   });
 
-  test::roundTrip(d, [s](Document& x) { return x.setDiscSize(s, 4); });
+  test::roundTrip(d, [s](Document& x) { return StackingEdits(x).setDiscSize(s, 4); });
   const Voxel& w = d.puzzle().getShape(0);
   CHECK(w.getDiskSize() == 4);
   CHECK(w.getX() == 9);
@@ -503,12 +513,13 @@ TEST_CASE("stacking document: discs are made and sized, not edited by cells",
   CHECK(w.getHx() == 4);
   CHECK(w.getHy() == 4);
   for (const unsigned int bad : {0U, 101U}) {
-    test::refused(d, Errc::InvalidArgument, [s, bad](Document& x) { return x.setDiscSize(s, bad); });
+    test::refused(d, Errc::InvalidArgument,
+                  [s, bad](Document& x) { return StackingEdits(x).setDiscSize(s, bad); });
   }
   const std::size_t steps = d.history().undo.size();
-  REQUIRE(d.setDiscSize(s, 4).has_value());
+  REQUIRE(StackingEdits(d).setDiscSize(s, 4).has_value());
   CHECK(d.history().undo.size() == steps);
-  test::roundTrip(d, [s](Document& x) { return x.setDiscSize(s, 100); });
+  test::roundTrip(d, [s](Document& x) { return StackingEdits(x).setDiscSize(s, 100); });
 
   // the disc's color is the shape's own color
   test::roundTrip(d, [s](Document& x) { return x.setShapeColor(s, 0x336699U); });
@@ -528,8 +539,10 @@ TEST_CASE("stacking document: discs are made and sized, not edited by cells",
   // the stacking commands are a stacking puzzle's
   Document bricks(GridKind::Bricks);
   const Id b = bricks.createShape().value();
-  test::refused(bricks, Errc::Unsupported, [](Document& x) { return x.addRodSet(); });
-  test::refused(bricks, Errc::Unsupported, [b](Document& x) { return x.setDiscSize(b, 2); });
+  test::refused(bricks, Errc::Unsupported,
+                [](Document& x) { return StackingEdits(x).addRodSet(); });
+  test::refused(bricks, Errc::Unsupported,
+                [b](Document& x) { return StackingEdits(x).setDiscSize(b, 2); });
 }
 
 // The Problems tab on a stacking puzzle (its buttons' stacking branches):
@@ -544,30 +557,35 @@ TEST_CASE("stacking document: Hanoi built through the commands, its stacks edite
   std::vector<Id> discs;
   for (const unsigned int size : {3U, 2U, 1U}) {
     discs.push_back(d.createShape().value());
-    REQUIRE(d.setDiscSize(discs.back(), size).has_value());
+    REQUIRE(StackingEdits(d).setDiscSize(discs.back(), size).has_value());
   }
   const Id p = d.createProblem().value();
   REQUIRE(d.renameProblem(p, "Tower of Hanoi").has_value());
-  REQUIRE(d.renameRodSet(board, "Hanoi").has_value());
+  REQUIRE(StackingEdits(d).renameRodSet(board, "Hanoi").has_value());
 
   // a disc needs a board first
-  test::refused(d, Errc::InvalidArgument,
-                [p, &discs](Document& x) { return x.placeDisc(p, discs[0], 0, false); });
-  CHECK(d.placeDisc(p, discs[0], 0, false).error().message ==
+  test::refused(d, Errc::InvalidArgument, [p, &discs](Document& x) {
+    return StackingEdits(x).placeDisc(p, discs[0], 0, false);
+  });
+  CHECK(StackingEdits(d).placeDisc(p, discs[0], 0, false).error().message ==
         "Choose a rod set with Set Start/Goal Rods");
-  test::roundTrip(d, [p, board](Document& x) { return x.setProblemRodSet(p, board); });
+  test::roundTrip(d,
+                  [p, board](Document& x) { return StackingEdits(x).setProblemRodSet(p, board); });
   CHECK(d.puzzle().getProblem(0).startStacks().rods.size() == 3);
 
   // all of them, largest first; their counts follow
-  const DiscsPlaced start =
-      test::roundTrip(d, [p](Document& x) { return x.placeAllDiscs(p, 0, false); }).value();
+  const DiscsPlaced start = test::roundTrip(d, [p](Document& x) {
+                              return StackingEdits(x).placeAllDiscs(p, 0, false);
+                            }).value();
   CHECK(start.placed == 3);
   CHECK(start.error.empty());
-  test::refused(d, Errc::InvalidArgument,
-                [p, &discs](Document& x) { return x.placeDisc(p, discs[0], 3, true); });
+  test::refused(d, Errc::InvalidArgument, [p, &discs](Document& x) {
+    return StackingEdits(x).placeDisc(p, discs[0], 3, true);
+  });
   // on the goal one at a time (the copies on the start are not used there)
   for (const Id disc : discs) {
-    test::roundTrip(d, [p, disc](Document& x) { return x.placeDisc(p, disc, 2, true); });
+    test::roundTrip(
+        d, [p, disc](Document& x) { return StackingEdits(x).placeDisc(p, disc, 2, true); });
   }
   const Problem& pr = d.puzzle().getProblem(0);
   CHECK(pr.getShapeMaximum(0) == 1);
@@ -584,38 +602,40 @@ TEST_CASE("stacking document: Hanoi built through the commands, its stacks edite
 
   // another copy of the smallest: every copy is on the start, so one more,
   // the minimum with it
-  test::roundTrip(d, [p, &discs](Document& x) { return x.placeDisc(p, discs[2], 1, false); });
+  test::roundTrip(
+      d, [p, &discs](Document& x) { return StackingEdits(x).placeDisc(p, discs[2], 1, false); });
   CHECK(pr.getShapeMaximum(2) == 2);
   CHECK(pr.getShapeMinimum(2) == 2);
   CHECK_FALSE(stacking::setupError(d.puzzle(), pr).empty());
 
   // taken off (from the bottom of rod 2): from both stackings, one fewer
-  test::roundTrip(d, [p](Document& x) { return x.removeDisc(p, false, 1, 0); });
+  test::roundTrip(d, [p](Document& x) { return StackingEdits(x).removeDisc(p, false, 1, 0); });
   CHECK(pr.getShapeMaximum(2) == 1);
   CHECK(stacking::setupError(d.puzzle(), pr).empty());
   test::refused(d, Errc::InvalidArgument,
-                [p](Document& x) { return x.removeDisc(p, false, 1, 0); });
-  CHECK(d.removeDisc(p, false, 1, 0).error().message == "That rod is empty");
+                [p](Document& x) { return StackingEdits(x).removeDisc(p, false, 1, 0); });
+  CHECK(StackingEdits(d).removeDisc(p, false, 1, 0).error().message == "That rod is empty");
   test::refused(d, Errc::InvalidArgument,
-                [p](Document& x) { return x.removeDisc(p, false, 0, 3); });
+                [p](Document& x) { return StackingEdits(x).removeDisc(p, false, 0, 3); });
 
   // moved on its rod; the top cannot go higher
-  const unsigned int at =
-      test::roundTrip(d, [p](Document& x) { return x.moveDisc(p, false, 0, 0, 1); }).value();
+  const unsigned int at = test::roundTrip(d, [p](Document& x) {
+                            return StackingEdits(x).moveDisc(p, false, 0, 0, 1);
+                          }).value();
   CHECK(at == 1);
   CHECK(pr.startStacks().rods[0][1].shapeId == 0);
   test::refused(d, Errc::InvalidArgument,
-                [p](Document& x) { return x.moveDisc(p, false, 0, 2, 1); });
+                [p](Document& x) { return StackingEdits(x).moveDisc(p, false, 0, 2, 1); });
   test::refused(d, Errc::InvalidArgument,
-                [p](Document& x) { return x.moveDisc(p, false, 0, 0, 2); });
+                [p](Document& x) { return StackingEdits(x).moveDisc(p, false, 0, 0, 2); });
 
   // the goal emptied, the start and the counts kept
-  test::roundTrip(d, [p](Document& x) { return x.clearStacks(p, true); });
+  test::roundTrip(d, [p](Document& x) { return StackingEdits(x).clearStacks(p, true); });
   CHECK(pr.goalStacks().rods[2].empty());
   CHECK(pr.startStacks().rods[0].size() == 3);
   CHECK(pr.getNumberOfPieces() == 3);
   const std::size_t steps = d.history().undo.size();
-  REQUIRE(d.clearStacks(p, true).has_value());
+  REQUIRE(StackingEdits(d).clearStacks(p, true).has_value());
   CHECK(d.history().undo.size() == steps);
 }
 
@@ -636,15 +656,15 @@ TEST_CASE("stacking document: a position becomes the start or the goal", "[app][
   // the start it has: nothing changes, nothing is lost
   const std::size_t steps = d.history().undo.size();
   const std::uint64_t rev = d.revision();
-  CHECK_FALSE(d.setStacks(p, false, Stacks{{0, 1, 2}, {}, {}}).value());
+  CHECK_FALSE(StackingEdits(d).setStacks(p, false, Stacks{{0, 1, 2}, {}, {}}).value());
   CHECK(d.history().undo.size() == steps);
   CHECK(d.revision() == rev);
   CHECK(pr.getNumberOfSavedSolutions() == 1);
-  CHECK_FALSE(d.setStacks(p, true, Stacks{{}, {}, {0, 1, 2}}).value());
+  CHECK_FALSE(StackingEdits(d).setStacks(p, true, Stacks{{}, {}, {0, 1, 2}}).value());
 
   // a position two moves on: the start, in one step, the solution gone
   CHECK(test::roundTrip(d, [p](Document& x) {
-          return x.setStacks(p, false, Stacks{{0}, {1}, {2}});
+          return StackingEdits(x).setStacks(p, false, Stacks{{0}, {1}, {2}});
         }).value());
   CHECK(d.history().undo.size() == steps + 1);
   CHECK(d.history().undo.back() == "Set start position");
@@ -660,7 +680,7 @@ TEST_CASE("stacking document: a position becomes the start or the goal", "[app][
 
   // the goal: the same command with the other side
   CHECK(test::roundTrip(d, [p](Document& x) {
-          return x.setStacks(p, true, Stacks{{}, {0, 1, 2}, {}});
+          return StackingEdits(x).setStacks(p, true, Stacks{{}, {0, 1, 2}, {}});
         }).value());
   CHECK(d.history().undo.back() == "Set goal position");
   CHECK(pr.goalStacks().rods[1].size() == 3);
@@ -669,22 +689,24 @@ TEST_CASE("stacking document: a position becomes the start or the goal", "[app][
 
   // no position of the discs: refused with the reason, no step left
   const auto why = [&d, p](const Stacks& stacks) {
-    test::refused(d, Errc::InvalidArgument,
-                  [p, &stacks](Document& x) { return x.setStacks(p, false, stacks); });
-    return d.setStacks(p, false, stacks).error().message;
+    test::refused(d, Errc::InvalidArgument, [p, &stacks](Document& x) {
+      return StackingEdits(x).setStacks(p, false, stacks);
+    });
+    return StackingEdits(d).setStacks(p, false, stacks).error().message;
   };
   CHECK(why(Stacks{{0, 1}, {}, {}}) == "S3 is not on the position.");
   CHECK(why(Stacks{{0, 1, 2}, {}}) == "The position does not match the number of rods.");
   CHECK(why(Stacks{{1, 0, 2}, {}, {}}).find("sits on the smaller") != std::string::npos);
   CHECK(why(Stacks{{0, 1, 2}, {7}, {}}) == "The position names a disc that is not in the problem.");
-  test::refused(d, Errc::NotFound,
-                [](Document& x) { return x.setStacks(999, false, Stacks{{0, 1, 2}, {}, {}}); });
+  test::refused(d, Errc::NotFound, [](Document& x) {
+    return StackingEdits(x).setStacks(999, false, Stacks{{0, 1, 2}, {}, {}});
+  });
 
   // only a stacking puzzle has stacks
   Document cubes(GridKind::Bricks);
   const Id q = cubes.createProblem().value();
   test::refused(cubes, Errc::Unsupported,
-                [q](Document& x) { return x.setStacks(q, false, Stacks{}); });
+                [q](Document& x) { return StackingEdits(x).setStacks(q, false, Stacks{}); });
 }
 
 // Which edits drop a problem's solutions follows each callback: new rules
@@ -706,11 +728,11 @@ TEST_CASE("stacking document: what drops the solutions follows the GUI", "[app][
   REQUIRE(saved(0) == 1);
   REQUIRE(saved(1) == 1);
 
-  REQUIRE(d.setDiscSize(d.shapeIds()[2], 2).has_value());
+  REQUIRE(StackingEdits(d).setDiscSize(d.shapeIds()[2], 2).has_value());
   CHECK(saved(0) == 1);
-  REQUIRE(d.moveDisc(p1, false, 0, 0, 1).has_value());
+  REQUIRE(StackingEdits(d).moveDisc(p1, false, 0, 0, 1).has_value());
   CHECK(saved(0) == 1);
-  REQUIRE(d.setProblemRodSet(p2, hanoi).has_value());
+  REQUIRE(StackingEdits(d).setProblemRodSet(p2, hanoi).has_value());
   CHECK(saved(1) == 1);
   REQUIRE(d.undo().has_value());
   REQUIRE(d.undo().has_value());
@@ -719,7 +741,7 @@ TEST_CASE("stacking document: what drops the solutions follows the GUI", "[app][
   // new rules: the problems on the rod set lose theirs, the others keep them
   stacking::RodSet four = d.puzzle().getRodSet(0);
   four.rodCount = 4;
-  REQUIRE(d.setRodSetRules(hanoi, four).has_value());
+  REQUIRE(StackingEdits(d).setRodSetRules(hanoi, four).has_value());
   CHECK(saved(0) == 0);
   CHECK(d.puzzle().getProblem(0).getSolveState() == ProblemState::Unsolved);
   CHECK(saved(1) == 1);
@@ -727,7 +749,7 @@ TEST_CASE("stacking document: what drops the solutions follows the GUI", "[app][
   REQUIRE(d.undo().has_value());
   CHECK(saved(0) == 1);
 
-  REQUIRE(d.clearStacks(p1, false).has_value());
+  REQUIRE(StackingEdits(d).clearStacks(p1, false).has_value());
   CHECK(saved(0) == 0);
 }
 
@@ -777,7 +799,7 @@ TEST_CASE("stacking document: a rod set is laid out on its own", "[app][stacking
   f.panexColumns = true;
   f.pocketColumn = true;
   f.pocketHeight = 2;
-  REQUIRE(d.setRodSetRules(r, f).has_value());
+  REQUIRE(StackingEdits(d).setRodSetRules(r, f).has_value());
   const stacking::BoardLayout panex = rodSetLayout(d.puzzle(), 0);
   CHECK(panex.rodCount == 4);
   CHECK(panex.rodHeight == 4);
@@ -798,23 +820,24 @@ TEST_CASE("stacking document: a rod past the board's count is not on it", "[app]
   const Id smallest = d.shapeIds()[2];
   stacking::RodSet f = d.puzzle().getRodSet(0);
   f.rodCount = 5;
-  REQUIRE(d.setRodSetRules(r, f).has_value());
+  REQUIRE(StackingEdits(d).setRodSetRules(r, f).has_value());
   // the smallest disc onto rod 4, then the board back to three rods: rod 4
   // keeps its disc (the stacks keep what holds discs)
-  REQUIRE(d.removeDisc(p, false, 0, 2).has_value());
-  REQUIRE(d.placeDisc(p, smallest, 3, false).has_value());
+  REQUIRE(StackingEdits(d).removeDisc(p, false, 0, 2).has_value());
+  REQUIRE(StackingEdits(d).placeDisc(p, smallest, 3, false).has_value());
   f.rodCount = 3;
-  REQUIRE(d.setRodSetRules(r, f).has_value());
+  REQUIRE(StackingEdits(d).setRodSetRules(r, f).has_value());
   REQUIRE(d.puzzle().getProblem(0).startStacks().rods.size() == 4);
   // emptied, rod 4 is past the count: no rod of the board
-  REQUIRE(d.removeDisc(p, false, 3, 0).has_value());
+  REQUIRE(StackingEdits(d).removeDisc(p, false, 3, 0).has_value());
   REQUIRE(d.puzzle().getProblem(0).startStacks().rods.size() == 4);
+  test::refused(d, Errc::InvalidArgument, [p, smallest](Document& x) {
+    return StackingEdits(x).placeDisc(p, smallest, 3, false);
+  });
   test::refused(d, Errc::InvalidArgument,
-                [p, smallest](Document& x) { return x.placeDisc(p, smallest, 3, false); });
-  test::refused(d, Errc::InvalidArgument,
-                [p](Document& x) { return x.placeAllDiscs(p, 3, false); });
+                [p](Document& x) { return StackingEdits(x).placeAllDiscs(p, 3, false); });
   // and a board chosen again fits the stacks to it (the GUI's syncMaps)
-  test::roundTrip(d, [p, r](Document& x) { return x.setProblemRodSet(p, r); });
+  test::roundTrip(d, [p, r](Document& x) { return StackingEdits(x).setProblemRodSet(p, r); });
   CHECK(d.puzzle().getProblem(0).startStacks().rods.size() == 3);
 }
 

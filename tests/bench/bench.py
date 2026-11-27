@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Solve-speed comparison of the new `bt` with the original `burrTxt`.
+"""Speed and solution counts of ShapeLogic's CLI against upstream BurrTools'
+`burrTxt`, or against an earlier ShapeLogic build: run only on request
+(`just burrtools-compare`, `just bench`), never by the test suites.
 
-Both are run back to back on the same machine, alternating, and the best of
-`--repeat` runs is kept: timings drift 5-10% as a machine heats up, so only
-numbers from one run of this script compare. Each program reports the time
-of its own solve (reduce plus search, without loading), which is what is
-compared.
+Both programs are run back to back on the same machine, alternating, and
+the best of `--repeat` runs is kept: timings drift 5-10% as a machine heats
+up, so only numbers from one run of this script compare. Upstream's
+burrTxt prints no solve time, so each run is timed from outside (wall
+clock, loading included) for both programs. Every row also compares the
+assemblies and solutions the two found; a row that differs fails the run.
 
-The default set times the assemblers (0 and 1, BurrTools 2) and, with
--d and -R, the take-apart; --plain turns the vector search off in both
-programs; --set glar is the long one; --set identical is boxes filled with
-many pieces of one shape and with piece ranges (written by the script),
-where every cover found is checked against its rotations, and --set
-identical-long the same at a size that takes the original a minute a run.
-The gate (decision 0007, from stage 8) is "within 5% of the original or
-faster" on every row.
+Upstream BurrTools (../burr-tools, or BURRTOOLS_DIR; built with meson into
+build-rel or build) has no take-apart with rotations, no BurrTools 2 solver
+and no sliding or stacking puzzles, so only what both can solve is run.
 
-    python3 tests/bench/bench.py                    # the default set, 1 and all threads
+    python3 tests/bench/bench.py --set corpus        # every regression puzzle both can solve
+    python3 tests/bench/bench.py                     # the default set, 1 and all threads
     python3 tests/bench/bench.py --set glar          # Burr-Glar (3.1 million assemblies, slow)
     python3 tests/bench/bench.py --set identical     # many pieces of one shape, piece ranges
     python3 tests/bench/bench.py --plain             # without the vector search
@@ -39,12 +38,15 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
+BURRTOOLS = Path(os.environ.get("BURRTOOLS_DIR", ROOT.parent / "burr-tools"))
 
-SUMMARY_RE = re.compile(r"(\d+) assemblies and (\d+) solutions found with (\d+) iterations in ([\d.]+) seconds")
+# upstream's burrTxt ends the line after the iterations; ShapeLogic's adds the solve time
+SUMMARY_RE = re.compile(r"(\d+) assemblies and (\d+) solutions found with (\d+) iterations")
 # --save's line: the whole solve as the session counts it (prepare, reduce, search, take-aparts)
 SESSION_RE = re.compile(r"(\d+) assemblies and (\d+) solutions found in ([\d.]+) seconds")
 
@@ -105,27 +107,49 @@ def box_file(path: Path, dims: tuple[int, int, int], parts: list[tuple]) -> Path
     return path
 
 
-def puzzle_sets(old_repo: Path, tmp: Path) -> dict[str, list[tuple[str, Path, list[str]]]]:
+PUZZLES = ROOT / "tests" / "data" / "puzzles"
+REGRESSION = PUZZLES / "regression"
+
+
+def corpus_set() -> list[tuple[str, Path, list[str]]]:
+    """Every puzzle of the regression suite's fast, full and slow tiers
+    (tests/regression/corpus.txt), solved as upstream can: with -d, without
+    the rotations (-R) it does not have; assembly only on the grids it
+    cannot take apart (flag A). Its sliding and stacking tiers are left
+    out: upstream has neither kind."""
+    out = []
+    for line in (ROOT / "tests" / "regression" / "corpus.txt").read_text().splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        tier, flags, pattern = line.split(None, 2)
+        if tier in ("fast", "full", "slow"):
+            for path in sorted(ROOT.glob(pattern)):
+                out.append((path.stem, path, [] if "A" in flags else ["-d"]))
+    return out
+
+
+def puzzle_sets(tmp: Path) -> dict[str, list[tuple[str, Path, list[str]]]]:
     """name -> [(label, file, extra args)]."""
-    tic = old_repo / "tictest" / "performance" / "puzzles"
     pentomino = pentomino_file(10, 6, tmp / "pentomino_6x10.xmpuzzle")
     default = [
         ("pentomino 6x10 (-r)", pentomino, ["-r"]),
-        ("Climburr_OldVer (-r)", tic / "5x5x5_TICs" / "Crowell_Lohe_Burrs" / "Climburr_OldVer.xmpuzzle", ["-r"]),
-        ("CoverUp3 (-r)", tic / "ARCparent_Cubes" / "CoverUp3.xmpuzzle", ["-r"]),
-        ("CornerCube (-r)", tic / "ARCparent_Cubes" / "CornerCube.xmpuzzle", ["-r"]),
-        ("DraculasDentalDesaster", old_repo / "examples" / "DraculasDentalDesaster.xmpuzzle", []),
-        ("SolidSixPieceBurrs (-r)", old_repo / "examples" / "SolidSixPieceBurrs.xmpuzzle", ["-r"]),
-        ("DemoPieceGenerator", old_repo / "examples" / "DemoPieceGenerator.xmpuzzle", []),
-        # the take-apart (stage 4): rotation take-apart of the slow TIC puzzles,
-        # and Solid Six Piece Burrs' 588 assemblies taken apart
-        ("Climburr_OldVer (-rdR)", tic / "5x5x5_TICs" / "Crowell_Lohe_Burrs" / "Climburr_OldVer.xmpuzzle",
-         ["-r", "-d", "-R"]),
-        ("CoverUp3 (-rdR)", tic / "ARCparent_Cubes" / "CoverUp3.xmpuzzle", ["-r", "-d", "-R"]),
-        ("CornerCube (-rdR)", tic / "ARCparent_Cubes" / "CornerCube.xmpuzzle", ["-r", "-d", "-R"]),
-        ("SolidSixPieceBurrs (-rd)", old_repo / "examples" / "SolidSixPieceBurrs.xmpuzzle", ["-r", "-d"]),
+        ("deep_level_with_rotation (-r)", REGRESSION / "deep_level_with_rotation.xmpuzzle", ["-r"]),
+        ("benchmark_crowell_never_finishes (-r)", REGRESSION / "benchmark_crowell_never_finishes.xmpuzzle",
+         ["-r"]),
+        ("benchmark_most_assemblies (-r)", REGRESSION / "benchmark_most_assemblies.xmpuzzle", ["-r"]),
+        ("DraculasDentalDesaster", PUZZLES / "DraculasDentalDesaster.xmpuzzle", []),
+        ("SolidSixPieceBurrs (-r)", PUZZLES / "SolidSixPieceBurrs.xmpuzzle", ["-r"]),
+        ("DemoPieceGenerator", PUZZLES / "DemoPieceGenerator.xmpuzzle", []),
+        # the take-apart: the slow puzzles' assemblies and Solid Six Piece
+        # Burrs' 588 taken apart (without rotations, which upstream lacks)
+        ("deep_level_with_rotation (-rd)", REGRESSION / "deep_level_with_rotation.xmpuzzle", ["-r", "-d"]),
+        ("benchmark_crowell_never_finishes (-rd)", REGRESSION / "benchmark_crowell_never_finishes.xmpuzzle",
+         ["-r", "-d"]),
+        ("benchmark_most_assemblies (-rd)", REGRESSION / "benchmark_most_assemblies.xmpuzzle", ["-r", "-d"]),
+        ("SolidSixPieceBurrs (-rd)", PUZZLES / "SolidSixPieceBurrs.xmpuzzle", ["-r", "-d"]),
     ]
-    glar = Path(os.environ.get("BT_BURR_GLAR", Path.home() / "git/burr-tools/burr-tools-clean/examples/Burr-Glar.xmpuzzle"))
+    glar = Path(os.environ.get("BT_BURR_GLAR", BURRTOOLS / "examples" / "Burr-Glar.xmpuzzle"))
     # Assembler 1 with nothing to break the symmetry on: every cover is
     # found in each orientation and checked. The tetrominoes have no
     # assembly (a T too many for the coloring): the search alone.
@@ -143,6 +167,7 @@ def puzzle_sets(old_repo: Path, tmp: Path) -> dict[str, list[tuple[str, Path, li
                                 [(DOMINO, 0, 18), (L3, 0, 12), (T4, 0, 9)]), []),
     ]
     return {
+        "corpus": corpus_set(),
         "default": [e for e in default if e[1].exists()],
         "glar": [("Burr-Glar", glar, [])] if glar.exists() else [],
         "identical": identical,
@@ -152,7 +177,7 @@ def puzzle_sets(old_repo: Path, tmp: Path) -> dict[str, list[tuple[str, Path, li
 
 def run_session(binary: Path, puzzle: Path, threads: int, extra: list[str], plain: bool,
                 timeout: float) -> tuple[float, int, int] | str:
-    """A solve through the session (--save): (seconds, assemblies, 0), or an error text."""
+    """A solve through the session (--save): (seconds, assemblies, solutions), or an error text."""
     with tempfile.TemporaryDirectory() as out:
         # every solution kept (--limit 0), as far as the session keeps them: the lists' cost counts
         argv = [str(binary), "-t", str(threads), *[a for a in extra if a != "-r"], "--save",
@@ -166,39 +191,40 @@ def run_session(binary: Path, puzzle: Path, threads: int, extra: list[str], plai
     m = SESSION_RE.search(proc.stdout)
     if proc.returncode != 0 or not m:
         return f"exit {proc.returncode}: {(proc.stderr or proc.stdout).strip()[-120:]}"
-    return float(m.group(3)), int(m.group(1)), 0
+    return float(m.group(3)), int(m.group(1)), int(m.group(2))
 
 
 def run(binary: Path, puzzle: Path, threads: int, extra: list[str], plain: bool, old: bool,
         timeout: float) -> tuple[float, int, int] | str:
-    """(solve seconds, assemblies, iterations), or an error text."""
+    """(wall seconds, assemblies, solutions), or an error text."""
     argv = [str(binary), "-q", "-t", str(threads), *extra]
     env = dict(os.environ)
     if plain:
         if old:
-            # the original's name for the switch, and a renamed checkout's
             env["BURRTOOLS_NO_SIMD"] = "1"
-            env["SHAPELOGIC_NO_SIMD"] = "1"
         else:
             argv.append("--no-simd")
     argv.append(str(puzzle))
+    start = time.perf_counter()
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=env, check=False)
     except subprocess.TimeoutExpired:
         return "timeout"
+    wall = time.perf_counter() - start
     m = SUMMARY_RE.search(proc.stdout)
     if proc.returncode != 0 or not m:
         return f"exit {proc.returncode}: {(proc.stderr or proc.stdout).strip()[-120:]}"
-    return float(m.group(4)), int(m.group(1)), int(m.group(3))
+    return wall, int(m.group(1)), int(m.group(2))
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--old-repo", type=Path,
-                   default=Path(os.environ.get("BT_OLD_REPO", ROOT.parent / "burr-tools")))
-    p.add_argument("--old-bin", type=Path, help="the original burrTxt (default: its build-rel, else build)")
+    p.add_argument("--old-bin", type=Path,
+                   help="the program to compare with (default: upstream's burrTxt in BURRTOOLS_DIR, "
+                        "../burr-tools, under build-rel or build)")
     p.add_argument("--new-bin", type=Path, default=ROOT / "build" / "release" / "cli" / "shapelogic_cli")
-    p.add_argument("--set", choices=["default", "glar", "identical", "identical-long"], default="default")
+    p.add_argument("--set", choices=["corpus", "default", "glar", "identical", "identical-long"], default="default")
+    p.add_argument("--filter", help="only rows whose label contains this text")
     p.add_argument("--threads", type=int, nargs="+", default=[1, os.cpu_count() or 1])
     p.add_argument("--repeat", type=int, default=5)
     p.add_argument("--plain", action="store_true", help="without the vector search (BURRTOOLS_NO_SIMD / --no-simd)")
@@ -210,31 +236,25 @@ def main() -> int:
     if args.session and not args.old_bin:
         print("--session compares two ShapeLogic CLIs: give the earlier one as --old-bin", file=sys.stderr)
         return 2
-    old_bin = args.old_bin or next((b for b in (args.old_repo / "build-rel" / "burrTxt",
-                                                args.old_repo / "build" / "burrTxt") if b.exists()), None)
-    if old_bin is None or not args.new_bin.exists():
-        print("need both binaries: build the original (just build-release there) and `just build release` here",
-              file=sys.stderr)
+    old_bin = args.old_bin or next((b for b in (BURRTOOLS / "build-rel" / "burrTxt",
+                                                BURRTOOLS / "build" / "burrTxt") if b.exists()), None)
+    if old_bin is None:
+        print(f"upstream's burrTxt not found under {BURRTOOLS} (build-rel or build): build it there "
+              "(meson setup build-rel --buildtype=release && meson compile -C build-rel), set BURRTOOLS_DIR, "
+              "or give --old-bin", file=sys.stderr)
         return 2
-    # Another BurrTools than the original (the oracle's rule: upstream's
-    # burrTxt prints no solve time, so every row of it would read as
-    # failed, and its search is another one): nothing to compare with.
-    sys.path.insert(0, str(ROOT / "tests" / "oracle"))
-    from oracle import reference_lacks
-    lacks = reference_lacks(args.old_repo.resolve())
-    if lacks and not args.old_bin:
-        print(f"the reference checkout {args.old_repo} is not the original the port was made from (it has no "
-              f"{', '.join(lacks)}): its burrTxt is not the one to time against. Point --old-repo or BT_OLD_REPO "
-              "at the original, or --old-bin at another program to compare with.", file=sys.stderr)
+    if not args.new_bin.exists():
+        print(f"{args.new_bin} not found: just build release", file=sys.stderr)
         return 2
-    print(f"old: {old_bin}\nnew: {args.new_bin}\n")
+    print(f"old: {old_bin}\nnew: {args.new_bin}\n(seconds: wall clock, the best of {args.repeat})\n")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        entries = puzzle_sets(args.old_repo, Path(tmpdir))[args.set]
+        entries = [e for e in puzzle_sets(Path(tmpdir))[args.set] if not args.filter or args.filter in e[0]]
         if not entries:
             print("no puzzles found for this set", file=sys.stderr)
             return 2
-        print(f"{'puzzle':28} {'threads':>7} {'old s':>9} {'new s':>9} {'new/old':>8}  assemblies")
+        width = max(28, *(len(label) for label, _, _ in entries))
+        print(f"{'puzzle':{width}} {'threads':>7} {'old s':>9} {'new s':>9} {'new/old':>8}  assemblies/solutions")
         failed = False
         for label, puzzle, extra in entries:
             for threads in args.threads:
@@ -247,16 +267,20 @@ def main() -> int:
                         else:
                             r = run(binary, puzzle, threads, extra, args.plain, who == "old", args.timeout)
                         if isinstance(r, str):
-                            print(f"{label:28} {threads:7}  {who} failed: {r}")
+                            print(f"{label:{width}} {threads:7}  {who} failed: {r}")
                             failed = True
                             break
                         best[who] = r[0] if best[who] is None else min(best[who], r[0])
-                        counts[who] = r[1]
+                        counts[who] = r[1:]
+                    if best["old"] is None or best["new"] is None:
+                        break
                 if best["old"] is None or best["new"] is None:
                     continue
                 ratio = best["new"] / best["old"] if best["old"] > 0 else float("nan")
-                same = "" if counts["old"] == counts["new"] else f"  DIFFER: {counts['old']} != {counts['new']}"
-                print(f"{label:28} {threads:7} {best['old']:9.3f} {best['new']:9.3f} {ratio:8.2f}  {counts['new']}{same}")
+                found = "/".join(map(str, counts["new"]))
+                same = "" if counts["old"] == counts["new"] else \
+                    f"  DIFFER: {'/'.join(map(str, counts['old']))} (old)"
+                print(f"{label:{width}} {threads:7} {best['old']:9.3f} {best['new']:9.3f} {ratio:8.2f}  {found}{same}")
                 failed |= bool(same)
     return 1 if failed else 0
 

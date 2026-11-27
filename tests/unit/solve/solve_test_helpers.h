@@ -75,9 +75,9 @@ inline std::string recordedPosition(const std::string& pos) {
 inline Puzzle slowMatrixPuzzle(unsigned int side, unsigned int hooks, unsigned int copies) {
   Puzzle p{GridType{GridKind::Bricks}};
   const unsigned int box = p.addShape(side, side, side);
-  for (unsigned int i = 0; i < side * side * side; i++) {
-    p.getShape(box).setState(i, Voxel::kVariable);
-  }
+  // in one pass: a cell at a time works the bounding box out again for
+  // each of the side^3 cells (seconds at 32 a side)
+  p.getShape(box).setAll(Voxel::kVariable);
   Problem& pr = p.getProblem(p.addProblem());
   pr.setResultId(p, box);
   for (unsigned int i = 0; i < hooks; i++) {

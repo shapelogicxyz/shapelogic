@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<puzzle version="2">
+ <gridType type="0"/>
+ <colors/>
+ <shapes>
+   <voxel x="4" y="4" z="4" type="0">_____________________________#____________##_###__________#_____</voxel>
+   <voxel x="4" y="4" z="4" type="0">#_______________#_______________####_#_____________#_#__________</voxel>
+   <voxel x="4" y="4" z="4" type="0">______________##_______#___#__##______##_________##___#_________</voxel>
+   <voxel x="4" y="4" z="4" type="0">_#___#___#__##___##_________#_______________#__________#___#####</voxel>
+   <voxel x="4" y="4" z="4" type="0">__###_###_##_______##___###_________#___##______#___#___##______</voxel>
+   <voxel x="4" y="4" z="4" type="0">#####################__#########################################</voxel>
+  </shapes>
+  <problems>
+   <problem state="2" assemblies="1" solutions="0" time="0">
+    <shapes>
+     <shape id="0" count="1"/>
+     <shape id="1" count="1"/>
+     <shape id="2" count="1"/>
+     <shape id="3" count="1"/>
+     <shape id="4" count="1"/>
+    </shapes>
+    <result id="5"/>
+    <bitmap/>
+    <solutions>
+     <solution asmNum="-1">
+      <assembly>0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0</assembly>
+     </solution>
+    </solutions>
+   </problem>
+  </problems>
+  <comment/>
+ </puzzle>

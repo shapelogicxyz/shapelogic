@@ -90,7 +90,6 @@ const WORDS = [
 const SKIP = [
   'docs/mockup/',
   'tests/data/',
-  'tests/oracle/',
   'tests/unit/grid/grid_dump.h',
   'tests/unit/grid/test_grid_dump.cpp',
   'tests/unit/spelling',

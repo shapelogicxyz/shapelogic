@@ -50,8 +50,7 @@ bench_run.log
 callgrind*.out*
 perf.data*
 
-# ShapeLogic: oracle harness scratch, editor caches, the build's compile database
-/tests/oracle/work/
+# ShapeLogic: editor caches, the build's compile database
 .cache/
 compile_commands.json
 

@@ -1,0 +1,262 @@
+{
+ "tests/data/puzzles/regression/assembly_cannot_come_apart.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "ad6a59f78ff61a1b2672658deb505cca1796ca8f6133d23f8eb4b220d30647d8",
+   "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
+   "lines": 54
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "d656ed7dbb3e88fadc61f9faa2c35486beb19e1589b3c9779853df30667be1f6",
+   "err": "9d1fd0aa645b513f328e877713e793c692b77dc88aa765fd7ca54081ebba2d9d",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tests/data/puzzles/regression/deep_level_no_rotation.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "14dd6f3c337a9463c7fb3f900c79977d76fec195eb93256875ffe4dd67f26357",
+   "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
+   "lines": 540
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "9f73d25b620b830151bc252253535e5a76c50bf30b9a31228302fa2e19107e26",
+   "err": "58dbef89b7acdf5a1cd28723ec9ab16b09beb180f90b916899acc96917241769",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e474756097db7ca4329c92036750158525b3db4e0055a441c5e89ab6cedc9d02",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tests/data/puzzles/regression/deep_level_with_rotation.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "6e64f4e897d52d0bce989d0f67f7f3db44bb970be4f241a9e19c3a1a581555f5",
+   "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
+   "lines": 654
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "b78724b6dd722e66a5f0a86ecef33e75ac470c69f8fcbf3742bad0cc85046371",
+   "err": "057ae4ae23e9a86f3d0940cde6c4977126ba0dc38ff6ce09fce46222764b4bbc",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "27e6a41a0cd1eecaed35ac55064773f011d8e0cc54f2dedbbdf07a1fa62f6511",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tests/data/puzzles/regression/many_assemblies_many_rotations.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "8bc37f853574b228ea214b55349ac9444c4961e160336cd2535804cea421dd55",
+   "err": "482147978f605df302148feceef7418d85149e48e1d874b8b8e010298b1385eb",
+   "lines": 980
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "5604d2a58f887d7b547daa49065d101aa65d6e8d9770233e661adb86687a1c99",
+   "err": "b15d08872c479cf385eb8a4bad16d6ceaec712ea52e6dc1d9943212f7c1996a2",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "5744a9c5177fafe79383af554c53185c6d7eec48579eb5c846c73f695237ab8b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 2
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tests/data/puzzles/regression/many_assemblies_one_solution.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "1f2215a39346623dc7c527447f2a8927be944e1609b9bb1314ba421df2a286e3",
+   "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
+   "lines": 485
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "c60117e689f9f51b82dc098f6bef75fe5729e9b15428f681bb087344550dd304",
+   "err": "610929e9a7da860bf2c826c6a72abb8ee77d1a75b2f7ff0d5e7b0686e60a8c5c",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "09b1c626ab805e863e2ac8b84dd29ef587e242fead341b9ba33d03ddd8f08849",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tests/data/puzzles/regression/many_solutions_with_rotations.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "06eaa9254ab9c360dfa9f210768f78c4db5a666a248f35e6db7b4a6409531ac6",
+   "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
+   "lines": 786
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "cb1f7c7135892d7bb67a66f17c2dbe1f2b930870b86cd432152da1ce976c332b",
+   "err": "c17349d6fa8ab8af4380b5c686c00420ba15da3434cd8b39884e731a8fa3bac7",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "1960ced97119cddf55e04403139b725bcfbba2dec1e2aad2e21348ff6f8f0af0",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 19
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tests/data/puzzles/regression/no_assemblies.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "12884788578d2e720ac255f49d31da224232dc34bb86c69ea1f1a95d5917dbd3",
+   "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
+   "lines": 83
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "46f0c3c80b133d149ebfd4ddfb60452a939870a6da896d8952755879911d554d",
+   "err": "6e75f259f629d7f673b75c1031e4be7a95d245f92ecdb1680a519b876aafa900",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "8b4d2c7f006374808ec452273ca5a78ca0d6667e3678d1b4ed2cfa182e0ebe58",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tests/data/puzzles/regression/piece_group.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "eba33a849586061c5e26df755a3915ae82e5fc83e61113ec98ec21dbd53cf857",
+   "err": "482147978f605df302148feceef7418d85149e48e1d874b8b8e010298b1385eb",
+   "lines": 308
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "26db9f6ea918b6febf458a187315b6b73e36db44e799edaf38d39e7026703c92",
+   "err": "7ada34413c8570a22ffd0b77adb7368fd2265a4c66bb12d4861644c9f6b1c50e",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "3fd8ea82ff825b21d3c4142c82f4d3be4b2ca52e661c400bf825995aa4c527e8",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 2
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tests/data/puzzles/regression/rotation_takeapart_many_rotations.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "dc78e90ffaa5f07632b1c8f69aa070f7e5b2efcf4dd8c4458fdfdd4c2dbe73bb",
+   "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
+   "lines": 720
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "a2e965471fd25b04b13a9ad481ee7e5e89f38839e2ad13c8bfcd66fc1e0bcec1",
+   "err": "acfab445f9ccaecc465b77ab3e49deb9df582b284ad1bb197aa988755351aad7",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "952ae1528d92ba057723c418b3c44fc4c8d79322a606d19e5f37d7b9a694ffa3",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tests/data/puzzles/regression/rotation_takeapart_no_rotation_needed.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "b74366dd8ad7f29c1f28a08a59cc6fa024b1a2c1026de79de5e50e3239db5c9f",
+   "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
+   "lines": 295
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "73c4f3c14eb5f949c0e97ab66628c0fc163c02be60227218a8700d497b0d0257",
+   "err": "18a71963fa9b57ccdfbbdf5e6d5a2d5184ad23ccabef6b282a7e802290291165",
+   "lines": 0
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "36104f10ef5477d6823676cb1a3481184bef9a77e9cfad0cfb994b817f82725b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ }
+}

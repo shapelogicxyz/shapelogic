@@ -3,6 +3,7 @@
 // docs/TILTED-SQUARE-PLAN.md), and the fit of its every placement (stage G).
 
 #include "shapelogic/app/document.h"
+#include "shapelogic/app/tray_edits.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/model/assembly.h"
@@ -128,11 +129,11 @@ std::uint64_t solved(Document& d, bool flip = true) {
 /// Waits for the fit of the document's problem to end; how it ended.
 PlacementFitProgress fitEnd(Document& d) {
   const Id problem = d.problemIds()[0];
-  while (d.fittingPlacements(problem)) {
+  while (TrayEdits(d).fittingPlacements(problem)) {
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
     d.poll();
   }
-  return d.fitPlacementsProgress(problem).value();
+  return TrayEdits(d).fitPlacementsProgress(problem).value();
 }
 
 }  // namespace
@@ -181,8 +182,8 @@ TEST_CASE("tilted document: a new one has its board and a problem", "[app][docum
   // a plain puzzle is not tilted, and its tray cannot be set
   Document plain(GridKind::Bricks);
   CHECK_FALSE(plain.tilted());
-  CHECK(plain.setTray(trayOf(4, 1, 0)).error().code == Errc::Unsupported);
-  CHECK(plain.setTrayWalls({{0, 0}}, true).error().code == Errc::Unsupported);
+  CHECK(TrayEdits(plain).setTray(trayOf(4, 1, 0)).error().code == Errc::Unsupported);
+  CHECK(TrayEdits(plain).setTrayWalls({{0, 0}}, true).error().code == Errc::Unsupported);
 }
 
 TEST_CASE("tilted document: Triple Play is solved", "[app][document][tilted]") {
@@ -227,7 +228,7 @@ TEST_CASE("tilted document: Triple Play is solved", "[app][document][tilted]") {
   // is found
   tilted::Tray strict = triplePlayTray();
   strict.allowance = 0.0;
-  REQUIRE(d.setTray(strict).has_value());
+  REQUIRE(TrayEdits(d).setTray(strict).has_value());
   CHECK(d.puzzle().getShape(0).countState(Voxel::kVariable) == 22);
   // the solutions went with the old board
   CHECK(d.puzzle().getProblem(0).getSolveState() == ProblemState::Unsolved);
@@ -286,7 +287,7 @@ TEST_CASE("tilted document: a tray change is one undo step", "[app][document][ti
   const tilted::Tray old = *d.puzzle().tray();
   CHECK(d.fitsTray(1));
 
-  REQUIRE(d.setTray(trayOf(8, 3, 1, 0.05)).has_value());
+  REQUIRE(TrayEdits(d).setTray(trayOf(8, 3, 1, 0.05)).has_value());
   const Puzzle& p = d.puzzle();
   CHECK(p.tray()->over == 3);
   CHECK(p.tray()->allowance == 0.05);
@@ -305,7 +306,7 @@ TEST_CASE("tilted document: a tray change is one undo step", "[app][document][ti
 
   // the same settings again: nothing happens
   const std::uint64_t rev = d.revision();
-  REQUIRE(d.setTray(trayOf(8, 3, 1, 0.05)).has_value());
+  REQUIRE(TrayEdits(d).setTray(trayOf(8, 3, 1, 0.05)).has_value());
   CHECK(d.revision() == rev);
 
   // one step back: the tray, the board and the pieces as they were
@@ -318,7 +319,7 @@ TEST_CASE("tilted document: a tray change is one undo step", "[app][document][ti
 
   // a smaller tray: a piece too large for the new board refuses, and
   // nothing changes
-  const Result<void> r = d.setTray(trayOf(2, 2, 1));
+  const Result<void> r = TrayEdits(d).setTray(trayOf(2, 2, 1));
   REQUIRE_FALSE(r.has_value());
   CHECK(r.error().code == Errc::InvalidArgument);
   CHECK(r.error().message.find("S") != std::string::npos);
@@ -327,29 +328,30 @@ TEST_CASE("tilted document: a tray change is one undo step", "[app][document][ti
   (void)other;
 
   // out of range
-  CHECK(d.setTray(trayOf(8, 4, 2)).error().code == Errc::InvalidArgument);
+  CHECK(TrayEdits(d).setTray(trayOf(8, 4, 2)).error().code == Errc::InvalidArgument);
 }
 
 TEST_CASE("tilted document: walls belong to the tray", "[app][document][tilted]") {
   Document d = Document::newTilted(trayOf(8, 1, 1)).value();
   CHECK(d.puzzle().getShape(0).countState(Voxel::kVariable) == 50);
 
-  CHECK(d.setTrayWalls({{0, 0}, {7, 0}, {0, 7}, {7, 7}}, true).value() == 4);
+  CHECK(TrayEdits(d).setTrayWalls({{0, 0}, {7, 0}, {0, 7}, {7, 7}}, true).value() == 4);
   CHECK(d.puzzle().getShape(0).countState(Voxel::kVariable) == 44);
   CHECK(d.puzzle().tray()->isWall(7, 7));
   // again: nothing changes, no step
   const std::uint64_t rev = d.revision();
-  CHECK(d.setTrayWalls({{0, 0}}, true).value() == 0);
+  CHECK(TrayEdits(d).setTrayWalls({{0, 0}}, true).value() == 0);
   CHECK(d.revision() == rev);
   // outside the tray
-  CHECK(d.setTrayWalls({{8, 0}}, true).error().code == Errc::InvalidArgument);
+  CHECK(TrayEdits(d).setTrayWalls({{8, 0}}, true).error().code == Errc::InvalidArgument);
 
   // another tilt: the walls are where they were
-  REQUIRE(d.setTray([&] {
-             tilted::Tray t = *d.puzzle().tray();
-             t.over = 3;
-             return t;
-           }())
+  REQUIRE(TrayEdits(d)
+              .setTray([&] {
+                tilted::Tray t = *d.puzzle().tray();
+                t.over = 3;
+                return t;
+              }())
               .has_value());
   CHECK(d.puzzle().tray()->walls.size() == 64);
   CHECK(d.puzzle().tray()->isWall(0, 0));
@@ -357,12 +359,12 @@ TEST_CASE("tilted document: walls belong to the tray", "[app][document][tilted]"
   CHECK(d.puzzle().getShape(0).countState(Voxel::kVariable) == 45);
 
   // a smaller tray keeps the walls still inside it
-  REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), 5, 5)).has_value());
+  REQUIRE(TrayEdits(d).setTray(tilted::withSize(*d.puzzle().tray(), 5, 5)).has_value());
   CHECK(d.puzzle().tray()->isWall(0, 0));
   CHECK_FALSE(d.puzzle().tray()->isWall(4, 4));
 
   // opened again one by one, the last leaves no walls
-  CHECK(d.setTrayWalls({{0, 0}}, false).value() == 1);
+  CHECK(TrayEdits(d).setTrayWalls({{0, 0}}, false).value() == 1);
   CHECK(d.puzzle().tray()->walls.empty());
   REQUIRE(d.undo().has_value());
   CHECK(d.puzzle().tray()->isWall(0, 0));
@@ -569,27 +571,27 @@ TEST_CASE("tilted document: a rectangular tray", "[app][document][tilted]") {
     columns.push_back({6, y});
     columns.push_back({7, y});
   }
-  REQUIRE(square.setTrayWalls(columns, true).value() == 16);
+  REQUIRE(TrayEdits(square).setTrayWalls(columns, true).value() == 16);
   CHECK(square.puzzle().getShape(0).countState(Voxel::kVariable) == best.whole);
 
   // walls: the squares of the rectangle, and no others
-  CHECK(d.setTrayWalls({{5, 7}, {0, 3}}, true).value() == 2);
+  CHECK(TrayEdits(d).setTrayWalls({{5, 7}, {0, 3}}, true).value() == 2);
   CHECK(d.puzzle().tray()->walls.size() == 48);
   CHECK(d.puzzle().tray()->isWall(5, 7));
   CHECK(d.puzzle().tray()->isWall(0, 3));
   CHECK_FALSE(d.puzzle().tray()->isWall(3, 0));
-  CHECK(d.setTrayWalls({{6, 0}}, true).error().code == Errc::InvalidArgument);
-  CHECK(d.setTrayWalls({{0, 8}}, true).error().code == Errc::InvalidArgument);
-  CHECK(d.setTrayWalls({{7, 5}}, true).error().code == Errc::InvalidArgument);
+  CHECK(TrayEdits(d).setTrayWalls({{6, 0}}, true).error().code == Errc::InvalidArgument);
+  CHECK(TrayEdits(d).setTrayWalls({{0, 8}}, true).error().code == Errc::InvalidArgument);
+  CHECK(TrayEdits(d).setTrayWalls({{7, 5}}, true).error().code == Errc::InvalidArgument);
   CHECK(tilted::layout(*d.puzzle().tray()).walls.size() == 2);
 
   // wider: the walls stay where they are; lower: the one in the last row goes
-  REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), 9, 8)).has_value());
+  REQUIRE(TrayEdits(d).setTray(tilted::withSize(*d.puzzle().tray(), 9, 8)).has_value());
   CHECK(d.puzzle().tray()->width == 9);
   CHECK(d.puzzle().tray()->walls.size() == 72);
   CHECK(d.puzzle().tray()->isWall(5, 7));
   CHECK(d.puzzle().tray()->isWall(0, 3));
-  REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), 9, 5)).has_value());
+  REQUIRE(TrayEdits(d).setTray(tilted::withSize(*d.puzzle().tray(), 9, 5)).has_value());
   CHECK(d.puzzle().tray()->isWall(0, 3));
   CHECK(std::count(d.puzzle().tray()->walls.begin(), d.puzzle().tray()->walls.end(), 1) == 1);
   CHECK(d.puzzle().getShape(0).countState(Voxel::kVariable) ==
@@ -620,7 +622,7 @@ TEST_CASE("tilted document: the pieces follow a tray made a rectangle",
   for (const auto& [width, height] :
        std::vector<std::pair<unsigned int, unsigned int>>{{10, 5}, {5, 9}, {11, 6}}) {
     INFO(width << " by " << height);
-    REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), width, height)).has_value());
+    REQUIRE(TrayEdits(d).setTray(tilted::withSize(*d.puzzle().tray(), width, height)).has_value());
     const tilted::Layout lay = tilted::layout(*d.puzzle().tray());
     for (const Id id : {a, b}) {
       const unsigned int index = d.shapeIndex(id).value();
@@ -633,13 +635,13 @@ TEST_CASE("tilted document: the pieces follow a tray made a rectangle",
   }
   // a tray too low for the larger piece: it is kept and said not to fit;
   // the smaller one lies on whole cells
-  REQUIRE(d.setTray(tilted::withSize(*d.puzzle().tray(), 12, 3)).has_value());
+  REQUIRE(TrayEdits(d).setTray(tilted::withSize(*d.puzzle().tray(), 12, 3)).has_value());
   CHECK(filled(d.puzzle().getShape(d.shapeIndex(a).value())) == 7);
   CHECK_FALSE(d.fitsTray(d.shapeIndex(a).value()));
   CHECK(filled(d.puzzle().getShape(d.shapeIndex(b).value())) == 4);
   CHECK(d.fitsTray(d.shapeIndex(b).value()));
   // a tray whose board is smaller than a piece refuses, and names the piece
-  const Result<void> r = d.setTray(tilted::withSize(*d.puzzle().tray(), 1, 1));
+  const Result<void> r = TrayEdits(d).setTray(tilted::withSize(*d.puzzle().tray(), 1, 1));
   REQUIRE_FALSE(r.has_value());
   CHECK(r.error().code == Errc::InvalidArgument);
   CHECK(r.error().message.find("S1") != std::string::npos);
@@ -674,7 +676,7 @@ TEST_CASE("tilted document: a rectangular tray is solved", "[app][document][tilt
       columns.push_back({6, y});
       columns.push_back({7, y});
     }
-    REQUIRE(square.setTrayWalls(columns, true).value() == 16);
+    REQUIRE(TrayEdits(square).setTrayWalls(columns, true).value() == 16);
     REQUIRE(rect.puzzle().getShape(0).countState(Voxel::kVariable) ==
             square.puzzle().getShape(0).countState(Voxel::kVariable));
     const std::uint64_t inRect = triplePlayOn(rect, flip);
@@ -783,13 +785,14 @@ TEST_CASE("tilted document: the best placement is not always the one the pieces 
   d.poll();  // the solve above is taken in
   const std::uint64_t revision = d.revision();
   const bool couldUndo = d.canUndo();
-  REQUIRE(d.fitPlacementsStart(problem, SolveOptions{}).value() == 6);
+  REQUIRE(TrayEdits(d).fitPlacementsStart(problem, SolveOptions{}).value() == 6);
   // while it lasts the document is frozen, and the problem is taken
   CHECK(d.solving());
-  CHECK(d.fittingPlacements(problem));
-  CHECK(d.setTray(trayOf(6, 3, 1)).error().code == Errc::InvalidState);
+  CHECK(TrayEdits(d).fittingPlacements(problem));
+  CHECK(TrayEdits(d).setTray(trayOf(6, 3, 1)).error().code == Errc::InvalidState);
   CHECK(d.solveStart(problem, SolveOptions{}).error().code == Errc::InvalidState);
-  CHECK(d.fitPlacementsStart(problem, SolveOptions{}).error().code == Errc::InvalidState);
+  CHECK(TrayEdits(d).fitPlacementsStart(problem, SolveOptions{}).error().code ==
+        Errc::InvalidState);
 
   const PlacementFitProgress end = fitEnd(d);
   CHECK_FALSE(end.active);
@@ -834,12 +837,12 @@ TEST_CASE("tilted document: the best placement is not always the one the pieces 
   chosen.placement = tilted::Tray::Placement::Custom;
   chosen.shiftX = fits->board.shiftX;
   chosen.shiftY = fits->board.shiftY;
-  REQUIRE(d.setTray(chosen).has_value());
+  REQUIRE(TrayEdits(d).setTray(chosen).has_value());
   CHECK(d.trayPlacements().inUse == static_cast<std::size_t>(fits - end.boards.begin()));
   // the pieces were moved onto the new board where they fit one by one
   CHECK(solved(d) == fits->assemblies);
   // the tray changed: the last fit's counts are gone
-  CHECK(d.fitPlacementsProgress(problem).value().boards.empty());
+  CHECK(TrayEdits(d).fitPlacementsProgress(problem).value().boards.empty());
 }
 
 TEST_CASE("tilted document: the fit follows the solve's options",
@@ -850,7 +853,7 @@ TEST_CASE("tilted document: the fit follows the solve's options",
     SolveOptions o;
     o.flipPieces = flip;
     o.threads = 2;
-    REQUIRE(d.fitPlacementsStart(d.problemIds()[0], o).has_value());
+    REQUIRE(TrayEdits(d).fitPlacementsStart(d.problemIds()[0], o).has_value());
     const PlacementFitProgress end = fitEnd(d);
     REQUIRE_FALSE(end.failure.has_value());
     REQUIRE_FALSE(end.boards.empty());
@@ -891,7 +894,7 @@ TEST_CASE("tilted document: a board too small for the pieces takes none",
     pieces.push_back(extra);
     Document d = withPieces(otherDiagonalTray(), pieces);
     const Id problem = d.problemIds()[0];
-    REQUIRE(d.fitPlacementsStart(problem, SolveOptions{}).value() == 6);
+    REQUIRE(TrayEdits(d).fitPlacementsStart(problem, SolveOptions{}).value() == 6);
     const PlacementFitProgress end = fitEnd(d);
     INFO(cells << " cells of pieces");
     CHECK_FALSE(end.failure.has_value());
@@ -913,33 +916,36 @@ TEST_CASE("tilted document: a fit is refused, stopped and thrown away",
   // not a tilted puzzle, no such problem, no pieces, none to stop
   Document plain(GridKind::Bricks);
   const Id plainProblem = plain.createProblem().value();
-  CHECK(plain.fitPlacementsStart(plainProblem, SolveOptions{}).error().code == Errc::Unsupported);
+  CHECK(TrayEdits(plain).fitPlacementsStart(plainProblem, SolveOptions{}).error().code ==
+        Errc::Unsupported);
   Document d = Document::newTilted(trayOf(8, 2, 1)).value();
   const Id problem = d.problemIds()[0];
-  CHECK(d.fitPlacementsStart(problem + 100, SolveOptions{}).error().code == Errc::NotFound);
-  CHECK(d.fitPlacementsStart(problem, SolveOptions{}).error().code == Errc::InvalidArgument);
-  CHECK(d.fitPlacementsStop(problem).error().code == Errc::InvalidState);
-  CHECK(d.fitPlacementsStop(problem + 100).error().code == Errc::NotFound);
-  CHECK(d.fitPlacementsProgress(problem).value().boards.empty());
-  CHECK_FALSE(d.fitPlacementsProgress(problem).value().active);
+  CHECK(TrayEdits(d).fitPlacementsStart(problem + 100, SolveOptions{}).error().code ==
+        Errc::NotFound);
+  CHECK(TrayEdits(d).fitPlacementsStart(problem, SolveOptions{}).error().code ==
+        Errc::InvalidArgument);
+  CHECK(TrayEdits(d).fitPlacementsStop(problem).error().code == Errc::InvalidState);
+  CHECK(TrayEdits(d).fitPlacementsStop(problem + 100).error().code == Errc::NotFound);
+  CHECK(TrayEdits(d).fitPlacementsProgress(problem).value().boards.empty());
+  CHECK_FALSE(TrayEdits(d).fitPlacementsProgress(problem).value().active);
 
   // twenty dominoes on 45 cells: far too many ways to count in a test
   const Id domino = drawPiece(d, "##______________");
   REQUIRE(d.setPieceCount(problem, domino, 20, 20).has_value());
-  REQUIRE(d.fitPlacementsStart(problem, SolveOptions{}).value() >= 2);
+  REQUIRE(TrayEdits(d).fitPlacementsStart(problem, SolveOptions{}).value() >= 2);
   // the first board is under way: its count so far is told
   for (int tries = 0; tries < 5000; tries++) {
-    if (d.fitPlacementsProgress(problem).value().boards[0].assemblies > 0) {
+    if (TrayEdits(d).fitPlacementsProgress(problem).value().boards[0].assemblies > 0) {
       break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
   }
-  const PlacementFitProgress running = d.fitPlacementsProgress(problem).value();
+  const PlacementFitProgress running = TrayEdits(d).fitPlacementsProgress(problem).value();
   CHECK(running.active);
   CHECK(running.done == 0);
   CHECK(running.boards[0].assemblies > 0);
   CHECK_FALSE(running.boards[0].counted);
-  REQUIRE(d.fitPlacementsStop(problem).has_value());
+  REQUIRE(TrayEdits(d).fitPlacementsStop(problem).has_value());
   const PlacementFitProgress end = fitEnd(d);
   CHECK_FALSE(end.active);
   CHECK(end.stopped);
@@ -951,14 +957,14 @@ TEST_CASE("tilted document: a fit is refused, stopped and thrown away",
   CHECK_FALSE(d.solving());
   // the piece changed: the counts are gone
   REQUIRE(d.setPieceCount(problem, domino, 2, 2).has_value());
-  CHECK(d.fitPlacementsProgress(problem).value().boards.empty());
+  CHECK(TrayEdits(d).fitPlacementsProgress(problem).value().boards.empty());
 
   // a document closed with its fit running stops it
   {
     Document closing = Document::newTilted(trayOf(8, 2, 1)).value();
     const Id pr = closing.problemIds()[0];
     REQUIRE(closing.setPieceCount(pr, drawPiece(closing, "##______________"), 20, 20).has_value());
-    REQUIRE(closing.fitPlacementsStart(pr, SolveOptions{}).has_value());
+    REQUIRE(TrayEdits(closing).fitPlacementsStart(pr, SolveOptions{}).has_value());
   }
 }
 

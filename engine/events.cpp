@@ -1,10 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// The events (decision 0012): document.changed after a change, and what
-// the background work does, polled: solve.state, solve.progress (at most
-// four times a second, and once when a run ends), solve.preview (beside
-// solve.progress, while it is on), solve.solutionsAdded, solve.error,
-// solution.analyseProgress and solution.analyseEnded, tray.fitProgress and
-// tray.fitEnded, explore.preparing and explore.ready.
+#include "shapelogic/app/tray_edits.h"
 #include "convert.h"
 #include "engine.h"
 
@@ -155,7 +149,8 @@ void pollFit(State& s, app::Id id, State::Watch& w, std::chrono::steady_clock::t
   if (!w.fitting) {
     return;
   }
-  const Result<app::PlacementFitProgress> f = s.document().fitPlacementsProgress(id);
+  const Result<app::PlacementFitProgress> f =
+      app::TrayEdits(s.document()).fitPlacementsProgress(id);
   if (!f) {
     w.fitting = false;
     return;
@@ -165,7 +160,7 @@ void pollFit(State& s, app::Id id, State::Watch& w, std::chrono::steady_clock::t
   // A fit that ended after this poll took in the ended work still freezes
   // the document: its end is told at the next poll, when a client that
   // hears of it can change the tray at once.
-  if (f->active || s.document().fittingPlacements(id)) {
+  if (f->active || app::TrayEdits(s.document()).fittingPlacements(id)) {
     if (f->active && now - w.fitAt >= kProgressEvery) {
       s.out.notify("tray.fitProgress", std::move(told));
       w.fitAt = now;

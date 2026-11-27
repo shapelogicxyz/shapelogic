@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The model dump of tests/oracle/model_dump_old.cpp, made with the new core,
 // compared line by line with the original's recording
-// (tests/data/model_dump.txt, `oracle.py model-dump`). Keep the two dumps in
-// step.
+// (tests/data/model_dump.txt, made by the retired `oracle.py model-dump`:
+// tests/oracle in git history up to 632af17). The recording is fixed now.
 
 #include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/model/puzzle.h"

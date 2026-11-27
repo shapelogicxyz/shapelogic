@@ -58,15 +58,15 @@ user's standing instructions.
    questions yourself and write the choice and its reason in the Done line.
    Tell the user about any change users would notice. Ask only when an item
    would change what the app does in a way this plan does not already say.
-3. **Answers stay identical.** The core is compared with the original
-   BurrTools by the oracle (`tests/oracle/`). Speed and structure items must
-   not change any assembly, solution, move or level count, or the text and
-   files the oracle compares. Never assert exact iteration counts (AGENTS.md).
+3. **Answers stay identical.** The core is compared with the recorded
+   answers by the regression suite (`tests/regression/`; the oracle,
+   `tests/oracle/`, until 2026-11-27). Speed and structure items must not
+   change any assembly, solution, move or level count, or the text the
+   suite compares. Never assert exact iteration counts (AGENTS.md).
 4. **File compatibility is one way.** ShapeLogic must open every file the
    original wrote (convert on load); the original need not read ShapeLogic's
    saves, for any feature. Never add shims, dual encodings or limits so the
-   old program can read new files. The oracle round trip's "the original
-   reads the new save" check is not a requirement. Saved searches (sliding
+   old program can read new files. Saved searches (sliding
    level files, `state.bin`, Panex folders) and their folder names must stay
    readable by the new code unless an item says otherwise.
 5. **Benchmarks.** `tests/bench/bench.py` (the default set, `--plain`,
@@ -210,7 +210,7 @@ again, and comes last.
 - [x] Stage 18: the engine stays responsive (18.1's job is an `Engine:` commit of its own: `explore.openAssembly` answers at once and `explore.ready` tells when the handle can be used; 18.4 also lets Abort end a level's merges; 18.5 by rounds kept on the heap, and the level text, the counts and the destructor of a tree no longer recurse; users notice: the Placements and Step drawers tell of a long preparation, with a Cancel, a Pause during a matrix build or the taking up of a saved search ends it there, a take-apart past 1000 parts deep ends the solve with the reason; `just oracle-resume` not run: it needs the original)
 - [x] Stage 19: names and audits that must not drift (19.1: the refusal and the name disagreed already, for partially nested slides alone and six A/B switches; 19.2's audit found Convert assemblies to pieces into a solved problem not telling of its solutions and five calls that change nothing leaving an undo step, three after throwing the solutions away; the lookup that answers a reference not made, with its reason; users notice: Remove all pieces, Set range for all and the color rule presets keep a problem's solutions when they change nothing; `just oracle-resume` not run: it needs the original)
 - [x] Stage 20: core deduplication under benchmarks (all five kept, each within noise of the item before it: Crowell asks the prepared rotation rules, the take-apart pool is the CLI's and the app's, assembler 1's three state machines are one template, the two matrices are built by one set of functions and searched through one adapter, the cover's kernels share their pre-filter and are each tested; a weak test of a list growing under a solve made independent of the machine; users notice: only speed, Fast (Crowell) with Check Rotations takes 28 to 47% less and the app's solves with many small take-aparts up to 19% less; the `full` and `slow` tiers, `oracle-resume`, `oracle-files` and `bench.py` against the original not run: they need the original)
-- [ ] Stage 21: splits: core (21.1 to 21.5 done; 21.6, the per-mode facades of `document.h`, not done: left for a session of its own, measured under it; `oracle-files`, `oracle-roundtrip` and `oracle-resume` not run: they need the original; users notice nothing)
+- [x] Stage 21: splits: core (21.6 in a session of its own: `SlidingEdits`, `TrayEdits` and `StackingEdits` hold each kind's commands, beside their `.cpp`, and `document.h` names them as friends alone; the refusal table not made, with its reason; `oracle-files`, `oracle-roundtrip` and `oracle-resume` not run, and then retired with the oracle: "Not in this plan"; users notice nothing)
 
 ## Who builds each stage
 
@@ -10009,7 +10009,7 @@ after: every case must still run.
     byte as the original saved it) and the round trip tests in
     `just test-all`; `oracle-roundtrip` needs the original: not run.
 
-- [ ] **21.6 `document.h`: per-mode facades** (separate; L; D5: decided; after 21.1 to 21.5)
+- [x] **21.6 `document.h`: per-mode facades** (separate; L; D5: decided; after 21.1 to 21.5)
   - *Where:* `core/shapelogic/app/document.h` (1,000 lines; 28 commits since
     September, the most in `app/`).
     - About 38 files compile it: six in `app/` through `document_internal.h`,
@@ -10030,22 +10030,95 @@ after: every case must still run.
       a single `refuse(cmd, shape)`.
     - The web's `Family` plus its separate `tilted` flag could become one
       mode that the engine reports.
-  - Not done (2026-11-27, Opus): left for a session of its own. Measured:
-    the 30 sliding, tilted and stacking commands and queries are called in
-    about 300 places outside `app/` (`test_document_sliding.cpp` 102,
-    `test_document_stacking.cpp` 89, `test_change_audit.cpp` 38,
-    `test_document_tilted.cpp` 37, the engine's `methods_stacking.cpp`,
-    `methods_sliding.cpp`, `methods_tray.cpp`, `methods_solve.cpp` and
-    `convert.cpp` 31), their bodies use the Document's members
-    unqualified (a facade's would each need the document named), and the
-    change audit finds the commands by reading `document.h`
-    (`test_change_audit.cpp`), so it must learn the facades' headers in
-    the same change. The 42 mode checks in `document_commands.cpp` are mostly
-    conditions inside a command's own logic (which index is the board,
-    which shapes may move where), not refusals a table could hold alone.
-    Done after 21.1 to 21.5, as D5 says, but too large to finish safely in
-    this session after them: the tree is left with 21.1 to 21.5 done and
-    checked.
+  - Not done at first (2026-11-27, Opus): left for a session of its own.
+    Measured then: the 30 sliding, tilted and stacking commands and
+    queries called in about 300 places outside `app/`, their bodies using
+    the Document's members unqualified, and the change audit finding the
+    commands by reading `document.h`.
+  - Done (2026-11-27, Opus, in a session of its own):
+    - **The facades.** `SlidingEdits` (`sliding_edits.h`: `addStartGoal`,
+      `placeStamp`, `clearStampAt`, `cloneStamps`, `clearStamps`,
+      `setSlideLayout`, the query `trayProblemOf`, the helper
+      `stampProblem`), `TrayEdits` (`tray_edits.h`: `setTray`,
+      `setTrayWalls`, the four `fitPlacements*`, the helper `applyTray`) and
+      `StackingEdits` (`stacking_edits.h`: the 14 rod set, disc and stack
+      commands, the helpers `checkStacking` and `stackingProblem`;
+      `DiscsPlaced` moved with them, and `kMaxStartGoalSide` to
+      `sliding_edits.h`). Each holds a `Document&` and is made where it is
+      used, `SlidingEdits(doc).placeStamp(...)`: no declaration of theirs is
+      in `document.h`, which names the three as friends and nothing else of
+      them. The bodies moved as they were, with the Document's members
+      named through `d_` (a script did the qualifying, and each of its
+      replacements was read: one comment it touched was put back).
+    - **What stayed in the Document,** each because a generic command or a
+      generic query calls it: the sliding helpers the shape commands call
+      (`syncSliding`, `beginBoardEdit`, `finishBoardEdit`,
+      `slidingMarksLost`, `slidingRequired`, `slidingShapeChanged`), the
+      tray's queries (`tilted`, `fitsTray`, `trayLayout`, `trayPlacements`:
+      the shape table, `convert.cpp` and the tray commands read them, and
+      `trayLayout` keeps its cache in the Document), `refuseOnStacking`,
+      `refuseTiltedBoard`, `onTrayAfterTask`, `adoptTray`, `addDisc`, and
+      the saved searches' queries (`savedSearch`, `searchFolders`,
+      `slideFromStartAlone`, `continueStartsOver`), which read the solve
+      sessions and are the solving section's now.
+    - **The callers:** 296 calls rewritten, each found by the compiler (the
+      declarations removed first, so only calls on a Document were
+      touched): the engine's `methods_sliding.cpp`, `methods_stacking.cpp`,
+      `methods_tray.cpp`, `events.cpp` and `engine.cpp`, and the tests
+      (`test_document_sliding.cpp`, `test_document_stacking.cpp`,
+      `test_document_tilted.cpp`, `test_change_audit.cpp`,
+      `test_shape_images.cpp`, `test_engine.cpp`, `test_api_tables.cpp`).
+      Nothing in `cli/`, `python/` or the rest of `core/` called them.
+    - **The change audit** reads `document.h`'s `Document` and the three
+      facades' classes (`kCommandClasses`) and fails on a command name two
+      of them declare. Its table and its left-out list are as they were,
+      so every command it covered is covered; each facade's commands are
+      found through its own header.
+    - **The refusal table: not made.** The checks left in
+      `document_commands.cpp` are 21 calls of `refuseOnStacking` and
+      `refuseTiltedBoard` (each one line with its command's own reason,
+      already behind one helper a kind) and 26 `isSliding` and `tilted()`
+      conditions inside the commands' logic (which shape is the board,
+      which pieces may move where). A command-by-kind table would hold the
+      21 reasons away from the commands they explain and could not hold
+      the 26.
+    - **Not done:** the web's `Family` and its `tilted` flag as one mode
+      the engine reports (the item's third idea): a front-end and API
+      change, not a split of the core.
+    - **What it buys:** before, 42 objects of the release build depended on
+      `document.h`, and a mode command added there rebuilt them all. Now a
+      command added to a facade rebuilds the objects that include its
+      header (`ninja -t deps` of the release build): 6 for
+      `sliding_edits.h`, 7 for `tray_edits.h` (the fits' progress is read
+      by `events.cpp` and `engine.cpp` too), 4 for `stacking_edits.h`: its
+      `.cpp`, its engine methods, its tests and the change audit.
+      `document.h` itself is as widely included as before (42), and now
+      changes only with the generic commands.
+    - **Gates** (2026-11-27, after the last source edit):
+      - `just test-all`: 76 of 76 (the contract suite, `architecture-map`
+        and the change audit among them); `just test-tsan`: 146 of 146, no
+        report, and the contract suite against the TSan engine, 0 failed
+        (153 methods called);
+      - `just check` on the 17 changed sources (the three new headers
+        through them): clean, no suppression added;
+      - the release build, `-j1`, best of three, on a machine loaded by
+        another session (load average 21 on ten cores): `document.cpp`
+        2.31 s before, 2.91 s after; `document_commands.cpp` 1.62, 2.00;
+        `document_sliding.cpp` 0.99, 1.27; `document_stacking.cpp` 1.17,
+        1.38; `document_tilted.cpp` 1.33, 1.52; `methods_sliding.cpp`
+        2.33, 2.49; `methods_stacking.cpp` 2.05, 2.20; `methods_tray.cpp`
+        1.75, 2.14; and `methods_solve.cpp`, which did not change, 1.66,
+        2.05: every file within the machine's drift, so the time a file
+        takes is as it was. What changes is how many files a mode
+        command rebuilds (above);
+      - the site demo's WebAssembly build (`just site-demo`'s first two
+        steps, `emcmake cmake --preset wasm`): the engine links, no warning
+        in a changed file; after the merge with the regression suite's
+        work, `just site-demo --check` (the demo rebuilt; every puzzle type
+        opens and plays) and `just test-all` (77 of 77);
+      - not run: the oracle (retired by the regression suite, in the
+        cleanup branch beside this work), e2e (no web file changed and no
+        reply changed).
 
 **Gates for stage 21:** `just test-all`, `just test-tsan`, the oracle tiers
 the moved code serves (`sliding`, `fast`, `files`, `roundtrip`),
@@ -10201,3 +10274,68 @@ Run for 21.1 to 21.5 on 2026-11-27, after the last source edit:
     - the six corpus files `--allow-missing` excuses
       (`test/test_rotation_solvers`, three sliding and two stacking
       fixtures).
+  - **Settled on 2026-11-27, at the user's request:** the oracle is
+    retired, so none of the above waits any more. The next entry says
+    what replaced it.
+- **The regression suite in place of the oracle** (2026-11-27, at the
+  user's request: the app no longer depends on BurrTools or compares with
+  it in a normal suite; `../burr-tools` will follow upstream).
+  - **The last check against the original.** A checkout of the original
+    the port was made from was at hand for this once (it has
+    `src/lib/sliding.h` and `panex.h`; its `tictest/` is git-ignored there,
+    so it was never published). With `BT_OLD_REPO` pointing at it,
+    `oracle.py compare`
+    on 632af17 plus this work's first edits gave 180 of 180 (`--tier all`, all
+    threads and `--threads 1`), 178 of 180 with Crowell (the two others
+    have no answer from the original), 35 of 35 sliding on one thread and
+    26 of 35 on all (the nine others are one-thread puzzles, flag `O`),
+    40 of 41 stacking and 11 of 11 Panex; 0 differ in each.
+  - **What replaced it.** `tests/regression/` (`regress.py`, `corpus.txt`,
+    `baseline/`, README): the summaries and the text runs, on files of
+    this repo only. `just regress`, `just regress-text`, the gate's
+    `regression` group. `--update` records an answer changed on purpose.
+    The corpus: the fast tier's 19 examples (their names kept), 10 of the
+    158 TIC puzzles in the full tier and 2 of 3 in the slow tier, chosen
+    with the user for what each tests and copied to
+    `tests/data/puzzles/regression/` under names that say so (the user
+    asked that their names not be recognizable), the sliding and stacking
+    tiers as they were plus `PanexLevel3to10.xmpuzzle` (its name kept).
+    `SliderByGiiker` was the same file as `test_sliding_solver.xmpuzzle`
+    and is no longer listed twice. A new flag `C` keeps a puzzle from
+    Crowell's take-apart, which never ends on
+    `benchmark_crowell_never_finishes` (the original's ran an hour and
+    was stopped). Each summary entry says where its answer
+    came from (`from`); ShapeLogic's own are the derived take-apart's on
+    the eight `D` puzzles (the original had none) and the seven older-model
+    sliding puzzles (`H` before, decision 0014). The text runs are
+    recorded from the CLI as it is (its own drawings, the search from both
+    ends) and no longer read the original's solved files.
+  - **Found on the way:** the `--json` best level of equals was the first
+    found, so HexSticks reported `2.1.1.2.1.1.1.1.1` or
+    `2.1.2.1.1.1.1.1.1` by which take-apart ended first (the oracle had
+    compared only its assemblies). The greater text wins now
+    (`cli/dot_level.h`); 20 runs of 20 the same, and no recorded answer of
+    the original changed.
+  - **Removed:** `tests/oracle/` (the harness, the original's drivers,
+    the corpus and baselines, which moved) and `tests/tools/` (the six
+    programs it drove), the `oracle*` recipes, `BT_OLD_REPO`. The unit
+    tests' recordings from the original stay in `tests/data/`.
+  - **On request only:** `just burrtools-compare` (`bench.py --set
+    corpus`): upstream's `burrTxt` against the CLI on every fast, full and
+    slow puzzle both can solve (no `-R`; assembly only on the `A` grids),
+    wall-clock time best of 3 and the assembly and solution counts; `just
+    bench` for the other sets. Never in a suite; a difference in counts
+    fails the run but says nothing of which program is right.
+  - Decision 0007 amended; AGENTS.md, ARCHITECTURE.md, the site's code-base
+    pages, the landing page's "180 puzzles" (now "over 100 puzzles" against
+    answers recorded from the original) and the READMEs follow.
+- **Three quick tests over a second** (found by the stage 21 session's
+  report): "Assemblers: a stop ends the matrix build" and "solve session:
+  Pause and Abort end a matrix build" took 2.8 s each in the release
+  build, nearly all in their helper setting 32,768 cells one at a time
+  (each set worked the bounding box out again); `slowMatrixPuzzle` sets
+  them in one pass now: 0.008 s. "playback: a pose is the same whatever
+  the sampler was asked before" built a fresh sampler at every half step
+  (1.7 s); it compares with a fresh one about 100 times a file, still
+  walking every step: 0.6 s. Tagging them `[slow]` would have taken them
+  out of CI's `ctest -LE slow`, so they were made quick instead.

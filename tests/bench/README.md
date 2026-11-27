@@ -1,59 +1,65 @@
-# Benchmarks
+# Benchmarks and the BurrTools comparison
 
-Solve-speed comparisons between the new `bt` and the original `burrTxt`,
-run back to back on the same machine, alternating, best of `--repeat` runs.
-Timings drift 5-10% as a machine heats up, and a busy machine (a sanitizer
-run in the background) skews them far more: never compare against numbers
-from an earlier run, and benchmark on a quiet machine.
+`bench.py` times ShapeLogic's CLI against upstream BurrTools' `burrTxt`
+(or against an earlier ShapeLogic build) and compares the assemblies and
+solutions each row found. No test suite runs it; it runs only when asked.
+The two programs run back to back on the same machine, alternating, and the
+best of `--repeat` runs is kept. Timings drift 5-10% as a machine heats up,
+and a busy machine (a sanitizer run in the background) skews them far more,
+so never compare against numbers from an earlier run, and benchmark one
+solve at a time on a quiet machine.
 
-```bash
-just build release                               # the new bt
-(cd ../burr-tools && just build-release)          # the original, build-rel (no assertions)
-python3 tests/bench/bench.py                     # default set, 1 and all threads, best of 5
-python3 tests/bench/bench.py --plain             # without the vector search
-python3 tests/bench/bench.py --set glar          # Burr-Glar, 3.1 million assemblies (minutes)
-python3 tests/bench/bench.py --set identical     # boxes of many pieces of one shape, piece ranges
-python3 tests/bench/bench.py --set identical-long  # the same, a minute a run in the original
-```
-
-The rows above go through the CLI's own loop. The app (and the CLI's
-`--save`) solve through a `SolveSession`, with the same take-apart pool
-handing its results on as they come: `--session` times that path of two
-ShapeLogic CLIs, an earlier build's and this one's.
+Upstream BurrTools is the checkout at `../burr-tools` (or `BURRTOOLS_DIR`),
+built there with meson (`build-rel`, else `build`):
 
 ```bash
-python3 tests/bench/bench.py --session --old-bin <an earlier shapelogic_cli>
+(cd ../burr-tools && meson setup build-rel --buildtype=release && meson compile -C build-rel)
+just burrtools-compare                 # every regression puzzle both can solve, 1 and all threads
+just burrtools-compare --threads 1 --filter Pelikan
+just bench                             # the default set, 1 and all threads, best of 5
+just bench --set glar                  # Burr-Glar, 3.1 million assemblies (minutes)
+just bench --set identical             # boxes of many pieces of one shape, piece ranges
+just bench --set identical-long        # the same, about a minute a run
+just bench --plain                     # without the vector search
 ```
 
-Each program reports the time of its own solve (reduce plus search, without
-loading the file), which is what is compared. The original is the BurrTools
-the port was made from (tests/oracle/README.md, "Setup"); upstream
-BurrTools' `burrTxt` prints no solve time and runs another search, so the
-script refuses a reference checkout that is not the original (exit 2)
-unless `--old-bin` names the program. The new release build keeps
-`BT_ASSERT` on; the original's `build-rel` has its assertions off.
+Upstream's `burrTxt` prints no solve time, so every run is timed from the
+outside, by the wall clock with loading included, for both programs.
+Upstream has no take-apart with rotations, no BurrTools 2 solver and no
+sliding or stacking puzzles, so the rows leave those out:
 
-Sets:
-- `default`: the 6 x 10 pentominoes (written by the script; also with
-  BurrTools 2), the oracle's slow tier (Climburr_OldVer, CoverUp3,
-  CornerCube), DraculasDentalDesaster, and the assembler 1 examples
-  SolidSixPieceBurrs and DemoPieceGenerator;
-- `glar`: `Burr-Glar.xmpuzzle` from the upstream burr-tools clone
-  (`BT_BURR_GLAR` overrides the path).
+- `corpus` (`just burrtools-compare`): the fast, full and slow tiers of
+  `tests/regression/corpus.txt`, with `-d`, and assembly only on the
+  grids that upstream cannot take apart (flag `A`).
+- `default`: the 6 x 10 pentominoes (written by the script), the
+  regression suite's deep-level and benchmark puzzles, DraculasDentalDesaster,
+  SolidSixPieceBurrs and DemoPieceGenerator, with `-r` and with `-rd`.
+- `glar`: `Burr-Glar.xmpuzzle` from upstream's `examples/` (`BT_BURR_GLAR`
+  overrides the path).
 - `identical`, `identical-long`: boxes written by the script, filled with
   many pieces of one shape or with piece ranges (assembler 1 with no
   symmetry breaker: every cover is found in each orientation and checked),
   and one with no assembly at all (the search alone).
 
-`--plain` sets the original's `BURRTOOLS_NO_SIMD` (until 2026-11-09 the
-script set only the renamed `SHAPELOGIC_NO_SIMD`, which the original does
-not read: the plain rows of the tables before that date compare the plain
-search here with the original's vector search where it has one).
+A row whose counts differ prints `DIFFER` and fails the run (exit 1).
+ShapeLogic's own answers are checked by the regression suite
+(`tests/regression/`), against the recorded ones. A difference here means
+the two programs disagree, and it says nothing more about which one is
+right.
 
-The gate (decision 0007; AGENTS.md "Finishing a piece of work") is
-"within 5% of the original or faster" on every row of the three runs.
+The app (and the CLI's `--save`) solves through a `SolveSession`, with the
+take-apart pool handing its results on as they come. `--session` times
+that path in two ShapeLogic CLIs, an earlier build's and this one's:
 
-## Results
+```bash
+python3 tests/bench/bench.py --session --old-bin <an earlier shapelogic_cli>
+```
+
+## Results (against the original BurrTools, until 2026-11-27)
+
+These rows were timed against the original BurrTools the port was made
+from, by its own solve times. They are kept as history, and they do not
+compare with the wall-clock rows against upstream.
 
 Stage 3a, 2026-10-06, M-series Mac (10 cores), assembly only:
 

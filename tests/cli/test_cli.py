@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The `shapelogic_cli` command line on the fixtures: options, refusals, the modes.
 
-What it prints is compared with the original burrTxt by the harness
-(`just oracle-text`, tests/oracle); this checks what holds without the
-original repo: burrTxt's option rules and exit codes, sliding and stacking
-puzzles solved with their options, and --save followed by -a and -x.
+What it prints is compared with the recorded runs by the regression suite
+(`just regress-text`, tests/regression); this checks the rest: burrTxt's
+option rules and exit codes, sliding and stacking puzzles solved with their
+options, and --save followed by -a and -x.
 
     python3 tests/cli/test_cli.py --bt build/dev/cli/shapelogic_cli
 """

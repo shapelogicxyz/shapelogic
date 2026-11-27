@@ -1,12 +1,13 @@
 # AGENTS.md: working on ShapeLogic
 
 ShapeLogic is a rebuild of the ShapeLogic puzzle solver's core (C++23)
-with an engine process for a future web front end. The original application
-(`../burr-tools`, override with `BT_OLD_REPO`) is the **reference**:
-ported code must give the same answers on the comparison corpus. It is the
-BurrTools the port was made from, not upstream BurrTools, which lacks the
-sliding and stacking puzzles and answers differently: the harness says
-which one it was given (tests/oracle/README.md, "Setup").
+with an engine process for a future web front end. It was ported from
+BurrTools and checked against it until 2026-11-27 (decision 0007,
+amended). The answers recorded then are the reference now: the regression
+suite (`tests/regression/`) compares the solver with them, and no suite
+reads or runs BurrTools. Upstream BurrTools (`../burr-tools`, or
+`BURRTOOLS_DIR`) is compared with only on request (`just
+burrtools-compare`).
 
 Read before starting any task:
 1. This file.
@@ -35,16 +36,12 @@ just test-all           # everything; run before calling a stage done
 just gate [groups]      # every suite one after another, with a table of what passed (tests/gate.sh; ~75 min)
 just test-asan          # Address + UB sanitizers
 just test-tsan          # ThreadSanitizer on [parallel] cases
-just oracle [--tier …]  # compare the new bt with the original burrTxt
-just oracle-resume      # pause searches in one program, continue in the other
-just oracle-roundtrip   # load + save every corpus file in both programs, compare
-just oracle-files       # solve as burrTxt2 does, compare the solved files
-just oracle-text        # bt's text output against burrTxt's, byte for byte
-just oracle-imports     # imports, Puzzlecad export, grid conversion against the original's
-just oracle-python      # the Python module's transcripts against the original module's
+just regress [--tier …] # the solver's answers against the recorded ones (tests/regression)
+just regress-text       # the CLI's text output against the recorded runs, byte for byte
+just burrtools-compare  # on request only: speed and counts against upstream BurrTools
+just bench [--set …]    # speed benchmarks (tests/bench/README.md)
 just python-test [preset] # the Python module's tests (python/tests; the module builds when Python's headers are found)
 just python-wheel       # its wheel in build/wheel, installed into a fresh venv and tested there
-just oracle-baseline    # re-record the original's answers (rarely needed)
 just check [files]      # clang-tidy, every finding an error (needs LLVM installed); with names, only those sources
 just app-install        # the web front end's packages (npm ci; Node 22)
 just app-gen            # web/src/engine/api.generated.ts from api/*.json
@@ -67,21 +64,20 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
 ## How to port code from the original
 
 1. **Faithful first, restructured second.** Port the algorithm with its
-   behavior intact, prove it with tests and the harness, then reshape it.
-   Never "improve" an algorithm while porting it.
+   behavior intact, prove it with tests and the regression suite, then
+   reshape it. Never "improve" an algorithm while porting it.
 2. **Cite the source.** At the top of each ported file, name the original
    file(s) it comes from, e.g. `// Ported from src/lib/voxel_0.cpp`.
 3. **Port the tests too.** The original's `test/*.cpp` cases for the area
    come across (adapted to the new API), then new ones are added.
-4. **Gate on the harness** (`tests/oracle/`). Where it cannot reach yet,
-   write a unit test that compares against values taken from the original.
+4. **Gate on the regression suite** (`tests/regression/`), and on unit
+   tests against the recordings under `tests/data/`.
 5. **File compatibility is one way** (decision 0006, amended). ShapeLogic
    must open every file the original wrote (convert on load); the original
    need not read ShapeLogic's saves, for any feature. Never add shims, dual
-   encodings or limits so that the old program can read new files; the
-   oracle round trip's "the original reads the new save" check is not a
-   requirement. Saved searches (sliding level files, `state.bin`, Panex
-   folders) and their folder names stay readable by the new code.
+   encodings or limits so that the old program can read new files.
+   Saved searches (sliding level files, `state.bin`, Panex folders) and
+   their folder names stay readable by the new code.
 
 ## Code rules
 
@@ -127,15 +123,14 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
   breaker (e.g. `examples/Bermuda.xmpuzzle`): only those puzzles exercise the
   rotation checks from worker threads, so a TSan run without one reports no
   races while real ones remain.
-- Fixtures live in `tests/data/`. Copy them from the original repo; do not
-  read the original repo from unit tests (only the harness does that).
+- Fixtures live in `tests/data/`. No test reads another checkout.
   `tests/data/puzzles/new-grids/` holds the hexagonal and cairo puzzles,
   made by this engine (the original has no such grids, so the tests that
   compare every top-level fixture with the original's recordings skip
   that folder; the new grids' own checks are in `test_puzzle_file.cpp`
   and `tests/cli/test_cli.py`).
-- Per-fixture checks against the original belong in the C++ tests and the
-  oracle, which go through every file. The web tests (engine and e2e)
+- Per-fixture checks belong in the C++ tests and the regression suite,
+  which go through every file. The web tests (engine and e2e)
   sweep one fixture of each grid, `web/tests/helpers/fixtures.ts`'s `SWEEP`:
   what the front end does with a puzzle depends on its grid, not on which
   puzzle it is. Add a file there only when its content takes the front end
@@ -158,9 +153,9 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
   folder is refused). The engine's default folders follow
   `SHAPELOGIC_SLIDE_DIR` and `SHAPELOGIC_PANEX_DIR`: the unit tests set them
   per process (`tests/unit/test_search_folders.cpp`), the contract client
-  per engine, the CLI's tests and the web engine tests per run, the harness
-  per sliding or stacking run. A new suite that starts an engine or the CLI
-  does the same.
+  per engine, the CLI's tests and the web engine tests per run, the
+  regression suite per sliding or stacking run. A new suite that starts
+  an engine or the CLI does the same.
 - `just check` passes and must stay so. The checks are in `.clang-tidy`
   (each one left out has its reason there; `tests/unit/.clang-tidy` leaves
   out a few more). Where the analysis cannot see an invariant, say why on
@@ -185,16 +180,19 @@ The C++ side, in this order:
 1. `just test-all`; `just test-asan`; `just test-tsan` for changes to
    threaded code. Run the quick suite (`just test`) a few times: a rare
    hang shows only so.
-2. The oracle runs the change can touch (`tests/oracle/README.md`): `just
-   oracle` (the fast, full and slow tiers, with all threads and with
-   `--threads 1`, every field, `--solver classic` and `crowell`), `just
-   oracle-resume`, `just oracle-files --tier all`, `just oracle-text --tier
-   all`, `just oracle-roundtrip`, `just oracle-imports`, `just
-   oracle-python`.
+2. The regression runs the change can touch (`tests/regression/README.md`):
+   `just regress --tier all`, with all threads and with `--threads 1`,
+   `--solver classic` and `crowell`; `--tier sliding` and `--tier
+   stacking` (and `--solver panex`) for those solvers; `just regress-text`
+   for what the CLI prints (or `just gate regression`, all of them). An
+   answer changed on purpose is recorded with `--update` and said in the
+   commit.
 3. `just check` on the changed files.
-4. For solver changes, the benchmarks (`tests/bench/bench.py`: the default
-   set, `--plain`, `--set glar`): within 5% of the original or faster, one
-   solve at a time on a quiet machine, never beside a sanitizer run.
+4. For solver changes, the speed of two builds (`tests/bench/bench.py
+   --session --old-bin <the earlier build's shapelogic_cli>`, and the
+   regression suite's solve times): no slower than before, one solve at a
+   time on a quiet machine, never beside a sanitizer run. Upstream
+   BurrTools is timed only when the user asks (`just burrtools-compare`).
 
 Then, for any work:
 - `docs/ARCHITECTURE.md`: a map line for each file added, moved or
@@ -261,7 +259,7 @@ thread).
    and say what was left unrun. A flaky test is a bug of the work.
 2. After a core or engine change, the C++ steps above for what changed
    (`just test-all`, the contract tests, `python3 api/gen_api_md.py`, the
-   oracle runs it could touch), then `just app-gen` and the staleness test.
+   regression runs it could touch), then `just app-gen` and the staleness test.
 3. The reference screenshots reviewed when they changed.
 4. Then the steps for any work above (ARCHITECTURE.md's map and rules, the
    plan, ready to commit). An engine addition is its own commit before the

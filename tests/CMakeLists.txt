@@ -96,6 +96,13 @@ add_test(NAME cli COMMAND Python3::Interpreter tests/cli/test_cli.py
          --bt $<TARGET_FILE:shapelogic_cli> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 bt_test_timeout(120 cli)
 
+# The regression suite's fast tier (tests/regression): this build's CLI
+# against the recorded answers. The other tiers and the text runs are the
+# gate's (`just gate regression`).
+add_test(NAME regression-fast COMMAND Python3::Interpreter tests/regression/regress.py
+         --cli $<TARGET_FILE:shapelogic_cli> summary --tier fast WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+bt_test_timeout(300 regression-fast)
+
 # The Python module (deferred part 7), when it is built: the original's
 # tests and the new ones in python/tests, on this build's module.
 if(TARGET shapelogic)
@@ -105,35 +112,3 @@ if(TARGET shapelogic)
     ENVIRONMENT "PYTHONPATH=$<TARGET_FILE_DIR:shapelogic>" LABELS python)
   bt_test_timeout(600 python)
 endif()
-
-# bt_roundtrip: load and save one puzzle file, for `oracle.py roundtrip`.
-add_executable(bt_roundtrip tools/roundtrip.cpp)
-target_link_libraries(bt_roundtrip PRIVATE btcore)
-bt_set_warnings(bt_roundtrip)
-
-# bt_resume: pause and continue assembler searches, for `oracle.py resume-check`.
-add_executable(bt_resume tools/resume.cpp)
-target_link_libraries(bt_resume PRIVATE btcore)
-bt_set_warnings(bt_resume)
-
-# bt_panex_resume: stop and carry on Panex searches, for `oracle.py panex-resume`.
-add_executable(bt_panex_resume tools/panex_resume.cpp)
-target_link_libraries(bt_panex_resume PRIVATE btcore)
-bt_set_warnings(bt_panex_resume)
-
-# bt_blockpack: pack and unpack files, for `oracle.py blockpack-check`.
-add_executable(bt_blockpack tools/blockpack.cpp)
-target_link_libraries(bt_blockpack PRIVATE btcore)
-bt_set_warnings(bt_blockpack)
-
-# bt_imports: the imports, the Puzzlecad export and grid conversion, for
-# `oracle.py imports`.
-add_executable(bt_imports tools/imports.cpp)
-target_link_libraries(bt_imports PRIVATE btcore)
-bt_set_warnings(bt_imports)
-
-# bt_solutions: what a file holds of solving, for `oracle.py compare-files`
-# (which solves with `shapelogic_cli --save`, burrTxt2's mode).
-add_executable(bt_solutions tools/solutions.cpp)
-target_link_libraries(bt_solutions PRIVATE btcore)
-bt_set_warnings(bt_solutions)

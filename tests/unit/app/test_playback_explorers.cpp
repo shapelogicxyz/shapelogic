@@ -147,11 +147,21 @@ TEST_CASE("playback: a pose is the same whatever the sampler was asked before",
     for (unsigned int i = 0; i <= 2 * steps; i++) {
       at.push_back(static_cast<float>(i) * 0.5F);
     }
+    // the kept sampler is asked every step; a fresh one (built anew each
+    // time, the cost) about 100 times a file, spread over the walk
+    const std::size_t stride = std::max<std::size_t>(1, at.size() / 100);
     unsigned int differ = 0;
-    for (const float step : at) {
+    unsigned int compared = 0;
+    for (std::size_t n = 0; n < at.size(); n++) {
+      const std::vector<PiecePose> pose = kept.sample(at[n]).value();
+      if (n % stride != 0) {
+        continue;
+      }
       PlaybackSampler fresh = sampler(d);
-      differ += same(kept.sample(step).value(), fresh.sample(step).value()) ? 0 : 1;
+      differ += same(pose, fresh.sample(at[n]).value()) ? 0 : 1;
+      compared++;
     }
+    CHECK(compared >= std::min<std::size_t>(at.size(), 100));
     CHECK(differ == 0);
   }
 }

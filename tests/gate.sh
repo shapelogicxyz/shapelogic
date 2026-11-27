@@ -3,7 +3,7 @@
 #
 # Every test suite of the repo, one after another, with a table of what
 # passed at the end: `just gate` (the groups below that are on by default),
-# `just gate unit oracle` (only those groups), `just gate all` (every group).
+# `just gate unit regression` (only those groups), `just gate all` (every group).
 # A suite that fails does not stop the run. Each suite's output is kept in
 # build/gate/<nn>-<name>.log, the table in build/gate/summary.txt; the exit
 # code is 1 when a suite failed. GATE_OUT names another folder for the
@@ -15,13 +15,9 @@
 #               test that fails one run in a few shows there)
 #   sanitizers  just test-asan, just test-tsan
 #   python      the Python module's tests and its wheel
-#   oracle      every comparison with the original (needs ../burr-tools
-#               built, or BT_OLD_REPO): summaries on all threads and one,
-#               both take-aparts, sliding, stacking, resume, round trip,
-#               solved files, text, imports, the Python transcripts, the
-#               block packer, the Panex resume. The original's solved
-#               files (tests/oracle/work, not committed) are recorded
-#               first when they are not there.
+#   regression  the solver against its recorded answers (tests/regression,
+#               files of this repo only): summaries on all threads and one,
+#               every solver, sliding, stacking, and the text runs
 #   app         just app-check, just app-test
 #   check       just check (clang-tidy)
 # Off unless named (or `all`):
@@ -29,6 +25,8 @@
 #   site        just site-build (fails on the demo's hash until the demo
 #               is rebuilt for the version: just site-demo)
 #   dist        just app-dist --dir, just app-smoke
+#   burrtools   just burrtools-compare: speed and counts against upstream
+#               BurrTools (needs ../burr-tools built, or BURRTOOLS_DIR)
 #
 # Each suite has a time limit (GATE_STEP_TIMEOUT seconds, 2 hours by
 # default; the longest take about 20 minutes): one that outlasts it is
@@ -43,8 +41,8 @@ cd "$(dirname "$0")/.."
 # without an engine, the smoke test without a packaged app.
 export BT_REQUIRE_ALL=1
 
-DEFAULT="build unit sanitizers python oracle app check"
-EVERY="$DEFAULT e2e site dist"
+DEFAULT="build unit sanitizers python regression app check"
+EVERY="$DEFAULT e2e site dist burrtools"
 groups="$*"
 [ -z "$groups" ] && groups="$DEFAULT"
 [ "$groups" = "all" ] && groups="$EVERY"
@@ -119,8 +117,6 @@ run() {
   printf '%-9s %-28s %5ss  %s\n' "$verdict" "$name" "$((SECONDS - t0))" "$*" | tee -a "$SUMMARY"
 }
 
-ORACLE="python3 tests/oracle/oracle.py"
-
 if wanted build; then
   run build-dev just build dev
   run build-release just build release
@@ -139,51 +135,20 @@ if wanted python; then
   run python-test-release just python-test release
   run python-wheel just python-wheel
 fi
-if wanted oracle; then
-  run oracle just oracle --tier all
-  run oracle-one-thread just oracle --tier all --threads 1
-  run oracle-crowell just oracle --tier all --solver crowell
-  run oracle-crowell-one-thread just oracle --tier all --solver crowell --threads 1
-  run oracle-sliding just oracle --tier sliding
-  run oracle-sliding-one-thread just oracle --tier sliding --threads 1
-  run oracle-stacking just oracle --tier stacking
-  run oracle-stacking-panex just oracle --tier stacking --solver panex
-  run oracle-resume just oracle-resume
-  # The original's solved files: recorded once, kept under
-  # tests/oracle/work. The text runs that read them (retake, ask) are
-  # recorded with them: which of several solutions with the same moves the
-  # original keeps depends on its threads, so their text goes with the
-  # files it was made from (this rewrites baseline/text-*.json).
-  work=tests/oracle/work
-  if [ ! -d "$work/old/examples" ] || [ ! -d "$work/old/tictest" ]; then
-    run baseline-files $ORACLE baseline-files --tier all
-    run baseline-text $ORACLE baseline-text --tier all
-  fi
-  if [ ! -d "$work/old/alpha/tests/data/puzzles/sliding" ]; then
-    run baseline-files-sliding $ORACLE baseline-files --tier sliding
-    run baseline-text-sliding $ORACLE baseline-text --tier sliding
-  fi
-  if [ ! -d "$work/old/alpha/tests/data/puzzles/stacking" ]; then
-    run baseline-files-stacking $ORACLE baseline-files --tier stacking
-    run baseline-text-stacking $ORACLE baseline-text --tier stacking
-  fi
-  if [ ! -d "$work/old-panex" ]; then
-    run baseline-files-panex $ORACLE baseline-files --tier stacking --solver panex
-    run baseline-text-panex $ORACLE baseline-text --tier stacking --solver panex
-  fi
-  run oracle-roundtrip just oracle-roundtrip
-  run oracle-files just oracle-files --tier all
-  run oracle-files-sliding just oracle-files --tier sliding
-  run oracle-files-stacking just oracle-files --tier stacking
-  run oracle-files-panex just oracle-files --tier stacking --solver panex
-  run oracle-text just oracle-text --tier all
-  run oracle-text-sliding just oracle-text --tier sliding
-  run oracle-text-stacking just oracle-text --tier stacking
-  run oracle-text-panex just oracle-text --tier stacking --solver panex
-  run oracle-imports just oracle-imports
-  run oracle-python just oracle-python --tier all
-  run oracle-blockpack $ORACLE blockpack-check
-  run oracle-panex-resume $ORACLE panex-resume
+if wanted regression; then
+  run regress just regress --tier all
+  run regress-one-thread just regress --tier all --threads 1
+  run regress-crowell just regress --tier all --solver crowell
+  run regress-crowell-one-thread just regress --tier all --solver crowell --threads 1
+  run regress-sliding just regress --tier sliding
+  run regress-sliding-one-thread just regress --tier sliding --threads 1
+  run regress-stacking just regress --tier stacking
+  run regress-stacking-panex just regress --tier stacking --solver panex
+  run regress-text just regress-text --tier all
+  run regress-text-crowell just regress-text --tier all --solver crowell
+  run regress-text-sliding just regress-text --tier sliding
+  run regress-text-stacking just regress-text --tier stacking
+  run regress-text-panex just regress-text --tier stacking --solver panex
 fi
 if wanted app; then
   run app-check just app-check
@@ -201,6 +166,9 @@ if wanted dist; then
 fi
 if wanted check; then
   run check just check
+fi
+if wanted burrtools; then
+  run burrtools-compare just burrtools-compare
 fi
 
 echo

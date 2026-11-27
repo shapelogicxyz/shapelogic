@@ -4,6 +4,7 @@
 #include "convert.h"
 #include "engine.h"
 
+#include "shapelogic/app/tray_edits.h"
 #include "shapelogic/model/tilted_tray.h"
 
 #include <array>
@@ -148,7 +149,7 @@ Reply traySet(State& s, Params& p) {
   if (!tray) {
     return std::unexpected(tray.error());
   }
-  BTE_CHECK(s.document().setTray(std::move(*tray)));
+  BTE_CHECK(app::TrayEdits(s.document()).setTray(std::move(*tray)));
   return s.changed();
 }
 
@@ -172,7 +173,7 @@ Reply traySetWalls(State& s, Params& p) {
     }
     squares.push_back({static_cast<unsigned int>(x), static_cast<unsigned int>(y)});
   }
-  BTE_TRY(const unsigned int changed, s.document().setTrayWalls(squares, wall));
+  BTE_TRY(const unsigned int changed, app::TrayEdits(s.document()).setTrayWalls(squares, wall));
   return Json{{"changed", changed}, {"revision", s.revision()}};
 }
 
@@ -216,7 +217,8 @@ Reply trayFitPlacements(State& s, Params& p) {
   const Json given = p.has("options") ? p.value("options") : Json(nullptr);
   BTE_CHECK(p.finish());
   BTE_TRY(const SolveOptions options, solveOptionsFrom(s, given));
-  BTE_TRY(const unsigned int total, s.document().fitPlacementsStart(problem, options));
+  BTE_TRY(const unsigned int total,
+          app::TrayEdits(s.document()).fitPlacementsStart(problem, options));
   State::Watch& w = s.watches[problem];
   w.fitting = true;
   w.fitAt = {};
@@ -226,14 +228,15 @@ Reply trayFitPlacements(State& s, Params& p) {
 Reply trayFitPlacementsStop(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().fitPlacementsStop(problem));
+  BTE_CHECK(app::TrayEdits(s.document()).fitPlacementsStop(problem));
   return Json::object();
 }
 
 Reply trayFitPlacementsStatus(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   BTE_CHECK(p.finish());
-  BTE_TRY(const app::PlacementFitProgress f, s.document().fitPlacementsProgress(problem));
+  BTE_TRY(const app::PlacementFitProgress f,
+          app::TrayEdits(s.document()).fitPlacementsProgress(problem));
   Json j = placementFitJson(f);
   j["active"] = f.active;
   return j;

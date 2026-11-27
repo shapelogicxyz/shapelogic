@@ -15,11 +15,11 @@ which ones to run after a change, is in
 |---|---|
 | CMake 3.28 or newer, Ninja, a C++23 compiler | the core, the engine and the command line tool |
 | `just` | running the recipes |
-| Python 3 | the contract tests, the CLI tests, the harness, the API generator |
+| Python 3 | the contract tests, the CLI tests, the regression suite, the API generator |
 | Node 22 | the app; Node 22.22 or newer for the website |
 | LLVM (optional) | `just check` (clang-tidy) |
 | Emscripten (optional) | `just site-demo`, the engine as WebAssembly |
-| The original BurrTools checkout (optional) | the comparison harness; at `../burr-tools` or `BT_OLD_REPO` |
+| Upstream BurrTools, built (optional) | `just burrtools-compare` and `just bench`; at `../burr-tools` or `BURRTOOLS_DIR` |
 
 ## A first build
 
@@ -54,21 +54,18 @@ Each preset builds into
 engine at `build/<preset>/engine/shapelogic_engine`, the CLI at
 `build/<preset>/cli/shapelogic_cli`.
 
-## The comparison harness
+## The regression suite
 
-The harness compares the new code's answers with the original BurrTools's,
-using the checkout at `../burr-tools` (or `BT_OLD_REPO`); see
-[Comparison with the original BurrTools](/docs/code-base/testing/#comparison-with-the-original-burrtools).
+The regression suite checks the solver's answers against the recorded
+ones, on puzzle files of this repository; see
+[The regression suite](/docs/code-base/testing/#the-regression-suite).
+Comparing with upstream BurrTools runs only on request.
 
 ```bash
-just oracle [--tier …]  # assembly and solution counts against burrTxt
-just oracle-resume      # pause searches in one program, continue in the other
-just oracle-roundtrip   # load and save every corpus file in both programs, compare
-just oracle-files       # solve as burrTxt2 does, compare the solved files
-just oracle-text        # the CLI's text output against burrTxt's, byte for byte
-just oracle-imports     # imports, Puzzlecad export and grid conversion against the original's
-just oracle-python      # the Python module's transcripts against the original module's
-just oracle-baseline    # re-record the original's answers (rarely needed)
+just regress [--tier …] # assembly and solution counts, levels and moves against the recorded ones
+just regress-text       # the CLI's text output against the recorded runs, byte for byte
+just burrtools-compare  # on request: speed and counts against upstream BurrTools (../burr-tools)
+just bench [--set …]    # speed benchmarks
 ```
 
 ## The Python module
@@ -132,7 +129,7 @@ flow.
 
 | Variable | Effect |
 |---|---|
-| `BT_OLD_REPO` | where the original BurrTools checkout is, for the harness |
+| `BURRTOOLS_DIR` | where upstream BurrTools is checked out and built, for `just burrtools-compare` and `just bench` |
 | `BT_ENGINE` | the engine binary the app in development and the engine tests use; otherwise `build/dev/engine/shapelogic_engine`, else the release one |
 | `BT_CALL_LOG` | a file every call the renderer makes is logged to, with how it ended; the e2e tests read it |
 | `BT_AUTOSAVE_SECONDS` | the least time between two rescue copies of a running solve (a minute without it), for the e2e tests |
@@ -153,19 +150,19 @@ Command Line Tool page.
 ### Setting a variable
 
 Each variable is read when a command starts, so set it in the terminal you
-run the command from. `BT_OLD_REPO` is the example here; the others work the
+run the command from. `BURRTOOLS_DIR` is the example here; the others work the
 same way.
 
 For one command only, put it in front of the command (macOS and Linux):
 
 ```sh
-BT_OLD_REPO=/path/to/burr-tools just oracle --tier sliding
+BURRTOOLS_DIR=/path/to/burr-tools just burrtools-compare
 ```
 
 For the rest of the terminal session:
 
 ```sh
-export BT_OLD_REPO=/path/to/burr-tools
+export BURRTOOLS_DIR=/path/to/burr-tools
 ```
 
 For every new terminal, add that `export` line to your shell's startup file
@@ -175,11 +172,9 @@ new terminal.
 On Windows, in PowerShell:
 
 ```powershell
-$env:BT_OLD_REPO = "C:\path\to\burr-tools"     # this session only
-setx BT_OLD_REPO "C:\path\to\burr-tools"       # every new terminal (not this one)
+$env:BURRTOOLS_DIR = "C:\path\to\burr-tools"     # this session only
+setx BURRTOOLS_DIR "C:\path\to\burr-tools"       # every new terminal (not this one)
 ```
 
-To check it, `echo $BT_OLD_REPO` prints the value (`$env:BT_OLD_REPO` in
-PowerShell). For the harness, `just --evaluate old_repo`, run in the
-repository, prints the exact path it will use: the variable's value, or
-the default `../burr-tools` when it is not set.
+To check it, `echo $BURRTOOLS_DIR` prints the value (`$env:BURRTOOLS_DIR` in
+PowerShell). Without it, the comparison uses `../burr-tools`.

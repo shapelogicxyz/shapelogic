@@ -7,6 +7,7 @@
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/shape_tools.h"
+#include "shapelogic/app/sliding_edits.h"
 #include "shapelogic/base/base64.h"
 #include "shapelogic/grid/shape_image.h"
 #include "shapelogic/grid/voxel.h"
@@ -420,7 +421,7 @@ TEST_CASE("shape images: the mesh's faces looking up carry the picture's coordin
 TEST_CASE("shape images: a board takes a picture on its floor, kept by the file",
           "[app][sliding][io][mesh]") {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal(std::array<unsigned int, 3>{3, 2, 1}).value();
+  const Id tray = SlidingEdits(d).addStartGoal(std::array<unsigned int, 3>{3, 2, 1}).value();
   const std::string png = pngHeader(30, 20, 'b');
   roundTrip(d, [&](Document& doc) {
     return doc.setShapeImage(tray, {png, std::nullopt, ImageFit::Stretch, {0, 0, 30, 20}});
@@ -457,7 +458,7 @@ TEST_CASE("shape images: a board takes a picture on its floor, kept by the file"
 TEST_CASE("tray border: set on a board, undone, turned and kept by the file",
           "[app][sliding][io]") {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal(std::array<unsigned int, 3>{3, 2, 1}).value();
+  const Id tray = SlidingEdits(d).addStartGoal(std::array<unsigned int, 3>{3, 2, 1}).value();
   const Id s = piece(d, 1, 1, {{0, 0, 0}});
   CHECK(shapeOf(d, tray).getBorder().isDefault());
   // a board without a border writes none of its attributes

@@ -43,9 +43,9 @@ ShapeLogic is three programs over one library:
   with Astro Starlight, plus a browser demo of the app with the engine
   compiled to WebAssembly.
 
-ShapeLogic is a rebuild of BurrTools. The original program is the
-reference: ported code must give the same answers, and a comparison
-harness checks that it does. Many files begin with a comment naming the
+ShapeLogic is a rebuild of BurrTools. Its answers were checked against
+the original's while it was ported, and a regression suite keeps them:
+it compares the solver with the answers recorded then. Many files begin with a comment naming the
 original file they were ported from.
 
 ## The pages in this section

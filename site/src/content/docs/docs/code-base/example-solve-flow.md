@@ -470,4 +470,4 @@ of kind `Abort`: everything is thrown away and the state is `Idle`.
   against the real engine.
 - `web/tests/e2e/solver.e2e.ts`: the Solver tab driven in the built app,
   reading the card's `data-*` attributes.
-- `just oracle`: the counts against the original BurrTools.
+- `just regress`: the counts against the recorded answers.

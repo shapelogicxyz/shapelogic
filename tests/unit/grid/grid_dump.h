@@ -6,10 +6,11 @@
 /// generated shapes on every grid their symmetry, every transformation, the
 /// hotspot and bounding-box queries, and each editing operation.
 ///
-/// The same code runs against the original BurrTools (tests/oracle/
-/// grid_dump_old.cpp, which recorded tests/data/grid_dump.txt) and against
-/// this port (tests/unit/grid/test_grid_dump.cpp, which compares). The two
-/// sides differ only in the adapter `A` the including file defines before
+/// The same code ran against the original BurrTools (the retired
+/// tests/oracle/grid_dump_old.cpp, in git history up to 632af17, which
+/// recorded tests/data/grid_dump.txt) and runs against this port
+/// (tests/unit/grid/test_grid_dump.cpp, which compares). The two sides
+/// differed only in the adapter `A` the including file defines before
 /// including this header:
 ///   A::Voxel, A::make(grid, x, y, z), A::copy(v), A::numTrans(grid),
 ///   A::numTransMirror(grid), A::numGroups(grid), A::contains(grid, s, t),

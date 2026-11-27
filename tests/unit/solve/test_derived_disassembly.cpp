@@ -474,7 +474,7 @@ TEST_CASE("derived take-apart: the original's larger rhombic examples",
 
 // The reference search itself, where the original is the judge: on cube
 // and prism examples it finds each node's moves, and no way apart where
-// the take-apart (which the oracle harness holds against the original's)
+// the take-apart (which the regression suite holds to the original's answers)
 // finds none.
 TEST_CASE("derived take-apart: the reference search agrees with the ported take-apart",
           "[solve][disasm][derived]") {

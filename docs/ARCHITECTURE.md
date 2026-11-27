@@ -56,10 +56,9 @@ programs: nothing in the core calls it).
 | `tests/contract/` | the engine's contract tests: `shapelogic_engine` driven as a subprocess, every message checked against `api/` |
 | `tests/cli/` | `test_cli.py` (ctest `cli`): `shapelogic_cli`'s options, refusals and modes on the fixtures |
 | `tests/docs/` | `test_architecture_map.py` (ctest `architecture-map`): this file's map against the tree |
-| `tests/oracle/` | the comparison harness against the original BurrTools (`tests/oracle/README.md`) |
-| `tests/bench/` | `bench.py`: solve speed against the original, back to back |
-| `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solutions`, `bt_imports`, `bt_panex_resume`, the blockpack check) |
-| `tests/data/` | fixtures: `puzzles/` (copied from the original; `new-grids/`, the hexagonal and cairo puzzles made by this engine; `tilted/`, Tilted Square puzzles made through the engine by its `make_fixtures.py`, which also writes the site demo's example: decision 0045); the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `stl_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`, `imports_by_original/`, `slide_routes.txt`, `slide_solved_by_original/`, `stl_solution_by_original/`); `imports/` (other programs' files); `movement_checks_by_v2.txt` (BurrTools V2's); `slide_paused_by_v1.8.1/` (a sliding solve paused by v1.8.1's engine, with the script that made it: decision 0033) |
+| `tests/regression/` | `regress.py`: the solver's answers and text against the recorded ones, on `corpus.txt` (files of this repo; `tests/regression/README.md`) |
+| `tests/bench/` | `bench.py`, run on request only: speed and counts against upstream BurrTools, or two ShapeLogic builds (`tests/bench/README.md`) |
+| `tests/data/` | fixtures: `puzzles/` (copied from the original; `regression/`, the regression suite's take-apart cases, named by what each tests; `new-grids/`, the hexagonal and cairo puzzles made by this engine; `tilted/`, Tilted Square puzzles made through the engine by its `make_fixtures.py`, which also writes the site demo's example: decision 0045); the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `stl_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`, `imports_by_original/`, `slide_routes.txt`, `slide_solved_by_original/`, `stl_solution_by_original/`); `imports/` (other programs' files); `movement_checks_by_v2.txt` (BurrTools V2's); `slide_paused_by_v1.8.1/` (a sliding solve paused by v1.8.1's engine, with the script that made it: decision 0033) |
 | `docs/` | this file, the plans (`*-PLAN.md`), API.md (generated), decisions/, handoff/, webui-spec.md, mockup/ (vendored), core-api.md (the draft API.md replaced) |
 | `cmake/` | warnings, sanitizers, dependencies, the version from the git tag (`ProjectVersion.cmake`), whether the Python module is built (`Python.cmake`) |
 
@@ -150,7 +149,7 @@ Rules (decisions 0020, 0023, 0025, 0027, 0038, 0046):
 
 Files in `core/shapelogic/model/`:
 - `assembly.{h,cpp}`: `Placement`, `MirrorInfo`, `Assembly` (`transform`, `smallerRotationExists`, `createSpace`, `sort`, the editing helpers).
-- `disassembly.{h,cpp}`: `Disassembly` (level and move counts), `State`, `Separation` (the tree), `SeparationInfo` (the compact pre-order form), `movesText()` (cut at the original's 256 bytes: the text oracle compares it); `kMaxSeparationDepth`, how deep a tree may nest (the reader refuses a deeper one, the take-apart makes none): no walk of a tree but its copy depends on its depth.
+- `disassembly.{h,cpp}`: `Disassembly` (level and move counts), `State`, `Separation` (the tree), `SeparationInfo` (the compact pre-order form), `movesText()` (cut at the original's 256 bytes); `kMaxSeparationDepth`, how deep a tree may nest (the reader refuses a deeper one, the take-apart makes none): no walk of a tree but its copy depends on its depth.
 - `grid_convert.{h,cpp}`: `convertGrid`: a cube-grid puzzle on the rhombic (5x5x5 cells a cube) or tetra-octa (3x3x3) grid, with its colors, notes and problems; `convertTargets`; `kMaxConvertedCells`.
 - `movement_values.h`: the movement analysis' special values (`movement::kFree`, the removal step, the states' mark of a removed piece, the original's), with `static_assert`s of how they relate.
 - `problem.{h,cpp}`: `Problem`: parts (at most `kMaxPartCount` pieces each), result, goal, color rules, holes, state, counts, the saved position, pending assemblies, solutions and their sort orders (`solutionSortOrder`), stored solver options, stacks, slide marks, the uid (decision 0044).
@@ -288,9 +287,8 @@ Files in `core/shapelogic/solve/`:
 - `take_apart_pool.{h,cpp}`: `TakeApartPool`, a search's assemblies taken apart side by side: the CLI's (results in order) and the session's (as they come, numbered); a stop gives back what was not taken apart, as stopped.
 
 Rules of the assemblers (decisions 0009, 0024, 0041, 0048):
-- Checked by the harness: assembly counts on every tier, one and all
-  threads; the deterministic searches' iteration counts equal (the harness
-  only: tests never assert them); saved positions carry on in both programs.
+- Checked by the regression suite: assembly counts on every tier, one
+  and all threads (tests never assert iteration counts).
 - A run polls only its run's token; a callback answering false pauses it,
   an exception aborts it; nothing is reset, the next `assemble()` carries on;
   `RunEnd::Finished` only from the search itself; a stopped split or vector
@@ -305,9 +303,8 @@ Rules of the assemblers (decisions 0009, 0024, 0041, 0048):
   removes, so the reduced matrix is the original's (0048).
 
 Rules of the take-apart (decision 0025):
-- Checked by the harness: every summary field on all 180 corpus puzzles,
-  Classic and Crowell, one and all threads; the solved files solution by
-  solution. The rhombic, tetra-octa, hexagonal and cairo grids' take-apart
+- Checked by the regression suite: every summary field on every corpus
+  puzzle, Classic and Crowell, one and all threads. The rhombic, tetra-octa, hexagonal and cairo grids' take-apart
   is not the original's (it has none): derived from the cells, after
   BurrTools V2, and the same derivation gives the original's answers on
   cubes and prisms (`--derived-checks`). Spheres are assembled only, and so is a puzzle with a tilted tray (its walls are not cells): `canDisassemble()` is the one rule, for the session, the analysis, the explorer, the CLI and Python.
@@ -407,12 +404,12 @@ Rules (decisions 0016, 0022, 0023, 0025):
 Files in `core/shapelogic/app/`:
 - `analysis.{h,cpp}`: `Analysis`, saved assemblies taken apart afterwards on a thread of its own.
 - `background_job.{h,cpp}`: `BackgroundJob`, what `Analysis`, `PlacementFit` and `AssemblyExplorerBuild` share (the thread, the stop, active, the done count, the failure); the document keeps the first two in one map by (problem, kind), the engine the third by its handle.
-- `document.{h,cpp}`: `Document`: the puzzle, ids, revision, dirty flag, undo history, the queries, solving, analyses, files, playback and explorers.
-- `document_commands.cpp`: the editing commands, from the original GUI's callbacks; what each tells of its change is audited against what the saved file shows changed (`tests/unit/app/test_change_audit.cpp`, which finds the commands in `document.h`: a new one gets its row there), and a call that changes nothing leaves no step and no revision.
+- `document.{h,cpp}`: `Document`: the puzzle, ids, revision, dirty flag, undo history, the queries, solving, analyses, files, playback and explorers; each kind's own commands are its friends `SlidingEdits`, `TrayEdits` and `StackingEdits` (below), which only their engine methods and tests include.
+- `document_commands.cpp`: the editing commands, from the original GUI's callbacks; what each tells of its change is audited against what the saved file shows changed (`tests/unit/app/test_change_audit.cpp`, which finds the commands in `document.h` and the three kinds' headers: a new one gets its row there), and a call that changes nothing leaves no step and no revision.
 - `document_internal.h`: the undo steps, a run's among them (internal to `document*.cpp`): a step holds what its command changed (`touchProblemSettings` where no solution changes: the problem without them), and the steps are kept to the depth and to `DocumentSettings::undoBytes` (512 MiB; the newest always stays); the commands' shared forms (`editShapeField`, `editProblemField`, `moveInList`).
-- `document_sliding.cpp`: the sliding commands (decision 0014): starts and goals, stamps, layouts.
-- `document_stacking.cpp`: the stacking commands (decision 0015): rod sets, discs, stacks, saved searches.
-- `document_tilted.cpp`: a document with a tilted tray (decision 0045).
+- `document_sliding.cpp`, `sliding_edits.h`: the sliding commands (decision 0014), `SlidingEdits`: start/goal shapes, starts and goals, stamps, layouts; and what the generic commands do for a sliding puzzle (its problems following an edited board, `syncSliding`).
+- `document_stacking.cpp`, `stacking_edits.h`: the stacking commands (decision 0015), `StackingEdits`: rod sets, disc sizes, stacks; and the generic commands' stacking parts (`refuseOnStacking`, a new disc, the shared saved searches).
+- `document_tilted.cpp`, `tray_edits.h`: a document with a tilted tray (decision 0045): its queries (`Document::trayLayout`, `trayPlacements`, `fitsTray`) and its commands, `TrayEdits` (the tray, its walls, the trying of every placement).
 - `explorers.{h,cpp}`: `AssemblyExplorer` (its matrix the solve's, `solveSetup`; made in two steps: `copy()` under the problem's lock, `build()` from the copy alone) with `AssemblyExplorerBuild`, its build as a job the engine keeps, and `MovementExplorer`, each on a copy of the puzzle.
 - `layer_geometry.{h,cpp}`: `layerGeometry`, the grid editor's drawing of a layer.
 - `placement_fit.{h,cpp}`: `PlacementFit`, a problem's assemblies counted on each board of the tray's placements.
@@ -507,10 +504,11 @@ Files in `cli/`:
 - `text_print.{h,cpp}`: burrTxt's text drawings.
 
 Rules:
-- Checked by the harness: `just oracle` reads its `--json`, `just
-  oracle-text` compares its text with burrTxt's byte for byte, `just
-  oracle-files` solves with `--save`. `--original-drawings` draws as burrTxt
-  did (wrong shapes below the first separation), for the comparison.
+- Checked by the regression suite: `just regress` reads its `--json` (the
+  best level of equals is the greater text, so it is the same on any
+  number of threads), `just regress-text` its text byte for byte.
+  `--original-drawings` draws as burrTxt did (wrong shapes below the
+  first separation).
 - The CLI reads the environment the core does not (`SHAPELOGIC_SLIDE_DIR`,
   `SHAPELOGIC_SLIDE_DISK_GB`, `SHAPELOGIC_PANEX_DIR`,
   `SHAPELOGIC_PANEX_DISK_GB`), and prints what the original's library said on
@@ -532,8 +530,8 @@ Rules (decision 0018):
 - Python sees only copies or the shared puzzle through an index, read
   afresh at each call; nothing the worker thread reads is reachable from
   Python; the module reads no environment variable (`work_dir`).
-- Checked by `python/tests/` (ctest `python`), `oracle.py python` and by
-  hand under the sanitizers (docs/handoff/deferred-7.md).
+- Checked by `python/tests/` (ctest `python`) and by hand under the
+  sanitizers (docs/handoff/deferred-7.md).
 
 ## web
 
@@ -819,33 +817,20 @@ Rules (AGENTS.md's; decisions 0012, 0013, 0034, 0036, 0043):
   (Playwright on out/ or BT_OUT_DIR), on a run's copy of the engine
   (`tests/helpers/engine-path.ts`); after an engine change, `npm run record`.
 
-## Testing against the original
+## Testing against recorded answers
 
-`tests/oracle/` runs the original programs (decision 0007;
-`tests/oracle/README.md` has the commands and tiers):
-- `shapelogic_cli` (the harness's `bt`) against `burrTxt`: the summary
-  (`just oracle`; `--fields`, `--threads`, `--solver crowell`), the text
-  byte for byte (`just oracle-text`), the solved files solution by solution
-  (`compare-files`, read by `bt_solutions`), saved positions carried on in
-  the other program (`just oracle-resume`), and the speed
-  (`tests/bench/bench.py`: within 5% or faster). Beside it: every file
-  loaded and saved by both (`just oracle-roundtrip`), the imports, Puzzlecad
-  export and conversion (`bt_imports`, `oracle.py imports`), and the Python
-  module's transcript against the original module's, line for line
-  (`oracle.py python`).
-- The `sliding` and `stacking` tiers use puzzles built by the original's
-  code and its solve thread (`slide_solve_old`, `stack_solve_old`); a
-  puzzle whose count depends on the order of its starts is compared on one
-  thread (flag `O`); each stacking run has a Panex folder of its own, never
-  the user's cache. `panex-resume` and `blockpack-check` compare saved
-  searches and packing. Flag `D` marks the grids only the new core takes
-  apart (assemblies compared, solutions asked for).
-- The recorders (`grid-dump`, `model-dump`, `app-dump`, `stl-dump`,
-  `record-saves`, `record-positions`, `record-analysed`,
-  `record-slide-routes`, `record-imports`, `stl-solution`) compile a dump tool
-  against the original's library and write into `tests/data/`;
-  `v2_movement_checks.py` records BurrTools V2's movement checks (0025). The
-  unit tests compare with those recordings and never read the original repo.
+`tests/regression/` (decision 0007, amended) solves the corpus with
+`shapelogic_cli` and compares with the answers in its `baseline/`,
+recorded from the original BurrTools until 2026-11-27 or, where marked,
+ShapeLogic's own: the summaries (`just regress`; `--tier`, `--threads`,
+`--solver crowell`, `--solver panex`) and the text byte for byte (`just
+regress-text`). A sliding puzzle whose count depends on the order of its
+starts is compared on one thread (flag `O`); each sliding or stacking run
+has a search folder of its own. An answer changed on purpose is recorded
+with `--update`. No suite reads or runs BurrTools: `just burrtools-compare`
+(`tests/bench/bench.py`) times upstream's and compares counts, on request
+only. The unit tests compare with recordings the retired harness made from
+the original (`tests/data/*_by_original/`, the dumps), fixed data now.
 
 ## Rules that hold everywhere
 
@@ -855,7 +840,7 @@ AGENTS.md has the full list; the load-bearing ones:
 3. Recoverable errors are `Result<T>`; broken invariants are `BT_ASSERT`.
 4. No owning raw pointers; value types and `unique_ptr`.
 5. No global state or environment switches in `core/`.
-6. Ported code matches the original on the harness before it is reshaped.
+6. Ported code keeps the recorded answers (the regression suite) before it is reshaped.
 7. File compatibility is one way: everything the original wrote opens.
 
 ## Build and test

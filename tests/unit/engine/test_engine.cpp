@@ -7,6 +7,7 @@
 #include "rpc.h"
 #include "../scratch_dir.h"
 
+#include "shapelogic/app/tray_edits.h"
 #include "shapelogic/base/assert.h"
 #include "shapelogic/model/solution.h"
 #include "shapelogic/model/problem.h"
@@ -1045,17 +1046,17 @@ TEST_CASE("engine: a fit that ends inside a poll is told once the document is fr
   // poll took in what had ended, before it tells
   const auto ended = [](const Json& m) { return m["method"] == "tray.fitEnded"; };
   const std::vector<Json> inside = pollWith(h, [&] {
-    REQUIRE(d.fitPlacementsStop(id).has_value());
-    for (int i = 0; i < 60000 && d.fitPlacementsProgress(id)->active; i++) {
+    REQUIRE(app::TrayEdits(d).fitPlacementsStop(id).has_value());
+    for (int i = 0; i < 60000 && app::TrayEdits(d).fitPlacementsProgress(id)->active; i++) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    REQUIRE_FALSE(d.fitPlacementsProgress(id)->active);
+    REQUIRE_FALSE(app::TrayEdits(d).fitPlacementsProgress(id)->active);
   });
   INFO(Json(inside).dump());
   // not told yet: the document is still frozen, a tray change is refused
   CHECK(indexOf(inside, ended) < 0);
   CHECK(d.solving());
-  CHECK(d.fittingPlacements(id));
+  CHECK(app::TrayEdits(d).fittingPlacements(id));
 
   // the next poll takes the end in and tells it, before its revision
   const std::vector<Json> after = pollWith(h, {});

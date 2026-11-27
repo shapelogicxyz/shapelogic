@@ -13,6 +13,7 @@
 // stacking (changeProblem) do.
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/document_internal.h"
+#include "shapelogic/app/stacking_edits.h"
 #include "shapelogic/base/assert.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/io/paused_solve.h"
@@ -122,8 +123,8 @@ std::string placeOneDisk(const Puzzle& puzzle, Problem& pr, unsigned int shape, 
 
 // ---- the checks ------------------------------------------------------------------------
 
-Result<void> Document::checkStacking() const {
-  if (!stacking::isStacking(*puzzle_)) {
+Result<void> StackingEdits::checkStacking() const {
+  if (!stacking::isStacking(*d_.puzzle_)) {
     return fail(Errc::Unsupported, "only stacking puzzles have rod sets and discs");
   }
   return {};
@@ -173,18 +174,18 @@ Result<void> Document::checkSharedSearchFree(unsigned int problem,
   return {};
 }
 
-Result<unsigned int> Document::stackingProblem(Id problem) const {
+Result<unsigned int> StackingEdits::stackingProblem(Id problem) const {
   if (Result<void> r = checkStacking(); !r) {
     return std::unexpected(r.error());
   }
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = d_.problemIndex(problem);
   if (!p) {
     return p;
   }
-  if (Result<void> r = checkProblemFree(*p); !r) {
+  if (Result<void> r = d_.checkProblemFree(*p); !r) {
     return std::unexpected(r.error());
   }
-  if (!puzzle_->getProblem(*p).rodSetValid(*puzzle_)) {
+  if (!d_.puzzle_->getProblem(*p).rodSetValid(*d_.puzzle_)) {
     return fail(Errc::InvalidArgument, "Choose a rod set with Set Start/Goal Rods");
   }
   return p;
@@ -203,11 +204,11 @@ Result<Id> Document::addDisc() {
   return id;
 }
 
-Result<void> Document::setDiscSize(Id shape, unsigned int size) {
+Result<void> StackingEdits::setDiscSize(Id shape, unsigned int size) {
   if (Result<void> r = checkStacking(); !r) {
     return r;
   }
-  const Result<unsigned int> s = editableShape(shape);
+  const Result<unsigned int> s = d_.editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -216,164 +217,164 @@ Result<void> Document::setDiscSize(Id shape, unsigned int size) {
                 "An invalid size was entered, please pick a value between 1-100.");
   }
   // the list's size field and its + and - change the size only
-  if (puzzle_->getShape(*s).getDiskSize() == size) {
+  if (d_.puzzle_->getShape(*s).getDiskSize() == size) {
     return {};
   }
-  StepGuard g(*this, "Disc size");
-  touchShape(*s);
-  stacking::generateDisk(puzzle_->getShape(*s), size);
+  Document::StepGuard g(d_, "Disc size");
+  d_.touchShape(*s);
+  stacking::generateDisk(d_.puzzle_->getShape(*s), size);
   // the solutions stay (cb_DiskList); a paused solve of a problem with
   // the disc starts its next run anew
-  for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
-    if (puzzle_->getProblem(p).usesShape(*s)) {
-      endSession(p);
+  for (unsigned int p = 0; p < d_.puzzle_->getNumberOfProblems(); p++) {
+    if (d_.puzzle_->getProblem(p).usesShape(*s)) {
+      d_.endSession(p);
     }
   }
-  lastChange_.shapes = {shape};
+  d_.lastChange_.shapes = {shape};
   g.commit(kChangeShapes);
   return {};
 }
 
 // ---- rod sets --------------------------------------------------------------------------
 
-Result<Id> Document::addRodSet() {
+Result<Id> StackingEdits::addRodSet() {
   if (Result<void> r = checkStacking(); !r) {
     return std::unexpected(r.error());
   }
-  if (Result<void> r = checkNotSolving(); !r) {
+  if (Result<void> r = d_.checkNotSolving(); !r) {
     return std::unexpected(r.error());
   }
-  StepGuard g(*this, "New rod set");
-  touchWhole();
-  (void)puzzle_->addRodSet();
-  const Id id = newId();
-  ids_.rodSets.push_back(id);
+  Document::StepGuard g(d_, "New rod set");
+  d_.touchWhole();
+  (void)d_.puzzle_->addRodSet();
+  const Id id = d_.newId();
+  d_.ids_.rodSets.push_back(id);
   g.commit(kChangeRodSets);
   return id;
 }
 
-Result<Id> Document::duplicateRodSet(Id rodSet) {
+Result<Id> StackingEdits::duplicateRodSet(Id rodSet) {
   if (Result<void> r = checkStacking(); !r) {
     return std::unexpected(r.error());
   }
-  if (Result<void> r = checkNotSolving(); !r) {
+  if (Result<void> r = d_.checkNotSolving(); !r) {
     return std::unexpected(r.error());
   }
-  const Result<unsigned int> r = rodSetIndex(rodSet);
+  const Result<unsigned int> r = d_.rodSetIndex(rodSet);
   if (!r) {
     return std::unexpected(r.error());
   }
-  StepGuard g(*this, "Copy rod set");
-  touchWhole();
-  const stacking::RodSet copy = puzzle_->getRodSet(*r);
-  (void)puzzle_->addRodSet(copy);
-  const Id id = newId();
-  ids_.rodSets.push_back(id);
+  Document::StepGuard g(d_, "Copy rod set");
+  d_.touchWhole();
+  const stacking::RodSet copy = d_.puzzle_->getRodSet(*r);
+  (void)d_.puzzle_->addRodSet(copy);
+  const Id id = d_.newId();
+  d_.ids_.rodSets.push_back(id);
   g.commit(kChangeRodSets);
   return id;
 }
 
-Result<void> Document::deleteRodSet(Id rodSet) {
+Result<void> StackingEdits::deleteRodSet(Id rodSet) {
   if (Result<void> r = checkStacking(); !r) {
     return r;
   }
-  if (Result<void> r = checkNotSolving(); !r) {
+  if (Result<void> r = d_.checkNotSolving(); !r) {
     return r;
   }
-  const Result<unsigned int> r = rodSetIndex(rodSet);
+  const Result<unsigned int> r = d_.rodSetIndex(rodSet);
   if (!r) {
     return std::unexpected(r.error());
   }
-  if (puzzle_->rodSetCount() < 2) {
+  if (d_.puzzle_->rodSetCount() < 2) {
     return fail(Errc::InvalidArgument, "Keep at least one rod set");
   }
-  StepGuard g(*this, "Delete rod set");
-  touchWhole();
+  Document::StepGuard g(d_, "Delete rod set");
+  d_.touchWhole();
   // the problems on it stand on none afterwards (their stacks kept): a
   // paused solve of theirs could not carry on
   std::vector<Id> lost;
-  for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
-    if (puzzle_->getProblem(p).getRodSetId() == *r) {
-      endSession(p);
-      lost.push_back(ids_.problems[p]);
+  for (unsigned int p = 0; p < d_.puzzle_->getNumberOfProblems(); p++) {
+    if (d_.puzzle_->getProblem(p).getRodSetId() == *r) {
+      d_.endSession(p);
+      lost.push_back(d_.ids_.problems[p]);
     }
   }
-  puzzle_->removeRodSet(*r);
-  ids_.rodSets.erase(ids_.rodSets.begin() + static_cast<std::ptrdiff_t>(*r));
-  lastChange_.problems = std::move(lost);
-  g.commit(kChangeRodSets | (lastChange_.problems.empty() ? 0U : kChangeProblems));
+  d_.puzzle_->removeRodSet(*r);
+  d_.ids_.rodSets.erase(d_.ids_.rodSets.begin() + static_cast<std::ptrdiff_t>(*r));
+  d_.lastChange_.problems = std::move(lost);
+  g.commit(kChangeRodSets | (d_.lastChange_.problems.empty() ? 0U : kChangeProblems));
   return {};
 }
 
-Result<void> Document::renameRodSet(Id rodSet, std::string name) {
+Result<void> StackingEdits::renameRodSet(Id rodSet, std::string name) {
   if (Result<void> r = checkStacking(); !r) {
     return r;
   }
-  if (Result<void> r = checkNotSolving(); !r) {
+  if (Result<void> r = d_.checkNotSolving(); !r) {
     return r;
   }
   if (Result<void> r = checkText(name, true, "a name"); !r) {
     return r;
   }
-  const Result<unsigned int> r = rodSetIndex(rodSet);
+  const Result<unsigned int> r = d_.rodSetIndex(rodSet);
   if (!r) {
     return std::unexpected(r.error());
   }
-  if (puzzle_->getRodSet(*r).name == name) {
+  if (d_.puzzle_->getRodSet(*r).name == name) {
     return {};
   }
-  StepGuard g(*this, "Rename rod set");
-  touchWhole();
-  puzzle_->getRodSet(*r).name = std::move(name);
+  Document::StepGuard g(d_, "Rename rod set");
+  d_.touchWhole();
+  d_.puzzle_->getRodSet(*r).name = std::move(name);
   g.commit(kChangeRodSets);
   return {};
 }
 
-Result<void> Document::moveRodSet(Id rodSet, unsigned int toIndex) {
+Result<void> StackingEdits::moveRodSet(Id rodSet, unsigned int toIndex) {
   if (Result<void> r = checkStacking(); !r) {
     return r;
   }
-  if (Result<void> r = checkNotSolving(); !r) {
+  if (Result<void> r = d_.checkNotSolving(); !r) {
     return r;
   }
-  const Result<unsigned int> r = rodSetIndex(rodSet);
+  const Result<unsigned int> r = d_.rodSetIndex(rodSet);
   if (!r) {
     return std::unexpected(r.error());
   }
-  if (toIndex >= puzzle_->rodSetCount()) {
+  if (toIndex >= d_.puzzle_->rodSetCount()) {
     return fail(Errc::InvalidArgument, "there is no such place in the list of rod sets");
   }
   if (toIndex == *r) {
     return {};
   }
-  StepGuard g(*this, "Move rod set");
-  touchWhole();
+  Document::StepGuard g(d_, "Move rod set");
+  d_.touchWhole();
   // one place at a time, as the arrows did; the problems keep their board
   moveInList(*r, toIndex, [this](unsigned int at, unsigned int next) {
-    puzzle_->exchangeRodSets(at, next);
-    std::swap(ids_.rodSets[at], ids_.rodSets[next]);
+    d_.puzzle_->exchangeRodSets(at, next);
+    std::swap(d_.ids_.rodSets[at], d_.ids_.rodSets[next]);
   });
   g.commit(kChangeRodSets);
   return {};
 }
 
-Result<void> Document::setRodSetRules(Id rodSet, const stacking::RodSet& rules) {
+Result<void> StackingEdits::setRodSetRules(Id rodSet, const stacking::RodSet& rules) {
   if (Result<void> r = checkStacking(); !r) {
     return r;
   }
   // an edit drops the solutions of every problem on the rod set, one of
   // which may be solving (cb_RodField put the fields back)
-  if (Result<void> r = checkNotSolving(); !r) {
+  if (Result<void> r = d_.checkNotSolving(); !r) {
     return r;
   }
-  const Result<unsigned int> r = rodSetIndex(rodSet);
+  const Result<unsigned int> r = d_.rodSetIndex(rodSet);
   if (!r) {
     return std::unexpected(r.error());
   }
   // the GUI's inputs' bounds: a value past them is refused, as the engine
   // refuses it, unless it is the one the rod set has (a file's may be
   // larger: an edit of another rule keeps it)
-  const stacking::RodSet& now = puzzle_->getRodSet(*r);
+  const stacking::RodSet& now = d_.puzzle_->getRodSet(*r);
   const auto outside = [](unsigned int v, unsigned int was, unsigned int most) {
     return v != was && (v < 1 || v > most);
   };
@@ -385,116 +386,116 @@ Result<void> Document::setRodSetRules(Id rodSet, const stacking::RodSet& rules) 
     return fail(Errc::InvalidArgument,
                 "a rod's height and the pocket's are 1 to " + std::to_string(kMaxHeight));
   }
-  const stacking::RodSet next = rulesFromFields(rules, puzzle_->getRodSet(*r).name);
-  if (next == puzzle_->getRodSet(*r)) {
+  const stacking::RodSet next = rulesFromFields(rules, d_.puzzle_->getRodSet(*r).name);
+  if (next == d_.puzzle_->getRodSet(*r)) {
     return {};
   }
-  StepGuard g(*this, "Rod rules");
-  touchWhole();
-  puzzle_->getRodSet(*r) = next;
+  Document::StepGuard g(d_, "Rod rules");
+  d_.touchWhole();
+  d_.puzzle_->getRodSet(*r) = next;
   // Stacks saved against the old rules are kept, illegal or not (the
   // validity bar says what is wrong); a solution found under the old
   // rules may not hold under these.
   std::vector<Id> changedProblems;
-  for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
-    Problem& pr = puzzle_->getProblem(p);
-    if (pr.rodSetValid(*puzzle_) && pr.getRodSetId() == *r) {
-      stacking::syncMaps(*puzzle_, pr);
-      problemChanged(p);
-      changedProblems.push_back(ids_.problems[p]);
+  for (unsigned int p = 0; p < d_.puzzle_->getNumberOfProblems(); p++) {
+    Problem& pr = d_.puzzle_->getProblem(p);
+    if (pr.rodSetValid(*d_.puzzle_) && pr.getRodSetId() == *r) {
+      stacking::syncMaps(*d_.puzzle_, pr);
+      d_.problemChanged(p);
+      changedProblems.push_back(d_.ids_.problems[p]);
     }
   }
-  lastChange_.problems = std::move(changedProblems);
+  d_.lastChange_.problems = std::move(changedProblems);
   g.commit(kChangeRodSets |
-           (lastChange_.problems.empty() ? 0U : kChangeProblems | kChangeSolutions));
+           (d_.lastChange_.problems.empty() ? 0U : kChangeProblems | kChangeSolutions));
   return {};
 }
 
 // ---- the stacks ------------------------------------------------------------------------
 
-Result<void> Document::setProblemRodSet(Id problem, Id rodSet) {
+Result<void> StackingEdits::setProblemRodSet(Id problem, Id rodSet) {
   if (Result<void> r = checkStacking(); !r) {
     return r;
   }
-  const Result<unsigned int> p = freeProblem(problem);
+  const Result<unsigned int> p = d_.freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
-  const Result<unsigned int> r = rodSetIndex(rodSet);
+  const Result<unsigned int> r = d_.rodSetIndex(rodSet);
   if (!r) {
     return std::unexpected(r.error());
   }
   // the same board, its stacks fitted to it already: nothing to do
-  const Problem& pr = puzzle_->getProblem(*p);
-  const std::size_t rods = stacking::totalRods(puzzle_->getRodSet(*r));
+  const Problem& pr = d_.puzzle_->getProblem(*p);
+  const std::size_t rods = stacking::totalRods(d_.puzzle_->getRodSet(*r));
   if (pr.getRodSetId() == *r &&
       rodsAfterSync(pr.startStacks(), rods) == pr.startStacks().rods.size() &&
       rodsAfterSync(pr.goalStacks(), rods) == pr.goalStacks().rods.size()) {
     return {};
   }
-  StepGuard g(*this, "Set start/goal rods");
-  touchProblemSettings(*p);
-  Problem& edited = puzzle_->getProblem(*p);
+  Document::StepGuard g(d_, "Set start/goal rods");
+  d_.touchProblemSettings(*p);
+  Problem& edited = d_.puzzle_->getProblem(*p);
   edited.setRodSetId(*r);
-  stacking::syncMaps(*puzzle_, edited);
-  endSession(*p);
-  lastChange_.problems = {problem};
+  stacking::syncMaps(*d_.puzzle_, edited);
+  d_.endSession(*p);
+  d_.lastChange_.problems = {problem};
   g.commit(kChangeProblems);
   return {};
 }
 
-Result<void> Document::placeDisc(Id problem, Id shape, unsigned int rod, bool goal) {
+Result<void> StackingEdits::placeDisc(Id problem, Id shape, unsigned int rod, bool goal) {
   const Result<unsigned int> p = stackingProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = d_.shapeIndex(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
-  if (rod >= rodsAfterSync(*puzzle_, puzzle_->getProblem(*p), goal)) {
+  if (rod >= rodsAfterSync(*d_.puzzle_, d_.puzzle_->getProblem(*p), goal)) {
     return fail(Errc::InvalidArgument, "That rod is not on this board");
   }
-  StepGuard g(*this, goal ? "Place goal disc" : "Place start disc");
-  touchProblem(*p);
-  const std::string err = placeOneDisk(*puzzle_, puzzle_->getProblem(*p), *s, rod, goal);
+  Document::StepGuard g(d_, goal ? "Place goal disc" : "Place start disc");
+  d_.touchProblem(*p);
+  const std::string err = placeOneDisk(*d_.puzzle_, d_.puzzle_->getProblem(*p), *s, rod, goal);
   if (!err.empty()) {
     // a rod on the board: only a full part stops a disc placed without
     // its rules (what was touched goes back with the guard)
     BT_ASSERT_MSG(err == kPartFullText, "a disc placed without its rules did not go");
     return fail(Errc::InvalidArgument, err);
   }
-  endSession(*p);
-  lastChange_.problems = {problem};
+  d_.endSession(*p);
+  d_.lastChange_.problems = {problem};
   g.commit(kChangeProblems | kChangeSolutions);
   return {};
 }
 
-Result<DiscsPlaced> Document::placeAllDiscs(Id problem, unsigned int rod, bool goal) {
+Result<DiscsPlaced> StackingEdits::placeAllDiscs(Id problem, unsigned int rod, bool goal) {
   const Result<unsigned int> p = stackingProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
-  if (rod >= rodsAfterSync(*puzzle_, puzzle_->getProblem(*p), goal)) {
+  if (rod >= rodsAfterSync(*d_.puzzle_, d_.puzzle_->getProblem(*p), goal)) {
     return fail(Errc::InvalidArgument, "That rod is not on this board");
   }
   // largest first, so a size rule can still stack them on one rod
   std::vector<unsigned int> shapes;
-  shapes.reserve(puzzle_->getNumberOfShapes());
-  for (unsigned int j = 0; j < puzzle_->getNumberOfShapes(); j++) {
+  shapes.reserve(d_.puzzle_->getNumberOfShapes());
+  for (unsigned int j = 0; j < d_.puzzle_->getNumberOfShapes(); j++) {
     shapes.push_back(j);
   }
   std::stable_sort(shapes.begin(), shapes.end(), [this](unsigned int a, unsigned int b) {
-    return puzzle_->getShape(a).getDiskSize() > puzzle_->getShape(b).getDiskSize();
+    return d_.puzzle_->getShape(a).getDiskSize() > d_.puzzle_->getShape(b).getDiskSize();
   });
   DiscsPlaced out;
   if (shapes.empty()) {
     return out;
   }
-  StepGuard g(*this, goal ? "Place all goal discs" : "Place all start discs");
-  touchProblem(*p);
+  Document::StepGuard g(d_, goal ? "Place all goal discs" : "Place all start discs");
+  d_.touchProblem(*p);
   for (const unsigned int shape : shapes) {
-    out.error = placeOneDisk(*puzzle_, puzzle_->getProblem(*p), shape, rod, goal);
+    out.error = placeOneDisk(*d_.puzzle_, d_.puzzle_->getProblem(*p), shape, rod, goal);
     if (!out.error.empty()) {
       break;
     }
@@ -504,18 +505,19 @@ Result<DiscsPlaced> Document::placeAllDiscs(Id problem, unsigned int rod, bool g
     // nothing went: what was touched goes back with the guard
     return fail(Errc::InvalidArgument, out.error);
   }
-  endSession(*p);
-  lastChange_.problems = {problem};
+  d_.endSession(*p);
+  d_.lastChange_.problems = {problem};
   g.commit(kChangeProblems | kChangeSolutions);
   return out;
 }
 
-Result<void> Document::removeDisc(Id problem, bool goal, unsigned int rod, unsigned int index) {
+Result<void> StackingEdits::removeDisc(Id problem, bool goal, unsigned int rod,
+                                       unsigned int index) {
   const Result<unsigned int> p = stackingProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
-  const stacking::StackMap& map = mapOf(puzzle_->getProblem(*p), goal);
+  const stacking::StackMap& map = mapOf(d_.puzzle_->getProblem(*p), goal);
   if (rod >= map.rods.size() || map.rods[rod].empty()) {
     return fail(Errc::InvalidArgument, "That rod is empty");
   }
@@ -523,75 +525,75 @@ Result<void> Document::removeDisc(Id problem, bool goal, unsigned int rod, unsig
     return fail(Errc::InvalidArgument, "there is no disc at that place on the rod");
   }
   const stacking::DiskRef disk = map.rods[rod][index];
-  StepGuard g(*this, "Remove disc");
-  touchProblem(*p);
-  Problem& pr = puzzle_->getProblem(*p);
+  Document::StepGuard g(d_, "Remove disc");
+  d_.touchProblem(*p);
+  Problem& pr = d_.puzzle_->getProblem(*p);
   // off both stackings, the later copies renumbered, one copy fewer
   stacking::dropInstance(pr, disk.shapeId, disk.instance);
   if (pr.getShapeMinimum(disk.shapeId) > 0) {
-    pr.setShapeMinimum(*puzzle_, disk.shapeId, pr.getShapeMinimum(disk.shapeId) - 1);
+    pr.setShapeMinimum(*d_.puzzle_, disk.shapeId, pr.getShapeMinimum(disk.shapeId) - 1);
   }
   if (pr.getShapeMaximum(disk.shapeId) > 0) {
-    pr.setShapeMaximum(*puzzle_, disk.shapeId, pr.getShapeMaximum(disk.shapeId) - 1);
+    pr.setShapeMaximum(*d_.puzzle_, disk.shapeId, pr.getShapeMaximum(disk.shapeId) - 1);
   }
-  endSession(*p);
-  lastChange_.problems = {problem};
+  d_.endSession(*p);
+  d_.lastChange_.problems = {problem};
   g.commit(kChangeProblems | kChangeSolutions);
   return {};
 }
 
-Result<void> Document::clearStacks(Id problem, bool goal) {
+Result<void> StackingEdits::clearStacks(Id problem, bool goal) {
   if (Result<void> r = checkStacking(); !r) {
     return r;
   }
-  const Result<unsigned int> p = freeProblem(problem);
+  const Result<unsigned int> p = d_.freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
   // Start and goal share the counts: only the stacking edited is emptied
-  const stacking::StackMap& map = mapOf(puzzle_->getProblem(*p), goal);
+  const stacking::StackMap& map = mapOf(d_.puzzle_->getProblem(*p), goal);
   if (std::all_of(map.rods.begin(), map.rods.end(),
                   [](const std::vector<stacking::DiskRef>& r) { return r.empty(); })) {
     return {};
   }
-  StepGuard g(*this, goal ? "Clear goal" : "Clear start");
-  problemChanged(*p);
-  Problem& pr = puzzle_->getProblem(*p);
+  Document::StepGuard g(d_, goal ? "Clear goal" : "Clear start");
+  d_.problemChanged(*p);
+  Problem& pr = d_.puzzle_->getProblem(*p);
   for (std::vector<stacking::DiskRef>& r : goal ? pr.editGoal().rods : pr.editStart().rods) {
     r.clear();
   }
-  lastChange_.problems = {problem};
+  d_.lastChange_.problems = {problem};
   g.commit(kChangeProblems | kChangeSolutions);
   return {};
 }
 
-Result<bool> Document::setStacks(Id problem, bool goal,
-                                 const std::vector<std::vector<unsigned int>>& stacks) {
+Result<bool> StackingEdits::setStacks(Id problem, bool goal,
+                                      const std::vector<std::vector<unsigned int>>& stacks) {
   const Result<unsigned int> p = stackingProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
   // refused before the step opens, so a refusal leaves no undo step
-  const Problem& pr = puzzle_->getProblem(*p);
-  if (std::string why = stacking::positionRefusal(*puzzle_, pr, stacks); !why.empty()) {
+  const Problem& pr = d_.puzzle_->getProblem(*p);
+  if (std::string why = stacking::positionRefusal(*d_.puzzle_, pr, stacks); !why.empty()) {
     return fail(Errc::InvalidArgument, std::move(why));
   }
   // the position it has already: the problem keeps what it had found
-  stacking::StackMap map = stacking::positionMap(*puzzle_, pr, stacks);
+  stacking::StackMap map = stacking::positionMap(*d_.puzzle_, pr, stacks);
   if (map == mapOf(pr, goal)) {
     return false;
   }
-  StepGuard g(*this, goal ? "Set goal position" : "Set start position");
-  problemChanged(*p);
-  Problem& edited = puzzle_->getProblem(*p);
+  Document::StepGuard g(d_, goal ? "Set goal position" : "Set start position");
+  d_.problemChanged(*p);
+  Problem& edited = d_.puzzle_->getProblem(*p);
   (goal ? edited.editGoal() : edited.editStart()) = std::move(map);
-  lastChange_.problems = {problem};
+  d_.lastChange_.problems = {problem};
   g.commit(kChangeProblems | kChangeSolutions);
   return true;
 }
 
-Result<unsigned int> Document::moveDisc(Id problem, bool goal, unsigned int rod,
-                                        unsigned int index, int delta) {
+Result<unsigned int> StackingEdits::moveDisc(Id problem, bool goal, unsigned int rod,
+                                             unsigned int index, int delta) {
   const Result<unsigned int> p = stackingProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
@@ -599,7 +601,7 @@ Result<unsigned int> Document::moveDisc(Id problem, bool goal, unsigned int rod,
   if (delta != -1 && delta != 1) {
     return fail(Errc::InvalidArgument, "a disc moves one place at a time");
   }
-  const stacking::StackMap& map = mapOf(puzzle_->getProblem(*p), goal);
+  const stacking::StackMap& map = mapOf(d_.puzzle_->getProblem(*p), goal);
   if (rod >= map.rods.size() || index >= map.rods[rod].size()) {
     return fail(Errc::InvalidArgument, "there is no disc at that place on the rod");
   }
@@ -607,12 +609,13 @@ Result<unsigned int> Document::moveDisc(Id problem, bool goal, unsigned int rod,
   if (next < 0 || next >= static_cast<int>(map.rods[rod].size())) {
     return fail(Errc::InvalidArgument, "the disc cannot move further");
   }
-  StepGuard g(*this, "Move disc");
-  touchProblemSettings(*p);
-  const bool moved = stacking::moveDisk(*puzzle_, puzzle_->getProblem(*p), goal, rod, index, delta);
+  Document::StepGuard g(d_, "Move disc");
+  d_.touchProblemSettings(*p);
+  const bool moved =
+      stacking::moveDisk(*d_.puzzle_, d_.puzzle_->getProblem(*p), goal, rod, index, delta);
   BT_ASSERT_MSG(moved, "a disc that could move did not");
-  endSession(*p);
-  lastChange_.problems = {problem};
+  d_.endSession(*p);
+  d_.lastChange_.problems = {problem};
   g.commit(kChangeProblems);
   return static_cast<unsigned int>(next);
 }

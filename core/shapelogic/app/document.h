@@ -55,9 +55,6 @@ namespace bt::app {
 /// The largest space a command makes, in cells: a guard against sizes typed
 /// by mistake, far above any real puzzle (grid.geometry draws no larger).
 inline constexpr std::uint64_t kMaxShapeCells = std::uint64_t{1} << 24;
-/// The most cells a new start/goal shape of a sliding puzzle is wide, high
-/// or deep (Document::addStartGoal).
-inline constexpr unsigned int kMaxStartGoalSide = 1024;
 
 /// A stable runtime id: names a shape, color or problem while the
 /// document is open, whatever its place in the list (labels like "S1"
@@ -177,14 +174,6 @@ struct SavedSearchInfo {
 enum class ImportFormat : std::uint8_t {
   PuzzleSolver3D,  ///< a PuzzleSolver3D file (.puz)
   Puzzlecad,       ///< a puzzlecad OpenSCAD file (.scad)
-};
-
-/// What placing every disc did (Document::placeAllDiscs): how many went on
-/// the rod before one would not, and why that one would not (empty when
-/// all went).
-struct DiscsPlaced {
-  unsigned int placed = 0;
-  std::string error;
 };
 
 /// A puzzle being edited. The owner calls it from one thread. Solves run
@@ -499,55 +488,27 @@ class Document {
   /// Turns assemblies into new shapes (solution.toShapes); returns their ids.
   Result<std::vector<Id>> assembliesToShapes(Id problem, const AssemblyImport& options);
 
-  // ---- sliding puzzles (decision 0014) -----------------------------------------
+  // ---- sliding, tilted and stacking puzzles -------------------------------------
   //
-  // A sliding puzzle's problems are the user's, each with a start/goal
-  // shape (a board) chosen as its result, as on other grids; the problems
-  // on a board keep its stamped pieces as parts (syncSlidingParts),
-  // whatever changes them: these commands, and deleting, moving,
-  // duplicating and editing shapes. Refused (Unsupported) on other grids.
+  // Each kind's own commands are a class of their own, beside its .cpp
+  // (cleanup item 21.6): SlidingEdits (sliding_edits.h: the start/goal
+  // shapes and the starts and goals, decision 0014), TrayEdits
+  // (tray_edits.h: a tilted tray and the trying of its placements, decision
+  // 0045) and StackingEdits (stacking_edits.h: the rod sets, the disc sizes
+  // and the stacks, decision 0015). They are the Document's friends; a
+  // command added to one compiles its callers alone. What the commands here
+  // do on each kind stays here:
+  // - a sliding puzzle's problems on a board keep its stamped pieces as
+  //   parts (syncSlidingParts) whatever changes them: deleting, moving,
+  //   duplicating and editing shapes, as well as SlidingEdits;
+  // - on a stacking puzzle, what the original GUI hid is refused
+  //   (InvalidArgument): the cell editor and the tool tabs (editCells,
+  //   editBox, resizeShape, shapeTask, a shape of a given size), and the
+  //   Problems tab's brick commands, whose buttons did the stacking ones
+  //   there (setResult, the piece counts and ranges, movePart, the
+  //   groups); shape.create makes a disc of size 1 (cb_NewShape).
 
-  /// Adds a start/goal shape of `size` cells (sliding.addStartGoal, the
-  /// GUI's New Start/Goal): all floor, numbered after the others. No
-  /// problem is made for it (the original made one).
-  Result<Id> addStartGoal(std::array<unsigned int, 3> size);
-  /// The start/goal editor's click (sliding.place): the whole of a piece as
-  /// its start (goal false) or its goal, from a click on (x, y) of layer z,
-  /// y rising upwards (sliding::stampPiece: the piece's slice on layer z
-  /// under the mouse, as low as it fits): a piece of one copy moves there,
-  /// one of several copies is one more copy's (refused once every copy the
-  /// problem has is placed); a copy that is exactly there already is taken
-  /// off. Refused (InvalidArgument) with the reason when it does not fit.
-  /// The start or goal is `problem`'s (decision 0027), whose result must
-  /// be the tray (0: the tray's first problem); the other problems on the
-  /// tray keep theirs. Refused when no problem uses the tray. Returns
-  /// whether the piece is there now.
-  Result<bool> placeStamp(Id tray, Id piece, int x, int y, int z, bool goal, Id problem = 0);
-  /// The problem `problem`, read for the sliding.* calls that name one,
-  /// when its result is the start/goal shape `tray`; refused when it is
-  /// not. 0 is the tray's first problem, null when no problem uses it.
-  [[nodiscard]] Result<const Problem*> trayProblemOf(Id problem, unsigned int tray) const;
-  /// Takes off `problem`'s start or goal of the copy that covers (x, y, z)
-  /// (the right click); false when there is none.
-  Result<bool> clearStampAt(Id tray, int x, int y, int z, bool goal, Id problem = 0);
-  /// Copies every start of `problem` onto its goals (toGoal), or every
-  /// goal onto its starts (sliding.clone), replacing what that side had.
-  /// Refused (InvalidArgument) with the reason when a start is on a
-  /// corridor.
-  Result<void> cloneStamps(Id tray, bool toGoal, Id problem = 0);
-  /// Takes every start (goal false) or every goal of `problem` off the
-  /// tray (sliding.clear); false when that side had none.
-  Result<bool> clearStamps(Id tray, bool goal, Id problem = 0);
-  /// Makes a position of `problem`'s pieces its starts (goal false) or its
-  /// goals (sliding.setLayout), replacing what that side had: `at` places
-  /// each piece of sliding::layoutPieces by the lowest corner of its cells.
-  /// Refused (InvalidArgument) with the reason when it is no position of
-  /// the pieces on the problem's board, or a goal would be on a corridor
-  /// (sliding::layoutRefusal). False, with no undo step, when that side is
-  /// the position already.
-  Result<bool> setSlideLayout(Id problem, bool goal, const std::vector<sliding::TrayCell>& at);
-
-  // ---- tilted trays (decision 0045) ---------------------------------------------
+  // ---- tilted trays (decision 0045; their commands are TrayEdits') -------------
   //
   // A Tilted Square puzzle is a cube-grid puzzle with a tray
   // (Puzzle::tray()). Shape 0 is its board: the tray's whole cells, as
@@ -560,20 +521,6 @@ class Document {
 
   /// True when the puzzle has a tilted tray.
   [[nodiscard]] bool tilted() const { return puzzle_->tray().has_value(); }
-  /// Sets the tray's settings (tray.set): the board is made again, every
-  /// piece is given the new size and moved by whole cells to the place
-  /// nearest its old one where all its cells are whole (a piece with no
-  /// such place stays, centered on its old place, and fitsTray() tells).
-  /// With the best placement the shift is worked out; a custom one is put
-  /// in its canonical form. The solutions go. One undo step; refused
-  /// while anything is solved, when the tray is not valid(), and when a
-  /// piece is larger than the new board (InvalidArgument, naming it).
-  Result<void> setTray(tilted::Tray tray);
-  /// Makes the tray's squares `squares` ({x, y}, each inside the tray)
-  /// walls, or open again (tray.setWalls); the rest as setTray(). Returns
-  /// how many squares changed; none, no step.
-  Result<unsigned int> setTrayWalls(const std::vector<std::array<unsigned int, 2>>& squares,
-                                    bool wall);
   /// True when every cell of shape `index` lies on a whole cell of the
   /// board (always so off a tilted puzzle, and for the board).
   [[nodiscard]] bool fitsTray(unsigned int index) const;
@@ -583,107 +530,6 @@ class Document {
   /// (tilted::placements(), tilted() only), worked out once a tray: the best
   /// placement's first, `inUse` the board the tray lies at.
   [[nodiscard]] const tilted::Placements& trayPlacements() const;
-
-  // ---- stacking puzzles (decision 0015) ---------------------------------------
-  //
-  // A stacking puzzle's boards are its rod sets (at least one); a problem
-  // stands on one (Set Start/Goal Rods) and holds the discs on each rod at
-  // its start and its goal. Its shapes are discs: shape.create makes one
-  // of size 1 (cb_NewShape), and their size is set here (the disc list),
-  // not by cells. What the original GUI hid on a stacking puzzle is refused
-  // (InvalidArgument): the cell editor and the tool tabs (editCells,
-  // editBox, resizeShape, shapeTask, a shape of a given size), and the
-  // Problems tab's brick commands, whose buttons did the stacking ones
-  // below there (setResult, the piece counts and ranges, movePart, the
-  // groups). Refused (Unsupported) on other grids. The rod set commands
-  // are refused while anything is solved (the GUI grayed them out while a
-  // solve ran); the stacks' commands while their problem is.
-
-  /// Adds a rod set with the default rules (cb_NewRod).
-  Result<Id> addRodSet();
-  /// Adds a copy of a rod set, name and all, at the end (cb_CopyRod).
-  Result<Id> duplicateRodSet(Id rodSet);
-  /// Removes a rod set; the problems on it have none afterwards, their
-  /// stacks kept (cb_DeleteRod). The last one is kept ("Keep at least one
-  /// rod set").
-  Result<void> deleteRodSet(Id rodSet);
-  Result<void> renameRodSet(Id rodSet, std::string name);
-  /// Moves a rod set to place `toIndex`, one place at a time as the arrows
-  /// did; the problems keep theirs (cb_RodExchange).
-  Result<void> moveRodSet(Id rodSet, unsigned int toIndex);
-  /// Sets a rod set's rules (cb_RodField; `rules.name` is not used): the
-  /// rod count 1 to stacking::kMaxRods, the heights 1 to kMaxHeight (others
-  /// refused, InvalidArgument), the pocket and the outside
-  /// channel only with Panex columns (the channel with three rods or more
-  /// too), the older "can move over" dropped. The problems on it have
-  /// their stacks fitted to the new count and lose their solutions.
-  Result<void> setRodSetRules(Id rodSet, const stacking::RodSet& rules);
-  /// A disc's size, 1 to 100 (the disc list's size; generateDisk: a new
-  /// square of (2 size + 1) cells, its color kept). Solutions stay, as in
-  /// the original (cb_DiskList).
-  Result<void> setDiscSize(Id shape, unsigned int size);
-  /// The board a problem stands on (Set Start/Goal Rods: cb_ShapeToResult's
-  /// stacking branch); its stacks get the board's rods.
-  Result<void> setProblemRodSet(Id problem, Id rodSet);
-  /// Puts a copy of a disc on top of a rod of the start (goal false) or
-  /// the goal (cb_AddShapeToProblem: placeOneDisk): the next copy not on
-  /// that stacking, one more copy when every copy is; the rules are not
-  /// enforced (setupError tells what breaks them). `rod` is a place of the
-  /// problem's stack map (the pocket column is the last).
-  Result<void> placeDisc(Id problem, Id shape, unsigned int rod, bool goal);
-  /// Puts a copy of every disc on a rod, largest first
-  /// (cb_AddAllShapesToProblem); what was placed before a refusal stays.
-  Result<DiscsPlaced> placeAllDiscs(Id problem, unsigned int rod, bool goal);
-  /// Takes the disc at place `index` (from the bottom) of a rod off both
-  /// stackings, one copy fewer (cb_RemoveShapeFromProblem).
-  Result<void> removeDisc(Id problem, bool goal, unsigned int rod, unsigned int index);
-  /// Empties the start's or the goal's rods; the counts stay, and the
-  /// problem loses its solutions (cb_RemoveAllShapesFromProblem).
-  Result<void> clearStacks(Id problem, bool goal);
-  /// Swaps the disc at place `index` (from the bottom) with the one above
-  /// (+1) or below (-1) it (cb_ProbShapeExchange); returns its new place.
-  Result<unsigned int> moveDisc(Id problem, bool goal, unsigned int rod, unsigned int index,
-                                int delta);
-  /// Makes a position of `problem`'s discs its start (goal false) or its
-  /// goal (stacking.setStacks), replacing what that side had: `stacks` has
-  /// each rod's discs bottom to top, numbered as stacking::discsOf numbers
-  /// them. Refused (InvalidArgument) with the reason when it is no position
-  /// of all the discs under the board's rules (stacking::positionRefusal).
-  /// The problem loses its solutions. False, with no undo step, when that
-  /// side is the position already.
-  Result<bool> setStacks(Id problem, bool goal,
-                         const std::vector<std::vector<unsigned int>>& stacks);
-  /// The saved search of a stacking problem in `workDir`, which Continue
-  /// carries on and Solve would throw away; none while the problem's run
-  /// is active (the GUI asked only when nothing ran) or another problem's
-  /// run is on the same folder (sharedSearchActive), and none on other
-  /// grids.
-  [[nodiscard]] Result<std::optional<SavedSearchInfo>> savedSearch(
-      Id problem, const std::string& workDir) const;
-  /// The folders that hold this problem's saved searches (solve.searchFolders):
-  /// on the sliding grid one in slideDir for each start whose search was
-  /// saved, on the stacking grid its search's folder in panexDir when it is
-  /// there; none on the other grids. What the app's cache manager names
-  /// after the puzzle.
-  [[nodiscard]] Result<std::vector<std::string>> searchFolders(Id problem,
-                                                               const std::string& slideDir,
-                                                               const std::string& panexDir) const;
-
-  /// Whether Continue would carry a sliding problem's paused search on from
-  /// the start alone where Solve would search from both ends
-  /// (sliding::pendingFromStartAlone, sliding.resumeAdvice): a search saved
-  /// by a version before the two ends. `options` are the solve's. False
-  /// while the problem's run is active, and on the other grids.
-  [[nodiscard]] Result<bool> slideFromStartAlone(Id problem,
-                                                 const sliding::SlidingOptions& options) const;
-
-  /// Whether Continue would search a sliding problem all over again, as
-  /// Solve would (sliding::pausedWithNothingSaved): paused with its starts
-  /// waiting, none searched to its end, and no search of them saved in
-  /// slideDir (the cache's saved search deleted, say). False while the
-  /// problem's run is active, after a run that found its start's saved
-  /// search unreadable (Continue tries it again), and on the other grids.
-  [[nodiscard]] Result<bool> continueStartsOver(Id problem, const std::string& slideDir) const;
 
   // ---- queries ----------------------------------------------------------------
 
@@ -777,6 +623,40 @@ class Document {
   Result<void> exportPaused(Id problem, const std::filesystem::path& path,
                             const PausedExport& options = {}) const;
 
+  // the saved searches of sliding and stacking problems
+
+  /// The saved search of a stacking problem in `workDir`, which Continue
+  /// carries on and Solve would throw away; none while the problem's run
+  /// is active (the GUI asked only when nothing ran) or another problem's
+  /// run is on the same folder (sharedSearchActive), and none on other
+  /// grids.
+  [[nodiscard]] Result<std::optional<SavedSearchInfo>> savedSearch(
+      Id problem, const std::string& workDir) const;
+  /// The folders that hold this problem's saved searches (solve.searchFolders):
+  /// on the sliding grid one in slideDir for each start whose search was
+  /// saved, on the stacking grid its search's folder in panexDir when it is
+  /// there; none on the other grids. What the app's cache manager names
+  /// after the puzzle.
+  [[nodiscard]] Result<std::vector<std::string>> searchFolders(Id problem,
+                                                               const std::string& slideDir,
+                                                               const std::string& panexDir) const;
+
+  /// Whether Continue would carry a sliding problem's paused search on from
+  /// the start alone where Solve would search from both ends
+  /// (sliding::pendingFromStartAlone, sliding.resumeAdvice): a search saved
+  /// by a version before the two ends. `options` are the solve's. False
+  /// while the problem's run is active, and on the other grids.
+  [[nodiscard]] Result<bool> slideFromStartAlone(Id problem,
+                                                 const sliding::SlidingOptions& options) const;
+
+  /// Whether Continue would search a sliding problem all over again, as
+  /// Solve would (sliding::pausedWithNothingSaved): paused with its starts
+  /// waiting, none searched to its end, and no search of them saved in
+  /// slideDir (the cache's saved search deleted, say). False while the
+  /// problem's run is active, after a run that found its start's saved
+  /// search unreadable (Continue tries it again), and on the other grids.
+  [[nodiscard]] Result<bool> continueStartsOver(Id problem, const std::string& slideDir) const;
+
   // ---- analysing ----------------------------------------------------------------
 
   /// Takes saved assemblies apart afterwards (solution.analyse) on a thread
@@ -798,29 +678,6 @@ class Document {
   /// An analysis of the problem exists: running, or ended and not yet put
   /// in by poll().
   [[nodiscard]] bool analysing(Id problem) const;
-
-  // ---- trying a tilted tray's every placement -----------------------------------
-
-  /// Counts the assemblies of a problem's pieces on every board of
-  /// trayPlacements() (tray.fitPlacements), on a thread of its own and on a
-  /// copy of the shapes and the problem: the document is not changed.
-  /// `options` are the solve's (the pieces turned over or not, the threads).
-  /// Unsupported without a tray; refused (InvalidState) while the problem
-  /// is being solved, analysed or tried already, and in a group of edits;
-  /// InvalidArgument when the problem has no pieces. While it lasts the
-  /// document is frozen as while solving (decision 0011), so what it counts
-  /// stays what the document holds. Returns the number of boards.
-  Result<unsigned int> fitPlacementsStart(Id problem, const SolveOptions& options);
-  /// Asks a fit to stop; what it counted is kept. Does not wait.
-  Result<void> fitPlacementsStop(Id problem);
-  /// Where it stands: running; or, once poll() has seen it end, how the
-  /// last one ended (inactive, kept until the next one starts or the tray,
-  /// a piece or the problem changes, or its solve is reset); inactive with
-  /// no boards when there is none.
-  [[nodiscard]] Result<PlacementFitProgress> fitPlacementsProgress(Id problem) const;
-  /// A fit of the problem exists: running, or ended and not yet seen by
-  /// poll().
-  [[nodiscard]] bool fittingPlacements(Id problem) const;
 
   /// Takes in what background work did: the results of the analyses that
   /// have ended go into their problems, and the runs and the fits that
@@ -868,6 +725,11 @@ class Document {
                                                           bool rotations) const;
 
  private:
+  // each kind's commands (sliding_edits.h, tray_edits.h, stacking_edits.h)
+  friend class SlidingEdits;
+  friend class TrayEdits;
+  friend class StackingEdits;
+
   struct Ids {
     std::vector<Id> shapes;
     std::vector<Id> colors;
@@ -983,9 +845,6 @@ class Document {
   bool boardsAbovePieces();
   /// The sliding part of changeShape, after shape `shape` was edited.
   void slidingShapeChanged(unsigned int shape);
-  /// The problem whose starts and goals a sliding.* command changes: the
-  /// one named (trayProblemOf), refused when no problem uses the tray.
-  [[nodiscard]] Result<unsigned int> stampProblem(Id problem, unsigned int tray) const;
   /// Before an edit of shape `shape`, made on `v` (the shape itself or the
   /// copy that will replace it): when it is a sliding puzzle's start/goal
   /// shape, what takes its problems' starts and goals along
@@ -1006,8 +865,6 @@ class Document {
   [[nodiscard]] bool slidingRequired(unsigned int problem, unsigned int shape) const;
 
   // stacking puzzles
-  /// Unsupported on other grids.
-  [[nodiscard]] Result<void> checkStacking() const;
   /// What the original GUI hid on a stacking puzzle (InvalidArgument with
   /// `why`); nothing on other grids.
   [[nodiscard]] Result<void> refuseOnStacking(const char* why) const;
@@ -1023,14 +880,9 @@ class Document {
   [[nodiscard]] Result<std::unique_ptr<Voxel>> onTrayAfterTask(unsigned int shape,
                                                                const Voxel& after,
                                                                ShapeTask task) const;
-  /// The common end of setTray() and setTrayWalls().
-  Result<void> applyTray(tilted::Tray next, const char* label);
   /// After a file is read: makes the board and the shapes agree with the
   /// tray; a puzzle whose shapes cannot is opened without its tray.
   void adoptTray();
-  /// A stacking problem's index, free to edit, standing on a rod set
-  /// ("Choose a rod set with Set Start/Goal Rods").
-  [[nodiscard]] Result<unsigned int> stackingProblem(Id problem) const;
   /// cb_NewShape's stacking branch: a disc of size 1.
   Result<Id> addDisc();
   /// True while a run of another problem is active on the folder of

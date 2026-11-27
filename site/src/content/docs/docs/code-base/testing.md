@@ -5,9 +5,9 @@ description: "Every kind of test ShapeLogic has, by name: what each one checks, 
 
 ShapeLogic has several groups of tests: the core's own tests, sanitizer
 builds, the Python package, code checks, the app, the website, the
-comparison with the original BurrTools, and benchmarks. Each test below has
+regression suite, and the comparison with BurrTools. Each test below has
 a name you can refer to it by and the command that runs it. All the commands
-are `just` recipes from the root of the repository, except the benchmarks.
+are `just` recipes from the root of the repository.
 
 ## Everything at once: `just gate`
 
@@ -20,13 +20,11 @@ on a quiet machine.
 
 | Command | What runs |
 |---|---|
-| `just gate` | The groups `build`, `unit`, `sanitizers`, `python`, `oracle`, `app` and `check`. |
-| `just gate unit oracle` | Only the groups named. |
-| `just gate all` | Those and `e2e` (every Playwright spec), `site` and `dist`. |
+| `just gate` | The groups `build`, `unit`, `sanitizers`, `python`, `regression`, `app` and `check`. |
+| `just gate unit regression` | Only the groups named. |
+| `just gate all` | Those and `e2e` (every Playwright spec), `site`, `dist` and `burrtools` (**burrtools-compare**). |
 
-The `oracle` group records the original's solved files first when
-`tests/oracle/work` does not hold them. `tests/gate.sh` lists what each
-group runs.
+`tests/gate.sh` lists what each group runs.
 
 None of the suites writes in your cache folder. Each engine a test starts
 gets search folders of its own (`SHAPELOGIC_SLIDE_DIR`,
@@ -107,47 +105,45 @@ and no recipe reformats the tree.
 | **site-build** | `just site-build` | Builds the site and checks every internal link. Its tests also check that the demo was built from the current app and that every page the app's Help menu opens exists. |
 | **demo-check** | `just site-demo --check` | Rebuilds the browser demo (needs Emscripten) and drives it in Google Chrome. |
 
-## Comparison with the original BurrTools
+## The regression suite
 
-The original BurrTools is the reference: ported code must give the same
-answers. The comparison harness, `tests/oracle/`, runs the new code on a
-corpus of puzzles and compares the results with the original's.
-`tests/oracle/README.md` describes the corpus and its tiers.
-
-The harness needs a checkout of the original next to the repository, at
-`../burr-tools`, or wherever `BT_OLD_REPO` points. Build it there with
-`just build`, which puts `burrTxt` and `burrTxt2` in its `build/`. The
-harness reads the corpus's puzzle files from that checkout.
+The solver's answers are checked against answers recorded earlier. Most
+were recorded from the original BurrTools while ShapeLogic was ported from
+it, and the rest are ShapeLogic's own, marked as such. The suite,
+`tests/regression/`, solves a corpus of puzzle files that are all in this
+repository, and it never runs or reads another program.
+`tests/regression/README.md` describes the corpus, its tiers and its
+flags.
 
 | Name | Command | What it checks |
 |---|---|---|
-| **oracle** | `just oracle [--tier …]` | Solve answers (assembly and solution counts, levels, moves) against the original's answers recorded in `tests/oracle/baseline/`. Tiers: `fast` (the default), `full`, `slow`, `sliding`, `stacking` and `all`. Other options: `--threads 1`, `--solver crowell`, `--filter <name>`, `-v`. |
-| **oracle-resume** | `just oracle-resume` | Pauses searches in one program and carries them on in the other: saved positions work both ways. |
-| **oracle-roundtrip** | `just oracle-roundtrip` | Loads and saves every corpus file in both programs and compares the files. |
-| **oracle-files** | `just oracle-files` | Solves as the original's `burrTxt2` does and compares the solved files. Run `python3 tests/oracle/oracle.py baseline-files --tier all` once first. The `sliding` and `stacking` tiers are run by name (`--tier sliding`), after their own `baseline-files`. |
-| **oracle-text** | `just oracle-text` | The command line tool's text output against the original's, byte for byte. Run `python3 tests/oracle/oracle.py baseline-text --tier all` once first, and again whenever `baseline-files` was run: the text of the runs that read a solved file goes with that file. |
-| **oracle-imports** | `just oracle-imports` | Imports, the Puzzlecad export and grid conversion against the original's. |
-| **oracle-python** | `just oracle-python` | The Python module's results against the original module's. `--tier all` takes under a minute: of the full and slow tiers' files only the first problem is solved. |
+| **regress** | `just regress [--tier …]` | Solve answers (assembly and solution counts, levels, moves, rotations) against the ones recorded in `tests/regression/baseline/`. Tiers: `fast` (the default), `full`, `slow`, `sliding`, `stacking` and `all` (fast, full and slow). Other options: `--threads 1`, `--solver crowell`, `--solver panex` (stacking), `--filter <name>`, `-v`. |
+| **regress-text** | `just regress-text [--tier …]` | The command line tool's text output of several runs of each puzzle, byte for byte, against the recorded runs. |
 
-`just oracle-baseline` records the original's answers again. It is rarely
-needed.
+Every run ends with a line such as `31 of 31 recorded answers compared, 0
+differ`. A recorded answer that is not compared, or a corpus line that
+finds no file, fails the run.
 
-Every **oracle** run ends with a count such as `24/24 match the original`.
-Read it: a puzzle the harness cannot find in the checkout is skipped with a
-`corpus pattern matched nothing` warning, so without the checkout the
-`fast`, `full` and `slow` tiers compare nothing and still report success
-(`0/0`). The commands that run the original program stop with an error
-instead.
+When a change fixes a wrong answer, record the new one for the puzzles it
+touches with `--update` (for example `python3 tests/regression/regress.py
+summary --tier fast --filter HexSticks --update`), and say why in the
+commit.
 
-## Benchmarks
+## Comparing with BurrTools
+
+This runs only when you ask for it; no suite or gate group runs it by
+default.
 
 | Name | Command | What it checks |
 |---|---|---|
-| **bench** | `python3 tests/bench/bench.py` | The new solvers' speed against the original's: within 5% of it, or faster. `--plain` runs without the vector search, `--set glar` a long set (minutes). |
+| **burrtools-compare** | `just burrtools-compare` | Upstream BurrTools' `burrTxt` and ShapeLogic's command line tool on every regression puzzle both can solve: the time of each (wall clock, best of 3, on one thread and on all) and whether their assembly and solution counts agree. |
+| **bench** | `just bench [--set …]` | Speed benchmarks against upstream BurrTools: `--set glar` a long set (minutes), `--set identical` boxes of many pieces of one shape, `--plain` without the vector search. `python3 tests/bench/bench.py --session --old-bin <an earlier shapelogic_cli>` times two ShapeLogic builds instead. |
 
-There is no `just` recipe. Build both programs first: `just build release`
-here and `just build-release` in `../burr-tools` (the benchmark uses its
-`build-rel/`). Run it on a quiet machine, never beside a sanitizer run.
+Both need upstream BurrTools checked out at `../burr-tools` (or wherever
+`BURRTOOLS_DIR` points) and built there with meson into `build-rel/`.
+Upstream has no take-apart with rotations and no sliding or stacking
+puzzles, so those are left out. Run them on a quiet machine, never beside a
+sanitizer run. `tests/bench/README.md` has the details.
 
 ## What to run after a change
 
@@ -155,7 +151,7 @@ here and `just build-release` in `../burr-tools` (the benchmark uses its
 |---|---|
 | a method or event in `api/*.json` | `python3 api/apischema.py`, a contract call in `tests/contract/test_engine.py`, `python3 api/gen_api_md.py` (**api-docs** fails on a stale `docs/API.md`), `just app-gen` (**app-test** fails on stale types) |
 | what the engine sends | `npm run record` in `web/`, which records the fake engine's sessions the unit tests replay |
-| the C++ of a solver | `just test-all`, `just test-asan`, `just test-tsan`, `just check` on the files you touched, and the **oracle** tiers it could touch |
+| the C++ of a solver | `just test-all`, `just test-asan`, `just test-tsan`, `just check` on the files you touched, and the **regress** tiers it could touch (**regress-text** for what the command line tool prints) |
 | a lot, or you are about to release | `just gate` |
 | the app's UI | `just app-check`, `just app-test`, `just app-e2e` (look at changed screenshots first), `just docs-screenshots` if the guide shows it, `just site-demo` (**site-build** fails on a stale demo) |
 | a page of this guide | `just site-build`; do not rename `/docs/` or `/docs/getting-started/`, which the app's Help menu opens |

@@ -99,8 +99,6 @@ PYTHONPATH=build/release/python python3 -c "import shapelogic"
 ```
 
 `just test-all` (ctest) runs the same tests when the module is built.
-`oracle.py python` compares the module with the original's (see
-tests/oracle/README.md).
 
 ## A wheel
 

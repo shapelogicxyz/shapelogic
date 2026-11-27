@@ -10,6 +10,7 @@
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/shape_tools.h"
+#include "shapelogic/app/sliding_edits.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/io/puzzle_file.h"
@@ -51,7 +52,7 @@ unsigned int index(const Document& d, Id shape) { return d.shapeIndex(shape).val
 // A new board with a new problem on it, as the user makes them: + New
 // Board, then a new problem with the board chosen as its result.
 Id board(Document& d, std::array<unsigned int, 3> size) {
-  const Id tray = d.addStartGoal(size).value();
+  const Id tray = SlidingEdits(d).addStartGoal(size).value();
   const Id p = d.createProblem().value();
   REQUIRE(d.setResult(p, tray).has_value());
   return tray;
@@ -100,9 +101,8 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
   // would: a 4x5 start/goal shape, ten pieces stamped in the order the
   // file's problem lists them, the 2x2 block's goal at the bottom center
   Document d(GridKind::Sliding);
-  const Id tray = roundTrip(d, [](Document& x) {
-                    return x.addStartGoal({4, 5, 1});
-                  }).value();
+  const Id tray =
+      roundTrip(d, [](Document& x) { return SlidingEdits(x).addStartGoal({4, 5, 1}); }).value();
   // no problem comes with the board: the user makes one and chooses it
   CHECK(d.problemIds().empty());
   CHECK(d.puzzle().getShape(index(d, tray)).getName() == "sg:1:");
@@ -130,12 +130,14 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
     const Id s = shape;
     const int x = at[0];
     const int y = at[1];
-    CHECK(roundTrip(d, [=](Document& z) { return z.placeStamp(tray, s, x, y, 0, false); }).value());
+    CHECK(roundTrip(d, [=](Document& z) {
+            return SlidingEdits(z).placeStamp(tray, s, x, y, 0, false);
+          }).value());
   }
   // a goal without which the shape is not valid yet
   CHECK_FALSE(sliding::startGoalError(d.puzzle(), index(d, tray)).empty());
   CHECK(roundTrip(d, [=](Document& z) {
-          return z.placeStamp(tray, block, 1, 1, 0, true);
+          return SlidingEdits(z).placeStamp(tray, block, 1, 1, 0, true);
         }).value());
   CHECK(sliding::startGoalError(d.puzzle(), index(d, tray)).empty());
 
@@ -184,33 +186,42 @@ TEST_CASE("sliding document: stamps are placed, moved, taken off and checked", "
   const Id U = piece(d, 1, 1, {{0, 0, 0}});
 
   // placed, then placed again at the same place: taken off
-  CHECK(roundTrip(d, [=](Document& x) { return x.placeStamp(tray, L, 1, 1, 0, false); }).value());
-  CHECK_FALSE(
-      roundTrip(d, [=](Document& x) { return x.placeStamp(tray, L, 1, 1, 0, false); }).value());
-  CHECK(d.placeStamp(tray, L, 1, 1, 0, false).value());
+  CHECK(roundTrip(d, [=](Document& x) {
+          return SlidingEdits(x).placeStamp(tray, L, 1, 1, 0, false);
+        }).value());
+  CHECK_FALSE(roundTrip(d, [=](Document& x) {
+                return SlidingEdits(x).placeStamp(tray, L, 1, 1, 0, false);
+              }).value());
+  CHECK(SlidingEdits(d).placeStamp(tray, L, 1, 1, 0, false).value());
   // elsewhere: moved
-  CHECK(roundTrip(d, [=](Document& x) { return x.placeStamp(tray, L, 0, 2, 0, false); }).value());
+  CHECK(roundTrip(d, [=](Document& x) {
+          return SlidingEdits(x).placeStamp(tray, L, 0, 2, 0, false);
+        }).value());
   CHECK(stampOn(d, d.puzzle().getShape(index(d, tray)), 0, 2, 0, false) == index(d, L));
 
   // what does not fit is refused with the reason, nothing changed
   refused(d, Errc::InvalidArgument,
-          [=](Document& x) { return x.placeStamp(tray, L, 4, 0, 0, false); });
+          [=](Document& x) { return SlidingEdits(x).placeStamp(tray, L, 4, 0, 0, false); });
   refused(d, Errc::InvalidArgument,
-          [=](Document& x) { return x.placeStamp(tray, U, 0, 1, 0, false); });
+          [=](Document& x) { return SlidingEdits(x).placeStamp(tray, U, 0, 1, 0, false); });
   // a start/goal shape is no piece, and a piece is no start/goal shape
   refused(d, Errc::InvalidArgument,
-          [=](Document& x) { return x.placeStamp(tray, tray, 0, 0, 0, true); });
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(U, L, 0, 0, 0, true); });
+          [=](Document& x) { return SlidingEdits(x).placeStamp(tray, tray, 0, 0, 0, true); });
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return SlidingEdits(x).placeStamp(U, L, 0, 0, 0, true); });
 
   // the right click: what is under the cell comes off; nothing there:
   // false (the L at (0,2) covers (0,2), (0,1) and (1,1))
-  CHECK(roundTrip(d, [=](Document& x) { return x.clearStampAt(tray, 1, 1, 0, false); }).value());
-  CHECK_FALSE(d.clearStampAt(tray, 1, 1, 0, false).value());
-  CHECK_FALSE(d.clearStampAt(tray, 1, 2, 0, false).value());
+  CHECK(roundTrip(d, [=](Document& x) {
+          return SlidingEdits(x).clearStampAt(tray, 1, 1, 0, false);
+        }).value());
+  CHECK_FALSE(SlidingEdits(d).clearStampAt(tray, 1, 1, 0, false).value());
+  CHECK_FALSE(SlidingEdits(d).clearStampAt(tray, 1, 2, 0, false).value());
 
   // not on other grids
   Document bricks(GridKind::Bricks);
-  refused(bricks, Errc::Unsupported, [](Document& x) { return x.addStartGoal({3, 3, 1}); });
+  refused(bricks, Errc::Unsupported,
+          [](Document& x) { return SlidingEdits(x).addStartGoal({3, 3, 1}); });
 }
 
 TEST_CASE("sliding document: the starts are cloned to the goals, and back", "[app][sliding]") {
@@ -218,13 +229,13 @@ TEST_CASE("sliding document: the starts are cloned to the goals, and back", "[ap
   const Id tray = board(d, {4, 2, 1});
   const Id a = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
   const Id b = piece(d, 1, 1, {{0, 0, 0}});
-  REQUIRE(d.placeStamp(tray, a, 0, 1, 0, false).value());
-  REQUIRE(d.placeStamp(tray, b, 3, 0, 0, true).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 0, 1, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, b, 3, 0, 0, true).value());
   const unsigned int ma = index(d, a) + 1;
   const unsigned int mb = index(d, b) + 1;
 
   // start to goal: the goals become the starts, b's goal replaced
-  roundTrip(d, [=](Document& x) { return x.cloneStamps(tray, true); });
+  roundTrip(d, [=](Document& x) { return SlidingEdits(x).cloneStamps(tray, true); });
   const Voxel& v = d.puzzle().getShape(index(d, tray));
   CHECK(markOn(d, v, 0, 1, 0, true) == ma);
   CHECK(markOn(d, v, 1, 1, 0, true) == ma);
@@ -232,16 +243,18 @@ TEST_CASE("sliding document: the starts are cloned to the goals, and back", "[ap
   CHECK(sliding::startGoalError(d.puzzle(), index(d, tray)).empty());
 
   // goal to start, after the goal moved
-  REQUIRE(d.placeStamp(tray, b, 3, 0, 0, true).value());
-  roundTrip(d, [=](Document& x) { return x.cloneStamps(tray, false); });
+  REQUIRE(SlidingEdits(d).placeStamp(tray, b, 3, 0, 0, true).value());
+  roundTrip(d, [=](Document& x) { return SlidingEdits(x).cloneStamps(tray, false); });
   CHECK(markOn(d, d.puzzle().getShape(index(d, tray)), 3, 0, 0, false) == mb);
 
   // a start on a corridor cannot be a goal: refused, nothing changed
   REQUIRE(d.editCells(tray, CellTool::Variable, 0, 0, {{0, 0, 0}}).has_value());
-  REQUIRE(d.placeStamp(tray, b, 0, 0, 0, false).value());
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.cloneStamps(tray, true); });
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.cloneStamps(a, true); });
-  roundTrip(d, [=](Document& x) { return x.cloneStamps(tray, false); });
+  REQUIRE(SlidingEdits(d).placeStamp(tray, b, 0, 0, 0, false).value());
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return SlidingEdits(x).cloneStamps(tray, true); });
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return SlidingEdits(x).cloneStamps(a, true); });
+  roundTrip(d, [=](Document& x) { return SlidingEdits(x).cloneStamps(tray, false); });
 }
 
 TEST_CASE("sliding document: a position becomes the problem's starts or goals",
@@ -250,8 +263,8 @@ TEST_CASE("sliding document: a position becomes the problem's starts or goals",
   Document d(GridKind::Sliding);
   const Id tray = board(d, {3, 1, 1});
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
-  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
-  REQUIRE(d.placeStamp(tray, a, 2, 0, 0, true).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 2, 0, 0, true).value());
   const Id p = d.problemIds()[0];
   const unsigned int ma = index(d, a) + 1;
   SolveOptions o;
@@ -266,14 +279,16 @@ TEST_CASE("sliding document: a position becomes the problem's starts or goals",
   // the position it has already: nothing changes, the solution stays
   const std::uint64_t rev = d.revision();
   const std::size_t steps = d.history().undo.size();
-  CHECK_FALSE(d.setSlideLayout(p, false, {{0, 0, 0}}).value());
-  CHECK_FALSE(d.setSlideLayout(p, true, {{2, 0, 0}}).value());
+  CHECK_FALSE(SlidingEdits(d).setSlideLayout(p, false, {{0, 0, 0}}).value());
+  CHECK_FALSE(SlidingEdits(d).setSlideLayout(p, true, {{2, 0, 0}}).value());
   CHECK(d.revision() == rev);
   CHECK(d.history().undo.size() == steps);
   CHECK(d.puzzle().getProblem(0).getNumberOfSavedSolutions() == 1);
 
   // another start: one step, and what the problem had found is gone
-  CHECK(roundTrip(d, [=](Document& x) { return x.setSlideLayout(p, false, {{1, 0, 0}}); }).value());
+  CHECK(roundTrip(d, [=](Document& x) {
+          return SlidingEdits(x).setSlideLayout(p, false, {{1, 0, 0}});
+        }).value());
   CHECK(d.history().undo.back() == "Set start position");
   const Voxel& v = d.puzzle().getShape(index(d, tray));
   CHECK(markOn(d, v, 0, 0, 0, false) == 0);
@@ -282,7 +297,9 @@ TEST_CASE("sliding document: a position becomes the problem's starts or goals",
   CHECK(d.puzzle().getProblem(0).getNumberOfSavedSolutions() == 0);
 
   // another goal: the start stays
-  CHECK(roundTrip(d, [=](Document& x) { return x.setSlideLayout(p, true, {{0, 0, 0}}); }).value());
+  CHECK(roundTrip(d, [=](Document& x) {
+          return SlidingEdits(x).setSlideLayout(p, true, {{0, 0, 0}});
+        }).value());
   CHECK(d.history().undo.back() == "Set goal position");
   CHECK(markOn(d, d.puzzle().getShape(index(d, tray)), 0, 0, 0, true) == ma);
   CHECK(markOn(d, d.puzzle().getShape(index(d, tray)), 2, 0, 0, true) == 0);
@@ -290,25 +307,30 @@ TEST_CASE("sliding document: a position becomes the problem's starts or goals",
 
   // no position of the pieces: refused, nothing changed
   refused(d, Errc::InvalidArgument,
-          [=](Document& x) { return x.setSlideLayout(p, false, {{3, 0, 0}}); });
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setSlideLayout(p, false, {}); });
+          [=](Document& x) { return SlidingEdits(x).setSlideLayout(p, false, {{3, 0, 0}}); });
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return SlidingEdits(x).setSlideLayout(p, false, {}); });
   refused(d, Errc::InvalidArgument, [=](Document& x) {
-    return x.setSlideLayout(p, true, {{0, 0, 0}, {1, 0, 0}});
+    return SlidingEdits(x).setSlideLayout(p, true, {{0, 0, 0}, {1, 0, 0}});
   });
-  refused(d, Errc::NotFound, [=](Document& x) { return x.setSlideLayout(p + 999, false, {}); });
+  refused(d, Errc::NotFound,
+          [=](Document& x) { return SlidingEdits(x).setSlideLayout(p + 999, false, {}); });
   // a goal cannot be on a corridor; a start can
   REQUIRE(d.editCells(tray, CellTool::Variable, 0, 0, {{2, 0, 0}}).has_value());
   refused(d, Errc::InvalidArgument,
-          [=](Document& x) { return x.setSlideLayout(p, true, {{2, 0, 0}}); });
-  CHECK(roundTrip(d, [=](Document& x) { return x.setSlideLayout(p, false, {{2, 0, 0}}); }).value());
+          [=](Document& x) { return SlidingEdits(x).setSlideLayout(p, true, {{2, 0, 0}}); });
+  CHECK(roundTrip(d, [=](Document& x) {
+          return SlidingEdits(x).setSlideLayout(p, false, {{2, 0, 0}});
+        }).value());
 
   // a problem with no board, and another grid
   const Id q = d.createProblem().value();
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setSlideLayout(q, false, {}); });
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return SlidingEdits(x).setSlideLayout(q, false, {}); });
   Document bricks(GridKind::Bricks);
   const Id bp = bricks.createProblem().value();
   refused(bricks, Errc::Unsupported,
-          [=](Document& x) { return x.setSlideLayout(bp, false, {}); });
+          [=](Document& x) { return SlidingEdits(x).setSlideLayout(bp, false, {}); });
 }
 
 TEST_CASE("sliding document: a position is not saved while the problem is solving",
@@ -328,14 +350,14 @@ TEST_CASE("sliding document: a position is not saved while the problem is solvin
     REQUIRE(isActive(d.solveState(p)));
     const std::uint64_t rev = d.revision();
     for (const bool goal : {false, true}) {
-      const Result<bool> r = d.setSlideLayout(p, goal, moved);
+      const Result<bool> r = SlidingEdits(d).setSlideLayout(p, goal, moved);
       REQUIRE_FALSE(r.has_value());
       CHECK(r.error().code == Errc::InvalidState);
     }
     CHECK(d.revision() == rev);
   });
   REQUIRE(d.solveAbort(p).has_value());
-  CHECK(d.setSlideLayout(p, false, moved).value());
+  CHECK(SlidingEdits(d).setSlideLayout(p, false, moved).value());
 }
 
 TEST_CASE("sliding document: one side's board is cleared", "[app][sliding]") {
@@ -343,20 +365,22 @@ TEST_CASE("sliding document: one side's board is cleared", "[app][sliding]") {
   const Id tray = board(d, {4, 2, 1});
   const Id a = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
   const Id b = piece(d, 1, 1, {{0, 0, 0}});
-  REQUIRE(d.placeStamp(tray, a, 0, 1, 0, false).value());
-  REQUIRE(d.placeStamp(tray, b, 3, 0, 0, false).value());
-  REQUIRE(d.placeStamp(tray, b, 3, 1, 0, true).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 0, 1, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, b, 3, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, b, 3, 1, 0, true).value());
   const unsigned int mb = index(d, b) + 1;
 
   // the starts off, the goal kept
-  CHECK(roundTrip(d, [=](Document& x) { return x.clearStamps(tray, false); }).value());
+  CHECK(
+      roundTrip(d, [=](Document& x) { return SlidingEdits(x).clearStamps(tray, false); }).value());
   CHECK_FALSE(d.puzzle().getProblem(0).slideMarks().any(false));
   CHECK(markOn(d, d.puzzle().getShape(index(d, tray)), 3, 1, 0, true) == mb);
   // nothing there: false, no step
-  CHECK_FALSE(d.clearStamps(tray, false).value());
-  CHECK(roundTrip(d, [=](Document& x) { return x.clearStamps(tray, true); }).value());
+  CHECK_FALSE(SlidingEdits(d).clearStamps(tray, false).value());
+  CHECK(roundTrip(d, [=](Document& x) { return SlidingEdits(x).clearStamps(tray, true); }).value());
   CHECK(d.puzzle().getProblem(0).slideMarks().empty());
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.clearStamps(a, true); });
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return SlidingEdits(x).clearStamps(a, true); });
 }
 
 TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][sliding]") {
@@ -364,9 +388,9 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
   const Id tray = board(d, {4, 3, 1});
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
   const Id b = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
-  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
-  REQUIRE(d.placeStamp(tray, b, 2, 2, 0, false).value());
-  REQUIRE(d.placeStamp(tray, b, 0, 2, 0, true).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, b, 2, 2, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, b, 0, 2, 0, true).value());
   const unsigned int ia = index(d, a);
   const unsigned int ib = index(d, b);
 
@@ -448,7 +472,7 @@ TEST_CASE("sliding document: what the original grayed out is refused", "[app][sl
   const Id tray = board(d, {4, 3, 1});
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
   const Id free = piece(d, 1, 1, {{0, 0, 0}});
-  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 0, 0, 0, false).value());
   const Id p = d.problemIds()[0];
 
   // the result is a board, never a piece; a stamped piece keeps a copy
@@ -496,8 +520,8 @@ TEST_CASE("sliding document: what the original grayed out is refused", "[app][sl
 TEST_CASE("sliding document: the user makes the problems and chooses their boards",
           "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id b1 = d.addStartGoal({4, 2, 1}).value();
-  const Id b2 = d.addStartGoal({4, 2, 1}).value();
+  const Id b1 = SlidingEdits(d).addStartGoal({4, 2, 1}).value();
+  const Id b2 = SlidingEdits(d).addStartGoal({4, 2, 1}).value();
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
   const Id c = piece(d, 1, 1, {{0, 0, 0}});
   REQUIRE(d.problemIds().empty());
@@ -509,11 +533,12 @@ TEST_CASE("sliding document: the user makes the problems and chooses their board
   CHECK(d.puzzle().getProblem(0).getColorConstraints().empty());
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setResult(p, a); });
   // a board no problem uses takes no starts or goals: they are a problem's
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(b1, a, 0, 0, 0, false); });
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return SlidingEdits(x).placeStamp(b1, a, 0, 0, 0, false); });
   // chosen: the pieces then stamped on it come in, and the board is valid for it
   roundTrip(d, [=](Document& x) { return x.setResult(p, b1); });
-  REQUIRE(d.placeStamp(b1, a, 0, 0, 0, false).value());
-  REQUIRE(d.placeStamp(b1, a, 3, 1, 0, true).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, a, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, a, 3, 1, 0, true).value());
   CHECK(d.puzzle().getProblem(0).getResultId() == index(d, b1));
   CHECK(d.puzzle().getProblem(0).getShapeMinimum(index(d, a)) == 1);
   CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, b2)) == 0);
@@ -530,7 +555,7 @@ TEST_CASE("sliding document: the user makes the problems and chooses their board
   CHECK(d.lastChange().notice.empty());
   CHECK(stampOn(d, d.puzzle().getShape(index(d, b2)), 0, 0, 0, false) == index(d, a));
   CHECK(stampOn(d, d.puzzle().getShape(index(d, b2)), 3, 1, 0, true) == index(d, a));
-  REQUIRE(d.placeStamp(b2, c, 2, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b2, c, 2, 0, 0, false).value());
   CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, c)) == 1);
   roundTrip(d, [=](Document& x) { return x.setResult(p, b1); });
   CHECK(stampOn(d, d.puzzle().getShape(index(d, b1)), 2, 0, 0, false) == index(d, c));
@@ -547,7 +572,7 @@ TEST_CASE("sliding document: the user makes the problems and chooses their board
   const SlideMarks first = d.puzzle().getProblem(0).slideMarks();
   for (const int x : {0, 1}) {
     CHECK(roundTrip(d, [=](Document& z) {
-            return z.placeStamp(b1, a, x, 1, 0, false, q);
+            return SlidingEdits(z).placeStamp(b1, a, x, 1, 0, false, q);
           }).value());
   }
   const Voxel& shared = d.puzzle().getShape(index(d, b1));
@@ -563,7 +588,7 @@ TEST_CASE("sliding document: the user makes the problems and chooses their board
       sliding::startGoalError(d.puzzle(), index(d, b1), &d.puzzle().getProblem(1)).empty());
   // a problem not on the board is refused
   refused(d, Errc::InvalidArgument,
-          [=](Document& x) { return x.placeStamp(b2, c, 2, 0, 0, false, q); });
+          [=](Document& x) { return SlidingEdits(x).placeStamp(b2, c, 2, 0, 0, false, q); });
 
   // cleared: no result, the parts stay
   roundTrip(d, [=](Document& x) { return x.clearResult(q); });
@@ -581,14 +606,15 @@ TEST_CASE("sliding document: the user makes the problems and chooses their board
 TEST_CASE("sliding document: problems share a board, each with starts and goals of its own",
           "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id b1 = d.addStartGoal({4, 2, 1}).value();
+  const Id b1 = SlidingEdits(d).addStartGoal({4, 2, 1}).value();
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
   // a board no problem uses has no starts or goals: they are a problem's
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(b1, a, 0, 0, 0, false); });
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return SlidingEdits(x).placeStamp(b1, a, 0, 0, 0, false); });
   const Id p = roundTrip(d, [](Document& x) { return x.createProblem(); }).value();
   roundTrip(d, [=](Document& x) { return x.setResult(p, b1); });
-  REQUIRE(d.placeStamp(b1, a, 0, 0, 0, false, p).value());
-  REQUIRE(d.placeStamp(b1, a, 3, 1, 0, true, p).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, a, 0, 0, 0, false, p).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, a, 3, 1, 0, true, p).value());
 
   // the copy is on the same board, with a copy of the starts and goals
   const Id q = roundTrip(d, [=](Document& x) { return x.duplicateProblem(p); }).value();
@@ -603,7 +629,7 @@ TEST_CASE("sliding document: problems share a board, each with starts and goals 
   // a start moved in the copy leaves the original's where it was
   const SlideMarks original = d.puzzle().getProblem(0).slideMarks();
   REQUIRE(roundTrip(d, [=](Document& x) {
-            return x.placeStamp(b1, a, 1, 0, 0, false, q);
+            return SlidingEdits(x).placeStamp(b1, a, 1, 0, 0, false, q);
           }).value());
   const Voxel& v = d.puzzle().getShape(tray);
   CHECK(d.puzzle().getProblem(0).slideMarks() == original);
@@ -615,15 +641,19 @@ TEST_CASE("sliding document: problems share a board, each with starts and goals 
         static_cast<unsigned int>(-1));
 
   // so do the right click and the clone buttons
-  CHECK(roundTrip(d, [=](Document& x) { return x.clearStampAt(b1, 3, 1, 0, true, q); }).value());
+  CHECK(roundTrip(d, [=](Document& x) {
+          return SlidingEdits(x).clearStampAt(b1, 3, 1, 0, true, q);
+        }).value());
   CHECK(d.puzzle().getProblem(0).slideMarks() == original);
   CHECK_FALSE(d.puzzle().getProblem(1).slideMarks().any(true));
-  roundTrip(d, [=](Document& x) { return x.cloneStamps(b1, true, q); });
+  roundTrip(d, [=](Document& x) { return SlidingEdits(x).cloneStamps(b1, true, q); });
   CHECK(d.puzzle().getProblem(0).slideMarks() == original);
   CHECK(sliding::stampAt(&v, &d.puzzle().getProblem(1).slideMarks(), 1, 0, 0, true) ==
         index(d, a));
   // without a problem named: the board's first
-  CHECK(roundTrip(d, [=](Document& x) { return x.clearStampAt(b1, 0, 0, 0, false); }).value());
+  CHECK(roundTrip(d, [=](Document& x) {
+          return SlidingEdits(x).clearStampAt(b1, 0, 0, 0, false);
+        }).value());
   CHECK_FALSE(d.puzzle().getProblem(0).slideMarks().any(false));
   CHECK(d.puzzle().getProblem(1).slideMarks().any(false));
 
@@ -643,19 +673,19 @@ TEST_CASE("sliding document: problems share a board, each with starts and goals 
 TEST_CASE("sliding document: an edited board takes its problems' starts and goals along",
           "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id b1 = d.addStartGoal({4, 2, 1}).value();
+  const Id b1 = SlidingEdits(d).addStartGoal({4, 2, 1}).value();
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
   const Id c = piece(d, 1, 1, {{0, 0, 0}});
   const Id bar = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
   const Id p = d.createProblem().value();
   REQUIRE(d.setResult(p, b1).has_value());
-  REQUIRE(d.placeStamp(b1, a, 0, 0, 0, false, p).value());
-  REQUIRE(d.placeStamp(b1, a, 3, 1, 0, true, p).value());
-  REQUIRE(d.placeStamp(b1, c, 1, 1, 0, false, p).value());
-  REQUIRE(d.placeStamp(b1, bar, 1, 0, 0, false, p).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, a, 0, 0, 0, false, p).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, a, 3, 1, 0, true, p).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, c, 1, 1, 0, false, p).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, bar, 1, 0, 0, false, p).value());
   // a second problem on the board, with a layout of its own
   const Id q = d.duplicateProblem(p).value();
-  REQUIRE(d.placeStamp(b1, a, 3, 0, 0, false, q).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, a, 3, 0, 0, false, q).value());
   const unsigned int ia = index(d, a);
   const unsigned int ic = index(d, c);
   const unsigned int ibar = index(d, bar);
@@ -732,7 +762,7 @@ TEST_CASE("sliding document: an edited board takes its problems' starts and goal
 
   SECTION("an edit beside the starts and goals removes none") {
     // a wall where nothing is, then floor again
-    REQUIRE(d.clearStampAt(b1, 1, 1, 0, false, p).value());
+    REQUIRE(SlidingEdits(d).clearStampAt(b1, 1, 1, 0, false, p).value());
     const SlideMarks first = d.puzzle().getProblem(0).slideMarks();
     const SlideMarks second = d.puzzle().getProblem(1).slideMarks();
     roundTrip(d, [=](Document& x) { return x.editCells(b1, CellTool::Erase, 0, 0, {{2, 1, 0}}); });
@@ -745,19 +775,19 @@ TEST_CASE("sliding document: an edited board takes its problems' starts and goal
 TEST_CASE("sliding document: a problem given another board keeps what fits it",
           "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id b1 = d.addStartGoal({4, 2, 1}).value();
-  const Id b2 = d.addStartGoal({3, 2, 1}).value();
+  const Id b1 = SlidingEdits(d).addStartGoal({4, 2, 1}).value();
+  const Id b2 = SlidingEdits(d).addStartGoal({3, 2, 1}).value();
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
   const Id c = piece(d, 1, 1, {{0, 0, 0}});
   const Id p = d.createProblem().value();
   REQUIRE(d.setResult(p, b1).has_value());
-  REQUIRE(d.placeStamp(b1, a, 0, 0, 0, false, p).value());
-  REQUIRE(d.placeStamp(b1, a, 3, 1, 0, true, p).value());
-  REQUIRE(d.placeStamp(b1, c, 1, 1, 0, false, p).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, a, 0, 0, 0, false, p).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, a, 3, 1, 0, true, p).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b1, c, 1, 1, 0, false, p).value());
   // another problem already on the second board keeps its own
   const Id q = d.createProblem().value();
   REQUIRE(d.setResult(q, b2).has_value());
-  REQUIRE(d.placeStamp(b2, c, 2, 0, 0, false, q).value());
+  REQUIRE(SlidingEdits(d).placeStamp(b2, c, 2, 0, 0, false, q).value());
   const SlideMarks other = d.puzzle().getProblem(1).slideMarks();
 
   std::string notice;
@@ -779,7 +809,7 @@ TEST_CASE("sliding document: a problem given another board keeps what fits it",
 TEST_CASE("sliding document: shapes may have layers, pieces keep plain names",
           "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal({4, 3, 1}).value();
+  const Id tray = SlidingEdits(d).addStartGoal({4, 3, 1}).value();
   const Id a = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
 
   // the original locked Z (ToolTab_0::lockZ); here sliding shapes may have
@@ -826,10 +856,11 @@ TEST_CASE("sliding document: a piece moved past the 255th place loses its marks,
   // the 255th shape (mark 255) is the last that can be stamped
   const Id last = pieces[253];
   REQUIRE(index(d, last) == 254);
-  REQUIRE(d.placeStamp(tray, last, 0, 0, 0, false).value());
-  REQUIRE(d.placeStamp(tray, last, 2, 0, 0, true).value());
-  refused(d, Errc::InvalidArgument,
-          [=](Document& x) { return x.placeStamp(tray, pieces[254], 1, 0, 0, false); });
+  REQUIRE(SlidingEdits(d).placeStamp(tray, last, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, last, 2, 0, 0, true).value());
+  refused(d, Errc::InvalidArgument, [=](Document& x) {
+    return SlidingEdits(x).placeStamp(tray, pieces[254], 1, 0, 0, false);
+  });
   const unsigned int it = index(d, tray);
   const auto cleared = [&] {
     const Voxel& t = d.puzzle().getShape(it);
@@ -854,7 +885,7 @@ TEST_CASE("sliding document: a piece moved past the 255th place loses its marks,
   // back in the 255th place and stamped again, another shape moved down
   // across it takes it past the place too
   REQUIRE(d.moveShape(last, 254).has_value());
-  REQUIRE(d.placeStamp(tray, last, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, last, 0, 0, 0, false).value());
   roundTrip(d, [&](Document& x) {
     const Result<void> r = x.moveShape(pieces[255], 1);
     notice = x.lastChange().notice;
@@ -873,14 +904,14 @@ TEST_CASE("sliding document: Solve checks the start/goal shape and sets up the l
   Document d(GridKind::Sliding);
   const Id tray = board(d, {3, 1, 1});
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
-  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 0, 0, 0, false).value());
   const Id p = d.problemIds()[0];
   SolveOptions o;
   o.disassemble = true;
 
   // a start without a goal: the original's message
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.solveStart(p, o); });
-  REQUIRE(d.placeStamp(tray, a, 2, 0, 0, true).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 2, 0, 0, true).value());
 
   // the holes not set (an older file): set up by the solve, with the change
   // told; the pieces need no colors
@@ -983,9 +1014,9 @@ TEST_CASE("sliding document: opening a file keeps deeper shapes", "[app][sliding
 TEST_CASE("sliding document: the boards stay on top, numbered by place",
           "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id b1 = d.addStartGoal({4, 3, 1}).value();
+  const Id b1 = SlidingEdits(d).addStartGoal({4, 3, 1}).value();
   const Id p1 = piece(d, 1, 1, {{0, 0, 0}});
-  const Id b2 = d.addStartGoal({4, 3, 1}).value();
+  const Id b2 = SlidingEdits(d).addStartGoal({4, 3, 1}).value();
   const Id p2 = piece(d, 1, 1, {{0, 0, 0}});
   const Id b3 = roundTrip(d, [=](Document& x) { return x.duplicateShape(b1); }).value();
   // a new board goes below the boards, above the pieces
@@ -1035,22 +1066,23 @@ TEST_CASE("sliding document: copies of a piece have a start and a goal each", "[
   const Id tray = board(d, {4, 2, 1});
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
   const Id p = d.problemIds()[0];
-  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 0, 0, 0, false).value());
   // one copy moves
-  REQUIRE(d.placeStamp(tray, a, 1, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 1, 0, 0, false).value());
   CHECK(stampOn(d, d.puzzle().getShape(index(d, tray)), 0, 0, 0, false) ==
         static_cast<unsigned int>(-1));
   // with three, each click is one more copy's, until all three are placed
   roundTrip(d, [=](Document& x) { return x.setPieceCount(p, a, 3, 3); });
-  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
-  REQUIRE(d.placeStamp(tray, a, 2, 0, 0, false).value());
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(tray, a, 3, 0, 0, false); });
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 2, 0, 0, false).value());
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return SlidingEdits(x).placeStamp(tray, a, 3, 0, 0, false); });
   // fewer copies than are placed is refused, more are fine
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setPieceCount(p, a, 2, 2); });
   roundTrip(d, [=](Document& x) { return x.setPieceCount(p, a, 4, 4); });
   // a click on a copy takes it off, the right click the copy under it
-  CHECK_FALSE(d.placeStamp(tray, a, 1, 0, 0, false).value());
-  CHECK(d.clearStampAt(tray, 2, 0, 0, false).value());
+  CHECK_FALSE(SlidingEdits(d).placeStamp(tray, a, 1, 0, 0, false).value());
+  CHECK(SlidingEdits(d).clearStampAt(tray, 2, 0, 0, false).value());
   const Voxel& t = d.puzzle().getShape(index(d, tray));
   CHECK(stampOn(d, t, 0, 0, 0, false) == index(d, a));
   CHECK(stampOn(d, t, 1, 0, 0, false) == static_cast<unsigned int>(-1));
@@ -1065,9 +1097,9 @@ TEST_CASE("sliding document: a piece taken out of the puzzle takes its starts an
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
   const Id b = piece(d, 1, 1, {{0, 0, 0}});
   const Id p = d.problemIds()[0];
-  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
-  REQUIRE(d.placeStamp(tray, a, 3, 1, 0, true).value());
-  REQUIRE(d.placeStamp(tray, b, 1, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, a, 3, 1, 0, true).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, b, 1, 0, 0, false).value());
   // the board as it is now (a whole-puzzle step replaces the shapes)
   const auto at = [&](int x, int y, bool goal) {
     return stampOn(d, d.puzzle().getShape(index(d, tray)), x, y, 0, goal);

@@ -11,7 +11,7 @@ expected to follow.
 
 ShapeLogic is a port of BurrTools. The port is **faithful first,
 restructured second**: an algorithm is ported with its behavior intact,
-proved with tests and the comparison harness, and only then reshaped.
+proved with tests and the regression suite, and only then reshaped.
 Nothing is "improved" while it is being ported.
 
 - Each ported file names its source at the top, for example
@@ -76,8 +76,7 @@ Nothing is "improved" while it is being ported.
 - The `[parallel]` cases include a puzzle whose result has a symmetry
   breaker, so that the rotation checks run from worker threads under
   ThreadSanitizer.
-- Fixtures live in `tests/data/`; unit tests never read the original
-  repository. Only the harness does.
+- Fixtures live in `tests/data/`; no test reads another checkout.
 - A new engine method needs a schema entry, a successful contract call and
   a regenerated `docs/API.md`.
 - The app's Vitest suites are `web/tests/unit/` (no engine) and
@@ -118,4 +117,4 @@ consequences.
 5. The newest hand-off notes in `docs/handoff/`: what was done last, known
    issues, and what was left for next.
 6. `web/README.md`, `python/README.md`, `api/README.md`,
-   `tests/oracle/README.md`, `site/README.md`: each part's own notes.
+   `tests/regression/README.md`, `site/README.md`: each part's own notes.

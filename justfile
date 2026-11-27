@@ -3,9 +3,6 @@
 
 set shell := ["bash", "-uc"]
 
-# The original BurrTools checkout the comparison harness runs against.
-old_repo := env_var_or_default("BT_OLD_REPO", justfile_directory() + "/../burr-tools")
-
 default:
     @just --list
 
@@ -52,37 +49,21 @@ test-tsan: (build "tsan")
     TSAN_OPTIONS=halt_on_error=1 ctest --preset tsan -L parallel --no-tests=error -j {{num_cpus()}}
     TSAN_OPTIONS=halt_on_error=1 python3 tests/contract/test_engine.py --engine build/tsan/engine/shapelogic_engine
 
-# Compare the new bt against the original burrTxt (see tests/oracle/README.md)
-oracle *args: (build "release")
-    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" --new-bt build/release/cli/shapelogic_cli compare {{args}}
+# The solver's answers against the recorded ones (tests/regression/README.md): `just regress --tier all`, `--tier sliding`, `--solver crowell`, `--threads 1`
+regress *args: (build "release")
+    python3 tests/regression/regress.py --cli build/release/cli/shapelogic_cli summary {{args}}
 
-# Load and save every corpus file with the original and the new core, compare the XML
-oracle-roundtrip *args: (build "release")
-    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" roundtrip {{args}}
+# The CLI's text output against the recorded runs, byte for byte (tests/regression/README.md)
+regress-text *args: (build "release")
+    python3 tests/regression/regress.py --cli build/release/cli/shapelogic_cli text {{args}}
 
-# Pause searches in one program and continue them in the other (saved positions, decision 0006)
-oracle-resume *args: (build "release")
-    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" resume-check {{args}}
+# On request only: speed and solution counts against upstream BurrTools (../burr-tools or BURRTOOLS_DIR, built there) on every regression puzzle both can solve
+burrtools-compare *args: (build "release")
+    python3 tests/bench/bench.py --set corpus --repeat 3 {{args}}
 
-# Solve as burrTxt2 does and compare the solved files (after `oracle.py baseline-files --tier all`)
-oracle-files *args: (build "release")
-    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" compare-files {{args}}
-
-# Compare bt's text output with the original burrTxt's (after `oracle.py baseline-text`)
-oracle-text *args: (build "release")
-    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" --new-bt build/release/cli/shapelogic_cli compare-text {{args}}
-
-# Import, export to Puzzlecad and convert grids with the original and the new core, compare (deferred part 6)
-oracle-imports *args: (build "release")
-    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" imports {{args}}
-
-# The Python module against the original's module: the same transcripts (deferred part 7)
-oracle-python *args: (build "release")
-    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" python {{args}}
-
-# Record the original burrTxt's answers for a corpus tier
-oracle-baseline *args:
-    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" baseline {{args}}
+# Speed benchmarks against upstream BurrTools, or two ShapeLogic builds with --session --old-bin (tests/bench/README.md)
+bench *args: (build "release")
+    python3 tests/bench/bench.py {{args}}
 
 # The Python module's tests (python/tests) on a preset's module (built when Python's headers are found)
 python-test preset="dev": (build preset)
@@ -103,7 +84,7 @@ python-wheel:
     "$tmp/try/bin/pip" -q install build/wheel/shapelogic-*.whl
     cd python/tests && "$tmp/try/bin/python" -m unittest -q
 
-# Every test suite, one after another, with a table of what passed: `just gate`, `just gate unit oracle` (groups: tests/gate.sh), `just gate all`
+# Every test suite, one after another, with a table of what passed: `just gate`, `just gate unit regression` (groups: tests/gate.sh), `just gate all`
 gate *groups:
     bash tests/gate.sh {{groups}}
 

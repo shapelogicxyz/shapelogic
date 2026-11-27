@@ -1,0 +1,109 @@
+# The puzzles of the regression suite (regress.py), relative to the
+# repository. Every one is a file of this repository: the suite reads and
+# runs nothing else.
+#
+# Columns: tier  flags  path-or-glob
+#   tier  fast      every run (seconds in total)
+#         full      before finishing a solver change (about ten seconds)
+#         slow      benchmarks and final checks (seconds each)
+#         sliding   the sliding puzzles: run with --tier sliding
+#         stacking  the stacking puzzles: run with --tier stacking, and
+#                   --solver panex for the Panex Solver
+#   flags "-" none
+#         "R" the take-apart with rotations (-R)
+#         "A" a grid the original could not take apart (spheres, rhombic,
+#             tetra-octa): the text runs assemble only
+#         "D" (with "A") the new core takes it apart all the same, with
+#             movement checks derived from the cells (decision 0025): its
+#             summary answer is ShapeLogic's
+#         "N" sliding: --nested-slides; "P" sliding: --partial-nested
+#         "O" sliding: several starts. A shorter path to a picture already
+#             counted counts again, so on several threads the counts depend
+#             on the order the starts come in: compared with --threads 1 only
+#         "Q" stacking: not for the Panex Solver (no Panex columns, or more
+#             rods than it holds)
+#         "L" stacking: its further problems run for hours: no -o all run
+#         "C" not run with --solver crowell: its take-apart does not end
+#             (the original's ran for an hour and was stopped)
+#
+# The files under tests/data/puzzles/regression/ are named by what they
+# test. Never add the commercial sliding puzzle "One Way or Another".
+
+# BurrTools' examples and the original's test fixtures
+fast  -  tests/data/puzzles/AlPackino.xmpuzzle
+fast  -  tests/data/puzzles/Bermuda.xmpuzzle
+fast  -  tests/data/puzzles/CubeInCage.xmpuzzle
+fast  -  tests/data/puzzles/DemoMirrorParadox.xmpuzzle
+fast  -  tests/data/puzzles/DemoPieceGenerator.xmpuzzle
+fast  -  tests/data/puzzles/DraculasDentalDesaster.xmpuzzle
+fast  -  tests/data/puzzles/PelikanBurr.xmpuzzle
+fast  -  tests/data/puzzles/Prisgon.xmpuzzle
+fast  -  tests/data/puzzles/SolidSixPieceBurrs.xmpuzzle
+fast  R  tests/data/puzzles/test_rotation_solvers.xmpuzzle
+fast  AD tests/data/puzzles/12PieceSeparation.xmpuzzle
+fast  AD tests/data/puzzles/AugmentedSecondStellation.xmpuzzle
+fast  A  tests/data/puzzles/BallRoom.xmpuzzle
+fast  AD tests/data/puzzles/BrokenSticks.xmpuzzle
+fast  AD tests/data/puzzles/DiagonalCube.xmpuzzle
+fast  AD tests/data/puzzles/FourPieceTetrahedron.xmpuzzle
+fast  AD tests/data/puzzles/HexSticks.xmpuzzle
+fast  AD tests/data/puzzles/PermutatedThirdStellation.xmpuzzle
+fast  AD tests/data/puzzles/PiecesOfEight.xmpuzzle
+
+# the take-apart with rotations, one file a case
+full  R  tests/data/puzzles/regression/assembly_cannot_come_apart.xmpuzzle
+full  R  tests/data/puzzles/regression/deep_level_no_rotation.xmpuzzle
+full  R  tests/data/puzzles/regression/deep_level_with_rotation.xmpuzzle
+full  R  tests/data/puzzles/regression/many_assemblies_many_rotations.xmpuzzle
+full  R  tests/data/puzzles/regression/many_assemblies_one_solution.xmpuzzle
+full  R  tests/data/puzzles/regression/many_solutions_with_rotations.xmpuzzle
+full  R  tests/data/puzzles/regression/no_assemblies.xmpuzzle
+full  R  tests/data/puzzles/regression/piece_group.xmpuzzle
+full  R  tests/data/puzzles/regression/rotation_takeapart_many_rotations.xmpuzzle
+full  R  tests/data/puzzles/regression/rotation_takeapart_no_rotation_needed.xmpuzzle
+slow  RC tests/data/puzzles/regression/benchmark_crowell_never_finishes.xmpuzzle
+slow  R  tests/data/puzzles/regression/benchmark_most_assemblies.xmpuzzle
+
+# the sliding fixtures and the puzzles the original's sliding code made
+sliding  -  tests/data/puzzles/test_sliding_solver.xmpuzzle
+sliding  N  tests/data/puzzles/sliding/test_sliding_nested.xmpuzzle
+sliding  -  tests/data/puzzles/sliding/slide_all_variable.xmpuzzle
+sliding  O  tests/data/puzzles/sliding/slide_caterpillar.xmpuzzle
+sliding  O  tests/data/puzzles/sliding/slide_corridor.xmpuzzle
+sliding  O  tests/data/puzzles/sliding/slide_empty_floor.xmpuzzle
+sliding  N  tests/data/puzzles/sliding/slide_fuzz_*.xmpuzzle
+sliding  -  tests/data/puzzles/sliding/slide_goal_on_variable.xmpuzzle
+sliding  -  tests/data/puzzles/sliding/slide_klotski.xmpuzzle
+sliding  -  tests/data/puzzles/sliding/slide_like_pieces.xmpuzzle
+sliding  O  tests/data/puzzles/sliding/slide_many_starts.xmpuzzle
+sliding  O  tests/data/puzzles/sliding/slide_one_cell.xmpuzzle
+sliding  N  tests/data/puzzles/sliding/slide_one_way.xmpuzzle
+sliding  NO tests/data/puzzles/sliding/slide_pocket_nested.xmpuzzle
+sliding  PO tests/data/puzzles/sliding/slide_pocket_partial.xmpuzzle
+sliding  O  tests/data/puzzles/sliding/slide_shorter_path.xmpuzzle
+sliding  -  tests/data/puzzles/sliding/slide_swapped_eight.xmpuzzle
+sliding  O  tests/data/puzzles/sliding/slide_turn.xmpuzzle
+sliding  -  tests/data/puzzles/sliding/slide_two_layers_open.xmpuzzle
+sliding  -  tests/data/puzzles/sliding/slide_two_layers_shut.xmpuzzle
+sliding  -  tests/data/puzzles/sliding/slide_variable_crossed.xmpuzzle
+sliding  -  tests/data/puzzles/sliding/slide_whole_piece.xmpuzzle
+sliding  -  tests/data/puzzles/sliding/slide_wide_keys.xmpuzzle
+
+# the stacking fixtures, a Panex file and the puzzles the original's
+# stacking code made
+stacking  Q  tests/data/puzzles/test_stacking_hanoi.xmpuzzle
+stacking  L  tests/data/puzzles/stacking/PanexLevel3to10.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_copies.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_distance.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_hanoi_3.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_invalid.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_move_over.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_nine_rods.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_no_path.xmpuzzle
+stacking  -  tests/data/puzzles/stacking/stack_panex_channel_*.xmpuzzle
+stacking  -  tests/data/puzzles/stacking/stack_panex_jr*.xmpuzzle
+stacking  -  tests/data/puzzles/stacking/stack_panex_swap_*.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_plain_*.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_same_start_goal.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_tower_*.xmpuzzle
+stacking  Q  tests/data/puzzles/stacking/stack_two_boards.xmpuzzle

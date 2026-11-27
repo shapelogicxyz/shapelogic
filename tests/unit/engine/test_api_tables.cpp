@@ -14,6 +14,7 @@
 #include "rpc.h"
 
 #include "shapelogic/app/document.h"
+#include "shapelogic/app/sliding_edits.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"

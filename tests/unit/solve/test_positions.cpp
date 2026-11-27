@@ -3,8 +3,7 @@
 // original paused (tests/data/positions_by_original.txt, recorded by
 // `oracle.py record-positions`) continue here to the same assemblies, and a
 // search paused here on one thread saves the very same text. Assembler 0
-// and assembler 1. The harness (`just oracle-resume`) checks both directions against the running original on
-// more puzzles.
+// and assembler 1.
 #include "../model/model_test_helpers.h"
 #include "solve_test_helpers.h"
 

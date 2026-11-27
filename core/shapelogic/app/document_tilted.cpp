@@ -5,6 +5,7 @@
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/document_internal.h"
 #include "shapelogic/app/tray_board.h"
+#include "shapelogic/app/tray_edits.h"
 #include "shapelogic/base/assert.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/problem.h"
@@ -309,11 +310,11 @@ void Document::adoptTray() {
   }
 }
 
-Result<void> Document::setTray(tilted::Tray tray) {
-  if (!tilted()) {
+Result<void> TrayEdits::setTray(tilted::Tray tray) {
+  if (!d_.tilted()) {
     return fail(Errc::Unsupported, "the puzzle has no tilted tray");
   }
-  if (Result<void> r = checkNotSolving(); !r) {
+  if (Result<void> r = d_.checkNotSolving(); !r) {
     return r;
   }
   if (!tray.valid()) {
@@ -322,15 +323,15 @@ Result<void> Document::setTray(tilted::Tray tray) {
   return applyTray(resolved(std::move(tray)), "Tilt & tolerance");
 }
 
-Result<unsigned int> Document::setTrayWalls(
+Result<unsigned int> TrayEdits::setTrayWalls(
     const std::vector<std::array<unsigned int, 2>>& squares, bool wall) {
-  if (!tilted()) {
+  if (!d_.tilted()) {
     return fail(Errc::Unsupported, "the puzzle has no tilted tray");
   }
-  if (Result<void> r = checkNotSolving(); !r) {
+  if (Result<void> r = d_.checkNotSolving(); !r) {
     return std::unexpected(r.error());
   }
-  tilted::Tray next = trayOf(*puzzle_);
+  tilted::Tray next = trayOf(*d_.puzzle_);
   const std::size_t all = static_cast<std::size_t>(next.width) * next.height;
   if (next.walls.empty()) {
     next.walls.assign(all, 0);
@@ -357,101 +358,101 @@ Result<unsigned int> Document::setTrayWalls(
   return changed;
 }
 
-Result<void> Document::applyTray(tilted::Tray next, const char* label) {
-  const tilted::Tray old = trayOf(*puzzle_);
+Result<void> TrayEdits::applyTray(tilted::Tray next, const char* label) {
+  const tilted::Tray old = trayOf(*d_.puzzle_);
   if (next == old) {
     return {};
   }
-  const tilted::Layout layOld = trayLayout();
+  const tilted::Layout layOld = d_.trayLayout();
   const tilted::Layout layNew = tilted::layout(next);
 
   // every piece moved to the new board, near where it lay in the tray,
   // before anything is changed: a piece too large for it refuses
-  const unsigned int count = puzzle_->getNumberOfShapes();
+  const unsigned int count = d_.puzzle_->getNumberOfShapes();
   std::vector<std::unique_ptr<Voxel>> pieces(count);
   for (unsigned int i = 1; i < count; i++) {
-    const Voxel& v = puzzle_->getShape(i);
+    const Voxel& v = d_.puzzle_->getShape(i);
     std::optional<tilted::Point> want = cellsMiddle(v);
     if (want && v.getX() == layOld.sizeX && v.getY() == layOld.sizeY) {
       want = trayToBox(next, layNew, boxToTray(old, layOld, *want));
     }
     std::optional<TrayFit> fit = fitToTray(v, want, layNew);
     if (!fit) {
-      return fail(Errc::InvalidArgument,
-                  shapeLabelOf(i) + " is too large for the new board: make it smaller or "
-                                    "delete it first");
+      return fail(Errc::InvalidArgument, d_.shapeLabelOf(i) +
+                                             " is too large for the new board: make it smaller or "
+                                             "delete it first");
     }
     pieces[i] = std::move(fit->shape);
   }
 
-  StepGuard g(*this, label);
-  touchWhole();
-  fitEnds_.clear();  // the boards a fit counted on are the old tray's
-  puzzle_->setTray(std::move(next));
+  Document::StepGuard g(d_, label);
+  d_.touchWhole();
+  d_.fitEnds_.clear();  // the boards a fit counted on are the old tray's
+  d_.puzzle_->setTray(std::move(next));
   if (count == 0) {
-    (void)puzzle_->addShape(layNew.sizeX, layNew.sizeY, 1);
-    ids_.shapes.push_back(newId());
+    (void)d_.puzzle_->addShape(layNew.sizeX, layNew.sizeY, 1);
+    d_.ids_.shapes.push_back(d_.newId());
   }
-  fillTrayBoard(puzzle_->getShape(0), layNew);
+  fillTrayBoard(d_.puzzle_->getShape(0), layNew);
   for (unsigned int i = 1; i < count; i++) {
-    (void)puzzle_->replaceShape(i, std::move(pieces[i]));
+    (void)d_.puzzle_->replaceShape(i, std::move(pieces[i]));
   }
-  for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
-    shapeChanged(i);
+  for (unsigned int i = 0; i < d_.puzzle_->getNumberOfShapes(); i++) {
+    d_.shapeChanged(i);
   }
-  lastChange_.shapes = ids_.shapes;
-  lastChange_.problems = ids_.problems;
-  g.commit(kChangeShapes | kChangeProblems | kChangeTray | lastChange_.what);
+  d_.lastChange_.shapes = d_.ids_.shapes;
+  d_.lastChange_.problems = d_.ids_.problems;
+  g.commit(kChangeShapes | kChangeProblems | kChangeTray | d_.lastChange_.what);
   return {};
 }
 
 // ---- trying every placement -----------------------------------------------------------
 
-Result<unsigned int> Document::fitPlacementsStart(Id problem, const SolveOptions& options) {
-  const Result<unsigned int> p = problemIndex(problem);
+Result<unsigned int> TrayEdits::fitPlacementsStart(Id problem, const SolveOptions& options) {
+  const Result<unsigned int> p = d_.problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
-  if (!tilted()) {
+  if (!d_.tilted()) {
     return fail(Errc::Unsupported, "the puzzle has no tilted tray");
   }
-  if (Result<void> r = checkProblemFree(*p); !r) {
+  if (Result<void> r = d_.checkProblemFree(*p); !r) {
     return std::unexpected(r.error());
   }
-  if (grouping_) {
+  if (d_.grouping_) {
     return fail(Errc::InvalidState, "a group of edits is open");
   }
-  const Problem& pr = puzzle_->getProblem(*p);
+  const Problem& pr = d_.puzzle_->getProblem(*p);
   if (pr.getNumberOfPieces() == 0) {
     return fail(Errc::InvalidArgument, "the problem has no pieces");
   }
-  const tilted::Placements& boards = trayPlacements();
+  const tilted::Placements& boards = d_.trayPlacements();
 
   // A puzzle of the fit's own: the tray, the colors, every shape in its
   // place (so that the problem's shape numbers hold) and the problem's
   // definition. The shapes are only read here, as a run of another problem
   // reads them; this problem has no run.
   auto scratch = std::make_unique<Puzzle>(GridType(GridKind::Bricks));
-  scratch->setTray(trayOf(*puzzle_));
-  for (unsigned int c = 0; c < puzzle_->colorNumber(); c++) {
-    const Rgb rgb = puzzle_->getColor(c);
+  scratch->setTray(trayOf(*d_.puzzle_));
+  for (unsigned int c = 0; c < d_.puzzle_->colorNumber(); c++) {
+    const Rgb rgb = d_.puzzle_->getColor(c);
     (void)scratch->addColor(rgb.r, rgb.g, rgb.b);
   }
-  for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
-    (void)scratch->addShape(puzzle_->getShape(i).clone());
+  for (unsigned int i = 0; i < d_.puzzle_->getNumberOfShapes(); i++) {
+    (void)scratch->addShape(d_.puzzle_->getShape(i).clone());
   }
   (void)scratch->addProblem(pr);
 
-  fitEnds_.erase(problem);
-  startJob<PlacementFit>(problem, std::move(scratch), boards, options);
+  d_.fitEnds_.erase(problem);
+  d_.startJob<PlacementFit>(problem, std::move(scratch), boards, options);
   return static_cast<unsigned int>(boards.boards.size());
 }
 
-Result<void> Document::fitPlacementsStop(Id problem) {
-  if (Result<unsigned int> p = problemIndex(problem); !p) {
+Result<void> TrayEdits::fitPlacementsStop(Id problem) {
+  if (Result<unsigned int> p = d_.problemIndex(problem); !p) {
     return std::unexpected(p.error());
   }
-  PlacementFit* f = job<PlacementFit>(problem);
+  PlacementFit* f = d_.job<PlacementFit>(problem);
   if (f == nullptr) {
     return fail(Errc::InvalidState, "the tray's placements are not being tried with the problem");
   }
@@ -459,19 +460,19 @@ Result<void> Document::fitPlacementsStop(Id problem) {
   return {};
 }
 
-Result<PlacementFitProgress> Document::fitPlacementsProgress(Id problem) const {
-  if (Result<unsigned int> p = problemIndex(problem); !p) {
+Result<PlacementFitProgress> TrayEdits::fitPlacementsProgress(Id problem) const {
+  if (Result<unsigned int> p = d_.problemIndex(problem); !p) {
     return std::unexpected(p.error());
   }
-  if (const PlacementFit* f = job<PlacementFit>(problem)) {
+  if (const PlacementFit* f = d_.job<PlacementFit>(problem)) {
     return f->progress();
   }
-  const auto e = fitEnds_.find(problem);
-  return e == fitEnds_.end() ? PlacementFitProgress{} : e->second;
+  const auto e = d_.fitEnds_.find(problem);
+  return e == d_.fitEnds_.end() ? PlacementFitProgress{} : e->second;
 }
 
-bool Document::fittingPlacements(Id problem) const {
-  return jobs_.contains({problem, PlacementFit::kKind});
+bool TrayEdits::fittingPlacements(Id problem) const {
+  return d_.jobs_.contains({problem, PlacementFit::kKind});
 }
 
 }  // namespace bt::app

@@ -14,14 +14,19 @@
 // - undo gives back every byte and tells at least as much, and so does redo;
 // - a kind told that did not change is listed in the test's output (a
 //   warning: a refresh too many, nothing stale).
-// The commands are found in document.h: one that is neither in the table
-// nor left out with its reason fails the test.
+// The commands are found in document.h and the headers of the commands of
+// each kind of puzzle (sliding_edits.h, tray_edits.h, stacking_edits.h,
+// cleanup item 21.6): one that is neither in the table nor left out with
+// its reason fails the test.
 #include "../scratch_dir.h"
 #include "app_test_helpers.h"
 
 #include "shapelogic/app/analysis.h"
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/shape_tools.h"
+#include "shapelogic/app/sliding_edits.h"
+#include "shapelogic/app/stacking_edits.h"
+#include "shapelogic/app/tray_edits.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/io/xml_document.h"
@@ -317,15 +322,15 @@ std::string manySolutionsFixture() {
 // domino; solved (one solution).
 std::string slidingFixture() {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal({3, 2, 1}).value();
+  const Id tray = SlidingEdits(d).addStartGoal({3, 2, 1}).value();
   const Id p = d.createProblem().value();
   REQUIRE(d.setResult(p, tray).has_value());
   const Id unit = piece(d, 1, 1, {{0, 0, 0}});
   const Id domino = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
   (void)piece(d, 1, 1, {{0, 0, 0}});
-  REQUIRE(d.placeStamp(tray, unit, 0, 0, 0, false).value());
-  REQUIRE(d.placeStamp(tray, domino, 1, 1, 0, false).value());
-  REQUIRE(d.placeStamp(tray, unit, 2, 0, 0, true).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, unit, 0, 0, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, domino, 1, 1, 0, false).value());
+  REQUIRE(SlidingEdits(d).placeStamp(tray, unit, 2, 0, 0, true).value());
   Document::ImageChoice picture;
   picture.bytes = pngHeader(8, 4);
   picture.src = {0, 0, 8, 4};
@@ -371,7 +376,8 @@ std::string refusal(const Result<T>& r) {
 }
 
 struct Command {
-  // the Document's method, as document.h declares it
+  // the command, as document.h or a kind's header declares it (the
+  // Document's method, or its SlidingEdits', TrayEdits' or StackingEdits')
   const char* method;
   // which call of it
   const char* call;
@@ -547,7 +553,9 @@ std::vector<Command> commands() {
       [](Document& d) { return refusal(d.setResult(problemAt(d, 0), spare(d))); });
   add("setResult", "of a sliding problem: another board", On::Sliding,
       [](Document& d) { return refusal(d.setResult(problemAt(d, 0), shapeAt(d, 1))); });
-  c.back().prepare = [](Document& d) { REQUIRE(d.addStartGoal({3, 2, 1}).has_value()); };
+  c.back().prepare = [](Document& d) {
+    REQUIRE(SlidingEdits(d).addStartGoal({3, 2, 1}).has_value());
+  };
   add("clearResult", "of the solved problem", On::Cube,
       [](Document& d) { return refusal(d.clearResult(problemAt(d, 0))); });
   add("setPieceCount", "a piece of the solved problem", On::Cube,
@@ -636,93 +644,112 @@ std::vector<Command> commands() {
 
   // ---- sliding puzzles
   add("addStartGoal", "a second board", On::Sliding,
-      [](Document& d) { return refusal(d.addStartGoal({2, 2, 1})); });
+      [](Document& d) { return refusal(SlidingEdits(d).addStartGoal({2, 2, 1})); });
   add("placeStamp", "the domino's goal", On::Sliding, [](Document& d) {
-    return refusal(d.placeStamp(shapeAt(d, 0), shapeAt(d, 2), 0, 1, 0, true));
+    return refusal(SlidingEdits(d).placeStamp(shapeAt(d, 0), shapeAt(d, 2), 0, 1, 0, true));
   });
   add("placeStamp", "the start of the piece that had none", On::Sliding, [](Document& d) {
-    return refusal(d.placeStamp(shapeAt(d, 0), shapeAt(d, 3), 2, 0, 0, false));
+    return refusal(SlidingEdits(d).placeStamp(shapeAt(d, 0), shapeAt(d, 3), 2, 0, 0, false));
   });
-  add("clearStampAt", "the unit piece's start", On::Sliding,
-      [](Document& d) { return refusal(d.clearStampAt(shapeAt(d, 0), 0, 0, 0, false)); });
+  add("clearStampAt", "the unit piece's start", On::Sliding, [](Document& d) {
+    return refusal(SlidingEdits(d).clearStampAt(shapeAt(d, 0), 0, 0, 0, false));
+  });
   add("cloneStamps", "the starts as the goals", On::Sliding,
-      [](Document& d) { return refusal(d.cloneStamps(shapeAt(d, 0), true)); });
+      [](Document& d) { return refusal(SlidingEdits(d).cloneStamps(shapeAt(d, 0), true)); });
   add("clearStamps", "the goals", On::Sliding,
-      [](Document& d) { return refusal(d.clearStamps(shapeAt(d, 0), true)); });
+      [](Document& d) { return refusal(SlidingEdits(d).clearStamps(shapeAt(d, 0), true)); });
   add("setSlideLayout", "another start", On::Sliding, [](Document& d) {
-    return refusal(d.setSlideLayout(problemAt(d, 0), false, {{1, 0, 0}, {0, 1, 0}}));
+    return refusal(SlidingEdits(d).setSlideLayout(problemAt(d, 0), false, {{1, 0, 0}, {0, 1, 0}}));
   });
 
   // ---- tilted trays
   add("setTray", "another allowance", On::Tilted, [](Document& d) {
     tilted::Tray tray = *d.puzzle().tray();
     tray.allowance = 0.1;
-    return refusal(d.setTray(tray));
+    return refusal(TrayEdits(d).setTray(tray));
   });
   add("setTray", "a larger tray", On::Tilted, [](Document& d) {
     tilted::Tray tray = *d.puzzle().tray();
     tray.width = 7;
     tray.height = 7;
     tray.walls.clear();
-    return refusal(d.setTray(tray));
+    return refusal(TrayEdits(d).setTray(tray));
   });
   add("setTrayWalls", "a square walled off", On::Tilted,
-      [](Document& d) { return refusal(d.setTrayWalls({{2, 2}}, true)); });
+      [](Document& d) { return refusal(TrayEdits(d).setTrayWalls({{2, 2}}, true)); });
 
   // ---- stacking puzzles
   add("addRodSet", "a third", On::Stacking,
-      [](Document& d) { return refusal(d.addRodSet()); });
+      [](Document& d) { return refusal(StackingEdits(d).addRodSet()); });
   add("duplicateRodSet", "the first", On::Stacking,
-      [](Document& d) { return refusal(d.duplicateRodSet(rodSetAt(d, 0))); });
+      [](Document& d) { return refusal(StackingEdits(d).duplicateRodSet(rodSetAt(d, 0))); });
   add("deleteRodSet", "one a problem stands on", On::Stacking,
-      [](Document& d) { return refusal(d.deleteRodSet(rodSetAt(d, 1))); });
+      [](Document& d) { return refusal(StackingEdits(d).deleteRodSet(rodSetAt(d, 1))); });
   add("renameRodSet", "the first", On::Stacking,
-      [](Document& d) { return refusal(d.renameRodSet(rodSetAt(d, 0), "audit")); });
-  add("moveRodSet", "the first to the end", On::Stacking,
-      [](Document& d) { return refusal(d.moveRodSet(rodSetAt(d, 0), 1)); }, kChangeProblems,
+      [](Document& d) { return refusal(StackingEdits(d).renameRodSet(rodSetAt(d, 0), "audit")); });
+  add(
+      "moveRodSet", "the first to the end", On::Stacking,
+      [](Document& d) { return refusal(StackingEdits(d).moveRodSet(rodSetAt(d, 0), 1)); },
+      kChangeProblems,
       "a problem names its rod set by its place in the file; by id it stands on the one it did");
   add("setRodSetRules", "the size rule of one a problem stands on", On::Stacking,
       [](Document& d) {
         stacking::RodSet rules = d.puzzle().getRodSet(0);
         rules.sizeMatters = !rules.sizeMatters;
-        return refusal(d.setRodSetRules(rodSetAt(d, 0), rules));
+        return refusal(StackingEdits(d).setRodSetRules(rodSetAt(d, 0), rules));
       });
   add("setRodSetRules", "a fourth rod", On::Stacking, [](Document& d) {
     stacking::RodSet rules = d.puzzle().getRodSet(0);
     rules.rodCount = 4;
-    return refusal(d.setRodSetRules(rodSetAt(d, 0), rules));
+    return refusal(StackingEdits(d).setRodSetRules(rodSetAt(d, 0), rules));
   });
   add("setDiscSize", "a disc on a rod", On::Stacking,
-      [](Document& d) { return refusal(d.setDiscSize(shapeAt(d, 0), 5)); });
+      [](Document& d) { return refusal(StackingEdits(d).setDiscSize(shapeAt(d, 0), 5)); });
   add("setProblemRodSet", "the other rod set", On::Stacking, [](Document& d) {
-    return refusal(d.setProblemRodSet(problemAt(d, 0), rodSetAt(d, 1)));
+    return refusal(StackingEdits(d).setProblemRodSet(problemAt(d, 0), rodSetAt(d, 1)));
   });
   add("placeDisc", "one more copy of a disc", On::Stacking, [](Document& d) {
-    return refusal(d.placeDisc(problemAt(d, 0), shapeAt(d, 0), 2, false));
+    return refusal(StackingEdits(d).placeDisc(problemAt(d, 0), shapeAt(d, 0), 2, false));
   });
-  add("placeAllDiscs", "on the third rod", On::Stacking,
-      [](Document& d) { return refusal(d.placeAllDiscs(problemAt(d, 0), 2, false)); });
-  add("removeDisc", "the bottom disc of the start", On::Stacking,
-      [](Document& d) { return refusal(d.removeDisc(problemAt(d, 0), false, 0, 0)); });
+  add("placeAllDiscs", "on the third rod", On::Stacking, [](Document& d) {
+    return refusal(StackingEdits(d).placeAllDiscs(problemAt(d, 0), 2, false));
+  });
+  add("removeDisc", "the bottom disc of the start", On::Stacking, [](Document& d) {
+    return refusal(StackingEdits(d).removeDisc(problemAt(d, 0), false, 0, 0));
+  });
   add("clearStacks", "the start", On::Stacking,
-      [](Document& d) { return refusal(d.clearStacks(problemAt(d, 0), false)); });
-  add("moveDisc", "the bottom disc up", On::Stacking,
-      [](Document& d) { return refusal(d.moveDisc(problemAt(d, 0), false, 0, 0, 1)); });
+      [](Document& d) { return refusal(StackingEdits(d).clearStacks(problemAt(d, 0), false)); });
+  add("moveDisc", "the bottom disc up", On::Stacking, [](Document& d) {
+    return refusal(StackingEdits(d).moveDisc(problemAt(d, 0), false, 0, 0, 1));
+  });
   add("setStacks", "another start", On::Stacking, [](Document& d) {
-    return refusal(d.setStacks(problemAt(d, 0), false, {{}, {}, {0, 1, 2}}));
+    return refusal(StackingEdits(d).setStacks(problemAt(d, 0), false, {{}, {}, {0, 1, 2}}));
   });
   return c;
 }
 
-// The commands document.h declares: the methods of Document that are not
-// static, not const, and answer with a Result.
-std::set<std::string> declaredCommands() {
-  std::ifstream in("core/shapelogic/app/document.h");
+// Where the commands are declared: document.h's Document, and the classes
+// that hold each kind's commands (cleanup item 21.6).
+struct CommandClass {
+  const char* header;
+  const char* name;
+};
+constexpr std::array<CommandClass, 4> kCommandClasses{{
+    {"core/shapelogic/app/document.h", "Document"},
+    {"core/shapelogic/app/sliding_edits.h", "SlidingEdits"},
+    {"core/shapelogic/app/tray_edits.h", "TrayEdits"},
+    {"core/shapelogic/app/stacking_edits.h", "StackingEdits"},
+}};
+
+// The commands one class declares: its public methods that are not static,
+// not const, and answer with a Result.
+std::set<std::string> declaredCommands(const CommandClass& cls) {
+  std::ifstream in(cls.header);
   REQUIRE(in.good());
   std::stringstream all;
   all << in.rdbuf();
   std::string text = all.str();
-  const std::size_t from = text.find("\nclass Document {");
+  const std::size_t from = text.find(std::string("\nclass ") + cls.name + " {");
   const std::size_t to = text.find("\n private:", from);
   REQUIRE(from != std::string::npos);
   REQUIRE(to != std::string::npos);
@@ -755,6 +782,22 @@ std::set<std::string> declaredCommands() {
     const bool isConst = std::regex_search(decl, std::regex("\\) const *$"));
     if (!isStatic && !isConst) {
       found.insert(m[1]);
+    }
+  }
+  return found;
+}
+
+// The commands of every class of kCommandClasses, by name: the table names
+// a command by its method alone, so no two classes may share a name.
+std::set<std::string> declaredCommands() {
+  std::set<std::string> found;
+  for (const CommandClass& cls : kCommandClasses) {
+    const std::set<std::string> mine = declaredCommands(cls);
+    INFO(cls.name << " has commands of its own");
+    CHECK_FALSE(mine.empty());
+    for (const std::string& name : mine) {
+      INFO(cls.name << "::" << name << " has the name of another class's command");
+      CHECK(found.insert(name).second);
     }
   }
   return found;
@@ -795,15 +838,15 @@ TEST_CASE("change audit: every command tells what it changed", "[app][audit]") {
   // (the walk found them: 81 at the time of writing)
   CHECK(declared.size() > 60);
   for (const std::string& name : declared) {
-    INFO("Document::" << name << " is neither in the audit's table nor left out with a reason");
+    INFO(name << " is neither in the audit's table nor left out with a reason");
     CHECK((audited.contains(name) || leftOut.contains(name)));
   }
   for (const std::string& name : audited) {
-    INFO("the audit's table names " << name << ", which document.h does not declare");
+    INFO("the audit's table names " << name << ", which no header of the commands declares");
     CHECK(declared.contains(name));
   }
   for (const auto& [name, why] : leftOut) {
-    INFO("left out: " << name << ", which document.h does not declare");
+    INFO("left out: " << name << ", which no header of the commands declares");
     CHECK(declared.contains(name));
     CHECK_FALSE(audited.contains(name));
   }
@@ -967,29 +1010,26 @@ TEST_CASE("change audit: a call that changes nothing leaves nothing behind", "[a
        [](Document& d) { return refusal(d.deleteDisassemblies(problemAt(d, 0), std::nullopt)); });
   idle("removeAllPieces: of a sliding problem whose pieces all have a start", On::Sliding,
        [](Document& d) { return refusal(d.removeAllPieces(problemAt(d, 0))); });
-  idle("clearStamps: of a board without them", On::Sliding,
-       [](Document& d) { return refusal(d.clearStamps(shapeAt(d, 0), true)); },
-       [](Document& d) { REQUIRE(d.clearStamps(shapeAt(d, 0), true).value()); });
-  idle("setSlideLayout: the start it has", On::Sliding,
-       [](Document& d) {
-         return refusal(d.setSlideLayout(problemAt(d, 0), false, {{0, 0, 0}, {1, 1, 0}}));
-       });
-  idle("setStacks: the start it has", On::Stacking,
-       [](Document& d) {
-         return refusal(d.setStacks(problemAt(d, 0), false, {{0, 1, 2}, {}, {}}));
-       });
+  idle(
+      "clearStamps: of a board without them", On::Sliding,
+      [](Document& d) { return refusal(SlidingEdits(d).clearStamps(shapeAt(d, 0), true)); },
+      [](Document& d) { REQUIRE(SlidingEdits(d).clearStamps(shapeAt(d, 0), true).value()); });
+  idle("setSlideLayout: the start it has", On::Sliding, [](Document& d) {
+    return refusal(SlidingEdits(d).setSlideLayout(problemAt(d, 0), false, {{0, 0, 0}, {1, 1, 0}}));
+  });
+  idle("setStacks: the start it has", On::Stacking, [](Document& d) {
+    return refusal(StackingEdits(d).setStacks(problemAt(d, 0), false, {{0, 1, 2}, {}, {}}));
+  });
   idle("setTray: the tray it has", On::Tilted,
-       [](Document& d) { return refusal(d.setTray(*d.puzzle().tray())); });
-  idle("setProblemRodSet: the rod set it stands on", On::Stacking,
-       [](Document& d) {
-         return refusal(d.setProblemRodSet(problemAt(d, 0), rodSetAt(d, 0)));
-       });
-  idle("setRodSetRules: the rules it has", On::Stacking,
-       [](Document& d) {
-         return refusal(d.setRodSetRules(rodSetAt(d, 0), d.puzzle().getRodSet(0)));
-       });
+       [](Document& d) { return refusal(TrayEdits(d).setTray(*d.puzzle().tray())); });
+  idle("setProblemRodSet: the rod set it stands on", On::Stacking, [](Document& d) {
+    return refusal(StackingEdits(d).setProblemRodSet(problemAt(d, 0), rodSetAt(d, 0)));
+  });
+  idle("setRodSetRules: the rules it has", On::Stacking, [](Document& d) {
+    return refusal(StackingEdits(d).setRodSetRules(rodSetAt(d, 0), d.puzzle().getRodSet(0)));
+  });
   idle("setDiscSize: the size it has", On::Stacking,
-       [](Document& d) { return refusal(d.setDiscSize(shapeAt(d, 0), 3)); });
+       [](Document& d) { return refusal(StackingEdits(d).setDiscSize(shapeAt(d, 0), 3)); });
   for (const Idle& c : calls) {
     INFO(c.call);
     Document d = fixture(c.on);

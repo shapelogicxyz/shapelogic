@@ -1,0 +1,122 @@
+{
+ "tests/data/puzzles/regression/assembly_cannot_come_apart.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "moves": null,
+  "rotations": null,
+  "solvetime": 0.006,
+  "from": "original"
+ },
+ "tests/data/puzzles/regression/deep_level_no_rotation.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 101,
+  "solutions": 1,
+  "dotlevel": "43",
+  "level": 43,
+  "totalmoves": 43,
+  "moves": 43,
+  "rotations": 0,
+  "solvetime": 0.266,
+  "from": "original"
+ },
+ "tests/data/puzzles/regression/deep_level_with_rotation.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 3,
+  "solutions": 1,
+  "dotlevel": "48R5",
+  "level": 53,
+  "totalmoves": 53,
+  "moves": 48,
+  "rotations": 5,
+  "solvetime": 1.565,
+  "from": "original"
+ },
+ "tests/data/puzzles/regression/many_assemblies_many_rotations.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 1728,
+  "solutions": 2,
+  "dotlevel": "3R0.2R1.8R4.5R2.1R1",
+  "level": 3,
+  "totalmoves": 27,
+  "moves": 19,
+  "rotations": 8,
+  "solvetime": 2.901,
+  "from": "original"
+ },
+ "tests/data/puzzles/regression/many_assemblies_one_solution.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 392,
+  "solutions": 1,
+  "dotlevel": "37R1",
+  "level": 38,
+  "totalmoves": 38,
+  "moves": 37,
+  "rotations": 1,
+  "solvetime": 1.454,
+  "from": "original"
+ },
+ "tests/data/puzzles/regression/many_solutions_with_rotations.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 43,
+  "solutions": 19,
+  "dotlevel": "10R5",
+  "level": 15,
+  "totalmoves": 15,
+  "moves": 10,
+  "rotations": 5,
+  "solvetime": 0.125,
+  "from": "original"
+ },
+ "tests/data/puzzles/regression/no_assemblies.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 0,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "moves": null,
+  "rotations": null,
+  "solvetime": 0.0,
+  "from": "original"
+ },
+ "tests/data/puzzles/regression/piece_group.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 57,
+  "solutions": 2,
+  "dotlevel": "14R2",
+  "level": 16,
+  "totalmoves": 16,
+  "moves": 14,
+  "rotations": 2,
+  "solvetime": 0.069,
+  "from": "original"
+ },
+ "tests/data/puzzles/regression/rotation_takeapart_many_rotations.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "10R2.10R1.14R6.3R2.4R1",
+  "level": 12,
+  "totalmoves": 53,
+  "moves": 41,
+  "rotations": 12,
+  "solvetime": 0.334,
+  "from": "original"
+ },
+ "tests/data/puzzles/regression/rotation_takeapart_no_rotation_needed.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "10.2.1.2",
+  "level": 10,
+  "totalmoves": 15,
+  "moves": 15,
+  "rotations": 0,
+  "solvetime": 0.019,
+  "from": "original"
+ }
+}
