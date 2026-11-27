@@ -32,12 +32,14 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
 #include <random>
 #include <set>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -892,10 +894,21 @@ TEST_CASE("sliding session: a paused search is not carried on as another search"
   same.threads = 1;
   same.justCount = true;
   same.sliding.memoryBytes = 4000000;
-  // (these two play a part only with the options they hang on)
-  same.sliding.partialNested = true;
+  same.sliding.diskBudget = 1000000000;
+  same.sliding.compression = 3;
+  same.sliding.oneEnd = true;
+  same.sliding.optimizedPaths = true;  // (the board fits no grid)
+  // (plays a part only with any orientation)
   same.sliding.mirroredOrientations = true;
   CHECK(s.resumeRefusal(same).empty());
+  // Partially nested slides bring nested slides with them (findSlidePath),
+  // so on their own they name another search: this once passed as the
+  // same one, and Continue would have searched from the first move
+  // (cleanup item 19.1).
+  SolveOptions partial = o;
+  partial.sliding.partialNested = true;
+  CHECK(s.resumeRefusal(partial).find("(nested slides, partially nested slides)") !=
+        std::string::npos);
 
   // another search: each option that names it is told
   const std::string why = s.resumeRefusal(nested);
@@ -910,6 +923,44 @@ TEST_CASE("sliding session: a paused search is not carried on as another search"
   CHECK(s.resumeRefusal(other).find(
             "(nested slides, partially nested slides, vertical moves, any orientation for "
             "unplaced pieces, mirrored orientations, optimized paths)") != std::string::npos);
+
+  // Every option a saved search is named by (sliding::SlideNaming, the list
+  // the search takes its name from): changed alone, Continue is refused
+  // and the option told. A member added to the list without a change here
+  // fails.
+  const std::map<std::string_view, std::function<void(sliding::SlidingOptions&)>> changes = {
+      {"nested slides", [](sliding::SlidingOptions& x) { x.nested = true; }},
+      {"partially nested slides", [](sliding::SlidingOptions& x) { x.partialNested = true; }},
+      {"vertical moves", [](sliding::SlidingOptions& x) { x.verticalMoves = true; }},
+      {"any orientation for unplaced pieces",
+       [](sliding::SlidingOptions& x) { x.anyOrientation = true; }},
+      {"mirrored orientations",
+       [](sliding::SlidingOptions& x) {
+         x.anyOrientation = true;
+         x.mirroredOrientations = true;
+       }},
+      {"optimized paths", [](sliding::SlidingOptions& x) { x.grid = 2; }},
+      {"like pieces told apart", [](sliding::SlidingOptions& x) { x.likePiecesApart = true; }},
+      {"how the copies of a piece are kept in a key",
+       [](sliding::SlidingOptions& x) { x.packing = sliding::SlidePacking::Always; }},
+      {"the narrowest key", [](sliding::SlidingOptions& x) { x.minKeyBits = 128; }},
+      {"a code for every position", [](sliding::SlidingOptions& x) { x.plainKeys = true; }},
+      {"the stops of a grid cell told apart",
+       [](sliding::SlidingOptions& x) { x.gridStopsApart = true; }},
+      {"the search over text keys", [](sliding::SlidingOptions& x) { x.legacy = true; }},
+  };
+  const auto fields = sliding::slideNameValues(sliding::SlideNaming{});
+  CHECK(fields.size() == changes.size());
+  for (const sliding::SlideNameValue& field : fields) {
+    INFO(field.label);
+    const auto change = changes.find(field.label);
+    REQUIRE(change != changes.end());
+    SolveOptions changed = o;
+    change->second(changed.sliding);
+    const std::string refused = s.resumeRefusal(changed);
+    CHECK(refused.find("the paused search was made with other search options (") == 0);
+    CHECK(refused.find(field.label) != std::string::npos);
+  }
 
   // the saved search gone (deleted from the cache): nothing is left behind
   std::filesystem::remove_all(dir);

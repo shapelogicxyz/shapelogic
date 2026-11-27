@@ -193,26 +193,20 @@ std::string SolveSession::resumeRefusal(const SolveOptions& options) const {
   if (!sliding_ || stacking_ || state_.load() != SolveState::Paused) {
     return "";
   }
+  // every option a saved search is named by, from the one list of them
+  // (sliding::SlideNaming: what the search mixes into the name)
   const sliding::SlidingOptions& was = runOptions_.sliding;
-  const sliding::SlidingOptions& now = options.sliding;
-  std::string differ;
-  const auto tell = [&differ](bool same, std::string_view name) {
-    if (!same) {
-      differ.append(differ.empty() ? "" : ", ").append(name);
-    }
-  };
-  tell(was.nested == now.nested, "nested slides");
-  tell((was.nested && was.partialNested) == (now.nested && now.partialNested),
-       "partially nested slides");
-  tell(was.verticalMoves == now.verticalMoves, "vertical moves");
-  tell(was.anyOrientation == now.anyOrientation, "any orientation for unplaced pieces");
-  tell((was.anyOrientation && was.mirroredOrientations) ==
-           (now.anyOrientation && now.mirroredOrientations),
-       "mirrored orientations");
-  tell(slideGrid_ == sliding::searchGrid(puzzle_, problem_, now), "optimized paths");
+  const std::vector<std::string_view> names = sliding::namesDiffer(
+      sliding::slideNaming(was, slideGrid_),
+      sliding::slideNaming(options.sliding,
+                           sliding::searchGrid(puzzle_, problem_, options.sliding)));
   // nothing saved: a search with other options leaves nothing behind
-  if (differ.empty() || sliding::savedFolders(puzzle_, problem_, was.workDir).empty()) {
+  if (names.empty() || sliding::savedFolders(puzzle_, problem_, was.workDir).empty()) {
     return "";
+  }
+  std::string differ;
+  for (const std::string_view name : names) {
+    differ.append(differ.empty() ? "" : ", ").append(name);
   }
   return "the paused search was made with other search options (" + differ +
          "): set them as they were to carry it on; to search with these instead, Abort, then "

@@ -3126,20 +3126,47 @@ void releaseFreeMemory() {
 #endif
 }
 
-// FNV-1a over the bytes of values, as panex_search names its saved searches.
+// FNV-1a over the bytes of values, as panex_search names its saved
+// searches. Each value goes in at the width its call names, the least
+// significant byte first (cleanup item 19.3): the hash once ran over the
+// sizeof(T) raw bytes of whatever it was handed, so a getter that came to
+// return another type would have renamed every saved search, and Continue
+// would have searched from the first move beside a folder nothing finds.
+// The width at each call is the one its value had then (problemKeyOf,
+// nameSpace); tests/unit/solve/test_search_names.cpp pins what comes out.
 class Fingerprint {
  public:
-  template <class T>
-  void mix(const T& v) {
-    const auto* p = reinterpret_cast<const unsigned char*>(&v);
-    for (std::size_t i = 0; i < sizeof(T); i++) {
-      h_ ^= p[i];
-      h_ *= 1099511628211ULL;
+  void u8(std::uint8_t v) { bytes(v, 1); }
+  void u32(std::uint32_t v) { bytes(v, 4); }
+  void u64(std::uint64_t v) { bytes(v, 8); }
+  // A signed number in its 32 bits.
+  void i32(std::int32_t v) { u32(static_cast<std::uint32_t>(v)); }
+  // A flag in one byte, 1 or 0.
+  void flag(bool v) { u8(v ? 1 : 0); }
+  // A key: its 64-bit words, the least significant first.
+  void key(std::uint64_t k) { u64(k); }
+#ifdef __SIZEOF_INT128__
+  void key(WideKey k) {
+    u64(static_cast<std::uint64_t>(k));
+    u64(static_cast<std::uint64_t>(k >> 64));
+  }
+#endif
+  template <unsigned int W>
+  void key(const BigKey<W>& k) {
+    for (const std::uint64_t word : k.w) {
+      u64(word);
     }
   }
   [[nodiscard]] std::uint64_t value() const { return h_; }
 
  private:
+  void bytes(std::uint64_t v, unsigned int count) {
+    for (unsigned int i = 0; i < count; i++) {
+      h_ ^= (v >> (8 * i)) & 0xFF;
+      h_ *= 1099511628211ULL;
+    }
+  }
+
   std::uint64_t h_ = 14695981039346656037ULL;
 };
 
@@ -3151,31 +3178,39 @@ class Fingerprint {
 // before uids) is named as those versions named it.
 std::uint64_t problemKeyOf(const Puzzle& puzzle, const Problem& problem) {
   Fingerprint f;
-  f.mix(2U);  // the saved format
+  f.u32(2U);  // the saved format
   if (problem.getUid() != 0) {
-    f.mix(problem.getUid());
+    f.u64(problem.getUid());
   }
   const Voxel& tray = problem.resultShape(puzzle);
-  f.mix(tray.getX());
-  f.mix(tray.getY());
-  f.mix(tray.getZ());
+  f.u32(tray.getX());
+  f.u32(tray.getY());
+  f.u32(tray.getZ());
   for (unsigned int i = 0; i < tray.getXYZ(); i++) {
-    f.mix(tray.getState(i));
-    f.mix(problem.slideMarks().start(i));
-    f.mix(problem.slideMarks().goal(i));
+    f.i32(tray.getState(i));
+    f.u32(problem.slideMarks().start(i));
+    f.u32(problem.slideMarks().goal(i));
   }
   for (unsigned int part = 0; part < problem.getNumberOfParts(); part++) {
     const Voxel& shape = problem.partShape(puzzle, part);
-    f.mix(shape.getX());
-    f.mix(shape.getY());
-    f.mix(shape.getZ());
+    f.u32(shape.getX());
+    f.u32(shape.getY());
+    f.u32(shape.getZ());
     for (unsigned int i = 0; i < shape.getXYZ(); i++) {
-      f.mix(shape.getState(i));
+      f.i32(shape.getState(i));
     }
-    f.mix(problem.getPartMinimum(part));
-    f.mix(problem.getPartMaximum(part));
+    f.u32(problem.getPartMinimum(part));
+    f.u32(problem.getPartMaximum(part));
   }
   return f.value();
+}
+
+// A saved search's folder in the work folder, by the search's name
+// (nameSpace).
+std::string folderName(std::uint64_t key) {
+  char name[40];
+  std::snprintf(name, sizeof(name), "slide-%016llx", static_cast<unsigned long long>(key));
+  return name;
 }
 
 // The folder of one search's files in the work folder, named after the
@@ -3187,9 +3222,7 @@ class SearchFolder {
   SearchFolder(const std::string& workDir, std::uint64_t key) {
     if (!workDir.empty()) {
       base_ = workDir;
-      char name[40];
-      std::snprintf(name, sizeof(name), "slide-%016llx", static_cast<unsigned long long>(key));
-      name_ = name;
+      name_ = folderName(key);
     }
   }
   ~SearchFolder() {
@@ -6458,20 +6491,23 @@ struct SlideBoard {
   const Voxel& tray;
   const std::vector<Cell3List>& cells;
   const std::vector<Cell3List>& outlines;
-  bool nested;
+  // What of the options names the search: all that nameSpace sees of them.
+  const SlideNaming& naming;
   const SlideState& initial;
   const GoalCheck& goals;
   const StopGrid& stops;
 };
 
 // Builds the tables of a search and names it. `form` chooses the tables.
-// Nothing when they are made, else why not (NoFit or NotThis).
+// Nothing when they are made, else why not (NoFit or NotThis). The options
+// come as the board's SlideNaming and in no other way (cleanup item 19.1):
+// what an option adds to a name here, Continue's refusal compares.
 template <class Key>
-std::optional<Tabled> nameSpace(const SlideBoard& b, const TableForm& form,
-                                const SlideSearch& search, NamedSpace<Key>& out) {
+std::optional<Tabled> nameSpace(const SlideBoard& b, const TableForm& form, NamedSpace<Key>& out) {
+  const SlideNaming& naming = b.naming;
   SlideSpace<Key>& space = out.space;
-  if (!space.build(b.tray, b.cells, b.outlines, b.nested, search.partialNested, b.initial,
-                   b.goals, search.likePiecesApart, search.verticalMoves, b.stops, form.loose,
+  if (!space.build(b.tray, b.cells, b.outlines, naming.nested, naming.partialNested, b.initial,
+                   b.goals, naming.likePiecesApart, naming.verticalMoves, b.stops, form.loose,
                    form.plainKeys, form.pack)) {
     return Tabled::NoFit;
   }
@@ -6483,51 +6519,51 @@ std::optional<Tabled> nameSpace(const SlideBoard& b, const TableForm& form,
   // depends on, so a saved search is carried on only by its own.
   out.problemKey = problemKeyOf(b.puzzle, b.problem);
   Fingerprint f;
-  f.mix(out.problemKey);
-  f.mix(static_cast<unsigned int>(sizeof(Key)));
-  f.mix(b.nested);
-  f.mix(space.partial);
-  f.mix(space.vertical);
+  f.u64(out.problemKey);
+  f.u32(static_cast<std::uint32_t>(sizeof(Key)));
+  f.flag(naming.nested);
+  f.flag(space.partial);
+  f.flag(space.vertical);
   // without a grid what the coarse step of 1 mixed, so the searches saved
   // before the grid are carried on
-  f.mix(b.stops.size > 1 ? b.stops.size : 1);
+  f.i32(b.stops.size > 1 ? b.stops.size : 1);
   if (b.stops.size > 1) {
     for (const std::vector<std::array<int, 2>>& v : b.stops.offsets) {
-      f.mix(static_cast<unsigned int>(v.size()));
+      f.u32(static_cast<std::uint32_t>(v.size()));
       for (const std::array<int, 2>& o : v) {
-        f.mix(o[0]);
-        f.mix(o[1]);
+        f.i32(o[0]);
+        f.i32(o[1]);
       }
     }
   }
-  f.mix(search.likePiecesApart);
-  f.mix(space.n);
-  f.mix(space.startKey);
+  f.flag(naming.likePiecesApart);
+  f.u32(space.n);
+  f.key(space.startKey);
   for (unsigned int i = 0; i < space.n; i++) {
     for (const Cell3& c : b.cells[i]) {
-      f.mix(c.x);
-      f.mix(c.y);
-      f.mix(c.z);
+      f.i32(c.x);
+      f.i32(c.y);
+      f.i32(c.z);
     }
     const Place& p = b.initial.places[i];
-    f.mix(p.x);
-    f.mix(p.y);
-    f.mix(p.z);
-    f.mix(p.trans);
+    f.i32(p.x);
+    f.i32(p.y);
+    f.i32(p.z);
+    f.u8(p.trans);
     for (const char g : space.t[i].atGoal) {
-      f.mix(g);
+      f.u8(static_cast<std::uint8_t>(g));
     }
   }
   // only with loose stops, and only with codes for the stops alone, so
   // the searches saved without are carried on (findSlidePath)
   if (space.loose) {
-    f.mix(kLooseFormat);
+    f.u32(kLooseFormat);
   }
   if (space.compact) {
-    f.mix(kCompactFormat);
+    f.u32(kCompactFormat);
   }
   if (space.packed) {
-    f.mix(kPackedFormat);
+    f.u32(kPackedFormat);
   }
   out.name = f.value();
   return std::nullopt;
@@ -6563,7 +6599,7 @@ template <class Key>
 Tabled tableSearch(const SlideBoard& b, const TableForm& form, bool savedOnly,
                    SlideSearch& search, std::vector<SlideState>& path) {
   NamedSpace<Key> named;
-  if (const std::optional<Tabled> no = nameSpace(b, form, search, named)) {
+  if (const std::optional<Tabled> no = nameSpace(b, form, named)) {
     return *no;
   }
   const SlideSpace<Key>& space = named.space;
@@ -6594,7 +6630,7 @@ template <class Key>
 Tabled tableProbe(const SlideBoard& b, const TableForm& form, bool savedOnly,
                   const SlideSearch& search) {
   NamedSpace<Key> named;
-  if (const std::optional<Tabled> no = nameSpace(b, form, search, named)) {
+  if (const std::optional<Tabled> no = nameSpace(b, form, named)) {
     return *no;
   }
   if (savedOnly && !SearchFolder(search.workDir, named.name).exists()) {
@@ -6868,6 +6904,77 @@ std::uint64_t memoryStates(std::uint64_t stateBytes, bool high, std::uint64_t by
   return std::max<std::uint64_t>(memoryBudget(bytes, high, share) / stateBytes, 1);
 }
 
+SlideNaming slideNaming(const SlideSettings& settings, int grid) {
+  // Every setting by its name: one added to SlideSettings fails the build
+  // here, until it is said below whether it names a search (a member of
+  // SlideNaming, with its row in slideNameValues) or why it does not.
+  const auto& [highMemory, memoryBytes, nested, partialNested, verticalMoves, workDir, diskBudget,
+               compression, failWriteAt, failWriteOnce, oneEnd, legacy, likePiecesApart, packing,
+               minKeyBits, gridStopsApart, plainKeys] = settings;
+  SlideNaming n;
+  n.nested = nested || partialNested;
+  n.partialNested = partialNested;
+  n.verticalMoves = verticalMoves;
+  n.grid = grid > 1 ? grid : 0;
+  n.likePiecesApart = likePiecesApart;
+  n.packing = packing;
+  n.minKeyBits = minKeyBits;
+  n.plainKeys = plainKeys;
+  n.gridStopsApart = gridStopsApart;
+  n.legacy = legacy;
+  // No part of a name:
+  // - highMemory, memoryBytes: how much memory the search may fill;
+  // - workDir, diskBudget: where the search is saved and how much it may take there
+  //   (the refusal asks the paused run's folder what is saved);
+  // - compression: a saved search is carried on whatever it was written with;
+  // - failWriteAt, failWriteOnce: the tests' failing disk;
+  // - oneEnd: a saved search with a goal end is carried on with it, and one from the
+  //   start alone on a grid is found under its own name (slideAttempts).
+  return n;
+}
+
+SlideNaming slideNaming(const SlidingOptions& options, int grid) {
+  // (optimizedPaths and options.grid are in `grid`: searchGrid)
+  SlideNaming n = slideNaming(static_cast<const SlideSettings&>(options), grid);
+  n.anyOrientation = options.anyOrientation;
+  n.mirroredOrientations = options.anyOrientation && options.mirroredOrientations;
+  return n;
+}
+
+std::array<SlideNameValue, kSlideNameValues> slideNameValues(const SlideNaming& naming) {
+  // Every member by its name: one added to SlideNaming fails the build
+  // here until it has its row.
+  const auto& [nested, partialNested, verticalMoves, anyOrientation, mirroredOrientations, grid,
+               likePiecesApart, packing, minKeyBits, plainKeys, gridStopsApart, legacy] = naming;
+  const auto flag = [](bool on) { return std::uint64_t{on ? 1U : 0U}; };
+  return {{
+      {"nested slides", flag(nested)},
+      {"partially nested slides", flag(partialNested)},
+      {"vertical moves", flag(verticalMoves)},
+      {"any orientation for unplaced pieces", flag(anyOrientation)},
+      {"mirrored orientations", flag(mirroredOrientations)},
+      {"optimized paths", static_cast<std::uint64_t>(grid)},
+      {"like pieces told apart", flag(likePiecesApart)},
+      {"how the copies of a piece are kept in a key", static_cast<std::uint64_t>(packing)},
+      {"the narrowest key", minKeyBits},
+      {"a code for every position", flag(plainKeys)},
+      {"the stops of a grid cell told apart", flag(gridStopsApart)},
+      {"the search over text keys", flag(legacy)},
+  }};
+}
+
+std::vector<std::string_view> namesDiffer(const SlideNaming& a, const SlideNaming& b) {
+  const std::array<SlideNameValue, kSlideNameValues> was = slideNameValues(a);
+  const std::array<SlideNameValue, kSlideNameValues> now = slideNameValues(b);
+  std::vector<std::string_view> out;
+  for (std::size_t i = 0; i < was.size(); i++) {
+    if (was[i].value != now[i].value) {
+      out.push_back(was[i].label);
+    }
+  }
+  return out;
+}
+
 SlideSearch slideSearchFor(const SlidingOptions& options) {
   SlideSearch s;
   static_cast<SlideSettings&>(s) = static_cast<const SlideSettings&>(options);
@@ -7024,7 +7131,8 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
 
 std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& problem,
                                         const Assembly& start, SlideSearch& search) {
-  const bool nested = search.nested || search.partialNested;
+  const SlideNaming naming = slideNaming(search, search.grid);
+  const bool nested = naming.nested;
   search.outcome = SlideOutcome::NoPath;
   search.visited = 0;
   search.keyWidth = 0;
@@ -7060,8 +7168,8 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
     return sep;
   }
 
-  const bool grid = search.grid > 1;
-  setup.shapes(tray, nested, search.grid);
+  const bool grid = naming.grid > 1;
+  setup.shapes(tray, nested, naming.grid);
   const std::vector<Cell3List>& cells = setup.cells;
   const std::vector<Cell3List>& outlines = setup.outlines;
   const StopGrid& stops = setup.stops;
@@ -7072,7 +7180,7 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
   if (!search.legacy) {
     // The tables in the narrowest key that holds them (eachKey), in the
     // order slideAttempts gives.
-    const SlideBoard board{puzzle, problem, tray, cells, outlines, nested, initial, goals, stops};
+    const SlideBoard board{puzzle, problem, tray, cells, outlines, naming, initial, goals, stops};
     const bool resumeSaved =
         grid && search.resume && !savedFolders(puzzle, problem, search.workDir).empty();
     for (const SlideAttempt& a : slideAttempts(search, nested, resumeSaved)) {
@@ -7119,7 +7227,8 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
 
 bool savedFromStartAlone(const Puzzle& puzzle, const Problem& problem, const Assembly& start,
                          const SlideSearch& search) {
-  const bool nested = search.nested || search.partialNested;
+  const SlideNaming naming = slideNaming(search, search.grid);
+  const bool nested = naming.nested;
   // what findSlidePath asks before its saved pass carries on a search with
   // loose stops, and before it searches from both ends
   if (!nested || search.grid <= 1 || search.gridStopsApart || search.oneEnd || search.legacy ||
@@ -7133,13 +7242,13 @@ bool savedFromStartAlone(const Puzzle& puzzle, const Problem& problem, const Ass
   if (!setup.place(puzzle, problem, start) || setup.goals->all(setup.initial)) {
     return false;
   }
-  setup.shapes(tray, nested, search.grid);
+  setup.shapes(tray, nested, naming.grid);
 
   // the tables in each key, as findSlidePath tries them (slideAttempts)
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
   const GoalCheck& goals = *setup.goals;
   const SlideBoard board{puzzle, problem,       tray,  setup.cells, setup.outlines,
-                         nested, setup.initial, goals, setup.stops};
+                         naming, setup.initial, goals, setup.stops};
   auto would = [&](const SlideAttempt& a) {
     return eachKey(search, a.loose, [&]<class Key>(std::type_identity<Key>, bool pack) {
              return tableProbe<Key>(board, a.form(pack), a.savedOnly, search);
@@ -7166,6 +7275,46 @@ bool savedFromStartAlone(const Puzzle& puzzle, const Problem& problem, const Ass
   // and nothing saved, it would search from both ends
   const auto both = std::ranges::find_if(attempts, &SlideAttempt::bothEnds);
   return both != attempts.end() && would(*both);
+}
+
+SlideSearchName searchName(const Puzzle& puzzle, const Problem& problem, const Assembly& start,
+                           const SlideSearch& search) {
+  SlideSearchName out;
+  const SlideNaming naming = slideNaming(search, search.grid);
+  const bool nested = naming.nested;
+  if (search.legacy || !problem.resultValid()) {
+    return out;
+  }
+  const Voxel& tray = problem.resultShape(puzzle);
+  SlideSetup setup;
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
+  if (!setup.place(puzzle, problem, start) || setup.goals->all(setup.initial)) {
+    return out;
+  }
+  setup.shapes(tray, nested, naming.grid);
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
+  const GoalCheck& goals = *setup.goals;
+  const SlideBoard board{puzzle, problem,       tray,  setup.cells, setup.outlines,
+                         naming, setup.initial, goals, setup.stops};
+  // the tables in each key, as findSlidePath tries them with nothing saved
+  for (const SlideAttempt& a : slideAttempts(search, nested, false)) {
+    const Tabled done =
+        eachKey(search, a.loose, [&]<class Key>(std::type_identity<Key>, bool pack) {
+          NamedSpace<Key> named;
+          if (const std::optional<Tabled> no = nameSpace(board, a.form(pack), named)) {
+            return *no;
+          }
+          out.folder = folderName(named.name);
+          out.keyWidth = static_cast<unsigned int>(8 * sizeof(Key));
+          out.packedKeys = named.space.packed;
+          out.looseStops = named.space.loose;
+          return Tabled::Searched;
+        });
+    if (done == Tabled::Searched) {
+      break;
+    }
+  }
+  return out;
 }
 
 bool pendingFromStartAlone(const Puzzle& puzzle, const Problem& problem,

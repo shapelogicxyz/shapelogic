@@ -901,6 +901,26 @@ class Document {
   // the guards of decision 0011
   [[nodiscard]] Result<void> checkNotSolving() const;
   [[nodiscard]] Result<void> checkProblemFree(unsigned int problem) const;
+  /// A shape's place, for a command that edits shapes: checkNotSolving()'s
+  /// refusal first, then NotFound for an unknown id.
+  [[nodiscard]] Result<unsigned int> editableShape(Id shape) const;
+  /// A problem's place, for a command that edits it: NotFound for an
+  /// unknown id, then checkProblemFree()'s refusal.
+  [[nodiscard]] Result<unsigned int> freeProblem(Id problem) const;
+  /// A command that sets one field of a shape and nothing else (its
+  /// weight, its own color), the one way such a command goes (cleanup item
+  /// 19.2): editableShape(); `value(shape)` gives what the field is set
+  /// to, or the command's refusal; nothing happens when `get(shape)` is
+  /// that already; else one step named `label` that saves the shape, with
+  /// `set(shape, value)` made and the shape named in the report.
+  template <class Value, class Get, class Set>
+  Result<void> editShapeField(Id shape, const char* label, Value value, Get get, Set set);
+  /// The same for a field of a problem that is no part of what a solve
+  /// reads or writes (its name, its stored solver options): freeProblem();
+  /// the step keeps the problem without its solutions
+  /// (touchProblemSettings), and the report names the problem.
+  template <class Value, class Get, class Set>
+  Result<void> editProblemField(Id problem, const char* label, Value value, Get get, Set set);
   void endSessions();
   void endSession(unsigned int problem);
   SolveSession& sessionFor(unsigned int problem, const SolveOptions& options);

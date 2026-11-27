@@ -118,6 +118,24 @@ TEST_CASE("xml writer: misuse is an internal error", "[io][xml]") {
     xml.addContent("x");
     REQUIRE_THROWS_AS(xml.newAttrib("a", "b"), InternalError);
   }
+  // (a save with one would be a file the parser refuses: cleanup item 19.3)
+  SECTION("an attribute given twice in a tag") {
+    XmlWriter xml;
+    xml.newTag("t");
+    xml.newAttrib("a", "b");
+    xml.newAttrib("ab", 1);
+    REQUIRE_THROWS_AS(xml.newAttrib("a", "c"), InternalError);
+    REQUIRE_THROWS_AS(xml.newAttrib("ab", 2), InternalError);
+    // the next tag's attributes are its own
+    xml.newTag("u");
+    xml.newAttrib("a", "b");
+    xml.endTag("u");
+    xml.newTag("u");
+    xml.newAttrib("a", "b");
+    xml.endTag("u");
+    xml.endTag("t");
+    REQUIRE(contains(xml.str(), "<t a=\"b\" ab=\"1\">"));
+  }
   SECTION("an element inside text") {
     XmlWriter xml;
     xml.newTag("t");

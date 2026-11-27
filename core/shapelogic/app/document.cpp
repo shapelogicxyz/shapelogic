@@ -756,6 +756,24 @@ Result<void> Document::checkProblemFree(unsigned int problem) const {
   return {};
 }
 
+Result<unsigned int> Document::editableShape(Id shape) const {
+  if (Result<void> r = checkNotSolving(); !r) {
+    return std::unexpected(r.error());
+  }
+  return shapeIndex(shape);
+}
+
+Result<unsigned int> Document::freeProblem(Id problem) const {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return p;
+  }
+  if (Result<void> r = checkProblemFree(*p); !r) {
+    return std::unexpected(r.error());
+  }
+  return p;
+}
+
 void Document::endSessions() {
   BT_ASSERT(!solving());
   sessions_.clear();
@@ -929,12 +947,9 @@ std::optional<SolveOptions> Document::pausedOptions(Id problem) const {
 }
 
 Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, LaunchMode mode) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   if (grouping_) {
     return fail(Errc::InvalidState, "a group of edits is open");
@@ -1080,12 +1095,9 @@ Result<void> Document::solveAbort(Id problem, const std::string& stackingWorkDir
 }
 
 Result<void> Document::solveReset(Id problem, const std::string& stackingWorkDir) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   // a solve under way (paused in memory, left solving by a file, or a
   // stacking search saved) is solveAbort's, which cannot be undone; so a
@@ -1262,12 +1274,9 @@ Result<std::vector<std::string>> Document::searchFolders(Id problem, const std::
 // ---- analysing and what background work did -----------------------------------------
 
 Result<unsigned int> Document::analyseStart(Id problem, const AnalyseOptions& options) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return std::unexpected(r.error());
   }
   if (grouping_) {
     return fail(Errc::InvalidState, "a group of edits is open");

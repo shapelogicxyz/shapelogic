@@ -51,22 +51,35 @@ void XmlWriter::newTag(std::string_view name) {
   out_ += '<';
   out_ += name;
   state_ = State::InTag;
+  tagAttribs_.clear();
+}
+
+void XmlWriter::startAttrib(std::string_view attrib) {
+  BT_ASSERT_MSG(state_ == State::InTag, "an attribute outside a start tag");
+  // An attribute given twice is not well-formed, and the parser refuses the
+  // file: the save would be one that cannot be opened again. It happens
+  // when a writer emits an attribute its reader's list of known ones lacks:
+  // the reader keeps it as content it does not know, and the next save
+  // writes it beside the writer's own (cleanup item 19.3).
+  const std::string_view written(out_);
+  for (const auto& [at, length] : tagAttribs_) {
+    BT_ASSERT_MSG(written.substr(at, length) != attrib,
+                  "an attribute given twice in a start tag");
+  }
+  out_ += ' ';
+  tagAttribs_.emplace_back(out_.size(), attrib.size());
+  out_ += attrib;
+  out_ += "=\"";
 }
 
 void XmlWriter::newAttrib(std::string_view attrib, std::string_view value) {
-  BT_ASSERT_MSG(state_ == State::InTag, "an attribute outside a start tag");
-  out_ += ' ';
-  out_ += attrib;
-  out_ += "=\"";
+  startAttrib(attrib);
   outString(out_, value);
   out_ += '"';
 }
 
 void XmlWriter::newAttribRaw(std::string_view attrib, std::string_view value) {
-  BT_ASSERT_MSG(state_ == State::InTag, "an attribute outside a start tag");
-  out_ += ' ';
-  out_ += attrib;
-  out_ += "=\"";
+  startAttrib(attrib);
   out_ += value;
   out_ += '"';
 }

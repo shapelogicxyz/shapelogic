@@ -37,6 +37,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -473,6 +474,67 @@ struct SlideGrid {
   std::uint64_t gridStops = 0;
 };
 
+/// What of a sliding solve's options decides which saved search its
+/// searches are (decision 0043; cleanup item 19.1): the one list of it. A
+/// search is saved under a name made of these (nameSpace, which is handed
+/// the options in this form alone), and Continue is refused when one of
+/// them is not what the paused run's was (namesDiffer, which walks every
+/// member): an option that is part of the name and not of the refusal
+/// would make Continue search from the first move beside the saved search.
+/// So an option that changes the name, by whatever way, becomes a member
+/// here, with its row in slideNameValues. The values are the ones the
+/// search works with: an option that plays no part without another is off
+/// without it.
+struct SlideNaming {
+  // Part of the name as they are.
+  /// Nested slides; partially nested slides bring them.
+  bool nested = false;
+  bool partialNested = false;
+  bool verticalMoves = false;
+  // Part of it through the start layouts the assembler gives the search.
+  bool anyOrientation = false;
+  /// Only with anyOrientation.
+  bool mirroredOrientations = false;
+  /// The grid of the optimized paths (searchGrid); 0 for none.
+  int grid = 0;
+  bool likePiecesApart = false;
+  // The A/B switches that choose the key and the tables the name is made
+  // over, or the search over text keys, which is saved under none.
+  SlidePacking packing = SlidePacking::Auto;
+  unsigned int minKeyBits = 0;
+  bool plainKeys = false;
+  bool gridStopsApart = false;
+  bool legacy = false;
+};
+
+/// One member of SlideNaming: what a refusal calls it, and its value as a
+/// number.
+struct SlideNameValue {
+  std::string_view label;
+  std::uint64_t value = 0;
+};
+
+/// How many members SlideNaming has.
+inline constexpr std::size_t kSlideNameValues = 12;
+
+/// Every member of `naming`, in the order a refusal tells them.
+[[nodiscard]] std::array<SlideNameValue, kSlideNameValues> slideNameValues(
+    const SlideNaming& naming);
+
+/// The naming of the searches run with `settings` on a grid of `grid`
+/// (SlideSearch::grid, or what searchGrid found): a search's own, which
+/// knows nothing of the orientations its start was made with.
+[[nodiscard]] SlideNaming slideNaming(const SlideSettings& settings, int grid);
+
+/// The naming of a solve's searches: its options' on a grid of `grid`
+/// (searchGrid's answer for them), with the orientations.
+[[nodiscard]] SlideNaming slideNaming(const SlidingOptions& options, int grid);
+
+/// The members that differ between two namings, by their labels: empty
+/// when both name the same searches.
+[[nodiscard]] std::vector<std::string_view> namesDiffer(const SlideNaming& a,
+                                                        const SlideNaming& b);
+
 /// The steady clock in milliseconds, never 0 (SlideSearch::pickingUpSince).
 [[nodiscard]] std::int64_t slideClockMs();
 
@@ -549,6 +611,27 @@ struct SlideBackCheck {
 [[nodiscard]] SlideBackCheck checkSlideMovesBack(const Puzzle& puzzle, const Problem& problem,
                                                  const Assembly& start, const SlideSearch& search,
                                                  std::uint64_t limit);
+
+/// What a new search of a start would be saved as (searchName).
+struct SlideSearchName {
+  /// The folder's name in the work folder, "slide-" and sixteen hex digits;
+  /// empty when nothing would be saved under a name: the search over text
+  /// keys would run, the start is the goal, or the start places no piece.
+  std::string folder;
+  /// The key it would run in, as SlideSearch's keyWidth, packedKeys and
+  /// looseStops tell of a search that ran.
+  unsigned int keyWidth = 0;
+  bool packedKeys = false;
+  bool looseStops = false;
+};
+
+/// The name the search findSlidePath would begin for this start is saved
+/// under, with nothing saved to carry on: for the tests that pin the names
+/// (cleanup item 19.3: a name that changes orphans every saved search).
+/// `search` gives the options, as for findSlidePath; nothing is searched
+/// or written.
+[[nodiscard]] SlideSearchName searchName(const Puzzle& puzzle, const Problem& problem,
+                                         const Assembly& start, const SlideSearch& search);
 
 /// The folders in workDir holding saved searches of this problem's starts
 /// (a folder each): what discardSaved deletes. Empty without a work folder.

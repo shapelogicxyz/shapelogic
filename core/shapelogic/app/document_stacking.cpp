@@ -207,10 +207,7 @@ Result<void> Document::setDiscSize(Id shape, unsigned int size) {
   if (Result<void> r = checkStacking(); !r) {
     return r;
   }
-  if (Result<void> r = checkNotSolving(); !r) {
-    return r;
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -352,13 +349,10 @@ Result<void> Document::moveRodSet(Id rodSet, unsigned int toIndex) {
   StepGuard g(*this, "Move rod set");
   touchWhole();
   // one place at a time, as the arrows did; the problems keep their board
-  unsigned int at = *r;
-  while (at != toIndex) {
-    const unsigned int next = at < toIndex ? at + 1 : at - 1;
+  moveInList(*r, toIndex, [this](unsigned int at, unsigned int next) {
     puzzle_->exchangeRodSets(at, next);
     std::swap(ids_.rodSets[at], ids_.rodSets[next]);
-    at = next;
-  }
+  });
   g.commit(kChangeRodSets);
   return {};
 }
@@ -422,12 +416,9 @@ Result<void> Document::setProblemRodSet(Id problem, Id rodSet) {
   if (Result<void> r = checkStacking(); !r) {
     return r;
   }
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   const Result<unsigned int> r = rodSetIndex(rodSet);
   if (!r) {
@@ -553,12 +544,9 @@ Result<void> Document::clearStacks(Id problem, bool goal) {
   if (Result<void> r = checkStacking(); !r) {
     return r;
   }
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   // Start and goal share the counts: only the stacking edited is emptied
   const stacking::StackMap& map = mapOf(puzzle_->getProblem(*p), goal);

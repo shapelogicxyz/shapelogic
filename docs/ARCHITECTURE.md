@@ -194,7 +194,7 @@ Files in `core/shapelogic/io/`:
 - `puzzle_file.{h,cpp}`: `loadPuzzle`, `parsePuzzle`, `readPuzzle`, `savePuzzle`, `writePuzzle`; `giveUids`; the bounds on a file's numbers at the top of the .cpp (`kMaxFileCoordinate`, `kMaxSlideDepth`; a tree's depth is the model's `kMaxSeparationDepth`).
 - `xml_document.{h,cpp}`: the tree built from the parser, within `XmlLimits` (16 million elements, 4096 attributes an element, 5000 levels), and a tree written back.
 - `xml_pull_parser.{h,cpp}`: the original's parser (internal; its `XmlParseError` never leaves the module).
-- `xml_writer.{h,cpp}`: `XmlWriter`, the original's output layout.
+- `xml_writer.{h,cpp}`: `XmlWriter`, the original's output layout; it refuses an attribute given twice in a tag (a writer's new attribute goes into its reader's list of known ones, or the next save would hold it twice).
 
 Rules (decisions 0006, 0008, 0017, 0038, 0044, 0045, 0046):
 - `.xmpuzzle` is gzip-compressed XML; plain XML is read too. Errors are
@@ -209,9 +209,9 @@ Rules (decisions 0006, 0008, 0017, 0038, 0044, 0045, 0046):
 - Saves are the original's bytes but for what this program adds; each
   problem's `uid` (0044) is one, so tests compare saves `withoutUids`
   (`tests/unit/io/test_puzzle_file.cpp`). `giveUids` gives a problem without
-  one a uid from its place and definition, the same at every open, except
-  the first of each definition paused by a version before uids, which keeps
-  none so that its saved search, named without one, is still found.
+  one a uid from its place and definition (as written: pinned), the same at
+  every open, but the first of each definition paused before uids, which
+  keeps none so that its saved search, named without one, is still found.
 - What this program adds is written only when present, so other files are
   written as before: pictures (`<images>`, a PNG or JPEG in base64 each, and
   `image…` attributes on a `<voxel>`), a tray's border (`border…` attributes
@@ -267,7 +267,7 @@ Files in `core/shapelogic/solve/`:
 - `slide_levels.h`: `KeySet`, `ReadFile`, `WriteGate`: the slide search's sorted, delta-coded sets, in memory or in files; a file's index checked as it opens (`tablesHold`: `SetFault::Damaged`), each block as it is read.
 - `slide_phase.h`: the parts of a slide move that visit no arrangement (the merges, the writes, the saves, the pass for the first move to the goal).
 - `sliding_play.h`: a sliding puzzle played by hand (decision 0039): `playStart`, `playReach`, `playReplay`.
-- `sliding_search.{h,cpp}`: the slide search (decision 0014): `findSlidePath`, `SlideSearch`, `SlideOutcome`, its saved searches; `slideRoute`, `applySlideRoutes`, `finalPlacementKey`; `sliding_play.h`'s functions at its end.
+- `sliding_search.{h,cpp}`: the slide search (decision 0014): `findSlidePath`, `SlideSearch`, `SlideOutcome`, its saved searches and what names them (a name is made of the problem's key and of the options in `SlideNaming` alone, which Continue's refusal walks by `namesDiffer`, decision 0043, each value hashed at a named width; `searchName` tells a name without a search, and `tests/unit/solve/test_search_names.cpp` pins the names, which never change); `slideRoute`, `applySlideRoutes`, `finalPlacementKey`; `sliding_play.h`'s functions at its end.
 - `solve_progress.{h,cpp}`: `SolveProgress` and `SolveStats`.
 - `solve_session.{h,cpp}`: `SolveSession`, the solve of one problem across its runs (decision 0010); `SolveOptions`, `SolveFailure`; `solveSetup`, the rules that build a solve's matrix (a sliding puzzle's, a tilted tray's face-up pieces), with `trayPlaneTurns` and `storedFlipPieces`.
 - `solver_type.{h,cpp}`: `SolverType` (Classic and Crowell, labeled Complete (ShapeLogic) and Fast (Crowell)), `chooseAssembler()`, `makeAssembler()` (decision 0019: the original's BurrTools 2 solver is not kept; where decisions 0009 to 0011 describe it, 0019 holds).
@@ -396,8 +396,8 @@ Files in `core/shapelogic/app/`:
 - `analysis.{h,cpp}`: `Analysis`, saved assemblies taken apart afterwards on a thread of its own.
 - `background_job.{h,cpp}`: `BackgroundJob`, what `Analysis`, `PlacementFit` and `AssemblyExplorerBuild` share (the thread, the stop, active, the done count, the failure); the document keeps the first two in one map by (problem, kind), the engine the third by its handle.
 - `document.{h,cpp}`: `Document`: the puzzle, ids, revision, dirty flag, undo history, the queries, solving, analyses, files, playback and explorers.
-- `document_commands.cpp`: the editing commands, from the original GUI's callbacks.
-- `document_internal.h`: the undo steps, a run's among them (internal to `document*.cpp`): a step holds what its command changed (`touchProblemSettings` where no solution changes: the problem without them), and the steps are kept to the depth and to `DocumentSettings::undoBytes` (512 MiB; the newest always stays).
+- `document_commands.cpp`: the editing commands, from the original GUI's callbacks; what each tells of its change is audited against what the saved file shows changed (`tests/unit/app/test_change_audit.cpp`, which finds the commands in `document.h`: a new one gets its row there), and a call that changes nothing leaves no step and no revision.
+- `document_internal.h`: the undo steps, a run's among them (internal to `document*.cpp`): a step holds what its command changed (`touchProblemSettings` where no solution changes: the problem without them), and the steps are kept to the depth and to `DocumentSettings::undoBytes` (512 MiB; the newest always stays); the commands' shared forms (`editShapeField`, `editProblemField`, `moveInList`).
 - `document_sliding.cpp`: the sliding commands (decision 0014): starts and goals, stamps, layouts.
 - `document_stacking.cpp`: the stacking commands (decision 0015): rod sets, discs, stacks, saved searches.
 - `document_tilted.cpp`: a document with a tilted tray (decision 0045).

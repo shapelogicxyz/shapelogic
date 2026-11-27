@@ -3004,6 +3004,26 @@ def change_reports(e):
     told = what(e.call("edit.undo"))
     check("shapes" in told and "solutions" in told, f"the undo of it: {told}")
     check(e.call("problem.get", {"problem": p})["saved"] == saved, "the solutions are back")
+    # What the change audit found (cleanup item 19.2). A command that
+    # changes nothing leaves the solutions, the revision and the history as
+    # they were: the color rules as they are took the solutions away.
+    steps = e.call("edit.history")["undo"]
+    revision = e.call("document.get")["revision"]
+    r = e.call("problem.setColorRules", {"problem": p, "preset": "eachOnItself"})
+    check(r["revision"] == revision, f"the rules as they were: a revision {r}")
+    r = e.call("solution.delete", {"problem": p, "which": "before",
+                                   "solution": e.call("solution.page", {"problem": p})["rows"][0]["id"]})
+    check(r["revision"] == revision, f"nothing before the first: a revision {r}")
+    check(e.call("edit.history")["undo"] == steps, "no step for either")
+    check(e.call("problem.get", {"problem": p})["saved"] == saved, "the solutions stay")
+    # the assemblies as new pieces of the solved problem itself: its
+    # solutions change, and the event says so
+    version = e.call("solution.page", {"problem": p})["solutionsVersion"]
+    told = what(e.call("solution.toShapes", {"problem": p, "addTo": "problem", "target": p}))
+    check(e.call("solution.page", {"problem": p})["solutionsVersion"] != version,
+          "the list of solutions changed")
+    check("shapes" in told and "problems" in told and "solutions" in told,
+          f"assemblies added to a solved problem: {told}")
 
 
 @test

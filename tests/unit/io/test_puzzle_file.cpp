@@ -188,6 +188,29 @@ TEST_CASE("puzzle file: content the model does not know is kept in place", "[io]
   CHECK(io::writePuzzle(parse(out)) == out);
 }
 
+// The trap the writer's check is for (cleanup item 19.3): an attribute the
+// writer emits and its reader's list of known ones lacks is kept by the
+// reader as content it does not know, and the next save would write it
+// beside the writer's own, a file the parser refuses. Each of the four
+// lists holds what its writer emits today (the fixtures' saves above, byte
+// for byte); a kept attribute of a known name stands in for one that does
+// not. The save ends with the internal error, and nothing is written.
+TEST_CASE("puzzle file: an attribute kept beside the writer's own is never written twice",
+          "[io][file]") {
+  Puzzle p = parse(withProblem(" state=\"0\"", ""));
+  p.getShape(0).setWeight(3);
+  const std::string out = io::writePuzzle(p);
+  CHECK_THAT(out, ContainsSubstring(" weight=\"3\""));
+  p.getShape(0).setExtraAttributes({{"bevel", "0.5"}});
+  CHECK_THAT(io::writePuzzle(p), ContainsSubstring(" bevel=\"0.5\""));
+  p.getShape(0).setExtraAttributes({{"weight", "3"}});
+  CHECK_THROWS_AS(io::writePuzzle(p), InternalError);
+  // the parser's side of it: such a file is not read
+  std::string twice = out;
+  twice.replace(twice.find(" weight=\"3\""), 0, " weight=\"3\"");
+  CHECK_FALSE(io::parsePuzzle(twice).has_value());
+}
+
 TEST_CASE("puzzle file: unknown solution content is kept", "[io][file]") {
   const Puzzle p = parse(withProblem(
       " state=\"2\" assemblies=\"1\" solutions=\"1\"",

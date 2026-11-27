@@ -74,6 +74,24 @@ pictures.
   and no cost of the save; what is left over (the sets read back) is to be
   measured with these lines before the spacing is changed.
 
+## Amended on 2026-11-27 (cleanup item 19.1)
+The refusal had its own list of the options that name a search, written
+beside the search's. The two disagreed already: partially nested slides
+bring nested slides with them in the search (`findSlidePath`), and the
+refusal took them to play no part without nested slides, so a Continue
+with only that option changed searched from the first move, the failure
+this decision is about. The A/B switches that change a name (like pieces
+told apart, the keys' packing and width, a code for every position, the
+stops of a grid cell told apart, the search over text keys) were in the
+name and not in the refusal.
+
+There is one list now, `sliding::SlideNaming`
+(`core/shapelogic/solve/sliding_search.h`): the search is handed the
+options that go into a name in that form alone, and the refusal compares
+every member (`namesDiffer`). An option added to a name is in the refusal
+without another line. The names themselves are pinned by
+`tests/unit/solve/test_search_names.cpp`.
+
 ## What was not done
 - The page no longer keeps runs' options for the engine's sake (a first
   fix kept them in its session storage across a reload; the engine's

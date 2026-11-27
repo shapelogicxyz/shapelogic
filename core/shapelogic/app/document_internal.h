@@ -96,6 +96,65 @@ Job* Document::job(Id problem) const {
   return it == jobs_.end() ? nullptr : &static_cast<Job&>(*it->second);
 }
 
+template <class Value, class Get, class Set>
+Result<void> Document::editShapeField(Id shape, const char* label, Value value, Get get,
+                                      Set set) {
+  const Result<unsigned int> s = editableShape(shape);
+  if (!s) {
+    return std::unexpected(s.error());
+  }
+  Voxel& v = puzzle_->getShape(*s);
+  auto to = value(std::as_const(v));
+  if (!to) {
+    return std::unexpected(to.error());
+  }
+  if (get(std::as_const(v)) == *to) {
+    return {};
+  }
+  StepGuard g(*this, label);
+  touchShape(*s);
+  set(v, std::move(*to));
+  lastChange_.shapes = {shape};
+  g.commit(kChangeShapes);
+  return {};
+}
+
+template <class Value, class Get, class Set>
+Result<void> Document::editProblemField(Id problem, const char* label, Value value, Get get,
+                                        Set set) {
+  const Result<unsigned int> p = freeProblem(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  Problem& pr = puzzle_->getProblem(*p);
+  auto to = value(std::as_const(pr));
+  if (!to) {
+    return std::unexpected(to.error());
+  }
+  if (get(std::as_const(pr)) == *to) {
+    return {};
+  }
+  StepGuard g(*this, label);
+  touchProblemSettings(*p);
+  set(pr, std::move(*to));
+  lastChange_.problems = {problem};
+  g.commit(kChangeProblems);
+  return {};
+}
+
+/// Moves an entry of a list from place `from` to place `to` one place at a
+/// time, as the original's buttons did: `exchange(a, b)` swaps two
+/// neighbors (the entries and their ids, and whatever follows them).
+template <class Exchange>
+void moveInList(unsigned int from, unsigned int to, Exchange exchange) {
+  unsigned int at = from;
+  while (at != to) {
+    const unsigned int next = at < to ? at + 1 : at - 1;
+    exchange(at, next);
+    at = next;
+  }
+}
+
 /// Refuses text the file cannot hold (InvalidArgument naming `what`):
 /// control characters other than tab, newline and carriage return, and
 /// with `oneLine` line breaks (a name is an attribute).

@@ -134,10 +134,7 @@ Result<Id> Document::createShape(std::optional<std::array<unsigned int, 3>> size
 }
 
 Result<Id> Document::duplicateShape(Id shape) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return std::unexpected(r.error());
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -175,10 +172,7 @@ Result<Id> Document::duplicateShape(Id shape) {
 }
 
 Result<void> Document::deleteShape(Id shape) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return r;
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -217,10 +211,7 @@ Result<void> Document::deleteShape(Id shape) {
 }
 
 Result<void> Document::moveShape(Id shape, unsigned int toIndex) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return r;
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -253,9 +244,7 @@ Result<void> Document::moveShape(Id shape, unsigned int toIndex) {
   const bool slidingPuzzle = sliding::isSliding(*puzzle_);
   Id unmarked = 0;
   std::vector<Id> lostTrays;
-  unsigned int at = *s;
-  while (at != toIndex) {
-    const unsigned int next = at < toIndex ? at + 1 : at - 1;
+  moveInList(*s, toIndex, [&](unsigned int at, unsigned int next) {
     if (slidingPuzzle) {
       const std::vector<unsigned int> lost = sliding::noteShapeSwap(*puzzle_, at, next);
       if (!lost.empty()) {
@@ -268,8 +257,7 @@ Result<void> Document::moveShape(Id shape, unsigned int toIndex) {
     }
     puzzle_->exchangeShapes(at, next);
     std::swap(ids_.shapes[at], ids_.shapes[next]);
-    at = next;
-  }
+  });
   if (!lostTrays.empty()) {
     slidingMarksLost(unmarked, lostTrays);
   } else if (slidingPuzzle) {
@@ -324,45 +312,22 @@ Result<void> Document::renameShape(Id shape, std::string name) {
 }
 
 Result<void> Document::setShapeWeight(Id shape, int weight) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return r;
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
-  if (!s) {
-    return std::unexpected(s.error());
-  }
-  if (puzzle_->getShape(*s).getWeight() == weight) {
-    return {};
-  }
-  StepGuard g(*this, "Change weight");
-  touchShape(*s);
-  puzzle_->getShape(*s).setWeight(weight);
-  lastChange_.shapes = {shape};
-  g.commit(kChangeShapes);
-  return {};
+  return editShapeField(
+      shape, "Change weight", [weight](const Voxel&) -> Result<int> { return weight; },
+      [](const Voxel& v) { return v.getWeight(); }, [](Voxel& v, int w) { v.setWeight(w); });
 }
 
 Result<void> Document::setShapeColor(Id shape, std::optional<std::uint32_t> rgb) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return r;
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
-  if (!s) {
-    return std::unexpected(s.error());
-  }
-  if (rgb && *rgb > 0xFFFFFF) {
-    return fail(Errc::InvalidArgument, "a color is 0xRRGGBB");
-  }
-  const int value = rgb ? static_cast<int>(*rgb) : -1;
-  if (puzzle_->getShape(*s).getShapeColor() == value) {
-    return {};
-  }
-  StepGuard g(*this, "Shape color");
-  touchShape(*s);
-  puzzle_->getShape(*s).setShapeColor(value);
-  lastChange_.shapes = {shape};
-  g.commit(kChangeShapes);
-  return {};
+  return editShapeField(
+      shape, "Shape color",
+      [rgb](const Voxel&) -> Result<int> {
+        if (rgb && *rgb > 0xFFFFFF) {
+          return fail(Errc::InvalidArgument, "a color is 0xRRGGBB");
+        }
+        return rgb ? static_cast<int>(*rgb) : -1;
+      },
+      [](const Voxel& v) { return v.getShapeColor(); },
+      [](Voxel& v, int color) { v.setShapeColor(color); });
 }
 
 Result<unsigned int> Document::setShapeImage(Id shape, const ImageChoice& choice) {
@@ -377,10 +342,7 @@ Result<unsigned int> Document::setShapeImage(Id shape, const ImageChoice& choice
 
 Result<void> Document::setShapeImages(Id shape, const std::vector<ImageLayer>& layers,
                                       bool border) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return r;
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -463,10 +425,7 @@ Result<void> Document::setShapeImages(Id shape, const std::vector<ImageLayer>& l
 }
 
 Result<void> Document::clearShapeImage(Id shape, bool border) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return r;
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -489,10 +448,7 @@ Result<void> Document::clearShapeImage(Id shape, bool border) {
 }
 
 Result<void> Document::setTrayBorder(Id shape, const BorderChange& change) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return r;
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -528,10 +484,7 @@ Result<void> Document::setTrayBorder(Id shape, const BorderChange& change) {
 Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id color,
                                          std::uint8_t symmetry,
                                          const std::vector<CellEdit>& cells) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return std::unexpected(r.error());
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -606,10 +559,7 @@ Result<unsigned int> Document::editBox(Id shape, CellTool tool, Id color, std::u
 
 Result<void> Document::resizeShape(Id shape, unsigned int x, unsigned int y, unsigned int z,
                                    bool toAll) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return r;
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -677,10 +627,7 @@ Result<void> Document::resizeShape(Id shape, unsigned int x, unsigned int y, uns
 }
 
 Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return std::unexpected(r.error());
-  }
-  const Result<unsigned int> s = shapeIndex(shape);
+  const Result<unsigned int> s = editableShape(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
@@ -976,37 +923,25 @@ Result<void> Document::moveProblem(Id problem, unsigned int toIndex) {
   StepGuard g(*this, "Move problem");
   touchWhole();
   endSessions();
-  unsigned int at = *p;
-  while (at != toIndex) {
-    const unsigned int next = at < toIndex ? at + 1 : at - 1;
+  moveInList(*p, toIndex, [this](unsigned int at, unsigned int next) {
     puzzle_->exchangeProblems(at, next);
     std::swap(ids_.problems[at], ids_.problems[next]);
-    at = next;
-  }
+  });
   g.commit(kChangeProblems);
   return {};
 }
 
 Result<void> Document::renameProblem(Id problem, const std::string& name) {
-  const Result<unsigned int> p = problemIndex(problem);
-  if (!p) {
-    return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
-  }
-  if (Result<void> r = checkText(name, true, "a name"); !r) {
-    return r;
-  }
-  if (puzzle_->getProblem(*p).getName() == name) {
-    return {};
-  }
-  StepGuard g(*this, "Rename problem");
-  touchProblemSettings(*p);
-  puzzle_->getProblem(*p).setName(name);
-  lastChange_.problems = {problem};
-  g.commit(kChangeProblems);
-  return {};
+  return editProblemField(
+      problem, "Rename problem",
+      [&name](const Problem&) -> Result<std::string> {
+        if (Result<void> r = checkText(name, true, "a name"); !r) {
+          return std::unexpected(r.error());
+        }
+        return name;
+      },
+      [](const Problem& pr) -> const std::string& { return pr.getName(); },
+      [](Problem& pr, const std::string& to) { pr.setName(to); });
 }
 
 Result<void> Document::setResult(Id problem, Id shape) {
@@ -1069,12 +1004,9 @@ Result<void> Document::setResult(Id problem, Id shape) {
 }
 
 Result<void> Document::clearResult(Id problem) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   if (Result<void> r = refuseOnStacking(
           "a stacking problem has a rod set, not a result: set its start/goal rods");
@@ -1197,12 +1129,9 @@ Result<void> Document::removePiece(Id problem, Id shape) {
 }
 
 Result<void> Document::setRangeAll(Id problem, unsigned int min, unsigned int max) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   if (Result<void> r = refuseOnStacking("a stacking problem's discs follow its stacks: place them on its rods"); !r) {
     return r;
@@ -1212,17 +1141,23 @@ Result<void> Document::setRangeAll(Id problem, unsigned int min, unsigned int ma
   if (max > kMaxPartCount) {
     return fail(Errc::InvalidArgument, kPartFullText);
   }
-  StepGuard g(*this, "Set range for all pieces");
-  problemChanged(*p);
   Problem& pr = puzzle_->getProblem(*p);
   // the parts as they are now: a maximum of 0 removes a part; a sliding
-  // piece with a start or goal keeps its count
+  // piece with a start or goal keeps its count. Those whose range is
+  // another: with none, nothing changes, and the problem keeps its
+  // solutions (the change audit, cleanup item 19.2).
   std::vector<unsigned int> shapes;
   for (unsigned int i = 0; i < pr.getNumberOfParts(); i++) {
-    if (!slidingRequired(*p, pr.getShapeIdOfPart(i))) {
+    if (!slidingRequired(*p, pr.getShapeIdOfPart(i)) &&
+        (pr.getPartMaximum(i) != max || pr.getPartMinimum(i) != min)) {
       shapes.push_back(pr.getShapeIdOfPart(i));
     }
   }
+  if (shapes.empty()) {
+    return {};
+  }
+  StepGuard g(*this, "Set range for all pieces");
+  problemChanged(*p);
   for (const unsigned int s : shapes) {
     pr.setShapeMaximum(*puzzle_, s, max);
     if (max > 0) {
@@ -1235,12 +1170,9 @@ Result<void> Document::setRangeAll(Id problem, unsigned int min, unsigned int ma
 }
 
 Result<void> Document::addOneOfEach(Id problem) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   if (Result<void> r = refuseOnStacking("a stacking problem's discs follow its stacks: place them on its rods"); !r) {
     return r;
@@ -1272,29 +1204,32 @@ Result<void> Document::addOneOfEach(Id problem) {
 }
 
 Result<void> Document::removeAllPieces(Id problem) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   if (Result<void> r = refuseOnStacking(
           "a stacking problem's discs follow its stacks: clear its start or goal rods");
       !r) {
     return r;
   }
-  if (puzzle_->getProblem(*p).getNumberOfParts() == 0) {
-    return {};
-  }
-  StepGuard g(*this, "Remove all pieces");
   // a sliding piece with a start or goal stays
   std::vector<bool> keep(puzzle_->getNumberOfShapes());
   for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
     keep[i] = slidingRequired(*p, i);
   }
-  problemChanged(*p);
+  // no piece to take out (none, or every one stays): nothing changes, and
+  // the problem keeps its solutions (the change audit, cleanup item 19.2)
   Problem& pr = puzzle_->getProblem(*p);
+  bool any = false;
+  for (unsigned int i = 0; i < pr.getNumberOfParts() && !any; i++) {
+    any = !keep[pr.getShapeIdOfPart(i)];
+  }
+  if (!any) {
+    return {};
+  }
+  StepGuard g(*this, "Remove all pieces");
+  problemChanged(*p);
   for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
     if (!keep[i]) {
       pr.setShapeMaximum(*puzzle_, i, 0);
@@ -1429,12 +1364,9 @@ Result<void> Document::setGroup(Id problem, Id shape, unsigned int group) {
 }
 
 Result<void> Document::deleteGroup(Id problem, unsigned int group) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   if (sliding::isSliding(*puzzle_)) {
     return fail(Errc::InvalidArgument, "sliding puzzles have no piece groups");
@@ -1494,21 +1426,31 @@ Result<void> Document::setColorRule(Id problem, Id pieceColor, Id resultColor, b
 }
 
 Result<void> Document::setColorRules(Id problem, ColorPreset preset) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
-  }
   Problem& pr = puzzle_->getProblem(*p);
   const unsigned int n = puzzle_->colorNumber();
+  const auto allowed = [preset](unsigned int a, unsigned int b) {
+    return preset == ColorPreset::AllowAll || (preset == ColorPreset::EachOnItself && a == b);
+  };
+  // the rules as they are: nothing changes, and the problem keeps its
+  // solutions (the change audit, cleanup item 19.2)
+  bool any = false;
+  for (unsigned int a = 1; a <= n && !any; a++) {
+    for (unsigned int b = 1; b <= n && !any; b++) {
+      any = pr.placementAllowed(*puzzle_, a, b) != allowed(a, b);
+    }
+  }
+  if (!any) {
+    return {};
+  }
   StepGuard g(*this, "Color rules");
   problemChanged(*p);
   for (unsigned int a = 1; a <= n; a++) {
     for (unsigned int b = 1; b <= n; b++) {
-      const bool allow = preset == ColorPreset::AllowAll ||
-                         (preset == ColorPreset::EachOnItself && a == b);
+      const bool allow = allowed(a, b);
       if (allow) {
         pr.allowPlacement(*puzzle_, a, b);
       } else {
@@ -1523,35 +1465,21 @@ Result<void> Document::setColorRules(Id problem, ColorPreset preset) {
 
 Result<void> Document::setSolverOptions(Id problem,
                                         const std::map<std::string, std::string>& options) {
-  const Result<unsigned int> p = problemIndex(problem);
-  if (!p) {
-    return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
-  }
-  Problem& pr = puzzle_->getProblem(*p);
-  if (pr.getSolverOptions() == options) {
-    return {};
-  }
   // only stored: the solve and the solutions stay
-  StepGuard g(*this, "Solver options");
-  touchProblemSettings(*p);
-  pr.setSolverOptions(options);
-  lastChange_.problems = {problem};
-  g.commit(kChangeProblems);
-  return {};
+  using Options = std::map<std::string, std::string>;
+  return editProblemField(
+      problem, "Solver options",
+      [&options](const Problem&) -> Result<Options> { return options; },
+      [](const Problem& pr) -> const Options& { return pr.getSolverOptions(); },
+      [](Problem& pr, const Options& to) { pr.setSolverOptions(to); });
 }
 
 // ---- solutions ---------------------------------------------------------------------
 
 Result<void> Document::deleteSolutions(Id problem, SolutionsToDelete which, Id solution) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   Problem& pr = puzzle_->getProblem(*p);
   unsigned int sol = 0;
@@ -1563,41 +1491,43 @@ Result<void> Document::deleteSolutions(Id problem, SolutionsToDelete which, Id s
     }
     sol = *s;
   }
-  if (pr.getNumberOfSavedSolutions() == 0) {
+  // which go; none: nothing changes, and no step is left (the change
+  // audit, cleanup item 19.2: "those not taken apart" of solutions that
+  // all are left a step that undid nothing)
+  const auto goes = [which, sol](std::size_t i, const Solution& s) {
+    switch (which) {
+      case SolutionsToDelete::All:
+        return true;
+      case SolutionsToDelete::Before:
+        return i < sol;
+      case SolutionsToDelete::One:
+        return i == sol;
+      case SolutionsToDelete::After:
+        return i > sol;
+      case SolutionsToDelete::WithoutDisassembly:
+        return s.getDisassemblyInfo() == nullptr;
+    }
+    return false;
+  };
+  bool any = false;
+  for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions() && !any; i++) {
+    any = goes(i, pr.getSavedSolution(i));
+  }
+  if (!any) {
     return {};
   }
   StepGuard g(*this, "Remove assemblies");
   touchProblem(*p);
-  switch (which) {
-    case SolutionsToDelete::All:
-      (void)pr.removeSolutionsIf([](std::size_t, const Solution&) { return true; });
-      break;
-    case SolutionsToDelete::Before:
-      (void)pr.removeSolutionsIf([sol](std::size_t i, const Solution&) { return i < sol; });
-      break;
-    case SolutionsToDelete::One:
-      pr.removeSolution(sol);
-      break;
-    case SolutionsToDelete::After:
-      (void)pr.removeSolutionsIf([sol](std::size_t i, const Solution&) { return i > sol; });
-      break;
-    case SolutionsToDelete::WithoutDisassembly:
-      (void)pr.removeSolutionsIf(
-          [](std::size_t, const Solution& s) { return s.getDisassemblyInfo() == nullptr; });
-      break;
-  }
+  (void)pr.removeSolutionsIf(goes);
   lastChange_.problems = {problem};
   g.commit(kChangeSolutions);
   return {};
 }
 
 Result<void> Document::deleteDisassemblies(Id problem, std::optional<Id> solution) {
-  const Result<unsigned int> p = problemIndex(problem);
+  const Result<unsigned int> p = freeProblem(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (Result<void> r = checkProblemFree(*p); !r) {
-    return r;
   }
   std::optional<unsigned int> one;
   if (solution) {
@@ -1708,6 +1638,11 @@ Result<std::vector<Id>> Document::assembliesToShapes(Id problem, const AssemblyI
     ids_.problems.push_back(id);
     lastChange_.problems = {id};
   }
+  // a problem given new pieces loses its solutions (setShapeMaximum counts
+  // its list as changed): told as solutions (the change audit, cleanup
+  // item 19.2: with the pieces added to a solved problem the Solver's list
+  // was told nothing)
+  const std::uint64_t version = target ? puzzle_->getProblem(*target).solutionsVersion() : 0;
   std::vector<Id> added;
   for (std::unique_ptr<Voxel>& shape : shapes) {
     const unsigned int i = puzzle_->addShape(std::move(shape));
@@ -1719,6 +1654,9 @@ Result<std::vector<Id>> Document::assembliesToShapes(Id problem, const AssemblyI
       d.setShapeMaximum(*puzzle_, i, opt.max);
       d.setShapeMinimum(*puzzle_, i, opt.min);
     }
+  }
+  if (target && puzzle_->getProblem(*target).solutionsVersion() != version) {
+    lastChange_.what |= kChangeSolutions;
   }
   lastChange_.shapes = added;
   g.commit(kChangeShapes | kChangeProblems);

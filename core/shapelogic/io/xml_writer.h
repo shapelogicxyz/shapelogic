@@ -10,15 +10,17 @@
 #include "shapelogic/model/xml_element.h"
 
 #include <concepts>
+#include <cstddef>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace bt::io {
 
 /// Writes an XML document into a string. Misuse (an attribute after
-/// content, closing the wrong tag, ...) is a programming error and fails a
-/// BT_ASSERT.
+/// content, an attribute given twice in a tag, closing the wrong tag, ...)
+/// is a programming error and fails a BT_ASSERT.
 class XmlWriter {
  public:
   /// Starts the document with the `<?xml version="1.0"?>` line.
@@ -52,6 +54,9 @@ class XmlWriter {
 
  private:
   void newAttribRaw(std::string_view attrib, std::string_view value);
+  /// Writes ` name="` of an attribute of the open start tag, which has
+  /// none of that name yet.
+  void startAttrib(std::string_view attrib);
   void addContentRaw(std::string_view text);
   void startContent();
 
@@ -64,6 +69,9 @@ class XmlWriter {
   std::string out_;
   std::vector<std::string> tagStack_;
   State state_ = State::Base;
+  /// Where the names of the open start tag's attributes stand in out_:
+  /// (offset, length) each.
+  std::vector<std::pair<std::size_t, std::size_t>> tagAttribs_;
 };
 
 }  // namespace bt::io

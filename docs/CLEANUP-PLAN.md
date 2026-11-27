@@ -208,7 +208,7 @@ again, and comes last.
     port's was found. The harness now says which reference it was given,
     and the gates that need the original wait for it: "Not in this plan".
 - [x] Stage 18: the engine stays responsive (18.1's job is an `Engine:` commit of its own: `explore.openAssembly` answers at once and `explore.ready` tells when the handle can be used; 18.4 also lets Abort end a level's merges; 18.5 by rounds kept on the heap, and the level text, the counts and the destructor of a tree no longer recurse; users notice: the Placements and Step drawers tell of a long preparation, with a Cancel, a Pause during a matrix build or the taking up of a saved search ends it there, a take-apart past 1000 parts deep ends the solve with the reason; `just oracle-resume` not run: it needs the original)
-- [ ] Stage 19: names and audits that must not drift
+- [x] Stage 19: names and audits that must not drift (19.1: the refusal and the name disagreed already, for partially nested slides alone and six A/B switches; 19.2's audit found Convert assemblies to pieces into a solved problem not telling of its solutions and five calls that change nothing leaving an undo step, three after throwing the solutions away; the lookup that answers a reference not made, with its reason; users notice: Remove all pieces, Set range for all and the color rule presets keep a problem's solutions when they change nothing; `just oracle-resume` not run: it needs the original)
 - [ ] Stage 20: core deduplication under benchmarks
 - [ ] Stage 21: splits: core
 
@@ -8770,7 +8770,7 @@ The three single-source items that need Fable: a mistake in any of them
 can orphan users' saved searches, or leave the screen stale, without
 failing a test.
 
-- [ ] **19.1 Continue's refusal and the saved search's folder name can disagree** (trap; S)
+- [x] **19.1 Continue's refusal and the saved search's folder name can disagree** (trap; S)
   - *Where:* `core/shapelogic/solve/solve_session.cpp` `resumeRefusal`
     (160-188; its list of the options that name a saved slide search is at
     172-180); `sliding_search.cpp` `nameSpace` (6262-6300: what goes into
@@ -8782,8 +8782,74 @@ failing a test.
     `resumeRefusal` calls.
   - *Tests:* for each field in that list, changing it makes `resumeRefusal`
     refuse (a loop over the list).
+  - Done (2026-11-27, Fable): confirmed, and the two lists disagreed
+    already, in two ways.
+    - **Partially nested slides alone.** The search takes them to bring
+      nested slides (`findSlidePath`: `nested || partialNested`, as the
+      header, the CLI and the API say); the refusal took them to play no
+      part without nested slides. A Continue with only that option changed
+      (off to on, or on to off, nested slides off) was not refused, looked
+      for a search of another name and searched from the first move: the
+      failure of decision 0043. The old test asserted it as "the same
+      search". The app never sends the one without the other
+      (`solver/settings.ts`); an engine client or the Python module can.
+    - **The A/B switches.** Like pieces told apart is mixed into the name;
+      the keys' packing, the narrowest key, a code for every position and
+      the stops of a grid cell told apart change the key or the tables the
+      name is made over; the search over text keys saves under no name.
+      None was in the refusal. Only the tests and the CLI set them, and the
+      CLI keeps no solve paused in memory.
+    - **One list** (`sliding_search.h`): `SlideNaming`, twelve members, the
+      values as the search works with them (nested slides on with partially
+      nested ones, mirrored orientations off without any orientation, a
+      grid below 2 as none). `slideNaming(settings, grid)` makes it for a
+      search and `slideNaming(options, grid)` for a solve (with the
+      orientations, which name a search through the starts the assembler
+      gives); `slideNameValues` gives every member with the words a refusal
+      tells it by; `namesDiffer(a, b)` gives the members that differ.
+    - **Used by the name:** `nameSpace` no longer sees the search's
+      settings. The board it is handed (`SlideBoard`) carries the
+      `SlideNaming`, from which it takes what it builds the tables with and
+      what it mixes (nested, partially nested, vertical moves, like pieces
+      apart; the grid's stops are made from the naming's grid). An option
+      mixed into a name has to become a member first.
+    - **Used by the refusal:** `resumeRefusal` is `namesDiffer` of the
+      paused run's naming and the asked one's, told in the list's order
+      (the six of before first, in the words of before).
+    - **What asks every value** (rule 8, a table in place of a list by
+      hand): two structured bindings. `slideNaming` names every member of
+      `SlideSettings` (17), so a setting added fails the build there until
+      it is a member or has its line under "No part of a name" (the memory,
+      the folder and its budget, the compression, the tests' failing disk,
+      `oneEnd`); `slideNameValues` names every member of `SlideNaming`, so
+      one added fails the build until it has its row.
+      `SlidingOptions`' own four (the orientations, `optimizedPaths` and
+      `grid`, the last two as `searchGrid`'s answer) are all in.
+    - **Tests.** `test_sliding_session.cpp`, in "a paused search is not
+      carried on as another search": the loop over `slideNameValues`, each
+      member changed alone on the paused solve refuses and is told (a
+      member without a change in the test fails it); partially nested
+      slides alone refuse with both names; the options that name nothing
+      (memory, disk budget, compression, `oneEnd`, optimized paths on a
+      board that fits no grid, mirrored without any orientation) do not.
+      `test_search_names.cpp` "every option of the naming list changes a
+      search's name": the other direction, each of a search's ten members
+      changes the folder of a new search of Klotski's start (the two
+      orientations are left out there with the reason: they come in through
+      the starts), and what is no part leaves the name as it is.
+    - **Seen failing** (rule 8, a scratch copy with HEAD's
+      `solve_session.cpp`): the partial check and 7 of the 12 rows (the six
+      switches and partially nested slides).
+    - **Users notice:** nothing in the app. An engine client that asks
+      Continue with `partialNested` alone changed gets the refusal
+      ("nested slides, partially nested slides") where the search began
+      again.
+    - **Differs from the item:** `namesDiffer` takes two namings (each the
+      options with the grid `searchGrid` found), not two option sets, and
+      answers the names of what differs, for the refusal's text. The list
+      holds more than the item's six. Decision 0043 has the amendment.
 
-- [ ] **19.2 Document commands: one way to report a change, and an audit test** (combine, trap; M; after 15.3)
+- [x] **19.2 Document commands: one way to report a change, and an audit test** (combine, trap; M; after 15.3)
   - *Where:*
     - `core/shapelogic/app/document.cpp` `changed()` (541-545; see 15.3).
     - 61 StepGuard sites: `document_commands.cpp` 38, `document_stacking.cpp`
@@ -8812,8 +8878,90 @@ failing a test.
       - for categories named but unchanged, a warning list in the test
         output.
   - *Tests:* the audit test; the contract suite's `document.changed` checks.
+  - Done (2026-11-27, Fable): the audit and what it found; the three forms
+    for the pairs; two lookups with their guard. The lookup that answers a
+    reference is not made (below).
+    - **The audit** (`tests/unit/app/test_change_audit.cpp`, three cases).
+      A document's saved file is taken apart by kind (`hold`): each shape's
+      element by the shape's id (with the pictures), the colors, each
+      problem's element by its id in two parts (what defines it; what a
+      solve left: the state, the counts, the position, the solutions, with
+      `solutionsVersion()`), the notes, the rod sets, the tray, and the
+      rest. For each command, on a fixture opened afresh: every kind that
+      changed is told (a failure); a change has a revision and one undo
+      step; an id list that is not empty names every shape or problem that
+      changed, with none removed or moved; undo gives every byte back and
+      tells as much, and so does redo; what was told and did not change
+      goes into a warning the test prints.
+    - **The table walks the source** (rule 8): the commands are found in
+      `document.h` (the methods of `Document` that are not static, not
+      const and answer with a `Result`: 81). Each is in the table (65 of
+      them, 100 calls on five fixtures: PelikanBurr with colors, a spare
+      shape and a second problem; three solutions of SolidSixPieceBurrs; a
+      sliding board built through the commands and solved; two stacking
+      problems on two rod sets; Triple Play) or left out with its reason
+      (16: save, undo and redo, the groups, the runs' and jobs' calls). A
+      command added to the header fails the test until it has a row.
+    - **A run and an analysis** (the third case): `solveStart` on the
+      tilted and the sliding fixture and `analyseStart`, their two reports
+      (the start's and `poll()`'s) together against what changed, then
+      undo and redo.
+    - **Found, and fixed** (`document_commands.cpp`):
+      - `assembliesToShapes` into an existing problem told shapes and
+        problems; the problem's solutions change with its new pieces and
+        were not told (the Solver's list stayed). It tells solutions when
+        the target's `solutionsVersion()` moved.
+      - Five calls that change nothing left an undo step and a revision,
+        and three of them had thrown the problem's solutions away first:
+        `setColorRules` with the rules it has, `setRangeAll` with the range
+        every piece has, `removeAllPieces` on a sliding problem whose
+        pieces all have a start (these three: `problemChanged` before
+        looking); `deleteSolutions` "not taken apart" of solutions that all
+        are, and "before" the first. Each now looks first and returns with
+        nothing done. `deleteSolutions` has one predicate for its five
+        kinds. The second case of the test ("a call that changes nothing
+        leaves nothing behind") holds 23 such calls to it.
+    - **Told and unchanged** (the warning, 23 lines at the time of
+      writing): mostly the sliding commands, which tell every kind
+      (`syncSliding`: the whole puzzle is saved for undo, and which kinds
+      the parts' sync touched is not worked out), and commands that tell
+      problems or shapes for a place in a list that did not move (the last
+      shape or color deleted). A refresh more than needed; left as they
+      are.
+    - **By place only:** `moveRodSet` changes the number a problem's
+      element names its rod set by; by id the problem stands where it did,
+      and the command tells rod sets alone. The table says so for that row
+      (`byPlaceOnly`, with the reason); it is the one row that needs it.
+    - **The three forms** (`document_internal.h`): `editShapeField`
+      (`setShapeWeight`, `setShapeColor`), `editProblemField`
+      (`renameProblem`, `setSolverOptions`) and `moveInList` (`moveShape`,
+      `moveProblem`, `moveRodSet`). The field forms take what the field is
+      set to as a call that may refuse, so each command refuses in the
+      order it did (not solving, the id, then the value).
+    - **The lookups:** `editableShape(id)` (not solving, then the shape's
+      place: 12 commands) and `freeProblem(id)` (the problem's place, then
+      free to edit: 15 commands), each where the two checks stood one after
+      the other, so no refusal comes in another order.
+    - **Not made: a lookup that answers `Result<T&>`.** `std::expected`
+      holds no reference, and a helper that answered a pointer or a
+      wrapper would leave the three lines of the early return at each of
+      the hundred places (C++ has no `?`), with the index still needed
+      beside it (`touchShape`, the ids). A macro for the return is not
+      this code's way. The hand-set id lists stay too: the audit checks
+      every one of them now.
+    - **Seen failing** (rule 8, a scratch copy with HEAD's
+      `document_commands.cpp`): the audit on `assembliesToShapes` (the
+      call, its undo and its redo); the second case on the five calls.
+    - **The contract suite** (`change_reports`): the color rules as they
+      are and the solutions before the first leave the revision, the
+      history and the solutions; the assemblies as pieces of the solved
+      problem tell solutions.
+    - **Users notice:** Remove all pieces, Set range for all and the color
+      rule presets no longer throw a problem's solutions away when they
+      change nothing; after Convert assemblies to pieces into a solved
+      problem the Solver's list is refreshed.
 
-- [ ] **19.3 Names worked out from code or bytes, pinned by tests** (trap; S)
+- [x] **19.3 Names worked out from code or bytes, pinned by tests** (trap; S)
   - *Where:*
     - `core/shapelogic/solve/sliding_search.cpp` `Fingerprint::mix`
       (3118-3132) hashes `sizeof(T)` raw bytes; `problemKeyOf` (3140) and
@@ -8845,10 +8993,137 @@ failing a test.
     - A `BT_ASSERT` in `core/shapelogic/io/xml_writer.cpp` (56, 65) that a
       tag never gets the same attribute twice.
   - *Tests:* the new pins; `tests/unit/test_search_folders.cpp`.
+  - Done (2026-11-27, Fable): confirmed.
+    - **The hash by named widths.** `Fingerprint` has `u8`, `u32`, `u64`,
+      `i32` (a signed number in its 32 bits), `flag` (a byte, 1 or 0) and
+      `key` (a key's 64-bit words from the least significant: `uint64_t`,
+      the 128-bit integer, `BigKey<W>`), each mixing the least significant
+      byte first; the template over `sizeof(T)` is gone. Every call names
+      the width its value had: in `problemKeyOf` the format, the sizes, the
+      marks and the counts 32 bits, the uid 64, a cell's state `i32`
+      (`getState` answers `int`); in `nameSpace` the problem's key 64, the
+      key's size 32, the flags a byte, the grid and its offsets, the cells
+      and the places `i32`, a transformation and a goal mark a byte, the
+      start as a key, the formats 32. A getter that comes to answer a wider
+      type no longer compiles there (`-Wconversion` is an error), and a
+      narrower one mixes the same bytes. No 16-bit value is mixed, so there
+      is no `u16`. Panex's `fingerprintOf` mixed eight bytes a value
+      already, by value: as it was.
+    - **The names pinned** (`tests/unit/solve/test_search_names.cpp`).
+      `sliding::searchName` tells the folder a new search of a start would
+      be saved in, its key's width and whether it is packed or has loose
+      stops, with nothing searched (the attempts of `findSlidePath` with
+      nothing saved). Pinned: 19 searches of five original fixtures (64,
+      128, 192, 256 and 512 bits; packed in 64 and in the wide keys and a
+      code for each copy in 192; like pieces apart; a grid with a code for
+      each stop and for every position; vertical moves on one layer and on
+      two; nested and partially nested slides; a board of 128 bits), the
+      search v1.8.1 saved (`slide-cafc026be534476e`, the name a search of
+      that start from the start alone with a code for every position has
+      today) and that start's search from both ends, three problems' lock
+      names, seven Panex folders (Panex Jr. with its pocket variants, the
+      channel, a swap, a tower, the distance rule) and none for nine rods.
+    - **The values are HEAD's.** They were taken with only `searchName`
+      added, before the hash changed, and one of them is the folder the
+      last commit's CLI itself made for the fifteen puzzle
+      (`slide-06e8ace31ffcbe96`). After the change every one is the same.
+    - **The worked-out uids pinned:** DemoMirrorParadox's two problems,
+      PelikanBurr, Klotski and Panex Jr. (the sliding and Panex names above
+      hold theirs too).
+    - **The writer's check.** `XmlWriter::startAttrib` (the one place an
+      attribute is begun) fails a `BT_ASSERT` when the open tag has the
+      name already; the names are kept as places in the output, so nothing
+      is copied. The four readers' lists hold what their writers emit
+      today (read against `writeVoxel`, `writeProblem`, `writeSolution` and
+      the root). `test_xml.cpp` has the misuse; `test_puzzle_file.cpp` "an
+      attribute kept beside the writer's own is never written twice" puts
+      a kept attribute of a known name on a shape: the save ends with the
+      internal error, and the parser refuses such a file.
+    - **The other users** (rule 8, an assert): `XmlWriter` is used by the
+      puzzle writer and by `writeXmlDocument` (an element as parsed, whose
+      attributes the parser held to one of a name). The engine answers an
+      internal error for a save that would write one twice, and the file
+      on disk stays (a save replaces it only once the new one is whole).
+    - **Seen failing** (rule 8, a scratch copy): one width changed (the
+      tray's x as 64 bits) and one attribute more on `<problem>`: 34 checks
+      of 5 of the 6 cases. With HEAD's writer the two attribute cases fail.
+    - **Speed:** the hash runs once a search; under the gates.
 
 **Gates for stage 19:** `just test-all`, the contract suite,
 `tests/unit/test_search_folders.cpp`, `just oracle-resume`, `just check`
 on the changed files.
+Run (2026-11-27, after the last source edit): `just build dev`, `release`,
+`asan` and `tsan`;
+- `just test-all`: 76 of 76 (241 s; the contract suite, the CLI's and the
+  Python module's tests among them; `test_search_folders.cpp` gives every
+  shard its folders); `just test` twice after it: 30 of 30 each;
+- `just test-asan`: 75 of 75 (815 s);
+- `just test-tsan`: the 143 `[parallel]` cases (the audit's run and
+  analysis among them) and the contract suite on the TSan engine (153
+  methods, 0 failed);
+- `just oracle --tier fast --allow-missing` against the committed baselines,
+  with all threads, `--threads 1` and `--solver crowell`: 18 of 19 compared,
+  0 differ, each; `--tier sliding`: 23 of 35 compared, 0 differ, and with
+  `--threads 1` 32 of 35, 0 differ; `--tier stacking`, with all threads and
+  `--threads 1`: 38 of 41 compared, 0 differ; `just oracle-python
+  --allow-missing`: 37 of 37 transcripts, 0 differ (without the iterations
+  and the level text, the reference not being the original);
+- **Not run: `just oracle-resume`,** one of this stage's gates (it exits 2:
+  it needs the original BurrTools, "Not in this plan"), and with it the
+  `full` and `slow` tiers, the round trip, the files and the imports.
+  `oracle-text --tier fast`: the 81 runs that need no solved file match,
+  the 27 that read the original's solved files do not, with this tree's
+  CLI as with the last commit's. What stands in for the resumes here: the
+  pinned names (a saved search is found only by its name), v1.8.1's saved
+  search carried on (`test_sliding_session.cpp`), and the carried-on
+  searches' cases of the slide and Panex searches;
+- **speed** (rule 5; `bench.py` against the original cannot run here): the
+  last commit's CLI against this tree's, taking turns, one solve at a time
+  with nothing beside them, medians of seven runs, the solve's own seconds,
+  before and after (the answers' lines the same in every run). The stage
+  changes a search once as it begins (its name) and nothing in its levels.
+  Three boards of 4 by 3 with eleven unit pieces, made for this (a search
+  of a fifth to a third of a second), and two fixtures:
+
+  | puzzle | all threads | 1 thread |
+  |---|---|---|
+  | two pairs swapped | 0.223, 0.207 | 0.735, 0.738 |
+  | nearly reversed | 0.261, 0.261 | |
+  | two rows reversed | 0.322, 0.334 | 0.849, 0.855 |
+  | test_sliding_solver (81 moves) | 0.011, 0.012 | |
+  | slide_klotski | 0.012, 0.012 | |
+
+  On all threads the differences go both ways (7% faster, 4% slower: that
+  board's fastest runs 0.299 and 0.301 s), within a run's spread; on one
+  thread they are under 1%;
+- `just check` on the 15 changed and new C++ files (the document's five,
+  `xml_writer.cpp`, `puzzle_file.cpp`, `xml_document.cpp`,
+  `sliding_search.cpp`, `solve_session.cpp`, the five test files): clean;
+- seen failing (rule 8): each item's Done line says how its tests fail
+  without its change, in a scratch copy;
+- **the other systems** (rule 8: `Fingerprint::key` for the 128-bit integer
+  stands under `__SIZEOF_INT128__`, as the key type does). Linux (Docker,
+  ubuntu:24.04, GCC 13.3, a release build configured as the release
+  workflow configures it): built; the cases tagged `[names]`, `[audit]`,
+  `[io]` and `[app]` and the refusal's case: 230 cases, 228 passed, 2
+  skipped, none failed, so the pinned names are GCC's too; GCC's warnings
+  (which CI does not make errors) name nothing of this stage's. Windows:
+  the five changed core sources compile
+  (`x86_64-w64-mingw32-g++-posix -fsyntax-only`); nothing was run there;
+- `just app-test`: 696 of 696. The fake engine's sessions are as they
+  were: they call none of the changed commands where it changed (one
+  solution deleted, a Continue with its own options); recorded again they
+  differed only by where a pause fell, and were put back;
+- e2e, on a build of its own (`BT_OUT_DIR`), with the release engine: the
+  reload case of `sliding.e2e.ts` (Continue with other search options
+  refused), `puzzle.e2e.ts` (the color rules, the ranges, Remove all
+  pieces; 4 cases) and the Convert Assemblies case of `files.e2e.ts`: 6 of
+  6;
+- `just site-demo --check` after the last source edit (rebuilt; every
+  puzzle type opens and plays) and `just site-build` (8 of 8);
+- one commit: no engine method or parameter changed (no schema file, and
+  `api-docs` passes);
+- Not run: the other e2e specs, `just gate`.
 
 ## Stage 20: core deduplication under benchmarks (D6: decided)
 
