@@ -1,5 +1,5 @@
 # The `shapelogic` Python module (deferred part 7): the original's
-# src/python bindings over the new core. Built when BT_PYTHON_MODULE is on
+# src/python bindings over the new core. Built when SL_PYTHON_MODULE is on
 # (cmake/Python.cmake); its tests are tests/CMakeLists.txt's `python`.
 pybind11_add_module(shapelogic
   src/module.cpp
@@ -7,8 +7,8 @@ pybind11_add_module(shapelogic
   src/py_puzzle.cpp
   src/py_shape.cpp
   src/solution_iterator.cpp)
-target_link_libraries(shapelogic PRIVATE btcore)
-bt_set_warnings(shapelogic)
+target_link_libraries(shapelogic PRIVATE sl_core)
+sl_set_warnings(shapelogic)
 
 # a wheel (pyproject.toml, scikit-build-core) installs the module at its top
 if(SKBUILD)

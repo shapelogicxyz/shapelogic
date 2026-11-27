@@ -120,7 +120,7 @@ user's standing instructions.
    - **A new test is seen failing.** Before an item is called done, its
      new test is run once without the fix: in a scratch copy (rsync the
      tree without `build`), put `git show HEAD:<file>` in place of the
-     fixed file and build `bt_tests` or the module. A test whose check
+     fixed file and build `sl_tests` or the module. A test whose check
      sits under a condition (a time, a size) says in its Done line how
      often the condition held.
    Two things checkpoint D found after stage 8:
@@ -491,9 +491,9 @@ tier compared no puzzle at all and still passed.
   - *Change:*
     1. A TIMEOUT on every ctest test: its recorded cost
        (`build/<preset>/Testing/Temporary/CTestCostData.txt`) times 3,
-       at least 120 s; a cache variable `BT_TEST_TIMEOUT_SCALE` (1 by
+       at least 120 s; a cache variable `SL_TEST_TIMEOUT_SCALE` (1 by
        default, 6 in the asan and tsan presets) multiplies it.
-    2. `--durations yes` on the `bt_tests` commands, so a log shows the
+    2. `--durations yes` on the `sl_tests` commands, so a log shows the
        last case that finished.
     3. `gate.sh`: each step under a limit. macOS has no `timeout` by
        default: run the step in its own process group in the background,
@@ -502,17 +502,17 @@ tier compared no puzzle at all and still passed.
   - *Note:* item 8.1 changes the shards; set these limits generously, or do
     8.1 first.
   - Done (2026-11-24):
-    - `tests/CMakeLists.txt`: a `bt_test_timeout()` helper. The limits, at
+    - `tests/CMakeLists.txt`: an `sl_test_timeout()` helper. The limits, at
       least three times the longest time seen (the dev cost data and a run
       beside the oracle): quick shards 600 s (seen 140 s), slow shards
       1200 s (311 s), contract 300 s (4 s in the cost data, 41 s beside the
       shards), cli, api-schema and api-docs 120 s, python 600 s (as
       before).
-    - `BT_TEST_TIMEOUT_SCALE` (1; 6 in the asan and tsan presets) multiplies
+    - `SL_TEST_TIMEOUT_SCALE` (1; 6 in the asan and tsan presets) multiplies
       them. Checked with `ctest --show-only=json-v1`: every one of dev's 21
       tests has a limit, and asan's and tsan's are ×6 (slow shards
       7200 s; asan's slowest was recorded at 929 s).
-    - `--durations yes` on both `bt_tests` commands; a shard's log lists
+    - `--durations yes` on both `sl_tests` commands; a shard's log lists
       each case's time.
     - `tests/gate.sh`: each step runs in its own process group under a
       watcher that stops the group after `GATE_STEP_TIMEOUT` seconds (7200
@@ -522,7 +522,7 @@ tier compared no puzzle at all and still passed.
       sleep were stopped after 3 s and marked TIMEOUT, later steps ran, the
       table printed, and no process was left; a TERM to the gate stopped
       its step.
-    - `tsan`'s `bt_tests "[parallel]"` runs outside ctest; only the gate's
+    - `tsan`'s `sl_tests "[parallel]"` runs outside ctest; only the gate's
       step limit covers it.
     - `just test` passes (13 of 13) and `just test-all` passes (21 of 21,
       353 s, beside oracle runs).
@@ -2347,7 +2347,7 @@ catch in 5.9 (checked by `just check` and `just python-test` after it):
   test failed is unknown. It then passed four times in a row. No GCC
   warning on a changed line. The dev preset does not build there with
   `-Werror`: 27 older files warn (sign conversions; `document_tilted.cpp`,
-  `grid/bitfield.h` among them), so the check ran with `BT_WERROR=OFF`;
+  `grid/bitfield.h` among them), so the check ran with `SL_WERROR=OFF`;
 - Windows: the 22 changed C++ sources compile with
   `x86_64-w64-mingw32-g++-posix -fsyntax-only`; nothing was run there.
 
@@ -3158,13 +3158,13 @@ Done (2026-11-25), the whole stage:
     - Only about 41 of 836 cases are `[slow]`.
   - *Change:*
     1. Register each `[slow]` case as its own ctest test with Catch2's CMake
-       module: `catch_discover_tests(bt_tests TEST_SPEC "[slow]" TEST_PREFIX "slow: " …)`
+       module: `catch_discover_tests(sl_tests TEST_SPEC "[slow]" TEST_PREFIX "slow: " …)`
        (check that the Catch2 the build fetches provides it). Give it
        `WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}` and the label `slow`.
        ctest's cost data then starts the longest first.
     2. Raise `BT_TEST_SHARDS` to about 24 for the `"~[slow]"` shards.
     3. If a case still takes most of a shard (run
-       `bt_tests "[slow]" --durations yes`), split it into sections or cases
+       `sl_tests "[slow]" --durations yes`), split it into sections or cases
        that check the same things.
     4. Shard `test-tsan`'s `[parallel]` cases the same way (`justfile:32`).
   - *Keep:* the shuffle seed of the shards; `just test` still skips `[slow]`.
@@ -3173,10 +3173,10 @@ Done (2026-11-25), the whole stage:
     say so before it starts, and run nothing heavy beside it.
   - Done (2026-11-25): each `[slow]` case is a ctest test of its own,
     `slow: <case>` (Catch2 3.16's `catch_discover_tests`, `DISCOVERY_MODE
-    PRE_TEST` so a build never runs `bt_tests`; label `slow`; time limit
+    PRE_TEST` so a build never runs `sl_tests`; label `slow`; time limit
     1200 s times the scale; Catch.cmake from the fetched source's
     `extras/`, or beside an installed Catch2's config). The quick cases run
-    in 24 shards; the cache variable is renamed `BT_UNIT_SHARDS`, so build
+    in 24 shards; the cache variable is renamed `SL_UNIT_SHARDS`, so build
     folders that cached `BT_TEST_SHARDS=8` take the new default. The
     longest cases (`--durations`, alone at -O0): shape 0 of
     12PieceSeparation's STL takes about 120 s alone, so "stl dump: the
@@ -3192,7 +3192,7 @@ Done (2026-11-25), the whole stage:
     saved at its last whole level" are tagged `[slow]` (AGENTS.md: cases
     over about a second). `test-tsan` runs the `[parallel]` cases as
     tests of their own too (`parallel: <case>`, registered only when
-    `BT_SANITIZE` has `thread`; `ctest --preset tsan -L parallel -j`).
+    `SL_SANITIZE` has `thread`; `ctest --preset tsan -L parallel -j`).
     Cases: 858 before, 860 after (the two splits); `[slow]` 41, now 45;
     ctest -N (dev): 22 before (8 + 8 shards, six suites), 75 after (24 +
     45 + the same six). The shuffle seed is kept; `just test` still runs
@@ -3249,7 +3249,7 @@ Done (2026-11-25), the whole stage:
 - [x] **8.2 A new tag recompiles every file** (speed; S)
   - *Where:*
     - `core/CMakeLists.txt:112`:
-      `target_compile_definitions(btcore PUBLIC SL_VERSION_STRING="${PROJECT_VERSION}")`;
+      `target_compile_definitions(sl_core PUBLIC SL_VERSION_STRING="${PROJECT_VERSION}")`;
     - `core/shapelogic/base/version.h:9`:
       `inline constexpr std::string_view kVersion = SL_VERSION_STRING;`;
     - `cmake/ProjectVersion.cmake:40-45`;
@@ -3305,7 +3305,7 @@ Done (2026-11-25), the whole stage:
       - `test_engine.cpp:339`, 421 and 603.
   - *Problem:* the temp folder is per user, so every session shares it. Each
     fixed folder is removed at the start of its test. That is safe within
-    one ctest run, but two `bt_tests` processes at once (dev and release,
+    one ctest run, but two `sl_tests` processes at once (dev and release,
     or ASan in one session and a test in another) wipe each other's folders
     or run into decision 0035's lock.
   - *Change:*
@@ -3317,7 +3317,7 @@ Done (2026-11-25), the whole stage:
     - Fold the three identical `addSized` copies at the same time (grep
       `addSized`).
   - *Verify:* `grep -rn temp_directory_path tests/unit` matches only
-    `scratch_dir.h`. `just test-all` passes while a second `bt_tests` from
+    `scratch_dir.h`. `just test-all` passes while a second `sl_tests` from
     another build folder runs at the same time.
   - Done (2026-11-25): `tests/unit/scratch_dir.h`: `sl::test::ScratchDir`
     (`<temp>/bt_test_<tag>-<pid>-<8 hex digits>`, made on construction,
@@ -3332,7 +3332,7 @@ Done (2026-11-25), the whole stage:
     `addSized` copies are one, `tests/unit/solve/stacking_test_helpers.h`.
     `grep -rn temp_directory_path tests/unit` matches only
     `scratch_dir.h`. `just test-all` (dev) passed 75 of 75 while
-    `build/release/tests/bt_tests "~[slow]"` ran beside it; that release
+    `build/release/tests/sl_tests "~[slow]"` ran beside it; that release
     run failed one case, "solve session: a save point while draining
     finishes the solve" (`CHECK(landed)`, a timing check of the 8.8 kind:
     20 processes on 10 cores; the case uses no folder): left for a later
@@ -3530,7 +3530,7 @@ Done (2026-11-25), the whole stage:
 
 - [x] **8.6 Tests and sources registered by hand** (trap; S)
   - *Where:*
-    - `tests/CMakeLists.txt:4-69`, the `bt_tests` source list: 39 commits
+    - `tests/CMakeLists.txt:4-69`, the `sl_tests` source list: 39 commits
       since September, and some lines out of order at 17-20;
     - `tests/cli/test_cli.py:379-380`, a tuple of the eight test functions;
     - `core/CMakeLists.txt`'s source list: 29 changes since September, all
@@ -3539,7 +3539,7 @@ Done (2026-11-25), the whole stage:
     built, run or checked. A new `test_x` that is missing from the tuple
     never runs. Nothing reports either (everything is registered today).
   - *Change:*
-    - `bt_tests`: `file(GLOB_RECURSE … CONFIGURE_DEPENDS tests/unit/*.cpp)`
+    - `sl_tests`: `file(GLOB_RECURSE … CONFIGURE_DEPENDS tests/unit/*.cpp)`
       (`tests/unit` holds no helper `.cpp`).
     - `test_cli.py` collects the `test_*` functions from `globals()`.
     - `core/` keeps its explicit list, plus a configure-time check that every
@@ -3547,14 +3547,14 @@ Done (2026-11-25), the whole stage:
       list; FATAL_ERROR names the missing file).
   - *Verify:* add a scratch test file and configure: it is built. Then
     delete it.
-  - Done (2026-11-25): `bt_tests` is `file(GLOB_RECURSE … CONFIGURE_DEPENDS
+  - Done (2026-11-25): `sl_tests` is `file(GLOB_RECURSE … CONFIGURE_DEPENDS
     unit/*.cpp)` (all 65 files were listed: nothing new runs);
     `test_cli.py` runs every `test_*` function of `globals()` in the order
     written (the same eight; it fails when none is found); `core/` keeps
     its list and a configure-time check (FATAL_ERROR names the file).
     Checked: a scratch `tests/unit/test_zz_scratch.cpp` was built and its
     case ran; a scratch `core/shapelogic/base/zz_scratch.cpp` stopped the
-    configure with "core/shapelogic/base/zz_scratch.cpp is not in btcore's
+    configure with "core/shapelogic/base/zz_scratch.cpp is not in sl_core's
     source list"; both deleted.
   - Review (2026-11-25, Fable): OK. `test_cli.py` holds the same eight
     `test_` functions as before and no other name that begins so; the
@@ -3581,7 +3581,7 @@ Done (2026-11-25), the whole stage:
     clang-tidy run sees it, before the stage and after (left: the dev
     build has no compile command for it).
     The linker's warning of a duplicate `libmanifold.a` came from
-    `bt_tests` naming the library that `btcore` already brings: it now
+    `sl_tests` naming the library that `sl_core` already brings: it now
     takes manifold's headers only (`$<COMPILE_ONLY:…>`), and links it
     once.
 
@@ -3622,7 +3622,7 @@ run in a work folder of its own.
 Done (2026-11-25), the whole stage:
 - `just test-all` (dev): 75 of 75 in every run (the times are 8.1's:
   before 290 s and 293 s, after 227 s steady); once more with a release
-  `bt_tests "~[slow]"` beside it (8.3). `just test` (quick): 30 of 30 in
+  `sl_tests "~[slow]"` beside it (8.3). `just test` (quick): 30 of 30 in
   71 s and 74 s. The CLI tests (ctest `cli`) and the contract suite pass
   in each.
 - `just test-asan`: 74 of 74, 867 s (was 1,005 s for `unit-slow-1`
@@ -3656,7 +3656,7 @@ Done (2026-11-25), the whole stage:
 The procedure is in "Fable checkpoints". What to look at:
 - **Nothing stopped running.** Compare these lists before and after the
   stage:
-  - `bt_tests --list-tests`, all cases and `[slow]`;
+  - `sl_tests --list-tests`, all cases and `[slow]`;
   - `ctest -N` in each preset;
   - the vitest files and test counts;
   - `test_cli.py`'s functions;
@@ -3755,7 +3755,7 @@ Checkpoint D lines under 6.5 and 7.4.
   - `just site-demo --check`, after the last source edit: rebuilt; every
     puzzle type opens and plays; the site's demo test passes;
   - Linux (Docker, ubuntu:24.04, GCC 13, `cmake --preset release
-    -DBT_WERROR=OFF` as CI): the whole tree builds; `ctest -N` lists the
+    -DSL_WERROR=OFF` as CI): the whole tree builds; `ctest -N` lists the
     75 tests; `ctest -LE slow`: 29 of 30 in the first run (the contract
     case above), 30 of 30 three times after its fix; the two
     saved-search cases and the CLI's tests pass.
@@ -3963,7 +3963,7 @@ preset now built for 13.0 (each engine's `minos 13.0` checked):
 - `just test-all` (dev): 75 of 75 (227 s, with the dev preset's full
   rebuild).
 - `just build release`, `asan` and `tsan`: built. As a check that the
-  sanitizer runtimes load: the ASan `bt_tests "[grid]"` passed 30 cases,
+  sanitizer runtimes load: the ASan `sl_tests "[grid]"` passed 30 cases,
   the TSan `"[parallel]~[slow]"` 113 cases.
 - `just check`: 205 files, clean.
 - `just app-check`: clean. `just app-test`: 648 of 648. The first run
@@ -4843,7 +4843,7 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     count is raised; with the count raised, `kGridTraits`' assert asks for
     its row. That rests on warnings being errors, which the dev and
     release presets and CI's macOS job have; CI's Linux and Windows jobs
-    build with `BT_WERROR=OFF` and would only warn. The table's rows were
+    build with `SL_WERROR=OFF` and would only warn. The table's rows were
     read against the old switches, value for value: the same.
 
 - [x] **11.4 Code copied between the new grids; marks on grids that have none** (combine, bug; S to M)
@@ -8171,7 +8171,7 @@ finished them, its leftover runs stopped first): `just build dev`,
   them, 6 s) and the contract suite on the TSan engine (153 methods, 0
   failed);
 - the hidden fuzz cases of the slide search in the release build
-  (`bt_tests "[fuzz][sliding]"`: the level search against the legacy one,
+  (`sl_tests "[fuzz][sliding]"`: the level search against the legacy one,
   nested slides from both ends, the moves made backwards, the stops of a
   grid cell, the copies as one number): all five pass (1,136,732
   assertions, 75 min on one thread beside the other gates; the grid
@@ -8259,7 +8259,7 @@ finished them, its leftover runs stopped first): `just build dev`,
   seven more `-Wunused-result` on `roundTrip` calls in the new undo test
   and one more `-Wsign-conversion` (`differ += … ? 0 : 1`) in the new
   pose test, as the files' others (CI's GCC builds, Linux and MinGW, take
-  `-DBT_WERROR=OFF`), none on a line of the core. Nothing was built or
+  `-DSL_WERROR=OFF`), none on a line of the core. Nothing was built or
   run on Linux or compiled for Windows: no item adds a system call or a
   branch under `#ifdef`;
 - Not run: the other e2e specs (the renderer's change is the words of
@@ -9886,7 +9886,7 @@ after: every case must still run.
       8.3's `ScratchDir` in place of `scratchDir`) go to
       `tests/unit/solve/sliding_test_helpers.h`.
   - *Keep:* every case. List them before and after
-    (`bt_tests --list-tests`), and the two lists must match.
+    (`sl_tests --list-tests`), and the two lists must match.
   - Done (2026-11-27, Opus): the 91 cases (6,621 lines as of 59f399c; the
     file had grown since the plan's count) to four files by what they
     test, every line as it was (a script placed each case, and each helper
@@ -9907,7 +9907,7 @@ after: every case must still run.
     of one file stay in it (`solveRun` and `oneWayPuzzle` are the search
     file's alone). `ScratchDir` was already 8.3's. The sorted case lists
     with their tags are the same before and after (91 and 91), and so are
-    `bt_tests --list-tests`' 932 names; every line of the old file is in
+    `sl_tests --list-tests`' 932 names; every line of the old file is in
     the new ones but those given `inline` and the namespace lines.
 
 - [x] **21.3 `solve_session.cpp`: the sliding and stacking flows in files of their own** (separate; M)

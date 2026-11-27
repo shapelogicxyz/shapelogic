@@ -29,6 +29,6 @@ wheel.packages = []
 sdist.cmake = false
 
 [tool.scikit-build.cmake.define]
-BT_PYTHON = "ON"
-BT_BUILD_TESTS = "OFF"
+SL_PYTHON = "ON"
+SL_BUILD_TESTS = "OFF"
 

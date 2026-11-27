@@ -109,7 +109,7 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
 
 ## Tests
 
-- Catch2 v3, in `tests/unit/<module>/test_*.cpp`, one binary `bt_tests`.
+- Catch2 v3, in `tests/unit/<module>/test_*.cpp`, one binary `sl_tests`.
 - Tags: the module (`[grid]`, `[model]`, `[solve]`…), `[slow]` for cases over
   about a second (skipped by `just test`), `[parallel]` for cases that run
   threads (the ThreadSanitizer build runs exactly these).
@@ -135,8 +135,8 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
   what the front end does with a puzzle depends on its grid, not on which
   puzzle it is. Add a file there only when its content takes the front end
   down a path the others do not, and say which.
-- The tests run side by side: ctest runs the quick `bt_tests` cases in
-  shards (`unit-N`, `BT_UNIT_SHARDS`, the cases shuffled with a fixed
+- The tests run side by side: ctest runs the quick `sl_tests` cases in
+  shards (`unit-N`, `SL_UNIT_SHARDS`, the cases shuffled with a fixed
   seed), each `[slow]` case as a test of its own (`slow: <case>`; in the
   TSan build each `[parallel]` one too), beside the contract suite, which
   runs its tests at once (`--jobs`); the e2e tests run in E2E_WORKERS

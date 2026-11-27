@@ -905,7 +905,7 @@ TEST_CASE("stacking: a rod set with impossible numbers in the file loads sanely"
 // test_document_stacking.cpp.
 
 // Hidden: the Panex swap of 6 discs a tower (881 transfers), at one thread
-// and at all of them.   build/release/tests/bt_tests "[.bench][panex]"
+// and at all of them.   build/release/tests/sl_tests "[.bench][panex]"
 TEST_CASE("panex: benchmark, the six-disc swap", "[.bench][panex]") {
   // BT_PANEX_BENCH_N=7 for the seven-disc swap (2189 transfers).
   const char* asked = std::getenv("BT_PANEX_BENCH_N");

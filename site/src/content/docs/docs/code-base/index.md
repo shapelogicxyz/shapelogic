@@ -17,7 +17,7 @@ ShapeLogic is three programs over one library:
         │                             │                           │
         └──────────────┬──────────────┴───────────────────────────┘
                        ▼
-                 libbtcore  (core/shapelogic/)
+                 libsl_core  (core/shapelogic/)
    app     Document, undo/redo, editing commands, queries, playback, explorers
    solve   assemblers, disassemblers, rotation rules, SolveSession
    mesh    half-edge meshes and drawing meshes for all grids

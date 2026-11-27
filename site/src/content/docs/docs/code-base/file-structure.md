@@ -12,7 +12,7 @@ output goes to `build/<preset>` and is never committed.
 | Path | Contents |
 |---|---|
 | `core/shapelogic/<module>/` | the C++ library, headers and sources together; included as `"shapelogic/<module>/x.h"` |
-| `engine/` | `shapelogic_engine`, JSON-RPC 2.0 over stdio around one `Document`; also built as the library `btengine` for the unit tests |
+| `engine/` | `shapelogic_engine`, JSON-RPC 2.0 over stdio around one `Document`; also built as the library `sl_engine` for the unit tests |
 | `cli/` | `shapelogic_cli`, the original's `burrTxt` and `burrTxt2` for brick puzzles, with `--json` and `--save` |
 | `python/` | the `shapelogic` Python module: `src/` the pybind11 bindings, `tests/` its tests, `pyproject.toml` its wheel |
 | `api/` | the JSON Schema of the engine's methods and events, the validator `apischema.py` and the generator of `docs/API.md` |
@@ -86,7 +86,7 @@ comment at the top.
 
 | Path | What it holds |
 |---|---|
-| `unit/<module>/` | Catch2 tests, one directory per core module plus `engine/`; one binary `bt_tests` |
+| `unit/<module>/` | Catch2 tests, one directory per core module plus `engine/`; one binary `sl_tests` |
 | `contract/` | `test_engine.py` drives `shapelogic_engine` as a subprocess and checks every reply and event against the schema |
 | `cli/` | `test_cli.py`: the command line tool's options and modes on the fixtures |
 | `regression/` | the regression suite: `regress.py`, the corpus list (files of this repository), the recorded answers |

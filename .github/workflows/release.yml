@@ -205,7 +205,7 @@ jobs:
       # in the log but do not fail on them.
       - name: Build the engine
         run: |
-          cmake --preset release -DBT_WERROR=OFF
+          cmake --preset release -DSL_WERROR=OFF
           cmake --build --preset release
       - name: Unit tests (x64 is a real x86-64 machine, so the AVX2 kernels run)
         continue-on-error: true # failures show in the log but do not stop the installers
@@ -276,7 +276,7 @@ jobs:
       - name: Build the engine
         shell: msys2 {0}
         run: |
-          cmake --preset release -DBT_WERROR=OFF
+          cmake --preset release -DSL_WERROR=OFF
           cmake --build --preset release
       - name: Unit tests (a real x86-64 machine, so the AVX2 kernels run)
         continue-on-error: true # failures show in the log but do not stop the installers

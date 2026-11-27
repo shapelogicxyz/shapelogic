@@ -88,7 +88,7 @@ Differences from the original module:
 ## Building
 
 The module is built with the rest of the project when CMake finds
-Python's headers (`BT_PYTHON=AUTO`, the default; `ON` requires it, `OFF`
+Python's headers (`SL_PYTHON=AUTO`, the default; `ON` requires it, `OFF`
 skips it; sanitizer builds and builds for another architecture skip it
 under `AUTO`). pybind11 3.0.0 is fetched, the original's release.
 

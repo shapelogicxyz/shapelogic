@@ -3,7 +3,7 @@
 
 // The one way the unit tests make a folder in the temp folder. The temp
 // folder is the user's, shared by every session and build: a fixed name
-// there lets two bt_tests processes at once (dev and release, a sanitizer
+// there lets two sl_tests processes at once (dev and release, a sanitizer
 // run beside a test run) wipe each other's files or meet decision 0035's
 // lock. A ScratchDir's name holds the process id and random digits, so no
 // other process or test has it.

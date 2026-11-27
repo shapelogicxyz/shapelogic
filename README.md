@@ -96,7 +96,7 @@ Outputs: `build/<preset>/engine/shapelogic_engine` (the engine: JSON-RPC 2.0 on
 stdin and stdout), `build/<preset>/cli/shapelogic_cli` (command-line solver),
 `build/<preset>/python/shapelogic.*.so` (the Python module, when CMake
 finds Python's headers; `just python-wheel` makes its wheel),
-`build/<preset>/tests/bt_tests`.
+`build/<preset>/tests/sl_tests`.
 
 `shapelogic_cli` solves puzzle files without the app's window:
 

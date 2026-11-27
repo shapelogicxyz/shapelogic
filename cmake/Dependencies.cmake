@@ -68,7 +68,7 @@ FetchContent_MakeAvailable(manifold)
 # array, tangents nothing here uses (no smoothing), and does so in the
 # original's build too (docs/handoff/deferred-5.md, "Found in Manifold").
 # Our code, the meshers that call it included, stays checked.
-if(BT_SANITIZE MATCHES "address")
+if(SL_SANITIZE MATCHES "address")
   target_compile_options(manifold PRIVATE -fno-sanitize=all)
 endif()
 # Manifold 3.5.2's headers name std::istream without including a header
@@ -103,7 +103,7 @@ FetchContent_MakeAvailable(zstd)
 
 # pybind11: the Python module (python/, deferred part 7), the original's
 # release (its subprojects/pybind11.wrap). Only when the module is built.
-if(BT_PYTHON_MODULE)
+if(SL_PYTHON_MODULE)
   FetchContent_Declare(pybind11
     URL https://github.com/pybind/pybind11/archive/refs/tags/v3.0.0.tar.gz
     URL_HASH SHA256=453b1a3e2b266c3ae9da872411cadb6d693ac18063bd73226d96cfb7015a200c
@@ -113,7 +113,7 @@ if(BT_PYTHON_MODULE)
   FetchContent_MakeAvailable(pybind11)
 endif()
 
-if(BT_BUILD_TESTS)
+if(SL_BUILD_TESTS)
   # The same Catch2 release as the original BurrTools test suite.
   FetchContent_Declare(Catch2
     URL https://github.com/catchorg/Catch2/archive/v3.16.0.tar.gz

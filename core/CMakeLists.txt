@@ -1,7 +1,7 @@
-# libbtcore: the puzzle model, file format, solvers and application layer.
+# libsl_core: the puzzle model, file format, solvers and application layer.
 # No UI, no stdout/stderr output, no global state: everything reaches it
 # through its API (docs/ARCHITECTURE.md).
-add_library(btcore STATIC
+add_library(sl_core STATIC
   shapelogic/app/analysis.cpp
   shapelogic/app/background_job.cpp
   shapelogic/app/document.cpp
@@ -130,23 +130,23 @@ add_library(btcore STATIC
 
 # The list above is kept by hand; every source under shapelogic/ must be in
 # it (cleanup item 8.6: a file left out is never built, tested or checked).
-file(GLOB_RECURSE bt_core_found CONFIGURE_DEPENDS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+file(GLOB_RECURSE sl_core_found CONFIGURE_DEPENDS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
      shapelogic/*.cpp)
-get_target_property(bt_core_listed btcore SOURCES)
-foreach(src IN LISTS bt_core_found)
-  if(NOT src IN_LIST bt_core_listed)
-    message(FATAL_ERROR "core/${src} is not in btcore's source list (core/CMakeLists.txt)")
+get_target_property(sl_core_listed sl_core SOURCES)
+foreach(src IN LISTS sl_core_found)
+  if(NOT src IN_LIST sl_core_listed)
+    message(FATAL_ERROR "core/${src} is not in sl_core's source list (core/CMakeLists.txt)")
   endif()
 endforeach()
 
-target_include_directories(btcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(sl_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 # The version reaches only version.cpp: a new tag recompiles one file.
 set_source_files_properties(shapelogic/base/version.cpp PROPERTIES
   COMPILE_DEFINITIONS SL_VERSION_STRING="${PROJECT_VERSION}")
-target_compile_features(btcore PUBLIC cxx_std_23)
-target_link_libraries(btcore PRIVATE ZLIB::ZLIB manifold::manifold libzstd_static)
+target_compile_features(sl_core PUBLIC cxx_std_23)
+target_link_libraries(sl_core PRIVATE ZLIB::ZLIB manifold::manifold libzstd_static)
 if(APPLE)
   # the free disk as Finder counts it (base/system.cpp)
-  target_link_libraries(btcore PRIVATE "-framework CoreFoundation")
+  target_link_libraries(sl_core PRIVATE "-framework CoreFoundation")
 endif()
-bt_set_warnings(btcore)
+sl_set_warnings(sl_core)

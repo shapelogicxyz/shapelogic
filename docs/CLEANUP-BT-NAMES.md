@@ -292,20 +292,20 @@ Scope: `CMakeLists.txt` files, `cmake/`, `CMakePresets.json`,
 `python/pyproject.toml` (the wheel's build passes `BT_PYTHON` and
 `BT_BUILD_TESTS`), `.github/`, the live docs.
 
-- [ ] Rename the targets, the functions and variables, and the options
+- [x] Rename the targets, the functions and variables, and the options
       with their `-D` forms: `rename.py 3 .`.
-- [ ] No script names a `bt` binary by its path any more (step 0: the
+- [x] No script names a `bt` binary by its path any more (step 0: the
       oracle's tools are gone; `bt_tests` is named by CMake, the docs and
       two comments, all in the map), and no ctest name is built from one.
       Check that this is still so.
-- [ ] Build folders: a configured folder keeps the old options in its
+- [x] Build folders: a configured folder keeps the old options in its
       cache and the old binaries beside the new ones. With nothing else
       building, configure each preset fresh (`just clean`, or delete one
       preset's folder at a time) and build again.
-- [ ] Test: `just build dev`, `just build release`, `just test`,
+- [x] Test: `just build dev`, `just build release`, `just test`,
       `just check`, `just python-wheel` (it reads `pyproject.toml`'s
       options).
-- [ ] CMake does not refuse an option nothing reads (a preset's
+- [x] CMake does not refuse an option nothing reads (a preset's
       `SL_WERROR` beside a `BT_WERROR` in the CMake files builds without
       `-Werror`, with at most a warning). So check what the presets
       pass arrived: `-Werror` in `build/dev/compile_commands.json`, and
@@ -313,12 +313,33 @@ Scope: `CMakeLists.txt` files, `cmake/`, `CMakePresets.json`,
       `build/asan/compile_commands.json` and time limits six times dev's
       in `ctest --preset asan --show-only=json-v1` (`SL_SANITIZE`,
       `SL_TEST_TIMEOUT_SCALE`).
-- [ ] `.github/workflows/release.yml` passes `-DBT_WERROR=OFF`. CI runs it
+- [x] `.github/workflows/release.yml` passes `-DBT_WERROR=OFF`. CI runs it
       only on a tag or by hand. Ask the user whether to dispatch it once
       on the branch; otherwise the next release is its first run, and say
       so in the Done line.
-- [ ] Tell the user the renamed options (`-DSL_PYTHON=…` and so on).
-- [ ] Commit: "Rename the bt CMake targets and BT_ options to sl / SL_".
+- [x] Tell the user the renamed options (`-DSL_PYTHON=…` and so on).
+- [x] Commit: "Rename the bt CMake targets and BT_ options to sl / SL_".
+- Done (2026-11-27): 160 replacements in 25 files, as the map counts
+  (and "a" became "an" before `sl_test_timeout()` in docs/CLEANUP-PLAN.md).
+  No script names a test binary by its path (the justfile, `gate.sh` and
+  CI go through ctest; the others name `shapelogic_cli` or
+  `shapelogic_engine`), and no ctest name is built from one. The dev,
+  release and wasm folders were deleted and configured fresh: their
+  caches hold only `SL_` options, and dev and release build
+  `tests/sl_tests`, `libsl_core.a` and `libsl_engine.a`. Every ShapeLogic source in dev has
+  `-Werror` (the 152 compile lines without it are all under `_deps/`);
+  asan has `-fsanitize=address,undefined` on all 221 and time limits six
+  times dev's (720/1800/3600/7200 s against 120/300/600/1200 s); a scratch
+  configure with the wheel's defines builds no tests and flags only a
+  planted `BT_PYTHON` as unused. Dev and release built without a warning,
+  `just test` 31 of 31, `just check` clean (226 files), `just
+  python-wheel` 43 tests (1 skipped), `just regress --tier fast` 19 of
+  19, `just site-build` 8 of 8; the demo rebuilt (only its
+  `manifest.json` changed). No workflow was dispatched: release.yml's
+  `-DSL_WERROR=OFF` runs only on a tag or by hand, so the next release is
+  its first run. The options the user types: `-DSL_PYTHON=ON|OFF|AUTO`,
+  `-DSL_WERROR`, `-DSL_SANITIZE`, `-DSL_BUILD_TESTS`, `-DSL_UNIT_SHARDS`,
+  `-DSL_TEST_TIMEOUT_SCALE`.
 
 ### Step 4: environment variables (Opus 5.5 High)
 

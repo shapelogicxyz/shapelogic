@@ -1,6 +1,6 @@
 add_executable(shapelogic_cli main.cpp options.cpp text_print.cpp)
-target_link_libraries(shapelogic_cli PRIVATE btcore)
-bt_set_warnings(shapelogic_cli)
+target_link_libraries(shapelogic_cli PRIVATE sl_core)
+sl_set_warnings(shapelogic_cli)
 
 # Run from the packaged app and from a plain shell: no MinGW runtime DLLs
 # beside it (the same as shapelogic_engine, engine/CMakeLists.txt).

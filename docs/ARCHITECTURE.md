@@ -26,7 +26,7 @@ module's rules, shortly. No prose sections, no stage labels.
         │                         │                                                       │
         └──────────┬──────────────┴───────────────────────────────────────────────────────┘
                    ▼
-            libbtcore (core/)
+            libsl_core (core/)
    app     Document, undo/redo, editing commands, queries, playback, explorers
    solve   assemblers, take-apart, rotation rules, slide and stacking searches, SolveSession
    mesh    half-edge meshes, drawing and STL meshes for all grids
@@ -47,12 +47,12 @@ programs: nothing in the core calls it).
 | Path | Contents |
 |---|---|
 | `core/shapelogic/<module>/` | the library, headers and sources together; include as `"shapelogic/<module>/x.h"` |
-| `engine/` | `shapelogic_engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `btengine`, the same as a library for the unit tests; the WebAssembly build for the site's demo |
+| `engine/` | `shapelogic_engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `sl_engine`, the same as a library for the unit tests; the WebAssembly build for the site's demo |
 | `cli/` | `shapelogic_cli`: the original's burrTxt (the same options and text, `--json`) and burrTxt2's solve-and-save mode (`--save`) |
 | `python/` | `shapelogic`, the Python module (pybind11, decision 0018): `src/` the bindings, `tests/` its tests, `pyproject.toml` its wheel; see `python/README.md` |
 | `api/` | the JSON Schema of the engine's methods and events, its validator (`apischema.py`) and the generator of `docs/API.md`; see `api/README.md` |
 | `web/` | the front end (decision 0013): `src/` (the map below), `tools/` (the API types' generator, packaging, the demo's build, the recorded sessions), `fake-engine/` (recorded sessions replayed as a transport), `tests/` (unit, engine, e2e, docs); see `web/README.md` |
-| `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`): every `.cpp` under `tests/unit` is built (a glob), the helpers are headers; `tests/unit/scratch_dir.h`'s `ScratchDir` is the tests' one way to a temp folder (a name of the process's own) |
+| `tests/unit/<module>/` | Catch2 tests, one binary `sl_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`): every `.cpp` under `tests/unit` is built (a glob), the helpers are headers; `tests/unit/scratch_dir.h`'s `ScratchDir` is the tests' one way to a temp folder (a name of the process's own) |
 | `tests/contract/` | the engine's contract tests: `shapelogic_engine` driven as a subprocess, every message checked against `api/` |
 | `tests/cli/` | `test_cli.py` (ctest `cli`): `shapelogic_cli`'s options, refusals and modes on the fixtures |
 | `tests/docs/` | `test_architecture_map.py` (ctest `architecture-map`): this file's map against the tree |
@@ -523,7 +523,7 @@ Files in `python/src/`:
 - `solution_iterator.{h,cpp}`: `SolutionIterator`, the solve behind `Problem.solve`.
 
 Rules (decision 0018):
-- Built when `BT_PYTHON` is `ON`, or `AUTO` and CMake finds Python's headers
+- Built when `SL_PYTHON` is `ON`, or `AUTO` and CMake finds Python's headers
   outside sanitizer and cross-architecture builds (`cmake/Python.cmake`, which
   then builds everything position independent). The names are the original
   module's, so its scripts run unchanged: change them only with a reason.

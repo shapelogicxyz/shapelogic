@@ -14,13 +14,13 @@
       "name": "dev",
       "displayName": "Debug, warnings as errors",
       "inherits": "base",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BT_WERROR": "ON" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "SL_WERROR": "ON" }
     },
     {
       "name": "release",
       "displayName": "Optimized (assertions stay on)",
       "inherits": "base",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BT_WERROR": "ON" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "SL_WERROR": "ON" }
     },
     {
       "name": "release-x64",
@@ -40,13 +40,13 @@
       "name": "asan",
       "displayName": "AddressSanitizer + UndefinedBehaviorSanitizer",
       "inherits": "base",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BT_SANITIZE": "address,undefined", "BT_TEST_TIMEOUT_SCALE": "6" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "SL_SANITIZE": "address,undefined", "SL_TEST_TIMEOUT_SCALE": "6" }
     },
     {
       "name": "tsan",
       "displayName": "ThreadSanitizer",
       "inherits": "base",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BT_SANITIZE": "thread", "BT_TEST_TIMEOUT_SCALE": "6" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "SL_SANITIZE": "thread", "SL_TEST_TIMEOUT_SCALE": "6" }
     },
     {
       "name": "wasm",
@@ -54,9 +54,9 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "BT_WERROR": "OFF",
-        "BT_BUILD_TESTS": "OFF",
-        "BT_PYTHON": "OFF",
+        "SL_WERROR": "OFF",
+        "SL_BUILD_TESTS": "OFF",
+        "SL_PYTHON": "OFF",
         "CMAKE_CXX_FLAGS": "-fwasm-exceptions",
         "CMAKE_EXE_LINKER_FLAGS": "-fwasm-exceptions"
       }

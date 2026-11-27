@@ -50,7 +50,7 @@ Warnings are errors in `dev` and `release`. On macOS every preset builds
 for macOS 13 (`CMAKE_OSX_DEPLOYMENT_TARGET` in `base`), the lowest the
 app's Electron runs on, so a library call newer than that fails to compile.
 Each preset builds into
-`build/<preset>/`: the test binary at `build/<preset>/tests/bt_tests`, the
+`build/<preset>/`: the test binary at `build/<preset>/tests/sl_tests`, the
 engine at `build/<preset>/engine/shapelogic_engine`, the CLI at
 `build/<preset>/cli/shapelogic_cli`.
 
@@ -75,8 +75,8 @@ just python-test [preset]   # python/tests on a preset's module
 just python-wheel           # the wheel in build/wheel, installed into a fresh venv and tested
 ```
 
-The module is built when CMake finds Python's headers (`BT_PYTHON=AUTO`);
-set `-DBT_PYTHON=ON` to require it or `OFF` to skip it.
+The module is built when CMake finds Python's headers (`SL_PYTHON=AUTO`);
+set `-DSL_PYTHON=ON` to require it or `OFF` to skip it.
 
 ## The app
 
