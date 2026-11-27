@@ -503,7 +503,7 @@ Scope: `web/` (main, preload, renderer, demo, tests, vite configs),
       in the map, nothing under "What stays" changed (the file signatures
       above all), no string that is not a name changed, and the live docs
       match the code. Fix what is wrong in a commit of its own.
-- [ ] `just gate` (about 75 minutes, nothing else running).
+- [x] `just gate` (about 75 minutes, nothing else running).
 - [ ] Ask the user whether to run the full e2e suite (`just app-e2e`) as
       well.
 - [x] Update CLAUDE.md and AGENTS.md for the new names (`bt_tests`,
@@ -539,3 +539,12 @@ Scope: `web/` (main, preload, renderer, demo, tests, vite configs),
   AGENTS.md has a rule for the names (what carries `sl` and
   `SHAPELOGIC_`, the guard, the signatures, the old names in the dated
   docs); CLAUDE.md names none.
+- Gate done (2026-11-27, at 7ceb1ed, nothing else running; 46 minutes):
+  `just gate` 26 of 26 (the builds, `test-all` on dev 77 of 77 and twice
+  on release, asan 76 of 76, tsan 146 of 146, the Python tests and the
+  wheel, the 13 regression runs, `app-check`, `app-test` 698 tests in 69
+  files, `check` with the names guard and clang-tidy over 226 files),
+  then `just site-build` 8 of 8 (not a group of the default gate). Not
+  run: the full e2e suite, the packaged app (`dist`) and
+  `just burrtools-compare`; steps 4 and 5 ran the e2e specs and the smoke
+  test their names touch.
