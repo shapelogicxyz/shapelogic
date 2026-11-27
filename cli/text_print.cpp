@@ -13,7 +13,7 @@
 #include <memory>
 #include <vector>
 
-namespace bt::cli {
+namespace sl::cli {
 
 namespace {
 
@@ -238,4 +238,4 @@ void printAssembly(std::FILE* out, const Puzzle& puzzle, const Problem& problem,
   std::fputc('\n', out);
 }
 
-}  // namespace bt::cli
+}  // namespace sl::cli

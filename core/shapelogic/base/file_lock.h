@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 
-namespace bt {
+namespace sl {
 
 /// An exclusive lock named by a file. It is taken without waiting and let
 /// go when the holder releases it, is destroyed, or its program ends in
@@ -57,4 +57,4 @@ class FileLock {
 /// which removes it, so a lock someone holds is never touched.
 unsigned int removeStaleLocks(const std::filesystem::path& dir);
 
-}  // namespace bt
+}  // namespace sl

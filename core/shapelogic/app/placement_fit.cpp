@@ -10,7 +10,7 @@
 
 #include <utility>
 
-namespace bt::app {
+namespace sl::app {
 
 PlacementFit::PlacementFit(std::unique_ptr<Puzzle> scratch, const tilted::Placements& boards,
                            SolveOptions options)
@@ -138,4 +138,4 @@ PlacementFitProgress PlacementFit::progress() const {
   return p;
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

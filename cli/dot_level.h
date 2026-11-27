@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace bt::cli {
+namespace sl::cli {
 
 /// A level text, read.
 struct DotLevel {
@@ -120,4 +120,4 @@ struct BestLevel {
   }
 };
 
-}  // namespace bt::cli
+}  // namespace sl::cli

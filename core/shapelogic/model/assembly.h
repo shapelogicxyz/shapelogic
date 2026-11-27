@@ -13,7 +13,7 @@
 #include <memory>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class Problem;
 class Puzzle;
@@ -197,4 +197,4 @@ class Assembly {
   std::vector<Placement> placements_;
 };
 
-}  // namespace bt
+}  // namespace sl

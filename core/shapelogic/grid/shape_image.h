@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// How a picture was fitted to the shape's rectangle when it was applied:
 /// cut to the rectangle's proportions, squashed to fill it, or sized and
@@ -145,4 +145,4 @@ inline constexpr std::size_t kMaxShapeImages = 16;
   return images.empty() ? ShapeImage{} : images.front();
 }
 
-}  // namespace bt
+}  // namespace sl

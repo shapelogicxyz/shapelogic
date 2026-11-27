@@ -13,7 +13,7 @@
 
 #include <cmath>
 
-namespace bt::hex {
+namespace sl::hex {
 
 /// Rows are this far apart (sqrt 3 / 2).
 inline constexpr double kRow = 0.8660254037844386;
@@ -51,4 +51,4 @@ inline constexpr double kCornerY[6] = {-kRadius / 2, kRadius / 2, kRadius,
 /// south-west, south-east (side k lies between corners k and k + 1).
 inline constexpr int kAround[6][2] = {{1, 0}, {0, 1}, {-1, 1}, {-1, 0}, {0, -1}, {1, -1}};
 
-}  // namespace bt::hex
+}  // namespace sl::hex

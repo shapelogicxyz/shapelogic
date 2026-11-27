@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -357,4 +357,4 @@ bool VoxelSpheres::onGrid(int x, int y, int z) const {
   return ((x + y + z) & 1) == 0;
 }
 
-}  // namespace bt
+}  // namespace sl

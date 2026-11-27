@@ -119,7 +119,7 @@ calls it: `solveStart` in `engine/methods_solve.cpp`.
 1. `p.id("problem", IdKind::Problem)` reads `p1`; `p.value("options")`
    takes the options; `p.finish()` refuses any unknown field.
 2. `solveOptionsFrom(s, given)` (`engine/convert.cpp`) turns the API's
-   names into the core's `bt::SolveOptions`: `strictColors` becomes
+   names into the core's `sl::SolveOptions`: `strictColors` becomes
    `matrix.strictColors`, `sortBy` becomes `order`, `keepAtMost` becomes
    `solutionLimit`, and `threads` starts from the engine's settings (the
    Settings dialog's worker threads).

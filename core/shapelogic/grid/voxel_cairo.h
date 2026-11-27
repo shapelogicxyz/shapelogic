@@ -7,7 +7,7 @@
 
 #include "shapelogic/grid/voxel.h"
 
-namespace bt {
+namespace sl {
 
 /// Voxel space of the cairo prism grid: stacked planes of the Cairo
 /// pentagonal tiling (cairo_lattice.h). Only the coordinates with x + y
@@ -39,4 +39,4 @@ class VoxelCairo : public Voxel {
   [[nodiscard]] bool identicalInBB(const Voxel& op, bool includeColors = true) const override;
 };
 
-}  // namespace bt
+}  // namespace sl

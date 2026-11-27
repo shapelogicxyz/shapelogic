@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -91,4 +91,4 @@ std::string imageHash(std::string_view bytes) {
   return out;
 }
 
-}  // namespace bt
+}  // namespace sl

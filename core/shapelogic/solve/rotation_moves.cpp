@@ -9,7 +9,7 @@
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/solve/movement_cache.h"
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -133,4 +133,4 @@ NodeRef RotationMoves::turnedNode(DisassemblerNode* from, const Symmetries& sym,
   return node;
 }
 
-}  // namespace bt
+}  // namespace sl

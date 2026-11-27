@@ -9,7 +9,7 @@
 #include <cmath>
 #include <compare>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// A point or direction in mesh space.
 struct Vec3 {
@@ -87,4 +87,4 @@ struct Vec3 {
 
 constexpr Vec3 operator*(float f, const Vec3& v) { return v * f; }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

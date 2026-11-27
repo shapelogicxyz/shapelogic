@@ -15,11 +15,11 @@
 #include <array>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// Appends the corners (x, y, z per corner, 3 or 4 corners) of a face of
 /// cell (x, y, z) to `corners`: for n >= 0 the face toward neighbor n,
@@ -56,4 +56,4 @@ struct SpaceRule {
 /// The space rule of a grid kind.
 [[nodiscard]] SpaceRule spaceRule(GridKind kind);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

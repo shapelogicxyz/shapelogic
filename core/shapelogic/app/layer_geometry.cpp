@@ -20,7 +20,7 @@
 #include <map>
 #include <utility>
 
-namespace bt::app {
+namespace sl::app {
 
 namespace {
 
@@ -285,4 +285,4 @@ LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
   return g;
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

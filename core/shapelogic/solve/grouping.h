@@ -17,7 +17,7 @@
 
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// Gives groups to sets of pieces, backing off earlier sets when a later
 /// one does not fit.
@@ -71,4 +71,4 @@ class Grouping {
   bool failed_ = false;
 };
 
-}  // namespace bt
+}  // namespace sl

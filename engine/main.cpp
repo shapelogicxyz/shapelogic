@@ -23,7 +23,7 @@
 
 int main(int argc, char** argv) {
   if (argc == 2 && std::string_view(argv[1]) == "--version") {
-    const std::string_view version = bt::versionString();
+    const std::string_view version = sl::versionString();
     std::printf("shapelogic_engine %.*s\n", static_cast<int>(version.size()), version.data());
     return 0;
   }
@@ -54,12 +54,12 @@ int main(int argc, char** argv) {
   // thread flushes std::cout.
   std::cin.tie(nullptr);
   // a slide search reads many level files at once
-  const std::uint64_t openFiles = bt::raiseOpenFileLimit(4096);
+  const std::uint64_t openFiles = sl::raiseOpenFileLimit(4096);
   // the app's log learns at once which engine runs, whatever the log setting
-  std::cerr << bt::engine::startLine(openFiles) << '\n';
+  std::cerr << sl::engine::startLine(openFiles) << '\n';
   std::cerr.flush();
   {
-    bt::engine::Engine engine(std::cout, std::cerr);
+    sl::engine::Engine engine(std::cout, std::cerr);
     (void)engine.run(std::cin);
     // the document goes here: its solves pause and are waited for
   }

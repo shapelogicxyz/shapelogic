@@ -7,9 +7,9 @@
 #include <thread>
 #include <vector>
 
-using bt::StopKind;
-using bt::StopSource;
-using bt::StopToken;
+using sl::StopKind;
+using sl::StopSource;
+using sl::StopToken;
 
 TEST_CASE("stop: a default token never stops", "[base][stop]") {
   const StopToken t;

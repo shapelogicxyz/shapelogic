@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -468,4 +468,4 @@ void addSlidingMethods(MethodTable& t) {
   t["sliding.setLayout"] = slidingSetLayout;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

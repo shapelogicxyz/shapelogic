@@ -15,7 +15,7 @@
 
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class MovementCache;
 class Symmetries;
@@ -95,4 +95,4 @@ class RotationMoves {
   StopToken stop_;
 };
 
-}  // namespace bt
+}  // namespace sl

@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-namespace bt::cairo {
+namespace sl::cairo {
 
 namespace {
 
@@ -115,4 +115,4 @@ const Around& around(int kind) noexcept {
   return all[static_cast<std::size_t>(kind)];
 }
 
-}  // namespace bt::cairo
+}  // namespace sl::cairo

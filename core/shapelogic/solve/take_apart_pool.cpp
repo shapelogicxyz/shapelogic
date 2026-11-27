@@ -11,7 +11,7 @@
 #include <optional>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -396,4 +396,4 @@ std::uint64_t TakeApartPool::delivered() const {
   return delivered_;
 }
 
-}  // namespace bt
+}  // namespace sl

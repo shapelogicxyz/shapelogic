@@ -10,7 +10,7 @@
 #include <array>
 #include <cstddef>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -104,4 +104,4 @@ bool VoxelHex::validCoordinate(int /*x*/, int /*y*/, int /*z*/) const { return t
 
 bool VoxelHex::onGrid(int /*x*/, int /*y*/, int /*z*/) const { return true; }
 
-}  // namespace bt
+}  // namespace sl

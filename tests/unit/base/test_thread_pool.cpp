@@ -11,51 +11,51 @@
 #include <stdexcept>
 #include <thread>
 
-using bt::ThreadPool;
+using sl::ThreadPool;
 
 TEST_CASE("thread pool: hardware threads and the split of a budget", "[base][threads]") {
-  CHECK(bt::hardwareThreads() >= 1);
-  CHECK(bt::hardwareThreads() <= bt::kMaxThreads);
+  CHECK(sl::hardwareThreads() >= 1);
+  CHECK(sl::hardwareThreads() <= sl::kMaxThreads);
 
   // searching and taking apart at once stay within the budget together
   for (const unsigned int n : {2U, 3U, 4U, 8U, 10U, 64U}) {
-    const bt::ThreadSplit split = bt::splitThreads(n);
+    const sl::ThreadSplit split = sl::splitThreads(n);
     INFO(n << " threads");
     CHECK(split.assembly >= 1);
     CHECK(split.disassembly >= 1);
     CHECK(split.assembly + split.disassembly == n);
     CHECK(split.assembly >= split.disassembly);
   }
-  CHECK(bt::splitThreads(3).disassembly == 1);
-  CHECK(bt::splitThreads(1).assembly == 1);
-  CHECK(bt::splitThreads(1).disassembly == 1);
-  CHECK(bt::splitThreads(0).assembly == 1);
+  CHECK(sl::splitThreads(3).disassembly == 1);
+  CHECK(sl::splitThreads(1).assembly == 1);
+  CHECK(sl::splitThreads(1).disassembly == 1);
+  CHECK(sl::splitThreads(0).assembly == 1);
 }
 
 TEST_CASE("takeApartThreads: a limit is shared, no limit takes every core", "[base][threads]") {
   // a limit: split as splitThreads while both run, all of it for the
   // take-aparts when the search waits for them or is over
   for (unsigned int n = 1; n <= 64; n++) {
-    const bt::TakeApartThreads t = bt::takeApartThreads(n, 10);
-    const bt::ThreadSplit split = bt::splitThreads(n);
+    const sl::TakeApartThreads t = sl::takeApartThreads(n, 10);
+    const sl::ThreadSplit split = sl::splitThreads(n);
     CHECK(t.search == split.assembly);
     CHECK(t.beside == split.disassembly);
     CHECK(t.workers == n);
     CHECK(t.beside <= t.workers);
   }
-  CHECK(bt::takeApartThreads(100000, 10).workers == bt::kMaxThreads);
+  CHECK(sl::takeApartThreads(100000, 10).workers == sl::kMaxThreads);
 
   // no limit: the search on every core, the take-aparts on all but two
   // (at most 16), none held back
-  const bt::TakeApartThreads ten = bt::takeApartThreads(0, 10);
+  const sl::TakeApartThreads ten = sl::takeApartThreads(0, 10);
   CHECK(ten.search == 10);
   CHECK(ten.workers == 8);
   CHECK(ten.beside == 8);
-  CHECK(bt::takeApartThreads(0, 1).workers == 1);
-  CHECK(bt::takeApartThreads(0, 2).workers == 1);
-  CHECK(bt::takeApartThreads(0, 3).workers == 1);
-  CHECK(bt::takeApartThreads(0, 64).workers == 16);
-  CHECK(bt::takeApartThreads(0, 0).search == 1);
+  CHECK(sl::takeApartThreads(0, 1).workers == 1);
+  CHECK(sl::takeApartThreads(0, 2).workers == 1);
+  CHECK(sl::takeApartThreads(0, 3).workers == 1);
+  CHECK(sl::takeApartThreads(0, 64).workers == 16);
+  CHECK(sl::takeApartThreads(0, 0).search == 1);
 }
 
 TEST_CASE("thread pool: a job runs on the caller and on lent threads", "[base][threads][parallel]") {
@@ -88,7 +88,7 @@ TEST_CASE("thread pool: sizes are clamped", "[base][threads]") {
   const ThreadPool none(0);
   CHECK(none.cores() == 1);
   const ThreadPool huge(1000000);
-  CHECK(huge.cores() == bt::kMaxThreads);
+  CHECK(huge.cores() == sl::kMaxThreads);
 }
 
 TEST_CASE("thread pool: load outside the pool leaves fewer threads to lend",

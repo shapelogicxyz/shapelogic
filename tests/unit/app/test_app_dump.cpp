@@ -40,9 +40,9 @@
 
 namespace {
 
-using namespace bt;
-using namespace bt::app;
-using namespace bt::mesh;
+using namespace sl;
+using namespace sl::app;
+using namespace sl::mesh;
 
 constexpr unsigned int kPoseSolutions = 2;
 constexpr unsigned int kSamples = 4;

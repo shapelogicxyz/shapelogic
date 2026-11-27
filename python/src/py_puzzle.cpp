@@ -17,7 +17,7 @@
 #include <stdexcept>
 #include <utility>
 
-namespace bt::python {
+namespace sl::python {
 
 namespace {
 
@@ -146,7 +146,7 @@ std::string PyPuzzle::exportPuzzlecad(std::optional<unsigned int> problem,
 
 std::vector<std::string> PyPuzzle::convertTargets() const {
   std::vector<std::string> names;
-  for (const GridKind k : bt::convertTargets(puzzle_->getGridType().getType())) {
+  for (const GridKind k : sl::convertTargets(puzzle_->getGridType().getType())) {
     names.emplace_back(toString(k));
   }
   return names;
@@ -154,7 +154,7 @@ std::vector<std::string> PyPuzzle::convertTargets() const {
 
 std::shared_ptr<PyPuzzle> PyPuzzle::convertGrid(const std::string& grid) const {
   return std::make_shared<PyPuzzle>(
-      std::make_shared<Puzzle>(valueOrThrow(bt::convertGrid(*puzzle_, gridByName(grid)))));
+      std::make_shared<Puzzle>(valueOrThrow(sl::convertGrid(*puzzle_, gridByName(grid)))));
 }
 
-}  // namespace bt::python
+}  // namespace sl::python

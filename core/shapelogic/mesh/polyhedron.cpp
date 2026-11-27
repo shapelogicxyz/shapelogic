@@ -15,7 +15,7 @@
 #include <stack>
 #include <utility>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -441,4 +441,4 @@ void eraseFaces(Polyhedron& poly, const std::set<int>& faces) {
   }
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

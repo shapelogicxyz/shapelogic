@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <mutex>
 
-namespace bt {
+namespace sl {
 
 /// A memory budget shared out equally among the searches holding a lease.
 ///
@@ -111,4 +111,4 @@ class MemoryShare {
   std::atomic<std::uint64_t> share_{0};
 };
 
-}  // namespace bt
+}  // namespace sl

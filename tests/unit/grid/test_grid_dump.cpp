@@ -18,22 +18,22 @@
 namespace {
 
 struct New {
-  using Voxel = bt::Voxel;
-  static constexpr int kEmpty = bt::Voxel::kEmpty;
-  static constexpr int kFilled = bt::Voxel::kFilled;
-  static constexpr int kVariable = bt::Voxel::kVariable;
+  using Voxel = sl::Voxel;
+  static constexpr int kEmpty = sl::Voxel::kEmpty;
+  static constexpr int kFilled = sl::Voxel::kFilled;
+  static constexpr int kVariable = sl::Voxel::kVariable;
 
-  static bt::GridType grid(int g) { return bt::GridType(static_cast<bt::GridKind>(g)); }
-  static const bt::Symmetries& sym(int g) { return grid(g).getSymmetries(); }
+  static sl::GridType grid(int g) { return sl::GridType(static_cast<sl::GridKind>(g)); }
+  static const sl::Symmetries& sym(int g) { return grid(g).getSymmetries(); }
 
-  static std::unique_ptr<bt::Voxel> make(int g, unsigned x, unsigned y, unsigned z) {
+  static std::unique_ptr<sl::Voxel> make(int g, unsigned x, unsigned y, unsigned z) {
     return grid(g).makeVoxel(x, y, z, 0);
   }
-  static std::unique_ptr<bt::Voxel> copy(const bt::Voxel& v) { return v.clone(); }
+  static std::unique_ptr<sl::Voxel> copy(const sl::Voxel& v) { return v.clone(); }
   static unsigned numTrans(int g) { return sym(g).getNumTransformations(); }
   static unsigned numTransMirror(int g) { return sym(g).getNumTransformationsMirror(); }
   static unsigned numGroups(int g) { return g == 0 ? 98 : g == 1 ? 54 : g == 2 ? 241 : 98; }
-  static bt::Symmetry s8(unsigned s) { return static_cast<bt::Symmetry>(s); }
+  static sl::Symmetry s8(unsigned s) { return static_cast<sl::Symmetry>(s); }
   static unsigned char t8(unsigned t) { return static_cast<unsigned char>(t); }
   static bool contains(int g, unsigned s, unsigned t) {
     return sym(g).symmetrieContainsTransformation(s8(s), t);
@@ -54,28 +54,28 @@ struct New {
     return sym(g).symmetriesLeft(s8(a), s8(b));
   }
   static bool containsMirror(int g, unsigned s) { return sym(g).symmetryContainsMirror(s8(s)); }
-  static bool identical(const bt::Voxel& a, const bt::Voxel& b, bool colors) {
+  static bool identical(const sl::Voxel& a, const sl::Voxel& b, bool colors) {
     return a.identicalInBB(b, colors);
   }
-  static unsigned char mirrorTransform(const bt::Voxel& a, const bt::Voxel& b) {
+  static unsigned char mirrorTransform(const sl::Voxel& a, const sl::Voxel& b) {
     return a.getMirrorTransform(b);
   }
-  static void action(bt::Voxel& v, int kind, bool inside) {
-    v.actionOnSpace(static_cast<bt::Voxel::Action>(kind), inside);
+  static void action(sl::Voxel& v, int kind, bool inside) {
+    v.actionOnSpace(static_cast<sl::Voxel::Action>(kind), inside);
   }
 
   class Table {
    public:
-    explicit Table(const std::vector<std::unique_ptr<bt::Voxel>>& s)
-        : table_([&s](unsigned int i) -> const bt::Voxel& { return *s[i]; }) {}
+    explicit Table(const std::vector<std::unique_ptr<sl::Voxel>>& s)
+        : table_([&s](unsigned int i) -> const sl::Voxel& { return *s[i]; }) {}
     void addSpace(unsigned int index, unsigned int params) { table_.addSpace(index, params); }
-    bool getSpace(const bt::Voxel& v, unsigned* index, unsigned char* trans,
+    bool getSpace(const sl::Voxel& v, unsigned* index, unsigned char* trans,
                   unsigned params) const {
       return table_.getSpace(v, index, trans, params);
     }
 
    private:
-    bt::VoxelTable table_;
+    sl::VoxelTable table_;
   };
 };
 

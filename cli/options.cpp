@@ -12,7 +12,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt::cli {
+namespace sl::cli {
 
 namespace {
 
@@ -414,11 +414,11 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
     } else if (a == "--slide-packing") {
       const std::string_view how = hasValue ? std::string_view(argv[i + 1]) : std::string_view();
       if (how == "auto") {
-        o.slidePacking = bt::sliding::SlidePacking::Auto;
+        o.slidePacking = sl::sliding::SlidePacking::Auto;
       } else if (how == "always") {
-        o.slidePacking = bt::sliding::SlidePacking::Always;
+        o.slidePacking = sl::sliding::SlidePacking::Always;
       } else if (how == "never") {
-        o.slidePacking = bt::sliding::SlidePacking::Never;
+        o.slidePacking = sl::sliding::SlidePacking::Never;
       } else {
         std::fprintf(stderr, "shapelogic_cli: %s requires auto, always or never\n", argv[i]);
         return kExitUsage;
@@ -557,4 +557,4 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
   return std::nullopt;
 }
 
-}  // namespace bt::cli
+}  // namespace sl::cli

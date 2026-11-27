@@ -11,7 +11,7 @@
 #include <cmath>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -261,4 +261,4 @@ bool VoxelCairo::identicalInBB(const Voxel& op, bool includeColors) const {
          Voxel::identicalInBB(op, includeColors);
 }
 
-}  // namespace bt
+}  // namespace sl

@@ -7,7 +7,7 @@
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/stacking.h"
 
-namespace bt::test {
+namespace sl::test {
 
 /// Adds a disc of `size` to the puzzle, used exactly once in `prob`.
 inline void addSized(Puzzle& puz, Problem& prob, unsigned int size) {
@@ -16,4 +16,4 @@ inline void addSized(Puzzle& puz, Problem& prob, unsigned int size) {
   prob.setShapeMinimum(puz, id, 1);
 }
 
-}  // namespace bt::test
+}  // namespace sl::test

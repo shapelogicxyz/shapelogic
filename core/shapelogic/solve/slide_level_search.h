@@ -40,7 +40,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::sliding::detail {
+namespace sl::sliding::detail {
 
 // What one arrangement costs the level search in memory, in key sizes, as
 // the memory budget is told in arrangements (SlideSearch::maxMemoryStates,
@@ -2489,4 +2489,4 @@ extern template Tabled tableProbe<BigKey<8>>(const SlideBoard&, const TableForm&
 extern template std::optional<Tabled> nameSpace<BigKey<8>>(const SlideBoard&, const TableForm&,
                                                          NamedSpace<BigKey<8>>&);
 
-}  // namespace bt::sliding::detail
+}  // namespace sl::sliding::detail

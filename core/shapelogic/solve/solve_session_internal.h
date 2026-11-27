@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <string>
 
-namespace bt::session_detail {
+namespace sl::session_detail {
 
 /// 357913941 -> "357,913,941", for counts shown to the user.
 std::string withCommas(std::uint64_t n);
@@ -23,4 +23,4 @@ bool sharedNow(const SolveOptions& o);
 /// The note's words for a search that stopped at its share of the memory.
 std::string sharedMemoryWords(const SolveOptions& o);
 
-}  // namespace bt::session_detail
+}  // namespace sl::session_detail

@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -254,4 +254,4 @@ void addDocumentMethods(MethodTable& t) {
   t["edit.end"] = editEnd;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

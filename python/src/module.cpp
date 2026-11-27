@@ -23,7 +23,7 @@
 #include <string>
 
 namespace py = pybind11;
-using namespace bt::python;
+using namespace sl::python;
 
 namespace {
 
@@ -32,10 +32,10 @@ namespace {
 const char* newPuzzleDoc() {
   static const std::string doc = [] {
     std::string d = "Create a new empty puzzle; grid: ";
-    for (std::size_t i = 0; i < bt::kGridTraits.size(); i++) {
-      d += i == 0 ? "" : i + 1 == bt::kGridTraits.size() ? " or " : ", ";
-      d += "'" + std::string(bt::kGridTraits[i].label) + "'";
-      if (bt::kGridTraits[i].kind == bt::GridKind::Bricks) {
+    for (std::size_t i = 0; i < sl::kGridTraits.size(); i++) {
+      d += i == 0 ? "" : i + 1 == sl::kGridTraits.size() ? " or " : ", ";
+      d += "'" + std::string(sl::kGridTraits[i].label) + "'";
+      if (sl::kGridTraits[i].kind == sl::GridKind::Bricks) {
         d += " (the standard 3D cubic grid)";
       }
     }
@@ -44,28 +44,28 @@ const char* newPuzzleDoc() {
   return doc.c_str();
 }
 
-bt::stacking::StackingSolver stackingSolverByName(const std::string& name) {
+sl::stacking::StackingSolver stackingSolverByName(const std::string& name) {
   if (name == "stacking") {
-    return bt::stacking::StackingSolver::Shortest;
+    return sl::stacking::StackingSolver::Shortest;
   }
   if (name == "panex") {
-    return bt::stacking::StackingSolver::Panex;
+    return sl::stacking::StackingSolver::Panex;
   }
   throw std::invalid_argument("stacking_solver must be 'stacking' or 'panex'");
 }
 
 // The one voxel state enum the module had; its values are the core's.
 enum class VoxelState : int {
-  Empty = bt::Voxel::kEmpty,
-  Filled = bt::Voxel::kFilled,
-  Variable = bt::Voxel::kVariable,
+  Empty = sl::Voxel::kEmpty,
+  Filled = sl::Voxel::kFilled,
+  Variable = sl::Voxel::kVariable,
 };
 
 }  // namespace
 
 PYBIND11_MODULE(shapelogic, m) {
   m.doc() = "Python bindings for the ShapeLogic 3D interlocking puzzle library";
-  m.attr("__version__") = std::string(bt::versionString());
+  m.attr("__version__") = std::string(sl::versionString());
 
   // Voxel state enum
   py::enum_<VoxelState>(m, "Voxel", "Voxel state values")

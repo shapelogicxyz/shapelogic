@@ -15,9 +15,9 @@
 
 #include <vector>
 
-using namespace bt;
-using namespace bt::sliding;
-using namespace bt::test;
+using namespace sl;
+using namespace sl::sliding;
+using namespace sl::test;
 
 // The Start/Goal tab places a whole piece at a time, and says the shape is
 // valid once a piece has both a start and a goal, each the whole piece.

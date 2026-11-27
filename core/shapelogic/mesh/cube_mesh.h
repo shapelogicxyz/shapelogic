@@ -14,11 +14,11 @@
 
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// A point of the cube mesher, in double precision.
 struct DVec3 {
@@ -50,4 +50,4 @@ struct CubeSurface {
 /// flagged kFaceBevel, the checker color on the cell faces.
 [[nodiscard]] Result<Polyhedron> cubePolyhedron(const Voxel& v, double g, double r, bool fills);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

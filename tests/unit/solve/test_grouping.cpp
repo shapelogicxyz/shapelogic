@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-using bt::Grouping;
+using sl::Grouping;
 
 TEST_CASE("grouping: a group accepts pieces up to its count", "[solve][grouping]") {
   Grouping g;
@@ -233,7 +233,7 @@ namespace {
 // every assembly is a solution. With `resultFirst` the result is shape 0
 // and part k is shape k + 1 (as in every example), else the result is
 // shape 2 and each part's shape id is its index.
-bt::Puzzle twoBoxes(bool resultFirst) {
+sl::Puzzle twoBoxes(bool resultFirst) {
   const std::string box =
       R"(<voxel x="7" y="3" z="3" name="TwoBoxes" type="0">###_######_######_######_######_######_######_######_######_###</voxel>)";
   const std::string bell =
@@ -250,22 +250,22 @@ bt::Puzzle twoBoxes(bool resultFirst) {
       "</shape></shapes>" +
       (resultFirst ? R"(<result id="0"/>)" : R"(<result id="2"/>)") +
       "<bitmap/></problem></problems></puzzle>";
-  bt::Result<bt::Puzzle> p = bt::io::parsePuzzle(xml);
+  sl::Result<sl::Puzzle> p = sl::io::parsePuzzle(xml);
   REQUIRE(p.has_value());
   return std::move(*p);
 }
 
-std::vector<bt::Assembly> assembliesOf(const bt::Puzzle& puzzle) {
-  const bt::Problem& pr = puzzle.getProblem(0);
-  std::unique_ptr<bt::Assembler> a = bt::makeAssembler(puzzle, pr, bt::SolverType::Classic);
-  REQUIRE(a->createMatrix({}, bt::StopToken()) == bt::AssemblerError::None);
-  std::vector<bt::Assembly> res;
+std::vector<sl::Assembly> assembliesOf(const sl::Puzzle& puzzle) {
+  const sl::Problem& pr = puzzle.getProblem(0);
+  std::unique_ptr<sl::Assembler> a = sl::makeAssembler(puzzle, pr, sl::SolverType::Classic);
+  REQUIRE(a->createMatrix({}, sl::StopToken()) == sl::AssemblerError::None);
+  std::vector<sl::Assembly> res;
   REQUIRE(a->assemble(
-              [&res](bt::Assembly x) {
+              [&res](sl::Assembly x) {
                 res.push_back(std::move(x));
                 return true;
               },
-              {}, bt::StopToken{}) == bt::RunEnd::Finished);
+              {}, sl::StopToken{}) == sl::RunEnd::Finished);
   return res;
 }
 
@@ -275,17 +275,17 @@ TEST_CASE("grouping: pieces in several groups stay together, whatever the shape 
           "[solve][grouping]") {
   for (const bool resultFirst : {true, false}) {
     INFO((resultFirst ? "result shape 0" : "result shape 2"));
-    const bt::Puzzle puzzle = twoBoxes(resultFirst);
-    const std::vector<bt::Assembly> assemblies = assembliesOf(puzzle);
+    const sl::Puzzle puzzle = twoBoxes(resultFirst);
+    const std::vector<sl::Assembly> assemblies = assembliesOf(puzzle);
     REQUIRE(assemblies.size() == 4);
 
     /* The original registered the groups under the shape id and looked
        them up under the part index: with the result first nothing was
        found (0 solutions). And its reSet kept the counts used up, so one
        disassembler gave only its first assembly (1 solution). */
-    bt::Disassembler d(puzzle, puzzle.getProblem(0), {});
+    sl::Disassembler d(puzzle, puzzle.getProblem(0), {});
     unsigned int solutions = 0;
-    for (const bt::Assembly& a : assemblies) {
+    for (const sl::Assembly& a : assemblies) {
       solutions += d.disassemble(a).separation ? 1 : 0;
     }
     CHECK(solutions == 4);

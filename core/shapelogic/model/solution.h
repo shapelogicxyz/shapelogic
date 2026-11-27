@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace bt {
+namespace sl {
 
 /// A solution. A value type. The assembly and solution numbers say in which
 /// order the solver found it; the solution number is 0 when there is no
@@ -90,4 +90,4 @@ class Solution {
   PreservedXml preserved_;
 };
 
-}  // namespace bt
+}  // namespace sl

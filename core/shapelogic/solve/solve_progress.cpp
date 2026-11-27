@@ -2,7 +2,7 @@
 // Ported from solveProgress_c::activity() in src/lib/solvethread.cpp.
 #include "shapelogic/solve/solve_progress.h"
 
-namespace bt {
+namespace sl {
 
 std::string SolveProgress::activity() const {
   using std::to_string;
@@ -50,4 +50,4 @@ std::string SolveProgress::activity() const {
   return "";
 }
 
-}  // namespace bt
+}  // namespace sl

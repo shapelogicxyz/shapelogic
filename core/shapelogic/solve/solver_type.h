@@ -12,7 +12,7 @@
 #include <optional>
 #include <string_view>
 
-namespace bt {
+namespace sl {
 
 class Assembler;
 class Problem;
@@ -57,4 +57,4 @@ enum class AssemblerKind : std::uint8_t {
                                                        const Problem& problem,
                                                        SolverType solver);
 
-}  // namespace bt
+}  // namespace sl

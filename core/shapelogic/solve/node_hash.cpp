@@ -2,7 +2,7 @@
 // Ported from src/lib/disassemblerhashes.cpp.
 #include "shapelogic/solve/node_hash.h"
 
-namespace bt {
+namespace sl {
 
 const DisassemblerNode* NodeHash::insert(const NodeRef& n) {
   // one lookup: an existing node comes back from insert()
@@ -53,4 +53,4 @@ const DisassemblerNode* CountingNodeHash::nextScan() {
   return order_[--scanPos_].get();
 }
 
-}  // namespace bt
+}  // namespace sl

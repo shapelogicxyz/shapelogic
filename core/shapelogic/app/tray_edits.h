@@ -19,7 +19,7 @@
 #include <array>
 #include <vector>
 
-namespace bt::app {
+namespace sl::app {
 
 /// The tray of a Tilted Square puzzle and the counting of its boards. Each
 /// is refused (Unsupported) without a tray. Made where it is used, on a
@@ -72,4 +72,4 @@ class TrayEdits {
   Document& d_;
 };
 
-}  // namespace bt::app
+}  // namespace sl::app

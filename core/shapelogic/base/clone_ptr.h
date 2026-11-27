@@ -11,7 +11,7 @@
 #include <memory>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 namespace detail {
 template <class T>
@@ -65,4 +65,4 @@ class ClonePtr {
   std::unique_ptr<T> p_;
 };
 
-}  // namespace bt
+}  // namespace sl

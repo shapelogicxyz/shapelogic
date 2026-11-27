@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace bt::sliding {
+namespace sl::sliding {
 
 /// The forecast is given at every this-many moves deep...
 inline constexpr std::uint64_t kForecastEvery = 5;
@@ -40,7 +40,7 @@ struct SlideEstimate {
 struct SlideForecast {
   /// The moves searched to (the times known).
   std::uint64_t depth = 0;
-  /// How long each move took: levelMs[k] is move k + 1 (bt::kUntimedMs
+  /// How long each move took: levelMs[k] is move k + 1 (sl::kUntimedMs
   /// for one whose time is not known).
   std::vector<std::uint64_t> levelMs;
   /// How long the move under way has run so far; 0 when none is.
@@ -63,4 +63,4 @@ struct SlideForecast {
 [[nodiscard]] SlideForecast slideForecast(const std::vector<std::uint64_t>& levelMs,
                                           std::uint64_t runningMs);
 
-}  // namespace bt::sliding
+}  // namespace sl::sliding

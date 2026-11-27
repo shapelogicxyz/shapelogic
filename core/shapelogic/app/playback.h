@@ -21,13 +21,13 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Problem;
 class Puzzle;
 class Voxel;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::app {
+namespace sl::app {
 
 /// Where the poses of a stacking problem's playback are centerd, in grid
 /// units (the cells of the discs, whose hotspots stand on the rods at a
@@ -149,4 +149,4 @@ class PlaybackSampler {
   std::string movesText_;
 };
 
-}  // namespace bt::app
+}  // namespace sl::app

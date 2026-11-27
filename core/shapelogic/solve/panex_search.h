@@ -29,14 +29,14 @@
 #include <optional>
 #include <string>
 
-namespace bt {
+namespace sl {
 class Problem;
 class Puzzle;
 class SearchSample;
 class ThreadPool;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::panex {
+namespace sl::panex {
 
 /// Empty when the Panex Solver can take this problem, otherwise why it
 /// cannot (the original's words). With anyRules, rod sets without Panex
@@ -189,4 +189,4 @@ struct PanexSearch {
 [[nodiscard]] std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
                                               PanexSearch& search);
 
-}  // namespace bt::panex
+}  // namespace sl::panex

@@ -15,7 +15,7 @@
 #include <mutex>
 #include <vector>
 
-namespace bt::detail {
+namespace sl::detail {
 namespace {
 
 // "undefined": the tables' value for combinations that do not exist
@@ -317,4 +317,4 @@ unsigned int numSphereSymmetryLists() { return kInstance.size(); }
 
 constinit const Symmetries* const kSymmetriesTable2 = &kInstance;
 
-}  // namespace bt::detail
+}  // namespace sl::detail

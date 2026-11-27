@@ -16,7 +16,7 @@
 #include <map>
 #include <sstream>
 
-namespace bt::io::detail {
+namespace sl::io::detail {
 
 namespace {
 
@@ -721,4 +721,4 @@ void writeProblem(XmlWriter& xml, const Puzzle& puzzle, const Problem& prob) {
   xml.endTag("problem");
 }
 
-}  // namespace bt::io::detail
+}  // namespace sl::io::detail

@@ -20,7 +20,7 @@
 #include <set>
 #include <vector>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// Face flags (FF_ of the original voxel.h): how the 3D view draws a face.
 enum FaceFlag : std::uint32_t {
@@ -153,4 +153,4 @@ class VertexList {
 /// order they were made).
 void eraseFaces(Polyhedron& poly, const std::set<int>& faces);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

@@ -25,7 +25,7 @@
 #define SL_SIMD_NEON 1
 #endif
 
-namespace bt {
+namespace sl {
 
 /// Which vector instruction sets the covers may use; each is used only when
 /// the processor also has it. All off gives the plain (scalar) loops, which
@@ -241,4 +241,4 @@ enum class SimdKernel : std::uint8_t { Scalar, Avx2, Avx512, Neon };
 #endif
 }
 
-}  // namespace bt
+}  // namespace sl

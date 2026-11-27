@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace bt::app {
+namespace sl::app {
 
 /// What placing every disc did (StackingEdits::placeAllDiscs): how many
 /// went on the rod before one would not, and why that one would not (empty
@@ -107,4 +107,4 @@ class StackingEdits {
   Document& d_;
 };
 
-}  // namespace bt::app
+}  // namespace sl::app

@@ -16,7 +16,7 @@
 #include <memory>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 class Assembly;
 class DisassemblerNode;
@@ -264,4 +264,4 @@ inline void NodeRef::reset() noexcept {
   }
 }
 
-}  // namespace bt
+}  // namespace sl

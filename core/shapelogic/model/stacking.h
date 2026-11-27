@@ -23,13 +23,13 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Problem;
 class Puzzle;
 class Voxel;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::stacking {
+namespace sl::stacking {
 
 /// True when the puzzle uses the stacking grid.
 [[nodiscard]] bool isStacking(const Puzzle& puzzle);
@@ -208,4 +208,4 @@ class StackingPlacer {
 /// The width of the board, the animation's unit of distance.
 [[nodiscard]] unsigned int boardSpan(const Puzzle& puzzle, const Problem& problem);
 
-}  // namespace bt::stacking
+}  // namespace sl::stacking

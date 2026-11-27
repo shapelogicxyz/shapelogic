@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 struct SolveSessionTestAccess {
   // The session as a run with `options` would have it, without a run.
@@ -39,4 +39,4 @@ struct SolveSessionTestAccess {
   }
 };
 
-}  // namespace bt
+}  // namespace sl

@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -737,4 +737,4 @@ Result<Polyhedron> uniformMesh(const Voxel& v, const UniformMeshOptions& options
   return m.run();
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

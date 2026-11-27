@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "shapelogic/base/error.h"
 
-namespace bt {
+namespace sl {
 
 std::string_view toString(Errc e) noexcept {
   switch (e) {
@@ -16,4 +16,4 @@ std::string_view toString(Errc e) noexcept {
   return "unknown";
 }
 
-}  // namespace bt
+}  // namespace sl

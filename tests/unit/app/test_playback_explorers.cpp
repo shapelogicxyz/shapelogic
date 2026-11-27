@@ -31,8 +31,8 @@
 #include <thread>
 #include <vector>
 
-using namespace bt;
-using namespace bt::app;
+using namespace sl;
+using namespace sl::app;
 using test::openFixture;
 
 namespace {

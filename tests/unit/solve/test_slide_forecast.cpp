@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <vector>
 
-using namespace bt::sliding;
+using namespace sl::sliding;
 
 TEST_CASE("slide forecast: times doubling each move are told every five moves", "[sliding]") {
   // moves 1 to 6 took 100, 200, ..., 3200 ms
@@ -92,7 +92,7 @@ TEST_CASE("slide forecast: the move under way takes at least as long as it has r
 TEST_CASE("slide forecast: moves searched before the times were kept play no part",
           "[sliding]") {
   // a search paused 36 moves deep by a version that kept no times
-  std::vector<std::uint64_t> times(36, bt::kUntimedMs);
+  std::vector<std::uint64_t> times(36, sl::kUntimedMs);
   SlideForecast f = slideForecast(times, 5000);
   CHECK(f.depth == 36);
   CHECK(f.growth == 0);

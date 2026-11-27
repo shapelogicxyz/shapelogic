@@ -31,7 +31,7 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class Assembly;
 class NodeHash;
@@ -237,4 +237,4 @@ class Disassembler {
   std::atomic<std::uint64_t> progNodes_{0};
 };
 
-}  // namespace bt
+}  // namespace sl

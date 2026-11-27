@@ -9,12 +9,12 @@
 #include <tuple>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Puzzle;
 class Voxel;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::python {
+namespace sl::python {
 
 /// A shape of a puzzle (the module's `Shape`).
 class PyShape {
@@ -61,4 +61,4 @@ class PyShape {
   [[nodiscard]] Voxel& cell(unsigned int x, unsigned int y, unsigned int z) const;
 };
 
-}  // namespace bt::python
+}  // namespace sl::python

@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace bt {
+namespace sl {
 
 enum class SolveState : std::uint8_t {
   Idle,         ///< Nothing searched yet, or the results were thrown away.
@@ -60,4 +60,4 @@ class SolveStateCell {
   std::atomic<SolveState> state_{SolveState::Idle};
 };
 
-}  // namespace bt
+}  // namespace sl

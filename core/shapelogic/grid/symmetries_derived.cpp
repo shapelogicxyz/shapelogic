@@ -12,7 +12,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace bt::detail {
+namespace sl::detail {
 
 namespace {
 
@@ -264,4 +264,4 @@ const DerivedSymmetries& cairoSymmetries() {
   return s;
 }
 
-}  // namespace bt::detail
+}  // namespace sl::detail

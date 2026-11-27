@@ -22,8 +22,8 @@
 #include <set>
 #include <vector>
 
-using namespace bt;
-using namespace bt::mesh;
+using namespace sl;
+using namespace sl::mesh;
 
 namespace {
 

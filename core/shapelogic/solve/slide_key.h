@@ -16,7 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace bt::sliding {
+namespace sl::sliding {
 
 /// An unsigned integer of W 64-bit words, with the operations the level
 /// search asks of a key: order, the bit operations, shifts, and the sums
@@ -224,4 +224,4 @@ template <unsigned int W>
   return key;
 }
 
-}  // namespace bt::sliding
+}  // namespace sl::sliding

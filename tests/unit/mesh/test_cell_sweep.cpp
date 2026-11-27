@@ -25,7 +25,7 @@
 #include <random>
 #include <vector>
 
-using namespace bt;
+using namespace sl;
 using mesh::CellAt;
 using mesh::CellGeometry;
 using mesh::CellPolyhedron;

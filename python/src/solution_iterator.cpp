@@ -31,7 +31,7 @@
 
 namespace py = pybind11;
 
-namespace bt::python {
+namespace sl::python {
 
 namespace {
 
@@ -384,4 +384,4 @@ void SolutionIterator::runSession(Problem& problem) {
   pushItem(QueueItem{QueueItem::Type::Finished, {}, ""});
 }
 
-}  // namespace bt::python
+}  // namespace sl::python

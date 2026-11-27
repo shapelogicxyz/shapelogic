@@ -23,7 +23,7 @@
 #include <optional>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// The directions pieces move in on a grid: one step each, a move of the
 /// grid onto itself; and the box after which the grid repeats, so that a
@@ -86,4 +86,4 @@ struct MovementChecks {
 /// threads); null for a grid without directions.
 [[nodiscard]] const MovementChecks* movementChecks(GridKind kind);
 
-}  // namespace bt
+}  // namespace sl

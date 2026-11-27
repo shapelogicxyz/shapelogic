@@ -7,7 +7,7 @@
 #include <cmath>
 #include <cstdio>
 
-namespace bt::io::detail {
+namespace sl::io::detail {
 
 namespace {
 
@@ -133,4 +133,4 @@ void writeTray(XmlWriter& xml, const tilted::Tray& t) {
   xml.endTag("tray");
 }
 
-}  // namespace bt::io::detail
+}  // namespace sl::io::detail

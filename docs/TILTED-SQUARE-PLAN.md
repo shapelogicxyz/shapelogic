@@ -131,7 +131,7 @@ with **File ▸ New ▸ Tilted Square**.
   `just site-demo --check`), `just check` on the changed C++ tests, the
   tilted e2e spec three times. Then three fixes (the handoff's "Fixed"):
   the CLI follows each problem's stored `flipPieces` and takes `--flip
-  on|off` (`bt::trayPlaneTurns`, `bt::storedFlipPieces`, shared with
+  on|off` (`sl::trayPlaneTurns`, `sl::storedFlipPieces`, shared with
   `SolveSession`); a piece that fits nowhere is marked "Doesn't fit" and a
   tray change that leaves one says so; the disassembly player offers no
   analysis on a tilted or Spheres puzzle.

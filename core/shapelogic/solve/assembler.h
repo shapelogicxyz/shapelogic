@@ -21,7 +21,7 @@
 #include <string_view>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class Problem;
 class Puzzle;
@@ -318,4 +318,4 @@ AssemblerError beginSolving(Problem& problem, Assembler& assembler);
 /// puzzle writes the paused search.
 void storePosition(Problem& problem, const Assembler& assembler);
 
-}  // namespace bt
+}  // namespace sl

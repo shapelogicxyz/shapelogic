@@ -15,7 +15,7 @@
 #include <bit>
 #include <cstdint>
 
-namespace bt::detail {
+namespace sl::detail {
 
 /// Bit operations over the tables' masks.
 inline bool maskGet(std::uint64_t m, unsigned int t) { return (m & (std::uint64_t{1} << t)) != 0; }
@@ -133,4 +133,4 @@ class TableSymmetries final : public Symmetries {
   CalcFn calc_;
 };
 
-}  // namespace bt::detail
+}  // namespace sl::detail

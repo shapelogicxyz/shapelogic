@@ -47,16 +47,16 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Assembly;
 class DisasmToMoves;
 class Problem;
 class Puzzle;
 class SearchSample;
 class ThreadPool;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::sliding {
+namespace sl::sliding {
 
 /// A shift of a piece or a group of pieces in cells, (dx, dy, dz).
 using SlideShift = std::array<int, 3>;
@@ -659,4 +659,4 @@ void applySlideRoutes(const Puzzle& puzzle, const Problem& problem, const Separa
 /// Paths with the same key end with the pieces in the same places.
 [[nodiscard]] std::string finalPlacementKey(const Separation& path);
 
-}  // namespace bt::sliding
+}  // namespace sl::sliding

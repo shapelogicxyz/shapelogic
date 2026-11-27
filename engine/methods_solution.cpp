@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -284,4 +284,4 @@ void addSolutionMethods(MethodTable& t) {
   t["solution.analyseStatus"] = solutionAnalyseStatus;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

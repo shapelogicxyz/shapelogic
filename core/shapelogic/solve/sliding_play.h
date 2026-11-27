@@ -29,7 +29,7 @@
 #include <string>
 #include <vector>
 
-namespace bt::sliding {
+namespace sl::sliding {
 
 /// The rules of a game that the problem does not fix: the Solver's
 /// options of the same names (SlidingOptions).
@@ -130,4 +130,4 @@ struct PlayReplay {
                                             std::span<const PlayMove> moves,
                                             const PlayRules& rules);
 
-}  // namespace bt::sliding
+}  // namespace sl::sliding

@@ -16,7 +16,7 @@
 #include <csignal>
 #include <cstdint>
 
-namespace bt::test {
+namespace sl::test {
 
 class FileSizeLimit {
  public:
@@ -41,6 +41,6 @@ class FileSizeLimit {
   void (*oldHandler_)(int) = SIG_DFL;
 };
 
-}  // namespace bt::test
+}  // namespace sl::test
 
 #endif

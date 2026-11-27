@@ -16,7 +16,7 @@
 #include <optional>
 #include <string>
 
-namespace bt {
+namespace sl {
 
 using namespace session_detail;
 
@@ -255,4 +255,4 @@ void SolveSession::endStackingRun(bool stopped) {
   leave(stopped ? SolveState::Paused : SolveState::Finished);
 }
 
-}  // namespace bt
+}  // namespace sl

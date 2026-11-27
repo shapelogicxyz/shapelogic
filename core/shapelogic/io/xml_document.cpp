@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::io {
+namespace sl::io {
 
 namespace {
 
@@ -88,4 +88,4 @@ std::string writeXmlDocument(const XmlElement& root) {
   return w.str();
 }
 
-}  // namespace bt::io
+}  // namespace sl::io

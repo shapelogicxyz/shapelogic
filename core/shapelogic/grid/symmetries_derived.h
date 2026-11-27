@@ -18,7 +18,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace bt::detail {
+namespace sl::detail {
 
 /// Symmetries over a list of matrices: the plain rotations first, then
 /// the mirrors; the identity first of all. At most 64 transformations.
@@ -84,4 +84,4 @@ class DerivedSymmetries final : public Symmetries {
 /// The cairo prism grid's symmetries (4-fold: 8 and 16).
 [[nodiscard]] const DerivedSymmetries& cairoSymmetries();
 
-}  // namespace bt::detail
+}  // namespace sl::detail

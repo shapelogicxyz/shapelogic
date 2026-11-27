@@ -6,7 +6,7 @@
 #include <optional>
 #include <utility>
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -191,4 +191,4 @@ void addSolveMethods(MethodTable& t) {
   t["solve.importPaused"] = solveImportPaused;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

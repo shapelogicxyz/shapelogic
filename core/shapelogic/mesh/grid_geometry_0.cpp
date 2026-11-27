@@ -5,7 +5,7 @@
 
 #include "shapelogic/base/int_cast.h"
 
-namespace bt::mesh::detail {
+namespace sl::mesh::detail {
 
 namespace {
 #include "shapelogic/mesh/tabs_0/meshverts.inc"
@@ -36,4 +36,4 @@ void connectionFaceBricks(int x, int y, int z, int n, double bevel, double offse
   }
 }
 
-}  // namespace bt::mesh::detail
+}  // namespace sl::mesh::detail

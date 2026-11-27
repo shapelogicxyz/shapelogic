@@ -20,11 +20,11 @@
 #include <string_view>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// How a parameter is entered (stlExporter_c::parameterTypes).
 enum class StlParameterType : std::uint8_t {
@@ -69,4 +69,4 @@ struct StlParameter {
 [[nodiscard]] std::vector<std::uint8_t> stlFile(const Polyhedron& mesh, std::string_view title,
                                                 bool binary);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

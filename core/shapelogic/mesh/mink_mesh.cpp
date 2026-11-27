@@ -25,7 +25,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -1682,4 +1682,4 @@ Result<Polyhedron> minkPolyhedron(const Voxel& v, double g, double r, bool fills
   return poly;
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

@@ -6,7 +6,7 @@
 
 #include <array>
 
-namespace bt::mesh::detail {
+namespace sl::mesh::detail {
 
 void connectionFaceCairo(int x, int y, int z, int n, std::vector<float>& corners) {
   if (!cairo::isCell(x, y)) {
@@ -21,4 +21,4 @@ void connectionFaceCairo(int x, int y, int z, int n, std::vector<float>& corners
   prismFace(polygon, z, n, corners);
 }
 
-}  // namespace bt::mesh::detail
+}  // namespace sl::mesh::detail

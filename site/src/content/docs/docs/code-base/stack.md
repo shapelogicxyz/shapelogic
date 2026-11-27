@@ -10,7 +10,7 @@ an Astro website. This page lists what each part is built with and why.
 
 | | |
 |---|---|
-| Language | C++23 (`std::expected`, ranges), in `namespace bt` |
+| Language | C++23 (`std::expected`, ranges), in `namespace sl` |
 | Build | CMake 3.28 or newer with presets, the Ninja generator |
 | Task runner | `just` (the `justfile` at the root is the documented interface) |
 | Compilers | Apple clang 17, GCC 13, MinGW-w64 GCC 13, Emscripten 3.1 or newer |

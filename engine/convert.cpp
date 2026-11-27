@@ -14,7 +14,7 @@
 #include <charconv>
 #include <cstdio>
 
-namespace bt::engine {
+namespace sl::engine {
 
 // ---- names ------------------------------------------------------------------------------
 
@@ -759,4 +759,4 @@ Json placementsJson(const std::vector<Placement>& pl) {
   return out;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

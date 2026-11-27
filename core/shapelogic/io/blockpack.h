@@ -26,11 +26,11 @@
 #include <filesystem>
 #include <iosfwd>
 
-namespace bt {
+namespace sl {
 class ThreadPool;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::io::blockpack {
+namespace sl::io::blockpack {
 
 /// Packs `file` into `out`. With `keys`, the file is read as sorted 16-byte
 /// keys (a chunk that is not falls back to plain deflate). The chunks are
@@ -47,4 +47,4 @@ std::uint64_t pack(const std::filesystem::path& file, std::ostream& out, bool ke
 bool unpack(std::istream& in, std::uint64_t bytes, const std::filesystem::path& file,
             unsigned int threads = 0, ThreadPool* pool = nullptr);
 
-}  // namespace bt::io::blockpack
+}  // namespace sl::io::blockpack

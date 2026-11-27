@@ -9,7 +9,7 @@
 
 #include "shapelogic/grid/symmetries.h"
 
-namespace bt::detail {
+namespace sl::detail {
 
 /// Cubes, and the rhombic and tetra-octa grids built on cubes (tabs_0).
 extern const Symmetries* const kSymmetriesTable0;
@@ -18,4 +18,4 @@ extern const Symmetries* const kSymmetriesTable1;
 /// Spheres (tabs_2).
 extern const Symmetries* const kSymmetriesTable2;
 
-}  // namespace bt::detail
+}  // namespace sl::detail

@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-using namespace bt;
+using namespace sl;
 using test::fingerprint;
 using test::Fingerprints;
 

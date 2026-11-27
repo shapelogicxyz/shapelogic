@@ -15,7 +15,7 @@
 #include <limits>
 #include <string>
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -529,4 +529,4 @@ void addShapeMethods(MethodTable& t) {
   t["grid.neighbor"] = gridNeighbor;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

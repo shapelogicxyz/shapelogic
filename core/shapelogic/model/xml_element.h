@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// One attribute, as it appeared in the file (entities resolved).
 struct XmlAttribute {
@@ -77,4 +77,4 @@ struct PreservedXml {
   }
 };
 
-}  // namespace bt
+}  // namespace sl

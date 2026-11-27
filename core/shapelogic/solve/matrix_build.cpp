@@ -16,7 +16,7 @@
 #include <cstdlib>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -267,4 +267,4 @@ unsigned int getInt(const char* s, unsigned int* i) {
   return static_cast<unsigned int>(s2 - s);
 }
 
-}  // namespace bt
+}  // namespace sl

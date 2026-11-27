@@ -19,7 +19,7 @@
 #include <string_view>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 using namespace session_detail;
 
@@ -362,4 +362,4 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
   return "";
 }
 
-}  // namespace bt
+}  // namespace sl

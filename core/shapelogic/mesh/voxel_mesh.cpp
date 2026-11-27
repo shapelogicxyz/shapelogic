@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -270,4 +270,4 @@ Polyhedron shapeMesh(const Voxel& v, MeshStyle style) {
   return {};
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

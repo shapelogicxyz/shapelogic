@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "shapelogic/base/assert.h"
 
-namespace bt::detail {
+namespace sl::detail {
 
 void assertionFailed(const char* expr, const char* msg, const char* file, int line) {
   std::string what = std::string("assertion failed: ") + expr;
@@ -17,4 +17,4 @@ void assertionFailed(const char* expr, const char* msg, const char* file, int li
   throw InternalError(what, file, line);
 }
 
-}  // namespace bt::detail
+}  // namespace sl::detail

@@ -9,7 +9,7 @@
 
 #include <vector>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// A point of a face projected onto its plane.
 struct Point2 {
@@ -29,4 +29,4 @@ struct Point2 {
 bool triangulateLoops(const std::vector<Point2>& pts, const std::vector<std::vector<int>>& loops,
                       std::vector<int>& tris, const char*& why);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

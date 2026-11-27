@@ -23,7 +23,7 @@
 #include <memory>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class MovementCache;
 class Problem;
@@ -190,4 +190,4 @@ class MovementAnalysator {
   const std::vector<unsigned int>* pieces_ = nullptr;
 };
 
-}  // namespace bt
+}  // namespace sl

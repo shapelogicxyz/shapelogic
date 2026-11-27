@@ -26,8 +26,8 @@
 #include <utility>
 #include <vector>
 
-using namespace bt;
-using namespace bt::sliding;
+using namespace sl;
+using namespace sl::sliding;
 
 namespace {
 

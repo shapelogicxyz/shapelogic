@@ -11,7 +11,7 @@
 #include <chrono>
 #include <cstdint>
 
-namespace bt {
+namespace sl {
 
 /// A copy of PrepareCounters, read at one time.
 struct PrepareProgress {
@@ -89,4 +89,4 @@ struct PrepareCounters {
   }
 };
 
-}  // namespace bt
+}  // namespace sl

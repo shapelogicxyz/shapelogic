@@ -19,7 +19,7 @@
 
 namespace {
 
-using namespace bt;
+using namespace sl;
 
 constexpr unsigned int kSolutions = 12;
 constexpr unsigned int kCompleteChecks = 3;

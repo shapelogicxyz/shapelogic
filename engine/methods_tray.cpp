@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::engine {
+namespace sl::engine {
 
 RpcResult<tilted::Tray> readTraySettings(const Json& given, const tilted::Tray& base) {
   if (!given.is_object()) {
@@ -254,4 +254,4 @@ void addTrayMethods(MethodTable& t) {
   t["tray.fitPlacementsStatus"] = trayFitPlacementsStatus;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

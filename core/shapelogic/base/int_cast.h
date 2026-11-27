@@ -9,7 +9,7 @@
 
 #include <cstddef>
 
-namespace bt {
+namespace sl {
 
 /// The value as `int` (what an implicit unsigned -> int conversion did).
 [[nodiscard]] constexpr int asInt(unsigned int v) noexcept { return static_cast<int>(v); }
@@ -20,4 +20,4 @@ namespace bt {
   return static_cast<unsigned int>(v);
 }
 
-}  // namespace bt
+}  // namespace sl

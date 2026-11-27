@@ -18,11 +18,11 @@
 #include <string_view>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::app {
+namespace sl::app {
 
 /// A button of the tool tabs. The numbers are the original's task codes;
 /// what a nudge or rotation does depends on the grid (taskSet() tells).
@@ -156,4 +156,4 @@ unsigned int editCells(Voxel& v, CellTool tool, unsigned int color, std::uint8_t
 /// of 5, tetrahedra-octahedra in blocks of 3, the others in cells.
 [[nodiscard]] unsigned int sizeUnit(GridKind grid);
 
-}  // namespace bt::app
+}  // namespace sl::app

@@ -6,7 +6,7 @@
 #include "shapelogic/grid/symmetries.h"
 #include "shapelogic/grid/voxel.h"
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -85,4 +85,4 @@ void VoxelTable::addSpace(unsigned int index, unsigned int params) {
   }
 }
 
-}  // namespace bt
+}  // namespace sl

@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// True when a puzzle on grid `src` can be converted to `dst`
 /// (canConvert): bricks to rhombic and to tetra-octa.
@@ -37,4 +37,4 @@ inline constexpr std::uint64_t kMaxConvertedCells = std::uint64_t{1} << 27;
 [[nodiscard]] Result<Puzzle> convertGrid(const Puzzle& p, GridKind target,
                                          std::uint64_t maxCells = kMaxConvertedCells);
 
-}  // namespace bt
+}  // namespace sl

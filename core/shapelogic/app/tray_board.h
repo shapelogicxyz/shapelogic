@@ -12,7 +12,7 @@
 #include <memory>
 #include <optional>
 
-namespace bt::app {
+namespace sl::app {
 
 /// Makes `board` the board of `lay`: the layout's size, one layer, its
 /// whole cells variable and the rest empty.
@@ -41,4 +41,4 @@ struct TrayFit {
                                                std::optional<tilted::Point> want,
                                                const tilted::Layout& lay);
 
-}  // namespace bt::app
+}  // namespace sl::app

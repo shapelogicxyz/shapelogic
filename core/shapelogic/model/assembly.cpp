@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 void MirrorInfo::addPieces(unsigned int p1, unsigned int p2, unsigned char trans) {
   entries_.push_back(Entry{p1, p2, trans});
@@ -713,4 +713,4 @@ void Assembly::addNonPlacedPieces(unsigned int from, unsigned int cnt) {
   placements_.insert(placements_.begin() + from, cnt, Placement{kUnplacedTrans, 0, 0, 0});
 }
 
-}  // namespace bt
+}  // namespace sl

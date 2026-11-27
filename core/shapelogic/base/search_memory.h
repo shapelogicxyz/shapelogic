@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-namespace bt {
+namespace sl {
 
 class MemoryShare;
 
@@ -31,4 +31,4 @@ inline constexpr std::uint64_t kSearchMemoryBytes = 2000000000ULL;
                                          std::uint64_t bytes = 0,
                                          const MemoryShare* share = nullptr);
 
-}  // namespace bt
+}  // namespace sl

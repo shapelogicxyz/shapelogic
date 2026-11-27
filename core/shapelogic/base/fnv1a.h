@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-namespace bt {
+namespace sl {
 
 /// FNV-1a's offset basis and prime. The assemblers' signatures mix whole
 /// values with them (fnvMix, the original's formula; saved positions carry
@@ -50,4 +50,4 @@ class Fnv1a {
   std::uint64_t h_ = kFnvOffset;
 };
 
-}  // namespace bt
+}  // namespace sl

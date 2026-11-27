@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-namespace bt::detail {
+namespace sl::detail {
 namespace {
 
 #include "shapelogic/grid/tabs_1/tablesizes.inc"
@@ -55,4 +55,4 @@ constinit const Impl kInstance(Impl::Tables{kTransMult, kSymmetries, kUnifiedSym
 
 constinit const Symmetries* const kSymmetriesTable1 = &kInstance;
 
-}  // namespace bt::detail
+}  // namespace sl::detail

@@ -9,7 +9,7 @@
 /// disassembler_0.cpp); the state encoding is in its files and the move
 /// lists made from them, so it must not change.
 
-namespace bt::movement {
+namespace sl::movement {
 
 /// A movement cache's value for two pieces with nothing of each other in
 /// the way: the largest a cache gives. The closure skips rows on it, which
@@ -36,4 +36,4 @@ static_assert(kRemovedMovement <= kRemoveStep, "a removal must count as removed"
 static_assert(kRemovedScale >= 2 * kRemovedBeyond,
               "a piece within the mark must lie beyond it once removed by one step");
 
-}  // namespace bt::movement
+}  // namespace sl::movement

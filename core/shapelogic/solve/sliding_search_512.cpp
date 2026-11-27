@@ -3,7 +3,7 @@
 // other widths so that the five build side by side (cleanup item 21.1).
 #include "shapelogic/solve/slide_level_search.h"
 
-namespace bt::sliding::detail {
+namespace sl::sliding::detail {
 
 template Tabled tableSearch<BigKey<8>>(const SlideBoard&, const TableForm&, bool, SlideSearch&,
                                  std::vector<SlideState>&);
@@ -11,4 +11,4 @@ template Tabled tableProbe<BigKey<8>>(const SlideBoard&, const TableForm&, bool,
 template std::optional<Tabled> nameSpace<BigKey<8>>(const SlideBoard&, const TableForm&,
                                               NamedSpace<BigKey<8>>&);
 
-}  // namespace bt::sliding::detail
+}  // namespace sl::sliding::detail

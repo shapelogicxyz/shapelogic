@@ -10,15 +10,15 @@
 
 #include <cstdio>
 
-namespace bt {
+namespace sl {
 class Assembly;
 class Problem;
 class Puzzle;
 class Separation;
 class Voxel;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::cli {
+namespace sl::cli {
 
 /// A shape: its layers framed, cells as letters from `base` (the cell's
 /// whole value: state and color), then its bounds and hotspot.
@@ -43,4 +43,4 @@ void printSeparation(std::FILE* out, const Puzzle& puzzle, const Problem& proble
                      const Separation& separation, const Assembly& assembly,
                      bool originalDrawings);
 
-}  // namespace bt::cli
+}  // namespace sl::cli

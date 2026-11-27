@@ -3,7 +3,7 @@
 
 #include "shapelogic/base/assert.h"
 
-namespace bt {
+namespace sl {
 
 std::string_view toString(SolveState s) noexcept {
   switch (s) {
@@ -50,4 +50,4 @@ void SolveStateCell::advance(SolveState to) {
   SL_ASSERT_MSG(alone, "two writers of a solve state");
 }
 
-}  // namespace bt
+}  // namespace sl

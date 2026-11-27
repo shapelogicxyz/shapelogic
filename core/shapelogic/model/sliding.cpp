@@ -20,7 +20,7 @@
 #include <set>
 #include <sstream>
 
-namespace bt::sliding {
+namespace sl::sliding {
 
 namespace {
 
@@ -1892,4 +1892,4 @@ std::vector<std::uint64_t> partTransforms(const Puzzle& puzzle, const Problem& p
   return out;
 }
 
-}  // namespace bt::sliding
+}  // namespace sl::sliding

@@ -51,9 +51,9 @@
 #include <utility>
 #include <vector>
 
-using namespace bt;
-using namespace bt::sliding;
-using namespace bt::test;
+using namespace sl;
+using namespace sl::sliding;
+using namespace sl::test;
 
 // A search stopped by its token is saved in its folder, and a search of the
 // same start carries it on to the same path, counting what was searched

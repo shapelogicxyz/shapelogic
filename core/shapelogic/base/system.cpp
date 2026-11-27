@@ -28,7 +28,7 @@
 #include <unistd.h>
 #endif
 
-namespace bt {
+namespace sl {
 
 std::uint64_t physicalMemoryBytes() {
 #if defined(_WIN32)
@@ -258,4 +258,4 @@ std::string userCacheDirectory() {
 #endif
 }
 
-}  // namespace bt
+}  // namespace sl

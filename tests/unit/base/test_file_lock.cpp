@@ -10,8 +10,8 @@
 #include <string>
 #include <utility>
 
-using bt::FileLock;
-using bt::test::ScratchDir;
+using sl::FileLock;
+using sl::test::ScratchDir;
 
 
 TEST_CASE("file lock: one holder at a time, and the file goes with the lock", "[base][lock]") {
@@ -96,7 +96,7 @@ TEST_CASE("file lock: the lock files nobody holds are removed, the held one is k
   std::filesystem::create_directories(inner.parent_path());
   { std::ofstream(inner).put('\n'); }
 
-  CHECK(bt::removeStaleLocks(dir.path()) == 1);
+  CHECK(sl::removeStaleLocks(dir.path()) == 1);
   CHECK_FALSE(std::filesystem::exists(stale));
   CHECK(std::filesystem::exists(held));
   CHECK(holder.held());
@@ -107,7 +107,7 @@ TEST_CASE("file lock: the lock files nobody holds are removed, the held one is k
   FileLock second;
   CHECK(second.tryAcquire(held) == FileLock::Outcome::Busy);
   holder.release();
-  CHECK(bt::removeStaleLocks(dir.path()) == 0);
+  CHECK(sl::removeStaleLocks(dir.path()) == 0);
   // a folder that is not there: nothing
-  CHECK(bt::removeStaleLocks(dir.path() / "missing") == 0);
+  CHECK(sl::removeStaleLocks(dir.path() / "missing") == 0);
 }

@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -956,4 +956,4 @@ float volume(const Polyhedron& poly) {
   return vol / 3;
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

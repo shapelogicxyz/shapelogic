@@ -3253,7 +3253,7 @@ Done (2026-11-25), the whole stage:
     - `core/shapelogic/base/version.h:9`:
       `inline constexpr std::string_view kVersion = SL_VERSION_STRING;`;
     - `cmake/ProjectVersion.cmake:40-45`;
-    - the users of `bt::kVersion`: `cli/options.cpp:277`, `engine/main.cpp`,
+    - the users of `sl::kVersion`: `cli/options.cpp:277`, `engine/main.cpp`,
       `engine/methods_engine.cpp`, `python/src/module.cpp:49` and
       `tests/unit/base/test_error.cpp`. Assembler 0's and 1's `kVersion`
       are their own saved-position versions, not this one.
@@ -3269,7 +3269,7 @@ Done (2026-11-25), the whole stage:
     `ProjectVersion.cmake` for an override; never make a git tag) and check
     that one file recompiles.
   - Done (2026-11-25): `core/shapelogic/base/version.cpp` holds
-    `bt::versionString()`; the define is set on that file alone
+    `sl::versionString()`; the define is set on that file alone
     (`set_source_files_properties(… COMPILE_DEFINITIONS …)`); `version.h`
     declares the function, and the six users call it (`cli/options.cpp`,
     `engine/main.cpp`, `engine/methods_engine.cpp`, `engine/app_log.cpp`,
@@ -3279,7 +3279,7 @@ Done (2026-11-25), the whole stage:
     after a whole build, `SHAPELOGIC_VERSION=v9.9` reconfigured and the
     build ran 5 steps: `version.cpp`, the library and three links; the
     engine and the CLI then say 9.9.0. ARCHITECTURE.md's base map line.
-  - Review (2026-11-25, Fable): OK. No user of `bt::kVersion` is left
+  - Review (2026-11-25, Fable): OK. No user of `sl::kVersion` is left
     (assembler 0's and 1's `kVersion` are their own), and dev's
     `compile_commands.json` holds the define once. The WebAssembly
     engine and the Python module build with it (the demo's check, the
@@ -3319,7 +3319,7 @@ Done (2026-11-25), the whole stage:
   - *Verify:* `grep -rn temp_directory_path tests/unit` matches only
     `scratch_dir.h`. `just test-all` passes while a second `bt_tests` from
     another build folder runs at the same time.
-  - Done (2026-11-25): `tests/unit/scratch_dir.h`: `bt::test::ScratchDir`
+  - Done (2026-11-25): `tests/unit/scratch_dir.h`: `sl::test::ScratchDir`
     (`<temp>/bt_test_<tag>-<pid>-<8 hex digits>`, made on construction,
     drawn again when the name is taken, removed in the destructor with
     errors ignored; `_getpid` on Windows). Every fixed name and every
@@ -4954,8 +4954,8 @@ folder name, the change audit, the names pinned by tests) are stage 19.
     with one rule everywhere: empty means unset, the engine's rule. Use
     5.12's `gbToBytes` for the budgets.
   - *Tests:* `tests/unit/test_search_folders.cpp`; `test_cli.py`.
-  - Done (2026-11-25): `bt::defaultSearchFolder(fromEnvironment, cache, name)`
-    and `bt::diskBudgetFromText(text)` in `base/system.{h,cpp}`: the
+  - Done (2026-11-25): `sl::defaultSearchFolder(fromEnvironment, cache, name)`
+    and `sl::diskBudgetFromText(text)` in `base/system.{h,cpp}`: the
     callers read the variable and `userCacheDirectory()` (the core reads
     no environment); an empty variable is unset everywhere, the engine's
     rule. The engine's `defaultSlideFolder`/`defaultPanexFolder` and the
@@ -6580,7 +6580,7 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
         `trayPlaneTurns(puzzle_, problem_)`.
     - `cli/main.cpp` (733-755): the same rules, plus `variableHoleColumns`
       and the non-sliding `strictColors` from its options, and the tray
-      rule with `o.flip.value_or(bt::storedFlipPieces(problem))`.
+      rule with `o.flip.value_or(sl::storedFlipPieces(problem))`.
     - `core/shapelogic/app/explorers.cpp` (83-99): the sliding rules with
       the orientation options false and false, after `prepareForSolving`.
       It has no tray rule.
@@ -9758,7 +9758,7 @@ after: every case must still run.
     - a1e4927, 24272bd and 422fdb5 changed only lines 3000-6200;
     - 445bf4b (612 lines added) changed only 1000-2600, plus `eachKey`;
     - 4abf08d, 3218c98 and fbfbd2e changed only the play.
-    The parts, which go into `bt::sliding::detail` where they leave the
+    The parts, which go into `sl::sliding::detail` where they leave the
     anonymous namespace:
     - the board rules (54-753: GoalCheck, cellsOf and outlineOf, StopGrid,
       reachableShifts, fewestTurns, nestedGroup) go to `slide_board.{h,cpp}`;
@@ -9801,7 +9801,7 @@ after: every case must still run.
   - Done (2026-11-27, Opus): the 7,755 lines (as of 59f399c) moved by
     their seams, line for line (a script cut them by markers; the only
     edits are `inline` on what a header now defines, declarations made
-    from definitions, and the includes), into `bt::sliding::detail`:
+    from definitions, and the includes), into `sl::sliding::detail`:
     - `slide_board.{h,cpp}`: the steps, `Place`, `SlideState`,
       `GoalCheck`, the cells and outlines, `StopGrid`, the shifts and the
       route with the fewest turns, `nestedGroup` (the free-cell grid,
@@ -9826,7 +9826,7 @@ after: every case must still run.
     - `sliding_search.cpp` keeps the naming, the public API,
       `legacySearch` and `eachKey`'s attempts: 1,061 lines.
     The shared parts went to `base/`: `search_memory.{h,cpp}`
-    (`memoryBudget`, `memoryStates`, `kSearchMemoryBytes`, now `bt::`;
+    (`memoryBudget`, `memoryStates`, `kSearchMemoryBytes`, now `sl::`;
     Panex's `Searcher::budget()` is `memoryBudget(budget_, false, share)`,
     the same answer: `budget_` is never 0), `binary_io.h`
     (`binary::put`, `binary::get`, Panex's copies gone, so no `put` or
@@ -9901,7 +9901,7 @@ after: every case must still run.
     - `test_sliding.cpp`: the 58 search cases, 2,883 lines.
     The helpers two of them share are in `sliding_test_helpers.h` (the cell
     states, `SlideFixture` and Klotski, the eight puzzle, the grid boards
-    and their checks, the searches from both ends: `bt::test`, inline) and
+    and their checks, the searches from both ends: `sl::test`, inline) and
     `slide_levels_test_helpers.h` (the 128-bit key and an older key set's
     file, so the key set cases need no more than `slide_levels.h`); those
     of one file stay in it (`solveRun` and `oneWayPuzzle` are the search
@@ -10000,7 +10000,7 @@ after: every case must still run.
     `_problem.cpp` (with stacking, the rod sets, slide marks and
     `giveUids`), `_tray.cpp`; `puzzle_file.cpp` keeps `<puzzle>` (its grid
     type and pictures) and the public calls. `puzzle_file_internal.h`
-    (`bt::io::detail`) holds the access structs, `Keeper`, the reading
+    (`sl::io::detail`) holds the access structs, `Keeper`, the reading
     helpers, the bounds on a file's numbers, both slot enums,
     `readMarkList` (a template the voxel and the slide marks read with),
     and the 13 readers and writers one file calls in another; what one

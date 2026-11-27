@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace bt {
+namespace sl {
 
 /// `bits` bits, all clear on construction.
 template <int bits>
@@ -107,4 +107,4 @@ class Bitfield {
   std::array<std::uint64_t, kWords> field_{};
 };
 
-}  // namespace bt
+}  // namespace sl

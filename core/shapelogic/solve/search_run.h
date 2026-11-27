@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// Receives each assembly a search finds; false asks the search to stop
 /// (it can be continued later). Never called by two threads at once.
@@ -418,4 +418,4 @@ void runSplitTasks(SplitTasks<Task>& tasks, unsigned int workers, ThreadPool* po
   return pool != nullptr ? pool->cores() : 1;
 }
 
-}  // namespace bt
+}  // namespace sl

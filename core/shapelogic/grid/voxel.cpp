@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cstring>
 
-namespace bt {
+namespace sl {
 
 Voxel::Voxel(unsigned int x, unsigned int y, unsigned int z, GridType gt, VoxelType init)
     : gt_(gt),
@@ -648,4 +648,4 @@ bool Voxel::indexToXYZ(unsigned int index, unsigned int* x, unsigned int* y,
   return *z < sz_;
 }
 
-}  // namespace bt
+}  // namespace sl

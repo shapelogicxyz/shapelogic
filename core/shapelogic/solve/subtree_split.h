@@ -10,7 +10,7 @@
 
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// Branches of the subtree a search is in, none of them begun. The shares
 /// are parts of the subtree as the search was given it, every choice of a
@@ -51,4 +51,4 @@ class SubtreeSplitter {
 /// such a branch is searched sooner than it is handed on.
 inline constexpr unsigned int kSplitLeafRows = 3;
 
-}  // namespace bt
+}  // namespace sl

@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-namespace bt {
+namespace sl {
 
 /// One cell of a voxel space: the low 2 bits are the state (Voxel::kEmpty,
 /// kFilled, kVariable), the upper 6 bits a color (0 = neutral, 1..63).
@@ -50,4 +50,4 @@ template <class T>
   return (cells + per - 1) / per;
 }
 
-}  // namespace bt
+}  // namespace sl

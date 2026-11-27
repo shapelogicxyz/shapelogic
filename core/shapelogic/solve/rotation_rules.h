@@ -31,7 +31,7 @@
 #include <memory>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// The rules for 90 degree turns. An object belongs to one thread: it keeps
 /// what it worked out for the cells it was last asked about.
@@ -104,4 +104,4 @@ class RotationRules {
   mutable std::unique_ptr<ArcSweep> sweep_;
 };
 
-}  // namespace bt
+}  // namespace sl

@@ -8,7 +8,7 @@
 
 #include <cmath>
 
-namespace bt::mesh::detail {
+namespace sl::mesh::detail {
 
 namespace {
 using std::sqrt;
@@ -71,4 +71,4 @@ void connectionFaceRhombic(int x, int y, int z, int n, double bevel, double offs
   }
 }
 
-}  // namespace bt::mesh::detail
+}  // namespace sl::mesh::detail

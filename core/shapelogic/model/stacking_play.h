@@ -18,12 +18,12 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Problem;
 class Puzzle;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::stacking {
+namespace sl::stacking {
 
 /// How high each disc of a stacking rests, rod by rod as the stacking has
 /// them: on a plain rod its place from the bottom, in a Panex column where
@@ -131,4 +131,4 @@ struct PlayReplay {
 [[nodiscard]] StackMap positionMap(const Puzzle& puzzle, const Problem& problem,
                                    const Stacking& stacks);
 
-}  // namespace bt::stacking
+}  // namespace sl::stacking

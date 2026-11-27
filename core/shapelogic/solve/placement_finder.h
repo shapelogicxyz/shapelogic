@@ -10,7 +10,7 @@
 
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class Problem;
 class Puzzle;
@@ -68,4 +68,4 @@ class PlacementFinder {
   std::vector<unsigned char> colorAllowed_; ///< placementAllowed lookup table
 };
 
-}  // namespace bt
+}  // namespace sl

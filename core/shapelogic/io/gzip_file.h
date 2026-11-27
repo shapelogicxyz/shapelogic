@@ -16,7 +16,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt::io {
+namespace sl::io {
 
 /// The most bytes a gzip stream may inflate to (256 MiB): a puzzle file is
 /// a few MiB at most, and a small stream can inflate to gigabytes.
@@ -110,4 +110,4 @@ inline constexpr int kGzipFast = 1;
 [[nodiscard]] Result<std::string> gunzipIfCompressed(std::string_view data,
                                                      std::size_t maxBytes = kMaxInflatedBytes);
 
-}  // namespace bt::io
+}  // namespace sl::io

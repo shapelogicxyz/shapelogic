@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace bt::sliding {
+namespace sl::sliding {
 
 using namespace detail;
 
@@ -251,4 +251,4 @@ Result<PlayReplay> playReplay(const Puzzle& puzzle, const Problem& problem,
   return out;
 }
 
-}  // namespace bt::sliding
+}  // namespace sl::sliding

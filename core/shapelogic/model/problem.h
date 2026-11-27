@@ -29,7 +29,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// A move of a slide search whose time is not known (Problem::getSlideLevelMs):
 /// one searched before the times were kept, such as by an older version.
@@ -534,4 +534,4 @@ class Problem {
   PreservedXml preserved_;
 };
 
-}  // namespace bt
+}  // namespace sl

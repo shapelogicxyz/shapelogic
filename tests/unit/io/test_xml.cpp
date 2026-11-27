@@ -13,10 +13,10 @@
 
 #include <string>
 
-using bt::InternalError;
-using bt::io::XmlParseError;
-using bt::io::XmlPullParser;
-using bt::io::XmlWriter;
+using sl::InternalError;
+using sl::io::XmlParseError;
+using sl::io::XmlPullParser;
+using sl::io::XmlWriter;
 using Catch::Matchers::ContainsSubstring;
 
 namespace {
@@ -328,7 +328,7 @@ TEST_CASE("xml parser: line ends, attribute newlines, comments and CDATA", "[io]
 }
 
 TEST_CASE("xml document: a tree with attributes in order, leaf text and lines", "[io][xml]") {
-  const auto doc = bt::io::parseXmlDocument(
+  const auto doc = sl::io::parseXmlDocument(
       "<?xml version=\"1.0\"?>\n<!-- c -->\n<root b=\"2\" a=\"1\">\n <leaf>  x  </leaf>\n"
       " <empty/>\n <ws>\n </ws>\n</root>\ntrailing garbage is not read <");
   REQUIRE(doc.has_value());
@@ -347,9 +347,9 @@ TEST_CASE("xml document: a tree with attributes in order, leaf text and lines", 
 TEST_CASE("xml document: errors are ParseError results", "[io][xml]") {
   for (const char* bad : {"", "text before the root", "<a>", "<a></b>", "<a x='1' x='2'/>"}) {
     INFO(bad);
-    const auto doc = bt::io::parseXmlDocument(bad);
+    const auto doc = sl::io::parseXmlDocument(bad);
     REQUIRE_FALSE(doc.has_value());
-    REQUIRE(doc.error().code == bt::Errc::ParseError);
+    REQUIRE(doc.error().code == sl::Errc::ParseError);
   }
 }
 
@@ -358,7 +358,7 @@ TEST_CASE("xml document: a document nested too deeply is refused", "[io][xml]") 
   for (int i = 0; i < 6000; i++) {
     deep += "<a>";
   }
-  const auto doc = bt::io::parseXmlDocument(deep);
+  const auto doc = sl::io::parseXmlDocument(deep);
   REQUIRE_FALSE(doc.has_value());
   REQUIRE_THAT(doc.error().message, ContainsSubstring("nested too deeply"));
 }
@@ -427,19 +427,19 @@ TEST_CASE("xml parser: an element's attributes are counted", "[io][xml]") {
     return doc + "/>";
   };
   // the parser's own bound, and one a caller gives
-  REQUIRE(bt::io::parseXmlDocument(element(XmlPullParser::kMaxAttributes)).has_value());
-  const auto over = bt::io::parseXmlDocument(element(XmlPullParser::kMaxAttributes + 1));
+  REQUIRE(sl::io::parseXmlDocument(element(XmlPullParser::kMaxAttributes)).has_value());
+  const auto over = sl::io::parseXmlDocument(element(XmlPullParser::kMaxAttributes + 1));
   REQUIRE_FALSE(over.has_value());
-  CHECK(over.error().code == bt::Errc::ParseError);
+  CHECK(over.error().code == sl::Errc::ParseError);
   CHECK_THAT(over.error().message, ContainsSubstring("too many attributes in <a>"));
-  CHECK(bt::io::XmlLimits{}.attributes == XmlPullParser::kMaxAttributes);
+  CHECK(sl::io::XmlLimits{}.attributes == XmlPullParser::kMaxAttributes);
 
-  bt::io::XmlLimits few;
+  sl::io::XmlLimits few;
   few.attributes = 3;
-  CHECK(bt::io::parseXmlDocument(element(3), few).has_value());
-  CHECK_FALSE(bt::io::parseXmlDocument(element(4), few).has_value());
+  CHECK(sl::io::parseXmlDocument(element(3), few).has_value());
+  CHECK_FALSE(sl::io::parseXmlDocument(element(4), few).has_value());
   // each element has its own count
-  CHECK(bt::io::parseXmlDocument("<a x='' y='' z=''><b x='' y='' z=''/><c x=''/></a>", few)
+  CHECK(sl::io::parseXmlDocument("<a x='' y='' z=''><b x='' y='' z=''/><c x=''/></a>", few)
             .has_value());
 }
 
@@ -459,24 +459,24 @@ TEST_CASE("xml document: a document's elements are counted", "[io][xml]") {
     }
     return doc + close + "</r>";
   };
-  bt::io::XmlLimits limits;
+  sl::io::XmlLimits limits;
   limits.elements = 1000;
   for (const bool nested : {false, true}) {
     INFO((nested ? "nested" : "side by side"));
-    const auto within = bt::io::parseXmlDocument(document(1000, nested), limits);
+    const auto within = sl::io::parseXmlDocument(document(1000, nested), limits);
     REQUIRE(within.has_value());
-    const auto over = bt::io::parseXmlDocument(document(1001, nested), limits);
+    const auto over = sl::io::parseXmlDocument(document(1001, nested), limits);
     REQUIRE_FALSE(over.has_value());
-    CHECK(over.error().code == bt::Errc::ParseError);
+    CHECK(over.error().code == sl::Errc::ParseError);
     CHECK_THAT(over.error().message, ContainsSubstring("too many elements"));
   }
   // the default is far past these
-  CHECK(bt::io::parseXmlDocument(document(5000, false)).has_value());
+  CHECK(sl::io::parseXmlDocument(document(5000, false)).has_value());
 }
 
 TEST_CASE("xml document: written back in the writer's layout", "[io][xml]") {
-  const auto doc = bt::io::parseXmlDocument("<r a=\"&amp;\"><x>t</x><y/></r>");
+  const auto doc = sl::io::parseXmlDocument("<r a=\"&amp;\"><x>t</x><y/></r>");
   REQUIRE(doc.has_value());
-  REQUIRE(bt::io::writeXmlDocument(*doc) ==
+  REQUIRE(sl::io::writeXmlDocument(*doc) ==
           "<?xml version=\"1.0\"?>\n<r a=\"&amp;\">\n <x>t</x>\n <y/>\n</r>\n");
 }

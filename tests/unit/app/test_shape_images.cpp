@@ -26,10 +26,10 @@
 #include <utility>
 #include <vector>
 
-using namespace bt;
-using namespace bt::app;
-using bt::test::refused;
-using bt::test::roundTrip;
+using namespace sl;
+using namespace sl::app;
+using sl::test::refused;
+using sl::test::roundTrip;
 
 namespace {
 

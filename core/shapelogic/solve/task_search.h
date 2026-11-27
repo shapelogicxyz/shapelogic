@@ -24,7 +24,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// An assembly found by a search split over threads, by its plain workers
 /// and its vector ones alike: dropped when `rowsRejected()` says a rotation
@@ -211,4 +211,4 @@ bool vectorSearchWhole(const Solver& solver, SearchRun& run, SplitSearchState<Ta
   return true;
 }
 
-}  // namespace bt
+}  // namespace sl

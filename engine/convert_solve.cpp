@@ -14,7 +14,7 @@
 #include <charconv>
 #include <cstdio>
 
-namespace bt::engine {
+namespace sl::engine {
 
 // ---- the stored solver settings ---------------------------------------------------------
 
@@ -378,4 +378,4 @@ Json failureJson(const SolveFailure& f) {
   return j;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

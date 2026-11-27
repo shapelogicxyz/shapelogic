@@ -44,9 +44,9 @@
 #include <utility>
 #include <vector>
 
-using namespace bt;
-using namespace bt::sliding;
-using bt::test::ScratchDir;
+using namespace sl;
+using namespace sl::sliding;
+using sl::test::ScratchDir;
 
 namespace {
 

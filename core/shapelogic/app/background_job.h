@@ -17,7 +17,7 @@
 #include <string>
 #include <thread>
 
-namespace bt::app {
+namespace sl::app {
 
 /// One background job. A job starts its thread at the end of
 /// its constructor (start()) and ends it first thing in its destructor
@@ -75,4 +75,4 @@ class BackgroundJob {
   std::thread thread_;
 };
 
-}  // namespace bt::app
+}  // namespace sl::app

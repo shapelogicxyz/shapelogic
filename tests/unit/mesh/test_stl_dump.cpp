@@ -47,8 +47,8 @@
 
 namespace {
 
-using namespace bt;
-using namespace bt::mesh;
+using namespace sl;
+using namespace sl::mesh;
 
 constexpr std::size_t kFullTriangles = 5000;
 constexpr std::size_t kTextTriangles = 60;

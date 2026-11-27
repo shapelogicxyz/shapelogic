@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-namespace bt {
+namespace sl {
 
 std::uint64_t memoryBudget(std::uint64_t bytes, bool high, const MemoryShare* share) {
   if (share != nullptr) {
@@ -26,4 +26,4 @@ std::uint64_t memoryStates(std::uint64_t stateBytes, bool high, std::uint64_t by
   return std::max<std::uint64_t>(memoryBudget(bytes, high, share) / stateBytes, 1);
 }
 
-}  // namespace bt
+}  // namespace sl

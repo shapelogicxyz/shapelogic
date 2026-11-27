@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <sstream>
 
-namespace bt::io::detail {
+namespace sl::io::detail {
 
 namespace {
 
@@ -624,4 +624,4 @@ void writeSolution(XmlWriter& xml, const Solution& sol, bool includeRotationFiel
   xml.endTag("solution");
 }
 
-}  // namespace bt::io::detail
+}  // namespace sl::io::detail

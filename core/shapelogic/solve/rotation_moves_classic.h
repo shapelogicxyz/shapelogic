@@ -11,7 +11,7 @@
 
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class MovementCache;
 class Problem;
@@ -75,4 +75,4 @@ class RotationMovesClassic final : public RotationMoves {
   unsigned int presentMask_ = 0;
 };
 
-}  // namespace bt
+}  // namespace sl

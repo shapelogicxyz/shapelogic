@@ -5,7 +5,7 @@
 
 #include <zstd.h>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -69,4 +69,4 @@ bool BlockDecompressor::decompress(const void* src, std::size_t len, void* dst,
   return ZSTD_isError(n) == 0 && n == rawLen;
 }
 
-}  // namespace bt
+}  // namespace sl

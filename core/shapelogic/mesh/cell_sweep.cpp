@@ -9,7 +9,7 @@
 #include <array>
 #include <cmath>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -200,4 +200,4 @@ Result<std::vector<CellAt>> sweptCells(CellGeometry& g, CellAt c, CellAt step, C
   return out;
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

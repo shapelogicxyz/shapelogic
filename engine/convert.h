@@ -28,7 +28,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::engine {
+namespace sl::engine {
 
 template <class E>
 using Names = std::vector<std::pair<std::string_view, E>>;
@@ -209,4 +209,4 @@ void defaultStackingSolver(const State& s, app::Id problem, const Json& given,
 /// The same for placements a search's picture holds (SearchSnapshot).
 [[nodiscard]] Json placementsJson(const std::vector<Placement>& placements);
 
-}  // namespace bt::engine
+}  // namespace sl::engine

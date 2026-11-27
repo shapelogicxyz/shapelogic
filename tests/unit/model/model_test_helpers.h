@@ -14,7 +14,7 @@
 #include <regex>
 #include <string>
 
-namespace bt::test {
+namespace sl::test {
 
 /// A saved file without its problems' uid attributes (decision 0044): what
 /// the original wrote has none, and a file read without them gets new ones
@@ -88,4 +88,4 @@ inline bool puzzlesRoundtripEqual(const Puzzle& a, const Puzzle& b) {
   return true;
 }
 
-}  // namespace bt::test
+}  // namespace sl::test

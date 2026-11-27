@@ -8,7 +8,7 @@
 #include <cmath>
 #include <cstddef>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -933,4 +933,4 @@ bool RotationRules::allowPrepared(const Pivot& pivot, unsigned int axis, unsigne
   return arcClear(*sweep_, p.squares[axis], p.start, pivot, axis, sense);
 }
 
-}  // namespace bt
+}  // namespace sl

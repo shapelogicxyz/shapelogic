@@ -9,12 +9,12 @@
 
 #include "shapelogic/base/error.h"
 
-namespace bt {
+namespace sl {
 class Problem;
 class Puzzle;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::app {
+namespace sl::app {
 
 /// Why `problem` of a sliding puzzle cannot be solved as it stands
 /// (InvalidArgument; what the original's Solve checked): a start/goal shape
@@ -28,4 +28,4 @@ namespace bt::app {
 /// centers) and the caches warm.
 void prepareShapesForSolving(Puzzle& puzzle);
 
-}  // namespace bt::app
+}  // namespace sl::app

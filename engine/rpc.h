@@ -23,7 +23,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::engine {
+namespace sl::engine {
 
 /// The engine's JSON: objects keep their keys in the order they were
 /// made, so the messages read as the schema lists them.
@@ -80,7 +80,7 @@ using Reply = RpcResult<Json>;
 #define SLE_TRY(decl, expr)                                                               \
   auto&& SLE_CAT(sleResult, __LINE__) = (expr);                                           \
   if (!SLE_CAT(sleResult, __LINE__)) {                                                    \
-    return std::unexpected(::bt::engine::toRpc(SLE_CAT(sleResult, __LINE__).error()));   \
+    return std::unexpected(::sl::engine::toRpc(SLE_CAT(sleResult, __LINE__).error()));   \
   }                                                                                       \
   decl = std::move(*SLE_CAT(sleResult, __LINE__))
 
@@ -89,7 +89,7 @@ using Reply = RpcResult<Json>;
   do {                                                                                    \
     auto&& SLE_CAT(sleResult, __LINE__) = (expr);                                         \
     if (!SLE_CAT(sleResult, __LINE__)) {                                                  \
-      return std::unexpected(::bt::engine::toRpc(SLE_CAT(sleResult, __LINE__).error())); \
+      return std::unexpected(::sl::engine::toRpc(SLE_CAT(sleResult, __LINE__).error())); \
     }                                                                                     \
   } while (false)
 
@@ -193,4 +193,4 @@ class Params {
   std::optional<std::string> error_;
 };
 
-}  // namespace bt::engine
+}  // namespace sl::engine

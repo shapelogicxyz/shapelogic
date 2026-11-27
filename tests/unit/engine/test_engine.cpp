@@ -30,9 +30,9 @@
 #include <string>
 #include <vector>
 
-using namespace bt;
-using namespace bt::engine;
-using bt::test::ScratchDir;
+using namespace sl;
+using namespace sl::engine;
+using sl::test::ScratchDir;
 
 namespace {
 

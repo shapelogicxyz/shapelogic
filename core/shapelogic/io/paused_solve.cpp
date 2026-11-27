@@ -22,7 +22,7 @@
 #include <ostream>
 #include <vector>
 
-namespace bt::io {
+namespace sl::io {
 
 namespace {
 
@@ -307,4 +307,4 @@ Result<PausedSolve> readPausedSolve(std::istream& in, const SavedSearchFolder& s
   return PausedSolve{std::move(*puzzle), *problem};
 }
 
-}  // namespace bt::io
+}  // namespace sl::io

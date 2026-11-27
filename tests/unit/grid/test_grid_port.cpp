@@ -19,8 +19,8 @@
 
 #include <vector>
 
-using namespace bt;
-using namespace bt::test;
+using namespace sl;
+using namespace sl::test;
 
 TEST_CASE("grid: makeVoxel builds the grid's own class and clone keeps it", "[grid]") {
   auto check = [](GridKind k, auto* tag) {

@@ -18,7 +18,7 @@
 #include <string>
 #include <utility>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -906,4 +906,4 @@ Result<Polyhedron> cubePolyhedron(const Voxel& v, double g, double r, bool fills
   return poly;
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

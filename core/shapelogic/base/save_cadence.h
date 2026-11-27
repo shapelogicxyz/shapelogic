@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <chrono>
 
-namespace bt {
+namespace sl {
 
 /// The saves of one run. The first is due a floor after the run starts;
 /// each next one when the time since the last is at least the floor and at
@@ -48,4 +48,4 @@ class SaveCadence {
   Clock::time_point last_;
 };
 
-}  // namespace bt
+}  // namespace sl

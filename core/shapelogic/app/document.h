@@ -50,7 +50,7 @@
 #include <string_view>
 #include <vector>
 
-namespace bt::app {
+namespace sl::app {
 
 /// The largest space a command makes, in cells: a guard against sizes typed
 /// by mistake, far above any real puzzle (grid.geometry draws no larger).
@@ -955,4 +955,4 @@ class Document {
   std::map<Id, PlacementFitProgress> fitEnds_;
 };
 
-}  // namespace bt::app
+}  // namespace sl::app

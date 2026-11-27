@@ -81,14 +81,14 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
 
 ## Code rules
 
-- C++23, `namespace bt`. Files are `snake_case`, types are `PascalCase`,
+- C++23, `namespace sl`. Files are `snake_case`, types are `PascalCase`,
   functions and variables `camelCase`, constants `kPascalCase`.
 - Ownership: value types and `std::unique_ptr`. No owning raw pointers, no
   `new`/`delete`, no hand-written copy assignment that lists members.
-- Errors: recoverable problems return `bt::Result<T>` (base/error.h); broken
+- Errors: recoverable problems return `sl::Result<T>` (base/error.h); broken
   invariants use `SL_ASSERT` (base/assert.h), which is on in every build.
   Never put side effects inside `SL_ASSERT`.
-- Cancellation: long work takes a `bt::StopToken` and polls it. No search
+- Cancellation: long work takes an `sl::StopToken` and polls it. No search
   has a stop flag of its own, and nothing resets a token (decision 0004). A
   search that must end its own run makes a `StopSource` from the token it
   was given, one per run (decision 0009).
@@ -103,7 +103,7 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
 - Every public declaration has a short doc comment saying what it is for.
   Comments explain why, not what.
 - Concurrency: shared state is `std::atomic` or guarded by a mutex, always.
-  Hand work to the solve's `bt::ThreadPool` (passed in, never global) rather
+  Hand work to the solve's `sl::ThreadPool` (passed in, never global) rather
   than starting raw `std::thread`s; thread counts are clamped to
   `kMaxThreads`.
 

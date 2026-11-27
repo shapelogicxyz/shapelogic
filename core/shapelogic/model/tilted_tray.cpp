@@ -17,7 +17,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace bt::tilted {
+namespace sl::tilted {
 
 namespace {
 
@@ -1004,4 +1004,4 @@ Placements placements(const Tray& tray, const StopToken& stop, const PlacementLi
   return out;
 }
 
-}  // namespace bt::tilted
+}  // namespace sl::tilted

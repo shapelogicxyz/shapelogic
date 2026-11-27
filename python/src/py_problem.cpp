@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <utility>
 
-namespace bt::python {
+namespace sl::python {
 
 PyProblem::PyProblem(std::shared_ptr<Puzzle> puz, unsigned int idx)
     : puzzle_(std::move(puz)), problemIdx_(idx) {
@@ -98,4 +98,4 @@ std::unique_ptr<SolutionIterator> PyProblem::solve(const IteratorOptions& option
   return std::make_unique<SolutionIterator>(*puzzle_, problemIdx_, options);
 }
 
-}  // namespace bt::python
+}  // namespace sl::python

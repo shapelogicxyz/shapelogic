@@ -16,7 +16,7 @@
 #include <tuple>
 #include <vector>
 
-namespace bt::test {
+namespace sl::test {
 
 /// Every grid kind, for cases that loop over all of them.
 inline constexpr GridKind kAllGrids[] = {
@@ -112,4 +112,4 @@ inline std::unique_ptr<Voxel> fromLayers(const GridType& gt,
   return v;
 }
 
-}  // namespace bt::test
+}  // namespace sl::test

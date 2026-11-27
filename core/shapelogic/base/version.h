@@ -3,11 +3,11 @@
 
 #include <string_view>
 
-namespace bt {
+namespace sl {
 
 /// The project version from CMake (the git tag's, cmake/ProjectVersion.cmake).
 /// A function, so that only version.cpp sees the define and a new tag
 /// recompiles that one file.
 [[nodiscard]] std::string_view versionString() noexcept;
 
-}  // namespace bt
+}  // namespace sl

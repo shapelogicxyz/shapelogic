@@ -3,7 +3,7 @@
 
 #include <array>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -73,4 +73,4 @@ std::optional<std::string> base64Decode(std::string_view text) {
   return out;
 }
 
-}  // namespace bt
+}  // namespace sl

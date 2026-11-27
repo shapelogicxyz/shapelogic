@@ -18,10 +18,10 @@
 #include <utility>
 #include <vector>
 
-using namespace bt;
-using bt::test::fromLayers;
-using bt::test::puzzlesRoundtripEqual;
-using bt::test::ScratchDir;
+using namespace sl;
+using sl::test::fromLayers;
+using sl::test::puzzlesRoundtripEqual;
+using sl::test::ScratchDir;
 
 namespace {
 
@@ -288,7 +288,7 @@ TEST_CASE("puzzle: a round trip through a gzipped file preserves the puzzle",
 }
 
 TEST_CASE("puzzle: the round trip holds on every grid", "[io][roundtrip]") {
-  for (const GridKind k : bt::test::kAllGrids) {
+  for (const GridKind k : sl::test::kAllGrids) {
     INFO("grid " << toString(k));
     const GridType gt(k);
     Puzzle original(gt);

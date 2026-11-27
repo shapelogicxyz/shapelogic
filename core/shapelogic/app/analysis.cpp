@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <utility>
 
-namespace bt::app {
+namespace sl::app {
 
 Analysis::Analysis(const Puzzle& puzzle, const Problem& problem,
                    std::vector<std::pair<std::uint64_t, Assembly>> work,
@@ -77,4 +77,4 @@ std::vector<std::pair<std::uint64_t, Separation>> Analysis::takeResults() {
   return std::move(results_);
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

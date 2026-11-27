@@ -15,7 +15,7 @@
 #include <cstdlib>
 #include <memory>
 
-namespace bt {
+namespace sl {
 
 // Pieces that lie face to face can only slide along the faces they share,
 // so the directions worth trying are those of the cells' edges (where two
@@ -213,4 +213,4 @@ const MovementChecks* movementChecks(GridKind kind) {
   return nullptr;
 }
 
-}  // namespace bt
+}  // namespace sl

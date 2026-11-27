@@ -30,7 +30,7 @@
 #include <stdexcept>
 #include <system_error>
 
-namespace bt {
+namespace sl {
 
 namespace session_detail {
 
@@ -1616,4 +1616,4 @@ SolveStats SolveSession::stats() const {
   return s;
 }
 
-}  // namespace bt
+}  // namespace sl

@@ -36,7 +36,7 @@
 #include <string_view>
 #include <utility>
 
-namespace bt::app {
+namespace sl::app {
 
 namespace {
 
@@ -1663,4 +1663,4 @@ Result<std::vector<Id>> Document::assembliesToShapes(Id problem, const AssemblyI
   return added;
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

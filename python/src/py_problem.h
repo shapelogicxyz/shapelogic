@@ -8,12 +8,12 @@
 #include <memory>
 #include <string>
 
-namespace bt {
+namespace sl {
 class Puzzle;
 class Problem;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::python {
+namespace sl::python {
 
 class PyShape;
 
@@ -52,4 +52,4 @@ class PyProblem {
   void checkShape(unsigned int shapeIdx) const;
 };
 
-}  // namespace bt::python
+}  // namespace sl::python

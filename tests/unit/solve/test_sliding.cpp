@@ -58,9 +58,9 @@
 // which called the solve thread's callback with starts of its choosing, is
 // SolveSessionTestAccess (solve_session_test_access.h).
 
-using namespace bt;
-using namespace bt::sliding;
-using namespace bt::test;
+using namespace sl;
+using namespace sl::sliding;
+using namespace sl::test;
 
 namespace {
 

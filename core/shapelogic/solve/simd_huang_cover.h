@@ -22,7 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// The size-independent interface of SimdHuangCover.
 class SimdHuangCoverBase {
@@ -375,4 +375,4 @@ extern template class SimdHuangCover<SimdBitset8192>;
 extern template class SimdHuangCover<SimdBitset16384>;
 extern template class SimdHuangCover<SimdBitset32768>;
 
-}  // namespace bt
+}  // namespace sl

@@ -21,13 +21,13 @@
 #include <optional>
 #include <string>
 
-namespace bt {
+namespace sl {
 class Problem;
 class Puzzle;
 class SearchSample;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::stacking {
+namespace sl::stacking {
 
 /// How a stacking search ended.
 enum class StackOutcome : std::uint8_t {
@@ -112,4 +112,4 @@ struct StackingOptions {
   bool towerRule = true;
 };
 
-}  // namespace bt::stacking
+}  // namespace sl::stacking

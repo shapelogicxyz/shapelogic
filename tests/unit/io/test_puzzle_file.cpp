@@ -32,9 +32,9 @@
 #include <unistd.h>
 #endif
 
-using namespace bt;
+using namespace sl;
 using Catch::Matchers::ContainsSubstring;
-using bt::test::ScratchDir;
+using sl::test::ScratchDir;
 
 namespace {
 

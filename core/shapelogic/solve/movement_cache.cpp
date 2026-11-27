@@ -13,7 +13,7 @@
 
 #include <algorithm>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -147,4 +147,4 @@ std::unique_ptr<MovementCache> makeMovementCache(const Puzzle& puzzle, const Pro
   return std::make_unique<MovementCacheDerived>(puzzle, problem, *checks);
 }
 
-}  // namespace bt
+}  // namespace sl

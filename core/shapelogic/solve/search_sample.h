@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// What a picture shows.
 enum class SampleSource : std::uint8_t {
@@ -79,4 +79,4 @@ class SearchSample {
   std::optional<SearchSnapshot> snapshot_;
 };
 
-}  // namespace bt
+}  // namespace sl

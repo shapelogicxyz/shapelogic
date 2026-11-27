@@ -26,12 +26,12 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Problem;
 class Puzzle;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::sliding::detail {
+namespace sl::sliding::detail {
 
 // Runs f(i) for every i in [0, n) on up to `threads` threads of the pool,
 // each index once (the original's onThreads gave each index a thread of
@@ -931,4 +931,4 @@ bool writeState(const std::filesystem::path& dir, const SavedSearch& st);
 // search it is.
 bool readState(const std::filesystem::path& dir, SavedSearch& st, bool whole);
 
-}  // namespace bt::sliding::detail
+}  // namespace sl::sliding::detail

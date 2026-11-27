@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <utility>
 
-namespace bt::python {
+namespace sl::python {
 
 PyShape::PyShape(std::shared_ptr<Puzzle> puz, unsigned int idx)
     : puzzle_(std::move(puz)), shapeIdx_(idx) {
@@ -108,4 +108,4 @@ unsigned int PyShape::countFilled() const { return voxel().countState(Voxel::kFi
 
 unsigned int PyShape::countEmpty() const { return voxel().countState(Voxel::kEmpty); }
 
-}  // namespace bt::python
+}  // namespace sl::python

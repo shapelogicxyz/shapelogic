@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-using namespace bt;
+using namespace sl;
 using test::Fingerprints;
 
 namespace {

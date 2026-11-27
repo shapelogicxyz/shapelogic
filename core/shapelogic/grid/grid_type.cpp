@@ -16,7 +16,7 @@
 #include "shapelogic/grid/voxel_cairo.h"
 #include "shapelogic/grid/symmetries_derived.h"
 
-namespace bt {
+namespace sl {
 
 std::string_view toString(GridKind k) noexcept {
   if (!detail::isGridKind(k)) {
@@ -62,4 +62,4 @@ const Symmetries& derivedSymmetries(GridKind kind) {
 }
 }  // namespace detail
 
-}  // namespace bt
+}  // namespace sl

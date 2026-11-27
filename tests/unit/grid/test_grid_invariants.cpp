@@ -17,8 +17,8 @@
 #include <tuple>
 #include <vector>
 
-using namespace bt;
-using namespace bt::test;
+using namespace sl;
+using namespace sl::test;
 
 /* Properties every grid's voxel_c implementation must satisfy, asserted
    over shapes that are LEGAL on the grid being tested.

@@ -6,14 +6,14 @@
 /// checks are cheap next to the searches, and a broken invariant must stop
 /// the run with a report rather than produce wrong answers.
 ///
-/// A failed check throws bt::InternalError. The solve session catches it and
+/// A failed check throws sl::InternalError. The solve session catches it and
 /// moves the run to SolveState::Error; the engine process keeps running.
 /// Never put an expression with side effects inside SL_ASSERT.
 
 #include <stdexcept>
 #include <string>
 
-namespace bt {
+namespace sl {
 
 class InternalError : public std::logic_error {
  public:
@@ -31,10 +31,10 @@ namespace detail {
 [[noreturn]] void assertionFailed(const char* expr, const char* msg, const char* file, int line);
 }  // namespace detail
 
-}  // namespace bt
+}  // namespace sl
 
 #define SL_ASSERT(cond) \
-  ((cond) ? static_cast<void>(0) : ::bt::detail::assertionFailed(#cond, nullptr, __FILE__, __LINE__))
+  ((cond) ? static_cast<void>(0) : ::sl::detail::assertionFailed(#cond, nullptr, __FILE__, __LINE__))
 
 #define SL_ASSERT_MSG(cond, msg) \
-  ((cond) ? static_cast<void>(0) : ::bt::detail::assertionFailed(#cond, (msg), __FILE__, __LINE__))
+  ((cond) ? static_cast<void>(0) : ::sl::detail::assertionFailed(#cond, (msg), __FILE__, __LINE__))

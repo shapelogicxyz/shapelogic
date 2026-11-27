@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// The size-independent interface of SimdExactCover.
 class SimdExactCoverBase {
@@ -274,4 +274,4 @@ extern template class SimdExactCover<SimdBitset32768>;
 /// for `numColumns` columns.
 [[nodiscard]] std::size_t simdExactStackPerLevel(unsigned int numColumns);
 
-}  // namespace bt
+}  // namespace sl

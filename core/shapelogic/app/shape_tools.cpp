@@ -17,7 +17,7 @@
 #include <cmath>
 #include <optional>
 
-namespace bt::app {
+namespace sl::app {
 
 namespace {
 
@@ -723,4 +723,4 @@ unsigned int defaultShapeSize(GridKind grid) { return gridTraits(grid).defaultSi
 
 unsigned int sizeUnit(GridKind grid) { return gridTraits(grid).sizeUnit; }
 
-}  // namespace bt::app
+}  // namespace sl::app

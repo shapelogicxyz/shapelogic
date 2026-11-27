@@ -15,8 +15,8 @@
 #include <memory>
 #include <vector>
 
-using namespace bt;
-using namespace bt::test;
+using namespace sl;
+using namespace sl::test;
 
 namespace {
 

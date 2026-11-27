@@ -22,15 +22,15 @@
 #include <string>
 #include <thread>
 
-namespace bt {
+namespace sl {
 class Assembler;
 class Disassembler;
 class Problem;
 class Puzzle;
 class SolveSession;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::python {
+namespace sl::python {
 
 /// The arguments of Problem.solve().
 struct IteratorOptions {
@@ -121,4 +121,4 @@ class SolutionIterator {
   void pushItem(QueueItem&& item);
 };
 
-}  // namespace bt::python
+}  // namespace sl::python

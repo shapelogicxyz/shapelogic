@@ -6,7 +6,7 @@
 
 #include <array>
 
-using bt::SolveState;
+using sl::SolveState;
 
 namespace {
 constexpr std::array kAll = {SolveState::Idle,   SolveState::Preparing, SolveState::Assembling,
@@ -15,7 +15,7 @@ constexpr std::array kAll = {SolveState::Idle,   SolveState::Preparing, SolveSta
 }
 
 TEST_CASE("solve state: a normal run", "[base][state]") {
-  bt::SolveStateCell c;
+  sl::SolveStateCell c;
   CHECK(c.load() == SolveState::Idle);
   c.advance(SolveState::Preparing);
   c.advance(SolveState::Assembling);
@@ -25,7 +25,7 @@ TEST_CASE("solve state: a normal run", "[base][state]") {
 }
 
 TEST_CASE("solve state: pause and continue", "[base][state]") {
-  bt::SolveStateCell c;
+  sl::SolveStateCell c;
   c.advance(SolveState::Preparing);
   c.advance(SolveState::Assembling);
   c.advance(SolveState::Paused);
@@ -35,34 +35,34 @@ TEST_CASE("solve state: pause and continue", "[base][state]") {
 }
 
 TEST_CASE("solve state: a move outside the table is an internal error", "[base][state]") {
-  bt::SolveStateCell c;
-  CHECK_THROWS_AS(c.advance(SolveState::Finished), bt::InternalError);
+  sl::SolveStateCell c;
+  CHECK_THROWS_AS(c.advance(SolveState::Finished), sl::InternalError);
   CHECK(c.load() == SolveState::Idle);
 }
 
 TEST_CASE("solve state: the table", "[base][state]") {
   // Finished and Error only ever go back to Idle.
   for (SolveState to : kAll) {
-    CHECK(bt::canTransition(SolveState::Finished, to) == (to == SolveState::Idle));
-    CHECK(bt::canTransition(SolveState::Error, to) == (to == SolveState::Idle));
+    CHECK(sl::canTransition(SolveState::Finished, to) == (to == SolveState::Idle));
+    CHECK(sl::canTransition(SolveState::Error, to) == (to == SolveState::Idle));
   }
   // A paused run cannot be declared finished without running again.
-  CHECK_FALSE(bt::canTransition(SolveState::Paused, SolveState::Finished));
+  CHECK_FALSE(sl::canTransition(SolveState::Paused, SolveState::Finished));
   // Nothing moves to the state it is in.
   for (SolveState s : kAll) {
-    CHECK_FALSE(bt::canTransition(s, s));
+    CHECK_FALSE(sl::canTransition(s, s));
   }
   // Every active state can be aborted back to Idle.
   for (SolveState s : kAll) {
-    if (bt::isActive(s)) {
-      CHECK(bt::canTransition(s, SolveState::Idle));
+    if (sl::isActive(s)) {
+      CHECK(sl::canTransition(s, SolveState::Idle));
     }
   }
 }
 
 TEST_CASE("solve state: names", "[base][state]") {
   for (SolveState s : kAll) {
-    CHECK_FALSE(bt::toString(s).empty());
+    CHECK_FALSE(sl::toString(s).empty());
   }
-  CHECK(bt::toString(SolveState::Draining) == "draining");
+  CHECK(sl::toString(SolveState::Draining) == "draining");
 }

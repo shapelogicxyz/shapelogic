@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace bt {
+namespace sl {
 
 /// The mesher that draws a grid's shapes with chamfers (the STL export's
 /// and the 3D view's): cubes with bevels, the Minkowski mesher of the cut
@@ -100,4 +100,4 @@ static_assert(detail::gridTraitsInOrder(), "kGridTraits needs a row per GridKind
   return kGridTraits[static_cast<std::size_t>(kind)];
 }
 
-}  // namespace bt
+}  // namespace sl

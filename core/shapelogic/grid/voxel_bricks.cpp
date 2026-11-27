@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cstdlib>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -362,4 +362,4 @@ bool VoxelBricks::validCoordinate(int /*x*/, int /*y*/, int /*z*/) const { retur
 
 bool VoxelBricks::onGrid(int /*x*/, int /*y*/, int /*z*/) const { return true; }
 
-}  // namespace bt
+}  // namespace sl

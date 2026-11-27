@@ -19,7 +19,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace bt::engine {
+namespace sl::engine {
 
 static_assert(std::endian::native == std::endian::little,
               "frames are little-endian; a big-endian build would have to swap");
@@ -79,4 +79,4 @@ class FrameBuilder {
   Json arrays_ = Json::object();
 };
 
-}  // namespace bt::engine
+}  // namespace sl::engine

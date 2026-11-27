@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace bt::python {
+namespace sl::python {
 
 /// One piece of an assembly: where it is put, and in which orientation.
 struct PyPlacement {
@@ -38,4 +38,4 @@ struct PySolution {
   unsigned int level = 0;
 };
 
-}  // namespace bt::python
+}  // namespace sl::python

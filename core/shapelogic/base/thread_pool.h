@@ -17,7 +17,7 @@
 #include <thread>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// The most threads anything in the core runs at once. Thread counts come
 /// from users and files; they are clamped to this before threads are made.
@@ -100,4 +100,4 @@ class ThreadPool {
   std::atomic<int> load_{0};
 };
 
-}  // namespace bt
+}  // namespace sl

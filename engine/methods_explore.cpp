@@ -4,7 +4,7 @@
 #include "convert.h"
 #include "engine.h"
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -222,4 +222,4 @@ void addExploreMethods(MethodTable& t) {
   t["explore.close"] = exploreClose;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

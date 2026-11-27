@@ -21,7 +21,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::app {
+namespace sl::app {
 
 namespace {
 
@@ -406,4 +406,4 @@ Result<bool> SlidingEdits::setSlideLayout(Id problem, bool goal,
   return true;
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

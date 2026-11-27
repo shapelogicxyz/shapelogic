@@ -8,7 +8,7 @@
 
 #include <string>
 
-namespace bt {
+namespace sl {
 
 std::string_view solverTypeLabel(SolverType t) noexcept {
   switch (t) {
@@ -80,4 +80,4 @@ std::unique_ptr<Assembler> makeAssembler(const Puzzle& puzzle, const Problem& pr
   return nullptr;
 }
 
-}  // namespace bt
+}  // namespace sl

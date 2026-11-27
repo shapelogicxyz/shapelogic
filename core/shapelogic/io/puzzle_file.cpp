@@ -48,7 +48,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::io {
+namespace sl::io {
 
 using namespace detail;
 
@@ -377,4 +377,4 @@ Result<void> savePuzzle(const Puzzle& puzzle, const std::filesystem::path& path)
   return writeGzipFile(path, writePuzzle(puzzle));
 }
 
-}  // namespace bt::io
+}  // namespace sl::io

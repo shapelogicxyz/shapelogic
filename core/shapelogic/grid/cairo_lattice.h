@@ -18,7 +18,7 @@
 #include <array>
 #include <vector>
 
-namespace bt::cairo {
+namespace sl::cairo {
 
 /// The offset that gives all five sides one length: 4/3 - sqrt(7)/3.
 inline constexpr double kOfs = 0.4514162296451364;
@@ -77,4 +77,4 @@ struct Around {
 };
 [[nodiscard]] const Around& around(int kind) noexcept;
 
-}  // namespace bt::cairo
+}  // namespace sl::cairo

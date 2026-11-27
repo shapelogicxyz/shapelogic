@@ -17,11 +17,11 @@
 
 #include "shapelogic/grid/bitfield.h"
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::detail {
+namespace sl::detail {
 
 /// All transformations of the sphere grid, mirrors included.
 inline constexpr unsigned int kSphereTransformations = 240;
@@ -45,4 +45,4 @@ void deriveSphereTables(const SphereSymmetryList& sym, SphereSymmetryList& unifi
 /// How many symmetry lists the registry holds, generated and appended.
 [[nodiscard]] unsigned int numSphereSymmetryLists();
 
-}  // namespace bt::detail
+}  // namespace sl::detail

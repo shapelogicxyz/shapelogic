@@ -8,9 +8,9 @@
 #include <string>
 
 namespace {
-bt::Result<int> parsePositive(int v) {
+sl::Result<int> parsePositive(int v) {
   if (v <= 0) {
-    return bt::fail(bt::Errc::InvalidArgument, "must be positive");
+    return sl::fail(sl::Errc::InvalidArgument, "must be positive");
   }
   return v;
 }
@@ -23,15 +23,15 @@ TEST_CASE("error: results carry a value or an error", "[base][error]") {
 
   const auto bad = parsePositive(0);
   REQUIRE_FALSE(bad.has_value());
-  CHECK(bad.error().code == bt::Errc::InvalidArgument);
-  CHECK(bt::toString(bad.error().code) == "invalid_argument");
+  CHECK(bad.error().code == sl::Errc::InvalidArgument);
+  CHECK(sl::toString(bad.error().code) == "invalid_argument");
 }
 
 TEST_CASE("error: SL_ASSERT throws an InternalError naming the check", "[base][error]") {
   try {
     SL_ASSERT_MSG(1 + 1 == 3, "arithmetic");
     FAIL("SL_ASSERT did not throw");
-  } catch (const bt::InternalError& e) {
+  } catch (const sl::InternalError& e) {
     const std::string what = e.what();
     CHECK(what.find("1 + 1 == 3") != std::string::npos);
     CHECK(what.find("arithmetic") != std::string::npos);
@@ -41,5 +41,5 @@ TEST_CASE("error: SL_ASSERT throws an InternalError naming the check", "[base][e
 }
 
 TEST_CASE("version: set from CMake", "[base]") {
-  CHECK_FALSE(bt::versionString().empty());
+  CHECK_FALSE(sl::versionString().empty());
 }

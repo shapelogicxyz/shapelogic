@@ -21,7 +21,7 @@
 #include <memory>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class SimdExactCoverBase;
 
@@ -165,4 +165,4 @@ class Assembler0 final : public Assembler {
   std::atomic<float> serialProgress_{0};
 };
 
-}  // namespace bt
+}  // namespace sl

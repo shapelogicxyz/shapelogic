@@ -8,7 +8,7 @@
 #include <memory>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -110,4 +110,4 @@ Result<Puzzle> convertGrid(const Puzzle& p, GridKind target, std::uint64_t maxCe
   return pNew;
 }
 
-}  // namespace bt
+}  // namespace sl

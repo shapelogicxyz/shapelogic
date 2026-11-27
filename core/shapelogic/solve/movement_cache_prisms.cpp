@@ -5,7 +5,7 @@
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/solve/movement_cache.h"
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -136,4 +136,4 @@ void MovementCachePrisms::getDirection(unsigned int dir, int* x, int* y, int* z)
   *z = kDirs[dir][2];
 }
 
-}  // namespace bt
+}  // namespace sl

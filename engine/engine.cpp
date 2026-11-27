@@ -22,7 +22,7 @@
 #include <thread>
 #include <utility>
 
-namespace bt::engine {
+namespace sl::engine {
 
 // ---- state ------------------------------------------------------------------------------
 
@@ -499,4 +499,4 @@ bool Engine::run(std::istream& in) {
   return ended;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

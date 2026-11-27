@@ -15,7 +15,7 @@
 #include <array>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class MovementCache;
 class Puzzle;
@@ -70,4 +70,4 @@ class RotationMovesCrowell final : public RotationMoves {
   std::vector<std::vector<RotationRules::Cell>> pieceCells_;
 };
 
-}  // namespace bt
+}  // namespace sl

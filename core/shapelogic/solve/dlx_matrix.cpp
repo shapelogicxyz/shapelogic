@@ -18,7 +18,7 @@
 #include <memory>
 #include <unordered_map>
 
-namespace bt {
+namespace sl {
 
 bool everyPartOnePiece(const Problem& problem) {
   for (unsigned int s = 0; s < problem.getNumberOfParts(); s++) {
@@ -76,7 +76,7 @@ unsigned int DlxMatrix::addPieceNode(unsigned int piece, unsigned int rot, int x
 }
 
 std::size_t DlxMatrix::rowIndexOf(unsigned int node) const {
-  return bt::rowIndexOf(placements, node);
+  return sl::rowIndexOf(placements, node);
 }
 
 // Finds identical columns (contained in exactly the same rows) and removes
@@ -666,4 +666,4 @@ unsigned int DlxMatrix::piecePlacement(unsigned int node, int delta, unsigned in
   return node;
 }
 
-}  // namespace bt
+}  // namespace sl

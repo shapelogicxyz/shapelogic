@@ -30,7 +30,7 @@
 #include <sstream>
 #include <type_traits>
 
-namespace bt::sliding {
+namespace sl::sliding {
 
 using namespace detail;
 
@@ -1058,4 +1058,4 @@ std::string finalPlacementKey(const Separation& path) {
   return os.str();
 }
 
-}  // namespace bt::sliding
+}  // namespace sl::sliding

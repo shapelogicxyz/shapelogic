@@ -4,7 +4,7 @@
 
 #include "shapelogic/base/assert.h"
 
-namespace bt {
+namespace sl {
 
 unsigned int Grouping::findPiece(unsigned int pc, unsigned int gp) const {
   unsigned int i = 0;
@@ -120,4 +120,4 @@ bool Grouping::addPieceToSet(unsigned int pc) {
   return true;
 }
 
-}  // namespace bt
+}  // namespace sl

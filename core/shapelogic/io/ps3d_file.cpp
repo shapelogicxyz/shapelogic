@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt::io {
+namespace sl::io {
 
 namespace {
 
@@ -180,4 +180,4 @@ Result<Puzzle> readPuzzleSolver3D(std::string_view text, std::uint64_t maxCells)
   return p;
 }
 
-}  // namespace bt::io
+}  // namespace sl::io

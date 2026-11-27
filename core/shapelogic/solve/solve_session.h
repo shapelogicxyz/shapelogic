@@ -50,7 +50,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class Problem;
 class Puzzle;
@@ -659,4 +659,4 @@ class SolveSession {
   std::atomic<std::uint64_t> drainMs_{0};
 };
 
-}  // namespace bt
+}  // namespace sl

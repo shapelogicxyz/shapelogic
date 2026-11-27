@@ -21,14 +21,14 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Problem;
 class Puzzle;
 class Solution;
 class Voxel;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::app {
+namespace sl::app {
 
 /// Whether the pieces can fill the result (the web UI's fit summary).
 enum class FitVerdict : unsigned char {
@@ -141,4 +141,4 @@ struct StlPiece {
 [[nodiscard]] std::vector<std::string> stlFileNames(const Puzzle& puzzle,
                                                     std::span<const unsigned int> shapes);
 
-}  // namespace bt::app
+}  // namespace sl::app

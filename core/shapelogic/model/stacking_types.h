@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace bt::stacking {
+namespace sl::stacking {
 
 /// "No rod set": the value of a problem that has none.
 inline constexpr unsigned int kNoRodSet = 0xFFFFFFFF;
@@ -71,4 +71,4 @@ struct StackMap {
   bool operator==(const StackMap&) const = default;
 };
 
-}  // namespace bt::stacking
+}  // namespace sl::stacking

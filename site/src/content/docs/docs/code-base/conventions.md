@@ -26,21 +26,21 @@ Nothing is "improved" while it is being ported.
 
 ## C++ rules
 
-- C++23, `namespace bt`. Files are `snake_case`, types `PascalCase`,
+- C++23, `namespace sl`. Files are `snake_case`, types `PascalCase`,
   functions and variables `camelCase`, constants `kPascalCase`.
 - Ownership is value types and `std::unique_ptr`. No owning raw pointers,
   no `new` or `delete`.
-- Recoverable problems return `bt::Result<T>`; broken invariants use
+- Recoverable problems return `sl::Result<T>`; broken invariants use
   `SL_ASSERT`, which is on in every build and never has side effects
   inside it.
-- Long work takes a `bt::StopToken` and polls it. No search has a stop
+- Long work takes an `sl::StopToken` and polls it. No search has a stop
   flag of its own and nothing resets a token.
 - Only a run's worker thread writes its `SolveStateCell`; other threads
   read it.
 - No global state and no environment variables inside `core/`. Options are
   passed in explicitly. `core/` never prints.
 - Shared state is `std::atomic` or behind a mutex, always. Threads come
-  from the solve's `bt::ThreadPool`, never from a raw `std::thread`.
+  from the solve's `sl::ThreadPool`, never from a raw `std::thread`.
 - SIMD paths use `__attribute__((target("avx2")))` on individual functions,
   are gated behind runtime detection and keep a scalar fallback.
 - Every public declaration has a short doc comment saying what it is for.

@@ -3,7 +3,7 @@
 // the hand-over in assembler_0_c / assembler_1_c::reportParallelSolution.
 #include "shapelogic/solve/search_run.h"
 
-namespace bt {
+namespace sl {
 
 void SearchRun::handOver(Assembly assembly) {
   // An exception from the callback stops the run before the lock is given
@@ -136,4 +136,4 @@ float TaskProgress::fraction() const noexcept {
   return static_cast<float>(static_cast<double>(v) / static_cast<double>(total));
 }
 
-}  // namespace bt
+}  // namespace sl

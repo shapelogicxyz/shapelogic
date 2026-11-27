@@ -17,11 +17,11 @@
 #include "shapelogic/base/error.h"
 #include "shapelogic/mesh/polyhedron.h"
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// What the uniform mesher makes.
 struct UniformMeshOptions {
@@ -55,4 +55,4 @@ struct UniformMeshOptions {
 /// faces coincide).
 [[nodiscard]] Result<Polyhedron> uniformMesh(const Voxel& v, const UniformMeshOptions& options);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

@@ -13,7 +13,7 @@
 #include <memory>
 #include <string_view>
 
-namespace bt {
+namespace sl {
 
 class Symmetries;
 class Voxel;
@@ -126,4 +126,4 @@ class GridType {
   GridKind kind_ = GridKind::Bricks;
 };
 
-}  // namespace bt
+}  // namespace sl

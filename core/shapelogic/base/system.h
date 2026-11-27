@@ -15,7 +15,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt {
+namespace sl {
 
 /// The physical memory of the machine in bytes; 0 when it cannot be read.
 [[nodiscard]] std::uint64_t physicalMemoryBytes();
@@ -106,4 +106,4 @@ std::uint64_t raiseOpenFileLimit(std::uint64_t files);
 [[nodiscard]] std::string defaultSearchFolder(const char* fromEnvironment, const std::string& cache,
                                               std::string_view name);
 
-}  // namespace bt
+}  // namespace sl

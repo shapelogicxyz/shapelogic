@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "output.h"
 
-namespace bt::engine {
+namespace sl::engine {
 
 void Output::send(const Json& message) {
   // dump escapes control characters, so a message never spans lines; bad
@@ -32,4 +32,4 @@ Json FrameBuilder::describe(std::uint64_t frame) const {
   return Json{{"frame", frame}, {"bytes", bytes_.size()}, {"arrays", arrays_}};
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

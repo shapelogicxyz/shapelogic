@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace bt {
+namespace sl {
 
 template <typename BitsetType>
 SimdHuangCover<BitsetType>::SimdHuangCover(unsigned int numCols, unsigned int numS,
@@ -970,4 +970,4 @@ std::uint64_t simdHuangMemoryEstimate(unsigned int numColumns, std::uint64_t num
   return numRows * (maskBytes + rowFixed) + numNodes * perNode;
 }
 
-}  // namespace bt
+}  // namespace sl

@@ -20,8 +20,8 @@
 #include <string_view>
 #include <vector>
 
-using namespace bt;
-using namespace bt::app;
+using namespace sl;
+using namespace sl::app;
 
 namespace {
 
@@ -194,8 +194,8 @@ TEST_CASE("queries: the fit of a problem", "[app][queries]") {
   CHECK(small.holesMin > 0);
 
   // a sliding board is not filled: its empty cells are where the pieces slide
-  Puzzle sl = test::loadFixture("test_sliding_solver.xmpuzzle");
-  const FitStats slide = problemFit(sl, 0);
+  Puzzle slider = test::loadFixture("test_sliding_solver.xmpuzzle");
+  const FitStats slide = problemFit(slider, 0);
   REQUIRE(slide.cellsMax < slide.resultMin);
   CHECK(slide.verdict == FitVerdict::Fits);
   CHECK(slide.holesMin == slide.resultMax - slide.cellsMax);

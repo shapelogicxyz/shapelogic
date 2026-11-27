@@ -38,7 +38,7 @@
 #include <thread>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class Problem;
 class Puzzle;
@@ -216,4 +216,4 @@ class TakeApartPool {
   std::exception_ptr error_;
 };
 
-}  // namespace bt
+}  // namespace sl

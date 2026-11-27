@@ -7,7 +7,7 @@
 
 #include <algorithm>
 
-namespace bt {
+namespace sl {
 
 MovementCacheBricks::MovementCacheBricks(const Puzzle& puzzle, const Problem& problem)
     : MovementCache(puzzle, problem) {}
@@ -118,4 +118,4 @@ void MovementCacheBricks::getDirection(unsigned int dir, int* x, int* y, int* z)
   }
 }
 
-}  // namespace bt
+}  // namespace sl

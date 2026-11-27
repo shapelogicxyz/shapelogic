@@ -25,7 +25,7 @@
 #include <malloc.h>
 #endif
 
-namespace bt::sliding::detail {
+namespace sl::sliding::detail {
 
 namespace {
 
@@ -272,4 +272,4 @@ bool readState(const std::filesystem::path& dir, SavedSearch& st, bool whole) {
   return static_cast<bool>(in) && st.interval != 0 && bothNested == (st.nested && st.bidirectional);
 }
 
-}  // namespace bt::sliding::detail
+}  // namespace sl::sliding::detail

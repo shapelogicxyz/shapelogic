@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace bt::sliding {
+namespace sl::sliding {
 
 namespace {
 
@@ -76,4 +76,4 @@ SlideForecast slideForecast(const std::vector<std::uint64_t>& levelMs, std::uint
   return f;
 }
 
-}  // namespace bt::sliding
+}  // namespace sl::sliding

@@ -29,13 +29,13 @@
 #include <tuple>
 #include <vector>
 
-using namespace bt;
-using namespace bt::test;
-using bt::mesh::CellAt;
-using bt::mesh::CellFace;
-using bt::mesh::CellGeometry;
-using bt::mesh::CellPolyhedron;
-using bt::mesh::Vec3;
+using namespace sl;
+using namespace sl::test;
+using sl::mesh::CellAt;
+using sl::mesh::CellFace;
+using sl::mesh::CellGeometry;
+using sl::mesh::CellPolyhedron;
+using sl::mesh::Vec3;
 
 namespace {
 

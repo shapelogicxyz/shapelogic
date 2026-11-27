@@ -5,7 +5,7 @@
 #include <charconv>
 #include <limits>
 
-namespace bt::engine {
+namespace sl::engine {
 
 RpcError toRpc(const Error& e) {
   switch (e.code) {
@@ -317,4 +317,4 @@ RpcResult<void> Params::finish() {
   return {};
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

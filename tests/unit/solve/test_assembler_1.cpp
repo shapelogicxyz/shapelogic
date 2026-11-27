@@ -26,7 +26,7 @@
 #include <stdexcept>
 #include <thread>
 
-using namespace bt;
+using namespace sl;
 using test::Fingerprints;
 using test::runOnce;
 using test::searchOptions;

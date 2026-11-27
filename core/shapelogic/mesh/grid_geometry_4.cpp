@@ -8,7 +8,7 @@
 
 #include <cmath>
 
-namespace bt::mesh::detail {
+namespace sl::mesh::detail {
 
 namespace {
 using std::sqrt;
@@ -62,4 +62,4 @@ void connectionFaceTetraOcta(int x, int y, int z, int n, double bevel, double of
   }
 }
 
-}  // namespace bt::mesh::detail
+}  // namespace sl::mesh::detail

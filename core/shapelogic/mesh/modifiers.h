@@ -6,7 +6,7 @@
 /// Ported from src/halfedge/modifiers.{h,cpp} (fillPolyhedronHoles,
 /// scalePolyhedron, mergeCoplanarFaces) and src/halfedge/volume.cpp.
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 class Polyhedron;
 
@@ -31,4 +31,4 @@ void scalePolyhedron(Polyhedron& poly, float x, float y, float z);
 /// original computed it (the STL dialog's "Volume").
 [[nodiscard]] float volume(const Polyhedron& poly);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

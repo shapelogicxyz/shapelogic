@@ -12,7 +12,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt {
+namespace sl {
 
 /// How much a log line matters.
 enum class LogLevel : std::uint8_t {
@@ -43,4 +43,4 @@ struct LogLine {
   std::string text;
 };
 
-}  // namespace bt
+}  // namespace sl

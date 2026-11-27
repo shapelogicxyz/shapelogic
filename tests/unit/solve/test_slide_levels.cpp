@@ -18,9 +18,9 @@
 #include <thread>
 #include <vector>
 
-using namespace bt;
-using namespace bt::sliding;
-using namespace bt::test;
+using namespace sl;
+using namespace sl::sliding;
+using namespace sl::test;
 
 #ifdef __SIZEOF_INT128__
 TEST_CASE("sliding: a key set finds what was put in it, on disk and in memory", "[sliding]") {

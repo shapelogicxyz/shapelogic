@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::io {
+namespace sl::io {
 
 /// Writes an XML document into a string. Misuse (an attribute after
 /// content, an attribute given twice in a tag, closing the wrong tag, ...)
@@ -74,4 +74,4 @@ class XmlWriter {
   std::vector<std::pair<std::size_t, std::size_t>> tagAttribs_;
 };
 
-}  // namespace bt::io
+}  // namespace sl::io

@@ -19,7 +19,7 @@
 #include <system_error>
 #include <utility>
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -262,4 +262,4 @@ std::string folderText(const std::string& folder) {
   return quoted + (writable ? " (exists, writable)" : " (exists, not writable)");
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -562,4 +562,4 @@ unsigned int SeparationInfo::getNumSequences() const {
   return static_cast<unsigned int>(values_.size());
 }
 
-}  // namespace bt
+}  // namespace sl

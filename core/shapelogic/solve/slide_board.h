@@ -22,11 +22,11 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class SearchSample;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::sliding::detail {
+namespace sl::sliding::detail {
 
 // The six steps a piece can take: in its layer first, then down and up.
 // Down and up are taken only with vertical moves (SlideSearch); on a tray
@@ -367,4 +367,4 @@ std::vector<unsigned int> nestedGroup(const std::vector<Cell3List>& cells,
                                       const std::vector<Cell3List>& outlines, const SlideState& s,
                                       unsigned int outer, bool partial);
 
-}  // namespace bt::sliding::detail
+}  // namespace sl::sliding::detail

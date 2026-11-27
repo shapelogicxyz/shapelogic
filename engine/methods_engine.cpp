@@ -15,7 +15,7 @@
 #include <limits>
 #include <string>
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -186,4 +186,4 @@ void addEngineMethods(MethodTable& t) {
   t["settings.set"] = settingsSet;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

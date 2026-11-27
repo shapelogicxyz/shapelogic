@@ -2,7 +2,7 @@
 // Ported from src/halfedge/vector3.cpp (Vector3D<float>::angle).
 #include "shapelogic/mesh/vec3.h"
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 double Vec3::angle(const Vec3& v) const {
   Vec3 local(*this);
@@ -19,4 +19,4 @@ double Vec3::angle(const Vec3& v) const {
   return std::acos(dp);
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

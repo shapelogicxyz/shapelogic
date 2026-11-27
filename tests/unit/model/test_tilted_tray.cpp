@@ -25,7 +25,7 @@
 #include <utility>
 #include <vector>
 
-using namespace bt;
+using namespace sl;
 using tilted::Cell;
 using tilted::Layout;
 using tilted::Placed;
@@ -313,10 +313,11 @@ TEST_CASE("tilted tray: the best counts of the research page", "[model][tilted]"
                                      {4, 3, {48, 48, 48, 48, 50}},
                                      {5, 2, {49, 49, 49, 49, 51}},
                                      {12, 5, {47, 47, 47, 49, 49}}};
-  for (const Slope& sl : slopes) {
+  for (const Slope& slope : slopes) {
     for (std::size_t k = 0; k < allowances.size(); k++) {
-      INFO("slope " << sl.down << "/" << sl.over << ", allowance " << allowances[k]);
-      CHECK(tilted::bestShift(trayOf(8, sl.over, sl.down, allowances[k])).whole == sl.best[k]);
+      INFO("slope " << slope.down << "/" << slope.over << ", allowance " << allowances[k]);
+      CHECK(tilted::bestShift(trayOf(8, slope.over, slope.down, allowances[k])).whole ==
+            slope.best[k]);
     }
   }
 }

@@ -29,7 +29,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// The resumable state of a search that is split into tasks (decision 0009).
 /// It lives in the assembler across runs and is what a saved position of a
@@ -263,4 +263,4 @@ void writeResumeTail(std::string& out, unsigned int flag, std::uint64_t vectorRe
   }
 }
 
-}  // namespace bt
+}  // namespace sl

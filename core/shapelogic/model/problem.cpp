@@ -10,7 +10,7 @@
 #include <random>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -911,4 +911,4 @@ void Problem::sortSolutionsBySolverMethod(int method) {
   }
 }
 
-}  // namespace bt
+}  // namespace sl

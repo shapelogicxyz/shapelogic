@@ -10,11 +10,11 @@
 #include <filesystem>
 #include <optional>
 
-using bt::DiskBudget;
-using bt::diskBudgetFor;
-using bt::diskBudgetReason;
-using bt::kAutoDiskBudgetMax;
-using bt::test::ScratchDir;
+using sl::DiskBudget;
+using sl::diskBudgetFor;
+using sl::diskBudgetReason;
+using sl::kAutoDiskBudgetMax;
+using sl::test::ScratchDir;
 
 namespace {
 
@@ -24,7 +24,7 @@ constexpr std::uint64_t kGB = 1000000000ULL;
 
 TEST_CASE("system: the free disk of an existing folder can be read", "[base][system]") {
   const ScratchDir dir("system_disk");
-  const std::optional<std::uint64_t> free = bt::availableDiskBytes(dir.path());
+  const std::optional<std::uint64_t> free = sl::availableDiskBytes(dir.path());
   REQUIRE(free.has_value());
   CHECK(*free > 0);
 }
@@ -69,12 +69,12 @@ TEST_CASE("system: a budget asked for is given, but held to the free space", "[b
 
 TEST_CASE("system: the memory budget is the one set, else 2 GB or with high half the memory",
           "[base][system]") {
-  using bt::kSearchMemoryBytes;
-  using bt::memoryBudget;
-  using bt::memoryStates;
+  using sl::kSearchMemoryBytes;
+  using sl::memoryBudget;
+  using sl::memoryStates;
   CHECK(memoryBudget(0, false) == kSearchMemoryBytes);
   CHECK(memoryBudget(0, true) >= kSearchMemoryBytes);
-  CHECK(memoryBudget(0, true) >= bt::physicalMemoryBytes() / 2);
+  CHECK(memoryBudget(0, true) >= sl::physicalMemoryBytes() / 2);
   // set, high plays no part
   CHECK(memoryBudget(5 * kGB, false) == 5 * kGB);
   CHECK(memoryBudget(kGB, true) == kGB);

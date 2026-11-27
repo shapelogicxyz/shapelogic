@@ -12,7 +12,7 @@
 
 #include <optional>
 
-namespace bt::cli {
+namespace sl::cli {
 
 /// What -a asks for (burrTxt's W_SOLUTION_PIECES, W_SOLUTION_ASSM, W_COMMENT).
 enum class Ask { None, SolutionPieces, SolutionAssemblies, Comment };
@@ -55,7 +55,7 @@ struct Options {
 
   /// --flip on|off: a Tilted Square puzzle's pieces may be turned over, or
   /// keep one face up (decision 0045); unset, each problem's stored
-  /// setting (bt::storedFlipPieces), as the GUI's Solver does
+  /// setting (sl::storedFlipPieces), as the GUI's Solver does
   std::optional<bool> flip;
 
   // burrTxt's stacking options (--high-memory and --restart too)
@@ -97,14 +97,14 @@ struct Options {
   /// --slide-plain-keys: with a grid, every position numbered in the keys
   bool slidePlainKeys = false;
   /// --slide-packing auto|always|never: how the search's keys keep the
-  /// copies of a piece (bt::sliding::SlidePacking)
-  bt::sliding::SlidePacking slidePacking = bt::sliding::SlidePacking::Auto;
+  /// copies of a piece (sl::sliding::SlidePacking)
+  sl::sliding::SlidePacking slidePacking = sl::sliding::SlidePacking::Auto;
   /// --slide-key-bits N: the narrowest key the search tries (0: the narrowest)
   unsigned int slideKeyBits = 0;
   /// --slide-one-end: a new search goes from the start alone
   bool slideOneEnd = false;
   /// --slide-compress N: the zstd level of the search's level files (0: none)
-  int slideCompress = bt::sliding::kSlideCompression;
+  int slideCompress = sl::sliding::kSlideCompression;
   int slideGrid = 0;         ///< --slide-grid N: stops held to a grid of N cells (optimized paths)
   bool slideTrace = false;   ///< --slide-trace: the search's key and each level on stderr
   // the Panex search's (SHAPELOGIC_NO_TOWER_RULE, SHAPELOGIC_PANEX_LOG)
@@ -121,4 +121,4 @@ struct Options {
 /// burrTxt's help text, with that puzzle type's options (-h TYPE).
 void usage(HelpKind kind = HelpKind::Any);
 
-}  // namespace bt::cli
+}  // namespace sl::cli

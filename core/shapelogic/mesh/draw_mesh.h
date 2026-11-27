@@ -17,11 +17,11 @@
 #include <cstdint>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// Triangles, flat shaded: a vertex is shared only by triangles with the
 /// same normal. Coordinates are mesh units (grid_geometry.h).
@@ -70,4 +70,4 @@ struct DrawMesh {
 /// shape's hotspot; the flat style has its edge lines.
 [[nodiscard]] DrawMesh shapeDrawMesh(const Voxel& v, MeshStyle style);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <utility>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -512,4 +512,4 @@ bool triangulateLoops(const std::vector<Point2>& pts, const std::vector<std::vec
   return ok;
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

@@ -24,7 +24,7 @@
 #include <deque>
 #include <utility>
 
-namespace bt::app {
+namespace sl::app {
 
 namespace {
 
@@ -511,4 +511,4 @@ std::vector<std::array<int, 3>> MovementExplorer::directionVectors() const {
   return out;
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

@@ -26,11 +26,11 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// A cell by its coordinates.
 struct CellAt {
@@ -154,4 +154,4 @@ class CellGeometry {
   std::optional<Error> error_;
 };
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

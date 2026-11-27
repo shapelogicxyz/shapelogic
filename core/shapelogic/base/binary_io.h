@@ -10,7 +10,7 @@
 #include <istream>
 #include <ostream>
 
-namespace bt::binary {
+namespace sl::binary {
 
 /// Writes the bytes of `v`.
 template <class T>
@@ -24,4 +24,4 @@ void get(std::istream& in, T& v) {
   in.read(reinterpret_cast<char*>(&v), sizeof(T));
 }
 
-}  // namespace bt::binary
+}  // namespace sl::binary

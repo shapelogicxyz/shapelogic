@@ -13,8 +13,8 @@
 #include <memory>
 #include <vector>
 
-using namespace bt;
-using namespace bt::test;
+using namespace sl;
+using namespace sl::test;
 
 TEST_CASE("voxel: a new space has the requested size and is empty", "[voxel]") {
   /* ported from the old Boost voxel_0_test */

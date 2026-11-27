@@ -18,7 +18,7 @@
 #include <string_view>
 #include <vector>
 
-namespace bt::io {
+namespace sl::io {
 
 /// A malformed document.
 class XmlParseError : public std::runtime_error {
@@ -161,4 +161,4 @@ class XmlPullParser {
   bool token_ = false;
 };
 
-}  // namespace bt::io
+}  // namespace sl::io

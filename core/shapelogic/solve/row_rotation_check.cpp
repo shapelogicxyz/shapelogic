@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -342,4 +342,4 @@ bool RowRotationCheck::rejects(Scratch& s) const {
   return false;
 }
 
-}  // namespace bt
+}  // namespace sl

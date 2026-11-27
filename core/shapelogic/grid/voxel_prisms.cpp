@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -377,4 +377,4 @@ bool VoxelPrisms::onGrid(int x, int y, int /*z*/) const {
   return ((x + y) & 1) == 0;
 }
 
-}  // namespace bt
+}  // namespace sl

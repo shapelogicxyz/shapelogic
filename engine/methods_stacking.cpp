@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -400,4 +400,4 @@ void addStackingMethods(MethodTable& t) {
   t["stacking.setStacks"] = stackingSetStacks;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

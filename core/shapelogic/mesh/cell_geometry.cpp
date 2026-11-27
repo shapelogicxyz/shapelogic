@@ -16,7 +16,7 @@
 #include <set>
 #include <string>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -265,4 +265,4 @@ Result<std::vector<CellAt>> CellGeometry::derivedNeighbors(CellAt c, unsigned in
   return out;
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

@@ -21,7 +21,7 @@
 
 #include <vector>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// Whether a cell moved in a straight line by `move` passes through
 /// `other`: at some point of the way the two share more than a face, an
@@ -40,4 +40,4 @@ namespace bt::mesh {
 [[nodiscard]] Result<std::vector<CellAt>> sweptCells(CellGeometry& g, CellAt c, CellAt step,
                                                      CellAt reach);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

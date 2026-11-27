@@ -7,7 +7,7 @@
 
 #include "shapelogic/grid/voxel.h"
 
-namespace bt {
+namespace sl {
 
 /// Voxel space of the hexagonal prism grid: stacked planes of hexagons in
 /// rows, each row half a cell to the right of the one below
@@ -35,4 +35,4 @@ class VoxelHex : public Voxel {
   [[nodiscard]] bool onGrid(int x, int y, int z) const override;
 };
 
-}  // namespace bt
+}  // namespace sl

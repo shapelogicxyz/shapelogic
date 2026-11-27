@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class DisassemblerNode;
 
@@ -140,4 +140,4 @@ class FixedPositions final : public PiecePositions {
   std::vector<bool> visible_;
 };
 
-}  // namespace bt
+}  // namespace sl

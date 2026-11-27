@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-namespace bt::sliding {
+namespace sl::sliding {
 
 /// What the level search does in a move when it is not expanding it: the
 /// parts of a move that visit no arrangement, so that neither the count of
@@ -33,4 +33,4 @@ enum class SlidePhase : std::uint8_t {
   Goal,
 };
 
-}  // namespace bt::sliding
+}  // namespace sl::sliding

@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt::io {
+namespace sl::io {
 
 /// How much of a document the reader takes before it refuses it: a file is
 /// untrusted, and a small one can ask for a tree of gigabytes ("<a/>" is
@@ -37,4 +37,4 @@ struct XmlLimits {
 /// A document with `root` as its root element, in the writer's layout.
 [[nodiscard]] std::string writeXmlDocument(const XmlElement& root);
 
-}  // namespace bt::io
+}  // namespace sl::io

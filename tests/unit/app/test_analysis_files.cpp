@@ -24,10 +24,10 @@
 #include <sstream>
 #include <thread>
 
-using namespace bt;
-using namespace bt::app;
+using namespace sl;
+using namespace sl::app;
 using test::openFixture;
-using bt::test::ScratchDir;
+using sl::test::ScratchDir;
 
 namespace {
 

@@ -7,7 +7,7 @@
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/solve/movement_cache.h"
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -204,4 +204,4 @@ NodeRef RotationMovesClassic::find() {
   }
 }
 
-}  // namespace bt
+}  // namespace sl

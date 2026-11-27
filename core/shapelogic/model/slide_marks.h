@@ -12,7 +12,7 @@
 #include <limits>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// One problem's start and goal marks: a mark is a piece's shape index + 1
 /// (0 is none, 255 the most) on the board cell with that index
@@ -75,4 +75,4 @@ class SlideMarks {
   std::vector<unsigned char> goal_;
 };
 
-}  // namespace bt
+}  // namespace sl

@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -145,4 +145,4 @@ void addPlaybackMethods(MethodTable& t) {
   t["playback.close"] = playbackClose;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

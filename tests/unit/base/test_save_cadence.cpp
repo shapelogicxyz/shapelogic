@@ -6,7 +6,7 @@
 
 #include <chrono>
 
-using namespace bt;
+using namespace sl;
 using namespace std::chrono_literals;
 
 TEST_CASE("save cadence: a floor, then by what the last save cost", "[base]") {

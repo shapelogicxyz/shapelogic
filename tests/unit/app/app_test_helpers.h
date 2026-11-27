@@ -18,7 +18,7 @@
 #include <tuple>
 #include <vector>
 
-namespace bt::test {
+namespace sl::test {
 
 /// A document on a fixture puzzle.
 inline app::Document openFixture(const std::string& name) {
@@ -106,4 +106,4 @@ inline Separation withOrientations(const Separation& t, const Assembly& assm) {
   return out;
 }
 
-}  // namespace bt::test
+}  // namespace sl::test

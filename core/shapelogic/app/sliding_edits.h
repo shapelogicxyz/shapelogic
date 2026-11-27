@@ -17,7 +17,7 @@
 #include <array>
 #include <vector>
 
-namespace bt::app {
+namespace sl::app {
 
 /// The most cells a new start/goal shape of a sliding puzzle is wide, high
 /// or deep (SlidingEdits::addStartGoal).
@@ -85,4 +85,4 @@ class SlidingEdits {
   Document& d_;
 };
 
-}  // namespace bt::app
+}  // namespace sl::app

@@ -6,7 +6,7 @@
 
 #include "shapelogic/grid/voxel.h"
 
-namespace bt {
+namespace sl {
 
 /// Voxel space of the sphere grid: tightly packed spheres, placed on the cells of a 3D checkerboard
 /// (x+y+z even). It is the only grid where a transformation can fail: many of its 120 rotations map
@@ -37,4 +37,4 @@ class VoxelSpheres : public Voxel {
   bool nearestSphere(int& hx, int& hy, int& hz) const;
 };
 
-}  // namespace bt
+}  // namespace sl

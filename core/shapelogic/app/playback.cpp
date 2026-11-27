@@ -29,7 +29,7 @@
 #include <optional>
 #include <utility>
 
-namespace bt::app {
+namespace sl::app {
 
 namespace {
 
@@ -526,4 +526,4 @@ mesh::DrawMesh PlaybackSampler::pieceMesh(unsigned int i, mesh::MeshStyle style)
   return std::move(*m);
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

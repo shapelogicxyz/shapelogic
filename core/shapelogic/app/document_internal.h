@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::app {
+namespace sl::app {
 
 /// One part of the document as it was before a step changed it (or, once
 /// undone, as the step left it): swapIn() exchanges it with the document's.
@@ -160,4 +160,4 @@ void moveInList(unsigned int from, unsigned int to, Exchange exchange) {
 /// with `oneLine` line breaks (a name is an attribute).
 Result<void> checkText(std::string_view text, bool oneLine, std::string_view what);
 
-}  // namespace bt::app
+}  // namespace sl::app

@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// Hashes and compares nodes by position, through NodeRef or a plain
 /// pointer (heterogeneous lookup: a lookup takes no reference).
@@ -87,4 +87,4 @@ class CountingNodeHash {
   bool scanActive_ = false;
 };
 
-}  // namespace bt
+}  // namespace sl

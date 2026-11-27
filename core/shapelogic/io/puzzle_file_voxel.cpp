@@ -13,7 +13,7 @@
 #include <cstdio>
 #include <sstream>
 
-namespace bt::io::detail {
+namespace sl::io::detail {
 
 namespace {
 
@@ -395,4 +395,4 @@ void writeVoxel(XmlWriter& xml, const Voxel& v) {
   xml.endTag("voxel");
 }
 
-}  // namespace bt::io::detail
+}  // namespace sl::io::detail

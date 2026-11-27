@@ -5,7 +5,7 @@
 
 #include "shapelogic/app/queries.h"
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -250,4 +250,4 @@ void addProblemMethods(MethodTable& t) {
   t["problem.setSolverSettings"] = problemSetSolverSettings;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

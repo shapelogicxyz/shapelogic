@@ -6,7 +6,7 @@
 
 #include <array>
 
-namespace bt::mesh::detail {
+namespace sl::mesh::detail {
 
 void connectionFaceHex(int x, int y, int z, int n, std::vector<float>& corners) {
   const double cx = hex::centerX(x, y);
@@ -18,4 +18,4 @@ void connectionFaceHex(int x, int y, int z, int n, std::vector<float>& corners) 
   prismFace(polygon, z, n, corners);
 }
 
-}  // namespace bt::mesh::detail
+}  // namespace sl::mesh::detail

@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-namespace bt::mesh::detail {
+namespace sl::mesh::detail {
 
 void connectionFaceBricks(int x, int y, int z, int n, double bevel, double offset,
                           std::vector<float>& corners);
@@ -60,4 +60,4 @@ inline void prismFace(std::span<const std::array<double, 2>> polygon, int z, int
   }
 }
 
-}  // namespace bt::mesh::detail
+}  // namespace sl::mesh::detail

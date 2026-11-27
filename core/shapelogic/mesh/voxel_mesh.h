@@ -10,11 +10,11 @@
 
 #include "shapelogic/mesh/polyhedron.h"
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// Which mesh of a shape.
 enum class MeshStyle : unsigned char {
@@ -64,4 +64,4 @@ inline constexpr double kUniformOffset = 0.005;
                                     float round, float offset, int recursion, float innerRad,
                                     float holeDiam, bool fast);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

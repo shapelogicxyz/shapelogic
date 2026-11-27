@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-namespace bt::test {
+namespace sl::test {
 
 using StlTriangle = std::array<std::array<double, 3>, 3>;
 
@@ -127,4 +127,4 @@ inline bool sameMeasures(const StlMeasures& a, const StlMeasures& b, std::string
   return why.empty();
 }
 
-}  // namespace bt::test
+}  // namespace sl::test

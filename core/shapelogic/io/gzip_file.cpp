@@ -32,7 +32,7 @@
 #include <string>
 #include <system_error>
 
-namespace bt::io {
+namespace sl::io {
 
 namespace {
 
@@ -584,4 +584,4 @@ Result<std::string> gunzipIfCompressed(std::string_view data, std::size_t maxByt
   return out;
 }
 
-}  // namespace bt::io
+}  // namespace sl::io

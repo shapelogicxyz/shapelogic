@@ -9,7 +9,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt {
+namespace sl {
 
 /// Standard base64 with padding.
 [[nodiscard]] std::string base64Encode(std::string_view bytes);
@@ -17,4 +17,4 @@ namespace bt {
 /// characters ignored, so a file may wrap it); empty on bad input.
 [[nodiscard]] std::optional<std::string> base64Decode(std::string_view text);
 
-}  // namespace bt
+}  // namespace sl

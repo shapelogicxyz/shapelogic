@@ -16,7 +16,7 @@
 #include <memory>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class GridType;
 struct MovementChecks;
@@ -144,4 +144,4 @@ class MovementCacheDerived final : public MovementCache {
                                                                const Problem& problem,
                                                                bool derivedChecks = false);
 
-}  // namespace bt
+}  // namespace sl

@@ -30,7 +30,7 @@
 #include <string_view>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 // Write access to the model for the reader. Defined here so the model's
 // public API keeps its checks.
@@ -61,9 +61,9 @@ struct ProblemFileAccess {
   static unsigned int resultRaw(const Problem& p) { return p.result_; }
 };
 
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::io::detail {
+namespace sl::io::detail {
 
 // ---- reading helpers ------------------------------------------------------------
 
@@ -252,4 +252,4 @@ void writeRodSets(XmlWriter& xml, const Puzzle& puzzle);
 
 void writeProblem(XmlWriter& xml, const Puzzle& puzzle, const Problem& prob);
 
-}  // namespace bt::io::detail
+}  // namespace sl::io::detail

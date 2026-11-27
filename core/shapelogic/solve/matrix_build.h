@@ -26,7 +26,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class Problem;
 class Puzzle;
@@ -222,4 +222,4 @@ template <class Nodes, class ColumnKey, class NodeKey>
 /// digits read 0).
 unsigned int getInt(const char* s, unsigned int* i);
 
-}  // namespace bt
+}  // namespace sl

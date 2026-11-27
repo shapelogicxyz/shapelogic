@@ -16,10 +16,10 @@
 #include <string>
 #include <vector>
 
-namespace bt::test {
+namespace sl::test {
 
 // The helpers are written in the slide search's names, as the cases are.
-using namespace bt::sliding;
+using namespace sl::sliding;
 
 #ifdef __SIZEOF_INT128__
 __extension__ using Wide = unsigned __int128;
@@ -72,4 +72,4 @@ inline std::string fileEnding(const std::filesystem::path& p) {
 
 #endif
 
-}  // namespace bt::test
+}  // namespace sl::test

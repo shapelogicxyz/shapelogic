@@ -21,7 +21,7 @@
 #include <string_view>
 #include <vector>
 
-namespace bt::io {
+namespace sl::io {
 
 /// The most cells an import's shapes may hold together. The original had
 /// none: a PuzzleSolver3D size line of a few bytes made a shape of up to
@@ -107,4 +107,4 @@ struct PuzzlecadOptions {
 [[nodiscard]] std::string puzzlecadRefusal(const Puzzle& puzzle, const Problem* problem,
                                            const PuzzlecadOptions& options = {});
 
-}  // namespace bt::io
+}  // namespace sl::io

@@ -11,11 +11,11 @@
 #include "shapelogic/base/error.h"
 #include "shapelogic/mesh/polyhedron.h"
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 /// Whether the shape's grid is one this mesher handles (prism, rhombic,
 /// tetra-octa).
@@ -30,4 +30,4 @@ namespace bt::mesh {
 /// construction fails or nothing is left of the shape.
 [[nodiscard]] Result<Polyhedron> minkPolyhedron(const Voxel& v, double g, double r, bool fills);
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

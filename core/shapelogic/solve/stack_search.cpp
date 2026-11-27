@@ -17,7 +17,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace bt::stacking {
+namespace sl::stacking {
 
 namespace {
 
@@ -218,4 +218,4 @@ std::optional<Separation> findStackPath(const Puzzle& puzzle, const Problem& pro
   return pathSeparation(puzzle, problem, path);
 }
 
-}  // namespace bt::stacking
+}  // namespace sl::stacking

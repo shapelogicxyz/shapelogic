@@ -49,15 +49,15 @@
 #include <string_view>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Assembly;
 class Problem;
 class Puzzle;
 class SlideMarks;
 class Voxel;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::sliding {
+namespace sl::sliding {
 
 /// A cell of a tray, (x, y, z).
 using TrayCell = std::array<int, 3>;
@@ -434,4 +434,4 @@ std::vector<unsigned int> changeBoard(Puzzle& puzzle, unsigned int problem,
                                                         const Problem& problem,
                                                         bool anyOrientation, bool mirrored);
 
-}  // namespace bt::sliding
+}  // namespace sl::sliding

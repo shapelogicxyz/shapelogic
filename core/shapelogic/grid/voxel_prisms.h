@@ -6,7 +6,7 @@
 
 #include "shapelogic/grid/voxel.h"
 
-namespace bt {
+namespace sl {
 
 /// Voxel space of the triangular prism grid: stacked planes of triangles. Half the triangles of a
 /// plane point up, half down, so steps along x and y keep the cell type only in twos; z steps are
@@ -34,4 +34,4 @@ class VoxelPrisms : public Voxel {
   void scale(unsigned int amount, bool grid) override;
 };
 
-}  // namespace bt
+}  // namespace sl

@@ -5,7 +5,7 @@
 
 #include "shapelogic/base/assert.h"
 
-namespace bt::io {
+namespace sl::io {
 
 namespace {
 
@@ -149,4 +149,4 @@ const std::string& XmlWriter::str() const {
   return out_;
 }
 
-}  // namespace bt::io
+}  // namespace sl::io

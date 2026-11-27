@@ -9,7 +9,7 @@
 
 #include <algorithm>
 
-namespace bt {
+namespace sl {
 
 std::string_view errorMessage(AssemblerError e) noexcept {
   switch (e) {
@@ -101,4 +101,4 @@ void storePosition(Problem& problem, const Assembler& assembler) {
   problem.setAssemblerState(std::move(p.text), std::move(p.version));
 }
 
-}  // namespace bt
+}  // namespace sl

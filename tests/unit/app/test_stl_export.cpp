@@ -21,8 +21,8 @@
 #include <string>
 #include <vector>
 
-using namespace bt;
-using namespace bt::app;
+using namespace sl;
+using namespace sl::app;
 
 namespace {
 

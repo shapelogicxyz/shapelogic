@@ -14,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-namespace bt::io {
+namespace sl::io {
 
 namespace {
 
@@ -978,4 +978,4 @@ std::optional<std::string> writePuzzlecad(const Puzzle& p, const Problem* proble
   return str;
 }
 
-}  // namespace bt::io
+}  // namespace sl::io

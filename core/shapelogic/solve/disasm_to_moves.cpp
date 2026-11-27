@@ -10,7 +10,7 @@
 #include <cmath>
 #include <cstdlib>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -477,4 +477,4 @@ float FixedPositions::getZ(unsigned int piece) const {
 float FixedPositions::getA(unsigned int piece) const { return visible_[piece] ? 1.0F : 0.0F; }
 bool FixedPositions::moving(unsigned int /*piece*/) const { return false; }
 
-}  // namespace bt
+}  // namespace sl

@@ -18,7 +18,7 @@
 #include <chrono>
 #include <cstddef>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -982,4 +982,4 @@ void MovementAnalysator::completeFind(DisassemblerNode* searchnode,
   maxstep_ = static_cast<unsigned int>(-1);
 }
 
-}  // namespace bt
+}  // namespace sl

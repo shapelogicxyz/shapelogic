@@ -24,7 +24,7 @@
 #include <map>
 #include <memory>
 
-namespace bt::app {
+namespace sl::app {
 
 FitStats problemFit(const Puzzle& puzzle, unsigned int problemIndex) {
   const Problem& pr = puzzle.getProblem(problemIndex);
@@ -308,4 +308,4 @@ std::vector<std::string> stlFileNames(const Puzzle& puzzle, std::span<const unsi
   return names;
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

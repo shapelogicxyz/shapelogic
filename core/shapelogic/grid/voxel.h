@@ -23,7 +23,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// One voxel space. Abstract: each grid derives its own class, which knows
 /// how cells neighbor each other and how the grid rotates. Make one with
@@ -688,4 +688,4 @@ void Voxel::rebuildTurned(Turn turn, Fit fit) {
   invalidateSymmetry();
 }
 
-}  // namespace bt
+}  // namespace sl

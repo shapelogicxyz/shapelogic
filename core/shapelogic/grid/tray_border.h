@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-namespace bt {
+namespace sl {
 
 /// The outer corners of a tray's border.
 enum class BorderCorners : std::uint8_t { Round, Sharp };
@@ -65,4 +65,4 @@ struct TrayBorder {
   bool operator==(const TrayBorder&) const = default;
 };
 
-}  // namespace bt
+}  // namespace sl

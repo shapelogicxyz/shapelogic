@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-namespace bt {
+namespace sl {
 
 DisassemblerNode::DisassemblerNode(unsigned int pn, NodeRef comefrom, int dir, int amount,
                                    int step)
@@ -139,4 +139,4 @@ bool DisassemblerNode::isSeparation() const {
   return false;
 }
 
-}  // namespace bt
+}  // namespace sl

@@ -19,7 +19,7 @@
 #include <limits>
 #include <string>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -1170,4 +1170,4 @@ void Assembler0::debugStep(unsigned long steps) {
 
 bool Assembler0::canHandle(const Problem& problem) { return everyPartOnePiece(problem); }
 
-}  // namespace bt
+}  // namespace sl

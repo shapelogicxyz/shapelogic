@@ -16,8 +16,8 @@
 #include <utility>
 #include <vector>
 
-using bt::MemoryShare;
-using bt::test::ScratchDir;
+using sl::MemoryShare;
+using sl::test::ScratchDir;
 
 TEST_CASE("memory share: the budget is shared equally by the leases held", "[base][memory]") {
   MemoryShare m(1200);
@@ -87,11 +87,11 @@ TEST_CASE("system: a folder that cannot be written is found out", "[base][system
   const ScratchDir scratch("folder_write_check");
   const std::filesystem::path& dir = scratch.path();
   // made when it is not there, and left empty
-  CHECK(bt::folderWriteError(dir / "made").empty());
+  CHECK(sl::folderWriteError(dir / "made").empty());
   CHECK(std::filesystem::is_directory(dir / "made"));
   CHECK(std::filesystem::is_empty(dir / "made"));
   // a file where the folder should be
   { std::ofstream(dir / "file") << "x"; }
-  CHECK_FALSE(bt::folderWriteError(dir / "file").empty());
-  CHECK_FALSE(bt::folderWriteError(dir / "file" / "below").empty());
+  CHECK_FALSE(sl::folderWriteError(dir / "file").empty());
+  CHECK_FALSE(sl::folderWriteError(dir / "file" / "below").empty());
 }

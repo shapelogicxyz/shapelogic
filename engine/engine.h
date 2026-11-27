@@ -30,7 +30,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::engine {
+namespace sl::engine {
 
 /// How much of the application's log the engine writes (Settings::log).
 enum class LogSetting : std::uint8_t {
@@ -326,4 +326,4 @@ class Engine {
   std::string lastFailure_;
 };
 
-}  // namespace bt::engine
+}  // namespace sl::engine

@@ -19,7 +19,7 @@
 #include <unistd.h>
 #endif
 
-namespace bt {
+namespace sl {
 
 FileLock::~FileLock() {
   release();
@@ -136,4 +136,4 @@ unsigned int removeStaleLocks(const std::filesystem::path& dir) {
   return removed;
 }
 
-}  // namespace bt
+}  // namespace sl

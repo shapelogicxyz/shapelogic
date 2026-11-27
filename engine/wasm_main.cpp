@@ -21,7 +21,7 @@ namespace {
 struct Browser {
   std::ostringstream out;
   std::ostringstream log;
-  std::unique_ptr<bt::engine::Engine> engine;
+  std::unique_ptr<sl::engine::Engine> engine;
   // what bt_take and bt_log_take last took, for bt_taken_* and bt_log_*
   std::string taken;
   std::string takenLog;
@@ -40,7 +40,7 @@ extern "C" {
 EMSCRIPTEN_KEEPALIVE void bt_start() {
   Browser& b = browser();
   if (b.engine == nullptr) {
-    b.engine = std::make_unique<bt::engine::Engine>(b.out, b.log);
+    b.engine = std::make_unique<sl::engine::Engine>(b.out, b.log);
   }
 }
 

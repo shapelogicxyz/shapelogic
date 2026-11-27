@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <memory>
 
-namespace bt {
+namespace sl {
 
 /// Why a run is asked to stop. A stronger request replaces a weaker one,
 /// never the other way round: None < Pause < Abort.
@@ -105,4 +105,4 @@ class StopSource {
   std::shared_ptr<detail::StopState> state_;
 };
 
-}  // namespace bt
+}  // namespace sl

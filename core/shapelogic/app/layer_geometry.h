@@ -17,11 +17,11 @@
 
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Voxel;
 }
 
-namespace bt::app {
+namespace sl::app {
 
 /// A point of the layer's drawing, y up (the original drew y = 0 at the
 /// bottom).
@@ -67,4 +67,4 @@ struct LayerGeometry {
 /// outside the space has no cells.
 [[nodiscard]] LayerGeometry layerGeometry(const Voxel& space, unsigned int layer);
 
-}  // namespace bt::app
+}  // namespace sl::app

@@ -21,7 +21,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::app {
+namespace sl::app {
 
 namespace {
 
@@ -475,4 +475,4 @@ bool TrayEdits::fittingPlacements(Id problem) const {
   return d_.jobs_.contains({problem, PlacementFit::kKind});
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

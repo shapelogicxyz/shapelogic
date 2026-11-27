@@ -28,7 +28,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -223,7 +223,7 @@ const Assembler1::PiecePosition& Assembler1::placementOf(unsigned int node) cons
 }
 
 std::size_t Assembler1::rowIndexOf(unsigned int node) const {
-  return bt::rowIndexOf(piecePositions_, node);
+  return sl::rowIndexOf(piecePositions_, node);
 }
 
 void Assembler1::addVoxelNode(unsigned int col, unsigned int piecenode) {
@@ -2522,4 +2522,4 @@ bool Assembler1::canHandle(const Problem& problem) {
   return true;
 }
 
-}  // namespace bt
+}  // namespace sl

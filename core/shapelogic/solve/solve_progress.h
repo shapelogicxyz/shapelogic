@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// What a solve is doing, finer than SolveState (solveProgress_c::Stage).
 enum class SolveStage : std::uint8_t {
@@ -180,4 +180,4 @@ struct SolveStats {
   std::vector<DisassemblyProgress> running;
 };
 
-}  // namespace bt
+}  // namespace sl

@@ -3,8 +3,8 @@
 // sets it on this file only), so a new tag recompiles nothing else.
 #include "shapelogic/base/version.h"
 
-namespace bt {
+namespace sl {
 
 std::string_view versionString() noexcept { return SL_VERSION_STRING; }
 
-}  // namespace bt
+}  // namespace sl

@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -125,4 +125,4 @@ void addExportMethods(MethodTable& t) {
   t["export.stlFileNames"] = exportStlFileNames;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

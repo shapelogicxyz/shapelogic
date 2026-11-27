@@ -8,7 +8,7 @@
 #include "shapelogic/solve/movement_cache.h"
 #include "shapelogic/solve/movement_checks.h"
 
-namespace bt {
+namespace sl {
 
 MovementCacheDerived::MovementCacheDerived(const Puzzle& puzzle, const Problem& problem,
                                            const MovementChecks& checks)
@@ -111,4 +111,4 @@ std::vector<unsigned int> MovementCacheDerived::moCalcValues(const Voxel& sh1, c
   return move;
 }
 
-}  // namespace bt
+}  // namespace sl

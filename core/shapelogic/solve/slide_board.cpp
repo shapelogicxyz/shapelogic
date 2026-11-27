@@ -12,7 +12,7 @@
 #include <set>
 #include <sstream>
 
-namespace bt::sliding::detail {
+namespace sl::sliding::detail {
 
 void putSample(SearchSample* sample, const SlideState& st) {
   if (sample == nullptr || !sample->claim()) {
@@ -429,4 +429,4 @@ std::vector<unsigned int> nestedGroup(const std::vector<Cell3List>& cells,
   return group;
 }
 
-}  // namespace bt::sliding::detail
+}  // namespace sl::sliding::detail

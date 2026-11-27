@@ -9,7 +9,7 @@
 
 #include <algorithm>
 
-namespace bt {
+namespace sl {
 
 PlacementFinder::PlacementFinder(const Puzzle& puzzle, const Problem& problem,
                                  const Voxel& result, bool strictColors, bool startLocks)
@@ -242,4 +242,4 @@ void PlacementFinder::find(const Voxel& rotation, std::vector<long>& voxelOffset
   }
 }
 
-}  // namespace bt
+}  // namespace sl

@@ -11,7 +11,7 @@
 #include <string_view>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 enum class Errc {
   InvalidArgument,  ///< A parameter is out of range or malformed.
@@ -38,4 +38,4 @@ using Result = std::expected<T, Error>;
   return std::unexpected(Error{code, std::move(message)});
 }
 
-}  // namespace bt
+}  // namespace sl

@@ -42,10 +42,10 @@
 #include <utility>
 #include <vector>
 
-using namespace bt;
-using namespace bt::stacking;
-using bt::test::addSized;
-using bt::test::ScratchDir;
+using namespace sl;
+using namespace sl::stacking;
+using sl::test::addSized;
+using sl::test::ScratchDir;
 
 namespace {
 

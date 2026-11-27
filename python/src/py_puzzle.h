@@ -11,11 +11,11 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Puzzle;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::python {
+namespace sl::python {
 
 /// A puzzle (the module's `Puzzle`), shared with its shapes and problems.
 class PyPuzzle {
@@ -62,4 +62,4 @@ class PyPuzzle {
   std::shared_ptr<Puzzle> puzzle_;
 };
 
-}  // namespace bt::python
+}  // namespace sl::python

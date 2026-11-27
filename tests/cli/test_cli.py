@@ -241,7 +241,7 @@ def test_sliding() -> None:
 
 def test_an_empty_folder_variable_is_unset() -> None:
     # SHAPELOGIC_SLIDE_DIR set but empty counts as unset, as in the engine
-    # (bt::defaultSearchFolder): the search's folder is the cache folder's,
+    # (sl::defaultSearchFolder): the search's folder is the cache folder's,
     # here under a home of the test's own (cleanup item 11.6)
     with tempfile.TemporaryDirectory() as tmp:
         env = {**ENV, "SHAPELOGIC_SLIDE_DIR": "", "HOME": tmp, "XDG_CACHE_HOME": str(Path(tmp) / "xdg"),

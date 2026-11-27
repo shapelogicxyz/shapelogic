@@ -25,7 +25,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace bt::sliding::detail {
+namespace sl::sliding::detail {
 
 #ifdef __SIZEOF_INT128__
 // The key of a search whose arrangements do not fit 64 bits. Those that do
@@ -2190,4 +2190,4 @@ void chainToPath(const SlideSpace<Key>& s, const std::vector<Key>& kept,
   }
 }
 
-}  // namespace bt::sliding::detail
+}  // namespace sl::sliding::detail

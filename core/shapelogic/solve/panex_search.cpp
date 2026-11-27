@@ -44,7 +44,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::panex {
+namespace sl::panex {
 
 namespace {
 
@@ -2048,4 +2048,4 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
   return stacking::pathSeparation(puzzle, problem, path);
 }
 
-}  // namespace bt::panex
+}  // namespace sl::panex

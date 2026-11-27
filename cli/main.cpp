@@ -57,8 +57,8 @@
 
 namespace {
 
-using bt::cli::Ask;
-using bt::cli::Options;
+using sl::cli::Ask;
+using sl::cli::Options;
 
 // exit codes (burrTxt's)
 constexpr int kExitOk = 0;
@@ -67,11 +67,11 @@ constexpr int kExitUsage = 2;  // bad arguments or file
 
 enum class PuzzleKind { Brick, Sliding, Stacking };
 
-PuzzleKind puzzleKind(const bt::Puzzle& puzzle) {
+PuzzleKind puzzleKind(const sl::Puzzle& puzzle) {
   switch (puzzle.getGridType().getType()) {
-    case bt::GridKind::Sliding:
+    case sl::GridKind::Sliding:
       return PuzzleKind::Sliding;
-    case bt::GridKind::Stacking:
+    case sl::GridKind::Stacking:
       return PuzzleKind::Stacking;
     default:
       return PuzzleKind::Brick;
@@ -134,7 +134,7 @@ bool pickSolver(PuzzleKind kind, const char* name, Options& o) {
                  name);
     return false;
   }
-  if (const auto t = bt::solverTypeFromName(name)) {
+  if (const auto t = sl::solverTypeFromName(name)) {
     o.solver = *t;
     return true;
   }
@@ -147,11 +147,11 @@ bool pickSolver(PuzzleKind kind, const char* name, Options& o) {
 }
 
 // What findAssembler said on stderr about its choice.
-const char* assemblerLine(bt::AssemblerKind kind) {
+const char* assemblerLine(sl::AssemblerKind kind) {
   switch (kind) {
-    case bt::AssemblerKind::Assembler1:
+    case sl::AssemblerKind::Assembler1:
       return "using assembler 1";
-    case bt::AssemblerKind::Assembler0:
+    case sl::AssemblerKind::Assembler0:
       break;
   }
   return "using assembler 0";
@@ -159,19 +159,19 @@ const char* assemblerLine(bt::AssemblerKind kind) {
 
 // burrTxt's messages for the errors of createMatrix: on stderr with --json
 // (exit 1), else on stdout (exit 0).
-int reportMatrixError(const Options& o, bt::AssemblerError err, int param) {
+int reportMatrixError(const Options& o, sl::AssemblerError err, int param) {
   std::FILE* out = o.json ? stderr : stdout;
   switch (err) {
-    case bt::AssemblerError::TooManyUnits:
+    case sl::AssemblerError::TooManyUnits:
       std::fprintf(out, "%i units too many for the result shape\n", param);
       break;
-    case bt::AssemblerError::TooFewUnits:
+    case sl::AssemblerError::TooFewUnits:
       std::fprintf(out, "%i units too few for the result shape\n", param);
       break;
-    case bt::AssemblerError::CannotPlace:
+    case sl::AssemblerError::CannotPlace:
       std::fprintf(out, "Piece %i can be place nowhere in the result shape\n", param);
       break;
-    case bt::AssemblerError::PuzzleUnhandable:
+    case sl::AssemblerError::PuzzleUnhandable:
       std::fputs("The puzzles contains features not yet supported by burrTxt\n", out);
       break;
     default:
@@ -185,21 +185,21 @@ int reportMatrixError(const Options& o, bt::AssemblerError err, int param) {
 // quits at once (burrTxt's onInterrupt). The handler only stores: the
 // search's stop is a lock-free atomic, so asking it from here is safe.
 std::atomic<bool> gInterrupted{false};
-std::atomic<const bt::StopSource*> gInterruptStop{nullptr};
+std::atomic<const sl::StopSource*> gInterruptStop{nullptr};
 
 extern "C" void onInterrupt(int /*signal*/) {
   if (gInterrupted.exchange(true)) {
     std::_Exit(130);
   }
-  if (const bt::StopSource* s = gInterruptStop.load()) {
-    s->request(bt::StopKind::Pause);
+  if (const sl::StopSource* s = gInterruptStop.load()) {
+    s->request(sl::StopKind::Pause);
   }
 }
 
 // While it lives, Ctrl-C stops `stop` (once; then it quits).
 class InterruptStops {
  public:
-  explicit InterruptStops(const bt::StopSource* stop) {
+  explicit InterruptStops(const sl::StopSource* stop) {
     gInterrupted.store(false);
     gInterruptStop.store(stop);
     was_ = std::signal(SIGINT, onInterrupt);
@@ -218,13 +218,13 @@ class InterruptStops {
 // Where Panex searches are saved: --panex-dir, else $SHAPELOGIC_PANEX_DIR,
 // else the user's cache folder's "panex" (the original's library read the
 // variable; the core takes the folder as an option). An empty variable
-// counts as unset, as in the engine (bt::defaultSearchFolder).
+// counts as unset, as in the engine (sl::defaultSearchFolder).
 std::string panexWorkDir(const Options& o) {
   if (o.panexDir != nullptr) {
     return o.panexDir;
   }
   // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-  return bt::defaultSearchFolder(std::getenv("SHAPELOGIC_PANEX_DIR"), bt::userCacheDirectory(),
+  return sl::defaultSearchFolder(std::getenv("SHAPELOGIC_PANEX_DIR"), sl::userCacheDirectory(),
                                  "panex");
 }
 
@@ -233,18 +233,18 @@ std::string panexWorkDir(const Options& o) {
 // (main has refused a value that is no budget)
 std::uint64_t panexDiskBudget(const Options& o) {
   if (o.panexDiskGB > 0) {
-    return bt::gbToBytes(o.panexDiskGB).value_or(0);
+    return sl::gbToBytes(o.panexDiskGB).value_or(0);
   }
   // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-  return bt::diskBudgetFromText(std::getenv("SHAPELOGIC_PANEX_DISK_GB"));
+  return sl::diskBudgetFromText(std::getenv("SHAPELOGIC_PANEX_DISK_GB"));
 }
 
 // The disk budgets the environment gives, read as burrTxt read them
-// (atof): an error for one that is no budget (bt::gbToBytes), else empty.
+// (atof): an error for one that is no budget (sl::gbToBytes), else empty.
 std::string diskEnvironmentError() {
   for (const char* name : {"SHAPELOGIC_PANEX_DISK_GB", "SHAPELOGIC_SLIDE_DISK_GB"}) {
     // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-    if (const char* e = std::getenv(name); e != nullptr && !bt::gbToBytes(std::strtod(e, nullptr))) {
+    if (const char* e = std::getenv(name); e != nullptr && !sl::gbToBytes(std::strtod(e, nullptr))) {
       return std::string(name) + " is \"" + e + "\": a number of GB from 0 to 1000000";
     }
   }
@@ -252,10 +252,10 @@ std::string diskEnvironmentError() {
 }
 
 // A stacking solve's options from the command line (the session's).
-bt::stacking::StackingOptions stackingOptions(const Options& o) {
-  bt::stacking::StackingOptions s;
-  s.solver = o.panexSolver ? bt::stacking::StackingSolver::Panex
-                           : bt::stacking::StackingSolver::Shortest;
+sl::stacking::StackingOptions stackingOptions(const Options& o) {
+  sl::stacking::StackingOptions s;
+  s.solver = o.panexSolver ? sl::stacking::StackingSolver::Panex
+                           : sl::stacking::StackingSolver::Shortest;
   s.highMemory = o.highMemory;
   s.workDir = panexWorkDir(o);
   s.diskBudget = panexDiskBudget(o);
@@ -266,14 +266,14 @@ bt::stacking::StackingOptions stackingOptions(const Options& o) {
 // One line per rod transfer of a stacking path: lift, cross and drop are
 // three states, and a disc's x is the x of the rod it is on
 // (printStackPlan).
-void printStackPlan(const bt::Separation& path, const bt::Puzzle& puzzle,
-                    const bt::Problem& problem) {
-  const std::vector<int> rodX = bt::stacking::layoutBoard(puzzle, problem, false).rodX;
-  const bt::stacking::RodSet& board = puzzle.getRodSet(problem.getRodSetId());
+void printStackPlan(const sl::Separation& path, const sl::Puzzle& puzzle,
+                    const sl::Problem& problem) {
+  const std::vector<int> rodX = sl::stacking::layoutBoard(puzzle, problem, false).rodX;
+  const sl::stacking::RodSet& board = puzzle.getRodSet(problem.getRodSetId());
   auto rodAt = [&](int x) {
     for (unsigned int r = 0; r < rodX.size(); r++) {
       if (rodX[r] == x) {
-        return bt::stacking::isPocket(board, r) ? std::string("pocket")
+        return sl::stacking::isPocket(board, r) ? std::string("pocket")
                                                 : "rod " + std::to_string(r + 1);
       }
     }
@@ -290,10 +290,10 @@ void printStackPlan(const bt::Separation& path, const bt::Puzzle& puzzle,
     }
   }
   const unsigned int n = path.getPieceNumber();
-  const unsigned int moves = bt::stacking::logicalMoves(path);
+  const unsigned int moves = sl::stacking::logicalMoves(path);
   for (unsigned int m = 0; m < moves; m++) {
-    const bt::State& a = path.getState(m * bt::stacking::kStepsPerMove);
-    const bt::State& b = path.getState((m + 1) * bt::stacking::kStepsPerMove);
+    const sl::State& a = path.getState(m * sl::stacking::kStepsPerMove);
+    const sl::State& b = path.getState((m + 1) * sl::stacking::kStepsPerMove);
     for (unsigned int i = 0; i < n; i++) {
       if (a.getX(i) == b.getX(i)) {
         continue;
@@ -310,18 +310,18 @@ void printStackPlan(const bt::Separation& path, const bt::Puzzle& puzzle,
 // with the reason on stderr, when another solve holds it; true with no
 // lock taken when the search has no folder (`path` empty) or the lock's
 // file cannot be made (the search then says what is wrong with the folder).
-bool lockSearches(bt::FileLock& lock, const std::string& path) {
+bool lockSearches(sl::FileLock& lock, const std::string& path) {
   if (path.empty()) {
     return true;
   }
   std::error_code ec;
   std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
-  if (lock.tryAcquire(path) == bt::FileLock::Outcome::Busy) {
-    std::fprintf(stderr, "shapelogic_cli: %s\n", std::string(bt::kSolvedElsewhere).c_str());
+  if (lock.tryAcquire(path) == sl::FileLock::Outcome::Busy) {
+    std::fprintf(stderr, "shapelogic_cli: %s\n", std::string(sl::kSolvedElsewhere).c_str());
     return false;
   }
   // what solves that crashed left
-  (void)bt::removeStaleLocks(std::filesystem::path(path).parent_path());
+  (void)sl::removeStaleLocks(std::filesystem::path(path).parent_path());
   return true;
 }
 
@@ -329,8 +329,8 @@ bool lockSearches(bt::FileLock& lock, const std::string& path) {
 // the search keeps its older levels: $SHAPELOGIC_SLIDE_DIR, or else the
 // user's cache folder, and $SHAPELOGIC_SLIDE_DISK_GB (the original's
 // library read them; the core takes them as options).
-bt::sliding::SlidingOptions slidingOptions(const Options& o) {
-  bt::sliding::SlidingOptions s;
+sl::sliding::SlidingOptions slidingOptions(const Options& o) {
+  sl::sliding::SlidingOptions s;
   s.nested = o.nestedSlides;
   s.partialNested = o.partialNested;
   s.verticalMoves = o.verticalMoves;
@@ -339,10 +339,10 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   s.highMemory = o.highMemory;
   // (an empty variable counts as unset, as in the engine)
   // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-  s.workDir = bt::defaultSearchFolder(std::getenv("SHAPELOGIC_SLIDE_DIR"), bt::userCacheDirectory(),
+  s.workDir = sl::defaultSearchFolder(std::getenv("SHAPELOGIC_SLIDE_DIR"), sl::userCacheDirectory(),
                                       "sliding");
   // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
-  s.diskBudget = bt::diskBudgetFromText(std::getenv("SHAPELOGIC_SLIDE_DISK_GB"));
+  s.diskBudget = sl::diskBudgetFromText(std::getenv("SHAPELOGIC_SLIDE_DISK_GB"));
   s.legacy = o.slideLegacy;
   s.likePiecesApart = o.slideApart;
   s.gridStopsApart = o.slideStopsApart;
@@ -358,8 +358,8 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
 
 // A slide search set up for one start, on the threads of `pool`, its stops
 // held to `grid` (optimized paths; 0 for every stop).
-bt::sliding::SlideSearch slideSearch(const Options& o, bt::ThreadPool* pool, int grid) {
-  bt::sliding::SlideSearch search = bt::sliding::slideSearchFor(slidingOptions(o));
+sl::sliding::SlideSearch slideSearch(const Options& o, sl::ThreadPool* pool, int grid) {
+  sl::sliding::SlideSearch search = sl::sliding::slideSearchFor(slidingOptions(o));
   search.pool = pool;
   search.grid = grid;
   // --restart: what is left in a start's folder goes too (a saved search
@@ -374,12 +374,12 @@ bt::sliding::SlideSearch slideSearch(const Options& o, bt::ThreadPool* pool, int
 // save, what the disk has room for, and why a search stopped short).
 // `search` is the one searched (the lines read what the search says of its
 // key).
-void traceSlide(const Options& o, bt::sliding::SlideSearch& search) {
+void traceSlide(const Options& o, sl::sliding::SlideSearch& search) {
   if (!o.slideTrace) {
     return;
   }
-  search.onLog = [](bt::LogLevel level, const std::string& text) {
-    std::fprintf(stderr, "%s: %s\n", std::string(bt::logLevelName(level)).c_str(), text.c_str());
+  search.onLog = [](sl::LogLevel level, const std::string& text) {
+    std::fprintf(stderr, "%s: %s\n", std::string(sl::logLevelName(level)).c_str(), text.c_str());
   };
   search.onLevel = [&search, told = false](const std::string& line) mutable {
     if (!told) {
@@ -433,15 +433,15 @@ double secondsSince(std::chrono::steady_clock::time_point start) {
 }
 
 // The take-apart's settings from the command line.
-bt::DisassemblerOptions takeApartOptions(const Options& o, bt::ThreadPool* pool) {
-  bt::DisassemblerOptions d;
+sl::DisassemblerOptions takeApartOptions(const Options& o, sl::ThreadPool* pool) {
+  sl::DisassemblerOptions d;
   d.rotations = o.rotations;
   d.solver = o.solver;
   d.pool = pool;
   d.levelThreads = o.levelThreads;
   d.analysis.fast = o.fastAnalysis;
   if (o.noSimd) {
-    d.analysis.kernels = bt::SimdKernels::none();
+    d.analysis.kernels = sl::SimdKernels::none();
   }
   d.analysis.rotations.fast = o.fastRotations;
   d.analysis.rotations.anchor = o.rotationAnchor;
@@ -450,30 +450,30 @@ bt::DisassemblerOptions takeApartOptions(const Options& o, bt::ThreadPool* pool)
 }
 
 // The assembly search's switches from the command line.
-void setSearchSwitches(const Options& o, bt::SearchOptions& search) {
+void setSearchSwitches(const Options& o, sl::SearchOptions& search) {
   search.vectorSearch = !o.noSimd;
   search.vectorMemoryBudget = std::uint64_t{o.vectorMemoryMb} << 20;
   search.rowRotationCheck = o.rowRotationCheck;
   search.splitTasks = o.splitTasks;
   search.splitDepth = o.splitDepth;
   if (o.noSimd) {
-    search.kernels = bt::SimdKernels::none();
+    search.kernels = sl::SimdKernels::none();
   }
 }
 
 // -a: the comment, or the saved solutions of every problem.
-int askMode(const Options& o, const bt::Puzzle& puzzle) {
+int askMode(const Options& o, const sl::Puzzle& puzzle) {
   if (o.ask == Ask::Comment) {
     std::printf("%s\n", puzzle.getComment().c_str());
     return kExitOk;
   }
   for (unsigned int i = 0; i < puzzle.getNumberOfProblems(); i++) {
-    const bt::Problem& problem = puzzle.getProblem(i);
+    const sl::Problem& problem = puzzle.getProblem(i);
     std::printf("problem %u\n", i);
     // the saved ones: a solution limit keeps fewer than were found
     for (unsigned int s = 0; s < problem.getNumberOfSavedSolutions(); s++) {
       std::printf("%03u: ", s + 1);
-      const bt::Assembly& a = problem.getSavedSolution(s).getAssembly();
+      const sl::Assembly& a = problem.getSavedSolution(s).getAssembly();
       unsigned int pnum = 0;
       for (unsigned int part = 0; part < problem.getNumberOfParts(); part++) {
         for (unsigned int pp = 0; pp < problem.getPartMaximum(part); pp++) {
@@ -487,7 +487,7 @@ int askMode(const Options& o, const bt::Puzzle& puzzle) {
       // drawn into the result shape: a stacking problem has none (the
       // original failed an assertion here and died)
       if (o.ask == Ask::SolutionAssemblies && problem.resultValid()) {
-        bt::cli::printAssembly(stdout, puzzle, problem, a);
+        sl::cli::printAssembly(stdout, puzzle, problem, a);
       }
     }
   }
@@ -500,7 +500,7 @@ struct ProblemRange {
   unsigned int last;  // one past
 };
 
-ProblemRange problemRange(const Options& o, const bt::Puzzle& puzzle) {
+ProblemRange problemRange(const Options& o, const sl::Puzzle& puzzle) {
   return o.allProblems ? ProblemRange{0, puzzle.getNumberOfProblems()}
                        : ProblemRange{o.problem, o.problem + 1};
 }
@@ -509,7 +509,7 @@ ProblemRange problemRange(const Options& o, const bt::Puzzle& puzzle) {
 struct JsonTotals {
   unsigned long assemblies = 0;
   unsigned long solutions = 0;
-  bt::cli::BestLevel best;
+  sl::cli::BestLevel best;
   double seconds = 0;
   // Sliding: the starts whose search stopped at a limit, not at its end,
   // why the last of them did, and whether a search was saved to carry on.
@@ -522,10 +522,10 @@ struct JsonTotals {
 // Whether a solve ended because the position a paused solve held could not
 // be restored: the problem keeps it (decision 0041), and --restart starts
 // over.
-bool cannotRestore(bt::AssemblerError e) {
-  return e == bt::AssemblerError::CannotRestoreVersion ||
-         e == bt::AssemblerError::CannotRestoreSyntax ||
-         e == bt::AssemblerError::CannotRestoreInterrupted;
+bool cannotRestore(sl::AssemblerError e) {
+  return e == sl::AssemblerError::CannotRestoreVersion ||
+         e == sl::AssemblerError::CannotRestoreSyntax ||
+         e == sl::AssemblerError::CannotRestoreInterrupted;
 }
 
 // A string for --json: quotes, backslashes (a Windows path) and control
@@ -553,36 +553,36 @@ std::string jsonText(const std::string& text) {
 // GUI ran the Stacking Solver), else by the Stacking Solver's own. A
 // Panex search carries on a saved one (unless --restart), and Ctrl-C
 // stops it and saves it. The exit code when the solve ends here.
-std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
-                                 const bt::Problem& problem, JsonTotals& json) {
+std::optional<int> solveStacking(const Options& o, const sl::Puzzle& puzzle,
+                                 const sl::Problem& problem, JsonTotals& json) {
   if (o.allProblems && !o.json) {
     std::printf("problem: %s\n", problem.getName().c_str());
   }
-  const std::string err = bt::stacking::setupError(puzzle, problem);
+  const std::string err = sl::stacking::setupError(puzzle, problem);
   if (!err.empty()) {
     std::fprintf(o.json ? stderr : stdout, "%s\n", err.c_str());
     return o.json ? kExitError : kExitOk;
   }
   const auto start = std::chrono::steady_clock::now();
-  std::optional<bt::Separation> path;
-  bt::stacking::StackSearch search;
+  std::optional<sl::Separation> path;
+  sl::stacking::StackSearch search;
   search.highMemory = o.highMemory;
-  bt::panex::PanexSearch px;
+  sl::panex::PanexSearch px;
   px.highMemory = o.highMemory;
   px.threads = o.threads;
   const bool usePanex =
-      o.disassemble && bt::panex::runsOnPanexSearch(puzzle, problem, o.panexSolver);
+      o.disassemble && sl::panex::runsOnPanexSearch(puzzle, problem, o.panexSolver);
   // held till the search is over
-  bt::FileLock searchLock;
+  sl::FileLock searchLock;
   if (usePanex) {
-    const std::string why = bt::panex::unsupported(puzzle, problem, !o.panexSolver);
+    const std::string why = sl::panex::unsupported(puzzle, problem, !o.panexSolver);
     if (!why.empty()) {
       std::fprintf(stderr, "shapelogic_cli: %s\n", why.c_str());
       return kExitUsage;
     }
     px.anyRules = !o.panexSolver;
     px.workDir = panexWorkDir(o);
-    if (!lockSearches(searchLock, bt::panex::solveLockPath(puzzle, problem, px.workDir))) {
+    if (!lockSearches(searchLock, sl::panex::solveLockPath(puzzle, problem, px.workDir))) {
       return kExitError;
     }
     px.diskBudget = panexDiskBudget(o);
@@ -591,22 +591,22 @@ std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
       px.onLevel = [](const std::string& line) { std::fprintf(stderr, "%s\n", line.c_str()); };
     }
     if (o.restart) {
-      bt::panex::discardSaved(puzzle, problem, px.workDir);
+      sl::panex::discardSaved(puzzle, problem, px.workDir);
     }
-    const std::string saved = bt::panex::savedSearch(puzzle, problem, px.workDir);
+    const std::string saved = sl::panex::savedSearch(puzzle, problem, px.workDir);
     if (!saved.empty() && !o.json) {
       std::printf("continuing %s\n", saved.c_str());
     }
     px.resume = true;
-    const bt::StopSource stop;
+    const sl::StopSource stop;
     px.stop = stop.token();
     const InterruptStops ctrlC(&stop);
-    path = bt::panex::solve(puzzle, problem, px);
+    path = sl::panex::solve(puzzle, problem, px);
   } else if (o.disassemble) {
-    path = bt::stacking::findStackPath(puzzle, problem, search);
+    path = sl::stacking::findStackPath(puzzle, problem, search);
   }
   const double secs = secondsSince(start);
-  const unsigned int moves = path ? bt::stacking::logicalMoves(*path) : 0;
+  const unsigned int moves = path ? sl::stacking::logicalMoves(*path) : 0;
   if (o.json) {
     // one start; solved or not, with its transfers (addStacking)
     json.assemblies++;
@@ -616,7 +616,7 @@ std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
       if (!json.best.has || m < json.best.stats.level) {
         json.best.has = true;
         json.best.text = std::to_string(moves);
-        json.best.stats = bt::cli::DotLevel{m, m, m, 0};
+        json.best.stats = sl::cli::DotLevel{m, m, m, 0};
       }
     }
     json.seconds += secs;
@@ -646,7 +646,7 @@ std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
                       : ("every " + std::to_string(px.levelInterval) + " levels").c_str());
     }
     std::printf("\n");
-    const bool memory = px.outcome == bt::panex::Outcome::Memory;
+    const bool memory = px.outcome == sl::panex::Outcome::Memory;
     if (!path && px.saved) {
       std::printf("%s; it is saved: run the same command again to carry on%s, or add --restart to "
                   "start over\n",
@@ -660,12 +660,12 @@ std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
       std::printf("%s\n", memory ? (std::string("the search outgrew its memory") +
                                     (o.highMemory ? "" : " (try --high-memory)"))
                                        .c_str()
-                       : px.outcome == bt::panex::Outcome::Error
+                       : px.outcome == sl::panex::Outcome::Error
                            ? px.error.c_str()
                            : "every reachable stacking was searched: no solution");
     }
   } else if (o.disassemble && !path) {
-    std::printf("%s\n", search.outcome == bt::stacking::StackOutcome::Memory
+    std::printf("%s\n", search.outcome == sl::stacking::StackOutcome::Memory
                             ? (std::string("the search reached its memory limit, so a solution "
                                            "may be missing") +
                                (o.highMemory ? "" : " (try --high-memory)"))
@@ -677,7 +677,7 @@ std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
 
 // The solve of burrTxt: assemble each problem, take each assembly apart
 // with -d, print as asked; --json prints one object at the end.
-int solveMode(const Options& o, bt::Puzzle& puzzle) {
+int solveMode(const Options& o, sl::Puzzle& puzzle) {
   // as burrTxt: the hotspots are set where every orientation keeps them
   for (unsigned int i = 0; i < puzzle.getNumberOfShapes(); i++) {
     puzzle.getShape(i).initHotspot();
@@ -685,28 +685,28 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
 
   if (!o.quiet && !o.json) {
     std::printf(" The puzzle:\n\n");
-    bt::cli::printPuzzle(stdout, puzzle);
+    sl::cli::printPuzzle(stdout, puzzle);
   }
 
-  const unsigned int budget = o.threads > 0 ? o.threads : bt::hardwareThreads();
+  const unsigned int budget = o.threads > 0 ? o.threads : sl::hardwareThreads();
   // the take-apart's levels spread over threads of their own, as burrTxt's
   // helper pool: the assembly's are busy
-  std::unique_ptr<bt::ThreadPool> takeApartPool;
+  std::unique_ptr<sl::ThreadPool> takeApartPool;
 
   JsonTotals json;
   unsigned long& jsonAssemblies = json.assemblies;
   unsigned long& jsonSolutions = json.solutions;
-  bt::cli::BestLevel& best = json.best;
+  sl::cli::BestLevel& best = json.best;
   double& jsonSeconds = json.seconds;
 
-  const bool sliding = bt::sliding::isSliding(puzzle);
-  const bool stacking = bt::stacking::isStacking(puzzle);
+  const bool sliding = sl::sliding::isSliding(puzzle);
+  const bool stacking = sl::stacking::isStacking(puzzle);
   // a sliding search spreads its levels over threads of its own
-  std::unique_ptr<bt::ThreadPool> slidePool;
+  std::unique_ptr<sl::ThreadPool> slidePool;
 
   const ProblemRange range = problemRange(o, puzzle);
   for (unsigned int pr = range.first; pr < range.last; pr++) {
-    bt::Problem& problem = puzzle.getProblem(pr);
+    sl::Problem& problem = puzzle.getProblem(pr);
     // a stacking problem has no assembly: its start is the file's stacks
     if (stacking) {
       if (const std::optional<int> code = solveStacking(o, puzzle, problem, json)) {
@@ -722,28 +722,28 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     }
     // a sliding problem's holes, as a solve sets them up
     if (sliding) {
-      bt::sliding::syncMaxHoles(puzzle, problem);
+      sl::sliding::syncMaxHoles(puzzle, problem);
     }
 
-    // the matrix as every solve builds it (bt::solveSetup's rules: a
+    // the matrix as every solve builds it (sl::solveSetup's rules: a
     // sliding piece held to its start and placed as drawn, or, unplaced,
     // as --any-orientation allows; a tilted tray's pieces kept one face up
     // turned only in the tray), over this program's own options
-    bt::MatrixOptions base;
+    sl::MatrixOptions base;
     base.strictColors = o.strictColors;
     base.variableHoleColumns = o.holeColumns;
-    const bt::SolveSetup setup =
-        bt::solveSetup(puzzle, problem, std::move(base), o.solver,
-                       bt::SetupFlags{o.anyOrientation, o.mirroredOrientations, o.flip});
-    const bt::MatrixOptions& matrix = setup.matrix;
+    const sl::SolveSetup setup =
+        sl::solveSetup(puzzle, problem, std::move(base), o.solver,
+                       sl::SetupFlags{o.anyOrientation, o.mirroredOrientations, o.flip});
+    const sl::MatrixOptions& matrix = setup.matrix;
 
-    const bt::AssemblerKind kind = bt::chooseAssembler(problem, setup.solver);
+    const sl::AssemblerKind kind = sl::chooseAssembler(problem, setup.solver);
     if (!o.json) {
       std::fprintf(stderr, "%s\n", assemblerLine(kind));
     }
-    std::unique_ptr<bt::Assembler> assembler = bt::makeAssembler(puzzle, problem, setup.solver);
-    if (const bt::AssemblerError err = assembler->createMatrix(matrix, bt::StopToken{});
-        err != bt::AssemblerError::None) {
+    std::unique_ptr<sl::Assembler> assembler = sl::makeAssembler(puzzle, problem, setup.solver);
+    if (const sl::AssemblerError err = assembler->createMatrix(matrix, sl::StopToken{});
+        err != sl::AssemblerError::None) {
       return reportMatrixError(o, err, assembler->errorParam());
     }
 
@@ -753,7 +753,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       if (!o.quiet && !o.json) {
         std::printf("start reduce\n\n");
       }
-      const bt::ReduceStats removed = assembler->reduce(bt::StopToken{});
+      const sl::ReduceStats removed = assembler->reduce(sl::StopToken{});
       if (!o.json) {
         std::fprintf(stderr, "removed %u rows and %u columns\n", removed.rows, removed.columns);
       }
@@ -766,8 +766,8 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       std::printf("problem: %s\n", problem.getName().c_str());
     }
 
-    bt::ThreadPool pool(budget);
-    bt::SearchOptions search;
+    sl::ThreadPool pool(budget);
+    sl::SearchOptions search;
     search.threads = o.threads;
     search.pool = &pool;
     setSearchSwitches(o, search);
@@ -780,17 +780,17 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     // pool), the results printed in the order the assemblies were found; on
     // one thread, or with --no-take-apart-pool, each where it is found.
     const bool takeApart =
-        o.disassemble && !sliding && bt::Disassembler::canDisassemble(puzzle);
+        o.disassemble && !sliding && sl::Disassembler::canDisassemble(puzzle);
     const bool pooled = takeApart && o.takeApartPool && budget > 1;
-    std::unique_ptr<bt::Disassembler> disassembler;
-    bt::TakeApartPoolOptions poolOptions;
+    std::unique_ptr<sl::Disassembler> disassembler;
+    sl::TakeApartPoolOptions poolOptions;
     if (takeApart) {
       if (!takeApartPool) {
-        takeApartPool = std::make_unique<bt::ThreadPool>(budget);
+        takeApartPool = std::make_unique<sl::ThreadPool>(budget);
       }
       if (pooled) {
         // with -t n the search and the take-aparts share the n threads
-        const bt::TakeApartThreads threads = bt::takeApartThreads(o.threads, budget);
+        const sl::TakeApartThreads threads = sl::takeApartThreads(o.threads, budget);
         if (o.threads > 0) {
           search.threads = threads.search;
         }
@@ -799,7 +799,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
         poolOptions.searchCores = threads.search;
         poolOptions.takeApart = takeApartOptions(o, takeApartPool.get());
       } else {
-        disassembler = std::make_unique<bt::Disassembler>(
+        disassembler = std::make_unique<sl::Disassembler>(
             puzzle, problem, takeApartOptions(o, takeApartPool.get()));
       }
     }
@@ -807,24 +807,24 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     // optimized paths: the grid the problem's stops are held to, once
     int slideGrid = 0;
     // held till the problem's searches are over
-    bt::FileLock searchLock;
+    sl::FileLock searchLock;
     if (o.disassemble && sliding) {
       // a saved slide search of a start is carried on, unless --restart
-      const bt::sliding::SlidingOptions so = slidingOptions(o);
-      if (!lockSearches(searchLock, bt::sliding::solveLockPath(puzzle, problem, so.workDir))) {
+      const sl::sliding::SlidingOptions so = slidingOptions(o);
+      if (!lockSearches(searchLock, sl::sliding::solveLockPath(puzzle, problem, so.workDir))) {
         return kExitError;
       }
-      slideGrid = bt::sliding::searchGrid(puzzle, problem, so);
+      slideGrid = sl::sliding::searchGrid(puzzle, problem, so);
       if (!o.quiet && slideGrid > 1) {
         std::printf("optimized paths: the pieces stop only on a %d-cell grid\n", slideGrid);
       } else if (!o.quiet && o.optimizedPaths && o.slideGrid <= 1) {
         std::printf("optimized paths: the board fits no grid, so every stop is searched\n");
       }
       if (o.restart) {
-        bt::sliding::discardSaved(puzzle, problem, so.workDir);
+        sl::sliding::discardSaved(puzzle, problem, so.workDir);
       }
       if (!slidePool) {
-        slidePool = std::make_unique<bt::ThreadPool>(budget);
+        slidePool = std::make_unique<sl::ThreadPool>(budget);
       }
     }
 
@@ -848,7 +848,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
 
     // What a take-apart found: counted and printed. From one thread at a
     // time, in the order the assemblies were found (the pool sees to that).
-    const auto takenApart = [&](const bt::Assembly& assembly, const bt::TakeApartResult& r) {
+    const auto takenApart = [&](const sl::Assembly& assembly, const sl::TakeApartResult& r) {
       if (r.tooDeep) {
         tooDeep.store(true, std::memory_order_relaxed);
       }
@@ -861,22 +861,22 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
         return;
       }
       if (o.printAssembly) {
-        bt::cli::printAssembly(stdout, puzzle, problem, assembly);
+        sl::cli::printAssembly(stdout, puzzle, problem, assembly);
       }
       if (!o.quiet || o.allProblems) {
         std::printf("level: %s\n", r.separation->movesText().c_str());
       }
       if (o.printDisassembly) {
-        bt::cli::printSeparation(stdout, puzzle, problem, *r.separation, assembly,
+        sl::cli::printSeparation(stdout, puzzle, problem, *r.separation, assembly,
                                  o.originalDrawings);
       }
     };
     // made before the ticker that reads it, and gone after it
-    std::unique_ptr<bt::TakeApartPool> takeAparts;
+    std::unique_ptr<sl::TakeApartPool> takeAparts;
     if (pooled) {
-      takeAparts = std::make_unique<bt::TakeApartPool>(
+      takeAparts = std::make_unique<sl::TakeApartPool>(
           puzzle, problem, poolOptions,
-          [&](bt::TakeApartTask& t, bt::TakeApartResult& r) { takenApart(t.assembly, r); });
+          [&](sl::TakeApartTask& t, sl::TakeApartResult& r) { takenApart(t.assembly, r); });
     }
 
     ProgressTicker ticker(o.progress, [&] {
@@ -884,24 +884,24 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       std::fprintf(stderr, "%7.1f s  assembly %5.1f%%, %lu found", secondsSince(start),
                    100.0 * static_cast<double>(assembler->finished()), seen);
       // the take-apart under way: the first of them, with a pool
-      std::optional<bt::DisassemblyProgress> shown;
+      std::optional<sl::DisassemblyProgress> shown;
       std::size_t running = 0;
       unsigned long long number = seen;
       if (takeAparts) {
-        const std::vector<bt::DisassemblyProgress> all = takeAparts->progress();
+        const std::vector<sl::DisassemblyProgress> all = takeAparts->progress();
         running = all.size();
         if (!all.empty()) {
           shown = all.front();
         }
         number = takeAparts->delivered() + 1;
       } else if (disassembler) {
-        const bt::DisassemblyProgress dp = disassembler->progress();
+        const sl::DisassemblyProgress dp = disassembler->progress();
         if (dp.active) {
           shown = dp;
         }
       }
       if (shown) {
-        const bt::DisassemblyProgress& dp = *shown;
+        const sl::DisassemblyProgress& dp = *shown;
         std::fprintf(stderr, "  disassemble %llu: level %u: %llu/%llu, %llu positions", number,
                      dp.level, static_cast<unsigned long long>(dp.levelDone),
                      static_cast<unsigned long long>(dp.levelSize),
@@ -919,23 +919,23 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       std::fprintf(stderr, "\n");
     });
 
-    const bt::RunEnd end = assembler->assemble(
-        [&](const bt::Assembly& assembly) {
+    const sl::RunEnd end = assembler->assemble(
+        [&](const sl::Assembly& assembly) {
           assemblies++;
           seenAssemblies.store(assemblies, std::memory_order_relaxed);
           if (o.disassemble && sliding) {
-            bt::sliding::SlideSearch search = slideSearch(o, slidePool.get(), slideGrid);
+            sl::sliding::SlideSearch search = slideSearch(o, slidePool.get(), slideGrid);
             traceSlide(o, search);
-            const std::optional<bt::Separation> path =
-                bt::sliding::findSlidePath(puzzle, problem, assembly, search);
-            if (search.outcome == bt::sliding::SlideOutcome::Memory ||
-                search.outcome == bt::sliding::SlideOutcome::Disk) {
+            const std::optional<sl::Separation> path =
+                sl::sliding::findSlidePath(puzzle, problem, assembly, search);
+            if (search.outcome == sl::sliding::SlideOutcome::Memory ||
+                search.outcome == sl::sliding::SlideOutcome::Disk) {
               slideStartsCut++;
             }
-            if (search.outcome == bt::sliding::SlideOutcome::Memory) {
+            if (search.outcome == sl::sliding::SlideOutcome::Memory) {
               slideMemoryCut = true;
             }
-            if (search.outcome == bt::sliding::SlideOutcome::Disk) {
+            if (search.outcome == sl::sliding::SlideOutcome::Disk) {
               slideDiskError = search.error;
               if (search.saved || search.savedUnread) {
                 // the search waits in its folder: no other start is searched
@@ -947,7 +947,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
             if (path) {
               // a start that slides to a picture counted before counts only
               // with fewer moves
-              const std::string key = bt::sliding::finalPlacementKey(*path);
+              const std::string key = sl::sliding::finalPlacementKey(*path);
               const unsigned int moves = path->getMoves();
               bool countIt = true;
               const auto it = slideBestMoves.find(key);
@@ -964,13 +964,13 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                   best.consider(path->movesText());
                 } else {
                   if (o.printAssembly) {
-                    bt::cli::printAssembly(stdout, puzzle, problem, assembly);
+                    sl::cli::printAssembly(stdout, puzzle, problem, assembly);
                   }
                   if (!o.quiet || o.allProblems) {
                     std::printf("level: %s\n", path->movesText().c_str());
                   }
                   if (o.printDisassembly) {
-                    bt::cli::printSeparation(stdout, puzzle, problem, *path, assembly,
+                    sl::cli::printSeparation(stdout, puzzle, problem, *path, assembly,
                                              o.originalDrawings);
                   }
                 }
@@ -981,21 +981,21 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
           } else if (disassembler) {
             takenApart(assembly, disassembler->disassemble(assembly));
           } else if (o.printAssembly && !o.disassemble) {
-            bt::cli::printAssembly(stdout, puzzle, problem, assembly);
+            sl::cli::printAssembly(stdout, puzzle, problem, assembly);
           }
           return !tooDeep.load(std::memory_order_relaxed);
         },
-        search, bt::StopToken{});
+        search, sl::StopToken{});
     if (takeAparts) {
       // the search is over: every thread takes apart what is left
       takeAparts->finish();
     }
     ticker.stop();
     if (tooDeep.load()) {
-      std::fprintf(stderr, "shapelogic_cli: %s\n", bt::Disassembler::tooDeepMessage().c_str());
+      std::fprintf(stderr, "shapelogic_cli: %s\n", sl::Disassembler::tooDeepMessage().c_str());
       return kExitError;
     }
-    if (end != bt::RunEnd::Finished && !slideSaved) {
+    if (end != sl::RunEnd::Finished && !slideSaved) {
       std::fprintf(stderr, "shapelogic_cli: the search stopped before its end\n");
       return kExitError;
     }
@@ -1077,34 +1077,34 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
 }
 
 // -x of a sliding puzzle: each saved start searched to the goal again.
-int retakeSliding(const Options& o, const bt::Puzzle& puzzle) {
-  bt::ThreadPool pool(o.threads > 0 ? o.threads : bt::hardwareThreads());
+int retakeSliding(const Options& o, const sl::Puzzle& puzzle) {
+  sl::ThreadPool pool(o.threads > 0 ? o.threads : sl::hardwareThreads());
   const ProblemRange range = problemRange(o, puzzle);
   for (unsigned int pr = range.first; pr < range.last; pr++) {
-    const bt::Problem& problem = puzzle.getProblem(pr);
-    bt::FileLock searchLock;
-    if (!lockSearches(searchLock, bt::sliding::solveLockPath(puzzle, problem,
+    const sl::Problem& problem = puzzle.getProblem(pr);
+    sl::FileLock searchLock;
+    if (!lockSearches(searchLock, sl::sliding::solveLockPath(puzzle, problem,
                                                               slidingOptions(o).workDir))) {
       return kExitError;
     }
     for (unsigned int sol = 0; sol < problem.getNumberOfSavedSolutions(); sol++) {
-      const bt::Assembly& assembly = problem.getSavedSolution(sol).getAssembly();
-      bt::sliding::SlideSearch search =
-          slideSearch(o, &pool, bt::sliding::searchGrid(puzzle, problem, slidingOptions(o)));
+      const sl::Assembly& assembly = problem.getSavedSolution(sol).getAssembly();
+      sl::sliding::SlideSearch search =
+          slideSearch(o, &pool, sl::sliding::searchGrid(puzzle, problem, slidingOptions(o)));
       traceSlide(o, search);
-      const std::optional<bt::Separation> path =
-          bt::sliding::findSlidePath(puzzle, problem, assembly, search);
+      const std::optional<sl::Separation> path =
+          sl::sliding::findSlidePath(puzzle, problem, assembly, search);
       if (!path) {
         continue;
       }
       if (o.printAssembly) {
-        bt::cli::printAssembly(stdout, puzzle, problem, assembly);
+        sl::cli::printAssembly(stdout, puzzle, problem, assembly);
       }
       if (!o.quiet) {
         std::printf("level: %u\n", path->getMoves());
       }
       if (o.printDisassembly) {
-        bt::cli::printSeparation(stdout, puzzle, problem, *path, assembly, o.originalDrawings);
+        sl::cli::printSeparation(stdout, puzzle, problem, *path, assembly, o.originalDrawings);
       }
     }
   }
@@ -1112,17 +1112,17 @@ int retakeSliding(const Options& o, const bt::Puzzle& puzzle) {
 }
 
 // -x of a stacking puzzle: a problem with saved solutions searched again.
-int retakeStacking(const Options& o, const bt::Puzzle& puzzle) {
+int retakeStacking(const Options& o, const sl::Puzzle& puzzle) {
   const ProblemRange range = problemRange(o, puzzle);
   for (unsigned int pr = range.first; pr < range.last; pr++) {
-    const bt::Problem& problem = puzzle.getProblem(pr);
+    const sl::Problem& problem = puzzle.getProblem(pr);
     if (problem.getNumberOfSavedSolutions() == 0) {
       continue;
     }
-    const std::optional<bt::Separation> path = bt::stacking::findStackPath(puzzle, problem);
+    const std::optional<sl::Separation> path = sl::stacking::findStackPath(puzzle, problem);
     if (path) {
       if (!o.quiet) {
-        std::printf("level: %u\n", bt::stacking::logicalMoves(*path));
+        std::printf("level: %u\n", sl::stacking::logicalMoves(*path));
       }
       if (o.printDisassembly) {
         printStackPlan(*path, puzzle, problem);
@@ -1133,40 +1133,40 @@ int retakeStacking(const Options& o, const bt::Puzzle& puzzle) {
 }
 
 // -x: take the saved solutions apart again and print what comes apart.
-int retakeMode(const Options& o, bt::Puzzle& puzzle) {
-  if (bt::sliding::isSliding(puzzle)) {
+int retakeMode(const Options& o, sl::Puzzle& puzzle) {
+  if (sl::sliding::isSliding(puzzle)) {
     return retakeSliding(o, puzzle);
   }
-  if (bt::stacking::isStacking(puzzle)) {
+  if (sl::stacking::isStacking(puzzle)) {
     return retakeStacking(o, puzzle);
   }
   // grids without a take-apart have nothing to show (the original failed)
-  if (!bt::Disassembler::canDisassemble(puzzle)) {
+  if (!sl::Disassembler::canDisassemble(puzzle)) {
     return kExitOk;
   }
-  bt::ThreadPool pool(o.threads > 0 ? o.threads : bt::hardwareThreads());
+  sl::ThreadPool pool(o.threads > 0 ? o.threads : sl::hardwareThreads());
   const ProblemRange range = problemRange(o, puzzle);
   for (unsigned int pr = range.first; pr < range.last; pr++) {
-    const bt::Problem& problem = puzzle.getProblem(pr);
-    bt::Disassembler disassembler(puzzle, problem, takeApartOptions(o, &pool));
+    const sl::Problem& problem = puzzle.getProblem(pr);
+    sl::Disassembler disassembler(puzzle, problem, takeApartOptions(o, &pool));
     for (unsigned int sol = 0; sol < problem.getNumberOfSavedSolutions(); sol++) {
-      const bt::Assembly& assembly = problem.getSavedSolution(sol).getAssembly();
-      const bt::TakeApartResult r = disassembler.disassemble(assembly);
+      const sl::Assembly& assembly = problem.getSavedSolution(sol).getAssembly();
+      const sl::TakeApartResult r = disassembler.disassemble(assembly);
       if (r.tooDeep) {
-        std::fprintf(stderr, "shapelogic_cli: %s\n", bt::Disassembler::tooDeepMessage().c_str());
+        std::fprintf(stderr, "shapelogic_cli: %s\n", sl::Disassembler::tooDeepMessage().c_str());
         return kExitError;
       }
       if (!r.separation) {
         continue;
       }
       if (o.printAssembly) {
-        bt::cli::printAssembly(stdout, puzzle, problem, assembly);
+        sl::cli::printAssembly(stdout, puzzle, problem, assembly);
       }
       if (!o.quiet) {
         std::printf("level: %u\n", r.separation->getMoves());
       }
       if (o.printDisassembly) {
-        bt::cli::printSeparation(stdout, puzzle, problem, *r.separation, assembly,
+        sl::cli::printSeparation(stdout, puzzle, problem, *r.separation, assembly,
                                  o.originalDrawings);
       }
     }
@@ -1178,11 +1178,11 @@ int retakeMode(const Options& o, bt::Puzzle& puzzle) {
 // (burrTxt2 had no stacking solver): a saved Panex search carried on unless
 // --restart, Ctrl-C pausing it (it saves itself), the solved puzzle written
 // to the file with the solver's note on stdout.
-int saveStacking(const Options& o, bt::Puzzle& puzzle) {
+int saveStacking(const Options& o, sl::Puzzle& puzzle) {
   if (!o.quiet) {
     std::printf("outputting into %s\n", o.saveTo);
   }
-  bt::SolveOptions so;
+  sl::SolveOptions so;
   so.disassemble = o.disassemble;
   so.justCount = o.countOnly;
   so.threads = o.threads;
@@ -1191,9 +1191,9 @@ int saveStacking(const Options& o, bt::Puzzle& puzzle) {
   int exitCode = kExitOk;
   const ProblemRange range = problemRange(o, puzzle);
   for (unsigned int pr = range.first; pr < range.last; pr++) {
-    bt::Problem& problem = puzzle.getProblem(pr);
-    const bool saved = !bt::panex::savedSearch(puzzle, problem, so.stacking.workDir).empty();
-    if (!o.restart && !saved && problem.getSolveState() == bt::ProblemState::Solved) {
+    sl::Problem& problem = puzzle.getProblem(pr);
+    const bool saved = !sl::panex::savedSearch(puzzle, problem, so.stacking.workDir).empty();
+    if (!o.restart && !saved && problem.getSolveState() == sl::ProblemState::Solved) {
       std::printf("problem %u (%s) is already solved: %llu assemblies, %llu solutions\n", pr,
                   problem.getName().c_str(),
                   static_cast<unsigned long long>(problem.getNumAssemblies()),
@@ -1201,22 +1201,22 @@ int saveStacking(const Options& o, bt::Puzzle& puzzle) {
       std::printf("use --restart to solve it again\n");
       continue;
     }
-    bt::SolveSession session(puzzle, problem, so);
+    sl::SolveSession session(puzzle, problem, so);
     const InterruptStops ctrlC(nullptr);
-    if (const bt::Result<void> r = o.restart ? session.start() : session.resume(); !r) {
+    if (const sl::Result<void> r = o.restart ? session.start() : session.resume(); !r) {
       std::printf("Could not start Solver\n");
       std::fprintf(stderr, "shapelogic_cli: %s\n", r.error().message.c_str());
       exitCode = kExitError;
       continue;
     }
-    while (bt::isActive(session.state())) {
+    while (sl::isActive(session.state())) {
       if (gInterrupted.load()) {
         session.pause();
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
     session.wait();
-    if (session.state() == bt::SolveState::Error) {
+    if (session.state() == sl::SolveState::Error) {
       std::printf("error in solver\n");
       if (const auto f = session.failure()) {
         std::fprintf(stderr, "shapelogic_cli: %s\n", f->message.c_str());
@@ -1236,7 +1236,7 @@ int saveStacking(const Options& o, bt::Puzzle& puzzle) {
     }
   }
 
-  if (const bt::Result<void> written = bt::io::savePuzzle(puzzle, o.saveTo); !written) {
+  if (const sl::Result<void> written = sl::io::savePuzzle(puzzle, o.saveTo); !written) {
     std::fprintf(stderr, "shapelogic_cli: %s\n", written.error().message.c_str());
     return kExitUsage;
   }
@@ -1246,21 +1246,21 @@ int saveStacking(const Options& o, bt::Puzzle& puzzle) {
 // --save: burrTxt2's solve, as the GUI runs it (a SolveSession: reduce, a
 // paused solve carried on, the solutions sorted by moves and limited), and
 // the solved puzzle written to a file.
-int saveMode(const Options& o, bt::Puzzle& puzzle) {
+int saveMode(const Options& o, sl::Puzzle& puzzle) {
   const unsigned int caps = puzzle.getGridType().getCapabilities();
-  if ((caps & bt::kCapAssemble) == 0) {
+  if ((caps & sl::kCapAssemble) == 0) {
     std::printf("Sorry, this space grid doesn't have an assembler (yet)\n");
     return kExitUsage;
   }
   // a sliding puzzle's -d is the slide search (burrTxt2 refused it, its grid
   // having no take-apart; the solve thread it ran solved it)
-  if (o.disassemble && !bt::Disassembler::canDisassemble(puzzle) &&
-      !bt::sliding::isSliding(puzzle)) {
+  if (o.disassemble && !sl::Disassembler::canDisassemble(puzzle) &&
+      !sl::sliding::isSliding(puzzle)) {
     if (puzzle.tray()) {
       // a Tilted Square puzzle: the session would refuse it (as the app's
       // Solver stays on Assemble Only)
       std::printf("%s\ndrop -d to just assemble the puzzle\n",
-                  bt::Disassembler::kNoTakeApartOnTray);
+                  sl::Disassembler::kNoTakeApartOnTray);
     } else {
       std::printf(
           "Sorry, this space grid doesn't have a disassembler (yet)\n"
@@ -1276,7 +1276,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
     puzzle.getShape(i).initHotspot();
   }
 
-  bt::SolveOptions so;  // reduce, sorted by moves: burrTxt2's
+  sl::SolveOptions so;  // reduce, sorted by moves: burrTxt2's
   so.solver = o.solver;
   so.matrix.keepMirrors = o.keepMirrors;
   so.matrix.keepRotations = o.keepRotations;
@@ -1286,7 +1286,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
   so.checkRotations = o.rotations;
   so.justCount = o.countOnly;
   so.dropDisassemblies = o.dropDisassemblies;
-  so.solutionLimit = o.solutionLimit.value_or(bt::cli::kDefaultSolutionLimit);
+  so.solutionLimit = o.solutionLimit.value_or(sl::cli::kDefaultSolutionLimit);
   so.threads = o.threads;
   setSearchSwitches(o, so.search);
   so.takeApart = takeApartOptions(o, nullptr);
@@ -1295,14 +1295,14 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
   int exitCode = kExitOk;
   const ProblemRange range = problemRange(o, puzzle);
   for (unsigned int pr = range.first; pr < range.last; pr++) {
-    bt::Problem& problem = puzzle.getProblem(pr);
+    sl::Problem& problem = puzzle.getProblem(pr);
     if (o.restart) {
       problem.removeAllSolutions();
     }
     // without --restart a solve carries on where an earlier one paused
-    if (!bt::canStartSolving(problem)) {
+    if (!sl::canStartSolving(problem)) {
       std::printf("problem %u (%s) ", pr, problem.getName().c_str());
-      if (problem.getSolveState() == bt::ProblemState::Solved) {
+      if (problem.getSolveState() == sl::ProblemState::Solved) {
         std::printf("is already solved: %llu assemblies, %llu solutions\n",
                     static_cast<unsigned long long>(problem.getNumAssemblies()),
                     static_cast<unsigned long long>(problem.getNumSolutions()));
@@ -1314,15 +1314,15 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
     }
 
     // what the app refuses before a solve, in its words
-    if (const bt::Result<void> refused = bt::app::solveRefusal(puzzle, problem); !refused) {
+    if (const sl::Result<void> refused = sl::app::solveRefusal(puzzle, problem); !refused) {
       std::printf("Could not start Solver\n");
       std::fprintf(stderr, "shapelogic_cli: %s\n", refused.error().message.c_str());
       exitCode = kExitError;
       continue;
     }
-    so.flipPieces = o.flip.value_or(bt::storedFlipPieces(problem));
-    bt::SolveSession session(puzzle, problem, so);
-    if (const bt::Result<void> r = session.resume(); !r) {
+    so.flipPieces = o.flip.value_or(sl::storedFlipPieces(problem));
+    sl::SolveSession session(puzzle, problem, so);
+    if (const sl::Result<void> r = session.resume(); !r) {
       std::printf("Could not start Solver\n");
       std::fprintf(stderr, "shapelogic_cli: %s\n", r.error().message.c_str());
       exitCode = kExitError;
@@ -1331,18 +1331,18 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
     {
       // what the GUI's Solver tab shows, a line a second
       ProgressTicker ticker(o.progress, [&session] {
-        const bt::SolveProgress pg = session.progress();
-        if (!bt::isActive(session.state())) {
+        const sl::SolveProgress pg = session.progress();
+        if (!sl::isActive(session.state())) {
           return;
         }
         std::fprintf(stderr, "%7.1f s  %5.1f%%  %s", static_cast<double>(pg.elapsedMs) / 1000.0,
                      100.0 * static_cast<double>(pg.overall), pg.activity().c_str());
-        if (pg.stage == bt::SolveStage::Prepare) {
+        if (pg.stage == sl::SolveStage::Prepare) {
           std::fprintf(stderr, "  [%llu placements]",
                        static_cast<unsigned long long>(pg.prepare.placements));
         }
-        if (pg.stage == bt::SolveStage::Reduce) {
-          const bt::PrepareProgress& r = pg.prepare;
+        if (pg.stage == sl::SolveStage::Reduce) {
+          const sl::PrepareProgress& r = pg.prepare;
           std::fprintf(stderr, "  [%s %u: %llu/%llu, %llu removed, %llu left]",
                        r.pass == 0 ? "sweep" : "pass", r.pass,
                        static_cast<unsigned long long>(r.done),
@@ -1350,7 +1350,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
                        static_cast<unsigned long long>(r.removed),
                        static_cast<unsigned long long>(r.placements));
         }
-        if (pg.stage == bt::SolveStage::Assemble) {
+        if (pg.stage == sl::SolveStage::Assemble) {
           std::fprintf(stderr, "  [assembly %.1f%%, %llu found]",
                        100.0 * static_cast<double>(pg.assemblyFraction),
                        static_cast<unsigned long long>(pg.assemblies));
@@ -1363,7 +1363,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
       session.wait();
     }
 
-    if (session.state() == bt::SolveState::Error) {
+    if (session.state() == sl::SolveState::Error) {
       std::printf("error in solver\n");
       if (const auto f = session.failure()) {
         std::fprintf(stderr, "shapelogic_cli: %s\n", f->message.c_str());
@@ -1373,7 +1373,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
       }
       exitCode = kExitError;
     } else if (!o.quiet) {
-      session.readProblem([pr](const bt::Problem& p) {
+      session.readProblem([pr](const sl::Problem& p) {
         if (p.numAssembliesKnown() && p.numSolutionsKnown() && p.usedTimeKnown()) {
           std::printf("problem %u: %llu assemblies and %llu solutions found in %.3f seconds\n",
                       pr, static_cast<unsigned long long>(p.getNumAssemblies()),
@@ -1384,7 +1384,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
     }
   }
 
-  if (const bt::Result<void> saved = bt::io::savePuzzle(puzzle, o.saveTo); !saved) {
+  if (const sl::Result<void> saved = sl::io::savePuzzle(puzzle, o.saveTo); !saved) {
     std::fprintf(stderr, "shapelogic_cli: %s\n", saved.error().message.c_str());
     return kExitUsage;
   }
@@ -1394,7 +1394,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
 // Everything main does: the arguments, the puzzle file, the mode they ask for.
 int run(int argc, char** argv) {
   Options o;
-  if (const std::optional<int> code = bt::cli::parseArgs(argc, argv, o)) {
+  if (const std::optional<int> code = sl::cli::parseArgs(argc, argv, o)) {
     return *code;
   }
   if (const std::string err = diskEnvironmentError(); !err.empty()) {
@@ -1402,11 +1402,11 @@ int run(int argc, char** argv) {
     return kExitUsage;
   }
   // a slide search reads many level files at once
-  (void)bt::raiseOpenFileLimit(4096);
+  (void)sl::raiseOpenFileLimit(4096);
 
-  bt::Result<bt::Puzzle> loaded = bt::io::loadPuzzle(o.file);
+  sl::Result<sl::Puzzle> loaded = sl::io::loadPuzzle(o.file);
   if (!loaded) {
-    if (loaded.error().code == bt::Errc::IoError) {
+    if (loaded.error().code == sl::Errc::IoError) {
       std::printf("could not open input file \"%s\"\n", o.file);
     } else {
       std::fprintf(stderr, "shapelogic_cli: could not read \"%s\": %s\n", o.file,
@@ -1414,7 +1414,7 @@ int run(int argc, char** argv) {
     }
     return kExitUsage;
   }
-  bt::Puzzle& puzzle = *loaded;
+  sl::Puzzle& puzzle = *loaded;
 
   const PuzzleKind kind = puzzleKind(puzzle);
   if ((o.verticalMoves || o.anyOrientation || o.optimizedPaths || o.slideGrid > 1) &&

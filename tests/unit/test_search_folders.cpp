@@ -41,7 +41,7 @@ class SearchFolders : public Catch::EventListenerBase {
   void testRunEnded(const Catch::TestRunStats& /*stats*/) override { root_.reset(); }
 
  private:
-  std::optional<bt::test::ScratchDir> root_;
+  std::optional<sl::test::ScratchDir> root_;
 };
 
 }  // namespace
@@ -53,15 +53,15 @@ CATCH_REGISTER_LISTENER(SearchFolders)
 TEST_CASE("search folders: the variable, an empty one as none, then the cache folder",
           "[base]") {
   const std::string cache = (std::filesystem::path("cache") / "sliding").string();
-  CHECK(bt::defaultSearchFolder("/given", "cache", "sliding") == "/given");
-  CHECK(bt::defaultSearchFolder("", "cache", "sliding") == cache);
-  CHECK(bt::defaultSearchFolder(nullptr, "cache", "sliding") == cache);
-  CHECK(bt::defaultSearchFolder("", "", "panex").empty());
-  CHECK(bt::defaultSearchFolder(nullptr, "", "panex").empty());
+  CHECK(sl::defaultSearchFolder("/given", "cache", "sliding") == "/given");
+  CHECK(sl::defaultSearchFolder("", "cache", "sliding") == cache);
+  CHECK(sl::defaultSearchFolder(nullptr, "cache", "sliding") == cache);
+  CHECK(sl::defaultSearchFolder("", "", "panex").empty());
+  CHECK(sl::defaultSearchFolder(nullptr, "", "panex").empty());
   // the disk budgets, as burrTxt read them
-  CHECK(bt::diskBudgetFromText(nullptr) == 0);
-  CHECK(bt::diskBudgetFromText("") == 0);
-  CHECK(bt::diskBudgetFromText("2.5") == 2500000000ULL);
-  CHECK(bt::diskBudgetFromText("-1") == 0);
-  CHECK(bt::diskBudgetFromText("nan") == 0);
+  CHECK(sl::diskBudgetFromText(nullptr) == 0);
+  CHECK(sl::diskBudgetFromText("") == 0);
+  CHECK(sl::diskBudgetFromText("2.5") == 2500000000ULL);
+  CHECK(sl::diskBudgetFromText("-1") == 0);
+  CHECK(sl::diskBudgetFromText("nan") == 0);
 }

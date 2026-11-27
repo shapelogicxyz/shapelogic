@@ -29,10 +29,10 @@
 #include <utility>
 #include <vector>
 
-namespace bt::test {
+namespace sl::test {
 
 // The helpers are written in the slide search's names, as the cases are.
-using namespace bt::sliding;
+using namespace sl::sliding;
 
 inline constexpr int kFilled = Voxel::kFilled;
 
@@ -476,4 +476,4 @@ inline SlideSearch nestedSearch(int grid) {
   return s;
 }
 
-}  // namespace bt::test
+}  // namespace sl::test

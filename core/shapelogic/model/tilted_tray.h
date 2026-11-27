@@ -24,7 +24,7 @@
 #include <optional>
 #include <vector>
 
-namespace bt::tilted {
+namespace sl::tilted {
 
 /// The settings of a tilted tray. A plain value.
 struct Tray {
@@ -210,4 +210,4 @@ struct Placements {
 [[nodiscard]] Placements placements(const Tray& tray, const StopToken& stop = {},
                                     const PlacementLimits& limits = {});
 
-}  // namespace bt::tilted
+}  // namespace sl::tilted

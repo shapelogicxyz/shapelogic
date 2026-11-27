@@ -19,7 +19,7 @@
 #include <ostream>
 #include <vector>
 
-namespace bt::io::blockpack {
+namespace sl::io::blockpack {
 
 namespace {
 
@@ -332,4 +332,4 @@ bool unpack(std::istream& in, std::uint64_t bytes, const std::filesystem::path& 
   return written == size && left == 0 && static_cast<bool>(out);
 }
 
-}  // namespace bt::io::blockpack
+}  // namespace sl::io::blockpack

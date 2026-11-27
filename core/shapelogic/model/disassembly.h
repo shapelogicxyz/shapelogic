@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// How deep the branches of a disassembly may nest: the root's branch is
 /// the first, and a tree nests once per piece taken off. What walks a tree
@@ -280,4 +280,4 @@ class SeparationInfo final : public Disassembly {
   std::vector<unsigned int> rotValues_;  ///< rotation steps per node, 0 for markers
 };
 
-}  // namespace bt
+}  // namespace sl

@@ -6,7 +6,7 @@
 #include <exception>
 #include <system_error>
 
-namespace bt {
+namespace sl {
 
 unsigned int hardwareThreads() noexcept {
   const unsigned int hw = std::thread::hardware_concurrency();
@@ -166,4 +166,4 @@ unsigned int ThreadPool::run(unsigned int maxThreads,
   return k + 1;
 }
 
-}  // namespace bt
+}  // namespace sl

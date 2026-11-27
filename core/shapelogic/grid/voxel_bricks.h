@@ -6,7 +6,7 @@
 
 #include "shapelogic/grid/voxel.h"
 
-namespace bt {
+namespace sl {
 
 /// Voxel space of cubes. The rhombic and tetra-octa grids derive from it:
 /// they lay a coarser super-grid over cubes and reuse its transformations.
@@ -31,4 +31,4 @@ class VoxelBricks : public Voxel {
   [[nodiscard]] bool onGrid(int x, int y, int z) const override;
 };
 
-}  // namespace bt
+}  // namespace sl

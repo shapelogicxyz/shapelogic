@@ -7,7 +7,7 @@
 
 #include <exception>
 
-namespace bt::app {
+namespace sl::app {
 
 BackgroundJob::~BackgroundJob() {
   SL_ASSERT_MSG(!thread_.joinable(), "a job's destructor must finish() its thread");
@@ -41,4 +41,4 @@ void BackgroundJob::finish() {
   wait();
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

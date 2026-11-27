@@ -12,7 +12,7 @@
 
 #include <string>
 
-namespace bt::app {
+namespace sl::app {
 
 Result<void> solveRefusal(const Puzzle& puzzle, const Problem& problem) {
   if (!sliding::isSliding(puzzle)) {
@@ -51,4 +51,4 @@ void prepareShapesForSolving(Puzzle& puzzle) {
   }
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

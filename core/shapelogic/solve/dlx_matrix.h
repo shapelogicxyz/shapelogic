@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class GridType;
 class Problem;
@@ -219,4 +219,4 @@ class DlxMatrix {
   bool checkmatrix();
 };
 
-}  // namespace bt
+}  // namespace sl

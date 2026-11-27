@@ -20,11 +20,11 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Puzzle;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::app {
+namespace sl::app {
 
 /// One board of a fit and what was found on it.
 struct BoardFit {
@@ -93,4 +93,4 @@ class PlacementFit final : public BackgroundJob {
   SolveSession* session_ = nullptr;
 };
 
-}  // namespace bt::app
+}  // namespace sl::app

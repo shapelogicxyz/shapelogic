@@ -32,7 +32,7 @@
 #include <unordered_map>
 #include <utility>
 
-namespace bt::app {
+namespace sl::app {
 
 // ---- construction and files ---------------------------------------------------------
 
@@ -130,7 +130,7 @@ Result<Document> Document::convertGrid(GridKind target) const {
   if (Result<void> r = checkNotSolving(); !r) {
     return std::unexpected(r.error());
   }
-  Result<Puzzle> p = bt::convertGrid(*puzzle_, target);
+  Result<Puzzle> p = sl::convertGrid(*puzzle_, target);
   if (!p) {
     return std::unexpected(p.error());
   }
@@ -1542,4 +1542,4 @@ Result<MovementExplorer> Document::exploreMovements(Id problem, Id solution,
   });
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

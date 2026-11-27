@@ -24,7 +24,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt::engine {
+namespace sl::engine {
 
 /// Whether the log takes a line of this level (Settings::log: Debug's
 /// only in a debug log).
@@ -55,4 +55,4 @@ void logCall(State& s, std::string_view method, const Json& params, const Reply&
 /// Writable is tried with a small file made and removed at once.
 [[nodiscard]] std::string folderText(const std::string& folder);
 
-}  // namespace bt::engine
+}  // namespace sl::engine

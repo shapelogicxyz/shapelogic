@@ -26,9 +26,9 @@
 #include <utility>
 #include <vector>
 
-using namespace bt;
-using namespace bt::stacking;
-using bt::test::addSized;
+using namespace sl;
+using namespace sl::stacking;
+using sl::test::addSized;
 
 namespace {
 

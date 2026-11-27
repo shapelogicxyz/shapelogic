@@ -19,7 +19,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 namespace {
 
@@ -772,4 +772,4 @@ std::string Disassembler::tooDeepMessage() {
          "again. Solve without disassembly to find the assemblies.";
 }
 
-}  // namespace bt
+}  // namespace sl

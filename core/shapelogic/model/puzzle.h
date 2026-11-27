@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// An RGB color.
 struct Rgb {
@@ -192,4 +192,4 @@ class Puzzle {
   PreservedXml preserved_;
 };
 
-}  // namespace bt
+}  // namespace sl

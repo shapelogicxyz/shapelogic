@@ -12,7 +12,7 @@
 
 #include <memory>
 
-namespace bt {
+namespace sl {
 
 class Problem;
 class Puzzle;
@@ -68,4 +68,4 @@ struct RotationFilter {
   }
 };
 
-}  // namespace bt
+}  // namespace sl

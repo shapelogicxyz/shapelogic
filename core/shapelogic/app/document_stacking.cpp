@@ -29,7 +29,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::app {
+namespace sl::app {
 
 namespace {
 
@@ -620,4 +620,4 @@ Result<unsigned int> StackingEdits::moveDisc(Id problem, bool goal, unsigned int
   return static_cast<unsigned int>(next);
 }
 
-}  // namespace bt::app
+}  // namespace sl::app

@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt {
+namespace sl {
 
 /// One picture. Never changed once added: shapes refer to it by `id`, and
 /// undo steps and copies of the puzzle share its bytes.
@@ -45,4 +45,4 @@ inline constexpr unsigned int kMaxImageSide = 8192;
 /// cache of decoded pictures.
 [[nodiscard]] std::string imageHash(std::string_view bytes);
 
-}  // namespace bt
+}  // namespace sl

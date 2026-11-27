@@ -5,7 +5,7 @@
 
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 Solution::Solution(Assembly assm, std::uint64_t assmNum)
     : assembly_(std::move(assm)), assemblyNum_(assmNum), solutionNum_(0) {}
@@ -82,4 +82,4 @@ void Solution::addNonPlacedPieces(unsigned int start, unsigned int count) {
   }
 }
 
-}  // namespace bt
+}  // namespace sl

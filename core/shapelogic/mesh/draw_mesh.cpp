@@ -10,7 +10,7 @@
 #include <cmath>
 #include <map>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 DrawMesh toDrawMesh(const Polyhedron& poly, bool edgeLines) {
   DrawMesh m;
@@ -142,4 +142,4 @@ DrawMesh shapeDrawMesh(const Voxel& v, MeshStyle style) {
   return m;
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

@@ -27,12 +27,12 @@
 #include <set>
 #include <string>
 
-using namespace bt;
-using namespace bt::app;
+using namespace sl;
+using namespace sl::app;
 using test::openFixture;
 using test::refused;
 using test::roundTrip;
-using bt::test::ScratchDir;
+using sl::test::ScratchDir;
 
 namespace {
 

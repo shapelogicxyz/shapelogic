@@ -20,7 +20,7 @@
 #include <cstring>
 #include <string>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -309,4 +309,4 @@ std::vector<std::uint8_t> stlFile(const Polyhedron& mesh, std::string_view title
   return out;
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

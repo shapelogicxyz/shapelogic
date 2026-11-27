@@ -32,7 +32,7 @@
 #include <string_view>
 #include <unordered_set>
 
-namespace bt::io {
+namespace sl::io {
 
 namespace {
 
@@ -757,4 +757,4 @@ void XmlPullParser::skipSubTree() {
   }
 }
 
-}  // namespace bt::io
+}  // namespace sl::io

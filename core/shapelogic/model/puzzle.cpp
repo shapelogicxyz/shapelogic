@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <utility>
 
-namespace bt {
+namespace sl {
 
 Puzzle::Puzzle(GridType gt) : gt_(gt) {
   if (gt_.getType() == GridKind::Stacking) {
@@ -234,4 +234,4 @@ void Puzzle::exchangeProblems(unsigned int p1, unsigned int p2) {
   std::swap(problems_[p1], problems_[p2]);
 }
 
-}  // namespace bt
+}  // namespace sl

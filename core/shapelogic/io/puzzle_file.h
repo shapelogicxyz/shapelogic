@@ -18,7 +18,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt::io {
+namespace sl::io {
 
 /// A puzzle from its <puzzle> element. Errors are ParseError, with the line
 /// of the offending element. A file is untrusted: no reader here throws,
@@ -40,4 +40,4 @@ namespace bt::io {
 /// Saves the puzzle gzip-compressed, as the original does.
 [[nodiscard]] Result<void> savePuzzle(const Puzzle& puzzle, const std::filesystem::path& path);
 
-}  // namespace bt::io
+}  // namespace sl::io

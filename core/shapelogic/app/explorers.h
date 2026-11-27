@@ -26,14 +26,14 @@
 #include <string>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class MovementAnalysator;
 class MovementCache;
 class Puzzle;
 class NodeRef;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::app {
+namespace sl::app {
 
 /// A placement of a piece: its orientation and position.
 struct PiecePlacement {
@@ -214,4 +214,4 @@ class MovementExplorer {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace bt::app
+}  // namespace sl::app

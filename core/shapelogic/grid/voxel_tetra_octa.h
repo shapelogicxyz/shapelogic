@@ -6,7 +6,7 @@
 
 #include "shapelogic/grid/voxel_bricks.h"
 
-namespace bt {
+namespace sl {
 
 /// Voxel space of the tetrahedra-octahedra grid, emulated on cubes. A
 /// regular tetrahedron inscribed in a cube leaves four small irregular
@@ -37,4 +37,4 @@ class VoxelTetraOcta : public VoxelBricks {
   [[nodiscard]] bool onGrid(int x, int y, int z) const override;
 };
 
-}  // namespace bt
+}  // namespace sl

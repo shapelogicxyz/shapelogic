@@ -5,7 +5,7 @@
 
 #include "shapelogic/base/int_cast.h"
 
-namespace bt {
+namespace sl {
 
 // All this grid needs is a size that is a multiple of 6; then the cube
 // transformation does the rest.
@@ -377,4 +377,4 @@ bool VoxelTetraOcta::onGrid(int x, int y, int z) const {
   return x % 3 == 0 && y % 3 == 0 && z % 3 == 0 && ((x / 3 + y / 3 + z / 3) & 1) == 0;
 }
 
-}  // namespace bt
+}  // namespace sl

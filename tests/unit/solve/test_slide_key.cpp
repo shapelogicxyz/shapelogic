@@ -15,8 +15,8 @@
 #include <type_traits>
 #include <vector>
 
-using namespace bt::sliding;
-using bt::test::ScratchDir;
+using namespace sl::sliding;
+using sl::test::ScratchDir;
 
 namespace {
 

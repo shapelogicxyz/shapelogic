@@ -7,7 +7,7 @@
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/solve/movement_cache.h"
 
-namespace bt {
+namespace sl {
 
 RotationMovesCrowell::RotationMovesCrowell(const Puzzle& puzzle, MovementCache& cache)
     : cache_(cache), sym_(puzzle.getGridType().getSymmetries()) {}
@@ -284,4 +284,4 @@ NodeRef RotationMovesCrowell::find() {
   return nullptr;
 }
 
-}  // namespace bt
+}  // namespace sl

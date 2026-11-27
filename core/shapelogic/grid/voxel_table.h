@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class Voxel;
 
@@ -58,4 +58,4 @@ class VoxelTable {
   std::unordered_map<std::uint64_t, std::vector<Entry>> hashTable_;
 };
 
-}  // namespace bt
+}  // namespace sl

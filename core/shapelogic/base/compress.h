@@ -11,7 +11,7 @@
 #include <memory>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 /// The levels a BlockCompressor takes: 1 (fastest) to 19 (smallest).
 inline constexpr int kMinCompression = 1;
@@ -56,4 +56,4 @@ class BlockDecompressor {
   std::unique_ptr<State> state_;
 };
 
-}  // namespace bt
+}  // namespace sl

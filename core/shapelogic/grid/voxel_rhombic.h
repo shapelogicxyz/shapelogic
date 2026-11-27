@@ -6,7 +6,7 @@
 
 #include "shapelogic/grid/voxel_bricks.h"
 
-namespace bt {
+namespace sl {
 
 /// Voxel space of the rhombic grid, emulated on cubes. Cutting a cube along
 /// its six diagonal planes gives 24 identical small tetrahedra, the cells of
@@ -36,4 +36,4 @@ class VoxelRhombic : public VoxelBricks {
   [[nodiscard]] bool onGrid(int x, int y, int z) const override;
 };
 
-}  // namespace bt
+}  // namespace sl

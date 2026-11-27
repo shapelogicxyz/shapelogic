@@ -19,9 +19,9 @@
 #include <string>
 #include <vector>
 
-using namespace bt;
-using bt::test::fromLayers;
-using bt::test::loadFixture;
+using namespace sl;
+using sl::test::fromLayers;
+using sl::test::loadFixture;
 
 namespace {
 
@@ -156,7 +156,7 @@ unsigned int firstFailing(unsigned int count, Pred fails) {
 // ---- puzzle ---------------------------------------------------------------------
 
 TEST_CASE("puzzle: construction keeps the grid type", "[model][puzzle]") {
-  for (const GridKind k : bt::test::kAllGrids) {
+  for (const GridKind k : sl::test::kAllGrids) {
     INFO(toString(k));
     const Puzzle p{GridType(k)};
     REQUIRE(p.getGridType().getType() == k);

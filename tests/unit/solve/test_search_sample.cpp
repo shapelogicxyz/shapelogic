@@ -11,7 +11,7 @@
 #include <thread>
 #include <vector>
 
-using namespace bt;
+using namespace sl;
 
 TEST_CASE("search sample: a request is claimed once and its picture taken once", "[solve]") {
   SearchSample s;

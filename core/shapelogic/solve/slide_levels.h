@@ -62,7 +62,7 @@
 #include <unistd.h>
 #endif
 
-namespace bt::sliding::levels {
+namespace sl::sliding::levels {
 
 /// Keys a block holds at most: few enough that one key looked up decodes
 /// little, many enough that the index is small beside the keys.
@@ -1121,4 +1121,4 @@ class KeySet {
   Key last_ = 0;
 };
 
-}  // namespace bt::sliding::levels
+}  // namespace sl::sliding::levels

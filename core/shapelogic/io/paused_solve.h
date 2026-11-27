@@ -25,7 +25,7 @@
 #include <string>
 #include <string_view>
 
-namespace bt::io {
+namespace sl::io {
 
 /// What a .slsolve file holds.
 struct PausedSolve {
@@ -83,4 +83,4 @@ using SavedSearchFolder =
                                                   const SavedSearchFolder& searchFolder = {},
                                                   unsigned int threads = 0);
 
-}  // namespace bt::io
+}  // namespace sl::io

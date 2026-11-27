@@ -21,7 +21,7 @@
 #include <unistd.h>
 #endif
 
-namespace bt::test {
+namespace sl::test {
 
 /// A folder of this test's own in the temp folder, made empty on
 /// construction and removed (with what it holds) in the destructor.
@@ -65,4 +65,4 @@ class ScratchDir {
   std::filesystem::path path_;
 };
 
-}  // namespace bt::test
+}  // namespace sl::test

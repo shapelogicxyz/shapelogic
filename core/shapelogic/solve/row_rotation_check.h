@@ -27,7 +27,7 @@
 #include <span>
 #include <vector>
 
-namespace bt {
+namespace sl {
 
 class Problem;
 class Puzzle;
@@ -129,4 +129,4 @@ class RowRotationCheck {
   std::unique_ptr<std::atomic<std::uint64_t>[]> images_;
 };
 
-}  // namespace bt
+}  // namespace sl

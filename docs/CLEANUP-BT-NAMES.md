@@ -267,17 +267,24 @@ CMake files that pass `BT_VERSION_STRING`, the live docs.
 
 Scope: every C++ file, the Python bindings, the live docs.
 
-- [ ] Rename the local variables called `sl` in
+- [x] Rename the local variables called `sl` in
       `tests/unit/model/test_tilted_tray.cpp` and
       `tests/unit/app/test_tools_queries.cpp` first.
-- [ ] Rename `namespace bt` and its nested namespaces, `bt::` and
+- [x] Rename `namespace bt` and its nested namespaces, `bt::` and
       `using namespace bt`: `rename.py 2 .`. Its two rows (`bt::`,
       `namespace bt`) also catch `namespace bt::engine {`, `::bt::` and
       the closing comments (`}  // namespace bt`); the scan found no other
       form.
-- [ ] Test: as step 1, plus `just site-demo` (the WASM build compiles the
+- [x] Test: as step 1, plus `just site-demo` (the WASM build compiles the
       engine too) and the contract tests within `just test`.
-- [ ] Commit: "Rename the C++ namespace bt to sl".
+- [x] Commit: "Rename the C++ namespace bt to sl".
+- Done (2026-11-27): the locals became `slider` and `slope`; no other `sl`
+  identifier or macro was in the C++. 1,262 replacements in 398 files
+  (`bt::` 471, `namespace bt` 791), as the map counts; only the dated docs
+  and this plan keep the old namespace. "a `sl::StopToken`" became "an" in
+  AGENTS.md and the site's conventions page. Dev and release built without
+  a warning, `just test` 31 of 31, `just python-test` 43, `just check`
+  clean (226 files), `just site-build` 8 of 8; the demo rebuilt.
 
 ### Step 3: CMake targets, functions and options (Opus 5.5 High)
 

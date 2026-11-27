@@ -31,7 +31,7 @@
 #pragma GCC diagnostic ignored "-Wfloat-conversion"
 #endif
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 namespace {
 
@@ -1208,4 +1208,4 @@ void connectionFaceSpheres(int x, int y, int z, int n, std::vector<float>& faceC
 
 }  // namespace detail
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

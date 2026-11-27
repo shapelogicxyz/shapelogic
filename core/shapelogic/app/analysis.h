@@ -26,13 +26,13 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
+namespace sl {
 class Problem;
 class Puzzle;
 class ThreadPool;
-}  // namespace bt
+}  // namespace sl
 
-namespace bt::app {
+namespace sl::app {
 
 /// Which saved solutions an analysis takes apart.
 enum class AnalyseWhich : std::uint8_t {
@@ -104,4 +104,4 @@ class Analysis final : public BackgroundJob {
   std::vector<std::pair<std::uint64_t, Separation>> results_;
 };
 
-}  // namespace bt::app
+}  // namespace sl::app

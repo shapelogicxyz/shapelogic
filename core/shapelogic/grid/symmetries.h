@@ -15,7 +15,7 @@
 
 #include "shapelogic/grid/types.h"
 
-namespace bt {
+namespace sl {
 
 class Voxel;
 
@@ -77,4 +77,4 @@ class Symmetries {
   [[nodiscard]] virtual bool symmetryKnown(const Voxel& v) const = 0;
 };
 
-}  // namespace bt
+}  // namespace sl

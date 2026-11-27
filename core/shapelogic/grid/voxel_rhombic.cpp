@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-namespace bt {
+namespace sl {
 
 bool VoxelRhombic::transform(unsigned int nr) {
   // first make all three sizes a multiple of 5
@@ -553,4 +553,4 @@ bool VoxelRhombic::onGrid(int x, int y, int z) const {
   return x % 5 == 0 && y % 5 == 0 && z % 5 == 0;
 }
 
-}  // namespace bt
+}  // namespace sl

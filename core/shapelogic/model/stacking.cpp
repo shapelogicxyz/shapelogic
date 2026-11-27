@@ -30,7 +30,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::stacking {
+namespace sl::stacking {
 
 namespace {
 
@@ -1274,4 +1274,4 @@ StackMap positionMap(const Puzzle& puzzle, const Problem& problem, const Stackin
   return map;
 }
 
-}  // namespace bt::stacking
+}  // namespace sl::stacking

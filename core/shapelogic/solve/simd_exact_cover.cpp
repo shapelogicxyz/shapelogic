@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace bt {
+namespace sl {
 
 template <typename BitsetType>
 SimdExactCover<BitsetType>::SimdExactCover(unsigned int cols, unsigned int pieces,
@@ -640,4 +640,4 @@ std::unique_ptr<SimdExactCoverBase> makeSimdExactCover(unsigned int numColumns,
   return std::make_unique<SimdExactCover32768>(numColumns, numPieces, kernels);
 }
 
-}  // namespace bt
+}  // namespace sl

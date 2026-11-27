@@ -3,7 +3,7 @@
 #include "convert.h"
 #include "engine.h"
 
-namespace bt::engine {
+namespace sl::engine {
 
 namespace {
 
@@ -57,4 +57,4 @@ void addColorMethods(MethodTable& t) {
   t["color.delete"] = colorDelete;
 }
 
-}  // namespace bt::engine
+}  // namespace sl::engine

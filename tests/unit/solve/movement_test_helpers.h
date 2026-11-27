@@ -39,7 +39,7 @@
 #include <utility>
 #include <vector>
 
-namespace bt::test {
+namespace sl::test {
 
 using Cells = std::vector<mesh::CellAt>;
 using Step = std::array<int, 3>;
@@ -844,4 +844,4 @@ inline unsigned int addShapeOf(Puzzle& puzzle, int sx, int sy, int sz, const Cel
   return id;
 }
 
-}  // namespace bt::test
+}  // namespace sl::test

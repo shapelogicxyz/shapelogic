@@ -13,7 +13,7 @@
 
 #include <cmath>
 
-namespace bt::mesh {
+namespace sl::mesh {
 
 void connectionFace(const Voxel& v, int x, int y, int z, int n, double bevel, double offset,
                     std::vector<float>& corners) {
@@ -178,4 +178,4 @@ SpaceRule spaceRule(GridKind kind) {
   return {};
 }
 
-}  // namespace bt::mesh
+}  // namespace sl::mesh

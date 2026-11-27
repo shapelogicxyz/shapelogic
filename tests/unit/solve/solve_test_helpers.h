@@ -26,7 +26,7 @@
 #include <thread>
 #include <vector>
 
-namespace bt::test {
+namespace sl::test {
 
 using Fingerprints = std::multiset<std::string>;
 
@@ -364,4 +364,4 @@ inline Puzzle blocksInTray(int state) {
   return puz;
 }
 
-}  // namespace bt::test
+}  // namespace sl::test
