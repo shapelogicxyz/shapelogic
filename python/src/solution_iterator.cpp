@@ -289,6 +289,11 @@ void SolutionIterator::runAssembler(Problem& problem) {
 
         if (disassembler) {
           const TakeApartResult r = disassembler->disassemble(a, stop);
+          if (r.tooDeep) {
+            // raised in Python, as the errors of the matrix are
+            pushItem(QueueItem{QueueItem::Type::Error, {}, Disassembler::tooDeepMessage()});
+            return false;
+          }
           if (!r.separation) {
             return !stopRequested_.load(std::memory_order_relaxed);
           }

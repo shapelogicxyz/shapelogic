@@ -233,7 +233,11 @@ it all).
   time used.
 - **Step-by-step explorer** (advanced): **Placements** browses the assembly
   search tree, **Movements** browses the disassembly search, **Step**
-  advances the assembler one step.
+  advances the assembler one step. Placements and Step prepare an
+  assembler of their own; on a problem where that takes a while the
+  drawer says how far it is (the placements found, the optimize pass)
+  with a **Cancel** button, and the rest of the app goes on working
+  meanwhile.
 
 ### Right card
 - **Solutions** as a **List** (sortable columns: original search order,

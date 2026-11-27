@@ -119,8 +119,8 @@ struct SolveOptions {
   /// The assembly search's switches: vectorSearch, kernels,
   /// vectorMemoryBudget. Its threads and pool are the session's.
   SearchOptions search;
-  /// The take-apart's switches: levelThreads, levelThreadCostUs, analysis.
-  /// Its rotations, solver and pool come from the fields above.
+  /// The take-apart's switches: levelThreads, levelThreadCostUs, analysis,
+  /// maxDepth. Its rotations, solver and pool come from the fields above.
   DisassemblerOptions takeApart;
   /// A sliding puzzle's search: nested slides, high memory, where the
   /// search keeps its levels. A sliding run always keeps

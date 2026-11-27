@@ -842,10 +842,16 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     // the saved search could not be read back, and stays as it is
     bool slideUnread = false;
     std::atomic<unsigned long> seenAssemblies{0};
+    // a take-apart gave up at the depth a disassembly may have: no count of
+    // solutions is true then, so the run ends in that error
+    std::atomic<bool> tooDeep{false};
 
     // What a take-apart found: counted and printed. From one thread at a
     // time, in the order the assemblies were found (the pool sees to that).
     const auto takenApart = [&](const bt::Assembly& assembly, const bt::TakeApartResult& r) {
+      if (r.tooDeep) {
+        tooDeep.store(true, std::memory_order_relaxed);
+      }
       if (!r.separation) {
         return;
       }
@@ -977,7 +983,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
           } else if (o.printAssembly && !o.disassemble) {
             bt::cli::printAssembly(stdout, puzzle, problem, assembly);
           }
-          return true;
+          return !tooDeep.load(std::memory_order_relaxed);
         },
         search, bt::StopToken{});
     if (takeAparts) {
@@ -985,6 +991,10 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       takeAparts->finish();
     }
     ticker.stop();
+    if (tooDeep.load()) {
+      std::fprintf(stderr, "shapelogic_cli: %s\n", bt::Disassembler::tooDeepMessage().c_str());
+      return kExitError;
+    }
     if (end != bt::RunEnd::Finished && !slideSaved) {
       std::fprintf(stderr, "shapelogic_cli: the search stopped before its end\n");
       return kExitError;
@@ -1142,6 +1152,10 @@ int retakeMode(const Options& o, bt::Puzzle& puzzle) {
     for (unsigned int sol = 0; sol < problem.getNumberOfSavedSolutions(); sol++) {
       const bt::Assembly& assembly = problem.getSavedSolution(sol).getAssembly();
       const bt::TakeApartResult r = disassembler.disassemble(assembly);
+      if (r.tooDeep) {
+        std::fprintf(stderr, "shapelogic_cli: %s\n", bt::Disassembler::tooDeepMessage().c_str());
+        return kExitError;
+      }
       if (!r.separation) {
         continue;
       }

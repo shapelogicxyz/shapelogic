@@ -64,6 +64,8 @@ Disassembler::Disassembler(const Puzzle& puzzle, const Problem& problem,
   if (!options_.levelThreads) {
     options_.pool = nullptr;
   }
+  BT_ASSERT_MSG(options_.maxDepth <= kMaxSeparationDepth,
+                "a take-apart may not make a tree deeper than a file may hold");
 
   // the level threads read the shapes (through their movement caches)
   warmShapeCaches(puzzle, problem);
@@ -225,18 +227,12 @@ void Disassembler::expandNode(MovementAnalysator& an, DisassemblerNode* node,
 // With a pool the positions of a level are searched on several threads.
 // What they find is put together in the order the search on one thread
 // would have found it, so the result is the same either way.
-std::unique_ptr<Separation> Disassembler::searchLevels(const std::vector<unsigned int>& pieces,
-                                                       const NodeRef& start) {
-  struct Depth {
-    std::atomic<unsigned int>& d;
-    explicit Depth(std::atomic<unsigned int>& depth) : d(depth) {
-      d.fetch_add(1, std::memory_order_relaxed);
-    }
-    ~Depth() { d.fetch_sub(1, std::memory_order_relaxed); }
-    Depth(const Depth&) = delete;
-    Depth& operator=(const Depth&) = delete;
-  } depth(progDepth_);
-
+//
+// What comes back is the position that separates the puzzle, which holds
+// the way to it (each position its comefrom). The fronts go when the search
+// returns: the parts are taken apart after it, not inside it (takeApart).
+NodeRef Disassembler::searchLevels(const std::vector<unsigned int>& pieces,
+                                   const NodeRef& start) {
   progSearchPieces_.store(static_cast<unsigned int>(pieces.size()), std::memory_order_relaxed);
 
   NodeHash closed[3];
@@ -286,7 +282,7 @@ std::unique_ptr<Separation> Disassembler::searchLevels(const std::vector<unsigne
 
     while (pos < level.size() && !found) {
       if (aborted()) {
-        return nullptr;
+        return {};
       }
       if (options_.sample != nullptr && options_.sample->claim()) {
         putSample(*level[pos], pieces);
@@ -428,7 +424,7 @@ std::unique_ptr<Separation> Disassembler::searchLevels(const std::vector<unsigne
       analyse_->endFind();
 
       if (aborted()) {
-        return nullptr;
+        return {};
       }
 
       BT_ASSERT(done > 0);
@@ -459,13 +455,8 @@ std::unique_ptr<Separation> Disassembler::searchLevels(const std::vector<unsigne
     levelNo++;
   }
 
-  if (!found) {
-    return nullptr;
-  }
-
-  // a position that separates the puzzle: on into the two parts, which
-  // calls this search again for each
-  return checkSubproblems(found.get(), pieces);
+  // a position that separates the puzzle, or none
+  return found;
 }
 
 // The position as a picture: each piece of the part searched where the
@@ -514,71 +505,48 @@ NodeRef newSubproblemStart(const DisassemblerNode* st, std::vector<unsigned int>
 
 }  // namespace
 
-std::unique_ptr<Separation> Disassembler::checkSubproblem(unsigned int pieceCount,
-                                                          const std::vector<unsigned int>& pieces,
-                                                          const DisassemblerNode* st,
-                                                          bool removed, bool* ok) {
-  std::unique_ptr<Separation> res;
-
-  if (pieceCount == 1) {
-    *ok = true;
-  } else if (subProbGroup(st, pieces, removed) != 0) {
-    *ok = true;
-  } else {
-    std::vector<unsigned int> pn;
-    const NodeRef n = newSubproblemStart(st, pn, pieces, pieceCount, removed);
-    res = searchLevels(pn, n);
-
-    // A stopped search has not shown that the pieces cannot come apart, so
-    // they are not taken for a group either.
-    *ok = res != nullptr || (!aborted() && subProbGrouping(pn));
-  }
-
-  return res;
-}
-
-std::unique_ptr<Separation> Disassembler::checkSubproblems(const DisassemblerNode* st,
-                                                           const std::vector<unsigned int>& pieces) {
-  // A position that separates the puzzle into two parts: take each apart
-  // in turn and build the tree from them.
-  progSeparations_.fetch_add(1, std::memory_order_relaxed);
-
+// One separation found, while its two parts are taken apart: what the
+// original kept in the frames of checkSubproblems and checkSubproblem, one
+// round of recursion for each part taken apart further. A puzzle whose
+// pieces come off one at a time has as many rounds open as pieces, and they
+// are kept in a list on the heap (cleanup item 18.5).
+struct Disassembler::Round {
+  /// The position that separates, with the way to it.
+  NodeRef found;
+  /// The pieces it separates.
+  std::vector<unsigned int> pieces;
   unsigned int staying = 0;
   unsigned int leaving = 0;
-  for (unsigned int i = 0; i < pieces.size(); i++) {
-    if (st->isPieceRemoved(i)) {
-      leaving++;
-    } else {
-      staying++;
-    }
-  }
-
-  // each part has a piece at least
-  BT_ASSERT(staying > 0 && leaving > 0);
-
-  // A part of one piece is through; a part whose pieces are all in one
-  // group may stay together; else take it apart, and when that fails, see
-  // whether its pieces can be given one group. The removed part only when
-  // the staying one is through.
-  bool stayingOk = false;
-  bool leavingOk = false;
-  std::unique_ptr<Separation> stayTree =
-      checkSubproblem(staying, pieces, st, false, &stayingOk);
+  /// The part at work is the removed one; the staying one comes first.
+  bool removedPart = false;
+  /// The parts' trees, as far as they are through (none for a part of one
+  /// piece or a group).
+  std::unique_ptr<Separation> stayTree;
   std::unique_ptr<Separation> removedTree;
-  if (stayingOk) {
-    removedTree = checkSubproblem(leaving, pieces, st, true, &leavingOk);
-  }
+};
 
-  // one part that does not come apart, and the whole does not
-  if (!stayingOk || !leavingOk) {
-    return nullptr;
+bool Disassembler::beginPart(Round& round, bool removed, std::vector<unsigned int>& part,
+                             NodeRef& start) const {
+  round.removedPart = removed;
+  const unsigned int count = removed ? round.leaving : round.staying;
+  // A part of one piece is through; a part whose pieces are all in one
+  // group may stay together; else it is taken apart.
+  if (count == 1 || subProbGroup(round.found.get(), round.pieces, removed) != 0) {
+    return false;
   }
+  part.clear();
+  start = newSubproblemStart(round.found.get(), part, round.pieces, count, removed);
+  return true;
+}
 
-  auto erg = std::make_unique<Separation>(ClonePtr<Separation>(std::move(removedTree)),
-                                          ClonePtr<Separation>(std::move(stayTree)), pieces);
+std::unique_ptr<Separation> Disassembler::separationOf(Round& round) {
+  const std::vector<unsigned int>& pieces = round.pieces;
+  auto erg = std::make_unique<Separation>(ClonePtr<Separation>(std::move(round.removedTree)),
+                                          ClonePtr<Separation>(std::move(round.stayTree)), pieces);
 
   // the states, from the separation back to the start
-  for (const DisassemblerNode* st2 = st; st2 != nullptr; st2 = st2->getComefrom()) {
+  for (const DisassemblerNode* st2 = round.found.get(); st2 != nullptr;
+       st2 = st2->getComefrom()) {
     State s(static_cast<unsigned int>(pieces.size()));
 
     for (unsigned int i = 0; i < pieces.size(); i++) {
@@ -604,6 +572,102 @@ std::unique_ptr<Separation> Disassembler::checkSubproblems(const DisassemblerNod
   }
 
   return erg;
+}
+
+// The original's searches called each other: the search of a part, at a
+// separation, went on into the two parts (checkSubproblems, and
+// checkSubproblem for each), which searched again. The same steps in the
+// same order here, the open separations in `rounds`: the staying part of
+// each first, the removed one only when the staying one is through, a part
+// that does not come apart tried as a group (subProbGrouping, whose sets
+// are counted in this order), and the tree's node made when both parts are
+// through.
+std::unique_ptr<Separation> Disassembler::takeApart(std::vector<unsigned int> pieces,
+                                                    NodeRef start) {
+  std::vector<Round> rounds;
+  // the part to search, and where it starts
+  std::vector<unsigned int> part = std::move(pieces);
+  NodeRef from = std::move(start);
+
+  for (;;) {
+    // how many parts deep the search is: 1 for the whole assembly
+    progDepth_.store(static_cast<unsigned int>(rounds.size()) + 1, std::memory_order_relaxed);
+    NodeRef found = searchLevels(part, from);
+
+    // what the part searched gave: its tree, and whether it is through
+    std::unique_ptr<Separation> tree;
+    bool ok = false;
+
+    if (found) {
+      // Its tree node would be branch rounds.size() + 1 from the root.
+      // Past the bound nothing is made: the tree could not be saved and
+      // read again, and what walks one recurses.
+      if (rounds.size() >= options_.maxDepth) {
+        tooDeep_ = true;
+        return nullptr;
+      }
+      // a position that separates the part into two: take each apart in turn
+      progSeparations_.fetch_add(1, std::memory_order_relaxed);
+
+      Round round;
+      for (unsigned int i = 0; i < part.size(); i++) {
+        if (found->isPieceRemoved(i)) {
+          round.leaving++;
+        } else {
+          round.staying++;
+        }
+      }
+      // each part has a piece at least
+      BT_ASSERT(round.staying > 0 && round.leaving > 0);
+      round.found = std::move(found);
+      round.pieces = std::move(part);
+      rounds.push_back(std::move(round));
+
+      if (beginPart(rounds.back(), false, part, from)) {
+        continue;
+      }
+      ok = true;
+    } else {
+      // the whole assembly does not come apart (or the search was stopped)
+      if (rounds.empty()) {
+        return nullptr;
+      }
+      // A stopped search has not shown that the pieces cannot come apart,
+      // so they are not taken for a group either.
+      ok = !aborted() && subProbGrouping(part);
+    }
+
+    // The part at work of the innermost round is through (ok) or does not
+    // come apart: on to the round's other part, or with the round's own
+    // tree to the round around it.
+    for (;;) {
+      Round& round = rounds.back();
+      bool both = false;
+      if (!round.removedPart) {
+        round.stayTree = std::move(tree);
+        if (ok) {
+          // the removed part only when the staying one is through
+          if (beginPart(round, true, part, from)) {
+            break;
+          }
+          both = true;
+        }
+      } else {
+        round.removedTree = std::move(tree);
+        both = ok;
+      }
+
+      // one part that does not come apart, and the whole does not
+      tree = both ? separationOf(round) : nullptr;
+      part = std::move(round.pieces);
+      rounds.pop_back();
+      if (rounds.empty()) {
+        return tree;
+      }
+      // the round was the search of a part of the round around it
+      ok = tree != nullptr || (!aborted() && subProbGrouping(part));
+    }
+  }
 }
 
 // The group all the pieces of the part have, when each has exactly one and
@@ -682,19 +746,30 @@ TakeApartResult Disassembler::disassemble(const Assembly& assembly, const StopTo
   progLevelSize_.store(0, std::memory_order_relaxed);
   progNextSize_.store(0, std::memory_order_relaxed);
 
+  tooDeep_ = false;
   std::unique_ptr<Separation> s;
   {
     const Running running(progStartUs_);
-    s = searchLevels(pieces, start);
+    s = takeApart(std::move(pieces), start);
   }
+  progDepth_.store(0, std::memory_order_relaxed);
 
   TakeApartResult result;
   if (s) {
     result.separation = std::move(*s);
+  } else if (tooDeep_) {
+    result.tooDeep = true;
   } else {
     result.stopped = aborted();
   }
   return result;
+}
+
+std::string Disassembler::tooDeepMessage() {
+  return "The pieces come apart one part after another more than " +
+         std::to_string(kMaxSeparationDepth) +
+         " parts deep. A disassembly that deep is not made: it could not be saved and opened "
+         "again. Solve without disassembly to find the assemblies.";
 }
 
 }  // namespace bt

@@ -26,6 +26,7 @@
 #include <exception>
 #include <filesystem>
 #include <new>
+#include <stdexcept>
 #include <system_error>
 
 namespace bt {
@@ -1552,6 +1553,12 @@ void SolveSession::processTask(Task& task, Disassembler& disassembler) {
 
   TakeApartResult r = disassembler.disassemble(task.assembly, runToken());
 
+  if (r.tooDeep) {
+    // Neither a solution nor an assembly that cannot be taken apart: the
+    // run ends in an error that says why (cleanup item 18.5), as any
+    // failure of a worker's does.
+    throw std::runtime_error(Disassembler::tooDeepMessage());
+  }
   if (!r.separation) {
     if (r.stopped) {
       // stopped part way is not "cannot come apart": again on the next run

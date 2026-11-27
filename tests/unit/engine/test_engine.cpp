@@ -1132,6 +1132,193 @@ TEST_CASE("engine: a solve next to an analysis of another problem", "[engine][pa
   CHECK_FALSE(h.engine.busy());
 }
 
+// Cleanup item 18.2: solution.page keeps its sorted order from page to page
+// (PageOrder) and sorts by keys worked out once a solution, where it sorted
+// the list for every page by a comparison that walked both trees. What it
+// must give is what it gave: the order a stable sort of the list by
+// Problem::sortSolutions' comparison gives, which is worked out here as the
+// method did it before.
+namespace {
+
+// The ids of a problem's saved solutions as solution.page orders them, by
+// the list itself: the old sort.
+std::vector<std::string> sortedByTheList(Harness& h, const std::string& p, int by, bool descending) {
+  const app::Document& d = h.engine.state().document();
+  const unsigned int index = *d.problemIndex(*parseId(IdKind::Problem, p));
+  return d.readProblem(index, [&](const Problem& pr) {
+    std::vector<unsigned int> order(pr.getNumberOfSavedSolutions());
+    for (unsigned int i = 0; i < order.size(); i++) {
+      order[i] = i;
+    }
+    if (const SolutionLess less = solutionSortOrder(by); less != nullptr) {
+      std::stable_sort(order.begin(), order.end(), [&](unsigned int a, unsigned int b) {
+        const Solution& x = pr.getSavedSolution(a);
+        const Solution& y = pr.getSavedSolution(b);
+        return descending ? less(y, x) : less(x, y);
+      });
+    } else if (descending) {
+      std::reverse(order.begin(), order.end());
+    }
+    std::vector<std::string> ids;
+    for (const unsigned int i : order) {
+      ids.push_back(formatId(IdKind::Solution, pr.getSavedSolution(i).getId()));
+    }
+    return ids;
+  });
+}
+
+// The same ids from solution.page, 37 rows a page.
+std::vector<std::string> sortedByPages(Harness& h, const std::string& p, const char* sortBy,
+                                       bool descending) {
+  std::vector<std::string> ids;
+  for (std::size_t offset = 0;; offset += 37) {
+    const Json page = h.result("solution.page", {{"problem", p},
+                                                 {"sortBy", sortBy},
+                                                 {"descending", descending},
+                                                 {"offset", offset},
+                                                 {"limit", 37}});
+    for (const Json& row : page["rows"]) {
+      ids.push_back(row["id"].get<std::string>());
+    }
+    if (offset + 37 >= page["total"].get<std::size_t>()) {
+      return ids;
+    }
+  }
+}
+
+struct PageSort {
+  const char* name;
+  int by;
+};
+const PageSort kPageSorts[] = {{"list", -1}, {"assembly", 0}, {"level", 1}, {"moves", 2}, {"pieces", 3}};
+
+// Every sort, both ways, asked twice (the second answer is the kept order's).
+void checkEverySort(Harness& h, const std::string& p) {
+  for (const PageSort& sort : kPageSorts) {
+    for (const bool descending : {false, true}) {
+      INFO(sort.name << (descending ? " descending" : ""));
+      const std::vector<std::string> want = sortedByTheList(h, p, sort.by, descending);
+      // (as booleans: a failure would print two lists of hundreds of ids)
+      const bool first = sortedByPages(h, p, sort.name, descending) == want;
+      const bool kept = sortedByPages(h, p, sort.name, descending) == want;
+      CHECK(first);
+      CHECK(kept);
+    }
+  }
+}
+
+}  // namespace
+
+TEST_CASE("engine: solution.page gives the order a sort of the list gives", "[engine][parallel]") {
+  Harness h;
+  h.result("document.open", {{"path", "tests/data/puzzles/DemoPieceGenerator.xmpuzzle"}});
+  const std::string p = h.result("problem.list")["problems"][0]["id"];
+  const app::Id id = *parseId(IdKind::Problem, p);
+  const auto settle = [&] {
+    for (int i = 0; i < 120000 && h.engine.busy(); i++) {
+      h.engine.poll();
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    REQUIRE_FALSE(h.engine.busy());
+    h.engine.poll();
+  };
+  // every assembly kept, none taken apart: by level and by moves no
+  // solution is below another, and the list's order stands
+  h.result("solve.start", {{"problem", p}, {"options", {{"disassemble", false}, {"keepAtMost", 0}, {"threads", 2}}}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  settle();
+  const std::vector<std::string> all = sortedByTheList(h, p, -1, false);
+  REQUIRE(all.size() > 300);
+  checkEverySort(h, p);
+
+  // Some taken apart, one at a time: by level and by moves a solution
+  // without a disassembly is below none and none is below it, so the
+  // comparison is no ordering of the list, and what a stable sort makes of
+  // it is the algorithm's own: the pages must give that all the same.
+  const auto takeApart = [&](const Json& which) {
+    Json params = which;
+    params["problem"] = p;
+    params["threads"] = 2;
+    REQUIRE(h.result("solution.analyse", params)["total"].get<unsigned int>() > 0);
+    settle();
+  };
+  for (std::size_t i = 0; i < all.size(); i += all.size() / 12) {
+    takeApart({{"which", "one"}, {"solution", all[i]}});
+  }
+  checkEverySort(h, p);
+
+  // All of them. An analysis changes the solutions' levels and moves
+  // without changing the list (its solutionsVersion stands): the order kept
+  // from before it must not be given again.
+  // (the version read from the problem, not by a page: a page of another
+  // sort would take the kept order's place)
+  const auto version = [&] {
+    const app::Document& d = h.engine.state().document();
+    return d.readProblem(*d.problemIndex(id),
+                         [](const Problem& pr) { return pr.solutionsVersion(); });
+  };
+  const std::vector<std::string> byMovesBefore = sortedByPages(h, p, "moves", false);
+  const std::uint64_t versionBefore = version();
+  takeApart({{"which", "all"}});
+  CHECK(version() == versionBefore);
+  const std::vector<std::string> byMoves = sortedByTheList(h, p, 2, false);
+  const bool moved = byMoves != byMovesBefore;
+  CHECK(moved);
+  const bool fresh = sortedByPages(h, p, "moves", false) == byMoves;
+  CHECK(fresh);
+  checkEverySort(h, p);
+  // The moves differ, so the sorts had work; one assembly does not come
+  // apart, and stays below none.
+  const Json page = h.result("solution.page", {{"problem", p}, {"sortBy", "moves"}, {"limit", 10000}});
+  CHECK(page["disassembled"].get<std::size_t>() > 900);
+  CHECK(page["disassembled"].get<std::size_t>() < page["total"].get<std::size_t>());
+  std::set<unsigned int> moves;
+  for (const Json& row : page["rows"]) {
+    if (!row["moves"].is_null()) {
+      moves.insert(row["moves"].get<unsigned int>());
+    }
+  }
+  CHECK(moves.size() >= 3);
+  const bool levelsSort = sortedByTheList(h, p, 1, false) != all;
+  CHECK(levelsSort);
+}
+
+// The list grows under a solve: the keys of the solutions sorted before are
+// kept (the revision stands), only the new ones' are worked out. The list
+// moves on between a page and any look at it, so each page is held to what
+// its own rows say: the moves worked out for the row never fall, and equal
+// moves stand as the list has them (every solution has a disassembly here,
+// so by moves the comparison is an ordering). A key kept for the wrong
+// solution, or not worked out again, would put a row out of place.
+TEST_CASE("engine: solution.page of a list that grows under a solve", "[engine][parallel]") {
+  Harness h;
+  h.result("document.open", {{"path", "tests/data/puzzles/DemoPieceGenerator.xmpuzzle"}});
+  const std::string p = h.result("problem.list")["problems"][0]["id"];
+  h.result("solve.start", {{"problem", p}, {"options", {{"disassemble", true}, {"keepAtMost", 0}, {"threads", 2}}}});
+  std::set<std::size_t> sizes;
+  for (int round = 0; round < 600000 && h.engine.busy(); round++) {
+    h.engine.poll();
+    const Json page = h.result("solution.page", {{"problem", p}, {"sortBy", "moves"}, {"limit", 10000}});
+    const Json& rows = page["rows"];
+    bool sorted = true;
+    for (std::size_t i = 1; i < rows.size(); i++) {
+      const unsigned int a = rows[i - 1]["moves"];
+      const unsigned int b = rows[i]["moves"];
+      sorted = sorted && (a < b || (a == b && rows[i - 1]["index"].get<unsigned int>() <
+                                                  rows[i]["index"].get<unsigned int>()));
+    }
+    REQUIRE(sorted);
+    REQUIRE(rows.size() == page["total"].get<std::size_t>());
+    sizes.insert(rows.size());
+  }
+  REQUIRE_FALSE(h.engine.busy());
+  h.engine.poll();
+  // lists of several lengths were sorted, one after the other
+  CHECK(sizes.size() >= 5);
+  CHECK(*sizes.rbegin() > 300);
+  checkEverySort(h, p);
+}
+
 // Cleanup item 18.1: explore.openAssembly built the matrix on the request
 // thread, under the lock a solve of the problem writes with: a big
 // problem's held every call, Pause and Abort among them, for minutes. It

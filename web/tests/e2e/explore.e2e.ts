@@ -31,6 +31,7 @@ import {
   display,
   ENGINE,
   engineCall,
+  engineOpenAssembly,
   launch,
   menu,
   openFixture,
@@ -215,14 +216,16 @@ test('Bermuda: every placement listed and drawn, the assembler stepped, the debu
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'step');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-handle', /^ax/);
     await expect.poll(() => attr(page, '#sdrawer', 'data-busy')).toBe('0');
-    const own = await engineCall<{ handle: string }>(page, 'explore.openAssembly', {
-      problem: p,
-      solver: 'classic',
-      keepMirrors: false,
-      keepRotations: false,
-      completeRotations: false,
-      strictColors: false,
-    });
+    const own = {
+      handle: await engineOpenAssembly(page, {
+        problem: p,
+        solver: 'classic',
+        keepMirrors: false,
+        keepRotations: false,
+        completeRotations: false,
+        strictColors: false,
+      }),
+    };
     // `finished` is the assembler's estimate: 0 at the start, it may dip
     // between steps, and it grows as the search goes on
     const steps = (): Promise<number> => attr(page, '#sdrawer', 'data-steps').then(Number);
@@ -296,6 +299,90 @@ test('Bermuda: every placement listed and drawn, the assembler stepped, the debu
     }
     // the test's own failed closes are its own calls (the bridge's), not in the log
     expectNoRefusal(log);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Cleanup item 18.1: the engine prepares an assembly explorer on a thread
+// of its own. On a problem whose matrix takes seconds to reduce the drawer
+// says how far the engine is, with a Cancel; the engine answers meanwhile
+// (it held every call until the matrix was made), and Cancel closes the
+// drawer and ends the engine's build.
+test('a long preparation: the drawer tells how far it is, the engine answers, Cancel ends it', async () => {
+  test.setTimeout(240_000);
+  const { dir, log } = tmpLog();
+  const a = await launch({ callLog: log });
+  const page = a.page;
+  try {
+    // a box of 20x20x20 variable cells and four hooks (the contract suite's
+    // hook_box): its matrix is built in a moment, its reduce runs for
+    // seconds in the release engine
+    const side = 20;
+    const box = (
+      await engineCall<{ shape: string }>(page, 'shape.create', { size: [side, side, side] })
+    ).shape;
+    await engineCall(page, 'shape.setBox', {
+      shape: box,
+      tool: 'variable',
+      from: [0, 0, 0],
+      to: [side - 1, side - 1, side - 1],
+    });
+    const p = (await engineCall<{ problem: string }>(page, 'problem.create')).problem;
+    await engineCall(page, 'problem.setResult', { problem: p, shape: box });
+    for (let i = 0; i < 4; i++) {
+      const hook = (
+        await engineCall<{ shape: string }>(page, 'shape.create', { size: [3 + i, 2, 1] })
+      ).shape;
+      await engineCall(page, 'shape.setBox', {
+        shape: hook,
+        tool: 'fixed',
+        from: [0, 0, 0],
+        to: [2 + i, 0, 0],
+      });
+      await engineCall(page, 'shape.setBox', {
+        shape: hook,
+        tool: 'fixed',
+        from: [1, 1, 0],
+        to: [1, 1, 0],
+      });
+      await engineCall(page, 'problem.setPieceCount', { problem: p, shape: hook, min: 1, max: 1 });
+    }
+    await toSolver(page);
+    await expect.poll(() => shownProblem(page)).toBe(p);
+    await openExplorerFold(page);
+
+    for (const mode of ['placements', 'step'] as const) {
+      await page.click(`#slvAdv [data-x="${mode}"]`);
+      const drawer = page.locator('#sdrawer');
+      await expect(drawer).toHaveAttribute('data-mode', mode);
+      // the engine tells how far it is, and the drawer shows it with a Cancel
+      await expect(drawer).toHaveAttribute('data-preparing', '1', { timeout: 60_000 });
+      await expect(drawer.locator('[data-preparing]')).toHaveText(/placements/);
+      await expect(drawer).toHaveAttribute('data-handle', '');
+      const cancel = drawer.locator('[data-exa="cancelPrepare"]');
+      await expect(cancel).toBeVisible();
+      // the engine answers while it prepares, and the app with it
+      const info = await engineCall<{ methods: string[] }>(page, 'engine.info');
+      expect(info.methods).toContain('explore.openAssembly');
+      await engineCall(page, 'problem.get', { problem: p });
+      await expect(drawer).toHaveAttribute('data-preparing', '1');
+      await cancel.click();
+      await expect(drawer).not.toHaveClass(/open/);
+      await expect(drawer).toHaveAttribute('data-mode', '');
+    }
+    // each preparation was opened and then closed, and nothing was refused
+    const calls = readCallLog(log).filter((c) => c.method.startsWith('explore.'));
+    expect(calls.map((c) => c.method)).toEqual([
+      'explore.openAssembly',
+      'explore.close',
+      'explore.openAssembly',
+      'explore.close',
+    ]);
+    expectNoRefusal(log);
+    // the engine let both builds go: a new explorer of a small problem is ready at once
+    await solverSettled(page);
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

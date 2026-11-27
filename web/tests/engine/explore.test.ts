@@ -12,7 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { MovementTree } from '../../src/renderer/explore/tree.ts';
-import { ENGINE, FIXTURES, Session } from '../helpers/engine.ts';
+import { ENGINE, FIXTURES, opened, Session } from '../helpers/engine.ts';
 import { GRIDS, SWEEP } from '../helpers/fixtures.ts';
 
 describe.skipIf(ENGINE === null)('the explorers and the engine', () => {
@@ -39,7 +39,7 @@ describe.skipIf(ENGINE === null)('the explorers and the engine', () => {
         if (page.rows.length === 0) {
           continue;
         }
-        const ax = await c.call('explore.openAssembly', { problem: prob.id });
+        const ax = await opened(c, { problem: prob.id });
         expect(ax.placementsSupported).toBe(true);
         const lists = [];
         for (let piece = 0; piece < ax.pieces; piece++) {
@@ -69,8 +69,8 @@ describe.skipIf(ENGINE === null)('the explorers and the engine', () => {
     const c = s.client;
     const snap = await c.call('document.open', { path: `${FIXTURES}/Bermuda.xmpuzzle` });
     const p = snap.problems[0]?.id ?? 'p0';
-    const lists = await c.call('explore.openAssembly', { problem: p });
-    const ax = await c.call('explore.openAssembly', { problem: p });
+    const lists = await opened(c, { problem: p });
+    const ax = await opened(c, { problem: p });
     expect(ax.finished).toBe(0);
     let full = null;
     let last = 0;

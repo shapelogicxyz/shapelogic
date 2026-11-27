@@ -207,7 +207,7 @@ again, and comes last.
     and "not built", and why the Python transcripts differed. No bug of the
     port's was found. The harness now says which reference it was given,
     and the gates that need the original wait for it: "Not in this plan".
-- [ ] Stage 18: the engine stays responsive
+- [x] Stage 18: the engine stays responsive (18.1's job is an `Engine:` commit of its own: `explore.openAssembly` answers at once and `explore.ready` tells when the handle can be used; 18.4 also lets Abort end a level's merges; 18.5 by rounds kept on the heap, and the level text, the counts and the destructor of a tree no longer recurse; users notice: the Placements and Step drawers tell of a long preparation, with a Cancel, a Pause during a matrix build or the taking up of a saved search ends it there, a take-apart past 1000 parts deep ends the solve with the reason; `just oracle-resume` not run: it needs the original)
 - [ ] Stage 19: names and audits that must not drift
 - [ ] Stage 20: core deduplication under benchmarks
 - [ ] Stage 21: splits: core
@@ -8271,7 +8271,7 @@ The engine answers on one thread. Work that runs there for minutes, or
 ignores Stop, freezes every call the window makes to that engine, Pause and
 Abort included.
 
-- [ ] **18.1 `explore.openAssembly` builds a matrix on the request thread, holding the solve's lock** (stability, speed; S then M)
+- [x] **18.1 `explore.openAssembly` builds a matrix on the request thread, holding the solve's lock** (stability, speed; S then M)
   - *Where:* `engine/methods_explore.cpp:46-64` (`reduce` defaults to true,
     and the front end sends none: `web/src/renderer/explore/explorer.ts:393`);
     `core/shapelogic/app/document.cpp:1343` (`make` runs inside
@@ -8290,8 +8290,92 @@ Abort included.
     - The decision text this contradicts is fixed in 3.3.
   - *Tests:* a contract test: during `openAssembly` on a big fixture,
     `engine.info` answers (for the job form); `explore.e2e.ts`.
+  - Done (2026-11-26, Fable): confirmed, and both steps made. The job form
+    changes the API: an `Engine:` commit of its own.
+    - **The copy apart from the build** (S). `AssemblyExplorer::copy` is
+      what needs the puzzle: the checks, the copy with its hotspots, a
+      sliding puzzle's set-up, the tray, `solveSetup` and the assembler,
+      without a matrix. `build(reduce, stop)` makes the matrix (with 18.3's
+      token) and reduces it, from the copy alone: InvalidArgument with the
+      assembler's words when it cannot be made, InvalidState when it was
+      stopped. `Document::exploreAssembly` gives the copy, taken under the
+      lock; `make` is gone (nothing called it any more).
+    - **The job** (M). `AssemblyExplorerBuild`, a `BackgroundJob` the engine
+      keeps by the explorer's handle (`State::explorerBuilds`), runs
+      `build` on a thread of its own. `explore.openAssembly` answers at
+      once with `handle` and `pieces`; the poll tells `explore.preparing`
+      (the handle, `reducing`, the progress: at most four times a second,
+      so none for a build under a quarter of a second) and, at its end,
+      `explore.ready` (`ready`, `placementsSupported`, `finished`,
+      `message`: why there is no explorer, the handle then closed). Until
+      then the handle's `explore.placements` and `explore.step` answer
+      `invalid_state`. `explore.close` and a new document stop a build
+      under way (no `explore.ready` follows) and do not wait for it: it
+      goes to `State::stoppedBuilds`, which a later poll empties; the
+      engine's end waits for what is left. `Engine::busy()` counts a build
+      (the poll every 50 ms).
+    - **The API** (rule 10): `explore.json` (the reply without
+      `placementsSupported` and `finished`, which `explore.ready` has; the
+      two events; `invalid_state` for the two methods), `types.json`'s new
+      `PrepareProgress` (what `SolveProgress.prepare` held inline: the same
+      JSON, written once by `prepareJson`), a contract call that succeeds,
+      `docs/API.md`, `just app-gen`.
+    - **The front end.** `engine/explore-open.ts` (`openAssemblyExplorer`)
+      puts the call, the wait for `explore.ready` (heard from before the
+      call), the progress and a cancel together, for the drawer and the
+      tests. `HandleSlot` takes an opening with a cancel, and a dropped
+      slot tells it: with a close (the drawer closed: `explore.close` ends
+      the engine's build) or without (another document, another engine,
+      whose handles count from 1 again). Once the engine has told how far
+      it is, the Placements and Step drawers show its words (the Solver's
+      own, `prepareDetails`: "Preparing the assembler. 12k placements so
+      far.", "Optimize: sweeping the cells, …") and a Cancel button, which
+      closes the drawer (`data-preparing`, `data-exa="cancelPrepare"`);
+      Esc and the drawer's own close do the same. A preparation too short
+      to be told of shows nothing new. The demo refused
+      `explore.openAssembly` already (one thread).
+    - **Users notice:** on a problem whose assembler takes a while, the
+      Placements and Step drawers say how far the preparation is, with a
+      Cancel, and the app goes on working meanwhile.
+    - **Measured** (the release engine, a box of 16x16x16 variable cells
+      with four hooks, whose reduce is the long part): the last commit's
+      answers `explore.openAssembly`, and every call behind it, after 4.6
+      s; this tree's answers in 0.4 ms, `engine.info` beside the build in
+      1.3 ms (the slowest of 20: 1.8 ms), and `explore.ready` comes 4.6 s
+      later.
+    - **The other users** (rule 8): `exploreAssembly`'s callers are the
+      engine and four tests (changed); `explore.openAssembly`'s are the
+      renderer's drawer (one place, `openAssembly`), the contract suite,
+      the web engine tests and the e2e spec (each waits for
+      `explore.ready` now: `openExplorer`, `opened`, `engineOpenAssembly`).
+      The Python module and the CLI have no explorer. Decision 0012's
+      amended sentence says it is a job; `docs/ARCHITECTURE.md`'s engine
+      rule names what runs beside the request thread; `docs/webui-spec.md`
+      the drawer's words.
+    - Tests: `test_playback_explorers.cpp` (the copy is not built, then
+      built); `test_engine.cpp` "an assembly explorer is prepared beside the
+      calls" (five sections: the handle at once and `invalid_state` until
+      `explore.ready`; a matrix that cannot be made; calls answered and
+      the progress told during a long preparation, which `explore.close`
+      ends; a solve of the same problem started and paused beside it; a
+      new document and the engine's end); the contract suite's
+      `assembly_explorer_prepared_beside_the_calls` (the item's test:
+      `engine.info` and `problem.get` answer before any `explore.ready`,
+      a solve starts and pauses, the close, a failed matrix);
+      `web/tests/unit/renderer/explore.test.ts` (the opening: ready, an
+      early `explore.ready`, a failure, a cancel while it is prepared and
+      before the reply, with and without the close; the slot's drop);
+      `web/tests/engine/session.test.ts` (`invalid_state` before ready);
+      `explore.e2e.ts` "a long preparation: the drawer tells how far it is,
+      the engine answers, Cancel ends it" (Placements and Step: the words,
+      the Cancel, `engine.info` meanwhile, the call log's open and close).
+    - Without the fix (rule 8; a scratch copy without the stop in
+      `stopExplorerBuild`): the three sections that give a handle up fail
+      (the build has an explorer to give: it ran to its end). The first
+      version of that check only waited for the build, and passed without
+      the stop: it asks the build what it ended with now.
 
-- [ ] **18.2 `solution.page` sorts the whole list again for every page** (speed; S to M)
+- [x] **18.2 `solution.page` sorts the whole list again for every page** (speed; S to M)
   - *Where:*
     - `engine/methods_solution.cpp:33-61`.
     - The comparator `comp2Moves` (`core/shapelogic/model/problem.cpp:684`)
@@ -8311,8 +8395,55 @@ Abort included.
   - *Keep:* the order, with the same ties (a stable sort).
   - *Tests:* `tests/unit/engine/`: the pages are the same before and after
     for each `sortBy` on a fixture with many solutions.
+  - Done (2026-11-26, Fable): confirmed.
+    - `PageOrder` (`engine.h`), one for a problem in `State::pageOrders`:
+      the sorted indexes and the count of solutions with a disassembly,
+      made by `pageOrder` (`methods_solution.cpp`) and given again while
+      the key stands. Dropped with the document and with a problem that is
+      gone.
+    - **The key differs from the item's:** the document's revision beside
+      the problem's `solutionsVersion`, the sort and its direction. The
+      version alone would give a stale order: an analysis's results
+      (`Document::poll`) and `solution.deleteDisassembly` change a
+      solution's level and moves without it. Every such change is a
+      revision; a running solve changes the version alone.
+    - **The keys once a solution.** By level and by moves the comparison
+      walked both trees (`Disassembly::compare`, `sumMoves`); a solution's
+      sequence lengths, or its moves, are read once (`sortKey`) and kept
+      by its id while the revision and the sort stand, so a list that grew
+      under a solve is sorted with only the new solutions' trees walked.
+      By assembly number and by the pieces used the comparison is cheap and
+      is `solutionSortOrder`'s as it was; the list's own order sorts
+      nothing.
+    - *Keep:* the order with the same ties. The same `std::stable_sort`
+      runs on the same indexes with a comparison that answers what
+      `comp1Level` and `comp2Moves` answer (a solution without a
+      disassembly is below none and none is below it, which is no
+      ordering: what the sort makes of it is its own, and stays).
+    - **Measured** (the release engine, 2856 solutions with their
+      disassemblies of a 2x4x4 box of dominoes, a page of 100, the last
+      commit's and this tree's): by moves 46 ms the first page and 15.8 ms
+      each one after it, now 20 ms the first (the keys) and 1.8 ms after;
+      by level 3.5 and 3.7 ms, now 2.1 and 1.4 ms; by assembly number 1.3
+      ms either way. Deeper trees cost the old comparison more (it walked
+      them at every comparison), the keys the same once.
+    - Tests (`test_engine.cpp`): "solution.page gives the order a sort of
+      the list gives" (Demo Piece Generator's 928 assemblies: every sort,
+      both ways, 37 rows a page, each asked twice, against the list sorted
+      as the method sorted it; with none taken apart, with 13 of them, and
+      with all but the one that does not come apart; an analysis that
+      leaves the version as it was gives a new order); "solution.page of a
+      list that grows under a solve" (each page held to its own rows: the
+      moves never fall, equal moves in the list's order; lists of at least
+      five lengths, the last over 300).
+    - Without the revision in the key (rule 8; a scratch copy): the order
+      after the analysis is the one from before it, and the case fails.
+      The first version of the case read the version through a page of
+      another sort, which took the kept order's place, and passed without
+      the revision: it reads the problem now. The old method passes the
+      cases as they are (the order is the same).
 
-- [ ] **18.3 Pause and Abort wait for the matrix to be built** (stability; M)
+- [x] **18.3 Pause and Abort wait for the matrix to be built** (stability; M)
   - *Where:* `core/shapelogic/solve/assembler.h:159` (`createMatrix` takes no
     stop token); `core/shapelogic/solve/solve_session.cpp:694-711`
     (`prepareSearch`); `engine/engine.cpp:413-428`.
@@ -8328,8 +8459,49 @@ Abort included.
   - *Scope:* this reaches into the three assemblers' matrix code. That is
     known and planned here, so it needs no warning under rule 2.
   - *Keep:* the results of runs that are not stopped (the oracle tiers).
+  - Done (2026-11-26, Fable): confirmed.
+    - `Assembler::createMatrix(options, stop)`: the token is a parameter
+      every caller gives. There are two builders, not three:
+      `DlxMatrix::prepare` (Assembler 0) and `Assembler1::prepare`. Each
+      looks at the token before every orientation of a part, after the
+      finder's answer and every 4096 placements it adds
+      (`kPreparePollMask`); `PlacementFinder::find` at every row of its
+      window, or every 4096 voxels of a sparse result. Stopped, they
+      answer `kPrepareStopped`, and `createMatrix`
+      `AssemblerError::Stopped`: the matrix is not whole, and the
+      assembler is only let go.
+    - `prepareSearch` takes `Stopped` as the stop it has always checked
+      for after the build (it asserts that one was asked for): Paused or
+      Idle, nothing of the search kept, never an error; a debug line in
+      the solve's log says where the build was.
+    - **The other users** (rule 8). The callers: the session (its run's
+      token), the explorer's build (18.1: its job's), the Python iterator
+      (its own stop: a closed iterator no longer waits for the matrix),
+      the CLI and `tests/tools/resume.cpp` (no token: nothing stops them
+      there), 70 calls in the tests. What switches over `AssemblerError`:
+      `errorMessage` (words for it), the engine's `failureJson` (no name:
+      it is never a failure, and the schema's list stands), the CLI's
+      `reportMatrixError` (its `default`).
+    - *Keep:* nothing changes for a run that is not stopped: the same
+      placements in the same order (the oracle's tiers, under the gates).
+    - **Left:** what `prepare` does before its first orientation (the
+      result's symmetries, the mirror pairs) hears no stop; the reduce
+      heard it already.
+    - Tests: `test_assembler.cpp` "Assemblers: a stop ends the matrix build"
+      (both assemblers on a box of 32x32x32 with eight hooks, 4.0 and 4.7
+      million placements when built whole: a token stopped beforehand, and
+      one stopped from another thread as soon as the progress shows a
+      placement; the build answers `Stopped` either way) and "placement
+      finder: a stop ends the walk through the result" (both of its ways
+      through a result); `test_solve_session.cpp` "Pause and Abort end a
+      matrix build" (paused, carried on, aborted: Paused and Idle, no
+      failure, the log's line each time).
+    - Without the looks at the token (rule 8; a scratch copy): the two
+      assembler cases fail, 10 assertions (the builds run to their end and
+      answer `None`); the session case fails, 4 assertions (the builds
+      end, the run pauses after them, and the log has no line).
 
-- [ ] **18.4 Sliding: Stop and Abort wait for the visited-set merge and for the path's trace** (stability; M)
+- [x] **18.4 Sliding: Stop and Abort wait for the visited-set merge and for the path's trace** (stability; M)
   - *Where:* `core/shapelogic/solve/sliding_search.cpp`:
     - `insertVisited` (5394-5460) runs as `extra` inside expand's `pool.run`
       (5043-5049);
@@ -8346,8 +8518,73 @@ Abort included.
     - Honor Abort in the trace's expand.
   - *Tests:* a test that stops during a merge (a test-only option that
     stops after N merged keys), then continues to the same path.
+  - Done (2026-11-26, Fable): the merge into the visited sets, the taking up
+    of a saved search and the trace hear the stop token.
+    - **The visited merge** (`insertVisited`) looks at the token at its
+      first arrangement and every 4096 after (`kVisitedPollEvery`). Stopped,
+      it lets the set it was making go, file and all; the two it was made of
+      stay listed, as when a merge fails, and it answers
+      `VisitedEnd::Stopped` (Whole, Stopped, Failed), which `expand` takes
+      as a halt: thread 0 expands nothing, the level is expanded again when
+      the search is carried on. The level being put in is in whole (it is
+      the list's last set), only the list is longer than its rule keeps it;
+      the next merges put that right. A level that was to go in after it
+      (the other end's) never did: every level is kept with nested slides,
+      level 0 of both ends too, and `restoreVisited` puts it back.
+    - **Taking a saved search up** (`restoreVisited`): a stop there is
+      `Resumed::Stopped`, not "its visited sets could not be read back".
+      Every file state.bin names is kept (the ones a merge here took out of
+      the lists too), nothing is written, the outcome is Stopped with
+      `saved` and without `resumed`; an abort removes the folder, as an
+      abort while the search runs does. `solve_session.cpp` takes a Stopped
+      start as pending and reads `saved` only for Disk, as `cli/main.cpp`
+      does: neither needed a change.
+    - **The trace across thinned levels** hears Abort alone (`expand`
+      without `mayStop`): a pause waits for the path. An aborted trace ends
+      Stopped (`goalFound`, and `loop` after `meetingFound`), where it was a
+      failure. The trace's start is a Debug log line.
+    - **More than the item:** Abort also ends a level's merges (`runMerge`
+      at its 65,536-key tick, `dropCovered`'s and `stepBack`'s passes per
+      block; `stepFailed()` tells an abort from a failure). A pause still
+      lets the level's merge finish, so that its expansion is not thrown
+      away.
+    - **Users notice:** a Pause that comes while a saved search is still
+      being taken up leaves that search as it was saved (the merges of that
+      take-up are made again next time); before, the take-up ran to its
+      end first.
+    - **Found:** `goalFound` left a half-traced chain behind when the trace
+      did not end, and `tableSearch` takes a chain that is not empty for
+      the path: a trace that could not read a level ended in "assertion
+      failed: reached" (`chainToPath`), before this item too. The chain is
+      cleared.
+    - **Found:** "a search with nested slides tells the parts of a move
+      that visit nothing" failed 4 of 400 runs under TSan and load on the
+      tree as it was: its watcher read the part, its done and its total in
+      three loads. It counts a snapshot now only when the part, its start
+      and its total are the same before and after (0 of 180).
+    - Tests (`test_sliding.cpp`, stopped from callbacks, none on time):
+      "a stop ends a merge into the visited sets and the search is carried
+      on" (`SlideSearch::onVisitedMerge`, the test-only callback: stopped at
+      9 arrangements of the 327 the merges take, then an abort; the same
+      path, arrangement for arrangement, and the same count visited); "a
+      stop while a saved search is taken up leaves it as it was saved" (the
+      folder byte for byte, at 3 of 4 depths in the take-up's own merge;
+      then carried on; an abort removes it); "an abort ends the trace
+      across thinned levels and a pause waits for it" (Klotski with only
+      the start kept, and two ends that met).
+    - Without the polls (rule 8; a scratch copy): the three cases fail, 31
+      assertions; without the cleared chain the trace case fails with the
+      assertion.
+    - **Left:** Pause and Abort still wait for a save (`saveState`), for
+      sets written out to make room (`evict`) and for `joinParts`; a Pause
+      also for the level's merge after its expansion. The abort in
+      `runMerge` has no test: no quick fixture merges 65,536 keys. The
+      session has no test of its own for these stops (its options do not
+      carry the callback); the search's cases stand for it.
+    - **Speed:** under the gates (a search with nested slides, before and
+      after).
 
-- [ ] **18.5 The take-apart's recursion can overflow its thread's stack** (stability; S to M; found in 16.2)
+- [x] **18.5 The take-apart's recursion can overflow its thread's stack** (stability; S to M; found in 16.2)
   - *Where:* `core/shapelogic/solve/disassembler.cpp`: `searchLevels` calls
     `checkSubproblems`, that `checkSubproblem`, and that `searchLevels`
     again: one round for every group that is taken apart further, on the
@@ -8371,10 +8608,161 @@ Abort included.
     bound, with an error that says so, never "cannot be taken apart".
   - *Tests:* the row of 600 cubes is taken apart, in the release build and
     under ASan; a puzzle at the bound is solved, saved and opened again.
+  - Done (2026-11-26, Fable): the second of 16.6's choices, the rounds
+    kept on the heap, and what is made held to the reader's bound.
+    - **Confirmed and measured** (release and debug CLI, `-d` on rows of
+      unit cubes, macOS arm64): the release build takes 447 cubes apart and
+      ends with a bus error at 450, the debug build 270 and 273: about 1.2
+      KiB and 1.9 KiB of stack a round.
+    - **The take-apart:** `searchLevels` returns the position that
+      separates, and `Disassembler::takeApart` keeps the separations still
+      open in a list (`Round`), with the original's steps in the original's
+      order: the staying part first, the removed one only when that is
+      through, a part that does not come apart tried as a group, the tree's
+      node when both are through. A search's three fronts go when it
+      returns (they were held while the parts were searched). The stack it
+      takes no longer depends on the pieces.
+    - **The bound:** `kMaxSeparationDepth` is one constant now, in
+      `model/disassembly.h`, for the reader and the take-apart
+      (`DisassemblerOptions::maxDepth`, never above it: asserted; tests
+      lower it, as a tree at the bound takes 1001 pieces and four minutes
+      in a debug build). Past it no tree is made:
+      `TakeApartResult::tooDeep`, neither stopped nor "does not come
+      apart". Who asked says why, with one text
+      (`Disassembler::tooDeepMessage`): the solve ends in an error with it
+      (a worker's failure: what the run found is dropped, as for any), the
+      analysis as its failure (what was taken apart before stays), the CLI
+      on stderr with exit 1 (`-d`, `-x`, `--save`), the Python module as
+      its exception. No engine method or schema changed.
+    - **What walks a tree, on a thread's stack:** at the bound the level
+      text overran 512 KiB in a debug build, and under the sanitizers so
+      did the summary, the byte estimate and the copy; the destructor (468
+      bytes a branch) and the sequence lengths (495) were close. Not
+      dependent on the depth any more: `sumMoves`, `sumRotations` and
+      `byteEstimate` (the smaller branch by a call, the larger in a loop),
+      `getSequenceLength` (a loop), the summary's constructor (a list),
+      `~Separation` (branch by branch, nothing allocated) and the level
+      text of both forms (one `levelText`, the branches in a list; it took
+      370 bytes a branch in a release build). Compared with copies of the
+      old functions on 6000 random trees (620 with a cut text, 1996 with
+      turns, damaged summaries too), in dev and under ASan: the same.
+      Left: the copy (62 bytes a branch in release, 324 in debug, 647
+      under ASan; documents are copied on the process's first thread, and
+      18.1's explorer takes its copy there too), the reader, the writer,
+      the playback and the three piece-renumbering walks, all on that
+      thread, as 16.2 measured.
+    - **The other users** (rule 8): `disassemble()` has six callers, all
+      changed (the session's `processTask`, `Analysis::run`, the CLI's
+      pooled and serial take-aparts and its `-x`, the Python iterator);
+      `TakeApartPool` hands the result on as it is. The movement explorer
+      makes no tree; a sliding or stacking path is one branch.
+      `kMaxSeparationDepth`'s readers: the two checks of `puzzle_file.cpp`,
+      the take-apart's default and assertion, `AnalyseOptions::maxDepth`.
+    - **Users notice:** a puzzle of more than 1001 pieces that come off
+      one at a time ends its solve with the reason ("… more than 1000
+      parts deep … Solve without disassembly to find the assemblies"),
+      where it ended the app.
+    - **Tests** (`test_disassembly.cpp`): "take-apart: a tree is made up to
+      the depth bound and not past it" (bound 12: 13 cubes give the tree,
+      saved and read again, the same as without the bound in the way; 14
+      give `tooDeep`); "…past the depth bound the solve and the analysis
+      end with the reason"; "separation tree: a tree at the depth bound is
+      walked on a thread's stack" (1000 branches down either side); and,
+      tagged `[slow]`, "take-apart: 600 pieces that come off one at a time
+      are taken apart" (through the session and through the CLI's pool: 4 s
+      in release, 58 s in dev, 3.4 min under ASan, 2.8 min under TSan),
+      named in the release workflow as a step of its own on the three
+      systems (rule 8: a `[slow]` case). Without the fix (rule 8): the 600
+      end in a bus error in dev and in release, the walk in dev; without
+      the bound check the two bound cases fail.
+    - **By hand, the release CLI:** 1001 cubes are taken apart (14.7 s),
+      saved with `--save` and opened again; 1002 give the message and exit
+      1, and the file `--save` leaves opens.
+    - **Differs from the item:** "a puzzle at the bound is solved, saved
+      and opened again" is a test at a lowered bound and a run by hand at
+      the real one. The CLI's and Python's words have no test of their own
+      (1002 pieces). No system call, no `#ifdef`: nothing to build
+      elsewhere.
+    - **Speed:** under the gates (the take-aparts, before and after).
 
 **Gates for stage 18:** `just test-all`, `just test-tsan`, the contract
 suite, `just oracle --tier fast` and `--tier sliding`, `just oracle-resume`,
 `just app-test` and `explore.e2e.ts` (18.1).
+Run (2026-11-26, after the last source edit; 18.4 and 18.5 were made in
+scratch copies of the tree beside 18.1 and 18.2 and put in as patches,
+their own runs under their items): `just build dev`, `release`, `asan` and
+`tsan`;
+- `just test-all`: 76 of 76 (245 s; the CLI's and the Python module's tests
+  are two of them, the contract suite one); `just test` twice after the
+  items were together: 30 of 30 each;
+- `just test-asan`: 75 of 75 (855 s);
+- `just test-tsan`: the 142 `[parallel]` cases (the stage's eleven new ones
+  among them) and the contract suite on the TSan engine (153 methods, 0
+  failed);
+- `just oracle --tier fast --allow-missing` against the committed baselines,
+  with all threads, `--threads 1` and `--solver crowell`: 18 of 19 compared,
+  0 differ, each (one file is not in the checkout); `--tier sliding`: 23 of
+  35 compared, 0 differ, and with `--threads 1` 32 of 35, 0 differ;
+  `--tier stacking`, with all threads and `--threads 1`: 38 of 41 compared,
+  0 differ; `just oracle-python --allow-missing`: 37 of 37 transcripts, 0
+  differ (without the iterations and the level text, the reference not
+  being the original);
+- **Not run: `just oracle-resume`,** one of this stage's gates, and the
+  oracle's `full` and `slow` tiers, round trip, files and imports: they
+  need the original BurrTools ("Not in this plan"; the commands exit 2 with
+  the reason). What stands in for the resumes here: the carried-on
+  searches' cases of the assemblers and the slide search, and 18.4's own
+  (a search stopped in a merge, and in a take-up, carried on to the same
+  path);
+- **speed** (rule 5; `bench.py` against the original cannot run here): the
+  last commit's CLI against this tree's, taking turns, one solve at a time
+  with nothing beside them, medians of five or seven runs, the solve's own
+  seconds, before and after (the answers' lines the same in every run):
+
+  | puzzle | 1 thread | 10 threads |
+  |---|---|---|
+  | pentomino 6x10 (-r) | 0.938, 0.944 | 0.172, 0.170 |
+  | SolidSixPieceBurrs (-r) | 0.046, 0.046 | 0.017, 0.017 |
+  | 20 dominoes 2x4x5 | 0.188, 0.190 | 0.082, 0.083 |
+  | 12 L-trominoes 3x3x4 | 0.168, 0.173 | 0.048, 0.049 |
+  | ranges 3x3x3 | 0.560, 0.563 | 0.100, 0.099 |
+  | SolidSixPieceBurrs (-rd) | 0.049, 0.049 | 0.019, 0.019 |
+  | HexSticks (-rd) | 0.191, 0.190 | 0.101, 0.102 |
+  | CubeInCage (-rdR) | 0.139, 0.138 | 0.027, 0.026 |
+  | DemoPieceGenerator (-rd) | 0.006, 0.006 | 0.005, 0.005 |
+  | Klotski (-d) | 0.010, 0.010 | 0.012, 0.012 |
+
+  The largest difference is the L-trominoes' 3% on one thread (their
+  fastest runs 0.166 and 0.170 s), within a run's spread. A search with
+  nested slides (18.4's merges: a 7x5 tray, a ring of 3x3 with a unit in
+  its pocket and 20 units around it, the unit asked for outside the ring,
+  so every arrangement is searched), nine runs each: on one thread 8.39 and
+  8.42 s; on ten threads the runs spread from 1.7 to 2.6 s for both builds
+  (medians 2.58 and 2.00 s; in a first round of three, 1.73 and 2.00 s),
+  the fastest 1.720 and 1.719 s: no difference to be told there. A matrix
+  alone (18.3's looks at the token; `solve.prepare` without the reduce, the
+  engine's `prepareMs`, three runs): a box of 32 a side with four hooks 103
+  to 117 ms before and 104 to 108 after, of 40 a side 191 to 203 and 185 to
+  202;
+- `just check`, every source (209 files): clean; again on the engine's
+  sources and the two files changed after it: clean;
+- seen failing (rule 8): each item's Done line says how its tests fail
+  without its fix, in scratch copies;
+- `just app-check`: clean; `just app-test`: 696 of 696 (the engine's types
+  generated again, `python3 api/gen_api_md.py`); the recorded sessions of
+  the fake engine are as they were (none opens an explorer);
+- on a build of its own (`BT_OUT_DIR`), with the release engine: the
+  `explore` e2e spec, 4 of 4 (the new case among them), and the three other
+  specs that open an explorer's drawer or its buttons (`security`,
+  `keymap`, `stacking`): 8 of 8;
+- `just site-demo --check` after the last source edit (rebuilt; every
+  puzzle type opens and plays) and `just site-build` (8 of 8);
+- the three commits' trees (18.3; the engine's change on it; the rest):
+  each of the first two was built in a scratch copy and its quick suite
+  run there, 30 of 30 each; the third is this tree;
+- nothing was built or run on Linux or compiled for Windows: no item adds a
+  system call or a branch under `#ifdef`;
+- Not run: the other e2e specs, `just gate`.
 
 ## Stage 19: names and audits that must not drift
 

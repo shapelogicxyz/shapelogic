@@ -143,8 +143,9 @@ the packed occupancy. Keep Cutler as Classic.
 PARTIAL. Fortran SolverRotate Fast=1 stops when the first piece is free,
 then SolverFull loops SolverRotate on the remainder until Pleft pieces
 remain (default 1).
-Our searchLevels returns at the first isSeparation() node, then
-Disassembler::checkSubproblems recursively disassembles both parts.
+Our searchLevels returns the first isSeparation() node, then
+Disassembler::takeApart takes both parts apart the same way (the
+separations still open wait in a list, not in calls inside each other).
 That is the same overall "piece by piece until one remains" structure,
 but the split is Cutler's separation test (piece translated far), not
 Fortran FreePieceTestFull AABB isolation.
@@ -160,8 +161,8 @@ injects that path or replaces the move list with PieceBuilder on one side.
 This is a major pruning / shortcut and is not in Disassembler (SolverType::Crowell).
 To implement: after each new node (or when generating moves), compute per-
 piece world AABBs. If a subset of 2..4 pieces has no AABB overlap with the
-complement, treat it as a separation and call checkSubproblems (or run a
-nested searchLevels on each side). Need a grid size `ss` (Fortran puzzle
+complement, treat it as a separation for takeApart (which runs
+searchLevels on each side). Need a grid size `ss` (Fortran puzzle
 bounding cube). Watch recursion: Fortran uses a 2s timeout on the nested
 solve; without that, nested cluster solves can explode.
 

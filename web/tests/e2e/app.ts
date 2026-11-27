@@ -546,6 +546,51 @@ export async function engineCall<T = unknown>(
   );
 }
 
+/**
+ * Opens an assembly explorer of the test's own through the page's bridge
+ * and waits until the engine has prepared it (explore.openAssembly's reply
+ * gives the handle at once; explore.ready tells when it can be used):
+ * its handle.
+ */
+export async function engineOpenAssembly(page: Page, params: unknown): Promise<string> {
+  const id = bridgeIds++;
+  return page.evaluate(
+    ([id, params]) =>
+      new Promise<string>((done, fail) => {
+        let handle: string | null = null;
+        // an explore.ready that comes before the reply is looked at
+        const ready = new Map<string, string | null>();
+        const settle = (): void => {
+          if (handle === null || !ready.has(handle)) {
+            return;
+          }
+          off();
+          const message = ready.get(handle) ?? null;
+          if (message === null) {
+            done(handle);
+          } else {
+            fail(new Error(message));
+          }
+        };
+        const off = window.bt.onMessage((m) => {
+          if (m.kind === 'error' && m.id === id) {
+            off();
+            fail(new Error(`${m.errc}: ${m.message}`));
+          } else if (m.kind === 'reply' && m.id === id) {
+            handle = (m.result as { handle: string }).handle;
+            settle();
+          } else if (m.kind === 'event' && m.event === 'explore.ready') {
+            const r = m.params as { handle: string; ready: boolean; message: string | null };
+            ready.set(r.handle, r.ready ? null : (r.message ?? 'not prepared'));
+            settle();
+          }
+        });
+        window.bt.send({ kind: 'call', id, method: 'explore.openAssembly', params });
+      }),
+    [id, params] as const,
+  );
+}
+
 /** A new empty puzzle on a grid, by File ▸ New (unsaved changes given up). */
 export async function newDocument(page: Page, grid: string): Promise<void> {
   const before = await page.locator('#stage').getAttribute('data-generation');

@@ -8,13 +8,26 @@
 // debug panel's report (the original's rows, durations and notes); the
 // placement of a piece (placedAt) as the assembled view's; an assembler
 // handle opened once, and closed when its reply comes after the drawer
-// closed (handle-slot.ts).
+// closed, an opening under way told when it is dropped (handle-slot.ts);
+// the opening of an assembly explorer, which the engine prepares on a
+// thread of its own (explore-open.ts: the call, explore.ready, the
+// progress, the cancel).
 
 import { describe, expect, it } from 'vitest';
 
 import type { MovementNode, SolveStats } from '../../../src/engine/api.generated.ts';
+import type {
+  CallArgs,
+  EventName,
+  EventParams,
+  MethodName,
+  Reply,
+} from '../../../src/engine/client-types.ts';
+import { EngineError } from '../../../src/engine/errors.ts';
+import { openAssemblyExplorer } from '../../../src/engine/explore-open.ts';
 import { formatDuration, hasData, statsReport } from '../../../src/renderer/explore/debug-stats.ts';
 import { HandleSlot } from '../../../src/renderer/explore/handle-slot.ts';
+import type { Opening } from '../../../src/renderer/explore/handle-slot.ts';
 import { dragDirection, MovementTree } from '../../../src/renderer/explore/tree.ts';
 import { placedAt } from '../../../src/renderer/view3d/extent.ts';
 
@@ -228,13 +241,19 @@ describe('the debug statistics report', () => {
 });
 
 describe('an explorer handle', () => {
-  const later = (): { p: Promise<string | null>; resolve: (h: string | null) => void } => {
+  const later = (): {
+    opening: Opening;
+    resolve: (h: string | null) => void;
+    canceled: boolean[];
+  } => {
     let resolve: (h: string | null) => void = () => undefined;
-    const p = new Promise<string | null>((r) => {
+    const handle = new Promise<string | null>((r) => {
       resolve = r;
     });
-    return { p, resolve };
+    const canceled: boolean[] = [];
+    return { opening: { handle, cancel: (close) => canceled.push(close) }, resolve, canceled };
   };
+  const opened = (h: string): Opening => ({ handle: Promise.resolve(h), cancel: () => undefined });
 
   it('is opened once however often it is asked for, and closed when dropped', async () => {
     const closed: string[] = [];
@@ -243,27 +262,29 @@ describe('an explorer handle', () => {
     const open = later();
     const a = slot.ensure(() => {
       opens++;
-      return open.p;
+      return open.opening;
     });
     const b = slot.ensure(() => {
       opens++;
-      return open.p;
+      return open.opening;
     });
     open.resolve('h1');
     expect(await a).toBe('h1');
     expect(await b).toBe('h1');
-    expect(await slot.ensure(() => Promise.resolve('h2'))).toBe('h1');
+    expect(await slot.ensure(() => opened('h2'))).toBe('h1');
     expect(opens).toBe(1);
     slot.drop();
     expect(closed).toEqual(['h1']);
     expect(slot.handle).toBeNull();
+    // an opening that ended is not told of the drop
+    expect(open.canceled).toEqual([]);
   });
 
   it('that comes after the drawer closed is closed, not kept (cleanup item 6.7)', async () => {
     const closed: string[] = [];
     const slot = new HandleSlot((h) => closed.push(h));
     const open = later();
-    const late = slot.ensure(() => open.p);
+    const late = slot.ensure(() => open.opening);
     slot.drop();
     open.resolve('h1');
     expect(await late).toBeNull();
@@ -273,10 +294,193 @@ describe('an explorer handle', () => {
     // one is still given back (the explorer's close then sends nothing for
     // another document)
     const again = later();
-    const gone = slot.ensure(() => again.p);
+    const gone = slot.ensure(() => again.opening);
     slot.drop(false);
     again.resolve('h2');
     expect(await gone).toBeNull();
     expect(closed).toEqual(['h1', 'h2']);
+  });
+
+  it('being opened is told to stop when the slot is dropped (cleanup item 18.1)', async () => {
+    const slot = new HandleSlot(() => undefined);
+    // closed: the engine's build is to end, and what it holds to go
+    const open = later();
+    const pending = slot.ensure(() => open.opening);
+    slot.drop();
+    expect(open.canceled).toEqual([true]);
+    // the canceled opening ends without a handle
+    open.resolve(null);
+    expect(await pending).toBeNull();
+    // forgotten: the engine dropped it with its document, nothing is to be sent
+    const again = later();
+    void slot.ensure(() => again.opening);
+    slot.drop(false);
+    expect(again.canceled).toEqual([false]);
+    // once only, and the next opening is its own
+    slot.drop();
+    expect(again.canceled).toEqual([false]);
+    expect(await slot.ensure(() => opened('h3'))).toBe('h3');
+  });
+});
+
+// The engine as openAssemblyExplorer needs it: the calls recorded and
+// answered by hand, the events sent by hand.
+class ScriptedExplorerEngine {
+  readonly calls: {
+    method: string;
+    params: unknown;
+    answer: (r: unknown) => void;
+    fail: (e: unknown) => void;
+  }[] = [];
+  private readonly handlers = new Map<string, Set<(p: never) => void>>();
+
+  call<M extends MethodName>(method: M, ...args: CallArgs<M>): Promise<Reply<M>> {
+    return new Promise<Reply<M>>((resolve, reject) => {
+      this.calls.push({
+        method,
+        params: args[0],
+        answer: (r) => {
+          resolve(r as Reply<M>);
+        },
+        fail: reject,
+      });
+    });
+  }
+
+  on<E extends EventName>(event: E, handler: (params: EventParams<E>) => void): () => void {
+    const set = this.handlers.get(event) ?? new Set();
+    this.handlers.set(event, set);
+    set.add(handler);
+    return () => set.delete(handler);
+  }
+
+  send<E extends EventName>(event: E, params: EventParams<E>): void {
+    for (const h of this.handlers.get(event) ?? []) {
+      (h as (p: EventParams<E>) => void)(params);
+    }
+  }
+
+  listeners(): number {
+    return [...this.handlers.values()].reduce((n, s) => n + s.size, 0);
+  }
+}
+
+const READY = { ready: true, placementsSupported: true, finished: 0, message: null };
+const PROGRESS = {
+  pass: 0,
+  done: 0,
+  total: 0,
+  placements: 7,
+  removed: 0,
+  passMs: 0,
+  passSecondsLeft: null,
+};
+const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+describe('opening an assembly explorer (cleanup item 18.1)', () => {
+  it('gives the explorer when explore.ready comes, with the progress meanwhile', async () => {
+    const engine = new ScriptedExplorerEngine();
+    const told: number[] = [];
+    const opening = openAssemblyExplorer(engine, { problem: 'p1' }, (p) =>
+      told.push(p.progress.placements),
+    );
+    expect(engine.calls.map((c) => c.method)).toEqual(['explore.openAssembly']);
+    // another explorer's events are not this one's
+    engine.send('explore.ready', { handle: 'ax9', ...READY });
+    engine.calls[0]?.answer({ handle: 'ax1', pieces: 3 });
+    await tick();
+    engine.send('explore.preparing', { handle: 'ax9', reducing: false, progress: PROGRESS });
+    engine.send('explore.preparing', { handle: 'ax1', reducing: false, progress: PROGRESS });
+    engine.send('explore.ready', { handle: 'ax1', ...READY, finished: 0.5 });
+    expect(await opening.done).toEqual({
+      handle: 'ax1',
+      pieces: 3,
+      placementsSupported: true,
+      finished: 0.5,
+    });
+    expect(told).toEqual([7]);
+    expect(engine.listeners()).toBe(0);
+    // the explorer is the caller's now: a cancel sends nothing
+    opening.cancel(true);
+    expect(engine.calls).toHaveLength(1);
+  });
+
+  it('takes an explore.ready that came before the reply was seen', async () => {
+    const engine = new ScriptedExplorerEngine();
+    const opening = openAssemblyExplorer(engine, { problem: 'p1' });
+    engine.send('explore.ready', { handle: 'ax1', ...READY });
+    engine.calls[0]?.answer({ handle: 'ax1', pieces: 3 });
+    expect((await opening.done)?.handle).toBe('ax1');
+    expect(engine.listeners()).toBe(0);
+  });
+
+  it('fails with the engine’s reason when the matrix cannot be made', async () => {
+    const engine = new ScriptedExplorerEngine();
+    const opening = openAssemblyExplorer(engine, { problem: 'p1' });
+    engine.calls[0]?.answer({ handle: 'ax1', pieces: 3 });
+    await tick();
+    engine.send('explore.ready', {
+      handle: 'ax1',
+      ready: false,
+      placementsSupported: false,
+      finished: 0,
+      message: 'A piece cannot be placed in the target shape',
+    });
+    const e: unknown = await opening.done.catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(EngineError);
+    expect((e as EngineError).errc).toBe('invalid_argument');
+    expect((e as EngineError).detail).toBe('A piece cannot be placed in the target shape');
+    expect(engine.listeners()).toBe(0);
+  });
+
+  it('canceled while it is prepared closes the engine’s handle, or sends nothing', async () => {
+    const engine = new ScriptedExplorerEngine();
+    const told: number[] = [];
+    const opening = openAssemblyExplorer(engine, { problem: 'p1' }, () => told.push(1));
+    engine.calls[0]?.answer({ handle: 'ax1', pieces: 3 });
+    await tick();
+    opening.cancel(true);
+    expect(await opening.done).toBeNull();
+    expect(engine.calls.map((c) => [c.method, c.params])).toEqual([
+      ['explore.openAssembly', { problem: 'p1' }],
+      ['explore.close', { handle: 'ax1' }],
+    ]);
+    engine.send('explore.preparing', { handle: 'ax1', reducing: true, progress: PROGRESS });
+    expect(told).toEqual([]);
+    expect(engine.listeners()).toBe(0);
+
+    // forgotten (another document, another engine): nothing is sent
+    const other = new ScriptedExplorerEngine();
+    const gone = openAssemblyExplorer(other, { problem: 'p1' });
+    other.calls[0]?.answer({ handle: 'ax1', pieces: 3 });
+    await tick();
+    gone.cancel(false);
+    expect(await gone.done).toBeNull();
+    expect(other.calls).toHaveLength(1);
+  });
+
+  it('canceled before the reply closes the handle as soon as the reply gives it', async () => {
+    const engine = new ScriptedExplorerEngine();
+    const opening = openAssemblyExplorer(engine, { problem: 'p1' });
+    opening.cancel(true);
+    expect(engine.calls).toHaveLength(1);
+    engine.calls[0]?.answer({ handle: 'ax1', pieces: 3 });
+    expect(await opening.done).toBeNull();
+    expect(engine.calls.map((c) => c.method)).toEqual(['explore.openAssembly', 'explore.close']);
+
+    const quiet = new ScriptedExplorerEngine();
+    const forgotten = openAssemblyExplorer(quiet, { problem: 'p1' });
+    forgotten.cancel(false);
+    quiet.calls[0]?.answer({ handle: 'ax1', pieces: 3 });
+    expect(await forgotten.done).toBeNull();
+    expect(quiet.calls).toHaveLength(1);
+  });
+
+  it('passes the call’s own failure on', async () => {
+    const engine = new ScriptedExplorerEngine();
+    const opening = openAssemblyExplorer(engine, { problem: 'p1' });
+    engine.calls[0]?.fail(new EngineError(-32005, 'unsupported', 'no assembler'));
+    await expect(opening.done).rejects.toMatchObject({ errc: 'unsupported' });
+    expect(engine.listeners()).toBe(0);
   });
 });

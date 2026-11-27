@@ -5,7 +5,9 @@
 
 import { EngineClient } from '../../src/engine/client.ts';
 import type { ClientProblem } from '../../src/engine/client.ts';
-import type { EventName, EventParams } from '../../src/engine/client-types.ts';
+import type { EventName, EventParams, Params } from '../../src/engine/client-types.ts';
+import { openAssemblyExplorer } from '../../src/engine/explore-open.ts';
+import type { AssemblyOpened } from '../../src/engine/explore-open.ts';
 import { NodeTransport } from '../../src/engine/node-transport.ts';
 
 import { ROOT, testEngine } from './engine-path.ts';
@@ -18,6 +20,21 @@ export const FIXTURES = 'tests/data/puzzles';
  * the run's copy of it (global-setup.ts).
  */
 export const ENGINE: string | null = testEngine();
+
+/**
+ * An assembly explorer of a problem, once the engine has prepared it
+ * (explore.openAssembly, then explore.ready).
+ */
+export async function opened(
+  client: EngineClient,
+  params: Params<'explore.openAssembly'>,
+): Promise<AssemblyOpened> {
+  const explorer = await openAssemblyExplorer(client, params).done;
+  if (explorer === null) {
+    throw new Error('the opening was canceled');
+  }
+  return explorer;
+}
 
 /** One thing the client delivered, in delivery order. */
 export interface Seen {

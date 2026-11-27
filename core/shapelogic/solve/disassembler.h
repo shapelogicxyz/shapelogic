@@ -28,6 +28,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace bt {
@@ -92,6 +93,11 @@ struct DisassemblerOptions {
   /// when one is asked for (a live preview). Must outlive the
   /// disassembler.
   SearchSample* sample = nullptr;
+  /// How deep the tree it makes may nest (TakeApartResult::tooDeep past
+  /// it): the bound of the trees a file may hold, and never more. Tests
+  /// lower it: a tree at the bound itself takes a thousand pieces, and
+  /// minutes in a debug build.
+  unsigned int maxDepth = kMaxSeparationDepth;
 };
 
 /// What a take-apart found.
@@ -101,6 +107,12 @@ struct TakeApartResult {
   /// The take-apart was stopped before it could tell; separation is empty
   /// then (stopped part way is not "cannot come apart").
   bool stopped = false;
+  /// The pieces came apart, part after part, until the tree would have
+  /// nested deeper than DisassemblerOptions::maxDepth: no tree is made (the file
+  /// with it would not open again), separation is empty, and whether the
+  /// rest comes apart was not looked for. Not "cannot come apart" either:
+  /// whoever asked says why (Disassembler::tooDeepMessage).
+  bool tooDeep = false;
 };
 
 /// The take-apart of one problem's assemblies.
@@ -134,8 +146,17 @@ class Disassembler {
   static constexpr const char* kNoTakeApartOnTray =
       "A tilted tray's pieces lie flat and lift straight out: there is nothing to take apart.";
 
+  /// What is said of a take-apart that ended as too deep
+  /// (TakeApartResult::tooDeep): the one text for the solve's failure, the
+  /// analysis's, the CLI's and the Python module's.
+  [[nodiscard]] static std::string tooDeepMessage();
+
   /// Takes `assembly` (one of the problem's) apart. One take-apart at a
-  /// time. A stop ends it as soon as it can.
+  /// time. A stop ends it as soon as it can. However many parts deep the
+  /// pieces come apart, the stack it takes is the same: the parts still to
+  /// take apart wait on the heap (cleanup item 18.5: a round of recursion
+  /// for each part overflowed a thread's stack at 450 pieces that come off
+  /// one at a time).
   TakeApartResult disassemble(const Assembly& assembly, const StopToken& stop = {});
 
   /// Turns the 90 degree turns on or off; not while a take-apart runs.
@@ -151,18 +172,26 @@ class Disassembler {
 
  private:
   struct Expansion;
+  struct Round;
 
   MovementAnalysator& analysatorFor(unsigned int slot);
   void expandNode(MovementAnalysator& an, DisassemblerNode* node,
                   const std::vector<unsigned int>& pieces, const NodeHash& oldFront,
                   const NodeHash& curFront, const NodeHash& newFront, Expansion& e) const;
-  std::unique_ptr<Separation> searchLevels(const std::vector<unsigned int>& pieces,
-                                           const NodeRef& start);
-  std::unique_ptr<Separation> checkSubproblems(const DisassemblerNode* st,
-                                               const std::vector<unsigned int>& pieces);
-  std::unique_ptr<Separation> checkSubproblem(unsigned int pieceCount,
-                                              const std::vector<unsigned int>& pieces,
-                                              const DisassemblerNode* st, bool removed, bool* ok);
+  /// The search of one part: the first position that separates `pieces`,
+  /// from `start`; none when there is none, or at a stop.
+  NodeRef searchLevels(const std::vector<unsigned int>& pieces, const NodeRef& start);
+  /// The whole take-apart of `pieces` from `start`: the search of the part,
+  /// then of each part a separation leaves, down to single pieces and
+  /// groups. Sets tooDeep_ when it gives up for the tree's depth.
+  std::unique_ptr<Separation> takeApart(std::vector<unsigned int> pieces, NodeRef start);
+  /// Goes on to the part of `round` whose pieces st has as `removed`: true
+  /// when it must be searched, from `start` with the pieces `part`; false
+  /// when it is through as it is (one piece, or a group).
+  bool beginPart(Round& round, bool removed, std::vector<unsigned int>& part,
+                 NodeRef& start) const;
+  /// The tree node of a round whose two parts are through.
+  static std::unique_ptr<Separation> separationOf(Round& round);
   [[nodiscard]] unsigned short subProbGroup(const DisassemblerNode* st,
                                             const std::vector<unsigned int>& pn,
                                             bool removed) const;
@@ -191,6 +220,8 @@ class Disassembler {
 
   /// The take-apart's stop.
   StopToken stop_;
+  /// The take-apart under way gave up at kMaxSeparationDepth.
+  bool tooDeep_ = false;
 
   // progress, see DisassemblyProgress; progStartUs_ is 0 when idle
   std::atomic<std::uint64_t> progStartUs_{0};

@@ -218,6 +218,14 @@ jobs:
         continue-on-error: true
         run: |
           ctest --preset release --no-tests=error -j 2 -R "^slow: sliding: a search (saved by an earlier version is carried on|that cannot write a file is saved)"
+      # The take-apart of 600 pieces that come off one at a time (cleanup item
+      # 18.5): tagged [slow] for the debug and sanitizer builds, four seconds
+      # here. It ended the process on a thread's stack, so it runs on every
+      # system. A run that does not find it fails (a renamed case).
+      - name: Unit tests (the deep take-apart, tagged slow)
+        continue-on-error: true
+        run: |
+          ctest --preset release --no-tests=error -R "^slow: take-apart: 600 pieces that come off one at a time are taken apart$"
       - name: Install the front end's packages
         run: npm ci
         working-directory: web
@@ -283,6 +291,15 @@ jobs:
         shell: msys2 {0}
         run: |
           ctest --preset release --no-tests=error -j 2 -R "^slow: sliding: a search (saved by an earlier version is carried on|that cannot write a file is saved)"
+      # The take-apart of 600 pieces that come off one at a time (cleanup item
+      # 18.5): tagged [slow] for the debug and sanitizer builds, four seconds
+      # here. It ended the process on a thread's stack, so it runs on every
+      # system. A run that does not find it fails (a renamed case).
+      - name: Unit tests (the deep take-apart, tagged slow)
+        continue-on-error: true
+        shell: msys2 {0}
+        run: |
+          ctest --preset release --no-tests=error -R "^slow: take-apart: 600 pieces that come off one at a time are taken apart$"
       - name: Install the front end's packages
         run: npm ci
         working-directory: web
@@ -341,6 +358,15 @@ jobs:
         if: matrix.arch == 'arm64'
         run: |
           ctest --preset release --no-tests=error -j 2 -R "^slow: sliding: a search (saved by an earlier version is carried on|that cannot write a file is saved)"
+      # The take-apart of 600 pieces that come off one at a time (cleanup item
+      # 18.5): tagged [slow] for the debug and sanitizer builds, four seconds
+      # here. It ended the process on a thread's stack, so it runs on every
+      # system. A run that does not find it fails (a renamed case).
+      - name: Unit tests (the deep take-apart, tagged slow)
+        continue-on-error: true
+        if: matrix.arch == 'arm64'
+        run: |
+          ctest --preset release --no-tests=error -R "^slow: take-apart: 600 pieces that come off one at a time are taken apart$"
       - name: Install the front end's packages
         run: npm ci
         working-directory: web

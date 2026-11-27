@@ -41,6 +41,7 @@ import type {
   SolveOptions,
 } from '../../engine/api.generated.ts';
 import { EngineError, isQuietError } from '../../engine/errors.ts';
+import { openAssemblyExplorer } from '../../engine/explore-open.ts';
 import { meshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
@@ -59,7 +60,9 @@ import type { PieceMode, ScenePose, SolutionModel } from '../view3d/solution.ts'
 import type { View3D } from '../view3d/view.ts';
 import { problemPieces } from '../solver/player.ts';
 import type { ProblemPiece } from '../solver/player.ts';
+import { prepareDetails } from '../solver/run-text.ts';
 import { HandleSlot } from './handle-slot.ts';
+import type { Opening } from './handle-slot.ts';
 import { dragDirection, MovementTree } from './tree.ts';
 
 /** Which explorer the drawer shows. */
@@ -137,6 +140,16 @@ export class Explorer {
   private mxToken = 0;
   private adding: { direction: number; pieces: Set<number> } | null = null;
 
+  /**
+   * The assembly explorer of Placements and of Step while the engine
+   * prepares it (explore.openAssembly, then explore.ready): null when it
+   * is not being prepared, '' until the engine tells how far it is, then
+   * that (explore.preparing: a preparation long enough to tell of).
+   */
+  private readonly preparing: Record<'placements' | 'step', string | null> = {
+    placements: null,
+    step: null,
+  };
   /** Calls under way (the drawer's buttons wait). */
   private busy = 0;
   /** The meshes drawn, by shape, transformation and style (made once a drawer session). */
@@ -355,44 +368,81 @@ export class Explorer {
     }
   }
 
-  // an assembly explorer of the problem with the options shown (the original's Prepare built the solve's)
-  private async openAssembly(): Promise<string | null> {
+  // An assembly explorer of the problem with the options shown (the
+  // original's Prepare built the solve's). The engine answers with the
+  // handle at once and prepares the explorer on a thread of its own: the
+  // drawer shows how far that is, and its Cancel (or closing the drawer)
+  // ends it.
+  private openAssembly(which: 'placements' | 'step'): Opening {
     const problem = this.problem;
     if (problem === null) {
-      return null;
+      return { handle: Promise.resolve(null), cancel: () => undefined };
     }
     const o = this.host.options();
     const gen = this.generation;
+    const engine = this.host.store.engine;
     this.busy++;
-    try {
-      const r = await this.host.store.engine.call('explore.openAssembly', {
+    this.preparing[which] = '';
+    const opening = openAssemblyExplorer(
+      engine,
+      {
         problem,
         ...(o.solver === undefined ? {} : { solver: o.solver }),
         keepMirrors: o.keepMirrors ?? false,
         keepRotations: o.keepRotations ?? false,
         completeRotations: o.completeRotations ?? false,
         strictColors: o.strictColors ?? false,
-      });
-      if (problem !== this.problem || gen !== this.host.store.generation) {
-        this.host.store.engine.call('explore.close', { handle: r.handle }).catch(() => undefined);
+      },
+      (told) => {
+        if (this.preparing[which] === null) {
+          return;
+        }
+        this.preparing[which] = prepareDetails({
+          stage: told.reducing ? 'reduce' : 'prepare',
+          activity: told.reducing ? 'optimize' : 'preparing the assembler',
+          piece: 0,
+          pieces: 0,
+          prepare: told.progress,
+        });
+        if (this.mode === which) {
+          this.render();
+        }
+      },
+    );
+    const handle = opening.done
+      .then((r) => {
+        if (r === null) {
+          return null;
+        }
+        if (problem !== this.problem || gen !== this.host.store.generation) {
+          engine.call('explore.close', { handle: r.handle }).catch(() => undefined);
+          return null;
+        }
+        this.placementsSupported = r.placementsSupported;
+        return r.handle;
+      })
+      .catch((e: unknown) => {
+        if (!isQuietError(e)) {
+          reportError(e, 'The assembler could not be prepared');
+        }
         return null;
-      }
-      this.placementsSupported = r.placementsSupported;
-      return r.handle;
-    } catch (e) {
-      if (!isQuietError(e)) {
-        reportError(e, 'The assembler could not be prepared');
-      }
-      return null;
-    } finally {
-      this.busy--;
-    }
+      })
+      .finally(() => {
+        this.busy--;
+        this.preparing[which] = null;
+      });
+    return {
+      handle,
+      cancel: (close) => {
+        opening.cancel(close);
+      },
+    };
   }
 
   // ---- Placements ----
 
   private async ensurePlacements(): Promise<string | null> {
-    return this.ax.ensure(() => this.openAssembly());
+    return this.ax.ensure(() => this.openAssembly('placements'));
   }
 
   private async showPlacements(): Promise<void> {
@@ -460,7 +510,7 @@ export class Explorer {
   // ---- Step ----
 
   private async ensureStep(): Promise<string | null> {
-    return this.axStep.ensure(() => this.openAssembly());
+    return this.axStep.ensure(() => this.openAssembly('step'));
   }
 
   /** The Step button: the assembler `n` steps on (the drawer's Step view opened). */
@@ -720,6 +770,10 @@ export class Explorer {
       return;
     }
     switch (a.dataset.exa) {
+      case 'cancelPrepare':
+        // the drawer closes, and with it the engine's build
+        this.close();
+        return;
       case 'prev':
         this.choosePlacement(this.selPlacement - 1);
         return;
@@ -841,6 +895,8 @@ export class Explorer {
     d.dataset.handle =
       (m === 'placements' ? this.ax.handle : m === 'step' ? this.axStep.handle : this.mx) ?? '';
     d.dataset.busy = String(this.busy);
+    // '1' once the engine told how far a preparation is (its Cancel shows)
+    d.dataset.preparing = m !== 'movements' && (this.preparing[m] ?? '') !== '' ? '1' : '0';
     d.dataset.piece = String(this.selPiece);
     d.dataset.placement = String(this.selPlacement);
     d.dataset.node = String(this.sel);
@@ -850,6 +906,16 @@ export class Explorer {
     // what the engine's step gave, for whoever compares (the e2e tests)
     d.dataset.stepPlacements = JSON.stringify(this.stepPlaced);
     d.querySelector('.dl .on')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  // What the drawer says while the engine prepares an assembly explorer,
+  // once it has told how far it is (a matrix that takes a while): that,
+  // and a Cancel, which closes the drawer and ends the engine's build.
+  private preparingHtml(which: 'placements' | 'step'): string {
+    const text = this.preparing[which] ?? '';
+    return text === ''
+      ? ''
+      : `<div class="info" data-preparing>${esc(text)}</div><div class="ctl"><button class="btn sm" data-exa="cancelPrepare" title="Stop preparing the assembler and close the explorer">Cancel</button></div>`;
   }
 
   private placementsHtml(): [string, string] {
@@ -866,7 +932,7 @@ export class Explorer {
     const p = this.pieces.find((x) => x.piece === this.selPiece);
     let right: string;
     if (pl === undefined) {
-      right = '<div class="info">Reading the placements…</div>';
+      right = this.preparingHtml('placements') || '<div class="info">Reading the placements…</div>';
     } else if (pl.length === 0) {
       right = `<div class="info">${esc(p?.label ?? '')} has no placement in the result: no assembly can use it.</div>`;
     } else {
@@ -893,6 +959,7 @@ export class Explorer {
     const busy = this.busy > 0 || this.axStep.handle === null;
     const dis = busy ? 'disabled' : '';
     const right =
+      this.preparingHtml('step') +
       `<div class="ctl"><button class="btn sm pri" data-exa="step" data-n="1" ${dis} title="Advance the assembler one step">Step ▶</button><button class="btn sm" data-exa="step" data-n="10" ${dis} title="Advance the assembler ten steps">10 ▶</button><button class="btn sm" data-exa="step" data-n="100" ${dis} title="Advance the assembler a hundred steps">100 ▶</button><button class="btn sm" data-exa="step" data-n="1000" ${dis} title="Advance the assembler a thousand steps">Run ▶▶</button><button class="btn sm" data-exa="reset" ${dis} title="Take the assembler back to its start">Reset</button></div>` +
       `<div class="info">${String(placed.size)} of ${String(this.pieces.length)} pieces placed · ${String(this.stepsTaken)} step${this.stepsTaken === 1 ? '' : 's'} taken · search ${(this.finished * 100).toFixed(1)} % done${this.finished >= 1 ? ' (through)' : ''}</div>` +
       `<div class="tree">${this.pieces.map((p) => `<i class="${placed.has(p.piece) ? 'on' : ''}">${esc(p.label)}</i>`).join('')}</div>` +

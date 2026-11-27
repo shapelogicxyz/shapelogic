@@ -7,7 +7,11 @@
 // fall away, and trees are values.
 #include "../model/model_test_helpers.h"
 
+#include "shapelogic/app/analysis.h"
+#include "shapelogic/base/solve_state.h"
+#include "shapelogic/base/thread_pool.h"
 #include "shapelogic/grid/grid_type.h"
+#include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/disassembly.h"
 #include "shapelogic/model/problem.h"
@@ -19,7 +23,9 @@
 #include "shapelogic/solve/disassembler_node.h"
 #include "shapelogic/solve/movement_cache.h"
 #include "shapelogic/solve/node_hash.h"
+#include "shapelogic/solve/solve_session.h"
 #include "shapelogic/solve/solver_type.h"
+#include "shapelogic/solve/take_apart_pool.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -30,6 +36,8 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <thread>
+#include <utility>
 #include <vector>
 
 using namespace bt;
@@ -1066,4 +1074,301 @@ TEST_CASE("take-apart: hotspots reset before the matrix, not after it", "[solve]
   };
   CHECK(solutions(true) == 1);
   CHECK(solutions(false) == 0);
+}
+
+// ---- cleanup item 18.5: pieces that come off one at a time ----------------------------
+
+namespace {
+
+// `n` unit cubes for a box of 1 x 1 x n. They come off one at a time, so
+// their take-apart has n - 1 separations, each inside the one before: the
+// deepest tree n pieces can have.
+Puzzle rowOfCubes(unsigned int n) {
+  Puzzle p{GridType{GridKind::Bricks}};
+  const unsigned int cube = p.addShape(1, 1, 1);
+  p.getShape(cube).setState(0, Voxel::kFilled);
+  const unsigned int box = p.addShape(1, 1, n);
+  for (unsigned int i = 0; i < n; i++) {
+    p.getShape(box).setState(i, Voxel::kFilled);
+  }
+  Problem& pr = p.getProblem(p.addProblem());
+  pr.setResultId(p, box);
+  pr.setShapeMaximum(p, cube, n);
+  pr.setShapeMinimum(p, cube, n);
+  return p;
+}
+
+// The row's one assembly.
+Assembly rowAssembly(const Puzzle& p) {
+  std::unique_ptr<Assembler> assm = makeAssembler(p, p.getProblem(0), SolverType::Classic);
+  REQUIRE(assm->createMatrix({}, StopToken()) == AssemblerError::None);
+  std::optional<Assembly> found;
+  (void)assm->assemble(
+      [&](const Assembly& a) {
+        found = a;
+        return false;
+      },
+      SearchOptions{}, StopToken{});
+  REQUIRE(found.has_value());
+  return *found;
+}
+
+// How many branches of a tree lie inside each other, the root's the first
+// (no recursion: the trees here are deep).
+unsigned int depthOf(const Separation& tree) {
+  unsigned int deepest = 0;
+  std::vector<std::pair<const Separation*, unsigned int>> open{{&tree, 1}};
+  while (!open.empty()) {
+    const auto [s, depth] = open.back();
+    open.pop_back();
+    deepest = std::max(deepest, depth);
+    for (const Separation* child : {s->getLeft(), s->getRemoved()}) {
+      if (child != nullptr) {
+        open.emplace_back(child, depth + 1);
+      }
+    }
+  }
+  return deepest;
+}
+
+// The puzzle with `tree` as its problem's one solution, as a file's text.
+std::string savedWith(Puzzle p, const Assembly& assembly, Separation tree) {
+  p.getProblem(0).markSolving();
+  p.getProblem(0).addSolution(assembly, std::move(tree), 0, 0);
+  return io::writePuzzle(p);
+}
+
+}  // namespace
+
+// The take-apart's parts wait in a list, and the tree it makes is held to
+// the depth a file may hold (kMaxSeparationDepth: the reader refuses a
+// deeper one). At the bound the tree is made, saved and read again; one
+// part deeper nothing is made, and the result says so: neither stopped nor
+// "does not come apart". With the bound lowered to 12 (the real one takes a
+// thousand pieces: minutes in a debug build).
+TEST_CASE("take-apart: a tree is made up to the depth bound and not past it",
+          "[solve][disasm]") {
+  DisassemblerOptions held;
+  held.maxDepth = 12;
+  {
+    const Puzzle p = rowOfCubes(13);
+    const Assembly assembly = rowAssembly(p);
+    Disassembler bounded(p, p.getProblem(0), held);
+    Disassembler free(p, p.getProblem(0), {});
+    TakeApartResult at = bounded.disassemble(assembly);
+    TakeApartResult usual = free.disassemble(assembly);
+    REQUIRE(at.separation.has_value());
+    REQUIRE(usual.separation.has_value());
+    CHECK(!at.tooDeep);
+    CHECK(depthOf(*at.separation) == 12);
+    // the same tree as without the bound in the way, and it opens again
+    const std::string text = savedWith(p, assembly, std::move(*at.separation));
+    CHECK(text == savedWith(p, assembly, std::move(*usual.separation)));
+    const Result<Puzzle> read = io::parsePuzzle(text);
+    REQUIRE(read.has_value());
+    CHECK(io::writePuzzle(*read) == text);
+    // a second take-apart of the same disassembler starts afresh
+    CHECK(bounded.disassemble(assembly).separation.has_value());
+  }
+  {
+    const Puzzle p = rowOfCubes(14);
+    const Assembly assembly = rowAssembly(p);
+    Disassembler bounded(p, p.getProblem(0), held);
+    const TakeApartResult past = bounded.disassemble(assembly);
+    CHECK(!past.separation.has_value());
+    CHECK(past.tooDeep);
+    CHECK(!past.stopped);
+    CHECK(bounded.progress().depth == 0);
+    // one that comes apart within the bound is still taken apart after it
+    Disassembler free(p, p.getProblem(0), {});
+    const TakeApartResult usual = free.disassemble(assembly);
+    REQUIRE(usual.separation.has_value());
+    CHECK(depthOf(*usual.separation) == 13);
+  }
+  CHECK(Disassembler::tooDeepMessage().find(std::to_string(kMaxSeparationDepth)) !=
+        std::string::npos);
+}
+
+// Whoever asked for the take-apart says why there is no tree: the solve
+// ends in an error with the words (never a solve that "found no solution"),
+// and so does the analysis of saved solutions. What the problem holds then
+// is saved and opens.
+TEST_CASE("take-apart: past the depth bound the solve and the analysis end with the reason",
+          "[solve][disasm][session][parallel]") {
+  SolveOptions o;
+  o.disassemble = true;
+  o.takeApart.maxDepth = 12;
+  {
+    Puzzle p = rowOfCubes(13);
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    const Problem& pr = p.getProblem(0);
+    REQUIRE(pr.getNumberOfSavedSolutions() == 1);
+    REQUIRE(pr.getSavedSolution(0).getDisassembly() != nullptr);
+    CHECK(depthOf(*pr.getSavedSolution(0).getDisassembly()) == 12);
+    CHECK(io::parsePuzzle(io::writePuzzle(p)).has_value());
+  }
+  {
+    Puzzle p = rowOfCubes(14);
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    CHECK(s.state() == SolveState::Error);
+    const std::optional<SolveFailure> f = s.failure();
+    REQUIRE(f.has_value());
+    CHECK(f->message == Disassembler::tooDeepMessage());
+    CHECK(f->assembler == AssemblerError::None);
+    CHECK(p.getProblem(0).getNumberOfSavedSolutions() == 0);
+    CHECK(io::parsePuzzle(io::writePuzzle(p)).has_value());
+
+    // the analysis of a saved assembly: its failure, nothing taken apart
+    const Assembly assembly = rowAssembly(p);
+    app::AnalyseOptions a;
+    a.maxDepth = 12;
+    app::Analysis job(p, p.getProblem(0), {{7, assembly}}, a);
+    job.wait();
+    const app::AnalyseProgress progress = job.progress();
+    REQUIRE(progress.failure.has_value());
+    CHECK(*progress.failure == Disassembler::tooDeepMessage());
+    CHECK(progress.separated == 0);
+    CHECK(job.takeResults().empty());
+  }
+}
+
+// A solve's threads walk the trees they make: the counts a solve sorts by,
+// the level text (the CLI's and the Python module's workers), the summary
+// kept in place of a tree, and the tree's end. Each of those called itself
+// once a branch; a tree at the bound, 1000 branches inside each other, took
+// more than the stack a thread gets (512 KiB on macOS) for its level text
+// in a debug build, and for most of them under the sanitizers. None of
+// them depends on the depth now. (The copy still does, 62 bytes a branch in
+// a release build and 650 under the sanitizers: documents are copied on
+// the thread the process began with.)
+TEST_CASE("separation tree: a tree at the depth bound is walked on a thread's stack",
+          "[solve][disasm][parallel]") {
+  // each branch: `pieces` pieces, one taken off in two moves
+  const auto branch = [](std::unique_ptr<Separation> inner, unsigned int pieces) {
+    std::vector<unsigned int> names(pieces);
+    for (unsigned int i = 0; i < pieces; i++) {
+      names[i] = i;
+    }
+    auto s = std::make_unique<Separation>(ClonePtr<Separation>(nullptr),
+                                          ClonePtr<Separation>(std::move(inner)), names);
+    State off(pieces);
+    off.set(0, 20000, 0, 0, 0);
+    s->addstate(std::move(off));
+    s->addstate(State(pieces));
+    s->addstate(State(pieces));
+    return s;
+  };
+  // down the left side, and down the removed side
+  for (const bool removedSide : {false, true}) {
+    INFO((removedSide ? "nested on the removed side" : "nested on the left side"));
+    std::unique_ptr<Separation> tree;
+    for (unsigned int k = 2; k <= kMaxSeparationDepth + 1; k++) {
+      tree = branch(std::move(tree), k);
+    }
+    if (removedSide) {
+      // the same branches, each the removed side of the one around it
+      std::unique_ptr<Separation> turned;
+      for (unsigned int k = 2; k <= kMaxSeparationDepth + 1; k++) {
+        std::vector<unsigned int> names(k);
+        for (unsigned int i = 0; i < k; i++) {
+          names[i] = i;
+        }
+        auto s = std::make_unique<Separation>(ClonePtr<Separation>(std::move(turned)),
+                                              ClonePtr<Separation>(nullptr), names);
+        s->addstate(State(k));
+        s->addstate(State(k));
+        s->addstate(State(k));
+        turned = std::move(s);
+      }
+      tree = std::move(turned);
+    }
+    REQUIRE(depthOf(*tree) == kMaxSeparationDepth);
+    // the copy, here: on the test's own thread
+    const Separation copy = *tree;
+
+    unsigned int moves = 0;
+    unsigned int rotations = 0;
+    unsigned int sequences = 0;
+    unsigned int last = 0;
+    int same = 1;
+    std::size_t summary = 0;
+    std::size_t bytes = 0;
+    std::string text;
+    std::string summaryText;
+    std::thread walker([&] {
+      moves = tree->sumMoves();
+      rotations = tree->sumRotations();
+      sequences = tree->getNumSequences();
+      last = tree->getSequenceLength(sequences - 1);
+      same = tree->compare(copy);
+      text = tree->movesText();
+      const SeparationInfo info(*tree);
+      summary = info.getValues().size();
+      summaryText = info.movesText();
+      bytes = tree->byteEstimate();
+      tree.reset();
+    });
+    walker.join();
+    CHECK(moves == 2 * kMaxSeparationDepth);
+    CHECK(rotations == 0);
+    CHECK(sequences == kMaxSeparationDepth);
+    CHECK(last == 3);
+    CHECK(same == 0);
+    CHECK(text.rfind("2.2.2.", 0) == 0);
+    CHECK(text == copy.movesText());
+    CHECK(summaryText == text);
+    CHECK(bytes == copy.byteEstimate());
+    // each branch: itself and a side with no branch, and one more at the end
+    CHECK(summary == 2 * kMaxSeparationDepth + 1);
+  }
+}
+
+// The item's row: 600 unit cubes come off one at a time. The take-apart
+// called itself once a part, a round of about 1.2 KiB of a release build's
+// stack and 1.9 KiB of a debug one's: on a thread (512 KiB on macOS) the
+// process ended with a bus error from 450 pieces, 273 in a debug build. On
+// the solve's threads, and on the threads of the pool the CLI takes apart
+// with.
+TEST_CASE("take-apart: 600 pieces that come off one at a time are taken apart",
+          "[solve][disasm][session][parallel][slow]") {
+  constexpr unsigned int kCubes = 600;
+  {
+    Puzzle p = rowOfCubes(kCubes);
+    SolveOptions o;
+    o.disassemble = true;
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    const Problem& pr = p.getProblem(0);
+    CHECK(pr.getNumAssemblies() == 1);
+    CHECK(pr.getNumSolutions() == 1);
+    REQUIRE(pr.getNumberOfSavedSolutions() == 1);
+    REQUIRE(pr.getSavedSolution(0).getDisassembly() != nullptr);
+    CHECK(depthOf(*pr.getSavedSolution(0).getDisassembly()) == kCubes - 1);
+    CHECK(pr.getSavedSolution(0).getDisassembly()->sumMoves() == kCubes - 1);
+  }
+  {
+    const Puzzle p = rowOfCubes(kCubes);
+    const Assembly assembly = rowAssembly(p);
+    TakeApartPoolOptions o;
+    o.workers = 2;
+    unsigned int depth = 0;
+    std::string text;
+    TakeApartPool pool(p, p.getProblem(0), o, [&](const Assembly&, TakeApartResult& r) {
+      REQUIRE(r.separation.has_value());
+      depth = depthOf(*r.separation);
+      // as the CLI prints it, on the worker's thread
+      text = r.separation->movesText();
+    });
+    pool.submit(assembly);
+    pool.finish();
+    CHECK(depth == kCubes - 1);
+    CHECK(text.rfind("1.1.1.", 0) == 0);
+  }
 }

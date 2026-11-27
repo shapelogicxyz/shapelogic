@@ -8,6 +8,7 @@
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/thread_pool.h"
 
+#include <stdexcept>
 #include <utility>
 
 namespace bt::app {
@@ -21,6 +22,7 @@ Analysis::Analysis(const Puzzle& puzzle, const Problem& problem,
   DisassemblerOptions d;
   d.rotations = options.rotations;
   d.solver = options.solver;
+  d.maxDepth = options.maxDepth;
   d.pool = pool_.get();
   // made here, on the owner's thread: it warms the shapes' caches
   disassembler_ = std::make_unique<Disassembler>(puzzle, problem, d);
@@ -37,6 +39,11 @@ void Analysis::run() {
     TakeApartResult r = disassembler_->disassemble(assembly, stop_.token());
     if (r.stopped) {
       break;
+    }
+    if (r.tooDeep) {
+      // the job's failure (BackgroundJob): what was taken apart before it
+      // is kept, this solution and those after it stay as they were
+      throw std::runtime_error(Disassembler::tooDeepMessage());
     }
     if (r.separation) {
       const std::lock_guard<std::mutex> lock(mutex_);

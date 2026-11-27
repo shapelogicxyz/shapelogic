@@ -147,7 +147,7 @@ Rules (decisions 0020, 0023, 0025, 0027, 0038, 0046):
 
 Files in `core/shapelogic/model/`:
 - `assembly.{h,cpp}`: `Placement`, `MirrorInfo`, `Assembly` (`transform`, `smallerRotationExists`, `createSpace`, `sort`, the editing helpers).
-- `disassembly.{h,cpp}`: `Disassembly` (level and move counts), `State`, `Separation` (the tree), `SeparationInfo` (the compact pre-order form), `movesText()` (cut at the original's 256 bytes: the text oracle compares it).
+- `disassembly.{h,cpp}`: `Disassembly` (level and move counts), `State`, `Separation` (the tree), `SeparationInfo` (the compact pre-order form), `movesText()` (cut at the original's 256 bytes: the text oracle compares it); `kMaxSeparationDepth`, how deep a tree may nest (the reader refuses a deeper one, the take-apart makes none): no walk of a tree but its copy depends on its depth.
 - `grid_convert.{h,cpp}`: `convertGrid`: a cube-grid puzzle on the rhombic (5x5x5 cells a cube) or tetra-octa (3x3x3) grid, with its colors, notes and problems; `convertTargets`; `kMaxConvertedCells`.
 - `movement_values.h`: the movement analysis' special values (`movement::kFree`, the removal step, the states' mark of a removed piece, the original's), with `static_assert`s of how they relate.
 - `problem.{h,cpp}`: `Problem`: parts (at most `kMaxPartCount` pieces each), result, goal, color rules, holes, state, counts, the saved position, pending assemblies, solutions and their sort orders (`solutionSortOrder`), stored solver options, stacks, slide marks, the uid (decision 0044).
@@ -191,7 +191,7 @@ Files in `core/shapelogic/io/`:
 - `gzip_file.{h,cpp}`: whole files through zlib (level 9) and the same in memory (`gzipCompress`, `gunzipIfCompressed`: the one inflate, to 256 MiB at most, a stream cut short refused; `readMaybeGzipFile` is `readPlainFile` and it); `writeFileWhole`, `writeFileStreamed`, `replaceWith`, `saveTarget`, `syncDescriptor`.
 - `imports.h`, `ps3d_file.cpp`, `scad_file.cpp`: other programs' files (decision 0017): `readPuzzleSolver3D`, `readPuzzlecad`, `writePuzzlecad` (puzzlecad's `burr_plate`) and `puzzlecadRefusal` (every caller's refusals), line for line the original's loaders; `kMaxImportCells`.
 - `paused_solve.{h,cpp}`: the paused solve file (`.slsolve`, the original's BTSOLVE2), both ways, streamed; `readPausedSolve`, the one reader (a file's stream or bytes'), each section held to what is left of the file.
-- `puzzle_file.{h,cpp}`: `loadPuzzle`, `parsePuzzle`, `readPuzzle`, `savePuzzle`, `writePuzzle`; `giveUids`; the bounds on a file's numbers at the top of the .cpp (`kMaxFileCoordinate`, `kMaxSeparationDepth`, `kMaxSlideDepth`).
+- `puzzle_file.{h,cpp}`: `loadPuzzle`, `parsePuzzle`, `readPuzzle`, `savePuzzle`, `writePuzzle`; `giveUids`; the bounds on a file's numbers at the top of the .cpp (`kMaxFileCoordinate`, `kMaxSlideDepth`; a tree's depth is the model's `kMaxSeparationDepth`).
 - `xml_document.{h,cpp}`: the tree built from the parser, within `XmlLimits` (16 million elements, 4096 attributes an element, 5000 levels), and a tree written back.
 - `xml_pull_parser.{h,cpp}`: the original's parser (internal; its `XmlParseError` never leaves the module).
 - `xml_writer.{h,cpp}`: `XmlWriter`, the original's output layout.
@@ -236,12 +236,12 @@ Rules (decisions 0006, 0008, 0017, 0038, 0044, 0045, 0046):
 ## solve
 
 Files in `core/shapelogic/solve/`:
-- `assembler.{h,cpp}`: `Assembler`, the interface (`createMatrix`, `reduce`, `assemble -> RunEnd`, `savePosition` / `restorePosition`, the placement browser, the debugger); `SearchOptions`; `AssemblerError`; the problem hooks `beginSolving`, `storePosition`, `canStartSolving`; `warmShapeCaches()`.
+- `assembler.{h,cpp}`: `Assembler`, the interface (`createMatrix` with its stop token, `reduce`, `assemble -> RunEnd`, `savePosition` / `restorePosition`, the placement browser, the debugger); `SearchOptions`; `AssemblerError`; the problem hooks `beginSolving`, `storePosition`, `canStartSolving`; `warmShapeCaches()`.
 - `assembler_0.{h,cpp}`: `Assembler0`, dancing links (every part exactly one piece): plain (flag 0), split into subtree tasks (flag 2), vector (flag 3).
 - `assembler_1.{h,cpp}`: `Assembler1`, Wei-Hwa Huang's cover with counts (every other problem): a state machine over explicit stacks (flag 0), tasks (flags 4, 2, 5, 6), vector (flag 3).
 - `CROWELL.md`: Crowell's solver, feature by feature against the Fortran original.
 - `disasm_to_moves.{h,cpp}`: `DisasmToMoves`, piece positions at any step of a tree (turns as angles about a pivot), and `FixedPositions`, behind `PiecePositions`.
-- `disassembler.{h,cpp}`: `Disassembler`, the take-apart of one problem's assemblies; `DisassemblerOptions`; `canDisassemble()`, the one rule for whether a puzzle has a take-apart.
+- `disassembler.{h,cpp}`: `Disassembler`, the take-apart of one problem's assemblies (the parts still to take apart wait on the heap, not on the stack); `DisassemblerOptions`; `TakeApartResult` (a tree, stopped, or `tooDeep` past `maxDepth`) and `tooDeepMessage()`; `canDisassemble()`, the one rule for whether a puzzle has a take-apart.
 - `disassembler_node.{h,cpp}`: `DisassemblerNode` (places, orientations, the position it came from, the move) and `NodeRef`, a counted reference.
 - `dlx_matrix.{h,cpp}`: `DlxMatrix`, assembler 0's matrix (`build`, `reduce`, `clumpify`, the placement browser), and `DlxNodes`, the node arrays a thread copies.
 - `grouping.{h,cpp}`: `Grouping`, the groups of pieces that may stay together, keyed by part.
@@ -394,14 +394,14 @@ Rules (decisions 0016, 0022, 0023, 0025):
 
 Files in `core/shapelogic/app/`:
 - `analysis.{h,cpp}`: `Analysis`, saved assemblies taken apart afterwards on a thread of its own.
-- `background_job.{h,cpp}`: `BackgroundJob`, what `Analysis` and `PlacementFit` share (the thread, the stop, active, the done count, the failure); the document keeps them in one map by (problem, kind).
+- `background_job.{h,cpp}`: `BackgroundJob`, what `Analysis`, `PlacementFit` and `AssemblyExplorerBuild` share (the thread, the stop, active, the done count, the failure); the document keeps the first two in one map by (problem, kind), the engine the third by its handle.
 - `document.{h,cpp}`: `Document`: the puzzle, ids, revision, dirty flag, undo history, the queries, solving, analyses, files, playback and explorers.
 - `document_commands.cpp`: the editing commands, from the original GUI's callbacks.
 - `document_internal.h`: the undo steps, a run's among them (internal to `document*.cpp`): a step holds what its command changed (`touchProblemSettings` where no solution changes: the problem without them), and the steps are kept to the depth and to `DocumentSettings::undoBytes` (512 MiB; the newest always stays).
 - `document_sliding.cpp`: the sliding commands (decision 0014): starts and goals, stamps, layouts.
 - `document_stacking.cpp`: the stacking commands (decision 0015): rod sets, discs, stacks, saved searches.
 - `document_tilted.cpp`: a document with a tilted tray (decision 0045).
-- `explorers.{h,cpp}`: `AssemblyExplorer` (its matrix the solve's, `solveSetup`) and `MovementExplorer`, each on a copy of the puzzle.
+- `explorers.{h,cpp}`: `AssemblyExplorer` (its matrix the solve's, `solveSetup`; made in two steps: `copy()` under the problem's lock, `build()` from the copy alone) with `AssemblyExplorerBuild`, its build as a job the engine keeps, and `MovementExplorer`, each on a copy of the puzzle.
 - `layer_geometry.{h,cpp}`: `layerGeometry`, the grid editor's drawing of a layer.
 - `placement_fit.{h,cpp}`: `PlacementFit`, a problem's assemblies counted on each board of the tray's placements.
 - `playback.{h,cpp}`: `PlaybackSampler` and `orientedMesh`.
@@ -453,7 +453,7 @@ Files in `engine/`:
 - `app_log.{h,cpp}`: the engine's lines for the app's log (the `log` setting: `off`, `info`, `debug`).
 - `convert.{h,cpp}`: the schema's enum names, the engine's own bounds of its inputs and the JSON of the items (snapshot, summaries, fit, meshes as frames, solver settings, options, progress, failures, solution rows, placements).
 - `engine.{h,cpp}`: `Engine` (the dispatcher: `handleLine`, `poll`, `run`), `State`, `Settings`, the method table.
-- `events.cpp`: `document.changed` and the poll's events.
+- `events.cpp`: `document.changed` and the poll's events (solves, analyses, fits, assembly explorers being prepared).
 - `main.cpp`: the process's entry.
 - `methods_{color,document,engine,explore,export,playback,problem,shape,sliding,solution,solve,stacking,tray}.cpp`: one file per schema file in `api/` (`document.*` with `edit.*`, `engine.*` with `settings.*`, `shape.*` with `grid.*`).
 - `output.{h,cpp}`: `Output` (lines and frames), `FrameBuilder` (typed arrays at multiples of four, described for the reply).
@@ -470,7 +470,7 @@ Rules (decisions 0012, 0028, 0043):
   no frame); a run's last `solve.state` and an analysis's end come before
   the `document.changed` of their results. The revision clients see never goes back (a new document
   counts on from the old one). Handles hold copies and survive edits; a new
-  document drops them.
+  document drops them. Long work (a solve, an analysis, a fit, an assembly explorer's matrix: `explore.ready`) runs on a thread of its own, its stop asked for on the main thread, never waited for there; `solution.page` keeps its order in `State` (`PageOrder`).
 - A malformed or oversized line is answered, never fatal; `Params` refuses
   missing, mistyped and unknown fields as the schema does; `core/` never
   sees JSON. An exception outside a handler is logged; the engine ends by
@@ -536,6 +536,7 @@ Files in `web/src/engine/`:
 - `client.ts`: `EngineClient`: `engine.hello` first, typed calls pipelined in order and bounded, errors as `EngineError`, coalescing by key, typed events.
 - `dispatch.ts`: `OrderedInbox` (a reply settles before the events behind it are dispatched) and `makeDefer`.
 - `errors.ts`: the errors a call ends with.
+- `explore-open.ts`: `openAssemblyExplorer`: `explore.openAssembly`, the wait for `explore.ready`, the progress meanwhile, and the cancel that ends the engine's build; for the renderer's explorers and the tests.
 - `frames.ts`: `viewFrame` (typed-array views without copies), `attachFrame`, `meshArrays`, `poseArrays`.
 - `framing.ts`: `FrameParser` (stdout as lines and frames), `StderrRing`.
 - `handlers.ts`: `EventHandlers`, `Listeners`: the one registry of event, status and problem handlers (the client, the host, the proxy), each handler guarded.

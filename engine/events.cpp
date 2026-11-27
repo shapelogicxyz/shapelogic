@@ -283,6 +283,7 @@ void pollEvents(State& s, std::chrono::steady_clock::time_point now,
   }
   // problems that are gone
   std::erase_if(s.watches, [&d](const auto& w) { return !d.problemIndex(w.first); });
+  std::erase_if(s.pageOrders, [&d](const auto& o) { return !d.problemIndex(o.first); });
   pollExplorers(s, now);
   // the revision of what was taken in (and of anything else not yet told)
   announceChange(s);

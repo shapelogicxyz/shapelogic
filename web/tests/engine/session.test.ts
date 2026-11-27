@@ -17,7 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Errc, ProblemDetail, SolutionRow } from '../../src/engine/api.generated.ts';
 import { EngineError } from '../../src/engine/errors.ts';
 import { meshArrays, poseArrays } from '../../src/engine/frames.ts';
-import { ENGINE, FIXTURES, Session } from '../helpers/engine.ts';
+import { ENGINE, FIXTURES, opened, Session } from '../helpers/engine.ts';
 
 async function fails(p: Promise<unknown>, errc: Errc): Promise<void> {
   try {
@@ -212,7 +212,11 @@ describe.skipIf(ENGINE === null)('the scripted session', () => {
 
   it('explores the assembly and the movements', async () => {
     const c = s.client;
-    const ax = await c.call('explore.openAssembly', { problem: p });
+    // the handle at once; usable once the engine has prepared it
+    const early = await c.call('explore.openAssembly', { problem: p });
+    await fails(c.call('explore.step', { handle: early.handle }), 'invalid_state');
+    await c.call('explore.close', { handle: early.handle });
+    const ax = await opened(c, { problem: p });
     expect(ax.pieces).toBe(detail.pieces);
     if (ax.placementsSupported) {
       expect(

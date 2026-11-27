@@ -41,6 +41,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -3819,11 +3820,20 @@ TEST_CASE("sliding: a search with nested slides tells the parts of a move that v
   std::atomic<bool> over{false};
   std::thread watcher([&] {
     while (!done.load()) {
+      // One part's numbers: its done is read between two looks at the part,
+      // when it began and its total, and counts only when those stayed the
+      // same. (The loads are not one: a part that began between them set
+      // the old part's done against its own total, which failed this case
+      // now and then under load.)
       const SlidePhase part = phase.phase.load(std::memory_order_acquire);
+      const std::int64_t since = phase.since.load();
       const bool visited = part == SlidePhase::Visited;
-      const std::uint64_t d = (visited ? phase.visitedDone : phase.done).load();
       const std::uint64_t t = (visited ? phase.visitedTotal : phase.total).load();
-      if (part != SlidePhase::None && d > t) {
+      const std::uint64_t d = (visited ? phase.visitedDone : phase.done).load();
+      const bool same = phase.phase.load(std::memory_order_acquire) == part &&
+                        phase.since.load() == since &&
+                        (visited ? phase.visitedTotal : phase.total).load() == t;
+      if (same && part != SlidePhase::None && d > t) {
         over.store(true);
       }
       std::this_thread::yield();
@@ -6298,3 +6308,314 @@ TEST_CASE("sliding: a key set of more than 2^33 keys", "[.huge][sliding]") {
   std::filesystem::remove_all(dir);
 }
 #endif
+
+namespace {
+
+// The lines a search writes for the log, from whichever thread.
+struct SlideLog {
+  std::mutex m;
+  std::vector<std::string> lines;
+  void watch(SlideSearch& s) {
+    s.onLog = [this](LogLevel, const std::string& line) {
+      const std::lock_guard<std::mutex> lock(m);
+      lines.push_back(line);
+    };
+  }
+  [[nodiscard]] bool says(const std::string& text) {
+    const std::lock_guard<std::mutex> lock(m);
+    return std::any_of(lines.begin(), lines.end(), [&](const std::string& line) {
+      return line.find(text) != std::string::npos;
+    });
+  }
+};
+
+// Every file under a folder with its bytes: a saved search as it stands.
+std::map<std::string, std::string> folderFiles(const std::filesystem::path& dir) {
+  std::map<std::string, std::string> files;
+  for (const auto& e : std::filesystem::recursive_directory_iterator(dir)) {
+    if (e.is_regular_file()) {
+      std::ifstream in(e.path(), std::ios::binary);
+      std::ostringstream bytes;
+      bytes << in.rdbuf();
+      files[std::filesystem::relative(e.path(), dir).string()] = bytes.str();
+    }
+  }
+  return files;
+}
+
+}  // namespace
+
+// Cleanup item 18.4. With nested slides the level that leaves the two
+// newest is merged into the visited sets by one thread while the others
+// expand the next: deep in a search that merge takes minutes, and it heard
+// no stop, so Pause and Abort (and every call of the window behind them)
+// waited for it. It looks at the token now. The set being made is let go,
+// the sets it was made of stay, and a level that never went in is put back
+// when the search is carried on. The tests stop it at a chosen arrangement
+// of a chosen merge (SlideSearch::onVisitedMerge), early and late in the
+// search, in the first of a level's two merges and in the second: stopped,
+// saved and carried on, the search finds the path of a search never
+// stopped, through the same arrangements.
+TEST_CASE("sliding: a stop ends a merge into the visited sets and the search is carried on",
+          "[sliding][resume][parallel]") {
+  const ScratchDir scratch("slidevisitedstop");
+  const std::filesystem::path dir = scratch.path() / "work";
+  const GridBoard g = settledBoard(37);
+  auto gridSearch = [] {
+    SlideSearch s = nestedSearch(3);
+    s.threads = 2;
+    return s;
+  };
+
+  // a search never stopped: its path, and the arrangements its merges take
+  bool fromGoal = false;
+  SlideSearch straight = gridSearch();
+  std::uint64_t taken = 0;
+  std::uint64_t merges = 0;
+  straight.onVisitedMerge = [&](std::uint64_t at) {
+    taken++;
+    merges += at == 1 ? 1 : 0;
+  };
+  const std::optional<Separation> whole = searched(g, straight, fromGoal);
+  REQUIRE(whole.has_value());
+  REQUIRE(fromGoal);
+  REQUIRE(merges >= 8);
+  REQUIRE(taken >= 200);
+
+  for (const std::uint64_t at :
+       {std::uint64_t{1}, std::uint64_t{2}, taken / 50, taken / 9, taken / 4, taken / 2,
+        taken - taken / 5, taken - 1, taken}) {
+    INFO("stopped at arrangement " << at << " of " << taken << " merged");
+    const StopSource stop;
+    SlideSearch first = gridSearch();
+    first.workDir = dir.string();
+    first.stop = stop.token();
+    std::uint64_t seen = 0;
+    first.onVisitedMerge = [&](std::uint64_t) {
+      if (++seen == at) {
+        stop.request(StopKind::Pause);
+      }
+    };
+    SlideLog log;
+    log.watch(first);
+    CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, first).has_value());
+    REQUIRE(first.outcome == SlideOutcome::Stopped);
+    CHECK(first.saved);
+    // the merge ended at that arrangement: it took no other
+    CHECK(seen == at);
+    CHECK(log.says("A merge into the visited sets was stopped"));
+
+    SlideSearch second = gridSearch();
+    second.threads = 3;
+    second.workDir = dir.string();
+    const std::optional<Separation> rest = searched(g, second, fromGoal);
+    REQUIRE(rest.has_value());
+    CHECK(second.resumed);
+    CHECK(rest->getMoves() == whole->getMoves());
+    CHECK(placesAlong(*rest) == placesAlong(*whole));
+    checkGridPath(g, *rest);
+    CHECK(second.visited == straight.visited);
+    // the folder goes with the search
+    CHECK(std::filesystem::is_empty(dir));
+  }
+
+  // an abort ends the merge as well, and nothing is saved
+  {
+    const StopSource stop;
+    SlideSearch gone = gridSearch();
+    gone.workDir = dir.string();
+    gone.stop = stop.token();
+    std::uint64_t seen = 0;
+    gone.onVisitedMerge = [&](std::uint64_t) {
+      if (++seen == taken / 3) {
+        stop.request(StopKind::Abort);
+      }
+    };
+    CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, gone).has_value());
+    CHECK(gone.outcome == SlideOutcome::Stopped);
+    CHECK_FALSE(gone.saved);
+    CHECK(seen == taken / 3);
+    CHECK(std::filesystem::is_empty(dir));
+  }
+  std::filesystem::remove_all(dir);
+}
+
+// A search saved between two levels has a level still waiting to go into
+// the visited sets, which goes in when the search is taken up again
+// (restoreVisited): the same merge, as long, before anything is searched.
+// A stop there leaves the saved search exactly as it was, every file of
+// it, to be taken up by the next run; an abort throws it away.
+TEST_CASE("sliding: a stop while a saved search is taken up leaves it as it was saved",
+          "[sliding][resume][parallel]") {
+  const ScratchDir scratch("slidetakeupstop");
+  const std::filesystem::path dir = scratch.path() / "work";
+  const GridBoard g = settledBoard(37);
+  auto gridSearch = [] {
+    SlideSearch s = nestedSearch(3);
+    s.threads = 2;
+    return s;
+  };
+  bool fromGoal = false;
+  SlideSearch straight = gridSearch();
+  const std::optional<Separation> whole = searched(g, straight, fromGoal);
+  REQUIRE(whole.has_value());
+  const unsigned int moves = whole->getMoves();
+
+  // stopped `depth` moves deep, between two levels, and saved
+  auto savedAt = [&](std::uint64_t depth) {
+    const StopSource stop;
+    SlideSearch first = gridSearch();
+    first.workDir = dir.string();
+    first.stop = stop.token();
+    first.onDepth = [&](std::uint64_t at) {
+      if (at >= depth) {
+        stop.request(StopKind::Pause);
+      }
+    };
+    CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, first).has_value());
+    REQUIRE(first.outcome == SlideOutcome::Stopped);
+    REQUIRE(first.saved);
+  };
+
+  int inTakeUp = 0;
+  for (const std::uint64_t depth : {4U, 6U, 9U, moves - 2U}) {
+    INFO("saved " << depth << " moves deep");
+    savedAt(depth);
+    const std::map<std::string, std::string> saved = folderFiles(dir);
+    REQUIRE(saved.size() >= 3);
+
+    // taken up and stopped at the first arrangement a merge takes
+    const StopSource stop;
+    SlideSearch second = gridSearch();
+    second.workDir = dir.string();
+    second.stop = stop.token();
+    std::uint64_t seen = 0;
+    bool searching = false;
+    second.onVisitedMerge = [&](std::uint64_t) {
+      seen++;
+      stop.request(StopKind::Pause);
+    };
+    second.onDepth = [&](std::uint64_t) { searching = true; };
+    SlideLog log;
+    log.watch(second);
+    CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, second).has_value());
+    REQUIRE(second.outcome == SlideOutcome::Stopped);
+    CHECK(second.saved);
+    CHECK(seen == 1);
+    if (!searching) {
+      // the merge was the taking up's: nothing was searched, nothing written
+      inTakeUp++;
+      CHECK_FALSE(second.resumed);
+      CHECK(log.says("was taken up: it is kept as it was saved"));
+      CHECK(folderFiles(dir) == saved);
+    }
+
+    // and the next run takes it up, to the path of a search never stopped
+    SlideSearch third = gridSearch();
+    third.threads = 3;
+    third.workDir = dir.string();
+    const std::optional<Separation> rest = searched(g, third, fromGoal);
+    REQUIRE(rest.has_value());
+    CHECK(third.resumed);
+    CHECK(rest->getMoves() == moves);
+    CHECK(placesAlong(*rest) == placesAlong(*whole));
+    checkGridPath(g, *rest);
+    CHECK(std::filesystem::is_empty(dir));
+  }
+  // most of them had a level waiting that the taking up merged (where it
+  // went in without a merge, the stop came in the search's next one)
+  CHECK(inTakeUp >= 2);
+
+  // an abort there: the saved search goes, as when a running search is aborted
+  savedAt(6);
+  const StopSource stop;
+  SlideSearch gone = gridSearch();
+  gone.workDir = dir.string();
+  gone.stop = stop.token();
+  bool searching = false;
+  gone.onVisitedMerge = [&](std::uint64_t) { stop.request(StopKind::Abort); };
+  gone.onDepth = [&](std::uint64_t) { searching = true; };
+  SlideLog log;
+  log.watch(gone);
+  CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, gone).has_value());
+  CHECK(gone.outcome == SlideOutcome::Stopped);
+  CHECK_FALSE(gone.saved);
+  CHECK_FALSE(searching);
+  CHECK(log.says("aborted while its saved search was taken up"));
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
+
+// Where levels were thinned out the path is traced by a search out from
+// the arrangement found, as many moves as the gap is wide: with a wide gap
+// as long as the search was. An abort ends it (the outcome is the stop's,
+// not a failure's, and nothing is saved); a pause waits for the path.
+TEST_CASE("sliding: an abort ends the trace across thinned levels and a pause waits for it",
+          "[sliding][parallel]") {
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+  // only the start is kept: the trace searches the whole way out again
+  auto thinned = [] {
+    SlideSearch s;
+    s.keepEvery = 100;
+    s.threads = 2;
+    return s;
+  };
+  // the levels the whole trace makes
+  std::atomic<std::uint64_t> whole{0};
+  SlideSearch straight = thinned();
+  straight.traced = &whole;
+  REQUIRE(findSlidePath(f.puz, f.pr(), *f.start, straight).has_value());
+  REQUIRE(whole.load() >= 70);
+  for (const StopKind kind : {StopKind::Abort, StopKind::Pause}) {
+    INFO((kind == StopKind::Abort ? "abort" : "pause"));
+    const StopSource stop;
+    SlideSearch search = thinned();
+    search.stop = stop.token();
+    std::atomic<std::uint64_t> traced{0};
+    search.traced = &traced;
+    // asked for as the trace begins its search across the gap
+    int gaps = 0;
+    search.onLog = [&](LogLevel, const std::string& line) {
+      if (line.find("The path is traced across") != std::string::npos) {
+        gaps++;
+        stop.request(kind);
+      }
+    };
+    const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, search);
+    CHECK(gaps == 1);
+    if (kind == StopKind::Abort) {
+      CHECK_FALSE(path.has_value());
+      CHECK(search.outcome == SlideOutcome::Stopped);
+      CHECK_FALSE(search.saved);
+      CHECK(search.error.empty());
+      // ended at once: none of the levels the whole trace makes
+      CHECK(traced.load() == 0);
+    } else {
+      REQUIRE(path.has_value());
+      CHECK(search.outcome == SlideOutcome::Found);
+      CHECK(path->getMoves() == 81);
+      CHECK(oneMoverPerStep(*path));
+      CHECK(traced.load() == whole.load());
+    }
+  }
+
+  // the two ends met, and levels thinned: an abort ends that trace too
+  const SlideFixture e = eightPuzzle();
+  const StopSource stop;
+  SlideSearch both;
+  both.keepEvery = 3;
+  both.meetFrom = 1;
+  both.stop = stop.token();
+  int gaps = 0;
+  both.onLog = [&](LogLevel, const std::string& line) {
+    if (line.find("The path is traced across") != std::string::npos) {
+      gaps++;
+      stop.request(StopKind::Abort);
+    }
+  };
+  CHECK_FALSE(findSlidePath(e.puz, e.pr(), *e.start, both).has_value());
+  CHECK(gaps == 1);
+  CHECK(both.outcome == SlideOutcome::Stopped);
+  CHECK_FALSE(both.saved);
+  CHECK(both.error.empty());
+}

@@ -372,6 +372,12 @@ struct SlideSearch : SlideSettings {
   /// that the caller can time each move (the Performance Analysis). Empty
   /// for none.
   std::function<void(std::uint64_t)> onDepth;
+  /// The level search, with nested slides: told the arrangements a merge
+  /// into the visited sets has taken so far, at each one, on the thread
+  /// that merges, before that merge looks at `stop` (which it then does at
+  /// every arrangement, not now and then). For the tests, which stop a
+  /// search in the middle of such a merge with it. Empty for none.
+  std::function<void(std::uint64_t)> onVisitedMerge;
 
   /// Out: how the search ended, and how many arrangements it visited.
   SlideOutcome outcome = SlideOutcome::NoPath;
@@ -386,7 +392,10 @@ struct SlideSearch : SlideSettings {
   /// tracing the path back are (1: every level).
   unsigned int levelInterval = 1;
   /// Out, for the level search: it carried on a saved search; it was saved
-  /// when it stopped (a search with `resume` carries it on).
+  /// when it stopped (a search with `resume` carries it on). A pause that
+  /// came while a saved search was still being taken up leaves that search
+  /// as it was saved: `saved` then, and not `resumed` (nothing was searched,
+  /// nothing written).
   bool resumed = false;
   bool saved = false;
   /// Out, for the level search: there is a saved search of this start that

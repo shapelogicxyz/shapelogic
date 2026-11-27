@@ -16,6 +16,7 @@
 #include "shapelogic/io/gzip_file.h"
 #include "shapelogic/io/xml_document.h"
 #include "shapelogic/io/xml_writer.h"
+#include "shapelogic/model/disassembly.h"
 #include "shapelogic/model/sliding.h"
 
 #include <algorithm>
@@ -132,14 +133,6 @@ const std::string& requireText(const XmlElement& e, const char* what) {
 /// few times movement::kRemovedScale away; sums and differences of a few
 /// such numbers stay far inside an int.
 constexpr int kMaxFileCoordinate = 1 << 20;
-
-/// How deep the branches of a disassembly may nest. A tree nests once per
-/// piece taken off, and the functions that walk one recurse (this reader,
-/// the level text, the playback, the writer, the copy), up to 0.8 KiB of
-/// stack a level in a release build and 1.4 KiB in a debug one (measured
-/// on macOS arm64), on threads whose stack may be 2 MiB (the main thread
-/// on Windows). The fixtures' deepest tree nests 12 times.
-constexpr unsigned int kMaxSeparationDepth = 1000;
 
 /// The most moves a file's sliding search may say it searched: each has an
 /// entry in the problem's list of times. No search reaches this (a move

@@ -26,6 +26,7 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -86,6 +87,42 @@ struct Settings {
 
 struct State;
 
+/// solution.page's order of one problem's saved solutions, kept from one
+/// page to the next (cleanup item 18.2: the pager asks for every visible
+/// page at each solve.solutionsAdded, and each page sorted the whole list
+/// again, by a comparison that walked both solutions' trees, under the lock
+/// the solve's worker waits for).
+struct PageOrder {
+  /// What the order was made of: the document's revision, the problem's
+  /// solutionsVersion(), and the sort asked for. Any other, and it is made
+  /// again. (The version alone would not do: an analysis's results and
+  /// solution.deleteDisassembly change a solution's level and moves
+  /// without it, but never without a revision.)
+  std::uint64_t revision = 0;
+  std::uint64_t version = 0;
+  int by = -1;
+  bool descending = false;
+  /// The solutions' indexes, sorted.
+  std::vector<unsigned int> order;
+  /// The solutions with a disassembly or its summary.
+  unsigned int disassembled = 0;
+
+  /// What a comparison reads of a solution, worked out once.
+  struct Key {
+    /// It has a disassembly or its summary.
+    bool info = false;
+    /// Disassembly::sumMoves().
+    unsigned int moves = 0;
+    /// Disassembly::getSequenceLength() of each sequence.
+    std::vector<unsigned int> levels;
+  };
+  /// The keys by solution id, of `revision` and `by`: a solution keeps its
+  /// key while the revision stands (a running solve adds and removes whole
+  /// solutions, each with an id never given twice), so a list that grew is
+  /// sorted with only the new solutions' trees walked.
+  std::unordered_map<std::uint64_t, Key> keys;
+};
+
 /// A method: reads its params, does its work, returns its result.
 using Method = Reply (*)(State&, Params&);
 using MethodTable = std::map<std::string, Method, std::less<>>;
@@ -131,6 +168,9 @@ struct State {
   /// Stops the build of `handle` and gives up its handle; false when no
   /// build has it.
   bool stopExplorerBuild(std::uint64_t handle);
+  /// solution.page's last order of each problem (methods_solution.cpp);
+  /// dropped with the document and with a problem that is gone.
+  std::map<app::Id, PageOrder> pageOrders;
 
   bool shutdown = false;
   /// The request being run is a notification: it gets no reply, so it

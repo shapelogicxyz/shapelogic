@@ -20,6 +20,19 @@
 
 namespace bt {
 
+/// How deep the branches of a disassembly may nest: the root's branch is
+/// the first, and a tree nests once per piece taken off. What walks a tree
+/// recurses (the file's reader and writer, the level text, the playback,
+/// the copy, the destructor), up to 0.8 KiB of stack a level in a release
+/// build and 1.5 KiB in a debug one (the reader; measured on macOS arm64,
+/// cleanup item 16.2), on threads whose stack may be 2 MiB (the main thread
+/// on Windows) or, for what the solve's threads do with a tree they made
+/// (count its moves, copy it, let it go), 512 KiB (a thread on macOS). The
+/// reader refuses a deeper tree, and the take-apart makes none
+/// (Disassembler: TakeApartResult::tooDeep), so no file is saved that does
+/// not open again. The fixtures' deepest tree nests 12 times.
+inline constexpr unsigned int kMaxSeparationDepth = 1000;
+
 /// What Separation and SeparationInfo have in common: the move counts and
 /// the level text of a disassembly.
 class Disassembly {
@@ -161,6 +174,13 @@ class Separation final : public Disassembly {
   /// trees of the removed and the remaining group.
   Separation(ClonePtr<Separation> removed, ClonePtr<Separation> left,
              std::vector<unsigned int> pcs);
+  /// Lets the tree go branch by branch, without a call inside a call for
+  /// each: see kMaxSeparationDepth.
+  ~Separation() override;
+  Separation(const Separation&) = default;
+  Separation(Separation&&) = default;
+  Separation& operator=(const Separation&) = default;
+  Separation& operator=(Separation&&) = default;
 
   /// The number of moves, one less than the number of states.
   [[nodiscard]] unsigned int getMoves() const {
@@ -222,8 +242,9 @@ class Separation final : public Disassembly {
   [[nodiscard]] std::size_t byteEstimate() const;
 
  private:
-  int movesTextPieceRemovals(char* txt, int len, bool withRots, unsigned int carrySlides,
-                             unsigned int carryRots) const;
+  /// f(branch) for every branch of the tree, in no order to rely on.
+  template <class F>
+  void eachBranch(const F& f) const;
 
   std::vector<unsigned int> pieces_;
   std::deque<State> states_;
@@ -255,12 +276,6 @@ class SeparationInfo final : public Disassembly {
   [[nodiscard]] unsigned int getNumSequences() const override;
 
  private:
-  void recursiveConstruction(const Separation& sep);
-  int movesTextPieceRemovals(char* txt, int len, unsigned int idx, bool withRots,
-                             unsigned int carrySlides,
-                             unsigned int carryRots) const;
-  [[nodiscard]] unsigned int skipSubtree(unsigned int idx) const;
-
   std::vector<unsigned int> values_;
   std::vector<unsigned int> rotValues_;  ///< rotation steps per node, 0 for markers
 };

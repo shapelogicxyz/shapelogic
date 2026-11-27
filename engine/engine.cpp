@@ -103,6 +103,7 @@ void State::replaceDocument(app::Document d, std::optional<std::filesystem::path
   while (!explorerBuilds.empty()) {
     (void)stopExplorerBuild(explorerBuilds.begin()->first);
   }
+  pageOrders.clear();
   watches.clear();
   doc.reset();
   doc.emplace(std::move(d));

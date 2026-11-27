@@ -8,8 +8,11 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <deque>
+#include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace bt {
 
@@ -36,7 +39,173 @@ std::string levelSegment(bool withRots, unsigned int slides, unsigned int rots) 
                   : std::to_string(slides + rots);
 }
 
+// The level text's buffer: the original's, with its cuts.
 constexpr int kTextBuffer = 256;
+
+// The level text of a tree, for both of its forms (the full tree and its
+// summary). `Tree` tells the tree's shape by Node values:
+//   unsigned int slides(Node), rots(Node): a branch's own steps;
+//   bool removed(Node, Node& out), left(Node, Node& out): its side that is
+//     a branch of its own (not one piece), when it has one.
+//
+// Each dotted segment is the step count until a single piece leaves the
+// puzzle. A split into two multi-piece groups does not emit a segment; its
+// moves are added to the next piece removal in the removed branch (the order
+// of the solve animation).
+//
+// The original's functions called themselves once a branch, each with a
+// buffer of kTextBuffer characters in its frame for what the branch inside
+// it wrote: a kilobyte of stack a branch in a debug build, and a tree nests
+// up to kMaxSeparationDepth, on the stack a solve's or the CLI's worker
+// thread gets (cleanup item 18.5). The same steps here, with the branches
+// under way in a list and their buffers beside it: what is written, and
+// where a long text is cut, is what those functions wrote.
+template <class Node, class Tree>
+std::string levelText(const Tree& tree, Node root, bool withRots) {
+  // A branch under way. It writes at txt (len characters of room): its own
+  // buffer for the outermost branch, the buffer of the branch around it, or
+  // that branch's own txt (the removed side of a split, which carries the
+  // split's steps).
+  struct Branch {
+    Node node{};
+    char* txt = nullptr;
+    int len = 0;
+    unsigned int slides = 0;  // the steps carried into it, then with its own
+    unsigned int rots = 0;
+    int stage = 0;
+    bool both = false;
+    bool hasCont = false;
+    Node cont{};
+    int len2 = 0;
+    char* inner = nullptr;
+  };
+  // stable where they are: a branch writes into the buffer of one below it
+  std::deque<std::array<char, kTextBuffer>> buffers;
+  buffers.emplace_back();
+  std::vector<Branch> open;
+  // most trees nest a few branches: no growing for them
+  open.reserve(16);
+  open.push_back(Branch{root, buffers.front().data(), kTextBuffer, 0, 0});
+  // what the branch that just ended wrote, as its length
+  int ended = 0;
+
+  while (!open.empty()) {
+    Branch& b = open.back();
+    switch (b.stage) {
+      case 0: {
+        b.slides += tree.slides(b.node);
+        b.rots += tree.rots(b.node);
+        Node removed{};
+        Node left{};
+        const bool hasRemoved = tree.removed(b.node, removed);
+        const bool hasLeft = tree.left(b.node, left);
+        b.both = hasRemoved && hasLeft;
+        b.hasCont = hasRemoved || hasLeft;
+        b.cont = b.both || !hasRemoved ? left : removed;
+        if (b.both) {
+          // both sides are groups: carry into removed, then left
+          b.stage = 1;
+          const Branch inside{removed, b.txt, b.len, b.slides, b.rots};
+          open.push_back(inside);
+        } else {
+          // at least one side is a single piece: one piece-removal segment
+          b.len2 = appendText(b.txt, b.len, 0, levelSegment(withRots, b.slides, b.rots));
+          b.stage = 2;
+        }
+        break;
+      }
+      case 1:
+        b.len2 = ended;
+        b.stage = 2;
+        break;
+      case 2:
+        if (b.len2 < 0 || b.len2 + 5 > b.len || !b.hasCont) {
+          ended = b.len2;
+          open.pop_back();
+        } else {
+          buffers.emplace_back();
+          b.inner = buffers.back().data();
+          b.stage = 3;
+          const Branch inside{b.cont, b.inner, kTextBuffer, 0, 0};
+          open.push_back(inside);
+        }
+        break;
+      default:
+        // what the branch inside wrote, after a dot (of a split: only when
+        // the removed side wrote something)
+        if (ended > 0) {
+          if (!b.both || b.len2 > 0) {
+            appendText(b.txt, b.len, b.len2, ".");
+            b.len2++;
+          }
+          appendText(b.txt, b.len, b.len2, b.inner);
+          b.len2 += ended;
+        }
+        ended = b.len2;
+        buffers.pop_back();
+        open.pop_back();
+        break;
+    }
+  }
+  return std::string(buffers.front().data());
+}
+
+// The full tree's shape for levelText: a side is a branch when it is there.
+struct SeparationShape {
+  static unsigned int slides(const Separation* s) { return s->getSlides(); }
+  static unsigned int rots(const Separation* s) { return s->getRotations(); }
+  static bool removed(const Separation* s, const Separation*& out) {
+    out = s->getRemoved();
+    return out != nullptr;
+  }
+  static bool left(const Separation* s, const Separation*& out) {
+    out = s->getLeft();
+    return out != nullptr;
+  }
+};
+
+// The index after one child slot of a summary's pre-order list: a 0 marker
+// or a whole subtree.
+unsigned int skipSubtree(const std::vector<unsigned int>& values, unsigned int idx) {
+  unsigned int branches = 1;
+  while (branches != 0 && idx < values.size()) {
+    if (values[idx] != 0) {
+      branches++;
+    } else {
+      branches--;
+    }
+    idx++;
+  }
+  return idx;
+}
+
+// The summary's shape for levelText: a branch is an index of the pre-order
+// list with a value, its removed side the next index, its left side the
+// one after that side's subtree.
+struct SummaryShape {
+  const std::vector<unsigned int>& values;
+  const std::vector<unsigned int>& rotValues;
+
+  [[nodiscard]] unsigned int rots(unsigned int idx) const {
+    return idx < rotValues.size() ? rotValues[idx] : 0;
+  }
+  [[nodiscard]] unsigned int slides(unsigned int idx) const {
+    const unsigned int moves = values[idx] - 1;
+    const unsigned int nodeRots = rots(idx);
+    return moves >= nodeRots ? moves - nodeRots : 0;
+  }
+  [[nodiscard]] bool branch(unsigned int idx) const {
+    return idx < values.size() && values[idx] != 0;
+  }
+  bool removed(unsigned int idx, unsigned int& out) const {
+    out = idx + 1;
+    return branch(out);
+  }
+  bool left(unsigned int idx, unsigned int& out) const {
+    out = skipSubtree(values, idx + 1);
+    return branch(out);
+  }
+};
 
 }  // namespace
 
@@ -119,15 +288,62 @@ Separation::Separation(ClonePtr<Separation> removed, ClonePtr<Separation> left,
       numSequences_((left_ ? left_->numSequences_ : 0) +
                     (removed_ ? removed_->numSequences_ : 0) + 1) {}
 
+// The branches go one after the other, not each inside the destructor of
+// the one around it: a tree nests up to kMaxSeparationDepth, and a solve
+// lets its trees go on its own threads. They are kept as one list through
+// left_ (a branch's left side is the rest of the list already); a removed
+// side goes in front of it, its own left sides first. Nothing is allocated,
+// and each branch's left sides are walked once.
+Separation::~Separation() {
+  std::unique_ptr<Separation> list = left_.release();
+  std::unique_ptr<Separation> side = removed_.release();
+  for (;;) {
+    if (side) {
+      Separation* last = side.get();
+      while (last->left_) {
+        last = last->left_.get();
+      }
+      last->left_.reset(std::move(list));
+      list = std::move(side);
+    }
+    if (!list) {
+      break;
+    }
+    const std::unique_ptr<Separation> head = std::move(list);
+    list = head->left_.release();
+    side = head->removed_.release();
+    // head goes here, with no branch left for its own destructor
+  }
+}
+
+// Calls f for every branch of the tree, this one first. The smaller of a
+// branch's two is gone through by a call, the larger in the loop, so the
+// calls nest at most log2 of the branches deep however deep the tree is
+// (kMaxSeparationDepth; a solve sorts by these counts on its threads).
+template <class F>
+void Separation::eachBranch(const F& f) const {
+  for (const Separation* s = this; s != nullptr;) {
+    f(*s);
+    const Separation* small = s->removed_.get();
+    const Separation* large = s->left_.get();
+    if (small != nullptr && large != nullptr) {
+      if (small->numSequences_ > large->numSequences_) {
+        std::swap(small, large);
+      }
+      small->eachBranch(f);
+      s = large;
+    } else {
+      s = small != nullptr ? small : large;
+    }
+  }
+}
+
 unsigned int Separation::sumMoves() const {
-  BT_ASSERT(!states_.empty());
-  unsigned int erg = getSlides();
-  if (removed_) {
-    erg += removed_->sumMoves();
-  }
-  if (left_) {
-    erg += left_->sumMoves();
-  }
+  unsigned int erg = 0;
+  eachBranch([&erg](const Separation& s) {
+    BT_ASSERT(!s.states_.empty());
+    erg += s.getSlides();
+  });
   return erg;
 }
 
@@ -163,29 +379,21 @@ unsigned int Separation::getRotations() const {
 unsigned int Separation::getSlides() const { return getMoves() - getRotations(); }
 
 unsigned int Separation::sumRotations() const {
-  unsigned int erg = getRotations();
-  if (removed_) {
-    erg += removed_->sumRotations();
-  }
-  if (left_) {
-    erg += left_->sumRotations();
-  }
+  unsigned int erg = 0;
+  eachBranch([&erg](const Separation& s) { erg += s.getRotations(); });
   return erg;
 }
 
 std::size_t Separation::byteEstimate() const {
-  std::size_t bytes = sizeof(Separation) + pieces_.size() * sizeof(unsigned int);
-  for (const State& st : states_) {
-    // x, y, z and, where the state has them, the orientations
-    bytes += sizeof(State) +
-             (st.hasOrientations() ? 4 : 3) * std::size_t{st.getPiecenumber()} * sizeof(int);
-  }
-  if (removed_) {
-    bytes += removed_->byteEstimate();
-  }
-  if (left_) {
-    bytes += left_->byteEstimate();
-  }
+  std::size_t bytes = 0;
+  eachBranch([&bytes](const Separation& s) {
+    bytes += sizeof(Separation) + s.pieces_.size() * sizeof(unsigned int);
+    for (const State& st : s.states_) {
+      // x, y, z and, where the state has them, the orientations
+      bytes += sizeof(State) +
+               (st.hasOrientations() ? 4 : 3) * std::size_t{st.getPiecenumber()} * sizeof(int);
+    }
+  });
   return bytes;
 }
 
@@ -199,62 +407,9 @@ void Separation::appendState(State st) {
   states_.push_back(std::move(st));
 }
 
-/* Each dotted segment is the step count until a single piece leaves the
- * puzzle. A split into two multi-piece groups does not emit a segment; its
- * moves are added to the next piece removal in the removed branch (the order
- * of the solve animation). */
-int Separation::movesTextPieceRemovals(char* txt, int len, bool withRots, unsigned int carrySlides,
-                                       unsigned int carryRots) const {
-  const unsigned int slides = carrySlides + getSlides();
-  const unsigned int rots = carryRots + getRotations();
-
-  // both sides are groups: carry into removed, then left
-  if (removed_ && left_) {
-    int len2 = removed_->movesTextPieceRemovals(txt, len, withRots, slides, rots);
-    if (len2 < 0 || len2 + 5 > len) {
-      return len2;
-    }
-
-    std::array<char, kTextBuffer> cont{};
-    const int clen = left_->movesTextPieceRemovals(cont.data(), kTextBuffer, withRots, 0, 0);
-    if (clen > 0) {
-      if (len2 > 0) {
-        appendText(txt, len, len2, ".");
-        len2++;
-      }
-      appendText(txt, len, len2, cont.data());
-      len2 += clen;
-    }
-    return len2;
-  }
-
-  // at least one side is a single piece: one piece-removal segment
-  int len2 = appendText(txt, len, 0, levelSegment(withRots, slides, rots));
-
-  if (len2 < 0 || len2 + 5 > len) {
-    return len2;
-  }
-
-  const Separation* cont = removed_ ? removed_.get() : left_.get();
-  if (cont != nullptr) {
-    std::array<char, kTextBuffer> buf{};
-    const int clen = cont->movesTextPieceRemovals(buf.data(), kTextBuffer, withRots, 0, 0);
-    if (clen > 0) {
-      appendText(txt, len, len2, ".");
-      len2++;
-      appendText(txt, len, len2, buf.data());
-      len2 += clen;
-    }
-  }
-
-  return len2;
-}
-
 std::string Separation::movesText() const {
   BT_ASSERT(!states_.empty());
-  std::array<char, kTextBuffer> buf{};
-  movesTextPieceRemovals(buf.data(), kTextBuffer, sumRotations() > 0, 0, 0);
-  return std::string(buf.data());
+  return levelText(SeparationShape{}, this, sumRotations() > 0);
 }
 
 void Separation::exchangeShape(unsigned int s1, unsigned int s2) {
@@ -275,26 +430,29 @@ void Separation::exchangeShape(unsigned int s1, unsigned int s2) {
 }
 
 unsigned int Separation::getSequenceLength(unsigned int x) const {
-  if (x == 0) {
-    return static_cast<unsigned int>(states_.size());
-  }
-
-  x--;
-
-  if (left_) {
-    if (x < left_->numSequences_) {
-      return left_->getSequenceLength(x);
+  // down one way through the tree: a loop, however deep it is
+  for (const Separation* s = this;;) {
+    if (x == 0) {
+      return static_cast<unsigned int>(s->states_.size());
     }
-    x -= left_->numSequences_;
-  }
 
-  if (removed_) {
-    if (x < removed_->numSequences_) {
-      return removed_->getSequenceLength(x);
+    x--;
+
+    if (s->left_) {
+      if (x < s->left_->numSequences_) {
+        s = s->left_.get();
+        continue;
+      }
+      x -= s->left_->numSequences_;
     }
-  }
 
-  return 0;
+    if (s->removed_ && x < s->removed_->numSequences_) {
+      s = s->removed_.get();
+      continue;
+    }
+
+    return 0;
+  }
 }
 
 unsigned int Separation::getNumSequences() const { return numSequences_; }
@@ -341,27 +499,25 @@ SeparationInfo::SeparationInfo(std::vector<unsigned int> values,
 }
 
 /* Pre-order in the order of the animation and movesText: the node, its
- * removed subtree, then its left one. */
-void SeparationInfo::recursiveConstruction(const Separation& sep) {
-  values_.push_back(sep.getMoves() + 1);
-  rotValues_.push_back(sep.getRotations());
-
-  if (sep.getRemoved() != nullptr) {
-    recursiveConstruction(*sep.getRemoved());
-  } else {
-    values_.push_back(0);
-    rotValues_.push_back(0);
-  }
-
-  if (sep.getLeft() != nullptr) {
-    recursiveConstruction(*sep.getLeft());
-  } else {
-    values_.push_back(0);
-    rotValues_.push_back(0);
+ * removed subtree, then its left one. The branches still to write wait in
+ * a list (a missing one as null), the removed one on top: no call a branch,
+ * as a solve's thread makes the summary of a tree it made. */
+SeparationInfo::SeparationInfo(const Separation& sep) {
+  std::vector<const Separation*> open{&sep};
+  while (!open.empty()) {
+    const Separation* s = open.back();
+    open.pop_back();
+    if (s == nullptr) {
+      values_.push_back(0);
+      rotValues_.push_back(0);
+      continue;
+    }
+    values_.push_back(s->getMoves() + 1);
+    rotValues_.push_back(s->getRotations());
+    open.push_back(s->getLeft());
+    open.push_back(s->getRemoved());
   }
 }
-
-SeparationInfo::SeparationInfo(const Separation& sep) { recursiveConstruction(sep); }
 
 unsigned int SeparationInfo::sumMoves() const {
   unsigned int erg = 0;
@@ -389,86 +545,13 @@ unsigned int SeparationInfo::sumRotations() const {
 
 std::string SeparationInfo::movesText() const {
   // the original left the buffer unset for an empty tree; here it is ""
-  std::array<char, kTextBuffer> buf{};
+  const SummaryShape shape{values_, rotValues_};
+  if (!shape.branch(0)) {
+    return {};
+  }
   // (whether any node turns is asked once, not at every node: a file's
   // summary can have a million of them)
-  movesTextPieceRemovals(buf.data(), kTextBuffer, 0, sumRotations() > 0, 0, 0);
-  return std::string(buf.data());
-}
-
-unsigned int SeparationInfo::skipSubtree(unsigned int idx) const {
-  // one child slot: a 0 marker or a whole subtree
-  unsigned int branches = 1;
-  while (branches != 0 && idx < values_.size()) {
-    if (values_[idx] != 0) {
-      branches++;
-    } else {
-      branches--;
-    }
-    idx++;
-  }
-  return idx;
-}
-
-int SeparationInfo::movesTextPieceRemovals(char* txt, int len, unsigned int idx, bool withRots,
-                                           unsigned int carrySlides,
-                                           unsigned int carryRots) const {
-  if (idx >= values_.size() || values_[idx] == 0) {
-    return 0;
-  }
-
-  const unsigned int moves = values_[idx] - 1;
-  const unsigned int nodeRots = idx < rotValues_.size() ? rotValues_[idx] : 0;
-  const unsigned int nodeSlides = moves >= nodeRots ? moves - nodeRots : 0;
-
-  const unsigned int slides = carrySlides + nodeSlides;
-  const unsigned int rots = carryRots + nodeRots;
-
-  const unsigned int remIdx = idx + 1;
-  const bool remMulti = remIdx < values_.size() && values_[remIdx] != 0;
-  const unsigned int leftIdx = skipSubtree(remIdx);
-  const bool leftMulti = leftIdx < values_.size() && values_[leftIdx] != 0;
-
-  if (remMulti && leftMulti) {
-    int len2 = movesTextPieceRemovals(txt, len, remIdx, withRots, slides, rots);
-    if (len2 < 0 || len2 + 5 > len) {
-      return len2;
-    }
-
-    std::array<char, kTextBuffer> cont{};
-    const int clen = movesTextPieceRemovals(cont.data(), kTextBuffer, leftIdx, withRots, 0, 0);
-    if (clen > 0) {
-      if (len2 > 0) {
-        appendText(txt, len, len2, ".");
-        len2++;
-      }
-      appendText(txt, len, len2, cont.data());
-      len2 += clen;
-    }
-    return len2;
-  }
-
-  int len2 = appendText(txt, len, 0, levelSegment(withRots, slides, rots));
-
-  if (len2 < 0 || len2 + 5 > len) {
-    return len2;
-  }
-
-  const auto contIdx = remMulti ? remIdx
-                       : leftMulti ? leftIdx
-                                   : static_cast<unsigned int>(values_.size());
-  if (contIdx < values_.size() && values_[contIdx] != 0) {
-    std::array<char, kTextBuffer> buf{};
-    const int clen = movesTextPieceRemovals(buf.data(), kTextBuffer, contIdx, withRots, 0, 0);
-    if (clen > 0) {
-      appendText(txt, len, len2, ".");
-      len2++;
-      appendText(txt, len, len2, buf.data());
-      len2 += clen;
-    }
-  }
-
-  return len2;
+  return levelText(shape, 0U, sumRotations() > 0);
 }
 
 unsigned int SeparationInfo::getSequenceLength(unsigned int x) const {

@@ -52,6 +52,8 @@ struct AnalyseOptions {
   bool rotations = false;
   /// The threads a level is spread over; 0 every hardware thread.
   unsigned int threads = 0;
+  /// How deep a tree may nest (DisassemblerOptions::maxDepth; tests lower it).
+  unsigned int maxDepth = kMaxSeparationDepth;
 };
 
 /// Where an analysis stands.
@@ -65,7 +67,9 @@ struct AnalyseProgress {
   bool stopped = false;
   /// The take-apart under way.
   DisassemblyProgress current;
-  /// An internal error ended it (what it said); what was done before stays.
+  /// What ended it early, when it was no stop: an internal error (what it
+  /// said), or a take-apart that gave up at the depth a tree may have
+  /// (Disassembler::tooDeepMessage). What was done before stays.
   std::optional<std::string> failure;
 };
 

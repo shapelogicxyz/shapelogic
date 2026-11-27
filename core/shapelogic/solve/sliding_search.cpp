@@ -3501,6 +3501,11 @@ struct Merge {
   // inputs' keys are added to its total first.
   SlidePhaseProgress* tell = nullptr;
   bool counted = false;
+  // When set, the merge ends as soon as this token asks for an abort
+  // (cleanup item 18.4): runMerge is then false with nothing of the store
+  // marked failed, and what it made is let go. A pause is not heard: the
+  // level's merge is finished, so that its expansion is not thrown away.
+  const StopToken* abort = nullptr;
 
   std::vector<SetPtr<Key>> parts;
   std::optional<Key> met;
@@ -3514,8 +3519,13 @@ constexpr std::size_t kMaxMergeInputs = 32;
 // Keys a merge thread looks up in the filter sets at a time.
 constexpr std::size_t kFilterBatch = std::size_t{1} << 16;
 // Keys a merge counts before it tells them (SlidePhaseProgress): often
-// enough for the Solver's percentage, seldom enough to cost nothing.
+// enough for the Solver's percentage, seldom enough to cost nothing. A
+// level's merge looks for an abort as often.
 constexpr std::uint64_t kTellEvery = std::uint64_t{1} << 16;
+// Keys the merge into the visited sets takes between two looks at the stop
+// token (cleanup item 18.4): one thread's merge, minutes long deep in a
+// search, that Pause and Abort waited for.
+constexpr std::uint64_t kVisitedPollEvery = std::uint64_t{1} << 12;
 
 // The keys of sets.
 template <class Key>
@@ -3551,6 +3561,7 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
                           m.inputs.begin() + static_cast<std::ptrdiff_t>(end));
       stage.tell = m.tell;
       stage.counted = true;
+      stage.abort = m.abort;
       if (!runMerge(stage, store, pool, threads, kMaxMergeInputs / 4)) {
         return false;
       }
@@ -3624,9 +3635,13 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
   std::vector<std::uint64_t> produced(parts, 0);
   std::vector<std::uint64_t> dropped(parts, 0);
   std::atomic<bool> failed{false};
+  std::atomic<bool> aborted{false};
   const std::uint64_t estimate = bytes / parts + 1;
 
   forEachIndex(pool, threads, parts, [&](std::size_t p) {
+    if (aborted.load(std::memory_order_relaxed)) {
+      return;
+    }
     const bool hasLo = p > 0;
     const bool hasHi = p + 1 < parts;
     const Key lo = hasLo ? cuts[p - 1] : Key{0};
@@ -3728,9 +3743,17 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
     while (ok && !heap.empty()) {
       const Item top = heap.top();
       heap.pop();
-      if (m.tell != nullptr && ++taken == kTellEvery) {
-        m.tell->done.fetch_add(taken, std::memory_order_relaxed);
+      if (++taken == kTellEvery) {
+        if (m.tell != nullptr) {
+          m.tell->done.fetch_add(taken, std::memory_order_relaxed);
+        }
         taken = 0;
+        if (aborted.load(std::memory_order_relaxed) ||
+            (m.abort != nullptr && m.abort->kind() == StopKind::Abort)) {
+          // the part made so far goes with `set`
+          aborted.store(true, std::memory_order_relaxed);
+          return;
+        }
       }
       const std::size_t i = top.second;
       if (ins[i].c->next(ins[i].k) && inRange(ins[i].k)) {
@@ -3786,6 +3809,10 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
       out[p] = set;
     }
   });
+  if (aborted.load()) {
+    // no failure of the store's: the caller hears the abort from its token
+    return false;
+  }
   if (failed.load()) {
     if (store.failure == SlideOutcome::NoPath) {
       store.ioFailed();
@@ -4440,6 +4467,25 @@ class LevelSearch {
       visited_ = 0;
       search_.oneWayRepeats = 0;
       store_.fileNumber = fileNumber;
+      if (resumed == Resumed::Stopped) {
+        // Stopped while a level that waited went into the visited sets
+        // (restoreVisited; cleanup item 18.4). Nothing was searched and
+        // nothing is written: state.bin and every file it names are as
+        // they were found, so the next run takes the same saved search up
+        // (what was merged meanwhile is in files the state does not name,
+        // or in memory: it goes). An abort throws the search away, as one
+        // that comes while it runs does (run): the folder goes with it.
+        const bool abort = search_.stop.kind() == StopKind::Abort;
+        folder_.keep = !abort;
+        search_.saved = !abort;
+        search_.outcome = SlideOutcome::Stopped;
+        tellLog(LogLevel::Info,
+                abort ? "The search was aborted while its saved search was taken up."
+                      : "The search stopped while its saved search in " +
+                            folder_.place().string() +
+                            " was taken up: it is kept as it was saved.");
+        return false;
+      }
       if (resumed == Resumed::No) {
         // A saved search is days of work, and what could not be read now
         // may be read later (a drive that dropped out, a file this version
@@ -4481,6 +4527,14 @@ class LevelSearch {
     Yes,      // the saved search, taken up
     Nothing,  // no saved search: files of a search that was never saved
     No,       // a saved search that cannot be carried on; resumeWhy_ says why
+    Stopped,  // a saved search, left as it was: a stop came while it was taken up
+  };
+
+  // How a merge into the visited sets ended (insertVisited).
+  enum class VisitedEnd : std::uint8_t {
+    Whole,    // the level is in
+    Stopped,  // the stop token ended it; the sets are as valid as before
+    Failed,   // a set could not be read or written
   };
 
   // Takes up the saved search in the folder. One that cannot be carried on
@@ -4634,9 +4688,21 @@ class LevelSearch {
         (void)set->reload();
       }
     }
-    const bool restored = restoreVisited(fwd_) && restoreVisited(bwd_);
+    VisitedEnd restored = restoreVisited(fwd_);
+    if (restored == VisitedEnd::Whole) {
+      restored = restoreVisited(bwd_);
+    }
     restoreVisitedTime_ = std::chrono::steady_clock::now() - visitedFrom;
-    if (!restored) {
+    if (restored == VisitedEnd::Stopped) {
+      // The saved search stays as it is: every file state.bin names is
+      // kept, the ones a merge here took out of the visited sets too
+      // (`opened` holds them all); the merged sets are not among them.
+      for (auto& [name, set] : opened) {
+        set->keepFile();
+      }
+      return Resumed::Stopped;
+    }
+    if (restored == VisitedEnd::Failed) {
       // a level that waited to go into them is written there
       return fail(store_.failure == SlideOutcome::Disk
                       ? "its visited sets could not be written (the disk may be full)"
@@ -4811,28 +4877,32 @@ class LevelSearch {
   // or not at all, so each kept level is looked for by its first
   // arrangement and goes in when it is not there: without it the one-way
   // moves that lead into it would be searched all over again.
-  bool restoreVisited(Side& side) {
+  //
+  // The merges are insertVisited's and hear the stop token as they do
+  // while the search runs: Stopped leaves the sets valid, with the levels
+  // put back so far, and the caller leaves the saved search as it is.
+  VisitedEnd restoreVisited(Side& side) {
     if (!s_.nested) {
-      return true;
+      return VisitedEnd::Whole;
     }
     for (const auto& [level, set] : side.stored) {
       if (level + 2 > side.depth || set->size() == 0) {
         continue;
       }
       if (!set->reload()) {
-        return false;
+        return VisitedEnd::Failed;
       }
       const Key first = set->firstKey(0);
       char found = 0;
       for (const SetPtr<Key>& in : side.visited) {
         typename Set::Reader reader(*in, std::size_t{1} << 12);
         if (!in->reload() || !reader.ok() || !in->find(&first, 1, &found, reader)) {
-          return false;
+          return VisitedEnd::Failed;
         }
       }
       if (found == 0) {
-        if (!insertVisited(set, side.visited)) {
-          return false;
+        if (const VisitedEnd end = insertVisited(set, side.visited); end != VisitedEnd::Whole) {
+          return end;
         }
       } else if (set.use_count() == 1) {
         // only kept for tracing the path back: no index till then
@@ -4840,7 +4910,7 @@ class LevelSearch {
         store_.refresh(set);
       }
     }
-    return true;
+    return VisitedEnd::Whole;
   }
 
   // Every set the search stands on, by reference.
@@ -5018,12 +5088,24 @@ class LevelSearch {
     return failed();
   }
 
+  // An abort was asked for: what the trace and the merges, which let a
+  // pause wait, end for (cleanup item 18.4).
+  [[nodiscard]] bool aborted() const { return search_.stop.kind() == StopKind::Abort; }
+
+  // How a step that could not be made ends: an abort is the stop it is
+  // (the merges end for one without marking the store failed), anything
+  // else a failure.
+  [[nodiscard]] StepEnd stepFailed() const {
+    return aborted() ? StepEnd::Stopped : StepEnd::Failed;
+  }
+
   // Expands `cur` on every thread, with the moves made backwards when
   // `backward` (the goal end's, with nested slides); `extra` runs on one
   // thread first (the merge of the level that left memory into the visited
-  // sets).
+  // sets). A stop halts it when `mayStop`; without, an abort alone does
+  // (the trace across thinned levels: a pause lets the path be given).
   Expanded<Key> expand(Set& cur, bool checkGoal, bool mayStop,
-                       const std::function<bool()>& extra, bool backward) {
+                       const std::function<VisitedEnd()>& extra, bool backward) {
     Expanded<Key> e;
     if (!cur.reload()) {
       store_.ioFailed();
@@ -5050,8 +5132,17 @@ class LevelSearch {
     std::atomic<unsigned int> expanding{threads_};
     pool_->run(threads_ + (withExtra ? 1 : 0), [&](unsigned int th) {
       if (th == 0 && withExtra) {
-        if (!extra()) {
-          failed.store(true);
+        switch (extra()) {
+          case VisitedEnd::Whole:
+            break;
+          case VisitedEnd::Stopped:
+            // as a stop the expanding threads hear: the level is cut short
+            // and expanded again when the search is carried on
+            halt.store(true);
+            break;
+          case VisitedEnd::Failed:
+            failed.store(true);
+            break;
         }
         extraRunning.store(false);
       }
@@ -5109,7 +5200,7 @@ class LevelSearch {
         if (search_.progress != nullptr) {
           search_.progress->fetch_add(n, std::memory_order_relaxed);
         }
-        if (mayStop && search_.stop.stopRequested()) {
+        if (mayStop ? search_.stop.stopRequested() : aborted()) {
           halt.store(true);
         }
       }
@@ -5146,9 +5237,10 @@ class LevelSearch {
   // also in it (met). oneWayReached and oneWayNew count the level's one-way
   // moves. The goal end of a search with nested slides takes the moves
   // backwards: its levels are the arrangements so many moves before the
-  // goal.
+  // goal. The merges end for an abort (Stopped), not for a pause: a level
+  // expanded is merged, so that a pause does not throw its expansion away.
   StepEnd step(Side& side, const SetPtr<Key>& intersect, bool checkGoal, bool mayStop,
-               const std::function<bool()>& extra, SetPtr<Key>& next, std::optional<Key>& met,
+               const std::function<VisitedEnd()>& extra, SetPtr<Key>& next, std::optional<Key>& met,
                std::uint64_t& oneWayReached, std::uint64_t& oneWayNew) {
     Expanded<Key> e = expand(*side.cur, checkGoal, mayStop, extra, &side == &bwd_ && s_.nested);
     if (e.failed) {
@@ -5179,8 +5271,9 @@ class LevelSearch {
       one.subtract = {side.cur, side.prev};
       one.filter = &side.visited;
       one.tell = tell;
+      one.abort = &search_.stop;
       if (!runMerge(one, store_, *pool_, threads_)) {
-        return StepEnd::Failed;
+        return stepFailed();
       }
       oneWayReached = one.produced + one.dropped;
       oneWayNew = one.produced;
@@ -5198,24 +5291,25 @@ class LevelSearch {
     m.intersect = intersect;
     m.tell = tell;
     m.counted = true;
+    m.abort = &search_.stop;
     // with loose stops the level is what dropCovered leaves of the parts
     m.kept = !s_.loose;
     if (!runMerge(m, store_, *pool_, threads_)) {
-      return StepEnd::Failed;
+      return stepFailed();
     }
     met = m.met;
     if (m.parts.empty()) {
       next = store_.make(0);
       if (!next || !store_.finish(next)) {
-        return StepEnd::Failed;
+        return stepFailed();
       }
       return StepEnd::Next;
     }
     if (s_.loose && !dropCovered(side, m.parts)) {
-      return StepEnd::Failed;
+      return stepFailed();
     }
     next = joinParts(m.parts, store_);
-    return next ? StepEnd::Next : StepEnd::Failed;
+    return next ? StepEnd::Next : stepFailed();
   }
 
   // Loose stops: the parts of a new level without the arrangements that an
@@ -5274,6 +5368,11 @@ class LevelSearch {
       while (!failed.load(std::memory_order_relaxed)) {
         const std::size_t at = nextBlock.fetch_add(1);
         if (at >= blocks.size()) {
+          break;
+        }
+        // an abort ends it as a failure does; step tells the two apart
+        if (aborted()) {
+          failed.store(true);
           break;
         }
         if (!own[blocks[at].first]->block(blocks[at].second, keys)) {
@@ -5336,6 +5435,7 @@ class LevelSearch {
       return true;
     }
     covered.tell = search_.phase;
+    covered.abort = &search_.stop;
     if (!runMerge(covered, store_, *pool_, threads_)) {
       return false;
     }
@@ -5348,6 +5448,7 @@ class LevelSearch {
     rest.subtract = {gone};
     rest.kept = true;
     rest.tell = search_.phase;
+    rest.abort = &search_.stop;
     if (!runMerge(rest, store_, *pool_, threads_)) {
       return false;
     }
@@ -5399,21 +5500,31 @@ class LevelSearch {
   // Merges a level into an end's visited sets: the newest sets while one is
   // no more than twice the size of the one after it, so there are only a
   // few to look in (runs on one thread while the others expand).
-  bool insertVisited(const SetPtr<Key>& newest, std::vector<SetPtr<Key>>& sets) {
+  //
+  // The stop token ends a merge (cleanup item 18.4: Pause and Abort waited
+  // for it, minutes deep in a search): the set being made is let go, and
+  // the two it was made of stay in the list, as they do when a merge fails.
+  // The level is in all the same (it is the list's last set, or part of a
+  // merge that was whole), only the list is longer than its rule keeps it:
+  // a search saved so is carried on with it, and the next merges put the
+  // rule right. A level that was to go in after this one never did:
+  // restoreVisited puts it back when the search is carried on.
+  VisitedEnd insertVisited(const SetPtr<Key>& newest, std::vector<SetPtr<Key>>& sets) {
     sets.push_back(newest);
+    const bool watched = static_cast<bool>(search_.onVisitedMerge);
     while (sets.size() >= 2 && sets[sets.size() - 2]->size() <= 2 * sets.back()->size()) {
       // the two stay in the list until their merge is whole: a search that
-      // fails here is saved with what it has (run)
+      // fails or is stopped here is saved with what it has (run)
       const SetPtr<Key> a = sets[sets.size() - 2];
       const SetPtr<Key> b = sets.back();
       if (!a->reload() || !b->reload()) {
         store_.ioFailed();
-        return false;
+        return VisitedEnd::Failed;
       }
       // one thread merges them while the others expand: compressed fast
       SetPtr<Key> m = store_.make(a->rawBytes() + b->rawBytes(), false, false);
       if (!m) {
-        return false;
+        return VisitedEnd::Failed;
       }
       typename Set::Cursor ca(*a);
       typename Set::Cursor cb(*b);
@@ -5428,10 +5539,22 @@ class LevelSearch {
       const std::uint64_t work = a->size() + b->size();
       std::uint64_t told = 0;
       std::uint64_t added = 0;
+      bool stopped = false;
       while (ok && (ha || hb)) {
-        if (tell != nullptr && (++added & (kTellEvery - 1)) == 0) {
+        ++added;
+        if (tell != nullptr && (added & (kTellEvery - 1)) == 0) {
           tell->fetch_add(added - told, std::memory_order_relaxed);
           told = added;
+        }
+        // at the first key (a stop asked for before the merge began ends it
+        // at once), then now and then; the tests' callback sees every key
+        if (watched) {
+          search_.onVisitedMerge(added);
+        }
+        if ((watched || (added & (kVisitedPollEvery - 1)) == 1) &&
+            search_.stop.stopRequested()) {
+          stopped = true;
+          break;
         }
         if (!hb || (ha && ka < kb)) {
           ok = m->add(ka);
@@ -5445,9 +5568,16 @@ class LevelSearch {
           hb = cb.next(kb);
         }
       }
+      if (stopped) {
+        // m goes here, with its file when it has one: nothing names it
+        tellLog(LogLevel::Debug,
+                "A merge into the visited sets was stopped after " + std::to_string(added) +
+                    " of " + std::to_string(work) + " arrangements: the sets stay as they were.");
+        return VisitedEnd::Stopped;
+      }
       if (!ok || ca.failed() || cb.failed() || !store_.finish(m)) {
         store_.ioFailed();
-        return false;
+        return VisitedEnd::Failed;
       }
       if (tell != nullptr) {
         tell->fetch_add(work - std::min(work, told), std::memory_order_relaxed);
@@ -5464,7 +5594,7 @@ class LevelSearch {
         }
       }
     }
-    return true;
+    return VisitedEnd::Whole;
   }
 
   // Keeps every other level kept for tracing back (the gaps are searched
@@ -5634,7 +5764,7 @@ class LevelSearch {
       Side& other = (&side == &fwd_) ? bwd_ : fwd_;
       // the levels that left the two newest, either end's, into its
       // visited sets while this level is expanded
-      std::function<bool()> extra;
+      std::function<VisitedEnd()> extra;
       if (fwd_.pending || bwd_.pending) {
         SetPtr<Key> ours;
         SetPtr<Key> theirs;
@@ -5647,9 +5777,15 @@ class LevelSearch {
                   (theirs ? visitedWork(*theirs, bwd_.visited) : 0),
               std::memory_order_relaxed);
         }
+        // stopped in the first, the second does not go in either: both
+        // are levels kept (every level is, with nested slides), which
+        // restoreVisited looks for when the search is carried on
         extra = [this, ours, theirs]() {
-          return (!ours || insertVisited(ours, fwd_.visited)) &&
-                 (!theirs || insertVisited(theirs, bwd_.visited));
+          VisitedEnd end = ours ? insertVisited(ours, fwd_.visited) : VisitedEnd::Whole;
+          if (end == VisitedEnd::Whole && theirs) {
+            end = insertVisited(theirs, bwd_.visited);
+          }
+          return end;
         };
       }
       SetPtr<Key> next;
@@ -5708,7 +5844,11 @@ class LevelSearch {
         return SlideOutcome::NoPath;
       }
       if (met) {
-        return meetingFound(*met, chain) ? SlideOutcome::Found : failed();
+        if (meetingFound(*met, chain)) {
+          return SlideOutcome::Found;
+        }
+        // an abort while the path was traced is the stop it is
+        return aborted() ? SlideOutcome::Stopped : failed();
       }
 
       // The disk. Making a level takes far more than the level: its runs,
@@ -5991,6 +6131,7 @@ class LevelSearch {
     std::mutex bestMutex;
     std::optional<Key> best;
     std::atomic<bool> readFailed{false};
+    std::atomic<bool> gaveUp{false};
     std::atomic<std::size_t> nextBlock{0};
     const std::size_t blocks = before->blocks();
     pool_->run(threads_, [&](unsigned int th) {
@@ -6000,6 +6141,11 @@ class LevelSearch {
       for (;;) {
         const std::size_t b = nextBlock.fetch_add(1);
         if (b >= blocks || readFailed.load()) {
+          break;
+        }
+        // an abort: a block left out may hold the first, so none is given
+        if (aborted()) {
+          gaveUp.store(true);
           break;
         }
         {
@@ -6027,6 +6173,9 @@ class LevelSearch {
       store_.ioFailed();
       return false;
     }
+    if (gaveUp.load()) {
+      return false;
+    }
     // there always is one; without it there is no path to give
     BT_ASSERT(best.has_value());
     y = *best;
@@ -6035,7 +6184,10 @@ class LevelSearch {
 
   // The path from x, `level` moves from this end, back to the end: each
   // arrangement of the level before, through the levels kept, searching
-  // out from x across the gaps where levels were thinned.
+  // out from x across the gaps where levels were thinned. False when it
+  // could not be read back, and when an abort ended it (aborted(): the
+  // search across a gap is as long as the levels it crosses were; a pause
+  // waits for the path).
   bool traceSide(Side& side, Key x, unsigned int level, std::vector<Key>& chain) {
     const bool towardGoal = &side == &bwd_ && s_.nested;
     while (level > 0) {
@@ -6061,6 +6213,13 @@ class LevelSearch {
       const SetPtr<Key> target = levelAt(side, c);
       BT_ASSERT(target != nullptr);
       const unsigned int r = level - c;
+      // a search of its own, as long as the levels it crosses were: said
+      // in a debug log (and where the tests stop a trace)
+      tellLog(LogLevel::Debug,
+              "The path is traced across " + std::to_string(r) +
+                  " moves whose levels were thinned out (from level " + std::to_string(level) +
+                  " back to level " + std::to_string(c) +
+                  "): they are searched again, out from the arrangement found.");
       Side ball;
       ball.cur = single(x);
       if (!ball.cur) {
@@ -6199,7 +6358,10 @@ class LevelSearch {
     chain.push_back(goalKey);
     chain.push_back(from);
     if (!traceSide(fwd_, from, fwd_.depth, chain)) {
-      return GoalEnd::Failed;
+      // no path is given: what the trace put in the chain so far is not one
+      // (the caller takes a chain that is not empty for the path)
+      chain.clear();
+      return aborted() ? GoalEnd::Stopped : GoalEnd::Failed;
     }
     std::reverse(chain.begin(), chain.end());
     return GoalEnd::Found;
