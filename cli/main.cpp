@@ -1482,7 +1482,7 @@ int run(int argc, char** argv) {
 
 }  // namespace
 
-// An exception that gets here is a broken invariant (a SL_ASSERT), most
+// An exception that gets here is a broken invariant (an SL_ASSERT), most
 // likely one a damaged file's numbers broke after it was read, or no
 // memory for what it asks: said in a line, with the exit code of a solve
 // that failed, where the program used to abort (cleanup item 16.2).

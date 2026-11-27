@@ -141,7 +141,8 @@ Chrome (`--headed` shows it).
 ## Where the engine comes from
 
 - The tests run `build/release/engine/shapelogic_engine`, or
-  `SHAPELOGIC_ENGINE` when it is set, from the repository's root (fixtures are opened by relative path):
+  `SHAPELOGIC_ENGINE` when it is set, from the repository's root (fixtures
+  are opened by relative path):
   a copy of it, made in a temp folder as the run starts and removed at its
   end (`tests/helpers/engine-path.ts`), so a build of the release preset
   meanwhile cannot change the engine under a run.

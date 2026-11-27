@@ -455,8 +455,8 @@ tier compared no puzzle at all and still passed.
     packaged app. The gate's table then reads "pass".
   - *Change:* a variable `SHAPELOGIC_REQUIRE_ALL=1`: global-setup throws
     (the run fails) instead of warning when the engine is missing; the
-    smoke test fails instead of skipping; `tests/gate.sh` exports it for its groups.
-    Without the variable, local runs behave as now.
+    smoke test fails instead of skipping; `tests/gate.sh` exports it for
+    its groups. Without the variable, local runs behave as now.
   - *Tests:* in `web/`:
     `SHAPELOGIC_REQUIRE_ALL=1 SHAPELOGIC_ENGINE=/nonexistent npx vitest run tests/engine`
     fails; without `SHAPELOGIC_REQUIRE_ALL` it skips with the message.
@@ -3383,8 +3383,9 @@ Done (2026-11-25), the whole stage:
        for the run, point `SHAPELOGIC_ENGINE` at the copy, and remove it at
        the end.
     2. electron-vite's `outDir` comes from `SHAPELOGIC_OUT_DIR` (default
-       `out`), so an e2e build goes to a folder of its own. `web/tests/e2e/app.ts`
-       exports one `APP_MAIN` for the three launch sites.
+       `out`), so an e2e build goes to a folder of its own.
+       `web/tests/e2e/app.ts` exports one `APP_MAIN` for the three launch
+       sites.
     3. `oracle.py` uses `work/run-<pid>/` for its outputs (keep a `--work`
        flag), and builds the `*_old` drivers once into a cache keyed by
        their sources' hash.
@@ -6479,7 +6480,7 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
       - `handleLine()` (255-283): `logCall`, `flushEvents` and
         `announceChange` run outside the handler's try.
     - `engine/output.cpp:24` (`out_.write`).
-    - `core/shapelogic/app/document.cpp:1212`: `Document::poll()` has a
+    - `core/shapelogic/app/document.cpp:1212`: `Document::poll()` has an
       `SL_ASSERT_MSG`, which throws `InternalError`.
     - `core/shapelogic/base/assert.h:9-10` promises "the engine process keeps
       running".
@@ -6554,7 +6555,7 @@ lose work which stage 4 left; 15.3 to 15.5 come from the smaller bugs;
       (an output that takes one line; the third line, a shutdown, never
       runs; on HEAD's sources it runs) and "a broken invariant in a poll
       is logged and the run loop goes on" (a poll hook, `setPollHook`,
-      fails a `SL_ASSERT` after three of four replies: four replies, two
+      fails an `SL_ASSERT` after three of four replies: four replies, two
       log lines; with the guard taken out the test aborts);
       `host.test.ts`: four cases of `EngineStops` (a quit held until two
       fake hosts' `stop()` settle, one failing; no quit asked for when
@@ -8993,7 +8994,7 @@ failing a test.
     - Tests that pin the folder names of a plain board, a board with packed
       keys and a Panex puzzle.
     - A test that pins one original fixture's worked-out uid to its value.
-    - A `SL_ASSERT` in `core/shapelogic/io/xml_writer.cpp` (56, 65) that a
+    - An `SL_ASSERT` in `core/shapelogic/io/xml_writer.cpp` (56, 65) that a
       tag never gets the same attribute twice.
   - *Tests:* the new pins; `tests/unit/test_search_folders.cpp`.
   - Done (2026-11-27, Fable): confirmed.
@@ -9034,7 +9035,7 @@ failing a test.
       PelikanBurr, Klotski and Panex Jr. (the sliding and Panex names above
       hold theirs too).
     - **The writer's check.** `XmlWriter::startAttrib` (the one place an
-      attribute is begun) fails a `SL_ASSERT` when the open tag has the
+      attribute is begun) fails an `SL_ASSERT` when the open tag has the
       name already; the names are kept as places in the output, so nothing
       is copied. The four readers' lists hold what their writers emit
       today (read against `writeVoxel`, `writeProblem`, `writeSolution` and
@@ -9118,10 +9119,10 @@ Run (2026-11-27, after the last source edit): `just build dev`, `release`,
   solution deleted, a Continue with its own options); recorded again they
   differed only by where a pause fell, and were put back;
 - e2e, on a build of its own (`SHAPELOGIC_OUT_DIR`), with the release
-  engine: the reload case of `sliding.e2e.ts` (Continue with other search options
-  refused), `puzzle.e2e.ts` (the color rules, the ranges, Remove all
-  pieces; 4 cases) and the Convert Assemblies case of `files.e2e.ts`: 6 of
-  6;
+  engine: the reload case of `sliding.e2e.ts` (Continue with other search
+  options refused), `puzzle.e2e.ts` (the color rules, the ranges, Remove
+  all pieces; 4 cases) and the Convert Assemblies case of `files.e2e.ts`:
+  6 of 6;
 - `just site-demo --check` after the last source edit (rebuilt; every
   puzzle type opens and plays) and `just site-build` (8 of 8);
 - one commit: no engine method or parameter changed (no schema file, and

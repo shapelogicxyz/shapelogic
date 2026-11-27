@@ -499,13 +499,43 @@ Scope: `web/` (main, preload, renderer, demo, tests, vite configs),
 
 ### Step 7: whole-tree check and merge (Fable 5.2 High)
 
-- [ ] Review the branch's whole diff against main: every changed token is
+- [x] Review the branch's whole diff against main: every changed token is
       in the map, nothing under "What stays" changed (the file signatures
       above all), no string that is not a name changed, and the live docs
       match the code. Fix what is wrong in a commit of its own.
-- [ ] `just gate` (about 75 minutes, nothing else running). Ask the user
-      whether to run the full e2e suite (`just app-e2e`) as well.
-- [ ] Update CLAUDE.md, AGENTS.md and the memory notes for the new names
-      (`bt_tests`, `btcore`, the env vars).
+- [ ] `just gate` (about 75 minutes, nothing else running).
+- [ ] Ask the user whether to run the full e2e suite (`just app-e2e`) as
+      well.
+- [x] Update CLAUDE.md and AGENTS.md for the new names (`bt_tests`,
+      `btcore`, the env vars).
+- [ ] Update the memory notes for the new names (they live outside the
+      worktree: the main session's).
 - [ ] With the user's go-ahead, merge `feature/sl-names` into main. Any
       branch opened later is made from the merged main.
+- Review done (2026-11-27, e7e7176..e3e38a5): the map applied to each of
+  the 531 changed files as e7e7176 had it gives HEAD's text exactly for
+  510, each row as often as the map counts; what is left in the other 21
+  is the hand edits the steps name (the `BT_USER_DATA` fallback and its
+  tests, README.md's line, the `sl` locals of two tests, "an" before
+  `sl::` and `sl_test_timeout()`, the guard and its lines in the
+  justfile and the docs, docs/FRONTEND-PLAN.md), lines wrapped again and
+  the demo. The eight signatures, their char arrays and every line that
+  names one are as at e7e7176, with `tests/data/` and the other recorded
+  files; none of the new names was in use at e7e7176. The 51 channels of
+  the main process and the preload are the same set, and e7e7176's;
+  `api/`, docs/API.md and `api.generated.ts` did not change; the Python
+  module is still `shapelogic`; every `SL_` option a preset, the wheel or
+  a workflow passes is declared; no code takes environment variables by
+  a prefix. Outside the map's kinds no name of BurrTools' two letters is
+  left (looked for in any case, also inside camelCase names), and the
+  guard reports each kind when planted. Fixed: "a" before `SL_ASSERT`
+  and `SL_ASSERT_MSG` (eight places, four of them C++ comments), five
+  lines the longer names had left badly wrapped (docs/CLEANUP-PLAN.md,
+  `web/README.md`, the header comment of `web/src/main/index.ts`); the
+  demo rebuilt (only its `manifest.json` changed). Left as they are: 25
+  comment lines the longer names took past their block's width but not
+  past 100 columns (step 6 wrapped at 100), and `__SL_DEMO_BASE__`, which
+  `web/demo.vite.config.ts` defines and nothing reads (so at e7e7176).
+  AGENTS.md has a rule for the names (what carries `sl` and
+  `SHAPELOGIC_`, the guard, the signatures, the old names in the dated
+  docs); CLAUDE.md names none.

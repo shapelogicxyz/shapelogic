@@ -83,6 +83,18 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
 
 - C++23, `namespace sl`. Files are `snake_case`, types are `PascalCase`,
   functions and variables `camelCase`, constants `kPascalCase`.
+- Project names carry `sl` or `shapelogic`: `sl::`, the macros `SL_…` and
+  the engine's `SLE_…`, the CMake targets and options (`sl_core`,
+  `sl_engine`, `sl_tests`, `SL_WERROR`), the environment variables
+  `SHAPELOGIC_…`, and in the web app `window.sl`, `window.slApp`, the
+  `sl:` IPC channels, the `sl-app://` scheme and the tests' `sl-` temp
+  folders. The two-letter prefix the code had from BurrTools is gone
+  (docs/CLEANUP-BT-NAMES.md has each old name beside its new one), and
+  `just check-names` fails when one comes back. What keeps it is listed
+  in `tests/check-names.sh`: above all the signatures saved files carry
+  (`BTSOLVE2` and the like), which must never change. The decision
+  records, the handoff notes and the finished plans still use the old
+  names: read them as today's, and never copy one into new code.
 - Ownership: value types and `std::unique_ptr`. No owning raw pointers, no
   `new`/`delete`, no hand-written copy assignment that lists members.
 - Errors: recoverable problems return `sl::Result<T>` (base/error.h); broken

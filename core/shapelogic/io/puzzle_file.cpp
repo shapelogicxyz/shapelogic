@@ -240,7 +240,7 @@ namespace {
 
 /// What a reader answers when something it did not foresee was thrown: a
 /// number of the file that breaks an invariant of the model (InternalError,
-/// from a SL_ASSERT), or a size it asks for that there is no memory for. A
+/// from an SL_ASSERT), or a size it asks for that there is no memory for. A
 /// file is untrusted: whatever is wrong with it, reading it ends with a
 /// message, never with the exception (cleanup item 16.2).
 std::unexpected<Error> unreadable(const std::exception& e) {

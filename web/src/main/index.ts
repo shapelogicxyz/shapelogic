@@ -45,10 +45,10 @@
 // when Settings ▸ General changes the cache folder; exports written only
 // where the dialog said (ipc/files.ts).
 //
-// For the e2e tests: SHAPELOGIC_USER_DATA puts the app's data (the store, the default
-// cache folder's saved searches, the rescue copy) in a directory of the test's own;
-// with SHAPELOGIC_CALL_LOG set every call the renderer makes is written to that file
-// with how it ended
+// For the e2e tests: SHAPELOGIC_USER_DATA puts the app's data (the store,
+// the default cache folder's saved searches, the rescue copy) in a
+// directory of the test's own; with SHAPELOGIC_CALL_LOG set every call the
+// renderer makes is written to that file with how it ended
 // (a JSON line: method, errc), so the tests can check that the UI never
 // asked for what the engine refused; SHAPELOGIC_AUTOSAVE_SECONDS shortens the
 // Solver's autosave (its floor of a minute, solver/cadence.ts), passed in the page's address. A
