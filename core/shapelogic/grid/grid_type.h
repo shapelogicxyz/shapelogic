@@ -5,7 +5,7 @@
 /// The grid a puzzle is built on, and the factory for its voxel spaces.
 /// Ported from src/lib/gridtype.{h,cpp} (the assembler, movement-cache and
 /// STL-exporter factories move to the stages that port those parts; XML
-/// reading and writing lives in bt/io).
+/// reading and writing lives in shapelogic/io).
 
 #include "shapelogic/grid/types.h"
 
@@ -32,8 +32,8 @@ enum class GridKind : std::uint8_t {
   Spheres = 2,          ///< tightly packed spheres
   Rhombic = 3,          ///< a cut cube grid that builds rhombic dodecahedra
   TetraOcta = 4,        ///< tetrahedra and octahedra, also a cut cube grid
-  Sliding = 5,          ///< 2D brick tray for sliding puzzles (bt/model/sliding.h)
-  Stacking = 6,         ///< discs on rods (bt/model/stacking.h)
+  Sliding = 5,          ///< 2D brick tray for sliding puzzles (shapelogic/model/sliding.h)
+  Stacking = 6,         ///< discs on rods (shapelogic/model/stacking.h)
   Hexagonal = 7,        ///< hexagonal prisms in rows (decision 0023; not in the original)
   Cairo = 8,            ///< cairo pentagon prisms (decision 0023; not in the original)
 };

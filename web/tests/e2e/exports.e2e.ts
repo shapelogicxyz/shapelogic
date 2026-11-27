@@ -170,7 +170,7 @@ async function exported(page: Page, n: number): Promise<void> {
 }
 
 test('Image and Vector Image of a fixture shape are the view’s picture', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-export-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-export-'));
   const a = await launch();
   const page = a.page;
   try {
@@ -254,7 +254,7 @@ test('Image and Vector Image of a fixture shape are the view’s picture', async
 });
 
 test('STL of a shape, Solution Animation of the solution shown, and the refusals', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-export-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-export-'));
   const a = await launch();
   const page = a.page;
   try {

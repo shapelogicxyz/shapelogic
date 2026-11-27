@@ -4,7 +4,7 @@
 /// @file
 /// Where every piece of a problem sits in one assembly.
 /// Ported from src/lib/assembly.{h,cpp} (XML reading and writing lives in
-/// bt/io).
+/// shapelogic/io).
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/grid/grid_type.h"

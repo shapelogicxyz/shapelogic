@@ -2,7 +2,7 @@
 //
 // The Solver workspace (FRONTEND-PLAN.md, stage 4's gate) in the built app
 // with the release engine: Bermuda solved with take-apart on every thread,
-// its counts those of `bt -q -n -d --json`, its solution played to the end,
+// its counts those of `shapelogic_cli -q -n -d --json`, its solution played to the end,
 // stepped back and forward and jumped, the poses at every whole step the
 // engine's playback.poses samples; the list sorted every way as
 // solution.page sorts it, paged to its end, its keys; every Remove variant
@@ -11,7 +11,7 @@
 // pause, continue and abort on a box of dominoes, a save at a save point
 // then carrying on (the autosave), a solve then Reset, the error run of
 // the contract suite shown with its failure; two problems solved at once;
-// a sliding puzzle solved as bt solves it and played along its routes, a
+// a sliding puzzle solved as shapelogic_cli solves it and played along its routes, a
 // stacking one too (stacking.e2e.ts plays it in transfers); the pieces'
 // labels from the Display menu; the 3D focus's cards. Each test's call log holds no refusal the
 // UI could have avoided (only the client's own superseded reads).
@@ -65,7 +65,7 @@ function expectNoRefusal(log: string): void {
   expect(bad).toEqual([]);
 }
 
-test('Bermuda: solved with take-apart as bt counts it, played, stepped, jumped, posed as the engine', async () => {
+test('Bermuda: solved with take-apart as shapelogic_cli counts it, played, stepped, jumped, posed as the engine', async () => {
   test.setTimeout(120_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log });
@@ -784,7 +784,7 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     await pzSettled(page);
     await expect(page.locator('#leftP')).toHaveAttribute('data-problem', /^p\d+$/);
 
-    // a sliding puzzle solves as bt solves it (the Sliding Puzzle Solver),
+    // a sliding puzzle solves as shapelogic_cli solves it (the Sliding Puzzle Solver),
     // and its solution plays along its routes
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
     await toSolver(page);
@@ -817,7 +817,7 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     await page.click('#splayer [data-t="end"]');
     await expectPosesAt(page, slide, 81);
     await expect(page.locator('#emptyMsg')).toHaveText('');
-    // a stacking puzzle solves as bt solves it (the Stacking Solver, its board's)
+    // a stacking puzzle solves as shapelogic_cli solves it (the Stacking Solver, its board's)
     await openFixture(page, 'test_stacking_hanoi.xmpuzzle');
     await toSolver(page);
     await expect(page.locator('#emptyMsg')).toHaveText('Run the solver to see solutions here');

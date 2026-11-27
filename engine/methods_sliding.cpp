@@ -227,7 +227,7 @@ Reply slidingResumeAdvice(State& s, Params& p) {
 }
 
 // The play calls (sliding.play*, sliding.setLayout): a sliding puzzle
-// played by hand (bt/solve/sliding_play.h).
+// played by hand (shapelogic/solve/sliding_play.h).
 
 // The most places and moves a call may give, and the furthest a cell or a
 // shift may be from the origin: far past any board, and safe to add up.

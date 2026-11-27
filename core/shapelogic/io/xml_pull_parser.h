@@ -4,7 +4,7 @@
 /// @file
 /// The original's pull XML parser, kept so that files are read exactly as
 /// the original reads them (entities, text merged across comments and
-/// CDATA, \r\n handling, its error messages). Internal to bt/io: use
+/// CDATA, \r\n handling, its error messages). Internal to shapelogic/io: use
 /// parseXmlDocument() (xml_document.h). It throws XmlParseError, which the
 /// io functions turn into Result errors; it never leaves the module
 /// (decision 0008).

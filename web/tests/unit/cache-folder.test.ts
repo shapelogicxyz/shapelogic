@@ -40,7 +40,7 @@ import type { CacheFolders, CacheHost } from '../../src/main/cache-folder.ts';
 let dir: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'bt-cache-'));
+  dir = mkdtempSync(join(tmpdir(), 'sl-cache-'));
 });
 
 afterEach(() => {

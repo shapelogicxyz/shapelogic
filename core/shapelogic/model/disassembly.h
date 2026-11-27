@@ -7,7 +7,7 @@
 /// the puzzle in two parts. Only the data; the searches that build these
 /// come in stage 4.
 /// Ported from src/lib/disassembly.{h,cpp} (XML reading and writing lives in
-/// bt/io).
+/// shapelogic/io).
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/clone_ptr.h"

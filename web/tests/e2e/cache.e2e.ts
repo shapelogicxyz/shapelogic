@@ -46,7 +46,7 @@ test.beforeEach(async () => {
       window as unknown as { slApp: { cacheItemsAtStart(): Promise<unknown> } }
     ).slApp.cacheItemsAtStart(),
   );
-  dir = mkdtempSync(join(tmpdir(), 'bt-e2e-cache-'));
+  dir = mkdtempSync(join(tmpdir(), 'sl-e2e-cache-'));
 });
 
 test.afterEach(async () => {
@@ -222,7 +222,7 @@ test('Manage Cache and Autosave Files lists what the folders hold, shows an item
 test('the start names what the cache folder holds: Manage Files…, Delete All… and Ignore', async () => {
   // a saved stacking search, a sliding search's files never saved, and a
   // crash recovery copy (which its own offer is about: left out)
-  const userData = mkdtempSync(join(tmpdir(), 'bt-e2e-cachestart-'));
+  const userData = mkdtempSync(join(tmpdir(), 'sl-e2e-cachestart-'));
   const saved = join(userData, 'panex', KEY);
   mkdirSync(saved, { recursive: true });
   writeFileSync(join(saved, 'state'), 'x'.repeat(1200));

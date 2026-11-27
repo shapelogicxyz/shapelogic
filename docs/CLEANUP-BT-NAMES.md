@@ -451,20 +451,20 @@ Scope: `web/` (main, preload, renderer, demo, tests, vite configs),
 
 ### Step 6: leftovers and a guard (Opus 5.5 High)
 
-- [ ] Rename the test temp names, `BT` and `--bt` in
+- [x] Rename the test temp names, `BT` and `--bt` in
       `tests/cli/test_cli.py` (and its ctest line in
       `tests/CMakeLists.txt`), `bt-venv`, the include folder's old name in
       comments (`bt/io`), the local `bt` of `mesh/cube_mesh.cpp`, and the
       word "bt" for `shapelogic_cli` in comments, prose and test titles:
       `rename.py 6 .`. The e2e screenshots are named in the tests, not
       after their titles, so a changed title moves no file.
-- [ ] `bt/` and `bt` grow to `shapelogic/` and `shapelogic_cli`: wrap by
+- [x] `bt/` and `bt` grow to `shapelogic/` and `shapelogic_cli`: wrap by
       hand the comment lines that pass 100 columns in C++, and
       `npm run format` in `web/`.
-- [ ] Scan again (`rename.py --scan`: no row of the map occurs but
+- [x] Scan again (`rename.py --scan`: no row of the map occurs but
       `BT_USER_DATA` where step 4 kept it, and no name is uncovered).
       Every name left must be on the "What stays" list.
-- [ ] Add a guard to `just check`: a short script (`tools/check-names.sh`)
+- [x] Add a guard to `just check`: a short script (`tools/check-names.sh`)
       that fails on the old prefixes in tracked files, with an allow list
       for "What stays" and the dated docs (`stays.tsv` has both, and
       `rename.py`'s `KINDS` the patterns of the old kinds; `BT_USER_DATA`
@@ -472,9 +472,30 @@ Scope: `web/` (main, preload, renderer, demo, tests, vite configs),
       4 left them, `web/README.md` and the site's
       `code-base/commands.md`). Agents copy
       names from old code and docs, so without it `BT_` comes back.
-- [ ] Test: `just check` (the guard passes, and fails on a planted
+- [x] Test: `just check` (the guard passes, and fails on a planted
       `BT_ASSERT`), `just test`, `just app-test`.
-- [ ] Commit: "Rename the last bt names; check for them in just check".
+- [x] Commit: "Rename the last bt names; check for them in just check".
+- Done (2026-11-27): 129 replacements in 70 files, as the map counts;
+  `cube_mesh.cpp`'s local is `bestTransform`. By hand: docs/FRONTEND-PLAN.md's
+  `BT_ENGINE` (twice) and `bt --json` / `bt -q -n -d`, since AGENTS.md
+  sends agents there. No C++ comment passed 100 columns; one e2e header
+  comment was rewrapped, Prettier changed nothing (the four longer test
+  titles are strings it leaves). `rename.py --scan`: only `BT_USER_DATA`
+  where step 4 kept it (11), no name uncovered. The guard is
+  `tests/check-names.sh` (no `tools/` folder; it sits beside `gate.sh`),
+  `just check-names`, the first dependency of `just check`: `git grep -P`
+  over the tracked text files for the old kinds of `rename.py`'s `KINDS`,
+  minus the dated docs, the finished plans, this plan, the mockup, recorded
+  data, generated files and lock files, with an allow list by path and
+  name for "What stays" (the signatures, `btclassic`, the original's
+  names, the CSS class `bt`, `BT_USER_DATA` in its four files, the names
+  docs/CLEANUP-PLAN.md records as gone). The docs that describe the check
+  name no old name, since it reads them too. `just check` clean (226
+  files) and failed at once on a planted `BT_ASSERT`; `just build dev` and
+  `just build release` without a warning, `just test` 31 of 31 (with
+  `cli`, now `--cli`), `just app-check` clean, `just app-test` 698 tests in
+  69 files, `just site-build` 8 of 8; the demo rebuilt (only its
+  `manifest.json` changed).
 
 ### Step 7: whole-tree check and merge (Fable 5.2 High)
 

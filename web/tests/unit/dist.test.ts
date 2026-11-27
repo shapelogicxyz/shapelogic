@@ -107,7 +107,7 @@ describe('the version', () => {
   it('is SHAPELOGIC_VERSION when it is set, and 0.0.0 without git', () => {
     expect(projectVersion(REPO_ROOT, { SHAPELOGIC_VERSION: 'v9.9' })).toBe('9.9.0');
     expect(() => projectVersion(REPO_ROOT, { SHAPELOGIC_VERSION: 'nine' })).toThrow(/not vX\.Y/);
-    const dir = mkdtempSync(join(tmpdir(), 'bt-version-'));
+    const dir = mkdtempSync(join(tmpdir(), 'sl-version-'));
     try {
       expect(projectVersion(dir, {})).toBe('0.0.0');
     } finally {
@@ -247,7 +247,7 @@ describe('the engine’s hash file (cleanup item 2.6)', () => {
 });
 
 describe('the binary’s architecture', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-arch-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-arch-'));
   const file = (name: string, bytes: number[]): string => {
     const b = Buffer.alloc(0x200);
     Buffer.from(bytes).copy(b);
@@ -274,7 +274,7 @@ describe('the binary’s architecture', () => {
 });
 
 describe('where the app finds its engine', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-find-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-find-'));
   const resources = join(dir, 'Resources');
   const web = join(dir, 'repo', 'web');
   const dev = join(

@@ -5,7 +5,7 @@
 /// The Stacking Solver's own search: the fewest rod transfers from a
 /// stacking problem's start to its goal, breadth first over every stacking
 /// reachable, held in memory up to a budget. The solve runs the Panex
-/// search (bt/solve/panex_search.h) instead whenever that one can hold the
+/// search (shapelogic/solve/panex_search.h) instead whenever that one can hold the
 /// puzzle; this one takes the rest (more rods or discs than the Panex
 /// search packs into its keys).
 ///

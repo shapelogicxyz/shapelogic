@@ -150,7 +150,7 @@ async function rebuild(page: Page, want: ShapeGet, made: Map<string, string>): P
 for (const fixture of ['Bermuda.xmpuzzle', 'new-grids/CairoSlab.xmpuzzle']) {
   test(`every shape of ${fixture} rebuilt through the editor`, async () => {
     test.setTimeout(600_000);
-    const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
+    const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-'));
     const log = join(dir, 'calls.log');
     const a = await launch({ callLog: log });
     const page = a.page;

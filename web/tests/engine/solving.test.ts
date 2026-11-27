@@ -111,7 +111,7 @@ describe.skipIf(ENGINE === null)('solving', () => {
     expect([detail.state, detail.savedPosition, detail.solve]).toEqual(['solving', true, 'paused']);
     const pausedAt = (await c.call('solve.status', { problem: p })).progress;
     expect([pausedAt.stage, pausedAt.atSavePoint]).toEqual(['paused', false]);
-    const dir = mkdtempSync(join(tmpdir(), 'bt-solving-'));
+    const dir = mkdtempSync(join(tmpdir(), 'sl-solving-'));
     try {
       await c.call('document.save', { path: join(dir, 'paused.xmpuzzle') });
     } finally {

@@ -88,8 +88,12 @@ python-wheel:
 gate *groups:
     bash tests/gate.sh {{groups}}
 
-# clang-tidy over the project's own sources (needs LLVM: brew install llvm); with file names (a regex each, of the path), only those sources
-check *files: (build "dev")
+# No tracked file uses a name from before the rename to sl / SHAPELOGIC_ (docs/CLEANUP-BT-NAMES.md), but those that stay (tests/check-names.sh)
+check-names:
+    bash tests/check-names.sh
+
+# The names check, then clang-tidy over the project's own sources (needs LLVM: brew install llvm); with file names (a regex each, of the path), only those sources
+check *files: check-names (build "dev")
     #!/usr/bin/env bash
     set -euo pipefail
     tidy=$(command -v run-clang-tidy || ls /opt/homebrew/opt/llvm/bin/run-clang-tidy 2>/dev/null || true)

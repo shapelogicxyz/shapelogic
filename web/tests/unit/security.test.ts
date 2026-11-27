@@ -580,7 +580,7 @@ describe('the IPC handlers', () => {
   let skipped: string | undefined;
 
   beforeEach(async () => {
-    dir = mkdtempSync(join(tmpdir(), 'bt-security-'));
+    dir = mkdtempSync(join(tmpdir(), 'sl-security-'));
     electron.on.clear();
     electron.handle.clear();
     electron.opened.length = 0;

@@ -818,7 +818,7 @@ disc lies flat, the rods stand up).
   `panexFolder` before the page may call it, and refuses a page's
   `settings.set` that names a folder. A search paused in the app carries
   on in the app (also after a restart); the `.slsolve` export carries it
-  to `bt` or the original.
+  to `shapelogic_cli` or the original.
 
 ### 9.5 Play workspace (decision 0042)
 This program's own, as section 8.5 is; what is not said here is as there

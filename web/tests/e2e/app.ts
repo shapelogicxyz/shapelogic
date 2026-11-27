@@ -111,7 +111,7 @@ export async function launch(
   if (opts.autosave !== undefined) {
     env.SHAPELOGIC_AUTOSAVE_SECONDS = String(opts.autosave);
   }
-  const userData = opts.userData ?? mkdtempSync(join(tmpdir(), 'bt-e2e-data-'));
+  const userData = opts.userData ?? mkdtempSync(join(tmpdir(), 'sl-e2e-data-'));
   env.SHAPELOGIC_USER_DATA = userData;
   // the windows stay hidden and the app has no Dock icon, so nothing
   // covers the app the user is working in (main/security.ts's showWindow);
@@ -460,7 +460,7 @@ export function counted(c: LoggedCall): boolean {
 
 /** A folder of the test's own in the temp folder, and a call log's file in it (launch's callLog). */
 export function tmpLog(): { dir: string; log: string } {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-'));
   return { dir, log: join(dir, 'calls.log') };
 }
 

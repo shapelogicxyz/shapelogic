@@ -33,7 +33,7 @@ import {
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
 
 function tmp(): string {
-  return mkdtempSync(join(tmpdir(), 'bt-e2e-windows-'));
+  return mkdtempSync(join(tmpdir(), 'sl-e2e-windows-'));
 }
 
 /** A copy of a fixture in the test's directory (the tests run side by side). */

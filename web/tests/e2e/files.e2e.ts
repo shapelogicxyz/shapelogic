@@ -67,7 +67,7 @@ test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run buil
 
 /** A directory of the test's own. */
 function tmp(): string {
-  return mkdtempSync(join(tmpdir(), 'bt-e2e-files-'));
+  return mkdtempSync(join(tmpdir(), 'sl-e2e-files-'));
 }
 
 /** The engine's own save of a puzzle file: a shapelogic_engine of the test's own opens it and saves it. */

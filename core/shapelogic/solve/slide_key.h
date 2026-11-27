@@ -3,7 +3,7 @@
 
 /// @file
 /// A key wider than the widest built-in integer, for the slide search
-/// (bt/solve/sliding_search.h): an arrangement of a board whose pieces'
+/// (shapelogic/solve/sliding_search.h): an arrangement of a board whose pieces'
 /// positions do not fit 128 bits is packed into one of these, and the level
 /// search works on it as it does on a built-in integer.
 ///

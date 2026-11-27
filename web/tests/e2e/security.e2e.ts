@@ -73,7 +73,7 @@ async function nothingInjected(page: Page, where: string): Promise<void> {
 
 test('a puzzle file whose names hold markup shows them as text everywhere', async () => {
   test.setTimeout(170_000);
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-markup-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-markup-'));
   const file = puzzleFile(dir);
   const a = await launch();
   const { page } = a;

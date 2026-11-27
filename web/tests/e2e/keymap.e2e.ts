@@ -771,7 +771,7 @@ test('every row of the keyboard map fires its action', async () => {
   expect(Object.keys(SCENARIOS).filter((id) => !keyRows.includes(id))).toEqual([]);
   expect(Object.keys(MOUSE).filter((id) => !mouseRows.includes(id))).toEqual([]);
 
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-keymap-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-keymap-'));
   const a = await launch();
   const c: Ctx = { a, page: a.page, dir, state: '' };
   try {

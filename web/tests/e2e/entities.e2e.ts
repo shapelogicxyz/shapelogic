@@ -151,7 +151,7 @@ async function mods(page: Page, kind: 'mirror' | 'span', axis: string): Promise<
 for (const grid of GRIDS) {
   test(`the editor on the ${grid} grid`, async () => {
     test.setTimeout(240_000);
-    const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
+    const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-'));
     const log = join(dir, 'calls.log');
     const a: App = await launch({ callLog: log });
     const page = a.page;

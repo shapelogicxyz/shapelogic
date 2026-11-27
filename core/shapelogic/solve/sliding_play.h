@@ -17,7 +17,7 @@
 /// anywhere, no piece resting on a variable cell). Optimized paths play no
 /// part: they narrow a search, not the moves there are.
 ///
-/// A position is a layout (bt/model/sliding.h): for each piece of
+/// A position is a layout (shapelogic/model/sliding.h): for each piece of
 /// layoutPieces, the lowest corner of its cells on the board. A piece is
 /// named by its place in that list.
 

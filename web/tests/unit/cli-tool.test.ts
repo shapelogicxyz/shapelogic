@@ -37,7 +37,7 @@ let dir: string;
 let tool: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'bt-cli-'));
+  dir = mkdtempSync(join(tmpdir(), 'sl-cli-'));
   tool = join(dir, 'Resources', 'shapelogic_cli');
   mkdirSync(join(dir, 'Resources'));
   writeFileSync(tool, '#!/bin/sh\n');

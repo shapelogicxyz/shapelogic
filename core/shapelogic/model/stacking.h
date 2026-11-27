@@ -11,10 +11,10 @@
 /// cell thick whose size is their radius), the editing of the stacks, the
 /// check that a problem is ready to solve, and where the rods and discs
 /// stand for drawing and for a solution's frames. The searches are
-/// bt/solve/stack_search.h and bt/solve/panex_search.h.
+/// shapelogic/solve/stack_search.h and shapelogic/solve/panex_search.h.
 ///
 /// Ported from src/lib/stacking.{h,cpp} (all but findStackPath and its
-/// breadth-first search, and the file part, which is bt/io).
+/// breadth-first search, and the file part, which is shapelogic/io).
 
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/disassembly.h"

@@ -226,7 +226,7 @@ test('a sliding puzzle is played by hand: drags, the count, Solved!, undo and re
 test('the moves of a game are exported, imported and played back; the position is saved', async () => {
   const a = await launch();
   const page = a.page;
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-play-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-play-'));
   const path = join(dir, 'game.slmoves');
   try {
     const b = await build(page);

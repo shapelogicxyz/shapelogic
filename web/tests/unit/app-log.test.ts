@@ -46,7 +46,7 @@ let dir: string;
 const at = new Date(2026, 10, 16, 14, 39, 55, 7);
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'bt-applog-'));
+  dir = mkdtempSync(join(tmpdir(), 'sl-applog-'));
 });
 
 afterEach(() => {

@@ -6,7 +6,7 @@
 /// problem's result, a start/goal shape), the piece that starts there and
 /// the piece whose goal it is. They belong to the problem, not the board,
 /// so several problems may share one board and each have a layout of its
-/// own (decision 0027). The rules that read them are bt/model/sliding.h.
+/// own (decision 0027). The rules that read them are shapelogic/model/sliding.h.
 
 #include <cstddef>
 #include <limits>

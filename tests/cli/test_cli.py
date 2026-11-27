@@ -7,7 +7,7 @@ What it prints is compared with the recorded runs by the regression suite
 option rules and exit codes, sliding and stacking puzzles solved with their
 options, and --save followed by -a and -x.
 
-    python3 tests/cli/test_cli.py --bt build/dev/cli/shapelogic_cli
+    python3 tests/cli/test_cli.py --cli build/dev/cli/shapelogic_cli
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 PUZZLES = ROOT / "tests" / "data" / "puzzles"
 CUBE = PUZZLES / "CubeInCage.xmpuzzle"  # 96 assemblies, 1 solution (level 4.9.3)
 
-BT: Path = Path()
+CLI: Path = Path()
 failures: list[str] = []
 
 
@@ -37,7 +37,7 @@ ENV = {**os.environ, "SHAPELOGIC_SLIDE_DIR": str(Path(FOLDERS.name) / "sliding")
 
 
 def run(*args: str | Path, timeout: float = 300) -> subprocess.CompletedProcess:
-    return subprocess.run([str(BT), *map(str, args)], capture_output=True, text=True, timeout=timeout,
+    return subprocess.run([str(CLI), *map(str, args)], capture_output=True, text=True, timeout=timeout,
                           check=False, env=ENV)
 
 
@@ -86,7 +86,7 @@ def test_help_and_mistakes() -> None:
     r = run("-q", "--panex-dir", "x", "--panex-disk", "1", CUBE)
     check("--panex-dir on a brick puzzle", r.returncode == 0, f"{r.returncode} {r.stderr!r}")
     for name in ("SHAPELOGIC_SLIDE_DISK_GB", "SHAPELOGIC_PANEX_DISK_GB"):
-        r = subprocess.run([str(BT), "-q", str(CUBE)], capture_output=True, text=True, timeout=300,
+        r = subprocess.run([str(CLI), "-q", str(CUBE)], capture_output=True, text=True, timeout=300,
                            check=False, env={**ENV, name: "-1"})
         check(f"{name}=-1 refused", r.returncode == 2 and f'{name} is "-1"' in r.stderr,
               f"{r.returncode} {r.stderr!r}")
@@ -246,7 +246,7 @@ def test_an_empty_folder_variable_is_unset() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         env = {**ENV, "SHAPELOGIC_SLIDE_DIR": "", "HOME": tmp, "XDG_CACHE_HOME": str(Path(tmp) / "xdg"),
                "LOCALAPPDATA": str(Path(tmp) / "local")}
-        r = subprocess.run([str(BT), "-q", "-d", PUZZLES / "test_sliding_solver.xmpuzzle"],
+        r = subprocess.run([str(CLI), "-q", "-d", PUZZLES / "test_sliding_solver.xmpuzzle"],
                            capture_output=True, text=True, timeout=300, check=False, env=env)
         made = [p for p in Path(tmp).rglob("sliding") if p.is_dir()]
         check("empty SHAPELOGIC_SLIDE_DIR", r.returncode == 0 and len(made) == 1,
@@ -484,10 +484,10 @@ def test_tilted() -> None:
 
 
 def main() -> int:
-    global BT
+    global CLI
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--bt", type=Path, required=True)
-    BT = p.parse_args().bt
+    p.add_argument("--cli", type=Path, required=True)
+    CLI = p.parse_args().cli
     # every test_* function of this file, in the order they are written: a
     # new one runs without being added to a list (cleanup item 8.6)
     tests = [f for name, f in globals().items() if name.startswith("test_") and callable(f)]

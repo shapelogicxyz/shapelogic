@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The slide search's keys wider than 128 bits (bt/solve/slide_key.h): they
+// The slide search's keys wider than 128 bits (shapelogic/solve/slide_key.h): they
 // do what a built-in integer does, and the key sets hold them.
 #include "../scratch_dir.h"
 

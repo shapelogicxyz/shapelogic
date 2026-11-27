@@ -154,7 +154,7 @@ test('a stacking puzzle is played by hand: drags and clicks, the count, Solved!,
 test('the transfers of a game are exported, imported and played back; the position is saved', async () => {
   const a = await launch();
   const page = a.page;
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-stack-play-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-stack-play-'));
   const path = join(dir, 'game.slmoves');
   try {
     await openFixture(page, HANOI);

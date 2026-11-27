@@ -2,7 +2,7 @@
 //
 // The size of a shape's space in mesh units, per grid: what the original's
 // view centerd a shape on and framed (calculateSize of src/lib/voxel_0.cpp
-// to voxel_4.cpp, the core's bt/mesh/grid_geometry.cpp). The engine's
+// to voxel_4.cpp, the core's shapelogic/mesh/grid_geometry.cpp). The engine's
 // meshes lie inside [0, extent]; the view needs the space's size, not the
 // cells', so a shape does not jump as cells are drawn. And the spacing of
 // the cells in mesh units (recalcSpaceCoordinates), which places a piece

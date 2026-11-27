@@ -31,7 +31,7 @@
 /// choose a start/goal shape as each one's result, as on other grids
 /// (syncSlidingParts). The assembler finds the start layout, each piece
 /// held to its start by the marks (MatrixOptions::startLocks, with
-/// freeStartParts), and the slide search (bt/solve/sliding_search.h) takes
+/// freeStartParts), and the slide search (shapelogic/solve/sliding_search.h) takes
 /// it to the goal.
 ///
 /// An older model, a tray and a goal map painted in piece colors
@@ -39,7 +39,7 @@
 /// tests build such puzzles.
 ///
 /// Ported from src/lib/sliding.{h,cpp} (the tray and start/goal part; the
-/// search is in bt/solve/sliding_search.h).
+/// search is in shapelogic/solve/sliding_search.h).
 
 #include <array>
 #include <cstdint>

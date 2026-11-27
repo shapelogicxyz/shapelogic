@@ -228,7 +228,7 @@ Reply stackingRodSetLayout(State& s, Params& p) {
 }
 
 // The play calls (stacking.play*, stacking.setStacks): a stacking puzzle
-// played by hand (bt/model/stacking_play.h).
+// played by hand (shapelogic/model/stacking_play.h).
 
 // The most rods, discs and transfers a call may give: past any board (a
 // stack map keeps rods past the board's sixteen and its pocket only while

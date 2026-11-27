@@ -78,6 +78,7 @@ slower than `just test-all`.
 | Name | Command | What it checks |
 |---|---|---|
 | **clang-tidy** | `just check` | Static analysis of the project's C++ sources: every finding is an error. `just check sliding_search` checks only the sources whose path matches. Needs LLVM (`brew install llvm`). |
+| **old names** | `just check-names` (and first in `just check`) | No tracked file has a name of the kinds the rename to `sl` and `SHAPELOGIC_` took out (the macros', the namespace's, the targets', the environment variables', the IPC channels' and the temp folders' old prefixes), but the ones that stay: file signatures such as `BTSOLVE2`, the original's own names, a CSS class. The dated records and generated files are not looked at. The patterns and the allow list are in `tests/check-names.sh`. |
 
 The checks are listed in `.clang-tidy`, with the reason for each one that is
 left out; `tests/unit/.clang-tidy` leaves out a few more for the tests.

@@ -40,7 +40,8 @@ just test-all [preset]  # everything; run before calling work done
 just test-asan          # Address + UndefinedBehavior sanitizers
 just test-tsan          # ThreadSanitizer on the [parallel] cases, then the contract suite
 just gate [groups]      # every suite one after another, with a table of what passed
-just check [files]      # clang-tidy over the project's own sources, or those whose path matches
+just check-names        # no name from before the rename to sl / SHAPELOGIC_ is back
+just check [files]      # the names check, then clang-tidy over the project's own sources, or those whose path matches
 just clean              # remove every build directory
 ```
 

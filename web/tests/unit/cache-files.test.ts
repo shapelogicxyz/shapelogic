@@ -38,7 +38,7 @@ let f: CacheFolders;
 let rescue: RescueFiles;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'bt-cachefiles-'));
+  dir = mkdtempSync(join(tmpdir(), 'sl-cachefiles-'));
   f = { slide: join(dir, 'sliding'), panex: join(dir, 'panex') };
   rescue = { file: join(dir, '__rescue.xmpuzzle'), record: join(dir, '__rescue.json') };
 });

@@ -81,7 +81,7 @@ struct SolveProgress {
   /// A sliding solve: how long each move deep of the slide search under way
   /// (or paused) took (Problem::getSlideLevelMs), and how long the move it
   /// is on has run so far (0 when no search is under way): what the
-  /// Performance Analysis forecasts from (bt/solve/slide_forecast.h).
+  /// Performance Analysis forecasts from (shapelogic/solve/slide_forecast.h).
   std::vector<std::uint64_t> slideLevelMs;
   std::uint64_t slideLevelRunningMs = 0;
   /// A sliding solve: the slide search of this run is taking up its saved

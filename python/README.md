@@ -63,7 +63,7 @@ New here:
   `stacking_solver` (`"stacking"`, the default, or `"panex"`); `work_dir`,
   where a sliding search or a Panex search keeps its levels (empty:
   in memory only). Their solutions come when the search ends; a stacking
-  solution counts transfers, as `bt` does.
+  solution counts transfers, as `shapelogic_cli` does.
 - A Tilted Square puzzle (a tray) solves as the app and `shapelogic_cli`
   solve it: `solve(..., flip_pieces=None)` says whether the pieces may be
   turned over (`None`, the default: as the problem stores it, the Solver's
@@ -110,11 +110,11 @@ it to `python/VERSION` (git-ignored) and builds the wheel in `build/wheel`.
 By hand, write that file first:
 
 ```bash
-python3 -m venv /tmp/bt-venv
+python3 -m venv /tmp/sl-venv
 git describe --tags --match 'v[0-9]*' --abbrev=0 | sed -E 's/^v//; s/^([0-9]+\.[0-9]+)$/\1.0/' > python/VERSION
-/tmp/bt-venv/bin/pip wheel ./python -w dist/      # from the repository root
-/tmp/bt-venv/bin/pip install dist/shapelogic-*.whl
-/tmp/bt-venv/bin/python -c "import shapelogic; print(shapelogic.__version__)"
+/tmp/sl-venv/bin/pip wheel ./python -w dist/      # from the repository root
+/tmp/sl-venv/bin/pip install dist/shapelogic-*.whl
+/tmp/sl-venv/bin/python -c "import shapelogic; print(shapelogic.__version__)"
 ```
 
 `just python-wheel` does the first two and checks the installed module

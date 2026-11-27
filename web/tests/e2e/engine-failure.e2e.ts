@@ -23,7 +23,7 @@ const logOf = (userData: string): string => {
 };
 
 test('an engine that cannot start: the dialog says why, and File ▸ Open shows it again', async () => {
-  const missing = join(mkdtempSync(join(tmpdir(), 'bt-e2e-noengine-')), 'shapelogic_engine');
+  const missing = join(mkdtempSync(join(tmpdir(), 'sl-e2e-noengine-')), 'shapelogic_engine');
   const a = await launch({ engine: missing, waitForEngine: false });
   try {
     const { page } = a;

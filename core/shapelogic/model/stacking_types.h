@@ -5,7 +5,7 @@
 /// What a stacking puzzle's file holds besides its shapes: the boards (rod
 /// sets) of the puzzle, and for each problem the board it uses and the
 /// discs on each rod at the start and at the goal. Plain values; the rules
-/// and the editing live in bt/model/stacking.h.
+/// and the editing live in shapelogic/model/stacking.h.
 /// Ported from src/lib/stacking.h (rodSet_c, diskRef_c, stackMap_c).
 
 #include <string>

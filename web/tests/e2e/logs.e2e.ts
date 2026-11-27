@@ -25,8 +25,8 @@ let dir: string;
 let userData: string;
 
 test.beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'bt-e2e-logs-'));
-  userData = mkdtempSync(join(tmpdir(), 'bt-e2e-logdata-'));
+  dir = mkdtempSync(join(tmpdir(), 'sl-e2e-logs-'));
+  userData = mkdtempSync(join(tmpdir(), 'sl-e2e-logdata-'));
 });
 
 test.afterEach(async () => {
@@ -215,7 +215,7 @@ test('a long log comes a hundred lines at a time', async () => {
   expect(all.length).toBeGreaterThan(250);
 
   // Export… offers the last 100 lines and all of them; the last 100 written
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-logexport-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-logexport-'));
   try {
     const out = join(dir, 'last.txt');
     await answerDialogs(page, { save: out });

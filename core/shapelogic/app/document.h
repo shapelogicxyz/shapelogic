@@ -170,7 +170,7 @@ struct SavedSearchInfo {
   std::uint64_t levelBytes = 0;
 };
 
-/// The other programs' files File ▸ Import reads (bt/io/imports.h).
+/// The other programs' files File ▸ Import reads (shapelogic/io/imports.h).
 enum class ImportFormat : std::uint8_t {
   PuzzleSolver3D,  ///< a PuzzleSolver3D file (.puz)
   Puzzlecad,       ///< a puzzlecad OpenSCAD file (.scad)
@@ -217,7 +217,7 @@ class Document {
                                                       const std::string& stackingWorkDir = {});
 
   /// A puzzle from another program's file (cb_Load_Ps3d, cb_Load_Scad;
-  /// bt/io/imports.h): a new, untitled document with unsaved changes, so
+  /// shapelogic/io/imports.h): a new, untitled document with unsaved changes, so
   /// Save asks where to write the ShapeLogic file and never writes over
   /// the source. ParseError as the format's reader says (the original's
   /// "Could not load puzzle, sorry!"), IoError when the file cannot be
@@ -228,7 +228,7 @@ class Document {
   static Result<Document> importBytes(ImportFormat format, std::string_view bytes,
                                       DocumentSettings settings = {});
 
-  /// The puzzle on another grid (cb_Convert; bt/model/grid_convert.h): a
+  /// The puzzle on another grid (cb_Convert; shapelogic/model/grid_convert.h): a
   /// new document with unsaved changes, the shapes converted, the problems'
   /// definitions copied without their solutions. The original replaced its
   /// puzzle so, its undo history gone and its file name kept (the caller

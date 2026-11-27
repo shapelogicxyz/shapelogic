@@ -12,7 +12,7 @@
 // on the app's own scheme, sandboxed and isolated with its CSP (a script
 // or image from a file: URL is refused by the CSP, before the request
 // filter), no file outside the renderer read, a path no dialog gave
-// refused, and the fixture opened and solved with bt's counts.
+// refused, and the fixture opened and solved with shapelogic_cli's counts.
 // SHAPELOGIC_PACKAGED_APP names another executable (an installed app).
 
 import { spawn } from 'node:child_process';
@@ -188,7 +188,7 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
 
   // started as a user would, with a fixture, and every development switch
   // and Node override set: a packaged app takes none of them
-  const userData = mkdtempSync(join(tmpdir(), 'bt-smoke-data-'));
+  const userData = mkdtempSync(join(tmpdir(), 'sl-smoke-data-'));
   const log = join(userData, 'calls.log');
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
@@ -295,7 +295,7 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
     ).rejects.toThrow(/invalid_argument: elsewhere\.xmpuzzle was not chosen/);
     expect(existsSync(join(userData, 'elsewhere.xmpuzzle'))).toBe(false);
 
-    // solved: the counts bt gives
+    // solved: the counts shapelogic_cli gives
     await toSolver(page);
     await page.click('#slvMode [data-m="dis"]');
     await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);

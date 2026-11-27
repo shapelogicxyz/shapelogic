@@ -91,8 +91,8 @@ localisation are not planned yet.
   re-renders a card from state; porting it to React would be a rewrite.
   Revisit after stage 2 if the pattern hurts.
 - **Recipes** (`justfile`): `app-install`, `app-gen` (the types),
-  `app-dev` (the app against `build/dev` or `BT_ENGINE`), `app-check`
-  (`tsc --noEmit`, eslint), `app-test` (unit; the engine tests when
+  `app-dev` (the app against `build/dev` or `SHAPELOGIC_ENGINE`),
+  `app-check` (`tsc --noEmit`, eslint), `app-test` (unit; the engine tests when
   `build/release/engine/shapelogic_engine` exists), `app-e2e`, `app-dist`.
 - **Prerequisites on this machine:** Node 22 (installed: 22.23.3,
   Homebrew); Playwright's Electron driver needs no browser download; the
@@ -112,7 +112,7 @@ model column is the recommendation of "Models, effort and audits".
 | 2 | 1b | The shell from the mockup; the 3D view in three.js drawing `shape.mesh` frames; picking; the view cube | Opus 5.5 | high | every shape of every fixture drawn in all styles on all five grids (reference screenshots); a click names the cell and side the frame says; the keyboard map's shell rows work; `app-e2e` runs |
 | 3 | 2 | Entities workspace: shapes list, 2D editor on `grid.geometry`, tools, drags as one undo step, planes and layers, size, palette, transforms, 3D edit, undo/redo | Opus 5.5 | high | a fixture's shapes rebuilt through the editor equal its cells; a drag is one undo step; every `shape.taskSet` button works on every grid; nothing refused by the engine during the scenario |
 | 4 | 3 | Puzzle workspace: problems, result, pieces, counts and ranges, groups, color rules, fit, the pieces scene | Opus 5.5 | medium | a fixture's problem rebuilt through the UI equals `problem.get`; the fit line equals `problem.fit` |
-| 5 | 4 | Solver workspace: options, Solve / Prepare / Continue / Pause / Abort, progress, solutions list and slider, remove, analyse, the player on `playback.*`, autosave; the dt-less orientation fix in the core | Opus 5.5 | extra high | counts equal `bt --json`'s on the fixtures; the list in every sort equals `solution.page`; the player's poses equal `playback.poses`; pause, continue, abort, save point, error run; fake-engine replays of every event-order rule |
+| 5 | 4 | Solver workspace: options, Solve / Prepare / Continue / Pause / Abort, progress, solutions list and slider, remove, analyse, the player on `playback.*`, autosave; the dt-less orientation fix in the core | Opus 5.5 | extra high | counts equal `shapelogic_cli --json`'s on the fixtures; the list in every sort equals `solution.page`; the player's poses equal `playback.poses`; pause, continue, abort, save point, error run; fake-engine replays of every event-order rule |
 | 6 | 5 | Explorers (placements, movements, step), the debug statistics panel, the status window | Opus 5.5 | medium | placements and positions drawn where the engine says (hotspot); the movement tree's analyse / add / find / prune round-trip the contract session |
 | 7 | 6 | Menus and files: new (grid choice), open, save, save as, recent, close with changes, notes, paused solves, F1 map, about; settings and layout persistence; engine crash recovery | Opus 5.5 | high | open and save of every fixture leaves the document clean and the bytes the engine's; every keyboard map entry fires; an engine killed mid-edit is restarted and the rescue copy reloaded; Windows run by hand |
 | 8 | 7 | Exports needing no core work: image, vector image (SVG), GLB animation, interim STL from the flat mesh | Opus 5.5 | medium | the GLB validates and matches the player at sampled times; STL of a cube is closed |
@@ -400,8 +400,8 @@ From the mockup's `renderSolver`, `renderSolverDrawer`, `renderSvSel`,
 (and `playback.mesh`), so a turned mesh is placed at its cell minus it.
 
 **Gate.** e2e: Bermuda solved with take-apart on every thread: the
-counters, then the final counts equal those of `bt -q -n -d` (`--json`)
-on the same file; the list sorted every way equals `solution.page`'s
+counters, then the final counts equal those of `shapelogic_cli -q -n -d`
+(`--json`) on the same file; the list sorted every way equals `solution.page`'s
 order; the first solution played to the end, stepped back and forward,
 jumped; the player's poses at integer steps equal `playback.poses`'s
 samples; pause, continue and abort on the dominoes box, a save at a save
@@ -488,7 +488,7 @@ surface and a fixture shape's STL loads in a viewer.
 ### Stage 8: packaging
 electron-builder for macOS (arm64, x64), Windows and Linux; `shapelogic_engine`
 from the release preset in the bundle's resources (the host finds it
-there, or `BT_ENGINE`); one version for the app and the engine
+there, or `SHAPELOGIC_ENGINE`); one version for the app and the engine
 (`CMakeLists.txt`'s, read at build); `just app-dist`; the Electron
 security checklist (sandbox, context isolation, no remote content, a
 CSP, no `shell.openExternal` on untrusted strings, file paths only from

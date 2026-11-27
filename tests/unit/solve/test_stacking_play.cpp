@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// A stacking puzzle played by hand (bt/model/stacking_play.h, decision
+// A stacking puzzle played by hand (shapelogic/model/stacking_play.h, decision
 // 0042): how a game starts, the transfers a position allows, a list of
 // transfers made, and a position checked before it becomes a start or a
 // goal. The rules are the Stacking Solver's, so every position a search

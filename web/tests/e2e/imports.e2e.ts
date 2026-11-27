@@ -77,7 +77,7 @@ async function entitiesShown(page: Page): Promise<void> {
 }
 
 test('File ▸ Import: PuzzleSolver3D and Puzzlecad files as the original imports them', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-import-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-import-'));
   const a = await launch();
   const page = a.page;
   try {
@@ -135,7 +135,7 @@ test('File ▸ Import: PuzzleSolver3D and Puzzlecad files as the original import
 });
 
 test('File ▸ Export ▸ Puzzlecad writes the text the original wrote', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-scad-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-scad-'));
   const a = await launch();
   const page = a.page;
   try {
@@ -243,7 +243,7 @@ test('File ▸ Export ▸ Puzzlecad writes the text the original wrote', async (
 });
 
 test('Edit ▸ Convert Brick Grid Type to Other converts as the original', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-convert-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-convert-'));
   const a = await launch();
   const page = a.page;
   try {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Ported from src/lib/disassembly.cpp (the data part; XML is in bt/io).
+// Ported from src/lib/disassembly.cpp (the data part; XML is in shapelogic/io).
 
 #include "shapelogic/model/disassembly.h"
 

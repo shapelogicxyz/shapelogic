@@ -5,7 +5,7 @@
 /// One found solution of a problem: its assembly and, when it was taken
 /// apart, the disassembly (in full or as a summary).
 /// Ported from src/lib/solution.{h,cpp} (XML reading and writing lives in
-/// bt/io).
+/// shapelogic/io).
 
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/disassembly.h"

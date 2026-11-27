@@ -42,7 +42,7 @@ just burrtools-compare  # on request only: speed and counts against upstream Bur
 just bench [--set …]    # speed benchmarks (tests/bench/README.md)
 just python-test [preset] # the Python module's tests (python/tests; the module builds when Python's headers are found)
 just python-wheel       # its wheel in build/wheel, installed into a fresh venv and tested there
-just check [files]      # clang-tidy, every finding an error (needs LLVM installed); with names, only those sources
+just check [files]      # the old BurrTools names gone (just check-names), then clang-tidy, every finding an error (needs LLVM installed); with names, only those sources
 just app-install        # the web front end's packages (npm ci; Node 22)
 just app-gen            # web/src/engine/api.generated.ts from api/*.json
 just app-check          # the front end's type checks, ESLint, Prettier

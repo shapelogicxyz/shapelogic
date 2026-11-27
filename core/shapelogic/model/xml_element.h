@@ -3,7 +3,7 @@
 
 /// @file
 /// A small XML tree, and the file content the model keeps without
-/// understanding it. The .xmpuzzle reader (bt/io) parses a file into an
+/// understanding it. The .xmpuzzle reader (shapelogic/io) parses a file into an
 /// XmlElement tree; the model objects keep the elements and attributes they
 /// do not model in a PreservedXml, so they are written back unchanged
 /// (decisions 0006 and 0008).

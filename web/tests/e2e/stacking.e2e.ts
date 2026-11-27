@@ -86,7 +86,7 @@ function fileText(path: string): string {
 }
 
 function tmpDir(): string {
-  return mkdtempSync(join(tmpdir(), 'bt-e2e-stack-'));
+  return mkdtempSync(join(tmpdir(), 'sl-e2e-stack-'));
 }
 
 /** Opens a puzzle file by its path (fixtures in folders too). */
@@ -385,7 +385,7 @@ test('a Panex swap of three-disc towers built from New: the rules, the stacks, s
   }
 });
 
-test('solved by the Stacking and the Panex Solver as bt; played in transfers on the engine poses', async () => {
+test('solved by the Stacking and the Panex Solver as shapelogic_cli; played in transfers on the engine poses', async () => {
   test.setTimeout(180_000);
   const dir = tmpDir();
   const log = join(dir, 'calls.log');

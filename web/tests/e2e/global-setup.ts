@@ -27,5 +27,5 @@ export default function setup(): () => void {
   } else {
     console.log(`e2e: the app in ${OUT_DIR} with a copy of ${ENGINE}`);
   }
-  return useRunCopyOfEngine('bt-e2e');
+  return useRunCopyOfEngine('sl-e2e');
 }

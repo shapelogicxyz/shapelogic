@@ -3321,7 +3321,7 @@ Done (2026-11-25), the whole stage:
     `scratch_dir.h`. `just test-all` passes while a second `sl_tests` from
     another build folder runs at the same time.
   - Done (2026-11-25): `tests/unit/scratch_dir.h`: `sl::test::ScratchDir`
-    (`<temp>/bt_test_<tag>-<pid>-<8 hex digits>`, made on construction,
+    (`<temp>/sl_test_<tag>-<pid>-<8 hex digits>`, made on construction,
     drawn again when the name is taken, removed in the destructor with
     errors ignored; `_getpid` on Windows). Every fixed name and every
     helper of the item uses it, and three more the item did not list:
@@ -3341,7 +3341,7 @@ Done (2026-11-25), the whole stage:
   - Review (2026-11-25, Fable): OK, and the failing case fixed.
     - `grep -rn temp_directory_path tests/unit` matches `scratch_dir.h`
       alone. On Linux (Docker, the release build) the quick suite left no
-      `bt_test_*` folder in `/tmp`.
+      `sl_test_*` folder in `/tmp`.
     - "solve session: a save point while draining finishes the solve"
       and the case above it ("assemblies counted for a take-apart keep
       the solve open") gave a solve five tries to be caught while it

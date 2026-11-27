@@ -72,7 +72,7 @@ import { toShapesParams } from '../../src/renderer/solver/to-shapes-form.ts';
 
 const dirs: string[] = [];
 function dir(): string {
-  const d = mkdtempSync(join(tmpdir(), 'bt-unit-app-'));
+  const d = mkdtempSync(join(tmpdir(), 'sl-unit-app-'));
   dirs.push(d);
   return d;
 }
@@ -807,7 +807,7 @@ describe('an export’s file, written as the core writes a puzzle', () => {
     }
   });
   const fresh = (): string => {
-    dir = mkdtempSync(join(tmpdir(), 'bt-export-'));
+    dir = mkdtempSync(join(tmpdir(), 'sl-export-'));
     return dir;
   };
 

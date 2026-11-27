@@ -145,7 +145,7 @@ struct Sym {
     }
     for (int mask = 0; mask < 256; mask++) {
       int best = mask;
-      int bt = 0;
+      int bestTransform = 0;
       for (const T& k : t) {
         const int m = apply(mask, k);
         if (m < best) {
@@ -164,11 +164,11 @@ struct Sym {
       }
       for (int k = 0; k < 48; k++) {
         if (apply(best, t[k]) == mask) {
-          bt = k;
+          bestTransform = k;
           break;
         }
       }
-      transformOf[mask] = bt;
+      transformOf[mask] = bestTransform;
     }
   }
 };

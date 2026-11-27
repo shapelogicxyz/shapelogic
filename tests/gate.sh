@@ -19,7 +19,7 @@
 #               files of this repo only): summaries on all threads and one,
 #               every solver, sliding, stacking, and the text runs
 #   app         just app-check, just app-test
-#   check       just check (clang-tidy)
+#   check       just check (the old names, clang-tidy)
 # Off unless named (or `all`):
 #   e2e         just app-e2e: every Playwright spec, then the timed one
 #   site        just site-build (fails on the demo's hash until the demo

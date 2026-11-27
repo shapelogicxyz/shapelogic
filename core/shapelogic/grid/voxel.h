@@ -5,7 +5,7 @@
 /// A voxel space: a 3D box of cells on one of the grids, with the editing
 /// and transformation operations shared by all grids.
 /// Ported from src/lib/voxel.{h,cpp} (meshes come in stage 6, XML reading
-/// and writing lives in bt/io).
+/// and writing lives in shapelogic/io).
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/grid/grid_type.h"

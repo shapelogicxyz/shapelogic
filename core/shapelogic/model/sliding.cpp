@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from src/lib/sliding.cpp: the start/goal shapes, stamps, start
 // locks, the older goal-map model and the checks (the first half of the
-// file; the search is bt/solve/sliding_search.cpp).
+// file; the search is shapelogic/solve/sliding_search.cpp).
 #include "shapelogic/model/sliding.h"
 
 #include "shapelogic/base/assert.h"

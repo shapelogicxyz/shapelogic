@@ -4,7 +4,7 @@
 /// @file
 /// The puzzle: its grid, shapes, constraint colors, problems and comment.
 /// Ported from src/lib/puzzle.{h,cpp} (reading and writing files lives in
-/// bt/io), with the stacking rod sets.
+/// shapelogic/io), with the stacking rod sets.
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/clone_ptr.h"
@@ -173,7 +173,7 @@ class Puzzle {
   [[nodiscard]] PreservedXml& preserved() { return preserved_; }
 
  private:
-  friend struct PuzzleFileAccess;  // the .xmpuzzle reader (bt/io)
+  friend struct PuzzleFileAccess;  // the .xmpuzzle reader (shapelogic/io)
 
   GridType gt_;
   std::vector<ClonePtr<Voxel>> shapes_;

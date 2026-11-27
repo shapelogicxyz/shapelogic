@@ -7,10 +7,10 @@
 // boardSpan, with their helpers (piecesOf, findPiece, capacityOf, depthOf,
 // panexTooDeep, panexRaised, discHeights, spacingOf, diskLabel, checkStack,
 // configFromMap, writeState, stateFor, drawnPegHeight). noteShapeRemoved,
-// noteShapeSwap and trimStacks are Problem's (bt/model/problem.cpp); the
-// file part is bt/io/puzzle_file.cpp; findStackPath is
-// bt/solve/stack_search.cpp. The end of the file is new: a puzzle played
-// by hand (bt/model/stacking_play.h).
+// noteShapeSwap and trimStacks are Problem's (shapelogic/model/problem.cpp); the
+// file part is shapelogic/io/puzzle_file.cpp; findStackPath is
+// shapelogic/solve/stack_search.cpp. The end of the file is new: a puzzle played
+// by hand (shapelogic/model/stacking_play.h).
 #include "shapelogic/model/stacking.h"
 
 #include "shapelogic/base/assert.h"
@@ -967,7 +967,7 @@ unsigned int boardSpan(const Puzzle& puzzle, const Problem& problem) {
   return std::max(span, 4U);
 }
 
-// ---- a puzzle played by hand (bt/model/stacking_play.h) ---------------------------
+// ---- a puzzle played by hand (shapelogic/model/stacking_play.h) ---------------------------
 //
 // Not ported: the original has no play. The rules are moveAllowed's, the
 // validity of a position checkStack's, the heights discHeights'.

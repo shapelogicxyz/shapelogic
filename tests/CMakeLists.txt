@@ -93,7 +93,7 @@ sl_test_timeout(300 contract)
 
 # The shapelogic_cli command line: burrTxt's option rules, the refusals, --save, -a, -x.
 add_test(NAME cli COMMAND Python3::Interpreter tests/cli/test_cli.py
-         --bt $<TARGET_FILE:shapelogic_cli> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+         --cli $<TARGET_FILE:shapelogic_cli> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 sl_test_timeout(120 cli)
 
 # The regression suite's fast tier (tests/regression): this build's CLI

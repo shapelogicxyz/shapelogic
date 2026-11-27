@@ -27,7 +27,7 @@ namespace sl::test {
 /// construction and removed (with what it holds) in the destructor.
 class ScratchDir {
  public:
-  /// `tag` names what the folder is for: <temp>/bt_test_<tag>-<pid>-<8 hex digits>.
+  /// `tag` names what the folder is for: <temp>/sl_test_<tag>-<pid>-<8 hex digits>.
   explicit ScratchDir(std::string_view tag) {
 #if defined(_WIN32)
     const long pid = _getpid();
@@ -42,7 +42,7 @@ class ScratchDir {
       for (int shift = 28; shift >= 0; shift -= 4) {
         digits += "0123456789abcdef"[(r >> shift) & 0xFU];
       }
-      path_ = temp / ("bt_test_" + std::string(tag) + "-" + std::to_string(pid) + "-" + digits);
+      path_ = temp / ("sl_test_" + std::string(tag) + "-" + std::to_string(pid) + "-" + digits);
       // false when the name is taken: draw again
       if (std::filesystem::create_directories(path_)) {
         break;

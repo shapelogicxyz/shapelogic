@@ -47,7 +47,7 @@ describe.skipIf(ENGINE === null)('the scripted session', () => {
 
   beforeAll(async () => {
     s = await Session.start();
-    dir = mkdtempSync(join(tmpdir(), 'bt-session-'));
+    dir = mkdtempSync(join(tmpdir(), 'sl-session-'));
   });
   afterAll(async () => {
     await s.end();

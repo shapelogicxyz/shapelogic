@@ -6,10 +6,10 @@
 /// each), which one is the result, the color rules, the piece groups, and
 /// what solving found.
 /// Ported from src/lib/problem.{h,cpp} (XML reading and writing lives in
-/// bt/io; the solver hooks such as setAssembler come with stages 3 and 5).
+/// shapelogic/io; the solver hooks such as setAssembler come with stages 3 and 5).
 /// A stacking problem's board and its start and goal stacks are here too
-/// (the rules that read them are bt/model/stacking.h), and a sliding
-/// problem's starts and goals on its board (bt/model/sliding.h).
+/// (the rules that read them are shapelogic/model/stacking.h), and a sliding
+/// problem's starts and goals on its board (shapelogic/model/sliding.h).
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/model/assembly.h"
@@ -318,7 +318,7 @@ class Problem {
 
   /// How long each move deep of the slide search under way took, in
   /// milliseconds (entry k is move k + 1; kUntimedMs when not known): what
-  /// the Performance Analysis forecasts from (bt/solve/slide_forecast.h).
+  /// the Performance Analysis forecasts from (shapelogic/solve/slide_forecast.h).
   /// Kept while the solve is open, so a paused one and its crash recovery
   /// copy have it; dropped when the solve is through and with the counts.
   [[nodiscard]] const std::vector<std::uint64_t>& getSlideLevelMs() const {
@@ -477,7 +477,7 @@ class Problem {
   [[nodiscard]] PreservedXml& preserved() { return preserved_; }
 
  private:
-  friend struct ProblemFileAccess;  // the .xmpuzzle reader (bt/io)
+  friend struct ProblemFileAccess;  // the .xmpuzzle reader (shapelogic/io)
 
   /// The problem was edited: what solving found no longer holds.
   void editProblem();

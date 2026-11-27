@@ -20,7 +20,7 @@
 /// path with the fewest moves, the same every run, or proves there is none.
 ///
 /// Ported from src/lib/sliding.{h,cpp} (the search, routes and outcomes;
-/// the tray model is bt/model/sliding.h). The original's Fast and Deep
+/// the tray model is shapelogic/model/sliding.h). The original's Fast and Deep
 /// solvers, which stopped at 250,000 and 1,000,000 arrangements, and its
 /// queue search are not kept. The original's environment switches are
 /// options here: SHAPELOGIC_SLIDE_LEGACY (legacy),
@@ -418,7 +418,7 @@ struct SlideSearch : SlideSettings {
 };
 
 /// The one sliding solver's name (the GUI's Solver Type for a sliding
-/// puzzle, bt's --solver).
+/// puzzle, shapelogic_cli's --solver).
 inline constexpr std::string_view kSlidingSolverName = "Sliding Puzzle Solver";
 
 /// What a sliding solve asks of each search (the solve thread's sliding
@@ -430,7 +430,7 @@ struct SlidingOptions : SlideSettings {
   /// A piece with neither a start nor a goal on the board may be placed in
   /// any quarter turn in its layers, not only as drawn; with
   /// mirroredOrientations, also their mirror images (partTransforms in
-  /// bt/model/sliding.h). Every piece keeps its orientation as it slides.
+  /// shapelogic/model/sliding.h). Every piece keeps its orientation as it slides.
   bool anyOrientation = false;
   /// Plays a part only with anyOrientation.
   bool mirroredOrientations = false;

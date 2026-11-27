@@ -86,7 +86,7 @@ async function fillAndLeave(page: Page, sel: string, value: string): Promise<voi
 
 test('CubeInCage’s problem built from an empty problem through the UI', async () => {
   test.setTimeout(240_000);
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-'));
   const log = join(dir, 'calls.log');
   const a = await launch({ callLog: log });
   const page = a.page;
@@ -277,7 +277,7 @@ test('CubeInCage’s problem built from an empty problem through the UI', async 
 
 test('DemoPieceGenerator’s piece range built through the UI', async () => {
   test.setTimeout(180_000);
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-'));
   const log = join(dir, 'calls.log');
   const a = await launch({ callLog: log });
   const page = a.page;
@@ -357,7 +357,7 @@ test('DemoPieceGenerator’s piece range built through the UI', async () => {
 
 test('problems, color rules, the frozen problem, sliding and stacking puzzles', async () => {
   test.setTimeout(180_000);
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-'));
   const log = join(dir, 'calls.log');
   const a = await launch({ callLog: log });
   const page = a.page;

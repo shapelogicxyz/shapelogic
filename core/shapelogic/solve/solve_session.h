@@ -12,10 +12,10 @@
 /// Abort (mainwindow_solve.cpp), the autosave pause and recordSearchStats
 /// (mainwindow.cpp). A sliding puzzle is solved the way the solve thread
 /// solved it: the assembler finds the start layouts, and each is searched
-/// to the goal by the slide search (bt/solve/sliding_search.h) instead of
+/// to the goal by the slide search (shapelogic/solve/sliding_search.h) instead of
 /// taken apart (decision 0014). A stacking puzzle is solved the way the
 /// solve thread's runStacking solved it: no assembler, one search from the
-/// start stacking to the goal (the Panex search, bt/solve/panex_search.h,
+/// start stacking to the goal (the Panex search, shapelogic/solve/panex_search.h,
 /// or findStackPath), which saves itself when it stops and carries on from
 /// there (decision 0015). The rules are decisions 0004 and 0009: one
 /// StopSource per run, nothing reset, the state written by one thread at a

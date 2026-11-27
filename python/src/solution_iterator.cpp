@@ -64,7 +64,7 @@ void setDisassembly(PySolution& sol, const Separation& s) {
 }
 
 // A stacking path: three frames a transfer (lift, cross, drop); counted in
-// transfers, as bt and the engine count them (the original's logicalMoves)
+// transfers, as shapelogic_cli and the engine count them (the original's logicalMoves)
 void setStackingPath(PySolution& sol, const Separation& s) {
   const unsigned int transfers = stacking::logicalMoves(s);
   sol.hasDisassembly = true;
@@ -257,7 +257,7 @@ void SolutionIterator::runAssembler(Problem& problem) {
 
   const unsigned int budget = options_.threads > 0 ? options_.threads : hardwareThreads();
   // the take-apart's levels spread over threads of their own: the
-  // assembly's are busy (bt's solve does the same)
+  // assembly's are busy (shapelogic_cli's solve does the same)
   std::unique_ptr<ThreadPool> takeApartPool;
   std::unique_ptr<Disassembler> disassembler;
   if (options_.disassemble && Disassembler::canDisassemble(*puzzle_)) {

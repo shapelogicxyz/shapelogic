@@ -2,7 +2,7 @@
 #pragma once
 
 /// @file
-/// bt's command line: burrTxt's options (src/burrTxt.cpp), burrTxt2's
+/// shapelogic_cli's command line: burrTxt's options (src/burrTxt.cpp), burrTxt2's
 /// solve-and-save mode under --save (src/burrTxt2.cpp), and the A/B
 /// switches for benchmarks.
 

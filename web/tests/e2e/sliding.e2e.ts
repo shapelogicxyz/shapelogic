@@ -5,8 +5,8 @@
 // New (a board drawn as any shape, its pieces drawn, put in the puzzle and
 // their starts and goal placed in the Puzzle workspace's Start and goal),
 // equal to the fixture as the engine
-// reads it; solved with each sliding solver, counted and moved as `bt
-// --json`; played step by step on the engine's poses with the walls
+// reads it; solved with each sliding solver, counted and moved as
+// `shapelogic_cli --json`; played step by step on the engine's poses with the walls
 // drawn; the nested fixture with and without nested slides; what the
 // original grayed out hidden; the notices in message boxes; copies of a
 // piece placed one by one; problems on one board, each with starts and
@@ -181,7 +181,7 @@ async function stamp(
   await boardClick(page, goal, at);
 }
 
-test('the 81-move puzzle built from New, solved as bt, played with its walls', async () => {
+test('the 81-move puzzle built from New, solved as shapelogic_cli, played with its walls', async () => {
   test.setTimeout(300_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log });
@@ -378,7 +378,7 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
     await expect(page.locator('#pzUsed [data-u] [data-d="-1"]').first()).toBeEnabled();
     await expect(page.locator('#pzUsed [data-u] [data-d="1"]').first()).toBeEnabled();
 
-    // solved by the sliding solver: as bt counts and moves it; the problem
+    // solved by the sliding solver: as shapelogic_cli counts and moves it; the problem
     // then is the fixture's (its pieces, the maximum of holes)
     await toSolver(page);
     expect(await shownProblem(page)).toBe(p);
@@ -463,7 +463,7 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
   }
 });
 
-test('the nested fixture with and without nested slides, as bt; partially nested needs nested', async () => {
+test('the nested fixture with and without nested slides, as shapelogic_cli; partially nested needs nested', async () => {
   test.setTimeout(120_000);
   const a = await launch();
   const page = a.page;
@@ -532,7 +532,7 @@ test('the nested fixture with and without nested slides, as bt; partially nested
 
 test('notices in message boxes; what the original grayed out is not offered or is refused', async () => {
   test.setTimeout(120_000);
-  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
+  const dir = mkdtempSync(join(tmpdir(), 'sl-e2e-'));
   const a = await launch();
   const page = a.page;
   try {
