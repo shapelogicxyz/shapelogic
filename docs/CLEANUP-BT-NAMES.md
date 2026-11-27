@@ -403,7 +403,7 @@ Scope: `web/` (main, preload, renderer, demo, tests, vite configs),
 `engine/CMakeLists.txt`, `site/` (its CSP check reads
 `web/src/main/security.ts`), the live docs.
 
-- [ ] Rename the IPC channels, the preload globals and their types, the
+- [x] Rename the IPC channels, the preload globals and their types, the
       scheme (`APP_SCHEME` in `web/src/main/security.ts` and the CSP that
       names it), the vite defines and plugin names, the WASM exports and
       their callers in `web/src/demo/`, the tests' `btJson`:
@@ -412,24 +412,42 @@ Scope: `web/` (main, preload, renderer, demo, tests, vite configs),
       with `rename.py -n -v 5 .` first. A bare `bt` left in a comment or a
       test title of the e2e tests is the CLI's old name, and step 6's.
       Then `npm run format` in `web/`.
-- [ ] The scheme is the renderer's origin. At e7e7176 nothing in
+- [x] The scheme is the renderer's origin. At e7e7176 nothing in
       `web/src/` uses `localStorage`, `sessionStorage`, IndexedDB, cookies
       or a service worker, and the one partition (`updates`) is the update
       check's own, so no saved state is lost (the scheme's code cache is
       made again); check that again, and check the Electron session for
       anything kept per origin (permissions), before renaming it.
-- [ ] `just app-gen`, and check that `api.generated.ts` comes out the same
+- [x] `just app-gen`, and check that `api.generated.ts` comes out the same
       (at e7e7176 it has none of the map's names; `BTSOLVE2` in a comment
       of it stays).
-- [ ] `just site-demo --check` to rebuild the demo bundle and drive it.
-- [ ] Test: `just app-check`, `just app-test` (`preload.test.ts` calls
+- [x] `just site-demo --check` to rebuild the demo bundle and drive it.
+- [x] Test: `just app-check`, `just app-test` (`preload.test.ts` calls
       every `bt` and `btApp` method), `just site-build`, and the e2e specs
       that cover IPC, security and the preload:
       `just app-e2e ipc.e2e.ts security.e2e.ts files.e2e.ts exports.e2e.ts`.
 - [ ] Ask the user to check the app (`just app-dev`): open, solve, save,
       export, check for updates. Nothing should look different.
-- [ ] Commit: "Rename the web app's bt IPC, globals, scheme and WASM
+- [x] Commit: "Rename the web app's bt IPC, globals, scheme and WASM
       exports to sl".
+- Done (2026-11-27): 628 replacements in 82 files, as the map counts,
+  and `window.bt` by hand in docs/FRONTEND-PLAN.md (a finished plan, but
+  AGENTS.md sends agents to search it; its `BT_ENGINE` and `bt --json`
+  are left). Prettier rewrapped `stacking.e2e.ts` (`fromCli` is longer).
+  The origin: nothing in `web/src/` or `web/tests/` uses `localStorage`,
+  `sessionStorage`, IndexedDB, cookies or a service worker; the default
+  session grants no permission (`GRANTED` is empty, and the handlers
+  store nothing); the one partition, `updates`, is in memory (no
+  `persist:`) and only fetches; no menu has a zoom role, so no zoom level
+  is kept per origin. Only the code cache is made again. `just app-gen`
+  left `api.generated.ts` as it was. `just site-demo --check` drove every
+  puzzle type (only `index.html`, `manifest.json` and the bundle's JS
+  changed; the `.wasm` minifies its export names and came out the same).
+  `just app-check` clean, `just app-test` 698 tests in 69 files, `just
+  site-build` 8 of 8, `just app-e2e ipc.e2e.ts security.e2e.ts
+  files.e2e.ts exports.e2e.ts` 25 passed, `just test` 31 of 31. The
+  check of the app by hand is the user's (open, solve, save, export,
+  check for updates).
 
 ### Step 6: leftovers and a guard (Opus 5.5 High)
 

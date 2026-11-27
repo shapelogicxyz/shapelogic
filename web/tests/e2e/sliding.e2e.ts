@@ -55,7 +55,7 @@ import { clickCell, settled, shapeGet } from './editor.ts';
 import { currentProblem, definition, problemGet, pzSettled } from './puzzle.ts';
 import type { Problem } from './puzzle.ts';
 import {
-  btJson,
+  cliJson,
   confirm,
   enginePoses,
   expectPosesAt,
@@ -421,19 +421,19 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
       { problem: p },
     );
     expect(stored.solverSettings.solverType).toBeUndefined();
-    const bt = btJson(SOLVER) as {
+    const fromCli = cliJson(SOLVER) as {
       assemblies: number;
       solutions: number;
       totalmoves: number | null;
     };
-    expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(bt.assemblies);
-    expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(bt.solutions);
+    expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(fromCli.assemblies);
+    expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(fromCli.solutions);
     const rows = await engineCall<{ rows: { moves: number | null }[] }>(page, 'solution.page', {
       problem: p,
       sortBy: 'list',
       limit: 10,
     });
-    expect(rows.rows.map((r) => r.moves)).toEqual([bt.totalmoves]);
+    expect(rows.rows.map((r) => r.moves)).toEqual([fromCli.totalmoves]);
     const after: Problem = await problemGet(page, p ?? '');
     expect(swap(definition(after))).toEqual(fxSwap(definition(fxProblem)));
 
@@ -499,23 +499,23 @@ test('the nested fixture with and without nested slides, as bt; partially nested
         }
         await runButton(page, 'start');
         await runEnded(page, 'finished');
-        const bt = btJson(file, f);
+        const fromCli = cliJson(file, f);
         expect(Number(await attr(page, '#leftS', 'data-assemblies')), f.join(' ')).toBe(
-          bt.assemblies,
+          fromCli.assemblies,
         );
         expect(Number(await attr(page, '#leftS', 'data-solutions')), f.join(' ')).toBe(
-          bt.solutions,
+          fromCli.solutions,
         );
         // the solver's note (no solution: proven) comes in a message box
-        if (bt.solutions === 0) {
+        if (fromCli.solutions === 0) {
           await expect(page.locator('#notice')).toBeVisible();
           await page.click('#notice [data-x="ok"]');
         }
         await expect(page.locator('#notice')).toHaveCount(0);
         const sp = await shownProblem(page);
-        expect((await pageIds(page, sp)).length).toBe(bt.solutions);
+        expect((await pageIds(page, sp)).length).toBe(fromCli.solutions);
         // the Manage menu offers no analysis of a take-apart (cleanup item 6.5)
-        if (bt.solutions > 0 && !managed) {
+        if (fromCli.solutions > 0 && !managed) {
           await page.click('#slvAct [data-a="manage"]');
           await expect(page.locator('#pop [data-k="at"]')).toBeVisible();
           await expect(page.locator('#pop [data-k^="ad"]')).toHaveCount(0);
@@ -1570,7 +1570,7 @@ test('a paused search whose saved search is deleted: Continue becomes Solve', as
 
     // deleted (as the cache's Delete does, which tells the window): Solve
     rmSync(saved, { recursive: true, force: true });
-    await page.evaluate(() => window.dispatchEvent(new Event('bt:cache-deleted')));
+    await page.evaluate(() => window.dispatchEvent(new Event('sl:cache-deleted')));
     await startsOver();
 
     // a file opened with its saved search gone shows Solve at once, and

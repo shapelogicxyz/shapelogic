@@ -10,7 +10,7 @@
 // the app's: a change in another window is taken here too (decision 0036),
 // and not stored again; the layouts are each window's own.
 
-import type { BtApp } from '../../engine/app-bridge.ts';
+import type { SlApp } from '../../engine/app-bridge.ts';
 import { layoutState, onLayout } from './layout.ts';
 import { onPrefs, prefs, setPrefs, validPrefs } from './prefs.ts';
 
@@ -18,7 +18,7 @@ import { onPrefs, prefs, setPrefs, validPrefs } from './prefs.ts';
  * Stores the settings and the layouts whenever they change; `taken` runs
  * after settings another window changed were taken.
  */
-export function keepState(app: BtApp, taken: () => void = () => undefined): void {
+export function keepState(app: SlApp, taken: () => void = () => undefined): void {
   let taking = false;
   onPrefs(() => {
     if (!taking) {

@@ -88,11 +88,11 @@ analysing.
 `store.engine` is an `EngineProxy` (`web/src/renderer/engine-proxy.ts`).
 Its `call()` picks the next id, keeps the promise's `resolve` and `reject`
 in a map, and sends `{kind: 'call', id, method: 'solve.start', params}` to
-`window.bt`. The preload script (`web/src/preload/index.ts`) forwards that
-over Electron IPC as `ipcRenderer.send('bt:call', request)`.
+`window.sl`. The preload script (`web/src/preload/index.ts`) forwards that
+over Electron IPC as `ipcRenderer.send('sl:call', request)`.
 
 In the main process `web/src/main/index.ts` has registered
-`ipcMain.on('bt:call', ...)`, which hands the message to the window's
+`ipcMain.on('sl:call', ...)`, which hands the message to the window's
 `serveEngine` (`web/src/engine/serve.ts`). It checks that the method is
 one of the schema's (`METHOD_NAMES` from `api.generated.ts`), lets
 `admit` refuse a call naming a file the window was never given (not the
@@ -201,7 +201,7 @@ In the main process `FrameParser` (`web/src/engine/framing.ts`) splits
 stdout into lines; `EngineClient` matches the reply to call 12 by its id
 and settles it before the event behind it is dispatched (`OrderedInbox`,
 `dispatch.ts`). `serveEngine` posts `{kind: 'reply'}` then
-`{kind: 'event'}` to the window on the `bt:message` channel, and
+`{kind: 'event'}` to the window on the `sl:message` channel, and
 `EngineProxy.deliver` resolves the promise from step 2 and then calls the
 `document.changed` handlers.
 

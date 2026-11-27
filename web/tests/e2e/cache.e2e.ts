@@ -43,8 +43,8 @@ test.beforeEach(async () => {
   // (a busy machine), and its click on Settings never landed.
   await a.page.evaluate(() =>
     (
-      window as unknown as { btApp: { cacheItemsAtStart(): Promise<unknown> } }
-    ).btApp.cacheItemsAtStart(),
+      window as unknown as { slApp: { cacheItemsAtStart(): Promise<unknown> } }
+    ).slApp.cacheItemsAtStart(),
   );
   dir = mkdtempSync(join(tmpdir(), 'bt-e2e-cache-'));
 });

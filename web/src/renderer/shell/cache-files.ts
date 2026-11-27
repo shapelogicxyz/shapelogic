@@ -11,7 +11,7 @@
 // renderer deletes an item by its id; the main process finds its files.
 
 import './cache-files.css';
-import type { BtApp, CacheItem } from '../../engine/app-bridge.ts';
+import type { SlApp, CacheItem } from '../../engine/app-bridge.ts';
 import { cacheDeleted } from './cache-events.ts';
 import { itemMeta, sizeText, when } from './cache-text.ts';
 import { askChoice, openDialog } from './dialog.ts';
@@ -82,13 +82,13 @@ function detailHtml(item: CacheItem | undefined): string {
 
 /** The dialog's state and its parts. */
 class CacheFilesView {
-  private readonly app: BtApp;
+  private readonly app: SlApp;
   private readonly el: HTMLElement;
   private items: CacheItem[] = [];
   private selected: string | null = null;
   private busy = false;
 
-  constructor(app: BtApp, el: HTMLElement) {
+  constructor(app: SlApp, el: HTMLElement) {
     this.app = app;
     this.el = el;
     const list = this.part('.cf-list');
@@ -218,7 +218,7 @@ class CacheFilesView {
 }
 
 /** View ▸ Manage Cache and Autosave Files…: the items, their details, and Delete. */
-export async function openCacheFiles(app: BtApp): Promise<void> {
+export async function openCacheFiles(app: SlApp): Promise<void> {
   let items: CacheItem[] | null;
   try {
     items = await app.cacheItems();

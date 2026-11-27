@@ -19,7 +19,7 @@
 
 import './files.css';
 import { baseName, puzzleStem } from './paths.ts';
-import type { BtApp } from '../../engine/app-bridge.ts';
+import type { SlApp } from '../../engine/app-bridge.ts';
 import { newOrder } from './files-order.ts';
 import { newGridBody, newGridInfoHtml } from './new-grids.ts';
 import type { NewKind } from './new-grids.ts';
@@ -51,7 +51,7 @@ const isPaused = (path: string): boolean => /\.slsolve$/i.test(path);
 
 export class Files {
   private readonly store: Store;
-  private readonly app: BtApp;
+  private readonly app: SlApp;
   private readonly solver: FilesSolver;
   /** What clears the rescue copy as the window closes (Rescue.discard: it keeps one that must stay). */
   private readonly discardRescue: () => Promise<void>;
@@ -62,7 +62,7 @@ export class Files {
   /** The document's file is open in another window, which owns it: Save is Save As. */
   private readOnly = false;
 
-  constructor(store: Store, app: BtApp, solver: FilesSolver, discardRescue: () => Promise<void>) {
+  constructor(store: Store, app: SlApp, solver: FilesSolver, discardRescue: () => Promise<void>) {
     this.store = store;
     this.app = app;
     this.solver = solver;

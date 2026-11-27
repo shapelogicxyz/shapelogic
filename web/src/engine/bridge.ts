@@ -32,8 +32,8 @@ export type BridgeMessage =
   | { kind: 'event'; event: string; params: unknown }
   | { kind: 'status'; status: EngineStatus };
 
-/** What the preload script exposes as `window.bt`. */
-export interface BtBridge {
+/** What the preload script exposes as `window.sl`. */
+export interface SlBridge {
   send(request: BridgeRequest): void;
   /** Every message from the host, in order; returns the unsubscribe. */
   onMessage(handler: (message: BridgeMessage) => void): () => void;

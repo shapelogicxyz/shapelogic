@@ -12,7 +12,7 @@
 // is File's (stage 6).
 
 import { baseName, puzzleStem } from '../shell/paths.ts';
-import type { BtApp } from '../../engine/app-bridge.ts';
+import type { SlApp } from '../../engine/app-bridge.ts';
 import type { Snapshot, SolutionRow } from '../../engine/api.generated.ts';
 import { fromBase64 } from '../../engine/base64.ts';
 import { meshArrays, poseArrays } from '../../engine/frames.ts';
@@ -85,7 +85,7 @@ export function dataUrlBytes(url: string): Uint8Array {
 
 export class Exports {
   private readonly store: Store;
-  private readonly app: BtApp;
+  private readonly app: SlApp;
   private readonly view: View3D;
   private readonly host: ExportsHost;
   /** The choices of the last export of each kind, for the next. */
@@ -93,7 +93,7 @@ export class Exports {
   private animationOptions: AnimationOptions = { ...ANIMATION_DEFAULTS };
   private written = 0;
 
-  constructor(store: Store, app: BtApp, view: View3D, host: ExportsHost) {
+  constructor(store: Store, app: SlApp, view: View3D, host: ExportsHost) {
     this.store = store;
     this.app = app;
     this.view = view;

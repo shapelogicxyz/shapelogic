@@ -9,7 +9,7 @@
 // Later does nothing. About shows the latest release once a check has seen it.
 
 import './updates.css';
-import type { BtApp, UpdateResult } from '../../engine/app-bridge.ts';
+import type { SlApp, UpdateResult } from '../../engine/app-bridge.ts';
 import { openDialog } from './dialog.ts';
 import { esc } from './dom.ts';
 import { prefs } from './prefs.ts';
@@ -34,7 +34,7 @@ function shown(version: string): string {
 }
 
 /** Offers a newer release; Details shows its notes in the dialog, which grows to hold them. */
-export async function showUpdate(app: BtApp, r: UpdateResult & { status: 'newer' }): Promise<void> {
+export async function showUpdate(app: SlApp, r: UpdateResult & { status: 'newer' }): Promise<void> {
   const notes = notesHtml(r.notes);
   const key = await openDialog({
     id: 'update',
@@ -85,7 +85,7 @@ export async function showUpdate(app: BtApp, r: UpdateResult & { status: 'newer'
 }
 
 /** Check for Updates…: asks now, and always says what it found. */
-export async function checkNow(app: BtApp): Promise<void> {
+export async function checkNow(app: SlApp): Promise<void> {
   const r = await app.checkForUpdates(false);
   if (r === null) {
     return;
@@ -107,7 +107,7 @@ export async function checkNow(app: BtApp): Promise<void> {
 }
 
 /** The check at startup: when the setting is on, a moment after the window is up; quiet unless a newer release is out. */
-export function autoCheck(app: BtApp): void {
+export function autoCheck(app: SlApp): void {
   if (!prefs.updates) {
     return;
   }

@@ -7,7 +7,7 @@
 // solved again from the beginning (solve.status's continueStartsOver).
 
 /** The window event fired after a deletion. */
-export const CACHE_DELETED = 'bt:cache-deleted';
+export const CACHE_DELETED = 'sl:cache-deleted';
 
 /** Tells the window that cache files were deleted. */
 export function cacheDeleted(): void {

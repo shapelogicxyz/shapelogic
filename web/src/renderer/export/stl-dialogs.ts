@@ -15,7 +15,7 @@
 import './stl-dialogs.css';
 import { baseName } from '../shell/paths.ts';
 import type { StlParameter } from '../../engine/api.generated.ts';
-import type { BtApp } from '../../engine/app-bridge.ts';
+import type { SlApp } from '../../engine/app-bridge.ts';
 import { EngineError } from '../../engine/errors.ts';
 import { fileBytes, meshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
@@ -38,7 +38,7 @@ import { StlPreview } from './stl-preview.ts';
 /** What the dialogs need of the app. */
 export interface StlContext {
   readonly store: Store;
-  readonly app: BtApp;
+  readonly app: SlApp;
   /** The document's name without its extension (a file's proposed name). */
   readonly base: string;
   /** Writes an export's bytes to a path the save dialog gave, and says so. */
@@ -112,7 +112,7 @@ interface StlFile {
  */
 async function writeStlFiles(
   store: Store,
-  app: BtApp,
+  app: SlApp,
   el: HTMLElement,
   o: {
     to: string;

@@ -91,7 +91,7 @@ async function watchChanges(page: Page): Promise<void> {
     const w = window as unknown as { changes: unknown[]; offChanges?: () => void };
     w.offChanges?.();
     w.changes = [];
-    w.offChanges = window.bt.onMessage((m) => {
+    w.offChanges = window.sl.onMessage((m) => {
       if (m.kind === 'event' && m.event === 'document.changed') {
         w.changes.push(m.params);
       }
@@ -856,7 +856,7 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
     // About: the app's version and the engine's
     const info = await engineCall<{ version: string }>(page, 'engine.info');
     await appOf(page).evaluate(({ BrowserWindow }) => {
-      BrowserWindow.getAllWindows()[0]?.webContents.send('bt:command', { cmd: 'about' });
+      BrowserWindow.getAllWindows()[0]?.webContents.send('sl:command', { cmd: 'about' });
     });
     await expect(page.locator('#about')).toContainText(`shapelogic_engine ${info.version}`);
     // the stack: the engine's language, the window's, and the protocol between
@@ -875,7 +875,7 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
     // the command; Install is never pressed here (it would link the tool
     // into /usr/local/bin of the machine running the test)
     await appOf(page).evaluate(({ BrowserWindow }) => {
-      BrowserWindow.getAllWindows()[0]?.webContents.send('bt:command', { cmd: 'cliTool' });
+      BrowserWindow.getAllWindows()[0]?.webContents.send('sl:command', { cmd: 'cliTool' });
     });
     const cli = page.locator('#cliTool');
     await expect(cli).toContainText('shapelogic_cli');

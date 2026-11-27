@@ -365,7 +365,7 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
     const stray = join(dir, 'stray.png');
     const refused = await page.evaluate(
       (p) =>
-        window.btApp.writeExport(p, new Uint8Array([1, 2, 3])).then(
+        window.slApp.writeExport(p, new Uint8Array([1, 2, 3])).then(
           () => 'written',
           (e: unknown) => String(e),
         ),
@@ -468,9 +468,9 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
     const sneaky = await page.evaluate(async (f) => {
       const bytes = new Uint8Array([1]);
       const tries = [
-        window.btApp.writeFolderExport(f, '../escape.stl', bytes),
-        window.btApp.writeFolderExport(f, 'x.xmpuzzle', bytes),
-        window.btApp.writeFolderExport(`${f}-other`, 'x.stl', bytes),
+        window.slApp.writeFolderExport(f, '../escape.stl', bytes),
+        window.slApp.writeFolderExport(f, 'x.xmpuzzle', bytes),
+        window.slApp.writeFolderExport(`${f}-other`, 'x.stl', bytes),
       ];
       return Promise.all(
         tries.map((t) =>

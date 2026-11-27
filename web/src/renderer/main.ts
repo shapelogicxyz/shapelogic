@@ -5,6 +5,6 @@
 
 import { startApp } from './shell/app.ts';
 
-window.btApp.loadState().then(startApp, () => {
+window.slApp.loadState().then(startApp, () => {
   startApp();
 });

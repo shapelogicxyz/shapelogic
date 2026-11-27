@@ -22,7 +22,7 @@
 import './workspace.css';
 import { puzzleStem } from '../shell/paths.ts';
 import type { ProblemSummary } from '../../engine/api.generated.ts';
-import type { BtApp } from '../../engine/app-bridge.ts';
+import type { SlApp } from '../../engine/app-bridge.ts';
 import type { Edits } from '../state/edits.ts';
 import type { Store } from '../state/store.ts';
 import { problemChipStyle } from '../puzzle/counts.ts';
@@ -54,7 +54,7 @@ export class PlayWorkspace {
   current: string | null = null;
   private readonly store: Store;
   private readonly edits: Edits;
-  private readonly app: BtApp;
+  private readonly app: SlApp;
   private readonly host: PlayHost;
   /** The sliding puzzles' play (the demo sets what its board hides). */
   readonly sliding: SlidingPlay;
@@ -77,7 +77,7 @@ export class PlayWorkspace {
   private stepping: Promise<boolean> = Promise.resolve(true);
   private queued = 0;
 
-  constructor(store: Store, edits: Edits, app: BtApp, host: PlayHost) {
+  constructor(store: Store, edits: Edits, app: SlApp, host: PlayHost) {
     this.store = store;
     this.edits = edits;
     this.app = app;

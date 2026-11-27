@@ -248,13 +248,13 @@ test('settings apply at once: theme, density, font size, tooltips', async () => 
       () =>
         new Promise((done) => {
           const id = 2_000_000_000;
-          const off = window.bt.onMessage((m) => {
+          const off = window.sl.onMessage((m) => {
             if (m.kind === 'reply' && m.id === id) {
               off();
               done(m.result);
             }
           });
-          window.bt.send({ kind: 'call', id, method: 'settings.get' });
+          window.sl.send({ kind: 'call', id, method: 'settings.get' });
         }),
     );
   await expect.poll(engineSettings).toMatchObject({ undoDepth: 100, threads: 1 });

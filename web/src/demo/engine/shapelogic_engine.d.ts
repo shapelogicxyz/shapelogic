@@ -6,15 +6,15 @@
 
 /** The engine's exports (engine/wasm_main.cpp) and the memory the bytes cross in. */
 export interface EngineModule {
-  _bt_start(): void;
-  _bt_write(data: number, length: number): void;
-  _bt_poll(): void;
-  _bt_take(): void;
-  _bt_taken_data(): number;
-  _bt_taken_size(): number;
-  _bt_log_take(): void;
-  _bt_log_data(): number;
-  _bt_log_size(): number;
+  _sl_start(): void;
+  _sl_write(data: number, length: number): void;
+  _sl_poll(): void;
+  _sl_take(): void;
+  _sl_taken_data(): number;
+  _sl_taken_size(): number;
+  _sl_log_take(): void;
+  _sl_log_data(): number;
+  _sl_log_size(): number;
   _malloc(bytes: number): number;
   _free(pointer: number): void;
   /** The whole memory; a new array after the memory grew, so read afresh each time. */

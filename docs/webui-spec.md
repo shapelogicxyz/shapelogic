@@ -840,7 +840,7 @@ keys, a game kept for each problem while the document is open).
   board, under Redo: the **Goal** as a small picture of the same board,
   a button with a pop-out icon (two windows) at its top right that opens
   the goal's window (below), **Hide Goal** and **Hide Disc Labels**.
-- **The goal's window** (`BtApp.goalWindow`, `main/goal-window.ts`): a
+- **The goal's window** (`SlApp.goalWindow`, `main/goal-window.ts`): a
   sliding puzzle's **Show Goal Image** (under Hide Goal Lines, an image
   icon) or a stacking puzzle's Goal picture opens the goal in a window of
   its own, one per app window, above it and closed with it, moved and

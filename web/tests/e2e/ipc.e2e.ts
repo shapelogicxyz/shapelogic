@@ -2,7 +2,7 @@
 //
 // The IPC path end to end (docs/handoff/web-1a.md, "Brief for the next
 // stages"): the app starts its engine, a mesh crosses the bridge as a frame
-// (window.bt, as the proxy sees it), an engine killed is reported and
+// (window.sl, as the proxy sees it), an engine killed is reported and
 // restarted with a new document, and a reload with calls in flight gets a
 // new bridge server, so the old page's replies never reach the new one;
 // a page that crashed is reloaded and shows the engine's document again.
@@ -41,7 +41,7 @@ test('a mesh crosses the bridge as a frame', async () => {
         indices: number;
       }>((done, fail) => {
         const id = 1_000_000_000;
-        const off = window.bt.onMessage((m) => {
+        const off = window.sl.onMessage((m) => {
           if (m.kind === 'error' && m.id === id) {
             off();
             fail(new Error(m.message));
@@ -64,7 +64,7 @@ test('a mesh crosses the bridge as a frame', async () => {
             indices: r.frame.arrays.indices?.length ?? -1,
           });
         });
-        window.bt.send({ kind: 'call', id, method: 'shape.mesh', params: { shape } });
+        window.sl.send({ kind: 'call', id, method: 'shape.mesh', params: { shape } });
       }),
     first?.id ?? '',
   );
@@ -123,7 +123,7 @@ test('a reload gets a bridge of its own: the old page’s replies do not reach i
   // their replies come after the new page has made its first calls
   await page.evaluate((shape) => {
     for (let i = 300; i >= 1; i--) {
-      window.bt.send({ kind: 'call', id: i, method: 'shape.mesh', params: { shape } });
+      window.sl.send({ kind: 'call', id: i, method: 'shape.mesh', params: { shape } });
     }
   }, largest);
   const errors: string[] = [];

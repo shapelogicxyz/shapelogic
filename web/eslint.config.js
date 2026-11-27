@@ -96,7 +96,7 @@ export default defineConfig(
             },
             {
               group: ['../main/*', '../preload/*'],
-              message: 'the renderer reaches the host only through window.bt',
+              message: 'the renderer reaches the host only through window.sl',
             },
           ],
         },

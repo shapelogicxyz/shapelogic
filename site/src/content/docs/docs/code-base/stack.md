@@ -67,7 +67,7 @@ website's demo.
 The exact versions are pinned in `web/package.json`. Decision record
 `docs/decisions/0013-web-front-end.md` settles the shape of the app: one
 engine process per window, a sandboxed renderer that reaches the engine
-only through `window.bt`, and the mockup's code as the basis.
+only through `window.sl`, and the mockup's code as the basis.
 
 The engine's TypeScript types are not written by hand. `web/tools/gen-api.ts`
 generates `web/src/engine/api.generated.ts` from the JSON Schema in `api/`,

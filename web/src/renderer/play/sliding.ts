@@ -366,7 +366,7 @@ export class SlidingPlay implements PlayKind {
         }
       },
     });
-    window.btApp.goalWindow(picture, raise);
+    window.slApp.goalWindow(picture, raise);
   }
 
   place(game: AnyGame): void {

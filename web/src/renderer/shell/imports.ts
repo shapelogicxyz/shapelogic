@@ -15,7 +15,7 @@
 
 import './imports.css';
 import { baseName, puzzleStem } from './paths.ts';
-import type { BtApp } from '../../engine/app-bridge.ts';
+import type { SlApp } from '../../engine/app-bridge.ts';
 import type { Grid } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { ImportFormat, Store } from '../state/store.ts';
@@ -219,10 +219,10 @@ ${
 
 export class Imports {
   private readonly store: Store;
-  private readonly app: BtApp;
+  private readonly app: SlApp;
   private readonly host: ImportsHost;
 
-  constructor(store: Store, app: BtApp, host: ImportsHost) {
+  constructor(store: Store, app: SlApp, host: ImportsHost) {
     this.store = store;
     this.app = app;
     this.host = host;

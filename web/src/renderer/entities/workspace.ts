@@ -135,7 +135,7 @@ export class EntitiesWorkspace {
       refuse,
       mutate: (doing, call) => this.mutate(doing, call),
       openPage: () => {
-        window.btApp.openHelp('tilted');
+        window.slApp.openHelp('tilted');
       },
       openPlacements: () => {
         if (!refuse()) {

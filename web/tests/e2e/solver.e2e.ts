@@ -41,7 +41,7 @@ import { BOXES, showsOn } from '../../src/renderer/solver/boxes.ts';
 import type { PuzzleKind } from '../../src/renderer/solver/boxes.ts';
 import { pzSettled } from './puzzle.ts';
 import {
-  btJson,
+  cliJson,
   confirm,
   dominoBox,
   enginePoses,
@@ -90,11 +90,11 @@ test('Bermuda: solved with take-apart as bt counts it, played, stepped, jumped, 
 
     await runButton(page, 'start');
     await runEnded(page, 'finished');
-    const bt = btJson(resolve(FIXTURES, 'Bermuda.xmpuzzle'));
-    expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(bt.assemblies);
-    expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(bt.solutions);
-    await expect(page.locator('#slvAsm')).toHaveText(String(bt.assemblies));
-    await expect(page.locator('#slvSols')).toHaveText(String(bt.solutions));
+    const fromCli = cliJson(resolve(FIXTURES, 'Bermuda.xmpuzzle'));
+    expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(fromCli.assemblies);
+    expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(fromCli.solutions);
+    await expect(page.locator('#slvAsm')).toHaveText(String(fromCli.assemblies));
+    await expect(page.locator('#slvSols')).toHaveText(String(fromCli.solutions));
     await expect(page.locator('#slvPct')).toHaveText('100.0%');
     await expect(page.locator('#slvActivity')).toHaveText('Search finished');
     await expect(page.locator('#slvDetails')).toHaveText(
@@ -107,7 +107,7 @@ test('Bermuda: solved with take-apart as bt counts it, played, stepped, jumped, 
       'problem.get',
       { problem: p },
     );
-    expect(detail).toMatchObject({ assemblies: bt.assemblies, solutions: bt.solutions });
+    expect(detail).toMatchObject({ assemblies: fromCli.assemblies, solutions: fromCli.solutions });
     await expect(page.locator('#slvCount')).toHaveText(String(detail.saved));
 
     // the first solution, assembled, then its playback
@@ -459,7 +459,7 @@ test('Analyse: what does not come apart is marked, the rest removed; a stop keep
     const p = await shownProblem(page);
     await runButton(page, 'start');
     await runEnded(page, 'finished');
-    const bt = btJson(resolve(FIXTURES, 'PelikanBurr.xmpuzzle'), []);
+    const fromCli = cliJson(resolve(FIXTURES, 'PelikanBurr.xmpuzzle'), []);
     await expect(page.locator('#slvCount')).toHaveText('12');
     await expect(page.locator('#slvList .lrow .c5[title="Disassembly not checked"]')).toHaveCount(
       12,
@@ -470,11 +470,11 @@ test('Analyse: what does not come apart is marked, the rest removed; a stop keep
     await expect(page.locator('#pop [data-k^="ad"]')).toHaveCount(3);
     await page.keyboard.press('Escape');
     await manage(page, 'ada');
-    await expect(page.locator('#slvList .lrow .c5.ok')).toHaveCount(bt.solutions, {
+    await expect(page.locator('#slvList .lrow .c5.ok')).toHaveCount(fromCli.solutions, {
       timeout: 60_000,
     });
     await solverSettled(page);
-    await expect(page.locator('#slvList .lrow .c5.bad')).toHaveCount(12 - bt.solutions);
+    await expect(page.locator('#slvList .lrow .c5.bad')).toHaveCount(12 - fromCli.solutions);
     await expect(page.locator('#slvList .lrow .c5.bad').first()).toHaveAttribute(
       'title',
       'Cannot be disassembled',
@@ -567,7 +567,7 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; a solve
     // the puzzle gets a file (its save dialog's, then through the bridge: the
     // test of File ▸ Save is files.e2e.ts)
     await answerDialogs(page, { save: file });
-    expect(await page.evaluate(() => window.btApp.chooseSave('puzzle', 'box'))).toBe(file);
+    expect(await page.evaluate(() => window.slApp.chooseSave('puzzle', 'box'))).toBe(file);
     await engineCall(page, 'document.save', { path: file });
     const saved0 = statSync(file).mtimeMs;
     await toSolver(page);
@@ -617,7 +617,7 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; a solve
       timeout: 30_000,
     });
     await expect(page.locator('#stage')).toHaveAttribute('data-rescued', /^\d+$/);
-    expect((await page.evaluate(() => window.btApp.readRescue()))?.info.path).toBe(file);
+    expect((await page.evaluate(() => window.slApp.readRescue()))?.info.path).toBe(file);
     expect(statSync(file).mtimeMs).toBe(saved0);
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling', {
       timeout: 15_000,
@@ -794,7 +794,7 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     await solverSettled(page);
     await runButton(page, 'start');
     await runEnded(page, 'finished');
-    const slid = btJson(resolve(FIXTURES, 'test_sliding_solver.xmpuzzle'));
+    const slid = cliJson(resolve(FIXTURES, 'test_sliding_solver.xmpuzzle'));
     expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(slid.assemblies);
     expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(slid.solutions);
     await expect(page.locator('#slvSols')).toHaveText(String(slid.solutions));
@@ -823,7 +823,7 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     await expect(page.locator('#emptyMsg')).toHaveText('Run the solver to see solutions here');
     await runButton(page, 'start');
     await runEnded(page, 'finished');
-    const stacked = btJson(resolve(FIXTURES, 'test_stacking_hanoi.xmpuzzle'), [
+    const stacked = cliJson(resolve(FIXTURES, 'test_stacking_hanoi.xmpuzzle'), [
       '--solver',
       'stacking',
       '--panex-dir',
@@ -873,7 +873,7 @@ test('the crash recovery journal keeps a puzzle without a file in the rescue cop
     await expect
       .poll(async () => Number(await attr(page, '#leftS', 'data-assemblies')))
       .toBeGreaterThan(at);
-    const found = await page.evaluate(() => window.btApp.readRescue());
+    const found = await page.evaluate(() => window.slApp.readRescue());
     expect(found?.info.path).toBeNull();
     await runButton(page, 'abort');
     await confirm(page, /^Abort the solve\?$/, true);

@@ -19,7 +19,7 @@
 
 import './log-files.css';
 import type {
-  BtApp,
+  SlApp,
   LogEntry,
   LogExportSizes,
   LogPage,
@@ -68,7 +68,7 @@ export function summaryHtml(page: LogPage, query: LogQuery, shown: number): stri
 
 /** The dialog's state and its parts. */
 class LogFilesView {
-  private readonly app: BtApp;
+  private readonly app: SlApp;
   private readonly el: HTMLElement;
   private query: LogQuery = { offset: 0, errorsOnly: false, search: '' };
   private view: LogView = lastView;
@@ -85,7 +85,7 @@ class LogFilesView {
   /** The search waiting for typing to pause. */
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(app: BtApp, el: HTMLElement) {
+  constructor(app: SlApp, el: HTMLElement) {
     this.app = app;
     this.el = el;
     const search = this.part<HTMLInputElement>('.lf-search');
@@ -317,7 +317,7 @@ class LogFilesView {
 }
 
 /** View ▸ Log File Manager…: the log, newest first, its filters, Export and Clear. */
-export async function openLogFiles(app: BtApp): Promise<void> {
+export async function openLogFiles(app: SlApp): Promise<void> {
   let first: LogPage | null;
   try {
     first = await app.logPage({ offset: 0, limit: PAGE_LINES, errorsOnly: false, search: '' });

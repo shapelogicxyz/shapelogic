@@ -4,7 +4,7 @@
 // through tools/build-demo.ts): the app's renderer as it is, over the
 // engine compiled to WebAssembly (engine/wasm_main.cpp, wasm-transport.ts,
 // engine-bridge.ts) and the demo's app (demo-app.ts) in place of the
-// preload's window.bt and window.btApp. One example puzzle of each puzzle
+// preload's window.sl and window.slApp. One example puzzle of each puzzle
 // type (two of Sliding: a standard board and a nested one) is on the site
 // (site/public/examples/demo/<key>.xmpuzzle: a solved first problem and
 // only its shapes); the top bar's list chooses one, and it is opened as a
@@ -692,8 +692,8 @@ async function main(): Promise<void> {
   const hello = await client.hello();
   const app = demoApp(hello.version);
   const bridge = new EngineBridge(client, hello.version);
-  Object.defineProperty(window, 'bt', { value: bridge });
-  Object.defineProperty(window, 'btApp', { value: app });
+  Object.defineProperty(window, 'sl', { value: bridge });
+  Object.defineProperty(window, 'slApp', { value: app });
   let example = exampleFromUrl();
   pendingTab = tabFromUrl();
   const bar = topBar(example);

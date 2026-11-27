@@ -9,7 +9,7 @@
 // in the bar and the title (decision 0036).
 
 import './topbar.css';
-import type { BtApp } from '../../engine/app-bridge.ts';
+import type { SlApp } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';
 
@@ -65,7 +65,7 @@ function fitName(): void {
 }
 
 /** Wires the top bar to the store. */
-export function installTopBar(store: Store, app: BtApp): void {
+export function installTopBar(store: Store, app: SlApp): void {
   store.subscribe((c) => {
     if (c.kind === 'document') {
       render(store);

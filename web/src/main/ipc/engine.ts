@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// window.btApp's side of the window's engine (a group of ../app-ipc.ts,
-// cleanup item 13.4): the engine's bridge (`bt:call`, to the window's
+// window.slApp's side of the window's engine (a group of ../app-ipc.ts,
+// cleanup item 13.4): the engine's bridge (`sl:call`, to the window's
 // engine, which main/index.ts serves), the page's first document (the
 // Startup line), Try Again, a document command held or dropped while the
 // engine starts, and Copy and Save Diagnostics (diagnostics.ts).
@@ -18,7 +18,7 @@ import type { Registrar } from './register.ts';
 
 /** What the window's engine channels need of the main process. */
 export interface EngineIpc {
-  /** A message of a window's engine bridge (`bt:call`): to its engine (main/index.ts's server). */
+  /** A message of a window's engine bridge (`sl:call`): to its engine (main/index.ts's server). */
   engineCall(sender: WebContents, request: unknown): void;
   /** The page showed its first document (the Startup line). */
   ready(sender: WebContents): void;
@@ -35,22 +35,22 @@ export interface EngineIpc {
 /** Registers the window's engine channels. */
 export function installEngineIpc(r: Registrar, h: EngineIpc): void {
   // the engine's bridge: a window's calls go to its engine (main/index.ts serves it)
-  r.on('bt:call', (e, _win, request) => {
+  r.on('sl:call', (e, _win, request) => {
     h.engineCall(e.sender, request);
   });
 
-  r.on('bt:engine-ready', (e) => {
+  r.on('sl:engine-ready', (e) => {
     h.ready(e.sender);
   });
-  r.on('bt:engine-retry', (e) => {
+  r.on('sl:engine-retry', (e) => {
     h.retryEngine(e.sender);
   });
-  r.on('bt:command-held', (e, _win, command, dropped) => {
+  r.on('sl:command-held', (e, _win, command, dropped) => {
     if (isAppCommandName(command) && typeof dropped === 'boolean') {
       h.commandHeld(e.sender, command, dropped);
     }
   });
 
-  r.handle('bt:diagnostics-copy', null, (e) => h.copyDiagnostics(e.sender));
-  r.handle('bt:diagnostics-save', null, (e) => h.saveDiagnostics(e.sender));
+  r.handle('sl:diagnostics-copy', null, (e) => h.copyDiagnostics(e.sender));
+  r.handle('sl:diagnostics-save', null, (e) => h.saveDiagnostics(e.sender));
 }

@@ -75,7 +75,7 @@ export function openAbout(store: Store, appVersion: string): void {
     ?.querySelector<HTMLAnchorElement>('a[data-help]')
     ?.addEventListener('click', (e) => {
       e.preventDefault();
-      window.btApp.openHelp('author');
+      window.slApp.openHelp('author');
     });
 }
 

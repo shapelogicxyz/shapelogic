@@ -4,7 +4,7 @@
 // that a unit test checks what main/index.ts applies: the window's web
 // preferences (sandboxed, context-isolated, no Node, no webview, no
 // navigation by a drop), the page it loads (the app's own, on a scheme of
-// its own, `bt-app://app/`, served from the renderer's directory and
+// its own, `sl-app://app/`, served from the renderer's directory and
 // nowhere else; a dev server only when not packaged), the requests its
 // session lets through (the app's files, and in development the dev
 // server: no remote content), the permissions it grants (none), and the
@@ -34,7 +34,7 @@ export const SYSTEM_URLS = {
 } as const;
 
 /** The scheme the renderer's page is served on: standard and secure, the app's own. */
-export const APP_SCHEME = 'bt-app';
+export const APP_SCHEME = 'sl-app';
 /** The one host of that scheme. */
 export const APP_HOST = 'app';
 
@@ -147,7 +147,7 @@ export interface Switches {
  * The environment's switches a run takes. A packaged app takes only
  * SHAPELOGIC_USER_DATA (where its own data goes; the smoke test keeps the user's
  * apart): the others run another program (SHAPELOGIC_ENGINE), load another page
- * into the window that has window.btApp (ELECTRON_RENDERER_URL) or write
+ * into the window that has window.slApp (ELECTRON_RENDERER_URL) or write
  * a file (SHAPELOGIC_CALL_LOG), which nothing outside the app may ask of it.
  */
 export function switches(

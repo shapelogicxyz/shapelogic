@@ -20,10 +20,10 @@ export default defineConfig({
   root: resolve(import.meta.dirname, 'src/renderer'),
   base: DEMO_BASE,
   publicDir: false,
-  define: { __BT_DEMO_BASE__: JSON.stringify(DEMO_BASE) },
+  define: { __SL_DEMO_BASE__: JSON.stringify(DEMO_BASE) },
   plugins: [
     {
-      name: 'bt-demo-page',
+      name: 'sl-demo-page',
       transformIndexHtml: {
         order: 'pre',
         handler(html) {

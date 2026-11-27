@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// window.btApp's rescue copy (a group of ../app-ipc.ts, cleanup item 13.4):
+// window.slApp's rescue copy (a group of ../app-ipc.ts, cleanup item 13.4):
 // each window has its own (rescue.ts's slots, decision 0036). The window's
 // engine writes and opens the copy itself (document.saveRescue, cleanup
 // item 10.11); only the record crosses here. The record's file and the
@@ -31,7 +31,7 @@ export interface RescueIpc {
 
 /** Registers the rescue copy's channels. */
 export function installRescueIpc(r: Registrar, h: RescueIpc): void {
-  r.handle('bt:rescue-write', null, async (e, _win, info) => {
+  r.handle('sl:rescue-write', null, async (e, _win, info) => {
     if (!isRescueInfo(info)) {
       return null;
     }
@@ -69,7 +69,7 @@ export function installRescueIpc(r: Registrar, h: RescueIpc): void {
     }
   });
 
-  r.handle('bt:rescue-read', null, async (e) => {
+  r.handle('sl:rescue-read', null, async (e) => {
     const copy = await h.rescue.of(e.sender.id).read();
     if (copy !== null) {
       // the engine opens the copy itself, as the document of its file
@@ -81,7 +81,7 @@ export function installRescueIpc(r: Registrar, h: RescueIpc): void {
     return copy;
   });
 
-  r.handle('bt:rescue-clear', null, async (e) => {
+  r.handle('sl:rescue-clear', null, async (e) => {
     await h.rescue.of(e.sender.id).clear();
     return null;
   });

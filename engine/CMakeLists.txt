@@ -36,7 +36,7 @@ if(EMSCRIPTEN)
   target_link_options(shapelogic_engine_wasm PRIVATE
     -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=createEngine -sENVIRONMENT=web
     -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=64MB -sSTACK_SIZE=8MB
-    -sEXPORTED_FUNCTIONS=_bt_start,_bt_write,_bt_poll,_bt_take,_bt_taken_data,_bt_taken_size,_bt_log_take,_bt_log_data,_bt_log_size,_malloc,_free
+    -sEXPORTED_FUNCTIONS=_sl_start,_sl_write,_sl_poll,_sl_take,_sl_taken_data,_sl_taken_size,_sl_log_take,_sl_log_data,_sl_log_size,_malloc,_free
     -sEXPORTED_RUNTIME_METHODS=HEAPU8)
   return()
 endif()

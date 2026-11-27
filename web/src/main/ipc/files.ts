@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// window.btApp's dialogs and exports (a group of ../app-ipc.ts, cleanup item
+// window.slApp's dialogs and exports (a group of ../app-ipc.ts, cleanup item
 // 13.4): the open and save dialogs (a name without the kind's extension
 // gets it, and a file that then exists is asked about, as the original's
 // Save As did); the exports' files, written here (export-file.ts) and only
@@ -86,9 +86,9 @@ const OPEN_TITLES: Readonly<Record<OpenKind, string>> = {
   scad: 'Import Puzzlecad File',
 };
 
-/** The paths the save dialog gave each window's renderer for an export: `bt:write-export` writes only these. */
+/** The paths the save dialog gave each window's renderer for an export: `sl:write-export` writes only these. */
 const grants = new ExportGrants<WebContents>((kind) => KINDS[kind].ext);
-/** The folder the folder dialog gave each window's renderer last: `bt:write-folder-export` writes only there. */
+/** The folder the folder dialog gave each window's renderer last: `sl:write-folder-export` writes only there. */
 const folders = new FolderGrants<WebContents>();
 
 /** What the dialogs and exports need of the main process. */
@@ -103,7 +103,7 @@ export interface FilesIpc {
 
 /** Registers the dialogs' and the exports' channels. */
 export function installFilesIpc(r: Registrar, h: FilesIpc): void {
-  r.handle('bt:choose-open', null, async (e, win, kind) => {
+  r.handle('sl:choose-open', null, async (e, win, kind) => {
     if (!isOpenKind(kind)) {
       return null;
     }
@@ -123,7 +123,7 @@ export function installFilesIpc(r: Registrar, h: FilesIpc): void {
     return path;
   });
 
-  r.handle('bt:choose-save', null, async (e, win, kind, name) => {
+  r.handle('sl:choose-save', null, async (e, win, kind, name) => {
     if (!isFileKind(kind) || typeof name !== 'string') {
       return null;
     }
@@ -166,7 +166,7 @@ export function installFilesIpc(r: Registrar, h: FilesIpc): void {
 
   // an export's bytes: ok, or the reason (an invoke's own rejection would carry Electron's wording)
   const nothingToWrite: WriteResult = { ok: false, error: 'nothing to write' };
-  r.handle('bt:write-export', nothingToWrite, async (e, _win, path, data) => {
+  r.handle('sl:write-export', nothingToWrite, async (e, _win, path, data) => {
     if (typeof path !== 'string' || !(data instanceof Uint8Array)) {
       return nothingToWrite;
     }
@@ -187,7 +187,7 @@ export function installFilesIpc(r: Registrar, h: FilesIpc): void {
   // Export ▸ STL): the folder dialog, then files of the engine's names in
   // the folder it gave; its button says Save when the files are written
   // straight away
-  r.handle('bt:choose-folder', null, async (e, win, save) => {
+  r.handle('sl:choose-folder', null, async (e, win, save) => {
     const res = await dialog.showOpenDialog(win, {
       title: save === true ? 'Export STL Files to a Folder' : 'Choose the Output Folder',
       ...(save === true ? { buttonLabel: 'Save' } : {}),
@@ -203,7 +203,7 @@ export function installFilesIpc(r: Registrar, h: FilesIpc): void {
     return folder;
   });
 
-  r.handle('bt:existing-exports', 0, (e, _win, folder, names) => {
+  r.handle('sl:existing-exports', 0, (e, _win, folder, names) => {
     if (typeof folder !== 'string' || !folders.has(e.sender, folder) || !Array.isArray(names)) {
       return 0;
     }
@@ -213,7 +213,7 @@ export function installFilesIpc(r: Registrar, h: FilesIpc): void {
     ).length;
   });
 
-  r.handle('bt:write-folder-export', nothingToWrite, async (e, _win, folder, name, data) => {
+  r.handle('sl:write-folder-export', nothingToWrite, async (e, _win, folder, name, data) => {
     if (typeof folder !== 'string' || typeof name !== 'string' || !(data instanceof Uint8Array)) {
       return nothingToWrite;
     }
@@ -235,7 +235,7 @@ export function installFilesIpc(r: Registrar, h: FilesIpc): void {
 
   // the path of a file dropped on the window (the preload's pathOf: only a
   // file the user dropped has one)
-  r.on('bt:dropped', (e, _win, path) => {
+  r.on('sl:dropped', (e, _win, path) => {
     if (typeof path === 'string' && path !== '') {
       h.paths.grant(e.sender, path);
     }

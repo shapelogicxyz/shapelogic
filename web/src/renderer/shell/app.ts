@@ -123,11 +123,11 @@ export function startApp(saved: StoredState = {}): {
   solver: SolverWorkspace;
   play: PlayWorkspace;
 } {
-  const app = window.btApp;
+  const app = window.slApp;
   if (saved.prefs !== undefined) {
     setPrefs(validPrefs(saved.prefs));
   }
-  const engine = new EngineProxy(window.bt);
+  const engine = new EngineProxy(window.sl);
   const store = new Store(engine);
   // each engine gets the settings kept (undo depth, threads, memory, disk)
   store.wantedSettings = () => engineSettingsOf(prefs);

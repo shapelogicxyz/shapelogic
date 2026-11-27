@@ -30,7 +30,7 @@ import type { Browser, Page } from '@playwright/test';
 
 import { projectVersion } from '../../tools/project-version.ts';
 import { engineCall, FIXTURES, WEB } from './app.ts';
-import { btJson, runButton, runEnded, toSolver } from './solver.ts';
+import { cliJson, runButton, runEnded, toSolver } from './solver.ts';
 
 /** The packaged app's executable and its resources directory, for this platform. */
 function packaged(): { exe: string; resources: string } {
@@ -211,7 +211,7 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
   try {
     const page = await windowPage(browser);
     // the app's own page on its own scheme, not the dev server's
-    expect(page.url()).toMatch(/^bt-app:\/\/app\/index\.html/);
+    expect(page.url()).toMatch(/^sl-app:\/\/app\/index\.html/);
     await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'running', {
       timeout: 30_000,
     });
@@ -226,8 +226,8 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
     const page_ = await page.evaluate(() => ({
       require: typeof (globalThis as Record<string, unknown>).require,
       process: typeof (globalThis as Record<string, unknown>).process,
-      bt: Object.keys(window.bt).sort(),
-      version: window.btApp.version,
+      sl: Object.keys(window.sl).sort(),
+      version: window.slApp.version,
       csp: document
         .querySelector('meta[http-equiv="Content-Security-Policy"]')
         ?.getAttribute('content'),
@@ -235,7 +235,7 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
     expect(page_).toEqual({
       require: 'undefined',
       process: 'undefined',
-      bt: ['onMessage', 'send'],
+      sl: ['onMessage', 'send'],
       version: VERSION,
       csp: "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; media-src 'none'; base-uri 'none'; form-action 'none'",
     });
@@ -301,9 +301,9 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
     await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
     await runButton(page, 'start');
     await runEnded(page, 'finished');
-    const bt = btJson(fixture);
-    await expect(page.locator('#slvAsm')).toHaveText(String(bt.assemblies));
-    await expect(page.locator('#slvSols')).toHaveText(String(bt.solutions));
+    const fromCli = cliJson(fixture);
+    await expect(page.locator('#slvAsm')).toHaveText(String(fromCli.assemblies));
+    await expect(page.locator('#slvSols')).toHaveText(String(fromCli.solutions));
     await expect(page.locator('#splayer')).toHaveAttribute('data-ready', '1');
 
     // SHAPELOGIC_CALL_LOG was not taken

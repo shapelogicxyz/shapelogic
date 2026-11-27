@@ -540,7 +540,7 @@ Playwright 1.64.0, gltf-validator for the tests).
 
 Files in `web/src/engine/`:
 - `api.generated.ts`: the types of `api/*.json` (`tools/gen-api.ts`, `just app-gen`), committed; a test fails when it is stale.
-- `app-bridge.ts`: what crosses between the main process and the renderer besides the engine (`window.btApp`'s interface and the checks of what crosses).
+- `app-bridge.ts`: what crosses between the main process and the renderer besides the engine (`window.slApp`'s interface and the checks of what crosses).
 - `base64.ts`: `toBase64`, `fromBase64`, without Node (the one copy).
 - `bridge.ts`: the engine's messages between the host and the renderer's proxy (decision 0013).
 - `client-types.ts`: `EngineApi`, `Reply<M>`: what the client and the proxy both offer.
@@ -560,7 +560,7 @@ Files in `web/src/engine/`:
 - `write-hint.ts`: the Controlled Folder Access hint of a write Windows refused.
 
 Files in `web/src/main/`:
-- `app-ipc.ts`: `window.btApp`'s main side: `installAppIpc` over the groups in `ipc/`, `AppIpcHost` their interfaces joined.
+- `app-ipc.ts`: `window.slApp`'s main side: `installAppIpc` over the groups in `ipc/`, `AppIpcHost` their interfaces joined.
 - `app-log.ts`: the app's log file (`logs/shapelogic.log`; one handle, a tick's lines written together), its rotation and the Log File Manager's pages; the engines' stderr and protocol problems in it.
 - `cache-files.ts`: View ▸ Manage Cache and Autosave Files: the items, `CacheLinks`.
 - `cache-folder.ts`: the cache folder (`CacheFolderManager`): the engines' `slideFolder` and `panexFolder`, moves and deletes.
@@ -578,7 +578,7 @@ Files in `web/src/main/`:
 - `index.ts`: Electron's main process: windows, hosts, IPC, menus, files the system opens, the app's scheme.
 - `ipc/cache.ts`: the cache folder's choice; the cache manager's items, deletes and links.
 - `ipc/cli.ts`: the command line tool's info, install and uninstall.
-- `ipc/engine.ts`: the window's engine: `bt:call`, the first document, Try Again, held commands, Copy and Save Diagnostics.
+- `ipc/engine.ts`: the window's engine: `sl:call`, the first document, Try Again, held commands, Copy and Save Diagnostics.
 - `ipc/files.ts`: the open, save and folder dialogs (`KINDS`), the export grants and writes, a dropped file's grant.
 - `ipc/log.ts`: the Log File Manager's pages, Clear, close and Export.
 - `ipc/register.ts`: `registrar` (`handle`, `on`, `sync`: the sender checked once), `post`, `startDir`, `logRefusedWrite`.
@@ -598,18 +598,18 @@ Files in `web/src/main/`:
 - `updates.ts`: whether a newer ShapeLogic is out (GitHub's latest release); `VERSION_PATTERN`, the app's and the tools' one version pattern.
 
 Files in `web/src/preload/`:
-- `index.ts`: exposes `window.bt` and `window.btApp`; keeps the commands that come before the page listens.
+- `index.ts`: exposes `window.sl` and `window.slApp`; keeps the commands that come before the page listens.
 
 Files in `web/src/demo/`:
-- `demo-app.ts`: the demo's `window.btApp`: no menus, dialogs or files.
-- `engine-bridge.ts`: the demo's `window.bt` over the browser engine; refuses a search.
+- `demo-app.ts`: the demo's `window.slApp`: no menus, dialogs or files.
+- `engine-bridge.ts`: the demo's `window.sl` over the browser engine; refuses a search.
 - `engine/shapelogic_engine.d.ts`: the Emscripten module's types.
 - `main.ts`: the demo page's entry (`site/public/demo/`, `just site-demo`): the examples and their played runs.
 - `wasm-transport.ts`: the browser engine as a `Transport`.
 
 Files in `web/src/renderer/`:
 - `assets.d.ts`, `env.d.ts`: the renderer's ambient types (pictures by URL, Vite's environment).
-- `engine-proxy.ts`: `EngineProxy`, the client's interface over `window.bt`.
+- `engine-proxy.ts`: `EngineProxy`, the client's interface over `window.sl`.
 - `index.html`, `styles.css`: the page and its shared sheet (the mockup's body and style, compact, left alone by Prettier: the tokens, the shared controls, the layout, the densities, the static markup's rules). A rule naming what one module writes is in that module's sheet (`<module>.css`, imported by it, after `styles.css`); a section a module draws is an empty mount point here.
 - `main.ts`: the renderer's entry: the stored settings and layouts, then the shell.
 
@@ -791,7 +791,7 @@ Rules (AGENTS.md's; decisions 0012, 0013, 0034, 0036, 0043):
   mutating call waits for its revision (a new document releases the waits);
   an id kept across an await checks `Store.generation` again (ids repeat).
 - `src/engine/` is platform-free (Node only in `node-transport.ts`). The
-  renderer is sandboxed and reaches only `window.bt` and `window.btApp`.
+  renderer is sandboxed and reaches only `window.sl` and `window.slApp`.
 - Decision 0011's frozen parts are refused before any call ("Pause the
   solve first"). While anything solves (`Snapshot.solving`): every shape
   edit, a problem's delete or move, undo and redo; a new or duplicated
@@ -807,7 +807,7 @@ Rules (AGENTS.md's; decisions 0012, 0013, 0034, 0036, 0043):
 - One engine, rescue slot and goal window per window; the first window to
   hold a file owns it, the others hold it read-only (0036).
 - The version is the git tag's (`tools/project-version.ts` and
-  `cmake/ProjectVersion.cmake`, one rule; `__BT_VERSION__`): the app's,
+  `cmake/ProjectVersion.cmake`, one rule; `__SL_VERSION__`): the app's,
   packaging's, and the one `NodeTransport.start` requires of the engine;
   `dist.test.ts` holds it to the tag and to the release engine's
   `--version` (`package.json`'s stays 0.0.0). A packaged app runs only

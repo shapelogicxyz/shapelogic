@@ -45,9 +45,9 @@ export function setCursor(text: string): void {
   byId('stCursor').textContent = text;
 }
 
-/** The platform the page runs on (`btApp.platform`; '' without the app's bridge). */
+/** The platform the page runs on (`slApp.platform`; '' without the app's bridge). */
 function platform(): string {
-  return (globalThis as { btApp?: { platform?: string } }).btApp?.platform ?? '';
+  return (globalThis as { slApp?: { platform?: string } }).slApp?.platform ?? '';
 }
 
 // the message box of dialog.ts (`tell`), given by the app: this file is

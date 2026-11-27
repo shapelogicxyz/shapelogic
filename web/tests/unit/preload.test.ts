@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The preload script with Electron stood in for (stage 8): it exposes
-// window.bt and window.btApp only; commands the main process sends before
+// window.sl and window.slApp only; commands the main process sends before
 // the page listens (a file given on the command line, sent when the page
 // has loaded, while it still reads its stored settings) are kept and handed
 // to the first handler in order, a task later, with later ones behind
@@ -48,7 +48,7 @@ vi.mock('electron', () => ({
 
 /** The main process sends a command to the page. */
 function command(c: unknown): void {
-  for (const l of electron.listeners.get('bt:command') ?? []) {
+  for (const l of electron.listeners.get('sl:command') ?? []) {
     l({}, c);
   }
 }
@@ -56,22 +56,22 @@ function command(c: unknown): void {
 const tick = (): Promise<void> => new Promise((done) => setTimeout(done, 5));
 
 describe('the preload', () => {
-  it('exposes window.bt and window.btApp, and keeps the first commands for the first handler', async () => {
+  it('exposes window.sl and window.slApp, and keeps the first commands for the first handler', async () => {
     await import('../../src/preload/index.ts');
-    expect([...electron.exposed.keys()]).toEqual(['bt', 'btApp']);
-    const btApp = electron.exposed.get('btApp') as {
+    expect([...electron.exposed.keys()]).toEqual(['sl', 'slApp']);
+    const slApp = electron.exposed.get('slApp') as {
       version: string;
       onCommand(h: (c: unknown) => void): () => void;
       pathOf(f: object): string;
     };
-    expect(btApp.version).toBe('9.9.9');
+    expect(slApp.version).toBe('9.9.9');
 
     // sent at did-finish-load, before the page listens
     command({ cmd: 'openPath', path: '/a.xmpuzzle' });
     command({ cmd: 'nonsense' });
     command({ cmd: 'save' });
     const got: unknown[] = [];
-    btApp.onCommand((c) => got.push(c));
+    slApp.onCommand((c) => got.push(c));
     // a task later, not inside the subscribing code; one meanwhile goes behind
     expect(got).toEqual([]);
     command({ cmd: 'undo' });
@@ -88,23 +88,23 @@ describe('the preload', () => {
     // a dropped file's path goes to the main process; a file without one does not
     const dropped = {};
     electron.paths.set(dropped, '/d/x.xmpuzzle');
-    expect(btApp.pathOf(dropped)).toBe('/d/x.xmpuzzle');
-    expect(btApp.pathOf({})).toBe('');
-    expect(electron.sent.filter((s) => s[0] === 'bt:dropped')).toEqual([
-      ['bt:dropped', '/d/x.xmpuzzle'],
+    expect(slApp.pathOf(dropped)).toBe('/d/x.xmpuzzle');
+    expect(slApp.pathOf({})).toBe('');
+    expect(electron.sent.filter((s) => s[0] === 'sl:dropped')).toEqual([
+      ['sl:dropped', '/d/x.xmpuzzle'],
     ]);
   });
 
   it('uses every channel of the table by its kind, and no other (cleanup item 12.2)', async () => {
     await import('../../src/preload/index.ts');
-    const bt = electron.exposed.get('bt') as Record<string, (...a: unknown[]) => unknown>;
-    const btApp = electron.exposed.get('btApp') as Record<string, unknown>;
+    const sl = electron.exposed.get('sl') as Record<string, (...a: unknown[]) => unknown>;
+    const slApp = electron.exposed.get('slApp') as Record<string, unknown>;
     // every method once, with arguments of no meaning: main checks them (a
     // "file" with a path, so pathOf sends it)
     const arg = (): void => undefined;
     electron.paths.set(arg, '/d/y.xmpuzzle');
     const calls: unknown[] = [];
-    for (const api of [bt, btApp]) {
+    for (const api of [sl, slApp]) {
       for (const v of Object.values(api)) {
         if (typeof v === 'function') {
           // a method that throws at once has used its channel already

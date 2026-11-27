@@ -13,7 +13,7 @@ import { ERROR_CODES } from '../../src/engine/api.generated.ts';
 import type { Errc } from '../../src/engine/api.generated.ts';
 import { EngineClient } from '../../src/engine/client.ts';
 import { loadRecording, loadTranscript } from '../../fake-engine/recordings.ts';
-import type { BridgeCall, BridgeMessage, BtBridge } from '../../src/engine/bridge.ts';
+import type { BridgeCall, BridgeMessage, SlBridge } from '../../src/engine/bridge.ts';
 import type { EngineStatus } from '../../src/engine/client-types.ts';
 import { EngineError } from '../../src/engine/errors.ts';
 import { meshArrays } from '../../src/engine/frames.ts';
@@ -25,7 +25,7 @@ import { settle, ScriptedTransport } from '../helpers/scripted-transport.ts';
 
 /** A bridge as Electron's IPC would carry it: structured clones, one task a message. */
 function wire(): {
-  bridge: BtBridge;
+  bridge: SlBridge;
   toHost: (handler: (m: unknown) => void) => void;
   post: (m: BridgeMessage) => void;
 } {

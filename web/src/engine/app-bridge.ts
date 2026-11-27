@@ -8,7 +8,7 @@
 // read-only, the settings another window changed), from stage 7 the exports' files, and
 // the cache manager's items (View ▸ Manage Cache and Autosave Files),
 // and the Play tab's goal picture in a window of its own.
-// The preload exposes it as `window.btApp`; the renderer never sees a path
+// The preload exposes it as `window.slApp`; the renderer never sees a path
 // it did not get from a dialog, a drop, the recent files or the rescue
 // copy's record, and the main process writes an export only to a path its
 // own save dialog gave for that kind. Plain types and checks, free of
@@ -22,7 +22,7 @@ import type { BridgeMessage, BridgeRequest } from './bridge.ts';
 /** A command of the menus (or the window: close), sent to the renderer. */
 export type AppCommand =
   | { cmd: 'new' }
-  /** File ▸ New Window (decision 0036): the main process opens one; the key asks it (BtApp.newWindow). */
+  /** File ▸ New Window (decision 0036): the main process opens one; the key asks it (SlApp.newWindow). */
   | { cmd: 'newWindow' }
   | { cmd: 'open' }
   /** A file to open: Open Recent, a file the system opened with the app. */
@@ -522,7 +522,7 @@ export function goalWindowSize(p: GoalPicture, max = 640): { width: number; heig
 /** How an export's file was written: or why not (`writeExport`, `writeFolderExport`). */
 export type WriteResult = { ok: true } | { ok: false; error: string };
 
-/** The platform and the version the preload reads at once (`bt:app-info`); null for a page not the app's. */
+/** The platform and the version the preload reads at once (`sl:app-info`); null for a page not the app's. */
 export type AppInfo = { platform: string; version: string } | null;
 
 /**
@@ -541,79 +541,79 @@ export type AppInfo = { platform: string; version: string } | null;
  */
 export interface AppChannels {
   // the engine's bridge (bridge.ts)
-  'bt:call': { kind: 'send'; args: [request: BridgeRequest] };
-  'bt:message': { kind: 'event'; args: [message: BridgeMessage] };
+  'sl:call': { kind: 'send'; args: [request: BridgeRequest] };
+  'sl:message': { kind: 'event'; args: [message: BridgeMessage] };
   // the menus, the window, its file and the settings
-  'bt:app-info': { kind: 'sync'; args: []; result: AppInfo };
-  'bt:command': { kind: 'event'; args: [command: AppCommand] };
-  'bt:menu-state': { kind: 'send'; args: [state: MenuState] };
-  'bt:read-only': { kind: 'event'; args: [readOnly: boolean] };
-  'bt:prefs': { kind: 'event'; args: [prefs: Record<string, unknown>] };
-  'bt:load-state': { kind: 'invoke'; args: []; result: StoredState | null };
-  'bt:save-state': {
+  'sl:app-info': { kind: 'sync'; args: []; result: AppInfo };
+  'sl:command': { kind: 'event'; args: [command: AppCommand] };
+  'sl:menu-state': { kind: 'send'; args: [state: MenuState] };
+  'sl:read-only': { kind: 'event'; args: [readOnly: boolean] };
+  'sl:prefs': { kind: 'event'; args: [prefs: Record<string, unknown>] };
+  'sl:load-state': { kind: 'invoke'; args: []; result: StoredState | null };
+  'sl:save-state': {
     kind: 'send';
     args: [key: keyof StoredState, value: Record<string, unknown>];
   };
-  'bt:recent-add': { kind: 'send'; args: [path: string] };
-  'bt:recent-remove': { kind: 'send'; args: [path: string] };
-  'bt:new-window': { kind: 'send'; args: [] };
-  'bt:claim-path': { kind: 'send'; args: [path: string] };
-  'bt:dropped': { kind: 'send'; args: [path: string] };
-  'bt:help': { kind: 'send'; args: [link: HelpLink] };
-  'bt:goal-window': { kind: 'send'; args: [picture: GoalPicture, raise: boolean] };
-  'bt:close-window': { kind: 'send'; args: [] };
-  'bt:close-taken': { kind: 'send'; args: [] };
-  'bt:close-canceled': { kind: 'send'; args: [] };
-  'bt:engine-ready': { kind: 'send'; args: [] };
-  'bt:engine-retry': { kind: 'send'; args: [] };
-  'bt:command-held': { kind: 'send'; args: [command: AppCommandName, dropped: boolean] };
+  'sl:recent-add': { kind: 'send'; args: [path: string] };
+  'sl:recent-remove': { kind: 'send'; args: [path: string] };
+  'sl:new-window': { kind: 'send'; args: [] };
+  'sl:claim-path': { kind: 'send'; args: [path: string] };
+  'sl:dropped': { kind: 'send'; args: [path: string] };
+  'sl:help': { kind: 'send'; args: [link: HelpLink] };
+  'sl:goal-window': { kind: 'send'; args: [picture: GoalPicture, raise: boolean] };
+  'sl:close-window': { kind: 'send'; args: [] };
+  'sl:close-taken': { kind: 'send'; args: [] };
+  'sl:close-canceled': { kind: 'send'; args: [] };
+  'sl:engine-ready': { kind: 'send'; args: [] };
+  'sl:engine-retry': { kind: 'send'; args: [] };
+  'sl:command-held': { kind: 'send'; args: [command: AppCommandName, dropped: boolean] };
   // the dialogs and the exports
-  'bt:choose-open': { kind: 'invoke'; args: [kind: OpenKind]; result: string | null };
-  'bt:choose-save': { kind: 'invoke'; args: [kind: FileKind, name: string]; result: string | null };
-  'bt:write-export': {
+  'sl:choose-open': { kind: 'invoke'; args: [kind: OpenKind]; result: string | null };
+  'sl:choose-save': { kind: 'invoke'; args: [kind: FileKind, name: string]; result: string | null };
+  'sl:write-export': {
     kind: 'invoke';
     args: [path: string, data: Uint8Array];
     result: WriteResult;
   };
-  'bt:choose-folder': { kind: 'invoke'; args: [save: boolean]; result: string | null };
-  'bt:existing-exports': {
+  'sl:choose-folder': { kind: 'invoke'; args: [save: boolean]; result: string | null };
+  'sl:existing-exports': {
     kind: 'invoke';
     args: [folder: string, names: readonly string[]];
     result: number;
   };
-  'bt:write-folder-export': {
+  'sl:write-folder-export': {
     kind: 'invoke';
     args: [folder: string, name: string, data: Uint8Array];
     result: WriteResult;
   };
   // the rescue copy
-  'bt:rescue-write': { kind: 'invoke'; args: [info: RescueInfo]; result: RescueWritten | null };
-  'bt:rescue-read': { kind: 'invoke'; args: []; result: RescueCopy | null };
-  'bt:rescue-clear': { kind: 'invoke'; args: []; result: null };
+  'sl:rescue-write': { kind: 'invoke'; args: [info: RescueInfo]; result: RescueWritten | null };
+  'sl:rescue-read': { kind: 'invoke'; args: []; result: RescueCopy | null };
+  'sl:rescue-clear': { kind: 'invoke'; args: []; result: null };
   // the update check
-  'bt:check-updates': { kind: 'invoke'; args: [auto: boolean]; result: UpdateResult | null };
-  'bt:skip-update': { kind: 'send'; args: [version: string] };
-  'bt:open-releases': { kind: 'send'; args: [] };
+  'sl:check-updates': { kind: 'invoke'; args: [auto: boolean]; result: UpdateResult | null };
+  'sl:skip-update': { kind: 'send'; args: [version: string] };
+  'sl:open-releases': { kind: 'send'; args: [] };
   // the command line tool
-  'bt:cli-info': { kind: 'invoke'; args: []; result: CliToolResult };
-  'bt:cli-install': { kind: 'invoke'; args: []; result: CliToolResult };
-  'bt:cli-uninstall': { kind: 'invoke'; args: []; result: CliToolResult };
+  'sl:cli-info': { kind: 'invoke'; args: []; result: CliToolResult };
+  'sl:cli-install': { kind: 'invoke'; args: []; result: CliToolResult };
+  'sl:cli-uninstall': { kind: 'invoke'; args: []; result: CliToolResult };
   // the cache folder and the cache manager
-  'bt:cache-folder': { kind: 'invoke'; args: []; result: CacheFolderInfo | null };
-  'bt:cache-choose': { kind: 'invoke'; args: [useDefault: boolean]; result: CacheChoice | null };
-  'bt:cache-finish': { kind: 'invoke'; args: [action: CacheAction]; result: CacheResult | null };
-  'bt:cache-items': { kind: 'invoke'; args: []; result: CacheItem[] | null };
-  'bt:cache-items-start': { kind: 'invoke'; args: []; result: CacheItem[] | null };
-  'bt:cache-delete': { kind: 'invoke'; args: [id: string]; result: CacheDeleteResult | null };
-  'bt:cache-link': { kind: 'send'; args: [link: CacheLink] };
+  'sl:cache-folder': { kind: 'invoke'; args: []; result: CacheFolderInfo | null };
+  'sl:cache-choose': { kind: 'invoke'; args: [useDefault: boolean]; result: CacheChoice | null };
+  'sl:cache-finish': { kind: 'invoke'; args: [action: CacheAction]; result: CacheResult | null };
+  'sl:cache-items': { kind: 'invoke'; args: []; result: CacheItem[] | null };
+  'sl:cache-items-start': { kind: 'invoke'; args: []; result: CacheItem[] | null };
+  'sl:cache-delete': { kind: 'invoke'; args: [id: string]; result: CacheDeleteResult | null };
+  'sl:cache-link': { kind: 'send'; args: [link: CacheLink] };
   // the log manager and the diagnostics
-  'bt:log-page': { kind: 'invoke'; args: [query: LogQuery]; result: LogPage | null };
-  'bt:log-clear': { kind: 'invoke'; args: []; result: null };
-  'bt:log-closed': { kind: 'invoke'; args: []; result: null };
-  'bt:log-sizes': { kind: 'invoke'; args: []; result: LogExportSizes | null };
-  'bt:log-export': { kind: 'invoke'; args: [lines?: number]; result: LogExportResult | null };
-  'bt:diagnostics-copy': { kind: 'invoke'; args: []; result: DiagnosticsResult | null };
-  'bt:diagnostics-save': { kind: 'invoke'; args: []; result: LogExportResult | null };
+  'sl:log-page': { kind: 'invoke'; args: [query: LogQuery]; result: LogPage | null };
+  'sl:log-clear': { kind: 'invoke'; args: []; result: null };
+  'sl:log-closed': { kind: 'invoke'; args: []; result: null };
+  'sl:log-sizes': { kind: 'invoke'; args: []; result: LogExportSizes | null };
+  'sl:log-export': { kind: 'invoke'; args: [lines?: number]; result: LogExportResult | null };
+  'sl:diagnostics-copy': { kind: 'invoke'; args: []; result: DiagnosticsResult | null };
+  'sl:diagnostics-save': { kind: 'invoke'; args: []; result: LogExportResult | null };
 }
 
 /** A channel's name. */
@@ -636,61 +636,61 @@ export type ChannelResult<C extends ChannelOf<'sync' | 'invoke'>> = AppChannels[
 
 /** The table as data: each channel's kind (the compiler holds it to AppChannels, both ways). */
 export const APP_CHANNELS = {
-  'bt:call': 'send',
-  'bt:message': 'event',
-  'bt:app-info': 'sync',
-  'bt:command': 'event',
-  'bt:menu-state': 'send',
-  'bt:read-only': 'event',
-  'bt:prefs': 'event',
-  'bt:load-state': 'invoke',
-  'bt:save-state': 'send',
-  'bt:recent-add': 'send',
-  'bt:recent-remove': 'send',
-  'bt:new-window': 'send',
-  'bt:claim-path': 'send',
-  'bt:dropped': 'send',
-  'bt:help': 'send',
-  'bt:goal-window': 'send',
-  'bt:close-window': 'send',
-  'bt:close-taken': 'send',
-  'bt:close-canceled': 'send',
-  'bt:engine-ready': 'send',
-  'bt:engine-retry': 'send',
-  'bt:command-held': 'send',
-  'bt:choose-open': 'invoke',
-  'bt:choose-save': 'invoke',
-  'bt:write-export': 'invoke',
-  'bt:choose-folder': 'invoke',
-  'bt:existing-exports': 'invoke',
-  'bt:write-folder-export': 'invoke',
-  'bt:rescue-write': 'invoke',
-  'bt:rescue-read': 'invoke',
-  'bt:rescue-clear': 'invoke',
-  'bt:check-updates': 'invoke',
-  'bt:skip-update': 'send',
-  'bt:open-releases': 'send',
-  'bt:cli-info': 'invoke',
-  'bt:cli-install': 'invoke',
-  'bt:cli-uninstall': 'invoke',
-  'bt:cache-folder': 'invoke',
-  'bt:cache-choose': 'invoke',
-  'bt:cache-finish': 'invoke',
-  'bt:cache-items': 'invoke',
-  'bt:cache-items-start': 'invoke',
-  'bt:cache-delete': 'invoke',
-  'bt:cache-link': 'send',
-  'bt:log-page': 'invoke',
-  'bt:log-clear': 'invoke',
-  'bt:log-closed': 'invoke',
-  'bt:log-sizes': 'invoke',
-  'bt:log-export': 'invoke',
-  'bt:diagnostics-copy': 'invoke',
-  'bt:diagnostics-save': 'invoke',
+  'sl:call': 'send',
+  'sl:message': 'event',
+  'sl:app-info': 'sync',
+  'sl:command': 'event',
+  'sl:menu-state': 'send',
+  'sl:read-only': 'event',
+  'sl:prefs': 'event',
+  'sl:load-state': 'invoke',
+  'sl:save-state': 'send',
+  'sl:recent-add': 'send',
+  'sl:recent-remove': 'send',
+  'sl:new-window': 'send',
+  'sl:claim-path': 'send',
+  'sl:dropped': 'send',
+  'sl:help': 'send',
+  'sl:goal-window': 'send',
+  'sl:close-window': 'send',
+  'sl:close-taken': 'send',
+  'sl:close-canceled': 'send',
+  'sl:engine-ready': 'send',
+  'sl:engine-retry': 'send',
+  'sl:command-held': 'send',
+  'sl:choose-open': 'invoke',
+  'sl:choose-save': 'invoke',
+  'sl:write-export': 'invoke',
+  'sl:choose-folder': 'invoke',
+  'sl:existing-exports': 'invoke',
+  'sl:write-folder-export': 'invoke',
+  'sl:rescue-write': 'invoke',
+  'sl:rescue-read': 'invoke',
+  'sl:rescue-clear': 'invoke',
+  'sl:check-updates': 'invoke',
+  'sl:skip-update': 'send',
+  'sl:open-releases': 'send',
+  'sl:cli-info': 'invoke',
+  'sl:cli-install': 'invoke',
+  'sl:cli-uninstall': 'invoke',
+  'sl:cache-folder': 'invoke',
+  'sl:cache-choose': 'invoke',
+  'sl:cache-finish': 'invoke',
+  'sl:cache-items': 'invoke',
+  'sl:cache-items-start': 'invoke',
+  'sl:cache-delete': 'invoke',
+  'sl:cache-link': 'send',
+  'sl:log-page': 'invoke',
+  'sl:log-clear': 'invoke',
+  'sl:log-closed': 'invoke',
+  'sl:log-sizes': 'invoke',
+  'sl:log-export': 'invoke',
+  'sl:diagnostics-copy': 'invoke',
+  'sl:diagnostics-save': 'invoke',
 } as const satisfies { [C in AppChannel]: AppChannels[C]['kind'] };
 
-/** What the preload exposes as `window.btApp`. */
-export interface BtApp {
+/** What the preload exposes as `window.slApp`. */
+export interface SlApp {
   /** The platform (`process.platform`): the menus' keys differ on macOS. */
   readonly platform: string;
   /** The app's version. */

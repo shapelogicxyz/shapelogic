@@ -27,9 +27,9 @@ export class WasmTransport implements Transport {
 
   constructor(m: EngineModule) {
     this.m = m;
-    m._bt_start();
+    m._sl_start();
     this.timer = setInterval(() => {
-      this.m._bt_poll();
+      this.m._sl_poll();
       this.take();
     }, POLL_MS);
   }
@@ -77,7 +77,7 @@ export class WasmTransport implements Transport {
     const p = m._malloc(Math.max(1, bytes.length));
     try {
       m.HEAPU8.set(bytes, p);
-      m._bt_write(p, bytes.length);
+      m._sl_write(p, bytes.length);
     } finally {
       m._free(p);
     }
@@ -86,15 +86,15 @@ export class WasmTransport implements Transport {
   // the engine's output and logs since the last take, delivered a task later
   private take(): void {
     const m = this.m;
-    m._bt_take();
-    const n = m._bt_taken_size();
+    m._sl_take();
+    const n = m._sl_taken_size();
     if (n > 0) {
-      this.outbox.push(m.HEAPU8.slice(m._bt_taken_data(), m._bt_taken_data() + n));
+      this.outbox.push(m.HEAPU8.slice(m._sl_taken_data(), m._sl_taken_data() + n));
     }
-    m._bt_log_take();
-    const l = m._bt_log_size();
+    m._sl_log_take();
+    const l = m._sl_log_size();
     if (l > 0) {
-      const log = m.HEAPU8.slice(m._bt_log_data(), m._bt_log_data() + l);
+      const log = m.HEAPU8.slice(m._sl_log_data(), m._sl_log_data() + l);
       this.stderrHandler?.(log);
       console.warn(`shapelogic_engine: ${new TextDecoder().decode(log)}`);
     }

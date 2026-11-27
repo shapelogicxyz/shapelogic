@@ -4,4 +4,4 @@
 // (electron.vite.config.ts).
 
 /** The project's version, CMakeLists.txt's. */
-declare const __BT_VERSION__: string;
+declare const __SL_VERSION__: string;

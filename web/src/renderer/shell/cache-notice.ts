@@ -11,7 +11,7 @@
 // names them again.
 
 import './cache-notice.css';
-import type { BtApp, CacheItem } from '../../engine/app-bridge.ts';
+import type { SlApp, CacheItem } from '../../engine/app-bridge.ts';
 import { noticeHtml, noticeItems, totalText } from './cache-text.ts';
 import { cacheDeleted } from './cache-events.ts';
 import { askChoice, closeDialog, openDialog } from './dialog.ts';
@@ -23,7 +23,7 @@ const ID = 'cacheAtStart';
  * Deletes the items, one after the other (a search's item is refused
  * while a solve runs): the titles of those that could not be, with why.
  */
-async function deleteAll(app: BtApp, items: readonly CacheItem[]): Promise<string[]> {
+async function deleteAll(app: SlApp, items: readonly CacheItem[]): Promise<string[]> {
   const failed: string[] = [];
   for (const item of items) {
     try {
@@ -42,7 +42,7 @@ async function deleteAll(app: BtApp, items: readonly CacheItem[]): Promise<strin
  * The notice at the start, when the cache folder holds anything but the
  * rescue copies; `manage` opens View ▸ Manage Cache and Autosave Files….
  */
-export async function noticeCacheAtStart(app: BtApp, manage: () => void): Promise<void> {
+export async function noticeCacheAtStart(app: SlApp, manage: () => void): Promise<void> {
   let all: CacheItem[] | null;
   try {
     all = await app.cacheItemsAtStart();

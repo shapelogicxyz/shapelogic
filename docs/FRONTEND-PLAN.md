@@ -192,7 +192,7 @@ test regenerates into memory and fails when the committed file is stale
   recording: the same lines and frames, timing optional).
 - The host and the proxy: `main/engine-host.ts` owns the process and
   restarts it when it dies (the window is told; stage 6 adds the rescue
-  reload); `preload.ts` exposes `window.bt`; `renderer/engine-proxy.ts`
+  reload); `preload.ts` exposes `window.sl`; `renderer/engine-proxy.ts`
   has `EngineClient`'s interface.
 
 **Gate.** `just app-check` clean. Framing: recordings of the real engine

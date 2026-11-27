@@ -144,8 +144,8 @@ and the page talks to it over Electron's IPC:
 
 ```
 renderer page                preload                 main process              engine
-EngineProxy.call  ──bt:call──▶ window.bt.send ──ipc──▶ serveEngine.receive ──▶ EngineClient.call ──stdin──▶
-                  ◀bt:message─ onMessage      ◀─ipc── post(reply/event)   ◀── OrderedInbox      ◀─stdout──
+EngineProxy.call  ──sl:call──▶ window.sl.send ──ipc──▶ serveEngine.receive ──▶ EngineClient.call ──stdin──▶
+                  ◀sl:message─ onMessage      ◀─ipc── post(reply/event)   ◀── OrderedInbox      ◀─stdout──
 ```
 
 `serveEngine` in `web/src/engine/serve.ts` checks that the method is one

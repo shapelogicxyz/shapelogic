@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// window.btApp's store, recent files and updates (a group of
+// window.slApp's store, recent files and updates (a group of
 // ../app-ipc.ts, cleanup item 13.4): the stored settings and layouts (a
 // change of the settings in one window reaches the others, decision
 // 0036), Open Recent's list (only a file the window was handed), the app's
@@ -43,7 +43,7 @@ export interface StoreIpc {
 export function installStoreIpc(r: Registrar, h: StoreIpc): void {
   // the update check at startup runs once a run, whichever window asks first
   let autoChecked = false;
-  r.handle('bt:check-updates', null, async (_e, _win, auto) => {
+  r.handle('sl:check-updates', null, async (_e, _win, auto) => {
     if (typeof auto !== 'boolean') {
       return null;
     }
@@ -62,19 +62,19 @@ export function installStoreIpc(r: Registrar, h: StoreIpc): void {
     return res;
   });
 
-  r.on('bt:skip-update', (_e, _win, version) => {
+  r.on('sl:skip-update', (_e, _win, version) => {
     if (typeof version === 'string' && parseVersion(version) !== null) {
       h.store.setSkipVersion(version);
     }
   });
 
-  r.on('bt:open-releases', () => {
+  r.on('sl:open-releases', () => {
     void shell.openExternal(SYSTEM_URLS.releases);
   });
 
-  r.sync('bt:app-info', null, () => ({ platform: process.platform, version: h.version }));
+  r.sync('sl:app-info', null, () => ({ platform: process.platform, version: h.version }));
 
-  r.handle('bt:load-state', null, () => {
+  r.handle('sl:load-state', null, () => {
     const s: StoredState = {};
     if (h.store.prefs !== undefined) {
       s.prefs = h.store.prefs;
@@ -85,7 +85,7 @@ export function installStoreIpc(r: Registrar, h: StoreIpc): void {
     return s;
   });
 
-  r.on('bt:save-state', (e, _win, key, value) => {
+  r.on('sl:save-state', (e, _win, key, value) => {
     if (
       (key === 'prefs' || key === 'layout') &&
       typeof value === 'object' &&
@@ -98,21 +98,21 @@ export function installStoreIpc(r: Registrar, h: StoreIpc): void {
         h.prefsChanged(v);
         // the settings are the app's: every window shows them (a layout is the window's own)
         for (const c of h.others(e.sender)) {
-          post(c, 'bt:prefs', v);
+          post(c, 'sl:prefs', v);
         }
       }
     }
   });
 
   // only a file the window was handed: Open Recent hands it back (path-grants.ts)
-  r.on('bt:recent-add', (e, _win, path) => {
+  r.on('sl:recent-add', (e, _win, path) => {
     if (typeof path === 'string' && path !== '' && h.paths.allows(e.sender, path)) {
       h.store.addRecent(path);
       h.store.setLastDir(dirname(path));
     }
   });
 
-  r.on('bt:recent-remove', (_e, _win, path) => {
+  r.on('sl:recent-remove', (_e, _win, path) => {
     if (typeof path === 'string' && path !== '') {
       h.store.removeRecent(path);
     }

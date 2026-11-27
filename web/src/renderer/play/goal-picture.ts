@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The goal's picture for its window of its own (BtApp.goalWindow): a
+// The goal's picture for its window of its own (SlApp.goalWindow): a
 // board's SVG drawing made to stand alone, as the page shows it. The
 // stylesheet's rules are written into each element as it is drawn now
 // (the theme's colors, what the buttons hide), references point inside
@@ -35,7 +35,7 @@ const PROPS = [
   'dominant-baseline',
 ] as const;
 
-// url("bt-app://app/index.html#pl-grain") as the drawing's own url(#pl-grain)
+// url("sl-app://app/index.html#pl-grain") as the drawing's own url(#pl-grain)
 const ownUrl = (v: string): string =>
   v.replace(/url\(\s*["']?[^"')#]*#([^"')]+)["']?\s*\)/g, 'url(#$1)');
 

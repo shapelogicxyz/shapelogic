@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The Play tab's goal picture in a window of its own (BtApp.goalWindow):
+// The Play tab's goal picture in a window of its own (SlApp.goalWindow):
 // one for each app window, above it and closed with it, which the user
 // moves and sizes. It has no preload and loads nothing but its page, a
 // data: URL (engine/app-bridge.ts's goalPage) whose one image is the

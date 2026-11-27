@@ -55,8 +55,8 @@ Nothing is "improved" while it is being ported.
   tools by stripping types.
 - `src/engine/` is platform-free: Node appears only in `node-transport.ts`,
   and ESLint refuses Node imports elsewhere in it.
-- The renderer never sees Node or Electron, only `window.bt` and
-  `window.btApp`. Frames are never parsed by hand in the renderer.
+- The renderer never sees Node or Electron, only `window.sl` and
+  `window.slApp`. Frames are never parsed by hand in the renderer.
 - Every mutating call waits for its revision. `invalid_state` is shown as
   "Pause the solve first" and never retried.
 - Keyboard shortcuts come from the one table in `renderer/shell/keys.ts`.

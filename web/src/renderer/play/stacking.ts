@@ -415,7 +415,7 @@ export class StackingPlay implements PlayKind {
         svg.setAttribute('height', String(Math.round(y1 - y0)));
       }
       const p = this.store.snapshot?.problems.find((q) => q.id === this.problem);
-      window.btApp.goalWindow(
+      window.slApp.goalWindow(
         goalPicture(goalTitle(p), svg, { drop: ['.sk-cols', '.sk-glow'] }),
         raise,
       );

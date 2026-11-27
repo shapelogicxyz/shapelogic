@@ -3,7 +3,7 @@
 // electron-vite: the main process and the preload script bundled for Node,
 // the renderer by Vite. The preload is CommonJS: a sandboxed preload cannot
 // be an ES module. The main process gets the project's one version, the
-// git tag's (tools/project-version.ts), read here at build (__BT_VERSION__): the version it
+// git tag's (tools/project-version.ts), read here at build (__SL_VERSION__): the version it
 // reports and the one it requires of shapelogic_engine. The build goes to
 // out/, or to SHAPELOGIC_OUT_DIR (a folder name under web/: the main process finds
 // web/ as the folder above its own), so an e2e run can test a build of its
@@ -28,7 +28,7 @@ const OUT = ((): string => {
 
 export default defineConfig({
   main: {
-    define: { __BT_VERSION__: JSON.stringify(projectVersion(resolve(import.meta.dirname, '..'))) },
+    define: { __SL_VERSION__: JSON.stringify(projectVersion(resolve(import.meta.dirname, '..'))) },
     build: {
       outDir: `${OUT}/main`,
       rollupOptions: { input: { index: resolve(import.meta.dirname, 'src/main/index.ts') } },
@@ -49,7 +49,7 @@ export default defineConfig({
       {
         // dev server only: its client's websocket back to it (hot reload);
         // the built page keeps connect-src 'none'
-        name: 'bt-dev-csp',
+        name: 'sl-dev-csp',
         apply: 'serve',
         transformIndexHtml: {
           order: 'pre',

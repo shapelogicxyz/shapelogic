@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// window.btApp's command line tool (a group of ../app-ipc.ts, cleanup item
+// window.slApp's command line tool (a group of ../app-ipc.ts, cleanup item
 // 13.4; cli-tool.ts): the renderer names an operation, never a path.
 
 import { cliInfo, installCli, macPrivileged, uninstallCli } from '../cli-tool.ts';
@@ -17,7 +17,7 @@ export interface CliIpc {
 /** Registers the command line tool's channels. */
 export function installCliIpc(r: Registrar, h: CliIpc): void {
   const notOurs = { ok: false, error: 'not a ShapeLogic window' } as const;
-  r.handle('bt:cli-info', notOurs, () => ({ ok: true, info: cliInfo(h.cliPath, h.cliLink) }));
-  r.handle('bt:cli-install', notOurs, () => installCli(h.cliPath, h.cliLink, macPrivileged));
-  r.handle('bt:cli-uninstall', notOurs, () => uninstallCli(h.cliPath, h.cliLink, macPrivileged));
+  r.handle('sl:cli-info', notOurs, () => ({ ok: true, info: cliInfo(h.cliPath, h.cliLink) }));
+  r.handle('sl:cli-install', notOurs, () => installCli(h.cliPath, h.cliLink, macPrivileged));
+  r.handle('sl:cli-uninstall', notOurs, () => uninstallCli(h.cliPath, h.cliLink, macPrivileged));
 }

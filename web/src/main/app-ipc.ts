@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The main process's side of window.btApp (engine/app-bridge.ts, stage 6),
+// The main process's side of window.slApp (engine/app-bridge.ts, stage 6),
 // one module per group of channels under ipc/ (cleanup item 13.4), each
 // with its own small dependency interface: the dialogs and exports
 // (ipc/files.ts), the store, recent files and updates (ipc/store.ts), the

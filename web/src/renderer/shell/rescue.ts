@@ -26,7 +26,7 @@
 // overtaken by a write that started before it.
 
 import { baseName } from './paths.ts';
-import type { BtApp, RescueInfo } from '../../engine/app-bridge.ts';
+import type { SlApp, RescueInfo } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import { askChoice, VIEW_LOGS } from './dialog.ts';
 import { byId } from './dom.ts';
@@ -48,7 +48,7 @@ function ago(time: number): string {
 
 export class Rescue {
   private readonly store: Store;
-  private readonly app: BtApp;
+  private readonly app: SlApp;
   private readonly quiet: () => boolean;
   private timer: number | null = null;
   private lastWrite = 0;
@@ -76,7 +76,7 @@ export class Rescue {
    * saveRescue beside (an edit or a run's call waiting for its answer, a
    * run, an analysis); checked in the same task as the call is made.
    */
-  constructor(store: Store, app: BtApp, quiet: () => boolean = () => true) {
+  constructor(store: Store, app: SlApp, quiet: () => boolean = () => true) {
     this.store = store;
     this.app = app;
     this.quiet = quiet;

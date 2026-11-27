@@ -91,7 +91,7 @@ describe('the version', () => {
       return;
     }
     const text = readFileSync(main, 'utf8');
-    expect(text).not.toContain('__BT_VERSION__');
+    expect(text).not.toContain('__SL_VERSION__');
     expect(text).toContain(`const VERSION = ${JSON.stringify(projectVersion())}`);
   });
 

@@ -755,7 +755,7 @@ const cacheName = (info: CacheFolderInfo | null): string =>
 
 /** Asks the main process for the cache folder in use again, and shows it. */
 async function refreshCache(): Promise<void> {
-  cacheInfo = await window.btApp.cacheFolder();
+  cacheInfo = await window.slApp.cacheFolder();
   if (settingsOpen()) {
     renderSettings();
   }
@@ -768,7 +768,7 @@ async function refreshCache(): Promise<void> {
  * the cache folder is another now.
  */
 async function changeCache(useDefault: boolean): Promise<boolean> {
-  const app = window.btApp;
+  const app = window.slApp;
   const c = await app.chooseCacheFolder(useDefault);
   switch (c.status) {
     case 'canceled':

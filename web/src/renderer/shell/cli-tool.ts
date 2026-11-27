@@ -8,7 +8,7 @@
 // password); once linked, the dialog offers to remove the link. The
 // renderer never sees a path it chose: the main process names them.
 
-import type { BtApp, CliToolInfo } from '../../engine/app-bridge.ts';
+import type { SlApp, CliToolInfo } from '../../engine/app-bridge.ts';
 import { closeDialog, openDialog } from './dialog.ts';
 import type { DialogButton } from './dialog.ts';
 import { esc } from './dom.ts';
@@ -114,7 +114,7 @@ function buttons(info: CliToolInfo): DialogButton[] {
 /** Runs one operation of the dialog; false keeps the dialog open (it failed or waits). */
 async function run(
   op: 'install' | 'uninstall',
-  app: BtApp,
+  app: SlApp,
   el: HTMLElement,
   info: CliToolInfo,
 ): Promise<void> {
@@ -151,7 +151,7 @@ async function run(
 }
 
 /** ShapeLogic ▸ Install Command Line Tool…: explains the tool, installs or removes its link. */
-export async function openCliTool(app: BtApp): Promise<void> {
+export async function openCliTool(app: SlApp): Promise<void> {
   let info: CliToolInfo;
   try {
     info = await app.cliToolInfo();

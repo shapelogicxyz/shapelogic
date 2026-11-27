@@ -11,7 +11,7 @@
 // and for every problem when such a puzzle opens (searches saved before
 // this was told). Nothing is sent for a folder the engine does not name.
 
-import type { BtApp } from '../../engine/app-bridge.ts';
+import type { SlApp } from '../../engine/app-bridge.ts';
 import type { Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
 
@@ -20,13 +20,13 @@ const WHILE_RUNNING_MS = 60_000;
 
 export class CacheLinker {
   private readonly store: Store;
-  private readonly app: BtApp;
+  private readonly app: SlApp;
   private readonly name: () => string;
   /** When each problem was last linked while its run went on. */
   private readonly last = new Map<string, number>();
 
   /** `name`: the name the top bar shows the puzzle by. */
-  constructor(store: Store, solves: Solves, app: BtApp, name: () => string) {
+  constructor(store: Store, solves: Solves, app: SlApp, name: () => string) {
     this.store = store;
     this.app = app;
     this.name = name;

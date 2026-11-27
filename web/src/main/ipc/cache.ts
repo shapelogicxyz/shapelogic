@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// window.btApp's cache folder and cache manager (a group of ../app-ipc.ts,
+// window.slApp's cache folder and cache manager (a group of ../app-ipc.ts,
 // cleanup item 13.4). The cache folder (cache-folder.ts) is chosen in this
 // process's folder dialog, and what to do with the data there is the
 // renderer's answer to the choice it was handed, never a path of its own.
@@ -35,8 +35,8 @@ export interface CacheIpc {
 /** Registers the cache folder's and the cache manager's channels. */
 export function installCacheIpc(r: Registrar, h: CacheIpc): void {
   // the cache folder: the renderer names an operation, never a path
-  r.handle('bt:cache-folder', null, () => h.cache.info());
-  r.handle('bt:cache-choose', null, async (e, win, useDefault) => {
+  r.handle('sl:cache-folder', null, () => h.cache.info());
+  r.handle('sl:cache-choose', null, async (e, win, useDefault) => {
     if (typeof useDefault !== 'boolean') {
       return null;
     }
@@ -56,17 +56,17 @@ export function installCacheIpc(r: Registrar, h: CacheIpc): void {
     }
     return h.cache.choose(e.sender, folder);
   });
-  r.handle('bt:cache-finish', null, (e, _win, action) =>
+  r.handle('sl:cache-finish', null, (e, _win, action) =>
     isCacheAction(action) ? h.cache.finish(e.sender, action) : null,
   );
 
   // the cache manager: the renderer names an item by its id, never a path
   let startListed = false;
-  r.handle('bt:cache-items', null, async () => {
+  r.handle('sl:cache-items', null, async () => {
     await h.cache.start();
     return listItems(h.cache.folders, h.rescue.all(), h.cacheLinks);
   });
-  r.handle('bt:cache-items-start', null, async () => {
+  r.handle('sl:cache-items-start', null, async () => {
     await h.cache.start();
     // the notice at the start: once a run, to the first window that asks
     if (startListed) {
@@ -75,14 +75,14 @@ export function installCacheIpc(r: Registrar, h: CacheIpc): void {
     startListed = true;
     return listItems(h.cache.folders, h.rescue.all(), h.cacheLinks);
   });
-  r.handle('bt:cache-delete', null, async (_e, _win, id) => {
+  r.handle('sl:cache-delete', null, async (_e, _win, id) => {
     await h.cache.start();
     return typeof id === 'string'
       ? deleteItem(id, h.cache.folders, h.rescue.all(), h.cacheLinks, () => h.cache.solving())
       : { ok: false, error: 'unknown item' };
   });
 
-  r.on('bt:cache-link', (e, _win, link) => {
+  r.on('sl:cache-link', (e, _win, link) => {
     if (!isCacheLink(link)) {
       return;
     }

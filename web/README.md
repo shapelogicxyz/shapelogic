@@ -82,7 +82,7 @@ with a fixture on its command line, and drives its page over Chromium's
 DevTools protocol (the app's fuses turn `--inspect` off, so Playwright's
 Electron driver cannot reach it): the fuses, the archive, the engine's
 version, the development switches ignored, the page on the app's own
-scheme (`bt-app://app/`, served from the renderer's directory only) with
+scheme (`sl-app://app/`, served from the renderer's directory only) with
 its CSP, a file: script refused, no file read outside the renderer, a
 path no dialog gave refused, the fixture solved.
 `SHAPELOGIC_PACKAGED_APP=<executable>` tests another copy (an installed one).
@@ -174,10 +174,10 @@ Chrome (`--headed` shows it).
   of the renderer is logged there with how it ended; the e2e tests read it;
   `SHAPELOGIC_AUTOSAVE_SECONDS=<n>` shortens the Solver's autosave from 20
   minutes, for the e2e tests).
-- `src/preload/`: `window.bt` and `window.btApp`.
+- `src/preload/`: `window.sl` and `window.slApp`.
 - `src/renderer/`: `index.html` and `styles.css` (the mockup's body and
   stylesheet; a module's own rules sit beside it as `<module>.css`), `main.ts`, `engine-proxy.ts` (the client's interface over
-  `window.bt`); `shell/` (the app's frame: `app.ts`, `keys.ts` the one
+  `window.sl`); `shell/` (the app's frame: `app.ts`, `keys.ts` the one
   keyboard table, `keyboard.ts`, `layout.ts`, `settings.ts`, `prefs.ts`,
   `theme.ts`, `status.ts`, `escape.ts`, `history.ts` (undo and redo),
   `popover.ts`, `confirm.ts`, `topbar.ts`, `icons.ts`, `cursors.ts`,

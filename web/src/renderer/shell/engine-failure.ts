@@ -8,7 +8,7 @@
 // whenever a document command (Open, New, ...) comes while the engine has
 // failed: without an engine they would do nothing at all.
 
-import type { BtApp } from '../../engine/app-bridge.ts';
+import type { SlApp } from '../../engine/app-bridge.ts';
 import type { EngineStatus } from '../../engine/client-types.ts';
 import { likelyCause } from '../../engine/start-diagnosis.ts';
 import type { Store } from '../state/store.ts';
@@ -61,12 +61,12 @@ export function whatToTry(platform: string): string[] {
 /** The engine's dialog for one window. */
 export class EngineFailure {
   private readonly store: Store;
-  private readonly app: BtApp;
+  private readonly app: SlApp;
   /** The failure the dialog was shown for (once per failure). */
   private shownFor: EngineStatus | 'waited' | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(store: Store, app: BtApp) {
+  constructor(store: Store, app: SlApp) {
     this.store = store;
     this.app = app;
     store.subscribe((c) => {

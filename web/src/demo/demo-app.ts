@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The demo's window.btApp: what Electron's main process gives the app,
+// The demo's window.slApp: what Electron's main process gives the app,
 // for a page on the website. There are no menus, dialogs or files: the
 // settings start from the defaults and are not kept, nothing is written,
 // Help opens the site's pages, and the Play tab's goal window is a popup.
 
 import { goalPage, goalWindowSize, helpUrl } from '../engine/app-bridge.ts';
-import type { AppCommand, BtApp, CliToolResult } from '../engine/app-bridge.ts';
+import type { AppCommand, SlApp, CliToolResult } from '../engine/app-bridge.ts';
 
 /** The demo's app, with a way to send it a command as the menus would. */
-export interface DemoApp extends BtApp {
+export interface DemoApp extends SlApp {
   command(command: AppCommand): void;
 }
 

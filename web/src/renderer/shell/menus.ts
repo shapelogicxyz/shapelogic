@@ -14,7 +14,7 @@
 // 2.3). The log hears of each one held or dropped. One that comes while a
 // dialog is open waits for it to close (cleanup item 6.2).
 
-import type { AppCommand, AppCommandName, BtApp, MenuState } from '../../engine/app-bridge.ts';
+import type { AppCommand, AppCommandName, SlApp, MenuState } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import type { View3D } from '../view3d/view.ts';
 import { exportsAllowed } from '../export/exports.ts';
@@ -90,7 +90,7 @@ export interface MenuQueries {
 
 export class Menus {
   private readonly store: Store;
-  private readonly app: BtApp;
+  private readonly app: SlApp;
   private readonly view: View3D;
   private readonly q: MenuQueries;
   /** Every command without a key, and what it does. */
@@ -105,7 +105,7 @@ export class Menus {
 
   constructor(
     store: Store,
-    app: BtApp,
+    app: SlApp,
     view: View3D,
     handlers: MenuHandlers,
     queries: MenuQueries,

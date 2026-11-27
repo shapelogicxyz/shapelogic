@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// window.btApp's log (a group of ../app-ipc.ts, cleanup item 13.4): the Log
+// window.slApp's log (a group of ../app-ipc.ts, cleanup item 13.4): the Log
 // File Manager's pages, Clear, its close, and Export to the file this
 // process's own save dialog gives (the renderer never names a path).
 
@@ -30,20 +30,20 @@ export interface LogIpc {
 
 /** Registers the log manager's channels. */
 export function installLogIpc(r: Registrar, h: LogIpc): void {
-  r.handle('bt:log-page', null, (_e, _win, query) =>
+  r.handle('sl:log-page', null, (_e, _win, query) =>
     isLogQuery(query) ? h.log.page(query) : null,
   );
-  r.handle('bt:log-clear', null, async () => {
+  r.handle('sl:log-clear', null, async () => {
     await h.log.clear();
     return null;
   });
-  r.handle('bt:log-closed', null, () => {
+  r.handle('sl:log-closed', null, () => {
     // the manager closed: the lines it read go (cleanup item 10.9)
     h.log.forget();
     return null;
   });
-  r.handle('bt:log-sizes', null, () => h.log.exportSizes());
-  r.handle('bt:log-export', null, async (_e, win, lines) => {
+  r.handle('sl:log-sizes', null, () => h.log.exportSizes());
+  r.handle('sl:log-export', null, async (_e, win, lines) => {
     // all of the log, or its newest lines
     if (
       lines !== undefined &&

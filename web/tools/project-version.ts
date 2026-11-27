@@ -6,7 +6,7 @@
 // without git); vX.Y is X.Y.0. CMake follows the same rule
 // (cmake/ProjectVersion.cmake) for shapelogic_engine --version
 // (core/shapelogic/base/version.h); the packaged app takes it at build
-// (tools/dist.ts), and the main process at bundling (__BT_VERSION__).
+// (tools/dist.ts), and the main process at bundling (__SL_VERSION__).
 
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';

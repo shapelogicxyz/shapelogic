@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The preload script (sandboxed, context-isolated; decision 0013): exposes
-// the engine bridge as window.bt and, from stage 6, the app's menus,
-// dialogs, store and rescue copy as window.btApp (engine/app-bridge.ts),
+// the engine bridge as window.sl and, from stage 6, the app's menus,
+// dialogs, store and rescue copy as window.slApp (engine/app-bridge.ts),
 // with stage 7 the exports' writes, and nothing else of Electron or Node.
 // A dropped file's path is reported to the main process as it is read
 // (stage 8): only such paths, and the dialogs', reach the engine.
@@ -13,13 +13,13 @@ import type { IpcRendererEvent } from 'electron';
 import { isAppCommand } from '../engine/app-bridge.ts';
 import type {
   AppCommand,
-  BtApp,
+  SlApp,
   ChannelArgs,
   ChannelOf,
   ChannelResult,
   WriteResult,
 } from '../engine/app-bridge.ts';
-import type { BridgeMessage, BridgeRequest, BtBridge } from '../engine/bridge.ts';
+import type { BridgeMessage, BridgeRequest, SlBridge } from '../engine/bridge.ts';
 
 // Every channel through these three, typed by app-bridge.ts's table
 // (cleanup item 12.2): a name, an argument or a result that main does not
@@ -63,18 +63,18 @@ async function written(r: Promise<WriteResult>): Promise<void> {
 
 const NOT_OURS = 'not a ShapeLogic window';
 
-const bridge: BtBridge = {
+const bridge: SlBridge = {
   send(request: BridgeRequest): void {
-    send('bt:call', request);
+    send('sl:call', request);
   },
   onMessage(handler: (message: BridgeMessage) => void): () => void {
-    return listen('bt:message', (m) => {
+    return listen('sl:message', (m) => {
       handler(m as BridgeMessage);
     });
   },
 };
 
-const info = ipcRenderer.sendSync('bt:app-info') as ChannelResult<'bt:app-info'>;
+const info = ipcRenderer.sendSync('sl:app-info') as ChannelResult<'sl:app-info'>;
 
 // The main process sends a window's first commands (a file given on the
 // command line or opened from the file manager at the start) when its page
@@ -83,7 +83,7 @@ const info = ipcRenderer.sendSync('bt:app-info') as ChannelResult<'bt:app-info'>
 // in order, a task after it subscribes (stage 8: they were lost).
 const commandHandlers = new Set<(command: AppCommand) => void>();
 let early: AppCommand[] | null = [];
-listen('bt:command', (command) => {
+listen('sl:command', (command) => {
   if (!isAppCommand(command)) {
     return;
   }
@@ -100,7 +100,7 @@ listen('bt:command', (command) => {
 // here, so a page that subscribes late (or a reload) gets the state now.
 let readOnly = false;
 const readOnlyHandlers = new Set<(readOnly: boolean) => void>();
-listen('bt:read-only', (value) => {
+listen('sl:read-only', (value) => {
   if (typeof value === 'boolean') {
     readOnly = value;
     for (const h of readOnlyHandlers) {
@@ -109,7 +109,7 @@ listen('bt:read-only', (value) => {
   }
 });
 
-const btApp: BtApp = {
+const slApp: SlApp = {
   platform: info?.platform ?? '',
   version: info?.version ?? '',
   keepsLog: true,
@@ -132,50 +132,50 @@ const btApp: BtApp = {
     };
   },
   setMenuState(state) {
-    send('bt:menu-state', state);
+    send('sl:menu-state', state);
   },
   chooseOpen(kind) {
-    return invoke('bt:choose-open', kind);
+    return invoke('sl:choose-open', kind);
   },
   chooseSave(kind, name) {
-    return invoke('bt:choose-save', kind, name);
+    return invoke('sl:choose-save', kind, name);
   },
   writeExport(path, data) {
-    return written(invoke('bt:write-export', path, data));
+    return written(invoke('sl:write-export', path, data));
   },
   chooseFolder(save = false) {
-    return invoke('bt:choose-folder', save);
+    return invoke('sl:choose-folder', save);
   },
   existingExports(folder, names) {
-    return invoke('bt:existing-exports', folder, names);
+    return invoke('sl:existing-exports', folder, names);
   },
   writeFolderExport(folder, name, data) {
-    return written(invoke('bt:write-folder-export', folder, name, data));
+    return written(invoke('sl:write-folder-export', folder, name, data));
   },
   pathOf(file) {
     // a file from the file system (dropped) has a path; one the page made has none
     const path = webUtils.getPathForFile(file);
     if (path !== '') {
       // the window's engine may be given it (main/path-grants.ts)
-      send('bt:dropped', path);
+      send('sl:dropped', path);
     }
     return path;
   },
   async loadState() {
-    return (await invoke('bt:load-state')) ?? {};
+    return (await invoke('sl:load-state')) ?? {};
   },
   saveState(key, value) {
-    send('bt:save-state', key, value);
+    send('sl:save-state', key, value);
   },
   addRecent(path) {
-    send('bt:recent-add', path);
+    send('sl:recent-add', path);
   },
   removeRecent(path) {
-    send('bt:recent-remove', path);
+    send('sl:recent-remove', path);
   },
   async writeRescue(rescueInfo) {
     return (
-      (await invoke('bt:rescue-write', rescueInfo)) ?? {
+      (await invoke('sl:rescue-write', rescueInfo)) ?? {
         ok: false,
         errc: 'invalid_argument',
         message: NOT_OURS,
@@ -183,16 +183,16 @@ const btApp: BtApp = {
     );
   },
   readRescue() {
-    return invoke('bt:rescue-read');
+    return invoke('sl:rescue-read');
   },
   async clearRescue() {
-    await invoke('bt:rescue-clear');
+    await invoke('sl:rescue-clear');
   },
   newWindow() {
-    send('bt:new-window');
+    send('sl:new-window');
   },
   claimPath(path) {
-    send('bt:claim-path', path);
+    send('sl:claim-path', path);
   },
   onReadOnly(handler) {
     readOnlyHandlers.add(handler);
@@ -202,106 +202,106 @@ const btApp: BtApp = {
     };
   },
   onPrefs(handler) {
-    return listen('bt:prefs', (value) => {
+    return listen('sl:prefs', (value) => {
       if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         handler(value as Record<string, unknown>);
       }
     });
   },
   openHelp(link) {
-    send('bt:help', link);
+    send('sl:help', link);
   },
   goalWindow(picture, raise) {
-    send('bt:goal-window', picture, raise);
+    send('sl:goal-window', picture, raise);
   },
   checkForUpdates(auto) {
-    return invoke('bt:check-updates', auto);
+    return invoke('sl:check-updates', auto);
   },
   skipUpdate(version) {
-    send('bt:skip-update', version);
+    send('sl:skip-update', version);
   },
   openReleases() {
-    send('bt:open-releases');
+    send('sl:open-releases');
   },
   async cliToolInfo() {
-    const r = await invoke('bt:cli-info');
+    const r = await invoke('sl:cli-info');
     if (!r.ok) {
       throw new Error(r.error);
     }
     return r.info;
   },
   installCliTool() {
-    return invoke('bt:cli-install');
+    return invoke('sl:cli-install');
   },
   uninstallCliTool() {
-    return invoke('bt:cli-uninstall');
+    return invoke('sl:cli-uninstall');
   },
   cacheFolder() {
-    return invoke('bt:cache-folder');
+    return invoke('sl:cache-folder');
   },
   async chooseCacheFolder(useDefault) {
-    return (await invoke('bt:cache-choose', useDefault)) ?? { status: 'canceled' };
+    return (await invoke('sl:cache-choose', useDefault)) ?? { status: 'canceled' };
   },
   async finishCacheFolder(action) {
-    return (await invoke('bt:cache-finish', action)) ?? { ok: false, error: NOT_OURS };
+    return (await invoke('sl:cache-finish', action)) ?? { ok: false, error: NOT_OURS };
   },
   cacheItems() {
-    return invoke('bt:cache-items');
+    return invoke('sl:cache-items');
   },
   cacheItemsAtStart() {
-    return invoke('bt:cache-items-start');
+    return invoke('sl:cache-items-start');
   },
   async deleteCacheItem(id) {
-    return (await invoke('bt:cache-delete', id)) ?? { ok: false, error: NOT_OURS };
+    return (await invoke('sl:cache-delete', id)) ?? { ok: false, error: NOT_OURS };
   },
   linkCacheFolders(link) {
-    send('bt:cache-link', link);
+    send('sl:cache-link', link);
   },
   logPage(query) {
-    return invoke('bt:log-page', query);
+    return invoke('sl:log-page', query);
   },
   async clearLog() {
-    await invoke('bt:log-clear');
+    await invoke('sl:log-clear');
   },
   async logClosed() {
-    await invoke('bt:log-closed');
+    await invoke('sl:log-closed');
   },
   logExportSizes() {
-    return invoke('bt:log-sizes');
+    return invoke('sl:log-sizes');
   },
   async exportLog(lines) {
     return (
-      (await (lines === undefined ? invoke('bt:log-export') : invoke('bt:log-export', lines))) ?? {
+      (await (lines === undefined ? invoke('sl:log-export') : invoke('sl:log-export', lines))) ?? {
         ok: false,
         error: NOT_OURS,
       }
     );
   },
   closeWindow() {
-    send('bt:close-window');
+    send('sl:close-window');
   },
   closeTaken() {
-    send('bt:close-taken');
+    send('sl:close-taken');
   },
   ready() {
-    send('bt:engine-ready');
+    send('sl:engine-ready');
   },
   retryEngine() {
-    send('bt:engine-retry');
+    send('sl:engine-retry');
   },
   commandHeld(command, dropped) {
-    send('bt:command-held', command, dropped);
+    send('sl:command-held', command, dropped);
   },
   async copyDiagnostics() {
-    return (await invoke('bt:diagnostics-copy')) ?? { ok: false, error: 'not available' };
+    return (await invoke('sl:diagnostics-copy')) ?? { ok: false, error: 'not available' };
   },
   async saveDiagnostics() {
-    return (await invoke('bt:diagnostics-save')) ?? { ok: false, error: 'not available' };
+    return (await invoke('sl:diagnostics-save')) ?? { ok: false, error: 'not available' };
   },
   closeCanceled() {
-    send('bt:close-canceled');
+    send('sl:close-canceled');
   },
 };
 
-contextBridge.exposeInMainWorld('bt', bridge);
-contextBridge.exposeInMainWorld('btApp', btApp);
+contextBridge.exposeInMainWorld('sl', bridge);
+contextBridge.exposeInMainWorld('slApp', slApp);

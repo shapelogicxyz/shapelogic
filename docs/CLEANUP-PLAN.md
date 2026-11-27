@@ -777,14 +777,14 @@ Design rules for this stage:
       Again or a document command. It has the cause (`likelyCause`), the
       detail (code and message), what to try by platform, and a link to
       the guide page (2.9).
-    - Buttons: Try Again (`btApp.retryEngine` → `EngineHost.retry`, which
+    - Buttons: Try Again (`slApp.retryEngine` → `EngineHost.retry`, which
       forgets the quick deaths), Copy Details (2.4), View Logs (the app's
       existing button for Show Log, kept for its wording) and Close.
     - `command-gate.ts` (DOM-free, used by `menus.ts`): a document command
       while the engine has failed is dropped and shows the dialog; the
       ones held when it fails are dropped. Each held or dropped one is
       logged ("Command Held", "Command Dropped") through
-      `btApp.commandHeld`.
+      `slApp.commandHeld`.
     - The status line adds "(see Help ▸ Copy Diagnostics)".
     - `launch()` in `tests/e2e/app.ts` takes `engine` and `waitForEngine`.
     Tests: `web/tests/e2e/engine-failure.e2e.ts` (a missing engine: the
@@ -861,7 +861,7 @@ Design rules for this stage:
       dumps' dates, the checks, and the log's newest 200 lines.
     - Help ▸ Copy Diagnostics is on every platform. It is handled in main,
       so it works without a working page, and offers Save Diagnostics….
-    - `btApp.copyDiagnostics` and `saveDiagnostics` serve the engine's
+    - `slApp.copyDiagnostics` and `saveDiagnostics` serve the engine's
       dialog and a new Copy Details button in the Log File Manager.
     Tests: `web/tests/unit/diagnostics.test.ts` (10):
     - fake wevtutil output with and without ShapeLogic's files, in any case;
@@ -991,7 +991,7 @@ Design rules for this stage:
     - `web/src/main/startup-line.ts` writes one "Startup" line per window:
       window shown, page loaded, engine spawned, engine hello and first
       document shown, in ms from the process start (`process.uptime()`).
-      It is written when the renderer says `btApp.ready()` (its first
+      It is written when the renderer says `slApp.ready()` (its first
       document painted), or after 30 s with "not yet" for what was not
       reached.
     Tests: the line's format in `health.test.ts`; `engine-failure.e2e.ts`'s
@@ -4429,7 +4429,7 @@ Rule 7 holds for every renderer item here.
     looks only at them and the lines added since, and the next page of the
     same search reuses them. The search box waits 200 ms
     (`SEARCH_WAIT_MS`). Closing the dialog sends `bt:log` `closed`
-    (`BtApp.logClosed`), which drops the cache (`AppLog.forget`). Tests:
+    (`SlApp.logClosed`), which drops the cache (`AppLog.forget`). Tests:
     `app-log.test.ts`, three new (the tick's writes and the error at once;
     the cut lines; the narrowing, counted through `toLowerCase` calls),
     each seen failing on HEAD's `app-log.ts` for its own reason (21 of 21
@@ -4461,7 +4461,7 @@ Rule 7 holds for every renderer item here.
     `web/src/main/index.ts:433`; `engine/methods_engine.cpp:43`
     (`engine.hello` returns the same version).
   - *Change:*
-    - After the start, compare hello's version with `__BT_VERSION__`, and
+    - After the start, compare hello's version with `__SL_VERSION__`, and
       refuse there.
     - Keep `engineVersion` only for `web/tools/dist.ts` and the tests.
     - Do this after 2.2 has reached users: their reports say which launch
@@ -4485,7 +4485,7 @@ Rule 7 holds for every renderer item here.
     - Main asks that window's engine to write the copy itself, through a new
       method `document.saveRescue {path}` (gzip, atomic, through
       `io::writeGzipFile`; rule 10). The order is kept: the invoke arrives
-      before any later `bt:call`.
+      before any later `sl:call`.
     - The reopen opens the path, with the record's "stands for" and
       "changed". Give `document.open` the parameters `openBytes` has for
       this (check them).
@@ -5459,8 +5459,8 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
     `web/tests/unit/security.test.ts`.
   - *Problem:*
     - The channels: 14 `on` and 13 `handle` channels from renderer to main,
-      and 4 from main to renderer (`bt:message`, `bt:command`,
-      `bt:read-only`, `bt:prefs`). Each name is spelled separately in main
+      and 4 from main to renderer (`sl:message`, `sl:command`,
+      `sl:read-only`, `sl:prefs`). Each name is spelled separately in main
       and in the preload.
     - Seven channels carry 21 `op` strings.
     - The preload asserts results with 22 `as` casts (the export result's
@@ -5488,24 +5488,24 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
       the same table as data, held to the type both ways by `satisfies`.
       51 channels: the seven that carried an `op` string are one channel
       per operation (decided: one argument list and one result each, no
-      casts), for example `bt:log-page`, `-clear`, `-closed`, `-sizes`,
+      casts), for example `sl:log-page`, `-clear`, `-closed`, `-sizes`,
       `-export`.
     - The preload sends only through typed `send`, `invoke` and `listen`
       helpers: one cast in `invoke` for the 22; `WriteResult` replaces the
       export result written twice. Main answers a refused write
       `{ ok: false, error }`.
     - `installAppIpc` registers every channel through `handle`, `on` or
-      `sync`, each checking the sender once (`ours(e)` is gone). `bt:call`
+      `sync`, each checking the sender once (`ours(e)` is gone). `sl:call`
       moved from `index.ts` into `app-ipc.ts` (`AppIpcHost.engineCall`) and
       gets the same window check. `post(contents, channel, …)` types main's
       four messages to the renderer.
     - Tests: `security.test.ts` takes only the table's names (a misspelled
       one fails the type check), and a new case checks that main registers
       exactly the table's invoke channels with `handle` and its send and
-      sync channels with `on`; another that `bt:call` reaches only an app
-      window's engine. `preload.test.ts` (+1) calls every `bt` and `btApp`
+      sync channels with `on`; another that `sl:call` reaches only an app
+      window's engine. `preload.test.ts` (+1) calls every `sl` and `slApp`
       method and checks the channels used, by kind. Seen failing: with
-      `bt:log-sizes`' handler removed (the security case) and with
+      `sl:log-sizes`' handler removed (the security case) and with
       `closeCanceled`'s send removed (the preload case); a channel in the
       type without its `APP_CHANNELS` row fails `tsc`. The files, logs,
       ipc, cache, windows, engine-failure, security, exports and
@@ -6281,7 +6281,7 @@ items name, the screenshot tests, `just site-build` (12.11's demo hash).
     (`CliIpc`, 2), `window.ts` (`WindowIpc`, 8: the menus' state, the
     close, New Window, a file's owner, the goal window, the help links,
     `openHelp`) and, decided as an eighth group so the window's stays
-    small, `engine.ts` (`EngineIpc`, 6: `bt:call`, the first document,
+    small, `engine.ts` (`EngineIpc`, 6: `sl:call`, the first document,
     Try Again, held commands, Copy and Save Diagnostics). `register.ts`
     holds 12.2's `handle`, `on` and `sync` (`registrar(window)`: the
     sender checked once), `post`, and what several groups share:
@@ -6296,7 +6296,7 @@ items name, the screenshot tests, `just site-build` (12.11's demo hash).
     `installAppIpc`. The `security`, `preload`, `cli-tool` and `app` unit
     tests pass; the files, logs, ipc, cache, windows, engine-failure,
     security, exports and piece-images e2e specs pass. Decisions 0036 and
-    0039 still name `app-ipc.ts` for `bt:claim-path` and `KINDS.moves`
+    0039 still name `app-ipc.ts` for `sl:claim-path` and `KINDS.moves`
     (history, left as written).
 
 **Gates for stage 13:** `just app-check`, `just app-test`, the e2e specs of

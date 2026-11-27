@@ -4,8 +4,8 @@
 // window, the bridge between them, and (stage 6) the menus, the file
 // dialogs, the store of settings, layouts and recent files, the rescue
 // copy, and the window's close. The renderer is sandboxed and isolated; it
-// reaches the engine through the preload's window.bt and the rest through
-// window.btApp (app-ipc.ts). A main-frame navigation (a reload) gets a new
+// reaches the engine through the preload's window.sl and the rest through
+// window.slApp (app-ipc.ts). A main-frame navigation (a reload) gets a new
 // bridge server: the new page's proxy numbers its calls from 1 again, so
 // replies to the old page's calls must not reach it; any other navigation
 // (a file dropped outside the page's drop zone) and every new window are
@@ -32,7 +32,7 @@
 // save over a file another window owns.
 //
 // The security checklist (stage 8, security.ts): the window sandboxed and
-// isolated; the page the app's own, on its own scheme (`bt-app://app/`,
+// isolated; the page the app's own, on its own scheme (`sl-app://app/`,
 // served from the renderer's directory only; a dev server only when not
 // packaged); every request but the app's files canceled; no permission
 // granted; no webview, no new window, no navigation; a call naming a file
@@ -164,7 +164,7 @@ const APP_NAME = 'ShapeLogic';
 /** The renderer's setting of the log's debug lines, read from the stored settings by name. */
 const DEBUG_LOG = 'debugLog' satisfies PrefKey;
 /** The project's version (CMakeLists.txt's, put in at build): the app's and its engine's. */
-const VERSION = __BT_VERSION__;
+const VERSION = __SL_VERSION__;
 /** The web/ directory, where development looks for the repository's engine builds. */
 const WEB_DIR = fileURLToPath(new URL('../../', import.meta.url));
 app.setName(APP_NAME);
@@ -282,7 +282,7 @@ let quitting = false;
 const owners = new PathOwners<number>((id, readOnly) => {
   const c = windows.get(id)?.win.webContents;
   if (c !== undefined && !c.isDestroyed()) {
-    post(c, 'bt:read-only', readOnly);
+    post(c, 'sl:read-only', readOnly);
   }
 });
 /** How far a new window is put from the focused one, right and down. */
@@ -443,7 +443,7 @@ function send(w: WindowState, command: AppCommand): void {
       // a file the menus or the system opened with the app
       paths.grant(w.win.webContents, command.path);
     }
-    post(w.win.webContents, 'bt:command', command);
+    post(w.win.webContents, 'sl:command', command);
   }
 }
 
@@ -901,7 +901,7 @@ function createWindow(first?: AppCommand): void {
       host,
       (message) => {
         if (!contents.isDestroyed()) {
-          post(contents, 'bt:message', message);
+          post(contents, 'sl:message', message);
         }
       },
       logCall,
@@ -1051,7 +1051,7 @@ function createWindow(first?: AppCommand): void {
   contents.on('did-finish-load', () => {
     // a reload: the page is told again that its file is read-only
     if (owners.readOnly(id)) {
-      post(contents, 'bt:read-only', true);
+      post(contents, 'sl:read-only', true);
     }
   });
   contents.once('did-finish-load', () => {
@@ -1204,7 +1204,7 @@ async function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
 async function webgl2Renderer(): Promise<string | null> {
   probing = true;
   // the app window's options, never shown, without the preload (its
-  // bt:app-info would wait on the IPC installed after this); a blank page only
+  // sl:app-info would wait on the IPC installed after this); a blank page only
   const win = new BrowserWindow({
     ...windowOptions(null, APP_NAME, { width: 64, height: 64 }),
   });

@@ -158,28 +158,28 @@ describe('the app’s scheme', () => {
   const rendererDir = resolve('/app/out/renderer');
 
   it('names the page and its files, with a query', () => {
-    expect(APP_SCHEME).toBe('bt-app');
-    expect(appUrl('index.html')).toBe('bt-app://app/index.html');
-    expect(appUrl('index.html', { autosave: '3' })).toBe('bt-app://app/index.html?autosave=3');
+    expect(APP_SCHEME).toBe('sl-app');
+    expect(appUrl('index.html')).toBe('sl-app://app/index.html');
+    expect(appUrl('index.html', { autosave: '3' })).toBe('sl-app://app/index.html?autosave=3');
   });
 
   it('serves only files inside the renderer’s directory', () => {
     const inside = (p: string): string => join(rendererDir, p);
-    expect(appFile('bt-app://app/index.html', rendererDir)).toBe(inside('index.html'));
-    expect(appFile('bt-app://app/index.html?autosave=3', rendererDir)).toBe(inside('index.html'));
-    expect(appFile('bt-app://app/assets/index-x.js', rendererDir)).toBe(
+    expect(appFile('sl-app://app/index.html', rendererDir)).toBe(inside('index.html'));
+    expect(appFile('sl-app://app/index.html?autosave=3', rendererDir)).toBe(inside('index.html'));
+    expect(appFile('sl-app://app/assets/index-x.js', rendererDir)).toBe(
       inside('assets/index-x.js'),
     );
-    expect(appFile('bt-app://app/assets/a%20b.css', rendererDir)).toBe(inside('assets/a b.css'));
+    expect(appFile('sl-app://app/assets/a%20b.css', rendererDir)).toBe(inside('assets/a b.css'));
     for (const bad of [
-      'bt-app://app/',
-      'bt-app://app',
-      'bt-app://app/%2e%2e%2f%2e%2e%2fetc/passwd',
-      'bt-app://app/assets%2f..%2f..%2fmain/index.js',
-      'bt-app://app/x%00.js',
-      'bt-app://other/index.html',
-      'bt-app://app.evil/index.html',
-      'bt-apps://app/index.html',
+      'sl-app://app/',
+      'sl-app://app',
+      'sl-app://app/%2e%2e%2f%2e%2e%2fetc/passwd',
+      'sl-app://app/assets%2f..%2f..%2fmain/index.js',
+      'sl-app://app/x%00.js',
+      'sl-app://other/index.html',
+      'sl-app://app.evil/index.html',
+      'sl-apps://app/index.html',
       'file:///app/out/renderer/index.html',
       'not a url',
     ]) {
@@ -188,13 +188,13 @@ describe('the app’s scheme', () => {
     // a URL's own parsing resolves its dot segments (encoded too) before the
     // path is looked at, so these name files inside the directory (missing
     // ones: the handler's 404), as does a path that leaves and comes back
-    expect(appFile('bt-app://app/../main/index.js', rendererDir)).toBe(inside('main/index.js'));
-    expect(appFile('bt-app://app/%2e%2e/main/index.js', rendererDir)).toBe(inside('main/index.js'));
-    expect(appFile('bt-app://app/assets/../../main/index.js', rendererDir)).toBe(
+    expect(appFile('sl-app://app/../main/index.js', rendererDir)).toBe(inside('main/index.js'));
+    expect(appFile('sl-app://app/%2e%2e/main/index.js', rendererDir)).toBe(inside('main/index.js'));
+    expect(appFile('sl-app://app/assets/../../main/index.js', rendererDir)).toBe(
       inside('main/index.js'),
     );
-    expect(appFile('bt-app://app/assets/../index.html', rendererDir)).toBe(inside('index.html'));
-    expect(appFile('bt-app://app//etc/passwd', rendererDir)).toBe(inside('etc/passwd'));
+    expect(appFile('sl-app://app/assets/../index.html', rendererDir)).toBe(inside('index.html'));
+    expect(appFile('sl-app://app//etc/passwd', rendererDir)).toBe(inside('etc/passwd'));
   });
 });
 
@@ -271,11 +271,11 @@ describe('the requests the session lets through', () => {
   const dev = { rendererDir, rendererUrl: 'http://localhost:5173/' };
 
   it('the page’s own scheme inside the renderer’s directory, its files, devtools, data and blob URLs', () => {
-    expect(allowedRequest('bt-app://app/index.html?autosave=3', built)).toBe(true);
-    expect(allowedRequest('bt-app://app/assets/index-x.js', built)).toBe(true);
-    expect(allowedRequest('bt-app://app/%2e%2e%2f%2e%2e%2fetc/passwd', built)).toBe(false);
-    expect(allowedRequest('bt-app://other/index.html', built)).toBe(false);
-    expect(allowedRequest('bt-app://app/', built)).toBe(false);
+    expect(allowedRequest('sl-app://app/index.html?autosave=3', built)).toBe(true);
+    expect(allowedRequest('sl-app://app/assets/index-x.js', built)).toBe(true);
+    expect(allowedRequest('sl-app://app/%2e%2e%2f%2e%2e%2fetc/passwd', built)).toBe(false);
+    expect(allowedRequest('sl-app://other/index.html', built)).toBe(false);
+    expect(allowedRequest('sl-app://app/', built)).toBe(false);
     expect(allowedRequest(inside('index.html'), built)).toBe(true);
     expect(allowedRequest(inside('assets/index-x.js'), built)).toBe(true);
     expect(allowedRequest(`${inside('index.html')}?autosave=3`, built)).toBe(true);
@@ -373,15 +373,15 @@ describe('the page', () => {
     expect(renderer.some((t) => /\bfetch\(|XMLHttpRequest|WebSocket\(/.test(t))).toBe(false);
   });
 
-  it('gets window.bt and window.btApp from the preload, and nothing else', () => {
+  it('gets window.sl and window.slApp from the preload, and nothing else', () => {
     expect(occurrences(/exposeInMainWorld\(/g)).toEqual([
       'src/preload/index.ts',
       'src/preload/index.ts',
     ]);
     const preload = SRC.find((s) => s.file === 'src/preload/index.ts')?.text ?? '';
     expect([...preload.matchAll(/exposeInMainWorld\('(\w+)'/g)].map((m) => m[1])).toEqual([
-      'bt',
-      'btApp',
+      'sl',
+      'slApp',
     ]);
   });
 });
@@ -695,8 +695,8 @@ describe('the IPC handlers', () => {
 
   it('pass a window’s engine calls to its engine, only an app window’s', () => {
     engineRequests.length = 0;
-    on('bt:call')?.({ sender: ours }, { kind: 'status' });
-    on('bt:call')?.({ sender: foreign }, { kind: 'status' });
+    on('sl:call')?.({ sender: ours }, { kind: 'status' });
+    on('sl:call')?.({ sender: foreign }, { kind: 'status' });
     expect(engineRequests).toEqual([[ours, { kind: 'status' }]]);
   });
 
@@ -704,25 +704,25 @@ describe('the IPC handlers', () => {
     electron.openPaths = [join(dir, 'a.xmpuzzle')];
     electron.savePath = join(dir, 'b.xmpuzzle');
     rescueInfo = { path: join(dir, 'r.xmpuzzle') };
-    expect(await invoke('bt:choose-open', foreign, 'puzzle')).toBeNull();
-    expect(await invoke('bt:choose-save', foreign, 'puzzle', 'b')).toBeNull();
-    expect(await invoke('bt:write-export', foreign, join(dir, 'x.png'), new Uint8Array(1))).toEqual(
+    expect(await invoke('sl:choose-open', foreign, 'puzzle')).toBeNull();
+    expect(await invoke('sl:choose-save', foreign, 'puzzle', 'b')).toBeNull();
+    expect(await invoke('sl:write-export', foreign, join(dir, 'x.png'), new Uint8Array(1))).toEqual(
       { ok: false, error: 'nothing to write' },
     );
-    expect(await invoke('bt:load-state', foreign)).toBeNull();
-    expect(await invoke('bt:rescue-read', foreign)).toBeNull();
+    expect(await invoke('sl:load-state', foreign)).toBeNull();
+    expect(await invoke('sl:rescue-read', foreign)).toBeNull();
     const info = { sender: foreign, returnValue: undefined as unknown };
-    on('bt:app-info')?.(info);
+    on('sl:app-info')?.(info);
     expect(info.returnValue).toBeNull();
-    on('bt:dropped')?.({ sender: foreign }, join(dir, 'd.xmpuzzle'));
-    on('bt:help')?.({ sender: foreign }, 'guide');
-    on('bt:open-releases')?.({ sender: foreign });
+    on('sl:dropped')?.({ sender: foreign }, join(dir, 'd.xmpuzzle'));
+    on('sl:help')?.({ sender: foreign }, 'guide');
+    on('sl:open-releases')?.({ sender: foreign });
     expect(electron.opened).toEqual([]);
-    expect(await invoke('bt:check-updates', foreign, false)).toBeNull();
-    on('bt:skip-update')?.({ sender: foreign }, 'v1.4');
+    expect(await invoke('sl:check-updates', foreign, false)).toBeNull();
+    on('sl:skip-update')?.({ sender: foreign }, 'v1.4');
     expect(skipped).toBeUndefined();
     // nor does a foreign window install the command line tool
-    expect(await invoke('bt:cli-install', foreign)).toMatchObject({ ok: false });
+    expect(await invoke('sl:cli-install', foreign)).toMatchObject({ ok: false });
     expect(existsSync(join(dir, 'bin'))).toBe(false);
     for (const p of ['a', 'b', 'r', 'd']) {
       expect(paths.allows(foreign, join(dir, `${p}.xmpuzzle`))).toBe(false);
@@ -733,29 +733,29 @@ describe('the IPC handlers', () => {
   it('check for updates once at startup, and always when asked', async () => {
     latestTag = 'v1.4';
     skipped = undefined;
-    expect(await invoke('bt:check-updates', ours, 'yes')).toBeNull();
-    expect(await invoke('bt:check-updates', ours, true)).toEqual({
+    expect(await invoke('sl:check-updates', ours, 'yes')).toBeNull();
+    expect(await invoke('sl:check-updates', ours, true)).toEqual({
       status: 'newer',
       current: '1.3.0',
       latest: 'v1.4',
       notes: '',
     });
     // once a run, whichever window asks
-    expect(await invoke('bt:check-updates', ours, true)).toBeNull();
+    expect(await invoke('sl:check-updates', ours, true)).toBeNull();
     // the menu's check always answers, a skipped version too
-    on('bt:skip-update')?.({ sender: ours }, 'not a version');
+    on('sl:skip-update')?.({ sender: ours }, 'not a version');
     expect(skipped).toBeUndefined();
-    on('bt:skip-update')?.({ sender: ours }, 'v1.4');
+    on('sl:skip-update')?.({ sender: ours }, 'v1.4');
     expect(skipped).toBe('v1.4');
-    expect(await invoke('bt:check-updates', ours, false)).toMatchObject({ status: 'newer' });
+    expect(await invoke('sl:check-updates', ours, false)).toMatchObject({ status: 'newer' });
     latestTag = 'v1.3';
-    expect(await invoke('bt:check-updates', ours, false)).toMatchObject({ status: 'current' });
+    expect(await invoke('sl:check-updates', ours, false)).toMatchObject({ status: 'current' });
     // each check's outcome goes to the log (cleanup item 2.8)
     expect(updateOutcomes.at(-1)).toBe('HTTP 200; the latest release is v1.3');
     // the startup check and the two asked for (the second startup ask ran none)
     expect(updateOutcomes).toHaveLength(3);
     // Download opens the releases page, whatever the page passes
-    on('bt:open-releases')?.({ sender: ours }, 'https://example.com/');
+    on('sl:open-releases')?.({ sender: ours }, 'https://example.com/');
     expect(electron.opened).toEqual([
       'https://github.com/shapelogicxyz/shapelogic/releases/latest',
     ]);
@@ -764,18 +764,18 @@ describe('the IPC handlers', () => {
   it('install and remove the command line tool by its channel, never a path', async () => {
     const tool = join(dir, 'tool', 'shapelogic_cli');
     const link = join(dir, 'bin', 'shapelogic_cli');
-    expect(await invoke('bt:cli-info', ours)).toEqual({
+    expect(await invoke('sl:cli-info', ours)).toEqual({
       ok: true,
       info: { path: tool, link, state: 'none' },
     });
     // a page cannot name what to link, or what to remove: extra arguments are not read
-    expect(await invoke('bt:cli-install', ours, '/bin/ls', '/etc/passwd')).toEqual({
+    expect(await invoke('sl:cli-install', ours, '/bin/ls', '/etc/passwd')).toEqual({
       ok: true,
       info: { path: tool, link, state: 'linked' },
     });
     expect(readlinkSync(link)).toBe(tool);
-    expect(electron.handle.has('bt:cli-tool')).toBe(false);
-    expect(await invoke('bt:cli-uninstall', ours, '/etc/passwd')).toEqual({
+    expect(electron.handle.has('sl:cli-tool')).toBe(false);
+    expect(await invoke('sl:cli-uninstall', ours, '/etc/passwd')).toEqual({
       ok: true,
       info: { path: tool, link, state: 'none' },
     });
@@ -783,17 +783,17 @@ describe('the IPC handlers', () => {
   });
   it('grant the window what its dialogs, its rescue record and its drops gave', async () => {
     electron.openPaths = [join(dir, 'a.xmpuzzle')];
-    expect(await invoke('bt:choose-open', ours, 'puzzle')).toBe(join(dir, 'a.xmpuzzle'));
+    expect(await invoke('sl:choose-open', ours, 'puzzle')).toBe(join(dir, 'a.xmpuzzle'));
     electron.openPaths = [join(dir, 'p.slsolve')];
-    expect(await invoke('bt:choose-open', ours, 'paused')).toBe(join(dir, 'p.slsolve'));
+    expect(await invoke('sl:choose-open', ours, 'paused')).toBe(join(dir, 'p.slsolve'));
     // the exports cannot be opened
-    expect(await invoke('bt:choose-open', ours, 'image')).toBeNull();
+    expect(await invoke('sl:choose-open', ours, 'image')).toBeNull();
     electron.savePath = join(dir, 'b');
-    expect(await invoke('bt:choose-save', ours, 'puzzle', 'b')).toBe(join(dir, 'b.xmpuzzle'));
+    expect(await invoke('sl:choose-save', ours, 'puzzle', 'b')).toBe(join(dir, 'b.xmpuzzle'));
     rescueInfo = { path: join(dir, 'r.xmpuzzle') };
-    await invoke('bt:rescue-read', ours);
-    on('bt:dropped')?.({ sender: ours }, join(dir, 'd.xmpuzzle'));
-    on('bt:dropped')?.({ sender: ours }, 42);
+    await invoke('sl:rescue-read', ours);
+    on('sl:dropped')?.({ sender: ours }, join(dir, 'd.xmpuzzle'));
+    on('sl:dropped')?.({ sender: ours }, 42);
     for (const p of [
       'a.xmpuzzle',
       'p.slsolve',
@@ -807,22 +807,22 @@ describe('the IPC handlers', () => {
     }
     // an export's path is the export's grant, not the engine's
     electron.savePath = join(dir, 'shot.png');
-    expect(await invoke('bt:choose-save', ours, 'image', 'shot')).toBe(join(dir, 'shot.png'));
+    expect(await invoke('sl:choose-save', ours, 'image', 'shot')).toBe(join(dir, 'shot.png'));
     expect(paths.allows(ours, join(dir, 'shot.png'))).toBe(false);
     // and is written once, only there
     expect(
-      await invoke('bt:write-export', ours, join(dir, 'other.png'), new Uint8Array(1)),
+      await invoke('sl:write-export', ours, join(dir, 'other.png'), new Uint8Array(1)),
     ).toEqual({
       ok: false,
       error: "other.png was not chosen in the export's dialog",
     });
     expect(
-      await invoke('bt:write-export', ours, join(dir, 'shot.png'), new Uint8Array([1])),
+      await invoke('sl:write-export', ours, join(dir, 'shot.png'), new Uint8Array([1])),
     ).toEqual({
       ok: true,
     });
     expect(
-      await invoke('bt:write-export', ours, join(dir, 'shot.png'), new Uint8Array([1])),
+      await invoke('sl:write-export', ours, join(dir, 'shot.png'), new Uint8Array([1])),
     ).toMatchObject({
       error: expect.stringContaining('was not chosen') as unknown,
     });
@@ -830,24 +830,24 @@ describe('the IPC handlers', () => {
 
   it('keep only handed files as recent files and as the rescue record’s', async () => {
     electron.openPaths = [join(dir, 'chosen.xmpuzzle')];
-    await invoke('bt:choose-open', ours, 'puzzle');
-    const add = on('bt:recent-add');
+    await invoke('sl:choose-open', ours, 'puzzle');
+    const add = on('sl:recent-add');
     add?.({ sender: ours }, join(dir, 'chosen.xmpuzzle'));
     add?.({ sender: ours }, '/etc/elsewhere.xmpuzzle');
     add?.({ sender: foreign }, join(dir, 'chosen.xmpuzzle'));
     expect(recent).toEqual([join(dir, 'chosen.xmpuzzle')]);
     const info = (path: string | null): unknown => ({ path, name: 'n', revision: 1, time: 2 });
     engineCalls.length = 0;
-    expect(await invoke('bt:rescue-write', ours, info(join(dir, 'chosen.xmpuzzle')))).toEqual({
+    expect(await invoke('sl:rescue-write', ours, info(join(dir, 'chosen.xmpuzzle')))).toEqual({
       ok: true,
     });
-    await invoke('bt:rescue-write', ours, info('/etc/elsewhere.xmpuzzle'));
-    await invoke('bt:rescue-write', ours, info(null));
-    expect(await invoke('bt:rescue-write', foreign, info(join(dir, 'chosen.xmpuzzle')))).toBe(null);
-    expect(await invoke('bt:rescue-write', ours, 'not a record')).toBeNull();
+    await invoke('sl:rescue-write', ours, info('/etc/elsewhere.xmpuzzle'));
+    await invoke('sl:rescue-write', ours, info(null));
+    expect(await invoke('sl:rescue-write', foreign, info(join(dir, 'chosen.xmpuzzle')))).toBe(null);
+    expect(await invoke('sl:rescue-write', ours, 'not a record')).toBeNull();
     // the engine's refusal is the answer (the renderer keeps quiet on invalid_state)
     engineRefuses = 'invalid_state';
-    expect(await invoke('bt:rescue-write', ours, info(null))).toEqual({
+    expect(await invoke('sl:rescue-write', ours, info(null))).toEqual({
       ok: false,
       errc: 'invalid_state',
       message: 'refused',
@@ -869,42 +869,42 @@ describe('the IPC handlers', () => {
     toOthers.length = 0;
     newWindows = 0;
     electron.openPaths = [join(dir, 'mine.xmpuzzle')];
-    await invoke('bt:choose-open', ours, 'puzzle');
-    const claim = on('bt:claim-path');
+    await invoke('sl:choose-open', ours, 'puzzle');
+    const claim = on('sl:claim-path');
     claim?.({ sender: ours }, join(dir, 'mine.xmpuzzle'));
     claim?.({ sender: ours }, '/etc/elsewhere.xmpuzzle');
     claim?.({ sender: ours }, 42);
     claim?.({ sender: foreign }, join(dir, 'mine.xmpuzzle'));
     expect(claimed).toEqual([[1, join(dir, 'mine.xmpuzzle')]]);
-    on('bt:new-window')?.({ sender: foreign });
-    on('bt:new-window')?.({ sender: ours });
+    on('sl:new-window')?.({ sender: foreign });
+    on('sl:new-window')?.({ sender: ours });
     expect(newWindows).toBe(1);
     // the start's messages and the diagnostics (cleanup items 2.3, 2.4, 2.7)
-    on('bt:engine-retry')?.({ sender: foreign });
-    on('bt:engine-ready')?.({ sender: ours });
-    on('bt:engine-retry')?.({ sender: ours });
-    const held = on('bt:command-held');
+    on('sl:engine-retry')?.({ sender: foreign });
+    on('sl:engine-ready')?.({ sender: ours });
+    on('sl:engine-retry')?.({ sender: ours });
+    const held = on('sl:command-held');
     held?.({ sender: ours }, 'open', false);
     held?.({ sender: ours }, 'new', true);
     held?.({ sender: ours }, 'not a command', false);
     held?.({ sender: ours }, 'open', 'yes');
     held?.({ sender: foreign }, 'open', false);
     expect(startOps).toEqual(['ready', 'retry', 'held open', 'dropped new']);
-    expect(await invoke('bt:diagnostics-copy', foreign)).toBeNull();
-    expect(await invoke('bt:diagnostics-copy', ours)).toEqual({ ok: true, bytes: 10 });
-    expect(await invoke('bt:diagnostics-save', ours)).toEqual({ ok: false, canceled: true });
-    const save = on('bt:save-state');
+    expect(await invoke('sl:diagnostics-copy', foreign)).toBeNull();
+    expect(await invoke('sl:diagnostics-copy', ours)).toEqual({ ok: true, bytes: 10 });
+    expect(await invoke('sl:diagnostics-save', ours)).toEqual({ ok: false, canceled: true });
+    const save = on('sl:save-state');
     save?.({ sender: ours }, 'prefs', { theme: 'Dark' });
     // a layout is the window's own
     save?.({ sender: ours }, 'layout', { focus: '3d' });
     save?.({ sender: foreign }, 'prefs', { theme: 'Light' });
-    expect(toOthers).toEqual([['bt:prefs', { theme: 'Dark' }]]);
+    expect(toOthers).toEqual([['sl:prefs', { theme: 'Dark' }]]);
     // and the main process hears them (Debug logging follows them)
     expect(prefsStored.at(-1)).toEqual({ theme: 'Dark' });
   });
 
   it('open only the help links, by name', () => {
-    const help = on('bt:help');
+    const help = on('sl:help');
     help?.({ sender: ours }, 'guide');
     help?.({ sender: ours }, 'tutorial');
     help?.({ sender: ours }, 'https://example.com/');

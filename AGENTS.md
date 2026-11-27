@@ -221,7 +221,7 @@ says how to run it.
   engine holds is duplicated except as a mirror refreshed by
   `document.changed`.
 - `invalid_state` is shown as "pause first" (decision 0011), never retried.
-- The renderer never sees Node or Electron (only `window.bt`, through
+- The renderer never sees Node or Electron (only `window.sl`, through
   `renderer/engine-proxy.ts`); frames are never parsed in the renderer by
   hand, only through the client's views (`engine/frames.ts`).
 - Keys come from the one table (`renderer/shell/keys.ts`, stage 1b).

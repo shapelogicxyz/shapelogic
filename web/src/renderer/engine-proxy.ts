@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The engine as the renderer sees it (decision 0013): the client's
-// interface over the preload bridge (window.bt). The renderer never sees
+// interface over the preload bridge (window.sl). The renderer never sees
 // Node; frames come as ArrayBuffers and get the client's own views
 // (frames.ts), never parsed by hand. Replies settle before the events
 // behind them are dispatched, as in the client (dispatch.ts).
 
-import type { BridgeMessage, BtBridge } from '../engine/bridge.ts';
+import type { BridgeMessage, SlBridge } from '../engine/bridge.ts';
 import type {
   CallArgs,
   CallOptions,
@@ -32,12 +32,12 @@ interface Pending {
 
 /** A handler that threw: the console says so (the page has no log of its own). */
 function threw(detail: string): void {
-  console.error(`bt engine proxy: ${detail}`);
+  console.error(`engine proxy: ${detail}`);
 }
 
 /** The engine host of this window, over the bridge. */
 export class EngineProxy implements EngineApi {
-  private readonly bridge: BtBridge;
+  private readonly bridge: SlBridge;
   private readonly inbox: OrderedInbox<BridgeMessage>;
   private readonly off: () => void;
   private nextId = 1;
@@ -46,7 +46,7 @@ export class EngineProxy implements EngineApi {
   private readonly statusHandlers = new Listeners<EngineStatus>('a status handler', threw);
   private status_: EngineStatus | null = null;
 
-  constructor(bridge: BtBridge, defer?: Defer) {
+  constructor(bridge: SlBridge, defer?: Defer) {
     this.bridge = bridge;
     this.inbox = new OrderedInbox<BridgeMessage>((m) => this.deliver(m), defer);
     this.off = bridge.onMessage((m) => {

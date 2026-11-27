@@ -261,7 +261,7 @@ export async function command(page: Page, c: Record<string, unknown>): Promise<v
       app.emit('open-file', { preventDefault: () => undefined }, cmd.path);
       return;
     }
-    BrowserWindow.getAllWindows()[0]?.webContents.send('bt:command', cmd);
+    BrowserWindow.getAllWindows()[0]?.webContents.send('sl:command', cmd);
   }, c);
 }
 
@@ -525,7 +525,7 @@ export async function engineCall<T = unknown>(
   return page.evaluate(
     ([id, method, params]) =>
       new Promise<T>((done, fail) => {
-        const off = window.bt.onMessage((m) => {
+        const off = window.sl.onMessage((m) => {
           if ((m.kind === 'reply' || m.kind === 'error') && m.id === id) {
             off();
             if (m.kind === 'reply') {
@@ -535,7 +535,7 @@ export async function engineCall<T = unknown>(
             }
           }
         });
-        window.bt.send({
+        window.sl.send({
           kind: 'call',
           id,
           method,
@@ -572,7 +572,7 @@ export async function engineOpenAssembly(page: Page, params: unknown): Promise<s
             fail(new Error(message));
           }
         };
-        const off = window.bt.onMessage((m) => {
+        const off = window.sl.onMessage((m) => {
           if (m.kind === 'error' && m.id === id) {
             off();
             fail(new Error(`${m.errc}: ${m.message}`));
@@ -585,7 +585,7 @@ export async function engineOpenAssembly(page: Page, params: unknown): Promise<s
             settle();
           }
         });
-        window.bt.send({ kind: 'call', id, method: 'explore.openAssembly', params });
+        window.sl.send({ kind: 'call', id, method: 'explore.openAssembly', params });
       }),
     [id, params] as const,
   );

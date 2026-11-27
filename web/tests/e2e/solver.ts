@@ -15,7 +15,7 @@ import type { Page } from '@playwright/test';
 import { engineCall, ROOT } from './app.ts';
 
 /** the CLI's summary of a fixture (`shapelogic_cli -q -n -d --json`): its assemblies and solutions. */
-export function btJson(
+export function cliJson(
   file: string,
   extra: string[] = [],
 ): { assemblies: number; solutions: number } {
@@ -124,7 +124,7 @@ export async function enginePoses(
   const got = await page.evaluate(
     ([id, handle]) =>
       new Promise<{ samples: number; t: number[]; q: number[]; v: number[] }>((done, fail) => {
-        const off = window.bt.onMessage((m) => {
+        const off = window.sl.onMessage((m) => {
           if ((m.kind === 'reply' || m.kind === 'error') && m.id === id) {
             off();
             if (m.kind === 'error' || m.frame === undefined) {
@@ -150,7 +150,7 @@ export async function enginePoses(
             });
           }
         });
-        window.bt.send({
+        window.sl.send({
           kind: 'call',
           id,
           method: 'playback.poses',

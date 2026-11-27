@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The demo's window.bt: the engine client over the browser engine
+// The demo's window.sl: the engine client over the browser engine
 // (wasm-transport.ts), served to the renderer's proxy as Electron's main
 // process serves a window (engine/serve.ts). A call that would start a
 // search is refused before it reaches the engine: a solve, an analysis, a
@@ -12,7 +12,7 @@
 
 import { ERROR_CODES } from '../engine/api.generated.ts';
 import type { SolveProgress, SolveState } from '../engine/api.generated.ts';
-import type { BridgeCall, BridgeMessage, BridgeRequest, BtBridge } from '../engine/bridge.ts';
+import type { BridgeCall, BridgeMessage, BridgeRequest, SlBridge } from '../engine/bridge.ts';
 import type { EngineClient } from '../engine/client.ts';
 import type { EngineStatus } from '../engine/client-types.ts';
 import { serveEngine } from '../engine/serve.ts';
@@ -42,7 +42,7 @@ export interface RunEvents {
 export type SolveHook = (problem: string, events: RunEvents) => boolean;
 
 /** The engine in the page as the preload's bridge. */
-export class EngineBridge implements BtBridge {
+export class EngineBridge implements SlBridge {
   private readonly handlers = new Set<(message: BridgeMessage) => void>();
   private readonly server: ReturnType<typeof serveEngine>;
   private solutionsVersion = 1_000;

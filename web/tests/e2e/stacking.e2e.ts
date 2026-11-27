@@ -35,7 +35,7 @@ import {
 } from './app.ts';
 import { settled } from './editor.ts';
 import {
-  btJson,
+  cliJson,
   enginePoses,
   expectPosesAt,
   pageIds,
@@ -411,15 +411,18 @@ test('solved by the Stacking and the Panex Solver as bt; played in transfers on 
       await runButton(page, 'start');
       await runEnded(page, 'finished');
       const problem = await shownProblem(page);
-      const bt = btJson(file, ['--solver', solver, '--panex-dir', '']) as {
+      const fromCli = cliJson(file, ['--solver', solver, '--panex-dir', '']) as {
         assemblies: number;
         solutions: number;
         totalmoves: number;
       };
-      await expect(page.locator('#leftS')).toHaveAttribute('data-solutions', String(bt.solutions));
+      await expect(page.locator('#leftS')).toHaveAttribute(
+        'data-solutions',
+        String(fromCli.solutions),
+      );
       await expect(page.locator('#leftS')).toHaveAttribute(
         'data-assemblies',
-        String(bt.assemblies),
+        String(fromCli.assemblies),
       );
       const ids = await pageIds(page, problem);
       expect(ids).toHaveLength(1);
@@ -427,15 +430,18 @@ test('solved by the Stacking and the Panex Solver as bt; played in transfers on 
         problem,
         limit: 1,
       });
-      expect(row.rows[0]?.moves).toBe(bt.totalmoves);
+      expect(row.rows[0]?.moves).toBe(fromCli.totalmoves);
       // the player in transfers, the board's pegs around the discs
       await expect(page.locator('#splayer')).toHaveAttribute('data-ready', '1');
-      await expect(page.locator('#splayer')).toHaveAttribute('data-steps', String(bt.totalmoves));
+      await expect(page.locator('#splayer')).toHaveAttribute(
+        'data-steps',
+        String(fromCli.totalmoves),
+      );
       await expect
         .poll(async () => Number(await attr(page, '#vp', 'data-board-boxes')))
         .toBe(solver === 'panex' ? 2 : 1);
       const poses = await enginePoses(page, problem, await attr(page, '#splayer', 'data-solution'));
-      expect(poses.steps).toBe(bt.totalmoves);
+      expect(poses.steps).toBe(fromCli.totalmoves);
       await expectPosesAt(page, poses, 0);
       const steps = Math.min(poses.steps, 12);
       for (let s = 1; s <= steps; s++) {
