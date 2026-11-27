@@ -93,7 +93,7 @@ struct Found {
 Found solve(const Puzzle& p, unsigned int prob, bool rowCheck, bool vector, unsigned int threads,
             ThreadPool* pool, bool reduce = false) {
   std::unique_ptr<Assembler> a = makeAssembler(p, p.getProblem(prob), SolverType::Classic);
-  REQUIRE(a->createMatrix({}) == AssemblerError::None);
+  REQUIRE(a->createMatrix({}, StopToken()) == AssemblerError::None);
   if (reduce) {
     (void)a->reduce(StopToken{});
   }
@@ -252,9 +252,9 @@ TEST_CASE("Row rotation check: not used for the complete check or with rotations
       MatrixOptions m;
       m.completeRotations = complete;
       m.keepRotations = keep;
-      REQUIRE(a.createMatrix(m) == AssemblerError::None);
+      REQUIRE(a.createMatrix(m, StopToken()) == AssemblerError::None);
       Assembler1 b(p, p.getProblem(0));
-      REQUIRE(b.createMatrix(m) == AssemblerError::None);
+      REQUIRE(b.createMatrix(m, StopToken()) == AssemblerError::None);
       SearchOptions without = test::searchOptions(1, nullptr);
       without.rowRotationCheck = false;
       const test::RunResult ra = test::runOnce(a, test::searchOptions(1, nullptr));

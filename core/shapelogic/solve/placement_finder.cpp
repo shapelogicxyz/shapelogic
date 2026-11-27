@@ -39,8 +39,14 @@ PlacementFinder::PlacementFinder(const Puzzle& puzzle, const Problem& problem,
   }
 }
 
+namespace {
+// The result voxels tried between two looks at the stop token.
+constexpr std::size_t kPollEvery = 4096;
+}  // namespace
+
 void PlacementFinder::find(const Voxel& rotation, std::vector<long>& voxelOffsets,
-                           std::vector<int>& placements, StartLock lock) const {
+                           std::vector<int>& placements, const StopToken& stop,
+                           StartLock lock) const {
   voxelOffsets.clear();
   placements.clear();
 
@@ -155,7 +161,11 @@ void PlacementFinder::find(const Voxel& rotation, std::vector<long>& voxelOffset
   if (resultVoxels_.size() < windowVol) {
     // the result is sparse within its bounding box: only try translations
     // that put the anchor onto one of its non-empty voxels
+    std::size_t tried = 0;
     for (const ResultVoxel& rv : resultVoxels_) {
+      if ((++tried & (kPollEvery - 1)) == 0 && stop.stopRequested()) {
+        return;
+      }
       const int x = rv.x - ax;
       const int y = rv.y - ay;
       const int z = rv.z - az;
@@ -205,6 +215,10 @@ void PlacementFinder::find(const Voxel& rotation, std::vector<long>& voxelOffset
     // rejects most translations with a single access
     for (int x = wx1; x <= wx2; x++) {
       for (int y = wy1; y <= wy2; y++) {
+        // once a row of the window: a load, against the row's reads
+        if (stop.stopRequested()) {
+          return;
+        }
         for (int z = wz1; z <= wz2; z++) {
           const long base = x + sx * (y + sy * static_cast<long>(z));
           const long ri = base + anchorOff;

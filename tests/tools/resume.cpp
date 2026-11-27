@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
   }
   const bt::Problem& problem = p->getProblem(0);
   auto assm = bt::makeAssembler(*p, problem, *solver);
-  if (assm->createMatrix({}) != bt::AssemblerError::None) {
+  if (assm->createMatrix({}, bt::StopToken()) != bt::AssemblerError::None) {
     std::fputs("createMatrix failed\n", stderr);
     return 2;
   }

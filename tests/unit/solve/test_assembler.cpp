@@ -14,6 +14,7 @@
 #include "shapelogic/solve/assembler_0.h"
 #include "shapelogic/solve/assembler_1.h"
 #include "shapelogic/solve/dlx_matrix.h"
+#include "shapelogic/solve/placement_finder.h"
 #include "shapelogic/solve/rotation_filter.h"
 #include "shapelogic/solve/simd_exact_cover.h"
 #include "shapelogic/solve/solver_type.h"
@@ -44,7 +45,7 @@ namespace {
 Fingerprints allAssemblies(const std::string& fixture, bool reduce = false) {
   const Puzzle p = test::loadFixture(fixture);
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   if (reduce) {
     (void)a.reduce(StopToken{});
   }
@@ -63,7 +64,7 @@ struct Regression {
 Regression solveFixture(const std::string& fixture) {
   const Puzzle p = test::loadFixture(fixture);
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   const test::RunResult r = runOnce(a, searchOptions(1, nullptr));
   CHECK(r.end == RunEnd::Finished);
   return {r.found.size(), a.iterations(), a.finished()};
@@ -94,7 +95,7 @@ TEST_CASE("Assembler 0: regression counts of the examples", "[solve][assembler]"
 
 // The orange piece of this sphere puzzle has a symmetry list the generated
 // tables never contained; before the sphere grid learned to register new
-// lists, createMatrix() failed an assertion on it. The counts come from an
+// lists, createMatrix(, StopToken()) failed an assertion on it. The counts come from an
 // independent brute-force tiling of the puzzle (the original's): 48
 // assemblies with every piece rotated freely, 12 rotations of the result
 // shape that map it onto itself, so 4 distinct assemblies (mirroring adds
@@ -107,7 +108,7 @@ TEST_CASE("Spheres: a piece with an unlisted symmetry assembles", "[solve][assem
     REQUIRE(a != nullptr);
     MatrixOptions m;
     m.keepMirrors = keepMirrors;
-    REQUIRE(a->createMatrix(m) == AssemblerError::None);
+    REQUIRE(a->createMatrix(m, StopToken()) == AssemblerError::None);
     const test::RunResult r = runOnce(*a, searchOptions(1, nullptr));
     REQUIRE(r.end == RunEnd::Finished);
     CHECK(r.found.size() == 4);
@@ -121,10 +122,10 @@ TEST_CASE("Spheres: an unlisted symmetry split over threads finds what one threa
   const Puzzle p = test::loadFixture("test_sphere_symmetry.xmpuzzle");
   ThreadPool pool(4);
   std::unique_ptr<Assembler> one = makeAssembler(p, p.getProblem(0), SolverType::Classic);
-  REQUIRE(one->createMatrix({}) == AssemblerError::None);
+  REQUIRE(one->createMatrix({}, StopToken()) == AssemblerError::None);
   const test::RunResult serial = runOnce(*one, searchOptions(1, nullptr));
   std::unique_ptr<Assembler> four = makeAssembler(p, p.getProblem(0), SolverType::Classic);
-  REQUIRE(four->createMatrix({}) == AssemblerError::None);
+  REQUIRE(four->createMatrix({}, StopToken()) == AssemblerError::None);
   const test::RunResult split = runOnce(*four, searchOptions(4, &pool));
   REQUIRE(split.end == RunEnd::Finished);
   CHECK(split.found == serial.found);
@@ -134,7 +135,7 @@ TEST_CASE("Spheres: an unlisted symmetry split over threads finds what one threa
 TEST_CASE("Assembler 0: a callback that answers false stops the run", "[solve][assembler]") {
   const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   int count = 0;
   const RunEnd end = a.assemble(
       [&count](Assembly) {
@@ -160,13 +161,13 @@ TEST_CASE("Assembler 0: split over threads it finds what one thread finds",
   Fingerprints one;
   {
     Assembler0 a(p, p.getProblem(0));
-    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
     one = runOnce(a, searchOptions(1, &pool)).found;
     CHECK(one.size() == 12);
   }
   {
     Assembler0 a(p, p.getProblem(0));
-    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
     const test::RunResult r = runOnce(a, searchOptions(4, &pool));
     CHECK(r.end == RunEnd::Finished);
     CHECK(r.found == one);
@@ -183,7 +184,7 @@ TEST_CASE("Assembler 0: a split search paused and continued reports each assembl
   REQUIRE(all.size() == 12);
 
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   const test::RunResult first = runOnce(a, searchOptions(4, &pool), StopToken{}, 5);
   CHECK(first.end == RunEnd::Stopped);
   CHECK(first.found.size() == 5);
@@ -201,13 +202,13 @@ TEST_CASE("Assembler 0: the position of a search not yet started restores",
           "[solve][assembler][resume]") {
   const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   const SavedPosition pos = a.savePosition();
   CHECK(pos.version == "1.5");
   CHECK(pos.text == "0 0 0 (0 0)");
 
   Assembler0 restored(p, p.getProblem(0));
-  REQUIRE(restored.createMatrix({}) == AssemblerError::None);
+  REQUIRE(restored.createMatrix({}, StopToken()) == AssemblerError::None);
   CHECK(restored.restorePosition(pos.text, pos.version) == AssemblerError::None);
   CHECK(runOnce(restored, searchOptions(1, nullptr)).found.size() == 12);
 }
@@ -223,7 +224,7 @@ TEST_CASE("Assembler 0: an absurd thread count is clamped", "[solve][assembler][
 
   const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   CHECK(runOnce(a, searchOptions(1000000, &pool)).found.size() == 12);
 }
 
@@ -238,7 +239,7 @@ TEST_CASE("Assembler 0: split over threads on a symmetry-breaking puzzle",
   {
     const Puzzle p = test::loadFixture("Bermuda.xmpuzzle");
     Assembler0 a(p, p.getProblem(0));
-    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
     serial = runOnce(a, searchOptions(1, nullptr)).found;
   }
   REQUIRE(!serial.empty());
@@ -249,7 +250,7 @@ TEST_CASE("Assembler 0: split over threads on a symmetry-breaking puzzle",
     Assembler0 a(p, p.getProblem(0));
     MatrixOptions keep;
     keep.keepRotations = true;
-    REQUIRE(a.createMatrix(keep) == AssemblerError::None);
+    REQUIRE(a.createMatrix(keep, StopToken()) == AssemblerError::None);
     INFO("symmetry breaking must be active for this test to mean anything");
     REQUIRE(runOnce(a, searchOptions(1, nullptr)).found.size() > serial.size());
   }
@@ -259,7 +260,7 @@ TEST_CASE("Assembler 0: split over threads on a symmetry-breaking puzzle",
   for (const bool vector : {true, false}) {
     const Puzzle p = test::loadFixture("Bermuda.xmpuzzle");
     Assembler0 a(p, p.getProblem(0));
-    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
     CHECK(runOnce(a, searchOptions(4, &pool, vector)).found == serial);
   }
 }
@@ -280,7 +281,7 @@ void checkStopAndResume(const std::string& fixture, unsigned int threads, bool v
 
   const Puzzle p = test::loadFixture(fixture);
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   const test::RunResult first = runOnce(a, searchOptions(threads, &pool, vector), {}, stopAt);
   REQUIRE(first.end == RunEnd::Stopped);
   REQUIRE(a.finished() < 1.0F);
@@ -290,7 +291,7 @@ void checkStopAndResume(const std::string& fixture, unsigned int threads, bool v
     const SavedPosition pos = a.savePosition();
     const Puzzle p2 = test::loadFixture(fixture);
     Assembler0 restored(p2, p2.getProblem(0));
-    REQUIRE(restored.createMatrix({}) == AssemblerError::None);
+    REQUIRE(restored.createMatrix({}, StopToken()) == AssemblerError::None);
     REQUIRE(restored.restorePosition(pos.text, pos.version) == AssemblerError::None);
     // restoring and saving again writes the same position (signatures come
     // from an unordered set, so only their number is compared)
@@ -346,7 +347,7 @@ TEST_CASE("Assembler 0: the vector and the plain search find the same assemblies
     {
       const Puzzle p = test::loadFixture(file);
       Assembler0 a(p, p.getProblem(0));
-      REQUIRE(a.createMatrix({}) == AssemblerError::None);
+      REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
       (void)runOnce(a, searchOptions(1, nullptr, false));
       plainIterations = a.iterations();
     }
@@ -355,7 +356,7 @@ TEST_CASE("Assembler 0: the vector and the plain search find the same assemblies
         INFO(file << ", " << threads << " threads" << (reduce ? ", reduced" : ""));
         const Puzzle p = test::loadFixture(file);
         Assembler0 a(p, p.getProblem(0));
-        REQUIRE(a.createMatrix({}) == AssemblerError::None);
+        REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
         if (reduce) {
           (void)a.reduce(StopToken{});
         }
@@ -386,7 +387,7 @@ TEST_CASE("Assembler 0: the vector search is refused past its stack budget",
   const auto searched = [](std::uint64_t stackBudget, bool vector) {
     const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
     Assembler0 a(p, p.getProblem(0));
-    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
     SearchOptions o = searchOptions(1, nullptr, vector);
     o.vectorStackBudget = stackBudget;
     const test::RunResult r = runOnce(a, o);
@@ -408,7 +409,7 @@ namespace {
 std::size_t countPentominoes(const Puzzle& puz, unsigned int threads, ThreadPool* pool,
                              bool vector = true) {
   Assembler0 a(puz, puz.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   (void)a.reduce(StopToken{});
   const test::RunResult r = runOnce(a, searchOptions(threads, pool, vector));
   CHECK(r.end == RunEnd::Finished);
@@ -453,7 +454,7 @@ TEST_CASE("Assembler 0: a stop made before the run starts is not lost",
       INFO(threads << " threads" << (vector ? "" : ", plain"));
       const Puzzle p = test::loadFixture("DraculasDentalDesaster.xmpuzzle");
       Assembler0 a(p, p.getProblem(0));
-      REQUIRE(a.createMatrix({}) == AssemblerError::None);
+      REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
 
       const StopSource early;
       early.request(StopKind::Pause);
@@ -494,7 +495,7 @@ TEST_CASE("Assembler 0: progress is read from another thread while it searches",
     for (const bool vector : {true, false}) {
       INFO(threads << " threads" << (vector ? "" : ", plain"));
       Assembler0 a(p, p.getProblem(0));
-      REQUIRE(a.createMatrix({}) == AssemblerError::None);
+      REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
       std::atomic<bool> done{false};
       bool inRange = true;
       unsigned int reads = 0;
@@ -527,7 +528,7 @@ TEST_CASE("Assembler 0: an exception in the search comes back to the caller",
   for (const unsigned int threads : {1U, 4U}) {
     INFO(threads << " threads");
     Assembler0 a(p, p.getProblem(0));
-    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
     unsigned int seen = 0;
     CHECK_THROWS_AS(a.assemble(
                         [&seen](Assembly) -> bool {
@@ -586,7 +587,7 @@ TEST_CASE("beginSolving: a position that cannot be restored is kept with what wa
     // twice: carried on again, the same error, and still nothing lost
     for (int again = 0; again < 2; again++) {
       Assembler0 a(p, pr);
-      REQUIRE(a.createMatrix({}) == AssemblerError::None);
+      REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
       CHECK(beginSolving(pr, a) == c.error);
       CHECK(pr.getSolveState() == c.state);
       CHECK(pr.getNumberOfSavedSolutions() == 1);
@@ -601,7 +602,7 @@ TEST_CASE("beginSolving: a position that cannot be restored is kept with what wa
     CHECK(pr.getAssemblerState().empty());
     CHECK(canStartSolving(pr));
     Assembler0 a(p, pr);
-    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
     REQUIRE(beginSolving(pr, a) == AssemblerError::None);
     CHECK(pr.getSolveState() == ProblemState::Solving);
     CHECK(runOnce(a, searchOptions(1, nullptr)).found.size() == 12);
@@ -630,7 +631,7 @@ TEST_CASE("Assembler 0: a paused search saved in a puzzle file carries on after 
     Fingerprints first;
     {
       Assembler0 a(p, pr);
-      REQUIRE(a.createMatrix({}) == AssemblerError::None);
+      REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
       (void)a.reduce(StopToken{});
       REQUIRE(beginSolving(pr, a) == AssemblerError::None);
       first = runOnce(a, searchOptions(path.threads, &pool, path.vector), {}, 30).found;
@@ -649,7 +650,7 @@ TEST_CASE("Assembler 0: a paused search saved in a puzzle file carries on after 
     REQUIRE(canStartSolving(pr2));
 
     Assembler0 a(*loaded, pr2);
-    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
     (void)a.reduce(StopToken{});
     REQUIRE(beginSolving(pr2, a) == AssemblerError::None);
     CHECK(pr2.getAssemblerState().empty());
@@ -666,12 +667,12 @@ TEST_CASE("Assembler 0: a paused search saved in a puzzle file carries on after 
 TEST_CASE("Assembler 0: a finished position restores as finished", "[solve][assembler][resume]") {
   const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   REQUIRE(runOnce(a, searchOptions(1, nullptr, false)).end == RunEnd::Finished);
   const SavedPosition pos = a.savePosition();
 
   Assembler0 b(p, p.getProblem(0));
-  REQUIRE(b.createMatrix({}) == AssemblerError::None);
+  REQUIRE(b.createMatrix({}, StopToken()) == AssemblerError::None);
   REQUIRE(b.restorePosition(pos.text, pos.version) == AssemblerError::None);
   CHECK(b.finished() >= 1.0F);
   const test::RunResult r = runOnce(b, searchOptions(1, nullptr));
@@ -685,7 +686,7 @@ namespace {
 
 std::unique_ptr<Assembler> madeA0(const Puzzle& p) {
   auto a = std::make_unique<Assembler0>(p, p.getProblem(0));
-  REQUIRE(a->createMatrix({}) == AssemblerError::None);
+  REQUIRE(a->createMatrix({}, StopToken()) == AssemblerError::None);
   return a;
 }
 
@@ -711,7 +712,7 @@ std::size_t pelikanNodes(const Puzzle& p) {
   RotationFilter f;
   PrepareCounters piece;
   int param = 0;
-  REQUIRE(m.build(p, p.getProblem(0), false, false, {}, {}, f, piece, param) ==
+  REQUIRE(m.build(p, p.getProblem(0), false, false, {}, {}, f, piece, param, StopToken()) ==
           AssemblerError::None);
   return m.nodes.left.size();
 }
@@ -892,25 +893,25 @@ TEST_CASE("Assembler 0: errors of createMatrix", "[solve][assembler]") {
     pr.setShapeMaximum(p, pr.getShapeIdOfPart(0), 2);
     CHECK_FALSE(Assembler0::canHandle(pr));
     Assembler0 a(p, pr);
-    CHECK(a.createMatrix({}) == AssemblerError::PuzzleUnhandable);
+    CHECK(a.createMatrix({}, StopToken()) == AssemblerError::PuzzleUnhandable);
     CHECK(chooseAssembler(pr, SolverType::Classic) == AssemblerKind::Assembler1);
   }
   SECTION("too many units") {
     Puzzle p = test::pentominoPuzzle(10, 5);
     Assembler0 a(p, p.getProblem(0));
-    CHECK(a.createMatrix({}) == AssemblerError::TooManyUnits);
+    CHECK(a.createMatrix({}, StopToken()) == AssemblerError::TooManyUnits);
     CHECK(a.errorParam() == 10);
   }
   SECTION("too few units") {
     Puzzle p = test::pentominoPuzzle(10, 7);
     Assembler0 a(p, p.getProblem(0));
-    CHECK(a.createMatrix({}) == AssemblerError::TooFewUnits);
+    CHECK(a.createMatrix({}, StopToken()) == AssemblerError::TooFewUnits);
     CHECK(a.errorParam() == 10);
   }
   SECTION("a piece that fits nowhere") {
     Puzzle p = test::pentominoPuzzle(30, 2);
     Assembler0 a(p, p.getProblem(0));
-    CHECK(a.createMatrix({}) == AssemblerError::CannotPlace);
+    CHECK(a.createMatrix({}, StopToken()) == AssemblerError::CannotPlace);
   }
   CHECK(errorMessage(AssemblerError::CannotPlace) == "A piece cannot be placed in the target shape");
 }
@@ -919,7 +920,7 @@ TEST_CASE("Assembler 0: placements, the debugger and the current assembly",
           "[solve][assembler]") {
   const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   REQUIRE(a.piecePlacementSupported());
 
   for (unsigned int piece = 0; piece < p.getProblem(0).getNumberOfPieces(); piece++) {
@@ -1011,7 +1012,7 @@ TEST_CASE("assembler 1: a hole column merged by reduce still counts its cell",
       Assembler1 assm(puz, pr);
       MatrixOptions mo;
       mo.strictColors = true;
-      REQUIRE(assm.createMatrix(mo) == AssemblerError::None);
+      REQUIRE(assm.createMatrix(mo, StopToken()) == AssemblerError::None);
       if (reduce) {
         (void)assm.reduce(StopToken{});
       }
@@ -1083,7 +1084,7 @@ TEST_CASE("assemblers: every fixture gives the same layouts on every search and 
         }
         INFO("reduce " << reduce << " kind " << kind << " (0 vector, 1 plain, 2 split)");
         const std::unique_ptr<Assembler> a = makeAssembler(p, pr, SolverType::Classic);
-        if (a->createMatrix(mo) != AssemblerError::None) {
+        if (a->createMatrix(mo, StopToken()) != AssemblerError::None) {
           break;
         }
         if (reduce) {
@@ -1122,7 +1123,7 @@ TEST_CASE("Both assemblers: the preparation's counts add up", "[solve][assembler
     INFO("assembler " << i);
     Assembler& a = *both[i];
     CHECK(a.prepareProgress().placements == 0);
-    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
     const PrepareProgress built = a.prepareProgress();
     CHECK(built.placements > 0);
     CHECK(built.piece + 1 == p.getProblem(0).getNumberOfParts());
@@ -1143,7 +1144,7 @@ TEST_CASE("Assembler 0: a reduce stopped at once leaves its counts as they were"
           "[solve][assembler]") {
   const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   const std::uint64_t placements = a.prepareProgress().placements;
   const StopSource stop;
   stop.request(StopKind::Pause);
@@ -1197,7 +1198,7 @@ Puzzle rectanglesInTray(const std::vector<unsigned int>& widths,
 // `reduce` false the assemblies of the matrix as built.
 std::pair<unsigned int, Fingerprints> reducedAssemblies(const Puzzle& p, bool reduce = true) {
   Assembler0 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   const unsigned int rows = reduce ? a.reduce(StopToken{}).rows : 0;
   const test::RunResult r = runOnce(a, searchOptions(1, nullptr, false));
   REQUIRE(r.end == RunEnd::Finished);
@@ -1236,4 +1237,86 @@ TEST_CASE("Assembler 0: reduce keeps every assembly of a variable result with ho
   const Fingerprints all = reducedAssemblies(p, false).second;
   CHECK(all.size() >= 2);
   CHECK(reducedAssemblies(p).second == all);
+}
+
+// Cleanup item 18.3: a matrix build takes its run's stop token. Pause and
+// Abort waited for the build's end, and every call of the window behind
+// them. A token stopped before the build ends it at its first orientation;
+// one stopped while it runs (as soon as the progress shows a placement, the
+// first orientation of the first piece of 192) ends it long before its
+// last: a build that ran to its end would answer None.
+TEST_CASE("Assemblers: a stop ends the matrix build", "[solve][assembler][parallel]") {
+  struct Kind {
+    const char* name;
+    unsigned int copies;
+  };
+  for (const Kind& kind : {Kind{"Assembler 0", 1}, Kind{"Assembler 1", 2}}) {
+    INFO(kind.name);
+    const Puzzle p = test::slowMatrixPuzzle(32, 8, kind.copies);
+    const auto make = [&]() -> std::unique_ptr<Assembler> {
+      if (kind.copies == 1) {
+        return std::make_unique<Assembler0>(p, p.getProblem(0));
+      }
+      return std::make_unique<Assembler1>(p, p.getProblem(0));
+    };
+    {
+      const StopSource stop;
+      stop.request(StopKind::Pause);
+      const std::unique_ptr<Assembler> a = make();
+      CHECK(a->createMatrix({}, stop.token()) == AssemblerError::Stopped);
+      CHECK(a->prepareProgress().placements == 0);
+    }
+    {
+      const StopSource stop;
+      const std::unique_ptr<Assembler> a = make();
+      std::atomic<bool> over{false};
+      std::thread watcher([&] {
+        while (!over.load() && a->prepareProgress().placements == 0) {
+          std::this_thread::yield();
+        }
+        stop.request(StopKind::Abort);
+      });
+      const AssemblerError end = a->createMatrix({}, stop.token());
+      over.store(true);
+      watcher.join();
+      CHECK(end == AssemblerError::Stopped);
+      // far from the 24 orientations of 8 hooks, about 30,000 placements each
+      CHECK(a->prepareProgress().placements < 1'000'000);
+    }
+  }
+}
+
+// The finder itself is asked once an orientation, and one orientation in a
+// result of millions of cells is long: it looks at the token as it walks
+// the result, on both of its ways through it.
+TEST_CASE("placement finder: a stop ends the walk through the result", "[solve][assembler]") {
+  const auto placements = [](bool sparse, const StopToken& stop) {
+    Puzzle p{GridType{GridKind::Bricks}};
+    const unsigned int side = sparse ? 30 : 20;
+    const unsigned int box = p.addShape(side, side, side);
+    for (unsigned int i = 0; i < side * side * side; i++) {
+      // every other cell: fewer result voxels than places in the window
+      if (!sparse || (i % side + i / side % side + i / side / side) % 2 == 0) {
+        p.getShape(box).setState(i, Voxel::kFilled);
+      }
+    }
+    const unsigned int cube = p.addShape(1, 1, 1);
+    p.getShape(cube).setState(0, Voxel::kFilled);
+    Problem& pr = p.getProblem(p.addProblem());
+    pr.setResultId(p, box);
+    pr.setShapeMaximum(p, cube, 1);
+    const PlacementFinder finder(p, pr, p.getShape(box));
+    std::vector<long> offsets;
+    std::vector<int> found;
+    finder.find(p.getShape(cube), offsets, found, stop);
+    return found.size() / 3;
+  };
+  const StopSource stopped;
+  stopped.request(StopKind::Pause);
+  // the window: asked at its first row
+  CHECK(placements(false, StopToken()) == 8000);
+  CHECK(placements(false, stopped.token()) == 0);
+  // the result's voxels: asked every 4096 of them
+  CHECK(placements(true, StopToken()) == 13500);
+  CHECK(placements(true, stopped.token()) == 4095);
 }

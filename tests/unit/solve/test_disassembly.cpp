@@ -302,7 +302,7 @@ const Separation& cubeInCageSeparation() {
     REQUIRE(Disassembler::canDisassemble(p));
 
     std::unique_ptr<Assembler> assm = makeAssembler(p, problem, SolverType::Classic);
-    REQUIRE(assm->createMatrix({}) == AssemblerError::None);
+    REQUIRE(assm->createMatrix({}, StopToken()) == AssemblerError::None);
 
     Disassembler disasm(p, problem, {});
     std::optional<Separation> result;
@@ -1050,7 +1050,7 @@ TEST_CASE("take-apart: hotspots reset before the matrix, not after it", "[solve]
     }
     const Problem& problem = p.getProblem(0);
     std::unique_ptr<Assembler> assm = makeAssembler(p, problem, SolverType::Classic);
-    REQUIRE(assm->createMatrix({}) == AssemblerError::None);
+    REQUIRE(assm->createMatrix({}, StopToken()) == AssemblerError::None);
     for (unsigned int i = 0; i < p.getNumberOfShapes(); i++) {
       p.getShape(i).initHotspot();
     }

@@ -230,9 +230,13 @@ void SolutionIterator::runAssembler(Problem& problem) {
   assembler_ = makeAssembler(*puzzle_, problem, setup.solver);
   activeAssembler_.store(assembler_.get(), std::memory_order_release);
 
-  if (const AssemblerError err = assembler_->createMatrix(setup.matrix);
+  // the iterator's own stop ends the build (a closed iterator waited for it)
+  if (const AssemblerError err = assembler_->createMatrix(setup.matrix, stopSource_.token());
       err != AssemblerError::None) {
     activeAssembler_.store(nullptr, std::memory_order_release);
+    if (err == AssemblerError::Stopped) {
+      return;
+    }
     pushItem(QueueItem{QueueItem::Type::Error,
                        {},
                        std::string("Matrix creation error in assembler: ") +

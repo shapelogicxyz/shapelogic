@@ -48,7 +48,7 @@ class Assembler1 final : public Assembler {
   [[nodiscard]] static bool canHandle(const Problem& problem);
 
   // The Assembler interface; see assembler.h for what each one does.
-  AssemblerError createMatrix(const MatrixOptions& options) override;
+  AssemblerError createMatrix(const MatrixOptions& options, const StopToken& stop) override;
   void applySolutionFilterFlags(bool keepMirrors, bool keepRotations, bool complete) override;
   [[nodiscard]] int errorParam() const override { return errorsParam_; }
   ReduceStats reduce(const StopToken& stop) override;
@@ -169,7 +169,8 @@ class Assembler1 final : public Assembler {
   [[nodiscard]] const PiecePosition& placementOf(unsigned int node) const;
   /// The index in piecePositions_ of the row `node` belongs to.
   [[nodiscard]] std::size_t rowIndexOf(unsigned int node) const;
-  int prepare(bool hasRange, unsigned int rangeMin, unsigned int rangeMax);
+  int prepare(bool hasRange, unsigned int rangeMin, unsigned int rangeMax,
+              const StopToken& stop);
   unsigned int clumpify();
   void removeRow(unsigned int r);
   void removeColumn(unsigned int c);

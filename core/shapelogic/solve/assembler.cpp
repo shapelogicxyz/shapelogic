@@ -35,6 +35,8 @@ std::string_view errorMessage(AssemblerError e) noexcept {
              "beginning";
     case AssemblerError::PuzzleUnhandable:
       return "Puzzle contains unhandable definitions";
+    case AssemblerError::Stopped:
+      return "The preparation was stopped";
   }
   return "Unknown error";
 }

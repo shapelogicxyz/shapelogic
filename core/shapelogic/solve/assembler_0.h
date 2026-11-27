@@ -46,7 +46,7 @@ class Assembler0 final : public Assembler {
   [[nodiscard]] static bool canHandle(const Problem& problem);
 
   // The Assembler interface; see assembler.h for what each one does.
-  AssemblerError createMatrix(const MatrixOptions& options) override;
+  AssemblerError createMatrix(const MatrixOptions& options, const StopToken& stop) override;
   void applySolutionFilterFlags(bool keepMirrors, bool keepRotations, bool complete) override;
   [[nodiscard]] int errorParam() const override { return errorsParam_; }
   ReduceStats reduce(const StopToken& stop) override;

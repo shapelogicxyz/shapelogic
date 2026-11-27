@@ -6,6 +6,8 @@
 /// building the assemblers' matrices.
 /// Ported from placementFinder_c in src/lib/assembler.{h,cpp}.
 
+#include "shapelogic/base/stop.h"
+
 #include <vector>
 
 namespace bt {
@@ -44,9 +46,12 @@ class PlacementFinder {
   /// voxel of the piece in matrix order, its result index offset relative to
   /// a placement (index = x + sx*(y + sy*z) + offset); `placements` receives
   /// (x, y, z) translation triples. `lock` plays a part only with start
-  /// locks.
+  /// locks. Polls `stop` as it goes through the result (a result of
+  /// millions of cells takes a while for one orientation): stopped, it
+  /// returns with the placements it has, which are not all and not in
+  /// order, so the caller asks the token before it uses them.
   void find(const Voxel& rotation, std::vector<long>& voxelOffsets, std::vector<int>& placements,
-            StartLock lock = StartLock{0, true}) const;
+            const StopToken& stop, StartLock lock = StartLock{0, true}) const;
 
  private:
   struct ResultVoxel {

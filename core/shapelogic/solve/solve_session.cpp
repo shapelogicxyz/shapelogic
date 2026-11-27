@@ -687,9 +687,18 @@ bool SolveSession::prepareSearch(const Plan& plan) {
     }
   }
 
-  const AssemblerError err = a->createMatrix(matrix);
+  // The run's token: Pause and Abort end the build where it is (cleanup
+  // item 18.3: they waited for it, and so did every call behind them). A
+  // build that was stopped is the stop below, never a failure.
+  const AssemblerError err = a->createMatrix(matrix, runToken());
   endPhase(prepareMs_);
-  if (err != AssemblerError::None) {
+  const bool built = err != AssemblerError::Stopped;
+  BT_ASSERT_MSG(built || runStopRequested(), "a matrix build stopped without a stop request");
+  if (!built) {
+    addLog(LogLevel::Debug, "The preparation was stopped while the placements were looked for (" +
+                                withCommas(a->prepareProgress().placements) + " found by then).");
+  }
+  if (built && err != AssemblerError::None) {
     {
       const std::lock_guard<std::mutex> lock(failureMutex_);
       failure_ = SolveFailure{err, a->errorParam(), std::string(errorMessage(err)), {}, 0};
@@ -698,13 +707,13 @@ bool SolveSession::prepareSearch(const Plan& plan) {
     return false;
   }
 
-  if (!runStopRequested() && o.reduce) {
+  if (built && !runStopRequested() && o.reduce) {
     beginPhase(Phase::Reduce);
     (void)a->reduce(runToken());
     endPhase(reduceMs_);
   }
 
-  if (runStopRequested()) {
+  if (!built || runStopRequested()) {
     // the new search is not kept: the next run prepares again
     if (runStopKind() == StopKind::Abort) {
       const std::lock_guard<std::mutex> lock(resultsMutex_);

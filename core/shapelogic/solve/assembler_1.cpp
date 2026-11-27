@@ -356,8 +356,11 @@ Assembler1::~Assembler1() = default;
 // voxels the range pieces fill, which must lie between what the result
 // leaves to them at least and at most.
 //
-// Returns 1, or minus the shape id of a part that has no placement.
-int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int rangeMax) {
+// Returns kPrepared, kPrepareStopped when `stop` stopped it (the rows are
+// then not all there), or minus the shape id of a part that has no
+// placement.
+int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int rangeMax,
+                        const StopToken& stop) {
   const Voxel& result = problem_.resultShape(puzzle_);
 
   // nodes 1..n are the column headers
@@ -586,6 +589,9 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
       if (!transformAllowed(partTransforms_, pc, rot)) {
         continue;
       }
+      if (stop.stopRequested()) {
+        return kPrepareStopped;
+      }
       std::unique_ptr<Voxel> rotated = problem_.partShape(puzzle_, pc).clone();
       if (!rotated->transform(rot)) {
         continue;
@@ -594,9 +600,16 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
       const Voxel* rotation = addToCache(cache, std::move(rotated));
 
       if (rotation != nullptr) {
-        finder.find(*rotation, voxelOffsets, positions, lock);
+        finder.find(*rotation, voxelOffsets, positions, stop, lock);
+        // stopped, the finder's list is not whole
+        if (stop.stopRequested()) {
+          return kPrepareStopped;
+        }
 
         for (std::size_t p = 0; p < positions.size(); p += 3) {
+          if ((p & kPreparePollMask) == 0 && p != 0 && stop.stopRequested()) {
+            return kPrepareStopped;
+          }
           const int x = positions[p];
           const int y = positions[p + 1];
           const int z = positions[p + 2];
@@ -641,10 +654,10 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
     }
   }
 
-  return 1;
+  return kPrepared;
 }
 
-AssemblerError Assembler1::createMatrix(const MatrixOptions& options) {
+AssemblerError Assembler1::createMatrix(const MatrixOptions& options, const StopToken& stop) {
   BT_ASSERT(problem_.resultValid());
 
   filter_.complete = options.completeRotations;
@@ -734,8 +747,13 @@ AssemblerError Assembler1::createMatrix(const MatrixOptions& options) {
     rangeMin = 0;
   }
 
-  const int error = prepare(min != max, asUnsigned(rangeMin), static_cast<unsigned int>(rangeMax));
+  const int error =
+      prepare(min != max, asUnsigned(rangeMin), static_cast<unsigned int>(rangeMax), stop);
 
+  if (error == kPrepareStopped) {
+    errorsState_ = AssemblerError::Stopped;
+    return errorsState_;
+  }
   // a piece that cannot be placed
   if (error <= 0) {
     errorsState_ = AssemblerError::CannotPlace;

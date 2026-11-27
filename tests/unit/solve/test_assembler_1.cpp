@@ -37,7 +37,7 @@ namespace {
 std::unique_ptr<Assembler1> made(const Puzzle& p, unsigned int prob = 0,
                                  const MatrixOptions& options = {}) {
   auto a = std::make_unique<Assembler1>(p, p.getProblem(prob));
-  REQUIRE(a->createMatrix(options) == AssemblerError::None);
+  REQUIRE(a->createMatrix(options, StopToken()) == AssemblerError::None);
   return a;
 }
 
@@ -661,7 +661,7 @@ TEST_CASE("Assembler 1: a paused search saved in a puzzle file carries on after 
     Fingerprints first;
     {
       Assembler1 a(p, pr);
-      REQUIRE(a.createMatrix({}) == AssemblerError::None);
+      REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
       (void)a.reduce(StopToken{});
       REQUIRE(beginSolving(pr, a) == AssemblerError::None);
       first = runOnce(a, searchOptions(path.threads, &pool, path.vector), {}, 30).found;
@@ -684,7 +684,7 @@ TEST_CASE("Assembler 1: a paused search saved in a puzzle file carries on after 
     REQUIRE(canStartSolving(pr2));
 
     Assembler1 a(*loaded, pr2);
-    REQUIRE(a.createMatrix({}) == AssemblerError::None);
+    REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
     (void)a.reduce(StopToken{});
     REQUIRE(beginSolving(pr2, a) == AssemblerError::None);
     const test::RunResult rest = runOnce(a, searchOptions(path.threads, &pool, path.vector));
@@ -962,7 +962,7 @@ TEST_CASE("Assembler 1: errors of createMatrix", "[solve][assembler]") {
     pr.setShapeMinimum(p, pr.getShapeIdOfPart(0), 2);
     pr.setShapeMaximum(p, pr.getShapeIdOfPart(0), 2);
     Assembler1 a(p, pr);
-    CHECK(a.createMatrix({}) == AssemblerError::TooManyUnits);
+    CHECK(a.createMatrix({}, StopToken()) == AssemblerError::TooManyUnits);
     CHECK(a.errorParam() > 0);
   }
   SECTION("too few units") {
@@ -970,7 +970,7 @@ TEST_CASE("Assembler 1: errors of createMatrix", "[solve][assembler]") {
     Problem& pr = p.getProblem(0);
     pr.setShapeMaximum(p, pr.getShapeIdOfPart(0), 2);
     Assembler1 a(p, pr);
-    CHECK(a.createMatrix({}) == AssemblerError::TooFewUnits);
+    CHECK(a.createMatrix({}, StopToken()) == AssemblerError::TooFewUnits);
     CHECK(a.errorParam() == 5);
   }
   SECTION("a piece that fits nowhere") {
@@ -978,7 +978,7 @@ TEST_CASE("Assembler 1: errors of createMatrix", "[solve][assembler]") {
     Problem& pr = p.getProblem(0);
     pr.setShapeMaximum(p, pr.getShapeIdOfPart(1), 2);
     Assembler1 a(p, pr);
-    CHECK(a.createMatrix({}) == AssemblerError::CannotPlace);
+    CHECK(a.createMatrix({}, StopToken()) == AssemblerError::CannotPlace);
   }
   SECTION("ranges get assembler 1") {
     Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
@@ -1039,7 +1039,7 @@ std::pair<unsigned int, Fingerprints> reducedAssemblies(const Puzzle& p, bool ho
   Assembler1 a(p, p.getProblem(0));
   MatrixOptions mo;
   mo.variableHoleColumns = holeColumns;
-  REQUIRE(a.createMatrix(mo) == AssemblerError::None);
+  REQUIRE(a.createMatrix(mo, StopToken()) == AssemblerError::None);
   const unsigned int rows = a.reduce(StopToken{}).rows;
   const test::RunResult r = runOnce(a, searchOptions(1, nullptr, false));
   REQUIRE(r.end == RunEnd::Finished);
@@ -1052,7 +1052,7 @@ std::unique_ptr<Assembler1> reducedA1(const Puzzle& p, bool holeColumns) {
   auto a = std::make_unique<Assembler1>(p, p.getProblem(0));
   MatrixOptions mo;
   mo.variableHoleColumns = holeColumns;
-  REQUIRE(a->createMatrix(mo) == AssemblerError::None);
+  REQUIRE(a->createMatrix(mo, StopToken()) == AssemblerError::None);
   (void)a->reduce(StopToken{});
   return a;
 }

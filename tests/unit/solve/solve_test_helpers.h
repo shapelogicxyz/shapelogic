@@ -66,6 +66,32 @@ inline std::string recordedPosition(const std::string& pos) {
   return {};
 }
 
+/// A puzzle whose matrix takes a while to build (cleanup item 18.3): a box
+/// of `side` cells a side, every cell variable, and `hooks` pieces, hook i a
+/// bar of 3 + i cells with one more beside its second cell (no symmetry: 24
+/// orientations), each `copies` times: one copy is Assembler 0's problem,
+/// more are Assembler 1's. Each orientation of a hook has about side^3
+/// placements. Built to its end it is many million rows: the tests stop it.
+inline Puzzle slowMatrixPuzzle(unsigned int side, unsigned int hooks, unsigned int copies) {
+  Puzzle p{GridType{GridKind::Bricks}};
+  const unsigned int box = p.addShape(side, side, side);
+  for (unsigned int i = 0; i < side * side * side; i++) {
+    p.getShape(box).setState(i, Voxel::kVariable);
+  }
+  Problem& pr = p.getProblem(p.addProblem());
+  pr.setResultId(p, box);
+  for (unsigned int i = 0; i < hooks; i++) {
+    const unsigned int id = p.addShape(3 + i, 2, 1);
+    for (unsigned int x = 0; x < 3 + i; x++) {
+      p.getShape(id).setState(x, 0, 0, Voxel::kFilled);
+    }
+    p.getShape(id).setState(1, 1, 0, Voxel::kFilled);
+    pr.setShapeMaximum(p, id, copies);
+    pr.setShapeMinimum(p, id, copies);
+  }
+  return p;
+}
+
 /// Search options for `threads` threads from `pool`, with or without the
 /// vector search.
 inline SearchOptions searchOptions(unsigned int threads, ThreadPool* pool,
@@ -99,7 +125,7 @@ inline RunResult runOnce(Assembler& a, const SearchOptions& o, const StopToken& 
 template <class A>
 std::unique_ptr<Assembler> prepared(const Puzzle& p) {
   auto a = std::make_unique<A>(p, p.getProblem(0));
-  REQUIRE(a->createMatrix({}) == AssemblerError::None);
+  REQUIRE(a->createMatrix({}, StopToken()) == AssemblerError::None);
   (void)a->reduce(StopToken{});
   return a;
 }

@@ -258,7 +258,7 @@ bt::Puzzle twoBoxes(bool resultFirst) {
 std::vector<bt::Assembly> assembliesOf(const bt::Puzzle& puzzle) {
   const bt::Problem& pr = puzzle.getProblem(0);
   std::unique_ptr<bt::Assembler> a = bt::makeAssembler(puzzle, pr, bt::SolverType::Classic);
-  REQUIRE(a->createMatrix({}) == bt::AssemblerError::None);
+  REQUIRE(a->createMatrix({}, bt::StopToken()) == bt::AssemblerError::None);
   std::vector<bt::Assembly> res;
   REQUIRE(a->assemble(
               [&res](bt::Assembly x) {

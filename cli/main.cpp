@@ -742,7 +742,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       std::fprintf(stderr, "%s\n", assemblerLine(kind));
     }
     std::unique_ptr<bt::Assembler> assembler = bt::makeAssembler(puzzle, problem, setup.solver);
-    if (const bt::AssemblerError err = assembler->createMatrix(matrix);
+    if (const bt::AssemblerError err = assembler->createMatrix(matrix, bt::StopToken{});
         err != bt::AssemblerError::None) {
       return reportMatrixError(o, err, assembler->errorParam());
     }

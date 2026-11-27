@@ -154,7 +154,7 @@ Puzzle puzzleOf(const GridType& gt, const std::vector<Cell>& result, const std::
 // Assembler 1 takes several pieces of one shape (Assembler 0 one per part).
 std::size_t assembliesOf(const Puzzle& p) {
   Assembler1 a(p, p.getProblem(0));
-  REQUIRE(a.createMatrix({}) == AssemblerError::None);
+  REQUIRE(a.createMatrix({}, StopToken()) == AssemblerError::None);
   const RunResult r = runOnce(a, searchOptions(1, nullptr));
   REQUIRE(r.end == RunEnd::Finished);
   return r.found.size();

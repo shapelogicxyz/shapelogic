@@ -1114,6 +1114,8 @@ Json failureJson(const SolveFailure& f) {
     case AssemblerError::CannotRestoreSyntax: assembler = "cannotRestoreSyntax"; break;
     case AssemblerError::CannotRestoreInterrupted: assembler = "cannotRestoreInterrupted"; break;
     case AssemblerError::PuzzleUnhandable: assembler = "puzzleUnhandable"; break;
+    // a stopped build is the run's stop, never a failure (prepareSearch)
+    case AssemblerError::Stopped: break;
   }
   Json j = Json::object();
   j["assembler"] = std::move(assembler);

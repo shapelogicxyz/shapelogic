@@ -14,6 +14,7 @@
 #include "shapelogic/solve/search_run.h"
 #include "shapelogic/solve/simd_bitset.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -37,7 +38,19 @@ enum class AssemblerError : std::uint8_t {
   CannotRestoreSyntax,       ///< a saved position that cannot be read
   CannotRestoreInterrupted,  ///< a saved search that cannot go on (an older version's split search)
   PuzzleUnhandable,          ///< the problem has what this assembler cannot do (ranges, ...)
+  /// createMatrix() was stopped by its token before the matrix was whole
+  /// (cleanup item 18.3): no failure of the problem's. The assembler holds
+  /// part of a matrix and is good for nothing but being let go.
+  Stopped,
 };
+
+/// What a matrix builder's prepare() answers when it is no shape's id
+/// negated (a part without a placement): the matrix is whole, or its stop
+/// token stopped it. And the placements it adds between two looks at that
+/// token, as a mask over its place in the finder's list.
+inline constexpr int kPrepared = 1;
+inline constexpr int kPrepareStopped = 2;
+inline constexpr std::size_t kPreparePollMask = 4095;
 
 /// The original's message for an error.
 [[nodiscard]] std::string_view errorMessage(AssemblerError e) noexcept;
@@ -161,7 +174,8 @@ struct ReduceStats {
 /// An assembler for one problem. Holds references to the puzzle and the
 /// problem, which must outlive it and not change while it exists.
 ///
-/// The life of an assembler: createMatrix(), optionally reduce() and
+/// The life of an assembler: createMatrix() (until it returns None; one
+/// that was stopped is let go), optionally reduce() and
 /// restorePosition(), then assemble() until it returns Finished. Every
 /// assemble() call is one run (decision 0009): it polls the given token,
 /// and a callback answering false stops it; the next call carries on where
@@ -174,7 +188,11 @@ class Assembler {
   Assembler& operator=(const Assembler&) = delete;
 
   /// Builds the matrix: the part of the preparation that may take a while.
-  virtual AssemblerError createMatrix(const MatrixOptions& options) = 0;
+  /// Polls `stop` between the orientations of a piece and while a piece's
+  /// placements are looked for, and returns AssemblerError::Stopped when it
+  /// is stopped: the matrix is then not whole, and nothing but the
+  /// destructor may be called.
+  virtual AssemblerError createMatrix(const MatrixOptions& options, const StopToken& stop) = 0;
 
   /// Changes the mirror/rotation filter of a prepared assembler (one reused
   /// for another solve with other settings).

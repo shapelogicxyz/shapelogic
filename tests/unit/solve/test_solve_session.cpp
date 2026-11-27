@@ -304,6 +304,53 @@ TEST_CASE("solve session: more pieces than the vector search's stack holds", "[s
   CHECK(pr.getNumAssemblies() == 1);
 }
 
+// Cleanup item 18.3: Pause and Abort reach the matrix build. The session
+// takes a stopped build as the stop it is: paused or idle, never an error,
+// with nothing of the search kept. That the build ended early is told in
+// the log (a build that ran to its end is not).
+TEST_CASE("solve session: Pause and Abort end a matrix build", "[solve][session][parallel]") {
+  for (const unsigned int copies : {1U, 2U}) {
+    INFO("copies " << copies);
+    Puzzle p = test::slowMatrixPuzzle(32, 8, copies);
+    Problem& pr = p.getProblem(0);
+    SolveOptions o;
+    o.disassemble = false;
+    SolveSession s(p, pr, o);
+    const auto buildStopped = [&s] {
+      bool told = false;
+      for (const LogLine& line : s.takeLog()) {
+        told = told || line.text.find("The preparation was stopped") != std::string::npos;
+      }
+      return told;
+    };
+    const auto untilBuilding = [&s] {
+      while (s.state() == SolveState::Preparing && s.progress().prepare.placements == 0) {
+        std::this_thread::yield();
+      }
+      REQUIRE(s.state() == SolveState::Preparing);
+    };
+
+    REQUIRE(s.start().has_value());
+    untilBuilding();
+    s.pause();
+    s.wait();
+    CHECK(s.state() == SolveState::Paused);
+    CHECK(!s.failure().has_value());
+    CHECK(buildStopped());
+    CHECK(pr.getSolveState() == ProblemState::Unsolved);
+
+    // carried on, it prepares again; an abort ends that build too
+    REQUIRE(s.resume().has_value());
+    untilBuilding();
+    s.abort();
+    s.wait();
+    CHECK(s.state() == SolveState::Idle);
+    CHECK(!s.failure().has_value());
+    CHECK(buildStopped());
+    CHECK(pr.getSolveState() == ProblemState::Unsolved);
+  }
+}
+
 TEST_CASE("solve session: no solution limit keeps every solution", "[solve][session]") {
   // No limit and a drop of 0, as a typed-in value can give: the solve
   // starts (the original once looped for ever) and keeps every solution.
@@ -1370,7 +1417,7 @@ TEST_CASE("solve session: a position saved with hole columns is carried on on su
       Assembler1 a(p, pr);
       MatrixOptions mo;
       mo.variableHoleColumns = holeColumns;
-      REQUIRE(a.createMatrix(mo) == AssemblerError::None);
+      REQUIRE(a.createMatrix(mo, StopToken()) == AssemblerError::None);
       (void)a.reduce(StopToken{});
       REQUIRE(beginSolving(pr, a) == AssemblerError::None);
       REQUIRE(test::runOnce(a, test::searchOptions(1, nullptr, false), {}, 1).found.size() == 1);

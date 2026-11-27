@@ -128,7 +128,7 @@ std::vector<Subject> subjects() {
 
 std::unique_ptr<Assembler> prepare(const Puzzle& p) {
   std::unique_ptr<Assembler> a = makeAssembler(p, p.getProblem(0), SolverType::Classic);
-  REQUIRE(a->createMatrix({}) == AssemblerError::None);
+  REQUIRE(a->createMatrix({}, StopToken()) == AssemblerError::None);
   return a;
 }
 

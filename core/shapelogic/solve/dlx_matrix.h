@@ -122,11 +122,12 @@ class DlxMatrix {
   /// allows (MatrixOptions::partTransforms). Sets the rotation check
   /// `filter` asks for and writes the part being placed to `piece` as it
   /// goes, with the placements found so far. On an error `param` says more (the units too many or too few,
-  /// the shape that fits nowhere).
+  /// the shape that fits nowhere). Polls `stop`: stopped, the matrix is not
+  /// whole and the answer is AssemblerError::Stopped.
   AssemblerError build(const Puzzle& puzzle, const Problem& problem, bool strictColors,
                        bool startLocks, const std::vector<bool>& freeStarts,
                        const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
-                       PrepareCounters& progress, int& param);
+                       PrepareCounters& progress, int& param, const StopToken& stop);
 
   /// Removes placements that can never be part of an assembly; polls `stop`
   /// and leaves a valid (partly reduced) matrix when stopped. Writes how far
@@ -175,7 +176,7 @@ class DlxMatrix {
   int prepare(const Puzzle& puzzle, const Problem& problem, bool strictColors, bool startLocks,
               const std::vector<bool>& freeStarts,
               const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
-              PrepareCounters& progress);
+              PrepareCounters& progress, const StopToken& stop);
   unsigned int clumpify();
   /// The rows of the pieces from `from` on still in the matrix.
   [[nodiscard]] std::uint64_t rowsFrom(unsigned int from) const;

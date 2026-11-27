@@ -211,11 +211,13 @@ void DlxMatrix::addVoxelNode(unsigned int col, unsigned int piecenode) {
 // spaces in the result) are columns that are not in the header list, so the
 // search never has to fill them but they can be used once at most.
 //
-// Returns 1, or minus the shape id of a part that has no placement.
+// Returns kPrepared, kPrepareStopped when `stop` stopped it (the rows are
+// then not all there), or minus the shape id of a part that has no
+// placement.
 int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strictColors,
                        bool startLocks, const std::vector<bool>& freeStarts,
                        const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
-                       PrepareCounters& progress) {
+                       PrepareCounters& progress, const StopToken& stop) {
   const Voxel& result = problem.resultShape(puzzle);
 
   // the matrix column of every result voxel (a lookup, because computing it
@@ -387,6 +389,9 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
       if (!transformAllowed(partTransforms, pc, rot)) {
         continue;
       }
+      if (stop.stopRequested()) {
+        return kPrepareStopped;
+      }
       std::unique_ptr<Voxel> rotated = problem.partShape(puzzle, pc).clone();
       if (!rotated->transform(rot)) {
         continue;
@@ -395,9 +400,16 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
       const Voxel* rotation = addToCache(cache, std::move(rotated));
 
       if (rotation != nullptr) {
-        finder.find(*rotation, voxelOffsets, positions, lock);
+        finder.find(*rotation, voxelOffsets, positions, stop, lock);
+        // stopped, the finder's list is not whole
+        if (stop.stopRequested()) {
+          return kPrepareStopped;
+        }
 
         for (std::size_t p = 0; p < positions.size(); p += 3) {
+          if ((p & kPreparePollMask) == 0 && p != 0 && stop.stopRequested()) {
+            return kPrepareStopped;
+          }
           const int x = positions[p];
           const int y = positions[p + 1];
           const int z = positions[p + 2];
@@ -438,14 +450,14 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
     }
   }
 
-  return 1;
+  return kPrepared;
 }
 
 AssemblerError DlxMatrix::build(const Puzzle& puzzle, const Problem& problem, bool strictColors,
                                 bool startLocks, const std::vector<bool>& freeStarts,
                                 const std::vector<std::uint64_t>& partTransforms,
                                 RotationFilter& filter, PrepareCounters& progress,
-                                int& param) {
+                                int& param, const StopToken& stop) {
   pieces = problem.getNumberOfPieces();
 
   // the filled and variable units
@@ -483,8 +495,11 @@ AssemblerError DlxMatrix::build(const Puzzle& puzzle, const Problem& problem, bo
 
   const int error =
       prepare(puzzle, problem, strictColors, startLocks, freeStarts, partTransforms, filter,
-              progress);
+              progress, stop);
 
+  if (error == kPrepareStopped) {
+    return AssemblerError::Stopped;
+  }
   // a piece that cannot be placed
   if (error <= 0) {
     param = -error;

@@ -329,7 +329,7 @@ TEST_CASE("sliding: the start stamp is the only initial placement", "[sliding]")
   MatrixOptions mo;
   mo.startLocks = true;
   mo.freeStarts = freeStartParts(puz, pr);
-  REQUIRE(assm->createMatrix(mo) == AssemblerError::None);
+  REQUIRE(assm->createMatrix(mo, StopToken()) == AssemblerError::None);
 
   unsigned int n = 0;
   int x = -1;
@@ -361,7 +361,7 @@ TEST_CASE("sliding: normal cells may stay empty", "[sliding]") {
   const std::unique_ptr<Assembler> assm = makeAssembler(puz, pr, SolverType::Classic);
   MatrixOptions mo;
   mo.strictColors = true;
-  REQUIRE(assm->createMatrix(mo) == AssemblerError::None);
+  REQUIRE(assm->createMatrix(mo, StopToken()) == AssemblerError::None);
 
   unsigned int n = 0;
   (void)assm->assemble(
@@ -2315,7 +2315,7 @@ TEST_CASE("sliding: optional pieces give the same layouts on every search",
         mo.strictColors = true;
         mo.keepMirrors = true;
         mo.keepRotations = true;
-        REQUIRE(assm->createMatrix(mo) == AssemblerError::None);
+        REQUIRE(assm->createMatrix(mo, StopToken()) == AssemblerError::None);
         if (reduce) {
           (void)assm->reduce(StopToken{});
         }

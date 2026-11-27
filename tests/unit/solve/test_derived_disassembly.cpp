@@ -141,7 +141,7 @@ Found takeAllApart(const Puzzle& p, unsigned int problemNumber, const Disassembl
   const Problem& problem = p.getProblem(problemNumber);
   REQUIRE(Disassembler::canDisassemble(p));
   std::unique_ptr<Assembler> assm = makeAssembler(p, problem, SolverType::Classic);
-  REQUIRE(assm->createMatrix({}) == AssemblerError::None);
+  REQUIRE(assm->createMatrix({}, StopToken()) == AssemblerError::None);
 
   // a cache of the test's own: the disassembler's is not to be asked
   // from outside
@@ -596,7 +596,7 @@ TEST_CASE("derived take-apart: the playback tells a wrong take-apart",
   const Problem& problem = p.getProblem(0);
 
   std::unique_ptr<Assembler> assm = makeAssembler(p, problem, SolverType::Classic);
-  REQUIRE(assm->createMatrix({}) == AssemblerError::None);
+  REQUIRE(assm->createMatrix({}, StopToken()) == AssemblerError::None);
   std::optional<Assembly> assembly;
   (void)assm->assemble(
       [&](const Assembly& a) {

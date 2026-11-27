@@ -91,7 +91,7 @@ Result<AssemblyExplorer> AssemblyExplorer::make(const Puzzle& puzzle, unsigned i
       solveSetup(*e.puzzle_, e.puzzle_->getProblem(0), matrix, solver, SetupFlags{});
   const MatrixOptions& options = setup.matrix;
   e.assembler_ = makeAssembler(*e.puzzle_, e.puzzle_->getProblem(0), setup.solver);
-  const AssemblerError err = e.assembler_->createMatrix(options);
+  const AssemblerError err = e.assembler_->createMatrix(options, StopToken());
   if (err != AssemblerError::None) {
     return fail(Errc::InvalidArgument, std::string(errorMessage(err)));
   }

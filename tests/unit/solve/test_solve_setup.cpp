@@ -43,7 +43,7 @@ MatrixOptions given() {
 // The assemblies an assembler built by `setup` finds.
 std::size_t assembled(const Puzzle& p, const Problem& pr, const SolveSetup& setup) {
   std::unique_ptr<Assembler> a = makeAssembler(p, pr, setup.solver);
-  REQUIRE(a->createMatrix(setup.matrix) == AssemblerError::None);
+  REQUIRE(a->createMatrix(setup.matrix, StopToken()) == AssemblerError::None);
   (void)a->reduce(StopToken{});
   const test::RunResult r = test::runOnce(*a, test::searchOptions(1, nullptr));
   REQUIRE(r.end == RunEnd::Finished);
@@ -179,7 +179,7 @@ TEST_CASE("solve setup: the assembly explorer places a tilted tray's pieces as t
     const Problem& pr = p.getProblem(problem);
     const SolveSetup setup = solveSetup(p, pr, MatrixOptions{}, SolverType::Classic, flags);
     std::unique_ptr<Assembler> a = makeAssembler(p, pr, setup.solver);
-    REQUIRE(a->createMatrix(setup.matrix) == AssemblerError::None);
+    REQUIRE(a->createMatrix(setup.matrix, StopToken()) == AssemblerError::None);
     REQUIRE(a->piecePlacementSupported());
     std::vector<std::size_t> counts;
     for (unsigned int piece = 0; piece < pr.getNumberOfPieces(); piece++) {

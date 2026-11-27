@@ -65,7 +65,7 @@ std::vector<RecordedPause> readRecording() {
 
 std::unique_ptr<Assembler> prepared(const Puzzle& p, SolverType solver, bool reduce) {
   auto a = makeAssembler(p, p.getProblem(0), solver);
-  REQUIRE(a->createMatrix({}) == AssemblerError::None);
+  REQUIRE(a->createMatrix({}, StopToken()) == AssemblerError::None);
   if (reduce) {
     (void)a->reduce(StopToken{});
   }

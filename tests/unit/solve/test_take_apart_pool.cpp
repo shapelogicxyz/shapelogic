@@ -35,7 +35,7 @@ namespace {
 std::vector<Assembly> allAssemblies(Puzzle& puzzle) {
   const Problem& pr = puzzle.getProblem(0);
   std::unique_ptr<Assembler> assm = makeAssembler(puzzle, pr, SolverType::Classic);
-  REQUIRE(assm->createMatrix({}) == AssemblerError::None);
+  REQUIRE(assm->createMatrix({}, StopToken()) == AssemblerError::None);
   (void)assm->reduce(StopToken{});
   for (unsigned int i = 0; i < puzzle.getNumberOfShapes(); i++) {
     puzzle.getShape(i).initHotspot();

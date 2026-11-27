@@ -43,7 +43,7 @@ Assembler0::Assembler0(const Puzzle& puzzle, const Problem& problem)
 
 Assembler0::~Assembler0() = default;
 
-AssemblerError Assembler0::createMatrix(const MatrixOptions& options) {
+AssemblerError Assembler0::createMatrix(const MatrixOptions& options, const StopToken& stop) {
   BT_ASSERT(problem_.resultValid());
 
   filter_.complete = options.completeRotations;
@@ -65,7 +65,7 @@ AssemblerError Assembler0::createMatrix(const MatrixOptions& options) {
   errorsState_ =
       matrix_.build(puzzle_, problem_, strictColors_, startLocks_, freeStarts_, partTransforms_,
                     filter_, prepare_,
-                    errorsParam_);
+                    errorsParam_, stop);
   if (errorsState_ != AssemblerError::None) {
     return errorsState_;
   }
