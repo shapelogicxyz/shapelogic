@@ -86,7 +86,7 @@ just build        # build the solver core, engine and command line tool (build/d
 just test         # unit tests
 just app-install  # install the app's packages (once)
 just app-dev      # run the app
-just oracle       # compare with the original BurrTools (needs ../burr-tools built, or BT_OLD_REPO)
+just burrtools-compare  # speed and counts against upstream BurrTools (needs ../burr-tools built, or BURRTOOLS_DIR)
 ```
 
 `just` on its own lists every recipe, and [AGENTS.md](AGENTS.md) explains

@@ -292,9 +292,9 @@ TEST_CASE("Minkowski mesher: the exporter and the view use it on the rhombic gri
 
 // Random shapes on the three grids, both variants, a few gap / bevel
 // settings including the b = 2g tie: every result a valid polyhedron.
-// BT_MINK_STRESS scales the count (the original's MINK_STRESS).
+// SHAPELOGIC_MINK_STRESS scales the count (the original's MINK_STRESS).
 TEST_CASE("Minkowski mesher: random shapes", "[mesh][stl][slow]") {
-  const char* env = std::getenv("BT_MINK_STRESS");
+  const char* env = std::getenv("SHAPELOGIC_MINK_STRESS");
   const int count = env != nullptr ? std::atoi(env) : 3;
   std::mt19937 rng(12345);
   const GridTestDef grids[] = {

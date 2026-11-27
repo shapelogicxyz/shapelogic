@@ -10,7 +10,7 @@
 // once a run, a notice names what they hold (not the crash recovery copy),
 // with Manage Files…, Delete All… and Ignore.
 // The folder dialog is answered in the main process; the default cache
-// folder is the test's data directory (BT_USER_DATA).
+// folder is the test's data directory (SHAPELOGIC_USER_DATA).
 
 import {
   chmodSync,

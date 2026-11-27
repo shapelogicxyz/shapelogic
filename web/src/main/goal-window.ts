@@ -16,7 +16,7 @@ import { showWindow, windowOptions } from './security.ts';
 /** The goal windows, by their app window's web contents' id. */
 export class GoalWindows {
   private readonly open = new Map<number, BrowserWindow>();
-  /** Kept hidden (security.ts's BT_BACKGROUND). */
+  /** Kept hidden (security.ts's SHAPELOGIC_BACKGROUND). */
   private readonly background: boolean;
 
   constructor(background = false) {

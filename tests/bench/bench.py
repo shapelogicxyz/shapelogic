@@ -149,7 +149,7 @@ def puzzle_sets(tmp: Path) -> dict[str, list[tuple[str, Path, list[str]]]]:
         ("benchmark_most_assemblies (-rd)", REGRESSION / "benchmark_most_assemblies.xmpuzzle", ["-r", "-d"]),
         ("SolidSixPieceBurrs (-rd)", PUZZLES / "SolidSixPieceBurrs.xmpuzzle", ["-r", "-d"]),
     ]
-    glar = Path(os.environ.get("BT_BURR_GLAR", BURRTOOLS / "examples" / "Burr-Glar.xmpuzzle"))
+    glar = Path(os.environ.get("SHAPELOGIC_BURR_GLAR", BURRTOOLS / "examples" / "Burr-Glar.xmpuzzle"))
     # Assembler 1 with nothing to break the symmetry on: every cover is
     # found in each orientation and checked. The tetrominoes have no
     # assembly (a T too many for the coloring): the search alone.

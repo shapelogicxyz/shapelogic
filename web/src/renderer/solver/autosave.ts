@@ -24,7 +24,7 @@
 // when the solves have moved since the last one. The original's fixed 20
 // minutes threw away what each thread had done in its task at every save,
 // so it could not come more often; a save point costs no search work now
-// (decision 0024). The page's `autosave` parameter (BT_AUTOSAVE_SECONDS,
+// (decision 0024). The page's `autosave` parameter (SHAPELOGIC_AUTOSAVE_SECONDS,
 // which the main process passes in the page's address) sets the least time
 // between saves in seconds, for the e2e tests. A run still preparing its
 // search (building and reducing its placements, minutes for a large

@@ -200,15 +200,15 @@ describe('the app’s scheme', () => {
 
 describe('the switches a packaged app takes', () => {
   const env = {
-    BT_ENGINE: '/tmp/other-engine',
-    BT_USER_DATA: '/tmp/data',
-    BT_CALL_LOG: '/tmp/calls.log',
-    BT_AUTOSAVE_SECONDS: '3',
+    SHAPELOGIC_ENGINE: '/tmp/other-engine',
+    SHAPELOGIC_USER_DATA: '/tmp/data',
+    SHAPELOGIC_CALL_LOG: '/tmp/calls.log',
+    SHAPELOGIC_AUTOSAVE_SECONDS: '3',
     ELECTRON_RENDERER_URL: 'http://localhost:5173/',
-    BT_BACKGROUND: '1',
+    SHAPELOGIC_BACKGROUND: '1',
   };
 
-  it('only BT_USER_DATA when packaged', () => {
+  it('only SHAPELOGIC_USER_DATA when packaged', () => {
     expect(switches(true, env)).toEqual({ userData: '/tmp/data' });
     expect(switches(true, {})).toEqual({});
   });
@@ -222,16 +222,42 @@ describe('the switches a packaged app takes', () => {
       rendererUrl: 'http://localhost:5173/',
       background: true,
     });
-    expect(switches(false, { BT_ENGINE: '', BT_CALL_LOG: '', BT_BACKGROUND: '' })).toEqual({});
+    expect(
+      switches(false, {
+        SHAPELOGIC_ENGINE: '',
+        SHAPELOGIC_CALL_LOG: '',
+        SHAPELOGIC_BACKGROUND: '',
+      }),
+    ).toEqual({});
+  });
+
+  it('the old BT_USER_DATA when SHAPELOGIC_USER_DATA is not set, packaged or not', () => {
+    for (const packaged of [true, false]) {
+      expect(switches(packaged, { BT_USER_DATA: '/tmp/old' })).toEqual({ userData: '/tmp/old' });
+      expect(switches(packaged, { SHAPELOGIC_USER_DATA: '', BT_USER_DATA: '/tmp/old' })).toEqual({
+        userData: '/tmp/old',
+      });
+    }
+  });
+
+  it('SHAPELOGIC_USER_DATA over BT_USER_DATA when both are set', () => {
+    for (const packaged of [true, false]) {
+      expect(
+        switches(packaged, { SHAPELOGIC_USER_DATA: '/tmp/new', BT_USER_DATA: '/tmp/old' }),
+      ).toEqual({
+        userData: '/tmp/new',
+      });
+    }
   });
 
   it('are read through switches() only', () => {
     for (const name of [
-      'BT_ENGINE',
+      'SHAPELOGIC_ENGINE',
+      'SHAPELOGIC_USER_DATA',
       'BT_USER_DATA',
-      'BT_CALL_LOG',
-      'BT_AUTOSAVE_SECONDS',
-      'BT_BACKGROUND',
+      'SHAPELOGIC_CALL_LOG',
+      'SHAPELOGIC_AUTOSAVE_SECONDS',
+      'SHAPELOGIC_BACKGROUND',
     ]) {
       expect(occurrences(new RegExp(`process\\.env\\.${name}\\b`, 'g')), name).toEqual([]);
     }

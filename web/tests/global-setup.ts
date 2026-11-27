@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Says once, where the run's output shows it, when the engine tests are
-// skipped for want of an engine (with BT_REQUIRE_ALL=1, as the gate sets
+// skipped for want of an engine (with SHAPELOGIC_REQUIRE_ALL=1, as the gate sets
 // it, the run fails instead: a gate that skipped them must not pass); gives
 // the engines of the run search folders of its own (the engine's defaults
 // follow SHAPELOGIC_SLIDE_DIR and SHAPELOGIC_PANEX_DIR), so the tests
@@ -23,17 +23,17 @@ export default function setup(): () => void {
   const fromEnv = engineFromEnv();
   const engine = fromEnv ?? RELEASE_ENGINE;
   if (!existsSync(engine)) {
-    if (process.env.BT_REQUIRE_ALL === '1') {
+    if (process.env.SHAPELOGIC_REQUIRE_ALL === '1') {
       throw new Error(
-        `BT_REQUIRE_ALL=1: no engine at ${engine}, so the engine tests cannot run (run \`just build release\` or set BT_ENGINE)`,
+        `SHAPELOGIC_REQUIRE_ALL=1: no engine at ${engine}, so the engine tests cannot run (run \`just build release\` or set SHAPELOGIC_ENGINE)`,
       );
     }
-    // the helpers skip the tests without the default engine; a BT_ENGINE
+    // the helpers skip the tests without the default engine; a SHAPELOGIC_ENGINE
     // that is not there is used as given, so they fail
     process.stderr.write(
       fromEnv !== null
-        ? `\nBT_ENGINE=${process.env.BT_ENGINE ?? ''}: ${engine} does not exist, so the engine tests fail\n\n`
-        : `\nthe engine tests are SKIPPED: ${engine} does not exist (run \`just build release\` or set BT_ENGINE)\n\n`,
+        ? `\nSHAPELOGIC_ENGINE=${process.env.SHAPELOGIC_ENGINE ?? ''}: ${engine} does not exist, so the engine tests fail\n\n`
+        : `\nthe engine tests are SKIPPED: ${engine} does not exist (run \`just build release\` or set SHAPELOGIC_ENGINE)\n\n`,
     );
   }
   const removeCopy = useRunCopyOfEngine('sl-vitest');

@@ -112,7 +112,7 @@ export function windowOptions(
 
 /**
  * Shows a window made hidden (windowOptions) when it is ready, in front
- * with the focus; with `background` (BT_BACKGROUND) it stays hidden, so
+ * with the focus; with `background` (SHAPELOGIC_BACKGROUND) it stays hidden, so
  * nothing covers the app the user is working in. A window never shown
  * still draws (paintWhenInitiallyHidden), and Playwright drives the page
  * and tells it it has the focus whatever the window's. (showInactive
@@ -126,18 +126,18 @@ export function showWindow(win: BrowserWindow, background: boolean): void {
 
 /** The switches the environment may set, as this run of the app takes them. */
 export interface Switches {
-  /** The engine to run (BT_ENGINE); development only. */
+  /** The engine to run (SHAPELOGIC_ENGINE); development only. */
   engine?: string;
-  /** The app's data directory (BT_USER_DATA). */
+  /** The app's data directory (SHAPELOGIC_USER_DATA, else the old BT_USER_DATA). */
   userData?: string;
-  /** The file every call is logged to (BT_CALL_LOG); development only. */
+  /** The file every call is logged to (SHAPELOGIC_CALL_LOG); development only. */
   callLog?: string;
-  /** The Solver's autosave interval in seconds (BT_AUTOSAVE_SECONDS); development only. */
+  /** The Solver's autosave interval in seconds (SHAPELOGIC_AUTOSAVE_SECONDS); development only. */
   autosave?: string;
   /** The dev server the renderer is loaded from (electron-vite's ELECTRON_RENDERER_URL); development only. */
   rendererUrl?: string;
   /**
-   * Windows kept hidden and no Dock icon (BT_BACKGROUND, set by the e2e
+   * Windows kept hidden and no Dock icon (SHAPELOGIC_BACKGROUND, set by the e2e
    * tests: the user goes on working in another app); development only.
    */
   background?: true;
@@ -145,10 +145,10 @@ export interface Switches {
 
 /**
  * The environment's switches a run takes. A packaged app takes only
- * BT_USER_DATA (where its own data goes; the smoke test keeps the user's
- * apart): the others run another program (BT_ENGINE), load another page
+ * SHAPELOGIC_USER_DATA (where its own data goes; the smoke test keeps the user's
+ * apart): the others run another program (SHAPELOGIC_ENGINE), load another page
  * into the window that has window.btApp (ELECTRON_RENDERER_URL) or write
- * a file (BT_CALL_LOG), which nothing outside the app may ask of it.
+ * a file (SHAPELOGIC_CALL_LOG), which nothing outside the app may ask of it.
  */
 export function switches(
   packaged: boolean,
@@ -159,18 +159,23 @@ export function switches(
     const v = env[name];
     return v === undefined || v === '' ? undefined : v;
   };
-  const userData = take('BT_USER_DATA');
+  // BT_USER_DATA is the name it had up to v2.1, still read when the new one
+  // is not set: it is the one switch a packaged app takes, every release
+  // since v1.0 has it and the website names it, so a user who set it would
+  // otherwise start with the default data folder, their settings and recent
+  // files seemingly lost, and nothing would say why.
+  const userData = take('SHAPELOGIC_USER_DATA') ?? take('BT_USER_DATA');
   if (userData !== undefined) {
     s.userData = userData;
   }
   if (packaged) {
     return s;
   }
-  const engine = take('BT_ENGINE');
-  const callLog = take('BT_CALL_LOG');
-  const autosave = take('BT_AUTOSAVE_SECONDS');
+  const engine = take('SHAPELOGIC_ENGINE');
+  const callLog = take('SHAPELOGIC_CALL_LOG');
+  const autosave = take('SHAPELOGIC_AUTOSAVE_SECONDS');
   const rendererUrl = take('ELECTRON_RENDERER_URL');
-  const background = take('BT_BACKGROUND');
+  const background = take('SHAPELOGIC_BACKGROUND');
   if (engine !== undefined) {
     s.engine = engine;
   }

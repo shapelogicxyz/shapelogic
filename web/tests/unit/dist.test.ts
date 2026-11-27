@@ -5,7 +5,7 @@
 // read it, the release engine's --version), electron-builder's configuration (the
 // bundles only, the engine in the resources, the fuses), the architecture
 // read from a binary's header, and where the app finds its engine
-// (packaged: its own copy only; in development BT_ENGINE, then the builds).
+// (packaged: its own copy only; in development SHAPELOGIC_ENGINE, then the builds).
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -299,7 +299,7 @@ describe('where the app finds its engine', () => {
     chmodSync(p, 0o755);
   };
 
-  it('packaged: its own copy, never BT_ENGINE or a build', () => {
+  it('packaged: its own copy, never SHAPELOGIC_ENGINE or a build', () => {
     put(dev);
     expect(
       findEngine({ packaged: true, resources, webDir: web, engine: '/x/shapelogic_engine' }),
@@ -311,7 +311,7 @@ describe('where the app finds its engine', () => {
     expect(findEngine({ packaged: true, resources, webDir: web, platform: 'win32' })).toBeNull();
   });
 
-  it('in development: BT_ENGINE, else the dev build, else the release build', () => {
+  it('in development: SHAPELOGIC_ENGINE, else the dev build, else the release build', () => {
     expect(
       findEngine({ packaged: false, resources, webDir: web, engine: '/x/shapelogic_engine' }),
     ).toBe('/x/shapelogic_engine');

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The app for the e2e tests: the build in out/ (or BT_OUT_DIR, a folder
+// The app for the e2e tests: the build in out/ (or SHAPELOGIC_OUT_DIR, a folder
 // under web/ of the run's own) launched by Playwright's Electron driver
-// with the release engine (or BT_ENGINE; global-setup.ts runs a copy of
+// with the release engine (or SHAPELOGIC_ENGINE; global-setup.ts runs a copy of
 // it, helpers/engine-path.ts), its window at a
 // fixed size and its data (the stored settings, the rescue copy) in a
 // directory of its own, and the UI actions the tests share (open a
@@ -11,7 +11,7 @@
 // `engineCall` asks the app's own engine through the page's bridge (what
 // the engine holds, not what the UI shows), and `launch({ callLog })` has
 // the main process log every call of the renderer with how it ended
-// (BT_CALL_LOG).
+// (SHAPELOGIC_CALL_LOG).
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -33,13 +33,13 @@ export const FIXTURES = resolve(ROOT, 'tests/data/puzzles');
 export const ENGINE: string | null = testEngine();
 
 /**
- * The app's build: out/, or BT_OUT_DIR (electron.vite.config.ts), so a run
+ * The app's build: out/, or SHAPELOGIC_OUT_DIR (electron.vite.config.ts), so a run
  * can test a build of its own while another session builds out/.
  */
 export const OUT_DIR = resolve(
   WEB,
-  process.env.BT_OUT_DIR !== undefined && process.env.BT_OUT_DIR !== ''
-    ? process.env.BT_OUT_DIR
+  process.env.SHAPELOGIC_OUT_DIR !== undefined && process.env.SHAPELOGIC_OUT_DIR !== ''
+    ? process.env.SHAPELOGIC_OUT_DIR
     : 'out',
 );
 
@@ -55,7 +55,7 @@ export const WINDOW = { width: 1500, height: 900 } as const;
 export interface App {
   app: ElectronApplication;
   page: Page;
-  /** The app's data directory (BT_USER_DATA). */
+  /** The app's data directory (SHAPELOGIC_USER_DATA). */
   userData: string;
   close(): Promise<void>;
 }
@@ -76,15 +76,15 @@ const NO_SCROLLBARS = '::-webkit-scrollbar{display:none}';
 
 /**
  * Launches the app and waits for its engine to run; `callLog` is
- * BT_CALL_LOG's file, `autosave` the Solver's autosave interval in seconds
- * (BT_AUTOSAVE_SECONDS; without it solver/cadence.ts's, a minute at least),
+ * SHAPELOGIC_CALL_LOG's file, `autosave` the Solver's autosave interval in seconds
+ * (SHAPELOGIC_AUTOSAVE_SECONDS; without it solver/cadence.ts's, a minute at least),
  * `userData` the app's data directory (a new one, removed on close, unless
  * given: a restart keeps its settings in the one given), `args` the app's
  * command line after its
  * main script (a file to open), `scale` the device pixel ratio to draw at
  * whatever the display's (1 without: the guide's screenshots are taken at
  * 2, so a non-Retina monitor does not halve them), `engine` the engine to
- * run instead of the release build's (BT_ENGINE: one that cannot start),
+ * run instead of the release build's (SHAPELOGIC_ENGINE: one that cannot start),
  * `waitForEngine` false to return as soon as the window is there.
  */
 export async function launch(
@@ -104,20 +104,20 @@ export async function launch(
       (e): e is [string, string] => e[0] !== 'ELECTRON_RUN_AS_NODE' && e[1] !== undefined,
     ),
   );
-  env.BT_ENGINE = opts.engine ?? ENGINE ?? '';
+  env.SHAPELOGIC_ENGINE = opts.engine ?? ENGINE ?? '';
   if (opts.callLog !== undefined) {
-    env.BT_CALL_LOG = opts.callLog;
+    env.SHAPELOGIC_CALL_LOG = opts.callLog;
   }
   if (opts.autosave !== undefined) {
-    env.BT_AUTOSAVE_SECONDS = String(opts.autosave);
+    env.SHAPELOGIC_AUTOSAVE_SECONDS = String(opts.autosave);
   }
   const userData = opts.userData ?? mkdtempSync(join(tmpdir(), 'bt-e2e-data-'));
-  env.BT_USER_DATA = userData;
+  env.SHAPELOGIC_USER_DATA = userData;
   // the windows stay hidden and the app has no Dock icon, so nothing
   // covers the app the user is working in (main/security.ts's showWindow);
-  // BT_BACKGROUND= (empty) in the shell shows them, to watch a run
-  if (process.env.BT_BACKGROUND === undefined) {
-    env.BT_BACKGROUND = '1';
+  // SHAPELOGIC_BACKGROUND= (empty) in the shell shows them, to watch a run
+  if (process.env.SHAPELOGIC_BACKGROUND === undefined) {
+    env.SHAPELOGIC_BACKGROUND = '1';
   }
   // the reference screenshots are taken in sRGB and at one device pixel a
   // CSS pixel whatever display the window lands on (Playwright's own
@@ -434,7 +434,7 @@ export async function camera(page: Page): Promise<number[]> {
   return v.split(',').map(Number);
 }
 
-/** A call of the renderer as the main process logged it (BT_CALL_LOG). */
+/** A call of the renderer as the main process logged it (SHAPELOGIC_CALL_LOG). */
 export interface LoggedCall {
   id: number;
   method: string;

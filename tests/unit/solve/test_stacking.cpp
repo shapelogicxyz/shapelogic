@@ -907,8 +907,8 @@ TEST_CASE("stacking: a rod set with impossible numbers in the file loads sanely"
 // Hidden: the Panex swap of 6 discs a tower (881 transfers), at one thread
 // and at all of them.   build/release/tests/sl_tests "[.bench][panex]"
 TEST_CASE("panex: benchmark, the six-disc swap", "[.bench][panex]") {
-  // BT_PANEX_BENCH_N=7 for the seven-disc swap (2189 transfers).
-  const char* asked = std::getenv("BT_PANEX_BENCH_N");
+  // SHAPELOGIC_PANEX_BENCH_N=7 for the seven-disc swap (2189 transfers).
+  const char* asked = std::getenv("SHAPELOGIC_PANEX_BENCH_N");
   const auto n = asked != nullptr ? static_cast<unsigned int>(std::atoi(asked)) : 6U;
   for (const unsigned int threads : {1U, 0U}) {
     Puzzle puz = makeBoard();

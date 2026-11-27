@@ -34,7 +34,7 @@ export interface WindowIpc {
   closeTaken(sender: WebContents): void;
   closeWindow(sender: WebContents): void;
   cancelQuit(sender: WebContents): void;
-  /** Whether windows are kept hidden (security.ts's BT_BACKGROUND). */
+  /** Whether windows are kept hidden (security.ts's SHAPELOGIC_BACKGROUND). */
   background: boolean;
 }
 

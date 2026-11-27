@@ -39,7 +39,7 @@ cd "$(dirname "$0")/.."
 
 # A suite that cannot run fails instead of skipping: the web engine tests
 # without an engine, the smoke test without a packaged app.
-export BT_REQUIRE_ALL=1
+export SHAPELOGIC_REQUIRE_ALL=1
 
 DEFAULT="build unit sanitizers python regression app check"
 EVERY="$DEFAULT e2e site dist burrtools"

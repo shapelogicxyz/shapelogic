@@ -8,7 +8,7 @@
 // lines (a longer log) and all of it, with their sizes, and writes the one
 // picked as plain text to the file the save dialog gives; Clear All Log
 // Data… deletes it after asking; the line at the bottom left links GitHub
-// Issues. The log is in the test's data directory (BT_USER_DATA).
+// Issues. The log is in the test's data directory (SHAPELOGIC_USER_DATA).
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -1169,8 +1169,8 @@ test('a second start while the app runs hands its file over and quits: the copy 
         (e): e is [string, string] => e[0] !== 'ELECTRON_RUN_AS_NODE' && e[1] !== undefined,
       ),
     );
-    env.BT_USER_DATA = userData;
-    env.BT_ENGINE = ENGINE ?? '';
+    env.SHAPELOGIC_USER_DATA = userData;
+    env.SHAPELOGIC_ENGINE = ENGINE ?? '';
     const electron = createRequire(import.meta.url)('electron') as string;
     const second = spawn(electron, [APP_MAIN, other], {
       env,

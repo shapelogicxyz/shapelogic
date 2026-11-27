@@ -34,8 +34,8 @@ sliding or stacking puzzles, so the rows leave those out:
 - `default`: the 6 x 10 pentominoes (written by the script), the
   regression suite's deep-level and benchmark puzzles, DraculasDentalDesaster,
   SolidSixPieceBurrs and DemoPieceGenerator, with `-r` and with `-rd`.
-- `glar`: `Burr-Glar.xmpuzzle` from upstream's `examples/` (`BT_BURR_GLAR`
-  overrides the path).
+- `glar`: `Burr-Glar.xmpuzzle` from upstream's `examples/`
+  (`SHAPELOGIC_BURR_GLAR` overrides the path).
 - `identical`, `identical-long`: boxes written by the script, filled with
   many pieces of one shape or with piece ranges (assembler 1 with no
   symmetry breaker: every cover is found in each orientation and checked),

@@ -13,7 +13,7 @@
 // or image from a file: URL is refused by the CSP, before the request
 // filter), no file outside the renderer read, a path no dialog gave
 // refused, and the fixture opened and solved with bt's counts.
-// BT_PACKAGED_APP names another executable (an installed app).
+// SHAPELOGIC_PACKAGED_APP names another executable (an installed app).
 
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
@@ -34,7 +34,7 @@ import { btJson, runButton, runEnded, toSolver } from './solver.ts';
 
 /** The packaged app's executable and its resources directory, for this platform. */
 function packaged(): { exe: string; resources: string } {
-  const fromEnv = process.env.BT_PACKAGED_APP;
+  const fromEnv = process.env.SHAPELOGIC_PACKAGED_APP;
   if (fromEnv !== undefined && fromEnv !== '') {
     const exe = resolve(fromEnv);
     return {
@@ -74,10 +74,12 @@ const ENGINE = join(
 );
 const VERSION = projectVersion();
 
-// With BT_REQUIRE_ALL=1 (the gate) a missing app fails the run: a gate
+// With SHAPELOGIC_REQUIRE_ALL=1 (the gate) a missing app fails the run: a gate
 // that skipped the smoke test must not pass.
-if (process.env.BT_REQUIRE_ALL === '1' && !existsSync(APP.exe)) {
-  throw new Error(`BT_REQUIRE_ALL=1: no packaged app at ${APP.exe}: run \`just app-dist --dir\``);
+if (process.env.SHAPELOGIC_REQUIRE_ALL === '1' && !existsSync(APP.exe)) {
+  throw new Error(
+    `SHAPELOGIC_REQUIRE_ALL=1: no packaged app at ${APP.exe}: run \`just app-dist --dir\``,
+  );
 }
 test.skip(!existsSync(APP.exe), `no packaged app at ${APP.exe}: run \`just app-dist --dir\``);
 
@@ -195,9 +197,10 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
     }
   }
   Object.assign(env, {
-    BT_USER_DATA: userData,
-    BT_ENGINE: process.platform === 'win32' ? 'C:\\Windows\\System32\\where.exe' : '/usr/bin/false',
-    BT_CALL_LOG: log,
+    SHAPELOGIC_USER_DATA: userData,
+    SHAPELOGIC_ENGINE:
+      process.platform === 'win32' ? 'C:\\Windows\\System32\\where.exe' : '/usr/bin/false',
+    SHAPELOGIC_CALL_LOG: log,
     ELECTRON_RENDERER_URL: 'http://127.0.0.1:9/',
     ELECTRON_RUN_AS_NODE: '1',
     NODE_OPTIONS: '--require ./no-such-module.cjs',
@@ -213,7 +216,7 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
       timeout: 30_000,
     });
 
-    // the engine the app runs is the one in its resources, not BT_ENGINE
+    // the engine the app runs is the one in its resources, not SHAPELOGIC_ENGINE
     if (process.platform !== 'win32' && child.pid !== undefined) {
       const engines = children(child.pid).filter((c) => c.includes('shapelogic_engine'));
       expect(engines).toEqual([ENGINE]);
@@ -303,7 +306,7 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
     await expect(page.locator('#slvSols')).toHaveText(String(bt.solutions));
     await expect(page.locator('#splayer')).toHaveAttribute('data-ready', '1');
 
-    // BT_CALL_LOG was not taken
+    // SHAPELOGIC_CALL_LOG was not taken
     expect(existsSync(log)).toBe(false);
   } finally {
     await browser.close().catch(() => undefined);

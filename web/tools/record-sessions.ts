@@ -6,7 +6,7 @@
 //
 //   node tools/record-sessions.ts [names...]     (npm run record)
 //
-// The engine is BT_ENGINE or build/release/engine/shapelogic_engine, run from the
+// The engine is SHAPELOGIC_ENGINE or build/release/engine/shapelogic_engine, run from the
 // repository's root (the sessions open fixtures by relative path), with a
 // neutral home (its default folders name the user's cache folder).
 
@@ -49,7 +49,7 @@ async function record(name: string, engine: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  // an empty BT_ENGINE is none (tests/helpers/engine-path.ts), not a path
+  // an empty SHAPELOGIC_ENGINE is none (tests/helpers/engine-path.ts), not a path
   const engine = engineFromEnv() ?? RELEASE_ENGINE;
   // The engine's default folders (settings.get's slideFolder, panexFolder)
   // are in the user's cache folder, which it finds from these: a neutral
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
   process.env.XDG_CACHE_HOME = '';
   process.env.LOCALAPPDATA = 'C:\\Users\\user\\AppData\\Local';
   if (!existsSync(engine)) {
-    throw new Error(`no engine at ${engine}: run \`just build release\` or set BT_ENGINE`);
+    throw new Error(`no engine at ${engine}: run \`just build release\` or set SHAPELOGIC_ENGINE`);
   }
   const names = process.argv.slice(2);
   for (const name of names.length > 0 ? names : Object.keys(SESSIONS)) {

@@ -45,17 +45,17 @@ first: `tests/e2e/__screenshots__`). The e2e tests run several apps at
 a time: each test has an app, an engine and a data directory of its own,
 and `E2E_WORKERS` apps run at once (half the cores by default;
 `E2E_WORKERS=1` for one at a time). Their windows stay hidden and they
-have no Dock icon (`BT_BACKGROUND`), so another app can be used
-meanwhile; `BT_BACKGROUND=` (empty) shows them on the screen, to watch a
-run. The test that times the
+have no Dock icon (`SHAPELOGIC_BACKGROUND`), so another app can be used
+meanwhile; `SHAPELOGIC_BACKGROUND=` (empty) shows them on the screen, to
+watch a run. The test that times the
 app (`perf.e2e.ts`) is the `timed` project, run alone after the others.
 Both recipes clear `ELECTRON_RUN_AS_NODE`, which
 some editors' terminals set and which turns Electron into plain Node, and
-build into a folder of the run's own (`out-e2e-<pid>`, `BT_OUT_DIR`,
+build into a folder of the run's own (`out-e2e-<pid>`, `SHAPELOGIC_OUT_DIR`,
 removed at the end), so another session's `npm run build` cannot swap the
-app under a run. By hand: `BT_OUT_DIR=out-mine npm run build`, then
-`BT_OUT_DIR=out-mine npx playwright test tests/e2e/<file>` (a folder name
-under `web/`).
+app under a run. By hand: `SHAPELOGIC_OUT_DIR=out-mine npm run build`,
+then `SHAPELOGIC_OUT_DIR=out-mine npx playwright test tests/e2e/<file>` (a
+folder name under `web/`).
 
 Inside `web/`: `npm run format` reformats, `npm run record` records the
 fake engine's sessions again (after a change to what the engine sends),
@@ -85,7 +85,7 @@ version, the development switches ignored, the page on the app's own
 scheme (`bt-app://app/`, served from the renderer's directory only) with
 its CSP, a file: script refused, no file read outside the renderer, a
 path no dialog gave refused, the fixture solved.
-`BT_PACKAGED_APP=<executable>` tests another copy (an installed one).
+`SHAPELOGIC_PACKAGED_APP=<executable>` tests another copy (an installed one).
 
 **Signing.** On macOS the app is signed ad hoc (it runs on the machine
 that built it; elsewhere Gatekeeper refuses a downloaded copy until the
@@ -140,19 +140,21 @@ Chrome (`--headed` shows it).
 
 ## Where the engine comes from
 
-- The tests run `build/release/engine/shapelogic_engine`, or `BT_ENGINE` when it is
-  set, from the repository's root (fixtures are opened by relative path):
+- The tests run `build/release/engine/shapelogic_engine`, or
+  `SHAPELOGIC_ENGINE` when it is set, from the repository's root (fixtures are opened by relative path):
   a copy of it, made in a temp folder as the run starts and removed at its
   end (`tests/helpers/engine-path.ts`), so a build of the release preset
   meanwhile cannot change the engine under a run.
   Without one the engine tests are skipped and the run says so; so are the
   e2e tests, which also need `npm run build` (`just app-e2e` builds).
-- The app in development (`src/main/engine-path.ts`) runs `BT_ENGINE`,
-  else `build/dev/engine/shapelogic_engine`, else the release one. A packaged app
-  runs the copy in its resources and nothing else: it ignores `BT_ENGINE`,
-  `BT_CALL_LOG`, `BT_AUTOSAVE_SECONDS`, `BT_BACKGROUND` and electron-vite's
-  `ELECTRON_RENDERER_URL` (`src/main/security.ts`); only `BT_USER_DATA`
-  is taken. Either way the engine must say the app's version.
+- The app in development (`src/main/engine-path.ts`) runs `SHAPELOGIC_ENGINE`,
+  else `build/dev/engine/shapelogic_engine`, else the release one. A
+  packaged app runs the copy in its resources and nothing else: it ignores
+  `SHAPELOGIC_ENGINE`, `SHAPELOGIC_CALL_LOG`, `SHAPELOGIC_AUTOSAVE_SECONDS`,
+  `SHAPELOGIC_BACKGROUND` and electron-vite's `ELECTRON_RENDERER_URL`
+  (`src/main/security.ts`); only `SHAPELOGIC_USER_DATA` is taken (or, when
+  it is not set, its name up to v2.1, `BT_USER_DATA`). Either way the
+  engine must say the app's version.
 
 ## Layout
 
@@ -168,9 +170,9 @@ Chrome (`--headed` shows it).
   packaged app takes, the requests and permissions allowed, the help
   links), `path-grants.ts` (the files a window's engine may be given),
   `app-ipc.ts` (over `ipc/`, one module per group), `menu.ts`, `export-file.ts`, `rescue.ts`,
-  `state-store.ts`, `index.ts` (with `BT_CALL_LOG=<file>` every call of the
-  renderer is logged there with how it ended; the e2e tests read it;
-  `BT_AUTOSAVE_SECONDS=<n>` shortens the Solver's autosave from 20
+  `state-store.ts`, `index.ts` (with `SHAPELOGIC_CALL_LOG=<file>` every call
+  of the renderer is logged there with how it ended; the e2e tests read it;
+  `SHAPELOGIC_AUTOSAVE_SECONDS=<n>` shortens the Solver's autosave from 20
   minutes, for the e2e tests).
 - `src/preload/`: `window.bt` and `window.btApp`.
 - `src/renderer/`: `index.html` and `styles.css` (the mockup's body and

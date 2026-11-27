@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Startup health (cleanup stage 2): an engine that cannot start (BT_ENGINE
+// Startup health (cleanup stage 2): an engine that cannot start (SHAPELOGIC_ENGINE
 // a file that is not there) shows the window's dialog with the likely
 // cause, ENOENT's, and File ▸ Open shows it again instead of doing nothing
 // (the second Windows report of v2.1); the log has the failure with its

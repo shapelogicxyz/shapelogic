@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The real engine for the engine tests: build/release/engine/shapelogic_engine (or
-// BT_ENGINE), run from the repository's root so fixture paths are relative.
+// SHAPELOGIC_ENGINE), run from the repository's root so fixture paths are relative.
 
 import { EngineClient } from '../../src/engine/client.ts';
 import type { ClientProblem } from '../../src/engine/client.ts';

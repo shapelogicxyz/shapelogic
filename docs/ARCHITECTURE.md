@@ -814,7 +814,7 @@ Rules (AGENTS.md's; decisions 0012, 0013, 0034, 0036, 0043):
   the engine in its resources (on Windows linked statically, on Linux with
   libstdc++ and libgcc linked in: `engine/CMakeLists.txt`).
 - Tests (Vitest): `tests/unit/` (no engine), `tests/engine/`, `tests/e2e/`
-  (Playwright on out/ or BT_OUT_DIR), on a run's copy of the engine
+  (Playwright on out/ or SHAPELOGIC_OUT_DIR), on a run's copy of the engine
   (`tests/helpers/engine-path.ts`); after an engine change, `npm run record`.
 
 ## Testing against recorded answers

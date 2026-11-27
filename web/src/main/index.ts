@@ -45,13 +45,14 @@
 // when Settings ▸ General changes the cache folder; exports written only
 // where the dialog said (ipc/files.ts).
 //
-// For the e2e tests: BT_USER_DATA puts the app's data (the store, the default cache
-// folder's saved searches, the rescue copy) in a directory of the test's own; with BT_CALL_LOG set
-// every call the renderer makes is written to that file with how it ended
+// For the e2e tests: SHAPELOGIC_USER_DATA puts the app's data (the store, the default
+// cache folder's saved searches, the rescue copy) in a directory of the test's own;
+// with SHAPELOGIC_CALL_LOG set every call the renderer makes is written to that file
+// with how it ended
 // (a JSON line: method, errc), so the tests can check that the UI never
-// asked for what the engine refused; BT_AUTOSAVE_SECONDS shortens the
+// asked for what the engine refused; SHAPELOGIC_AUTOSAVE_SECONDS shortens the
 // Solver's autosave (its floor of a minute, solver/cadence.ts), passed in the page's address. A
-// packaged app takes BT_USER_DATA only (security.ts's switches).
+// packaged app takes SHAPELOGIC_USER_DATA only (security.ts's switches).
 
 import {
   app,
@@ -169,7 +170,7 @@ const WEB_DIR = fileURLToPath(new URL('../../', import.meta.url));
 app.setName(APP_NAME);
 const env = switches(app.isPackaged, process.env);
 if (env.background === true && process.platform === 'darwin') {
-  // the e2e tests' apps (BT_BACKGROUND): no Dock icon, no place in
+  // the e2e tests' apps (SHAPELOGIC_BACKGROUND): no Dock icon, no place in
   // Cmd-Tab, and the app does not come to the front when it starts
   app.setActivationPolicy('accessory');
 }
@@ -290,7 +291,7 @@ const CASCADE = 24;
  * Where the cache folder is by default: the system's application data
  * folder for ShapeLogic, with the earlier versions' default folders to move
  * from (`sliding` in the system's cache folder, `panex` in Electron's data
- * directory); a data directory of its own (BT_USER_DATA) holds it, and
+ * directory); a data directory of its own (SHAPELOGIC_USER_DATA) holds it, and
  * there is nothing earlier to move.
  */
 function cacheDefaults(): { dataDir: string; legacy?: { slide: string; panex: string } } {
@@ -433,7 +434,7 @@ const pendingOpen: string[] = [];
  */
 let started = false;
 
-/** The page's parameters: the autosave's interval when BT_AUTOSAVE_SECONDS sets one. */
+/** The page's parameters: the autosave's interval when SHAPELOGIC_AUTOSAVE_SECONDS sets one. */
 const query: Record<string, string> = env.autosave !== undefined ? { autosave: env.autosave } : {};
 
 function send(w: WindowState, command: AppCommand): void {
@@ -813,7 +814,7 @@ function createWindow(first?: AppCommand): void {
       if (engine === null) {
         const message = app.isPackaged
           ? 'no shapelogic_engine in the app'
-          : 'no shapelogic_engine: build one (just build) or set BT_ENGINE';
+          : 'no shapelogic_engine: build one (just build) or set SHAPELOGIC_ENGINE';
         throw new EngineStartError(message, {
           which: 'version',
           code: 'NO_ENGINE',

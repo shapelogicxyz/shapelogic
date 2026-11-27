@@ -121,27 +121,27 @@ app-gen:
 app-check:
     cd web && npm run check
 
-# The web front end's tests; the engine tests need `just build release` (or BT_ENGINE)
+# The web front end's tests; the engine tests need `just build release` (or SHAPELOGIC_ENGINE)
 app-test:
     cd web && npm test
 
-# Run the app (electron-vite dev) with build/dev's engine, else build/release's, or BT_ENGINE (clears ELECTRON_RUN_AS_NODE, which turns Electron into Node)
+# Run the app (electron-vite dev) with build/dev's engine, else build/release's, or SHAPELOGIC_ENGINE (clears ELECTRON_RUN_AS_NODE, which turns Electron into Node)
 app-dev:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run dev
 
 # Run the app as app-dev does, with build/release's engine (built first): the optimized engine, for long solves
 app-release: (build "release")
-    cd web && env -u ELECTRON_RUN_AS_NODE BT_ENGINE="{{justfile_directory()}}/build/release/engine/shapelogic_engine" npm run dev
+    cd web && env -u ELECTRON_RUN_AS_NODE SHAPELOGIC_ENGINE="{{justfile_directory()}}/build/release/engine/shapelogic_engine" npm run dev
 
-# Build the app and run its end-to-end tests (Playwright's Electron driver; the release engine or BT_ENGINE),
+# Build the app and run its end-to-end tests (Playwright's Electron driver; the release engine or SHAPELOGIC_ENGINE),
 # side by side (E2E_WORKERS apps at once, half the cores by default); without arguments the timed test
-# (perf.e2e.ts) follows, alone. The build is the run's own (web/out-e2e-<pid>, BT_OUT_DIR), removed at the end.
+# (perf.e2e.ts) follows, alone. The build is the run's own (web/out-e2e-<pid>, SHAPELOGIC_OUT_DIR), removed at the end.
 app-e2e *args:
     #!/usr/bin/env bash
     set -euo pipefail
     cd web
-    export BT_OUT_DIR="out-e2e-$$"
-    trap 'rm -rf "$BT_OUT_DIR"' EXIT
+    export SHAPELOGIC_OUT_DIR="out-e2e-$$"
+    trap 'rm -rf "$SHAPELOGIC_OUT_DIR"' EXIT
     env -u ELECTRON_RUN_AS_NODE npm run e2e -- {{args}}
     {{ if args == "" { "env -u ELECTRON_RUN_AS_NODE npx playwright test --project=timed" } else { "" } }}
 
@@ -150,15 +150,15 @@ app-e2e-timed:
     #!/usr/bin/env bash
     set -euo pipefail
     cd web
-    export BT_OUT_DIR="out-e2e-$$"
-    trap 'rm -rf "$BT_OUT_DIR"' EXIT
+    export SHAPELOGIC_OUT_DIR="out-e2e-$$"
+    trap 'rm -rf "$SHAPELOGIC_OUT_DIR"' EXIT
     env -u ELECTRON_RUN_AS_NODE npm run e2e-timed
 
 # Package the app (electron-builder, web/tools/dist.ts) for this platform with the release engine: `--dir` the unpacked app only, `--arch x64` an Intel Mac's (after `just build release-x64`)
 app-dist *args: (build "release")
     cd web && env -u ELECTRON_RUN_AS_NODE npm run dist -- {{args}}
 
-# The packaged app's smoke test (after `just app-dist --dir`; BT_PACKAGED_APP names another executable)
+# The packaged app's smoke test (after `just app-dist --dir`; SHAPELOGIC_PACKAGED_APP names another executable)
 app-smoke:
     cd web && env -u ELECTRON_RUN_AS_NODE npx playwright test -c playwright.smoke.config.ts
 
@@ -193,9 +193,9 @@ docs-screenshots:
     #!/usr/bin/env bash
     set -euo pipefail
     cd web
-    # a build of its own (BT_OUT_DIR), as app-e2e's
-    export BT_OUT_DIR="out-docs-$$"
-    trap 'rm -rf "$BT_OUT_DIR"' EXIT
+    # a build of its own (SHAPELOGIC_OUT_DIR), as app-e2e's
+    export SHAPELOGIC_OUT_DIR="out-docs-$$"
+    trap 'rm -rf "$SHAPELOGIC_OUT_DIR"' EXIT
     env -u ELECTRON_RUN_AS_NODE npm run docs-shots
 
 # ---- releases (the steps: `just release` with no version prints them) ----

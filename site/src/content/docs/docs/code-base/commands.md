@@ -130,16 +130,16 @@ flow.
 | Variable | Effect |
 |---|---|
 | `BURRTOOLS_DIR` | where upstream BurrTools is checked out and built, for `just burrtools-compare` and `just bench` |
-| `BT_ENGINE` | the engine binary the app in development and the engine tests use; otherwise `build/dev/engine/shapelogic_engine`, else the release one |
-| `BT_CALL_LOG` | a file every call the renderer makes is logged to, with how it ended; the e2e tests read it |
-| `BT_AUTOSAVE_SECONDS` | the least time between two rescue copies of a running solve (a minute without it), for the e2e tests |
-| `BT_BACKGROUND` | the app's windows stay hidden and it has no Dock icon, so nothing covers the app in front; the e2e tests set it (set it empty, `BT_BACKGROUND=`, to watch a run) |
-| `BT_USER_DATA` | moves the app's data directory (settings, recent files, the rescue copy); the only switch a packaged app takes |
-| `BT_PACKAGED_APP` | another executable for `just app-smoke` to test |
+| `SHAPELOGIC_ENGINE` | the engine binary the app in development and the engine tests use; otherwise `build/dev/engine/shapelogic_engine`, else the release one |
+| `SHAPELOGIC_CALL_LOG` | a file every call the renderer makes is logged to, with how it ended; the e2e tests read it |
+| `SHAPELOGIC_AUTOSAVE_SECONDS` | the least time between two rescue copies of a running solve (a minute without it), for the e2e tests |
+| `SHAPELOGIC_BACKGROUND` | the app's windows stay hidden and it has no Dock icon, so nothing covers the app in front; the e2e tests set it (set it empty, `SHAPELOGIC_BACKGROUND=`, to watch a run) |
+| `SHAPELOGIC_USER_DATA` | moves the app's data directory (settings, recent files, the rescue copy); the only switch a packaged app takes. Its name up to v2.1, `BT_USER_DATA`, still works when it is not set |
+| `SHAPELOGIC_PACKAGED_APP` | another executable for `just app-smoke` to test |
 | `SHAPELOGIC_VERSION` | the version to build (`v1.4` or `1.4.0`) instead of the newest git tag's; the Release workflow sets it from the tag |
 | `CSC_NAME`, `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` | code signing and notarisation for `just app-dist`; see `web/README.md` |
 
-A packaged app ignores every development switch but `BT_USER_DATA`
+A packaged app ignores every development switch but `SHAPELOGIC_USER_DATA`
 (`web/src/main/security.ts`). Nothing in `core/` reads the environment: the
 original's environment switches became fields of the options structs. The
 command line tool reads a few for its sliding and Panex searches

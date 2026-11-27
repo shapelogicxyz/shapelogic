@@ -453,13 +453,14 @@ tier compared no puzzle at all and still passed.
   - *Problem:* `just app-test` exits 0 with every engine test skipped when
     `build/release` has no engine; `just app-smoke` exits 0 with no
     packaged app. The gate's table then reads "pass".
-  - *Change:* a variable `BT_REQUIRE_ALL=1`: global-setup throws (the run
-    fails) instead of warning when the engine is missing; the smoke test
-    fails instead of skipping; `tests/gate.sh` exports it for its groups.
+  - *Change:* a variable `SHAPELOGIC_REQUIRE_ALL=1`: global-setup throws
+    (the run fails) instead of warning when the engine is missing; the
+    smoke test fails instead of skipping; `tests/gate.sh` exports it for its groups.
     Without the variable, local runs behave as now.
-  - *Tests:* in `web/`: `BT_REQUIRE_ALL=1 BT_ENGINE=/nonexistent npx vitest run tests/engine`
-    fails; without `BT_REQUIRE_ALL` it skips with the message.
-  - Done (2026-11-24): with `BT_REQUIRE_ALL=1`:
+  - *Tests:* in `web/`:
+    `SHAPELOGIC_REQUIRE_ALL=1 SHAPELOGIC_ENGINE=/nonexistent npx vitest run tests/engine`
+    fails; without `SHAPELOGIC_REQUIRE_ALL` it skips with the message.
+  - Done (2026-11-24): with `SHAPELOGIC_REQUIRE_ALL=1`:
     - `web/tests/global-setup.ts` throws when there is no engine;
     - `packaged.smoke.ts` throws when there is no packaged app;
     - `web/tests/e2e/global-setup.ts` throws when there is no engine or no
@@ -467,12 +468,12 @@ tier compared no puzzle at all and still passed.
       `just app-e2e`, which does not build the engine, so every spec would
       skip and the gate would read PASS.
     `tests/gate.sh` exports the variable. Differs from the item's test: an
-    explicit `BT_ENGINE` that does not exist was already used as given (the
-    helpers skip only when the default engine is missing), so
-    `BT_ENGINE=/nonexistent` without the variable fails rather than skips,
-    as before. The setup's message now says so instead of "SKIPPED".
+    explicit `SHAPELOGIC_ENGINE` that does not exist was already used as
+    given (the helpers skip only when the default engine is missing), so
+    `SHAPELOGIC_ENGINE=/nonexistent` without the variable fails rather than
+    skips, as before. The setup's message now says so instead of "SKIPPED".
     Checked:
-    - `BT_REQUIRE_ALL=1 BT_ENGINE=/nonexistent npx vitest run tests/engine`:
+    - `SHAPELOGIC_REQUIRE_ALL=1 SHAPELOGIC_ENGINE=/nonexistent npx vitest run tests/engine`:
       exit 1;
     - the default engine moved aside: without the variable 39 skipped, exit
       0; with it, exit 1;
@@ -480,7 +481,7 @@ tier compared no puzzle at all and still passed.
     - `layout.e2e.ts` with no build: skipped, exit 0; with the variable,
       exit 1;
     - `just app-check` passes, and `just app-test` passes 569 of 569, also
-      with `BT_REQUIRE_ALL=1`.
+      with `SHAPELOGIC_REQUIRE_ALL=1`.
 
 - [x] **1.3 Every test run has a time limit** (stability; S)
   - *Where:* `tests/CMakeLists.txt` (79-104: no TIMEOUT except the
@@ -764,9 +765,9 @@ Design rules for this stage:
        command at info level.
     3. The status line keeps its text and adds "(see Help ▸ Copy Diagnostics)".
   - *Tests:*
-    - e2e (a new `web/tests/e2e/engine-failure.e2e.ts`): start with `BT_ENGINE`
-      pointing at a missing file; the dialog shows the ENOENT cause; File ▸
-      Open shows the dialog again instead of nothing.
+    - e2e (a new `web/tests/e2e/engine-failure.e2e.ts`): start with
+      `SHAPELOGIC_ENGINE` pointing at a missing file; the dialog shows the
+      ENOENT cause; File ▸ Open shows the dialog again instead of nothing.
     - Unit: the menus drop, rather than hold, a document command once the
       status is failed.
   - Done (2026-11-24):
@@ -982,7 +983,7 @@ Design rules for this stage:
        renderer tells main once, through an existing or new
        `bt:ready` message).
   - *Tests:* unit test of the line's format; the e2e start (any spec) shows
-    a Startup line in its log (the e2e apps log to `BT_USER_DATA`).
+    a Startup line in its log (the e2e apps log to `SHAPELOGIC_USER_DATA`).
   - Done (2026-11-24):
     - `crashReporter.start({ uploadToServer: false })` runs right after
       the data folder is set. The diagnostics count the `.dmp` files under
@@ -1391,7 +1392,7 @@ about 43,000.
   - The Panex autosave: `stack_search.h`, `methods_solve.cpp`,
     `api/solve.json` (so `docs/API.md` and `api.generated.ts`) and decision
     0015 (both places, amended) now say SaveCadence. The same stale fact was
-    in `web/src/main/index.ts`'s comment on BT_AUTOSAVE_SECONDS ("20
+    in `web/src/main/index.ts`'s comment on SHAPELOGIC_AUTOSAVE_SECONDS ("20
     minutes"); it now names the journal's floor of a minute.
   - `api/types.json`'s Grid: hexagonal and cairo are assembled and taken
     apart (decision 0025).
@@ -3379,9 +3380,10 @@ Done (2026-11-25), the whole stage:
       `build/tilted-gate` by hand to avoid it).
   - *Change:*
     1. The vitest and e2e global setups copy the engine into a temp folder
-       for the run, point `BT_ENGINE` at the copy, and remove it at the end.
-    2. electron-vite's `outDir` comes from `BT_OUT_DIR` (default `out`), so
-       an e2e build goes to a folder of its own. `web/tests/e2e/app.ts`
+       for the run, point `SHAPELOGIC_ENGINE` at the copy, and remove it at
+       the end.
+    2. electron-vite's `outDir` comes from `SHAPELOGIC_OUT_DIR` (default
+       `out`), so an e2e build goes to a folder of its own. `web/tests/e2e/app.ts`
        exports one `APP_MAIN` for the three launch sites.
     3. `oracle.py` uses `work/run-<pid>/` for its outputs (keep a `--work`
        flag), and builds the `*_old` drivers once into a cache keyed by
@@ -3393,14 +3395,15 @@ Done (2026-11-25), the whole stage:
   - *Verify:* `just build release` while a vitest engine run goes; both
     pass.
   - Done (2026-11-25):
-    1. `web/tests/helpers/engine-path.ts`: `testEngine()` (BT_ENGINE, else
-       the release build's) and `useRunCopyOfEngine()`, which copies it into
-       a temp folder, points BT_ENGINE at the copy and returns its removal.
+    1. `web/tests/helpers/engine-path.ts`: `testEngine()` (SHAPELOGIC_ENGINE,
+       else the release build's) and `useRunCopyOfEngine()`, which copies it
+       into a temp folder, points SHAPELOGIC_ENGINE at the copy and returns
+       its removal.
        The vitest global setup (`tests/global-setup.ts`) and the e2e one
        (`tests/e2e/global-setup.ts`, its teardown returned) call it; a
        missing engine is not copied, so the tests skip or fail as before
-       (BT_REQUIRE_ALL unchanged).
-    2. `electron.vite.config.ts` takes `BT_OUT_DIR` (a folder name under
+       (SHAPELOGIC_REQUIRE_ALL unchanged).
+    2. `electron.vite.config.ts` takes `SHAPELOGIC_OUT_DIR` (a folder name under
        web/, refused if it is a path: the main process finds web/ as the
        folder above its own). `web/tests/e2e/app.ts` exports `OUT_DIR` and
        `APP_MAIN`, used by `launch`, `BUILT` and `files.e2e.ts`'s second
@@ -3430,7 +3433,7 @@ Done (2026-11-25), the whole stage:
     ran, one relinking the engine.
   - Review (2026-11-25, Fable): OK, with the lock made new and one fix
     in the oracle.
-    - 1. `BT_REQUIRE_ALL=1 BT_ENGINE=/nonexistent npx vitest run
+    - 1. `SHAPELOGIC_REQUIRE_ALL=1 SHAPELOGIC_ENGINE=/nonexistent npx vitest run
       tests/engine`: exit 1, with the message; without the variable the
       tests fail as before; with the engine there, they pass. No copy of
       the engine is left after a run. Left: a run that is killed leaves
@@ -3438,7 +3441,7 @@ Done (2026-11-25), the whole stage:
       the copy is taken while a build may be linking the engine (the
       copy's few milliseconds, where it was the whole run).
     - 2. The e2e specs of this session ran on a build of their own
-      (`BT_OUT_DIR=out-cpd`).
+      (`SHAPELOGIC_OUT_DIR=out-cpd`).
     - 3. `work/tools` was never exercised (the reference checkout has no
       build). Tried now with a stand-in library and a driver in a
       scratch folder: built once, the second call returns the same file
@@ -3474,7 +3477,7 @@ Done (2026-11-25), the whole stage:
     - PNG writers at `piece-images:24`, `tray-border:23` and
       `web/tests/docs/guide-pages.docs.ts:396`;
     - the engine path lookup four times (`web/tools/record-sessions.ts:51`
-      uses `??`, so an empty `BT_ENGINE` becomes a path).
+      uses `??`, so an empty `SHAPELOGIC_ENGINE` becomes a path).
   - *Problem:*
     - `counted` (`app.ts:443`) ignores the refusals a busy machine causes.
       Five places still use the October filter
@@ -3502,14 +3505,14 @@ Done (2026-11-25), the whole stage:
     the same as the three writers', checked for every size the specs use).
     `helpers/engine-path.ts` (8.4) is the one engine lookup:
     `tests/helpers/engine.ts`, `tests/e2e/app.ts`, the vitest global
-    setup and `tools/record-sessions.ts` (an empty BT_ENGINE is no
+    setup and `tools/record-sessions.ts` (an empty SHAPELOGIC_ENGINE is no
     longer a path). `counted` at the five places (`solver.e2e.ts`'s
     `expectNoRefusal`, `sliding.e2e.ts` twice, `shapes.e2e.ts`,
     `puzzle.e2e.ts`'s `refusals`). `CLOSE_TAKEN_MS` moved to
     `web/src/main/renderer-watch.ts` (free of Electron, so a spec can
     import it; index.ts imports it there) and `files.e2e.ts` waits
     `CLOSE_TAKEN_MS + 500`. Each touched spec on its own, on a build in
-    `BT_OUT_DIR=out-stage8`: explore 3, solver 9, puzzle 3, shapes 1,
+    `SHAPELOGIC_OUT_DIR=out-stage8`: explore 3, solver 9, puzzle 3, shapes 1,
     files 18, windows 6, keymap 1, tilted 7, piece-images 7, tray-border
     1, frozen 1, rebuild 2, sliding 21: all pass; stacking 5 of 6: its
     screenshot `stacking-player.png` differs (3% of pixels, the Solver
@@ -3666,7 +3669,7 @@ The procedure is in "Fable checkpoints". What to look at:
   CTestCostData). A hang is stopped, and the gate's table says "timeout".
 - **Builds that clash.** Two builds of one preset wait for each other, and a
   vitest engine run passes while `just build release` runs.
-- **1.2 still works.** `BT_REQUIRE_ALL=1` still fails a run without an
+- **1.2 still works.** `SHAPELOGIC_REQUIRE_ALL=1` still fails a run without an
   engine.
 
 Done (2026-11-25): see the Review lines under 8.1 to 8.8, and the
@@ -3674,7 +3677,7 @@ Checkpoint D lines under 6.5 and 7.4.
 - **The eight changes hold.** Nothing stopped running in the local
   suites: the lists were compared (8.1, 8.5, 8.6), the limits stop a hang
   and never a normal run (8.1), two builds of a preset wait for each other
-  and the web tests pass beside them (8.4), and `BT_REQUIRE_ALL=1` still
+  and the web tests pass beside them (8.4), and `SHAPELOGIC_REQUIRE_ALL=1` still
   fails a run without an engine (8.4).
 - **What got past the stage:**
   - **Two cases stopped running in CI** (8.1). The `[slow]` tag took them
@@ -4530,7 +4533,7 @@ the screenshot tests.
 
 Done (2026-11-25), the whole stage (10.10 waits for 2.2 to reach users):
 - `just app-check`: clean. `just app-test`: 658 of 658 (63 files).
-- e2e, on builds of their own (`BT_OUT_DIR`), after the last renderer
+- e2e, on builds of their own (`SHAPELOGIC_OUT_DIR`), after the last renderer
   edit: `view`, `picking`, `entities`, `explore`, `solver`, `exports` 42 of
   42; `shapes`, `stacking`, `sliding`, `tilted`, `keys`, `piece-images`,
   `tray-border`, `keymap`, `puzzle` 57 of 57; `logs`, `files`, `tooltips`,
@@ -5202,7 +5205,7 @@ changed C++ files clean (after one fix: an unchecked optional the rewrap
 moved off its NOLINT line); `just app-check` clean; `just app-test` 63
 files, 659 tests (the generator's staleness test, the engine tests and
 `spelling.test.ts` among them); the e2e specs `stacking`, `tilted` and
-`tray-border` on a build of their own (BT_OUT_DIR), 14 passed;
+`tray-border` on a build of their own (SHAPELOGIC_OUT_DIR), 14 passed;
 `just site-demo --check` passed (the demo rebuilt: `bt_busy` is gone from
 the engine). The oracle, on what the reference checkout holds
 (`--allow-missing`: ../burr-tools is incomplete and unbuilt): fast 18 of 19
@@ -5333,7 +5336,7 @@ Checkpoint E lines under 9.1, 9.2, 10.5, 10.6, 10.9 and 10.11.
   - `just app-check`: clean. `just app-test`: 660 of 660 (63 files; the
     generator's staleness test, the engine tests and `spelling.test.ts`
     among them), after `just app-gen` (`LIMITS`' two new entries).
-  - e2e, on a build of their own (`BT_OUT_DIR`): `explore`, `tilted`,
+  - e2e, on a build of their own (`SHAPELOGIC_OUT_DIR`): `explore`, `tilted`,
     `logs` and `solver`, 22 of 22. Not run: the other specs.
   - `just site-demo --check`, after the last source edit: rebuilt; every
     puzzle type opens and plays. `just site-build`: built, the links are
@@ -6300,7 +6303,7 @@ items name, the screenshot tests, `just site-build` (12.11's demo hash).
 each moved area, the screenshot tests (light and dark).
 Run (2026-11-25): `just app-check` passes; `just app-test` 682 of 682 (68
 files, the release engine's tests among them); on a build of its own
-(`BT_OUT_DIR`) every e2e spec file passed after the last source edit, in
+(`SHAPELOGIC_OUT_DIR`) every e2e spec file passed after the last source edit, in
 two runs of the files the moves touch (87 and 73 tests; 13.1 moved every
 area's rules, so that is all of them) and `perf.e2e.ts` alone; the view's
 reference screenshots are light only, the new dialog ones light and dark.
@@ -6448,7 +6451,7 @@ Run (2026-11-25): `just build dev` and `release`; `just test-all` 75 of
 runs (the sixth failed in `session.test.ts`, the flake of 12.8, then
 fixed), and once more after the fix; `python3 api/gen_api_md.py` and
 `just app-gen` (both changed: saveBytes); on a build of its own
-(`BT_OUT_DIR`) the e2e specs `solver`, `puzzle`, `explore`, `sliding`,
+(`SHAPELOGIC_OUT_DIR`) the e2e specs `solver`, `puzzle`, `explore`, `sliding`,
 `entities`, `logs`, `files`, `dialogs` and `stacking`, 80 of 80;
 `just site-demo --check` after the last source edit (rebuilt; every
 puzzle type opens and plays) and `just site-build` (8 of 8). Not run: the
@@ -6987,7 +6990,7 @@ Run (2026-11-25): `just build dev` and `release`;
 - `python3 api/gen_api_md.py` and `just app-gen` (three summaries);
   `just app-check`: clean; `just app-test`: 689 of 689, before and after
   the recordings were made again;
-- on a build of its own (`BT_OUT_DIR`), with the release engine: the
+- on a build of its own (`SHAPELOGIC_OUT_DIR`), with the release engine: the
   `solver` spec 10 of 10; `sliding`, `stacking`, `explore`, `tilted`,
   `windows`, `files` and `engine-failure` 62 of 63, the one failure the
   tilted spec's old expectation (above), then `tilted`, `frozen` and
@@ -8248,7 +8251,7 @@ finished them, its leftover runs stopped first): `just build dev`,
   types generated again, `python3 api/gen_api_md.py`); the recorded
   sessions of the fake engine are as they were (no recorded search ends
   in the new part);
-- on a build of its own (`BT_OUT_DIR`), with the release engine: the
+- on a build of its own (`SHAPELOGIC_OUT_DIR`), with the release engine: the
   `sliding` e2e spec, 21 of 21 (its Performance Analysis case draws the
   part's line through `performance.ts`);
 - `just site-demo --check` after the last source edit (rebuilt; every
@@ -8751,7 +8754,7 @@ their own runs under their items): `just build dev`, `release`, `asan` and
 - `just app-check`: clean; `just app-test`: 696 of 696 (the engine's types
   generated again, `python3 api/gen_api_md.py`); the recorded sessions of
   the fake engine are as they were (none opens an explorer);
-- on a build of its own (`BT_OUT_DIR`), with the release engine: the
+- on a build of its own (`SHAPELOGIC_OUT_DIR`), with the release engine: the
   `explore` e2e spec, 4 of 4 (the new case among them), and the three other
   specs that open an explorer's drawer or its buttons (`security`,
   `keymap`, `stacking`): 8 of 8;
@@ -9114,8 +9117,8 @@ Run (2026-11-27, after the last source edit): `just build dev`, `release`,
   were: they call none of the changed commands where it changed (one
   solution deleted, a Continue with its own options); recorded again they
   differed only by where a pause fell, and were put back;
-- e2e, on a build of its own (`BT_OUT_DIR`), with the release engine: the
-  reload case of `sliding.e2e.ts` (Continue with other search options
+- e2e, on a build of its own (`SHAPELOGIC_OUT_DIR`), with the release
+  engine: the reload case of `sliding.e2e.ts` (Continue with other search options
   refused), `puzzle.e2e.ts` (the color rules, the ranges, Remove all
   pieces; 4 cases) and the Convert Assemblies case of `files.e2e.ts`: 6 of
   6;
@@ -9721,7 +9724,7 @@ e2e spec after the first (the second changes no program they run);
   them on Linux, Windows and the Intel Mac build);
 - `just app-test`: 696 of 696 (the engine's types are as they were: no
   method or parameter changed, `api-docs` passes);
-- e2e, on a build of its own (`BT_OUT_DIR`), with the release engine:
+- e2e, on a build of its own (`SHAPELOGIC_OUT_DIR`), with the release engine:
   `solver.e2e.ts` (the take-apart solves, pause, continue, abort, the
   error shown), 10 of 10;
 - `just site-demo --check` after the last source edit (rebuilt; every

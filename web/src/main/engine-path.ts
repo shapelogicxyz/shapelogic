@@ -10,7 +10,7 @@
 // A packaged app runs the copies in its own resources (electron-builder's
 // extraResources, tools/dist.ts) and nothing else: no environment variable
 // makes it run another program (security.ts). In development the engine is
-// BT_ENGINE, else the repository's dev build, else its release build; the
+// SHAPELOGIC_ENGINE, else the repository's dev build, else its release build; the
 // tool is the dev build's, else the release build's.
 
 import { existsSync } from 'node:fs';
@@ -57,7 +57,7 @@ export interface EngineSearch {
   resources: string;
   /** The web/ directory (in development: above the main bundle, out/main). */
   webDir: string;
-  /** BT_ENGINE, as security.ts's switches took it (never when packaged). */
+  /** SHAPELOGIC_ENGINE, as security.ts's switches took it (never when packaged). */
   engine?: string | undefined;
   platform?: NodeJS.Platform;
 }

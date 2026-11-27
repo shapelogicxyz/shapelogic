@@ -5,7 +5,7 @@
 // be an ES module. The main process gets the project's one version, the
 // git tag's (tools/project-version.ts), read here at build (__BT_VERSION__): the version it
 // reports and the one it requires of shapelogic_engine. The build goes to
-// out/, or to BT_OUT_DIR (a folder name under web/: the main process finds
+// out/, or to SHAPELOGIC_OUT_DIR (a folder name under web/: the main process finds
 // web/ as the folder above its own), so an e2e run can test a build of its
 // own while another session builds out/ (cleanup item 8.4).
 
@@ -16,12 +16,12 @@ import { defineConfig } from 'electron-vite';
 import { projectVersion } from './tools/project-version.ts';
 
 const OUT = ((): string => {
-  const dir = process.env.BT_OUT_DIR;
+  const dir = process.env.SHAPELOGIC_OUT_DIR;
   if (dir === undefined || dir === '') {
     return 'out';
   }
   if (!/^[\w.-]+$/.test(dir) || dir === '.' || dir === '..') {
-    throw new Error(`BT_OUT_DIR=${dir}: a folder name under web/, not a path`);
+    throw new Error(`SHAPELOGIC_OUT_DIR=${dir}: a folder name under web/, not a path`);
   }
   return dir;
 })();

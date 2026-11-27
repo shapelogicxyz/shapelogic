@@ -347,30 +347,54 @@ Scope: `web/` (main, tests, tools, the vite and Playwright configs),
 `tests/` (`gate.sh`, `bench/bench.py`, four unit tests), the justfile and
 its recipe help text, the live docs.
 
-- [ ] Rename every variable in the map's step 4 to `SHAPELOGIC_*`:
+- [x] Rename every variable in the map's step 4 to `SHAPELOGIC_*`:
       `rename.py 4 .`. Where a variable is read in more than one place
       (`BT_ENGINE` in the app, the e2e setup and the justfile), all of
       them change in this step.
-- [ ] `BT_USER_DATA`, by hand after the script (see "What stays"): in
+- [x] `BT_USER_DATA`, by hand after the script (see "What stays"): in
       `switches()` of `web/src/main/security.ts` the data folder is
       `SHAPELOGIC_USER_DATA`, else `BT_USER_DATA`, with a comment saying
       why the old name is read, and a case in `security.test.ts` for each
       (the new name wins when both are set). Nothing else reads the old
       name.
-- [ ] README.md:89 names `just oracle` and `BT_OLD_REPO`, both gone:
+- [x] README.md:89 names `just oracle` and `BT_OLD_REPO`, both gone:
       write the line for `just burrtools-compare` and `BURRTOOLS_DIR`.
-- [ ] The longer names move line breaks: `npm run format` in `web/`
+- [x] The longer names move line breaks: `npm run format` in `web/`
       (Prettier), then read what it changed.
-- [ ] Test: `just test`, `just app-test`, `just app-check`, and these e2e
+- [x] Test: `just test`, `just app-test`, `just app-check`, and these e2e
       specs (they start the app with `BT_USER_DATA` and `BT_ENGINE`, and
       check autosave, the background app and the logs):
       `just app-e2e files.e2e.ts logs.e2e.ts windows.e2e.ts`. Then
       `just app-dist --dir` and `just app-smoke` (`BT_PACKAGED_APP`).
-- [ ] Tell the user the new names, the ones they type in particular:
+- [x] Tell the user the new names, the ones they type in particular:
       `SHAPELOGIC_ENGINE`, `SHAPELOGIC_USER_DATA` (the old name still
       works), `SHAPELOGIC_BACKGROUND`, `SHAPELOGIC_OUT_DIR`. Update the
       memory notes that name the old ones.
-- [ ] Commit: "Rename the BT_ environment variables to SHAPELOGIC_".
+- [x] Commit: "Rename the BT_ environment variables to SHAPELOGIC_".
+- Done (2026-11-27): 194 replacements in 35 files, as the map counts.
+  `switches()` takes `SHAPELOGIC_USER_DATA`, else `BT_USER_DATA`, with the
+  reason in a comment; `security.test.ts` has a case for the old name
+  alone (also beside an empty new one) and one for both set (the new one
+  wins), packaged and not. Besides those two files `BT_USER_DATA` is named
+  in `web/README.md` and the site's commands page ("still works"), so
+  step 6's guard allows it there too. README.md names `just
+  burrtools-compare` and `BURRTOOLS_DIR`. Prettier rewrapped two test
+  files; the comments and docs the longer names pushed over their width
+  were wrapped by hand. `just test` 31 of 31, `just app-check` clean,
+  `just app-test` 698 tests in 69 files, `just app-e2e files.e2e.ts
+  logs.e2e.ts windows.e2e.ts` 30 passed (`logs.e2e.ts` also matches
+  `dialogs.e2e.ts`; the first run failed 8 launches with
+  Electron's own install errors, its first unpacking racing the workers
+  by the look of them, and passed whole when run again), `just app-dist --dir` and `just app-smoke` 1 passed, `just
+  site-build` 8 of 8; the demo rebuilt (only its `manifest.json`
+  changed). The names the user types: `SHAPELOGIC_ENGINE`,
+  `SHAPELOGIC_USER_DATA` (`BT_USER_DATA` still works),
+  `SHAPELOGIC_BACKGROUND`, `SHAPELOGIC_OUT_DIR`; the others are
+  `SHAPELOGIC_CALL_LOG`, `SHAPELOGIC_AUTOSAVE_SECONDS`,
+  `SHAPELOGIC_PACKAGED_APP`, `SHAPELOGIC_REQUIRE_ALL`,
+  `SHAPELOGIC_DUMP_OUT`, `SHAPELOGIC_PANEX_BENCH_N`,
+  `SHAPELOGIC_MINK_STRESS` and `SHAPELOGIC_BURR_GLAR`. The memory notes
+  live outside the worktree and were left to the session that ran it.
 
 ### Step 5: the web app and the WASM engine (Opus 5.5 High)
 
@@ -426,7 +450,9 @@ Scope: `web/` (main, preload, renderer, demo, tests, vite configs),
       that fails on the old prefixes in tracked files, with an allow list
       for "What stays" and the dated docs (`stays.tsv` has both, and
       `rename.py`'s `KINDS` the patterns of the old kinds; `BT_USER_DATA`
-      is allowed in `web/src/main/security.ts` and its test). Agents copy
+      is allowed in `web/src/main/security.ts` and its test, and, as step
+      4 left them, `web/README.md` and the site's
+      `code-base/commands.md`). Agents copy
       names from old code and docs, so without it `BT_` comes back.
 - [ ] Test: `just check` (the guard passes, and fails on a planted
       `BT_ASSERT`), `just test`, `just app-test`.
